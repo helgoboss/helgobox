@@ -22,7 +22,9 @@ use playtime_clip_engine::proto::{
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
-use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, UndoBehavior};
+use reaper_medium::{
+    Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, TrackMuteState, UndoBehavior,
+};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::{future, iter};
@@ -347,6 +349,37 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .ok_or_else(|| Status::invalid_argument("unknown trigger column action"))?;
         handle_column_command(&req.column_address, |matrix, column_index| match action {
             TriggerColumnAction::Stop => matrix.stop_column(column_index),
+            TriggerColumnAction::ToggleMute => {
+                let column = matrix.get_column(column_index)?;
+                let track = column.playback_track()?;
+                track.set_mute(
+                    track.is_muted(),
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
+                Ok(())
+            }
+            TriggerColumnAction::ToggleSolo => {
+                let column = matrix.get_column(column_index)?;
+                let track = column.playback_track()?;
+                let new_solo_mode = if track.is_solo() {
+                    SoloMode::Off
+                } else {
+                    SoloMode::SoloInPlace
+                };
+                track.set_solo_mode(new_solo_mode);
+                Ok(())
+            }
+            TriggerColumnAction::ToggleArm => {
+                let column = matrix.get_column(column_index)?;
+                let track = column.playback_track()?;
+                track.set_armed(
+                    track.is_armed(false),
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
+                Ok(())
+            }
         })
     }
 

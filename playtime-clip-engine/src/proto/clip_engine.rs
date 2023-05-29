@@ -509,9 +509,15 @@ impl TriggerMatrixAction {
                 "TRIGGER_MATRIX_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
             }
             TriggerMatrixAction::StopAllClips => "TRIGGER_MATRIX_ACTION_STOP_ALL_CLIPS",
-            TriggerMatrixAction::ArrangementPlay => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY",
-            TriggerMatrixAction::ArrangementStop => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP",
-            TriggerMatrixAction::ArrangementPause => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE",
+            TriggerMatrixAction::ArrangementPlay => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY"
+            }
+            TriggerMatrixAction::ArrangementStop => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP"
+            }
+            TriggerMatrixAction::ArrangementPause => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE"
+            }
             TriggerMatrixAction::ArrangementStartRecording => {
                 "TRIGGER_MATRIX_ACTION_ARRANGEMENT_START_RECORDING"
             }
@@ -550,6 +556,9 @@ impl TriggerMatrixAction {
 #[repr(i32)]
 pub enum TriggerColumnAction {
     Stop = 0,
+    ToggleMute = 1,
+    ToggleSolo = 2,
+    ToggleArm = 3,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -559,12 +568,18 @@ impl TriggerColumnAction {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             TriggerColumnAction::Stop => "TRIGGER_COLUMN_ACTION_STOP",
+            TriggerColumnAction::ToggleMute => "TRIGGER_COLUMN_ACTION_TOGGLE_MUTE",
+            TriggerColumnAction::ToggleSolo => "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO",
+            TriggerColumnAction::ToggleArm => "TRIGGER_COLUMN_ACTION_TOGGLE_ARM",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "TRIGGER_COLUMN_ACTION_STOP" => Some(Self::Stop),
+            "TRIGGER_COLUMN_ACTION_TOGGLE_MUTE" => Some(Self::ToggleMute),
+            "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO" => Some(Self::ToggleSolo),
+            "TRIGGER_COLUMN_ACTION_TOGGLE_ARM" => Some(Self::ToggleArm),
             _ => None,
         }
     }
@@ -678,10 +693,14 @@ impl SlotPlayState {
         match self {
             SlotPlayState::Unknown => "SLOT_PLAY_STATE_UNKNOWN",
             SlotPlayState::Stopped => "SLOT_PLAY_STATE_STOPPED",
-            SlotPlayState::ScheduledForPlayStart => "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START",
+            SlotPlayState::ScheduledForPlayStart => {
+                "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START"
+            }
             SlotPlayState::Playing => "SLOT_PLAY_STATE_PLAYING",
             SlotPlayState::Paused => "SLOT_PLAY_STATE_PAUSED",
-            SlotPlayState::ScheduledForPlayStop => "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP",
+            SlotPlayState::ScheduledForPlayStop => {
+                "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP"
+            }
             SlotPlayState::ScheduledForRecordingStart => {
                 "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_START"
             }
@@ -696,7 +715,9 @@ impl SlotPlayState {
         match value {
             "SLOT_PLAY_STATE_UNKNOWN" => Some(Self::Unknown),
             "SLOT_PLAY_STATE_STOPPED" => Some(Self::Stopped),
-            "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START" => Some(Self::ScheduledForPlayStart),
+            "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START" => {
+                Some(Self::ScheduledForPlayStart)
+            }
             "SLOT_PLAY_STATE_PLAYING" => Some(Self::Playing),
             "SLOT_PLAY_STATE_PAUSED" => Some(Self::Paused),
             "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP" => Some(Self::ScheduledForPlayStop),
@@ -704,7 +725,9 @@ impl SlotPlayState {
                 Some(Self::ScheduledForRecordingStart)
             }
             "SLOT_PLAY_STATE_RECORDING" => Some(Self::Recording),
-            "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_STOP" => Some(Self::ScheduledForRecordingStop),
+            "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_STOP" => {
+                Some(Self::ScheduledForRecordingStop)
+            }
             _ => None,
         }
     }
@@ -729,9 +752,13 @@ impl ArrangementPlayState {
             ArrangementPlayState::Unknown => "ARRANGEMENT_PLAY_STATE_UNKNOWN",
             ArrangementPlayState::Stopped => "ARRANGEMENT_PLAY_STATE_STOPPED",
             ArrangementPlayState::Playing => "ARRANGEMENT_PLAY_STATE_PLAYING",
-            ArrangementPlayState::PlayingPaused => "ARRANGEMENT_PLAY_STATE_PLAYING_PAUSED",
+            ArrangementPlayState::PlayingPaused => {
+                "ARRANGEMENT_PLAY_STATE_PLAYING_PAUSED"
+            }
             ArrangementPlayState::Recording => "ARRANGEMENT_PLAY_STATE_RECORDING",
-            ArrangementPlayState::RecordingPaused => "ARRANGEMENT_PLAY_STATE_RECORDING_PAUSED",
+            ArrangementPlayState::RecordingPaused => {
+                "ARRANGEMENT_PLAY_STATE_RECORDING_PAUSED"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -802,68 +829,99 @@ pub mod clip_engine_server {
         /// Server streaming response type for the GetOccasionalMatrixUpdates method.
         type GetOccasionalMatrixUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetOccasionalMatrixUpdatesReply, tonic::Status>,
-            > + Send
+            >
+            + Send
             + 'static;
         /// Matrix events
         async fn get_occasional_matrix_updates(
             &self,
             request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetOccasionalMatrixUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalMatrixUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetContinuousMatrixUpdates method.
         type GetContinuousMatrixUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetContinuousMatrixUpdatesReply, tonic::Status>,
-            > + Send
+            >
+            + Send
             + 'static;
         async fn get_continuous_matrix_updates(
             &self,
             request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetContinuousMatrixUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetContinuousMatrixUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetContinuousColumnUpdates method.
         type GetContinuousColumnUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetContinuousColumnUpdatesReply, tonic::Status>,
-            > + Send
+            >
+            + Send
             + 'static;
         /// Column events
         async fn get_continuous_column_updates(
             &self,
             request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetContinuousColumnUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetContinuousColumnUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalSlotUpdates method.
-        type GetOccasionalSlotUpdatesStream: futures_core::Stream<Item = Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>>
+        type GetOccasionalSlotUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>,
+            >
             + Send
             + 'static;
         /// Slot events
         async fn get_occasional_slot_updates(
             &self,
             request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetOccasionalSlotUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalSlotUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetContinuousSlotUpdates method.
-        type GetContinuousSlotUpdatesStream: futures_core::Stream<Item = Result<super::GetContinuousSlotUpdatesReply, tonic::Status>>
+        type GetContinuousSlotUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetContinuousSlotUpdatesReply, tonic::Status>,
+            >
             + Send
             + 'static;
         async fn get_continuous_slot_updates(
             &self,
             request: tonic::Request<super::GetContinuousSlotUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetContinuousSlotUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetContinuousSlotUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalClipUpdates method.
-        type GetOccasionalClipUpdatesStream: futures_core::Stream<Item = Result<super::GetOccasionalClipUpdatesReply, tonic::Status>>
+        type GetOccasionalClipUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetOccasionalClipUpdatesReply, tonic::Status>,
+            >
             + Send
             + 'static;
         /// Clip events
         async fn get_occasional_clip_updates(
             &self,
             request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetOccasionalClipUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalClipUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalTrackUpdates method.
         type GetOccasionalTrackUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetOccasionalTrackUpdatesReply, tonic::Status>,
-            > + Send
+            >
+            + Send
             + 'static;
         /// Track events
         async fn get_occasional_track_updates(
             &self,
             request: tonic::Request<super::GetOccasionalTrackUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetOccasionalTrackUpdatesStream>, tonic::Status>;
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalTrackUpdatesStream>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct ClipEngineServer<T: ClipEngine> {
@@ -884,7 +942,10 @@ pub mod clip_engine_server {
                 send_compression_encodings: Default::default(),
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -912,7 +973,10 @@ pub mod clip_engine_server {
         type Response = http::Response<tonic::body::BoxBody>;
         type Error = std::convert::Infallible;
         type Future = BoxFuture<Self::Response, Self::Error>;
-        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -921,17 +985,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/TriggerMatrix" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerMatrixSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerMatrixRequest>
-                        for TriggerMatrixSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::TriggerMatrixRequest>
+                    for TriggerMatrixSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerMatrixRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).trigger_matrix(request).await };
+                            let fut = async move {
+                                (*inner).trigger_matrix(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -942,10 +1012,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = TriggerMatrixSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -954,17 +1025,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetMatrixTempo" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTempoSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixTempoRequest>
-                        for SetMatrixTempoSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetMatrixTempoRequest>
+                    for SetMatrixTempoSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixTempoRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_matrix_tempo(request).await };
+                            let fut = async move {
+                                (*inner).set_matrix_tempo(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -975,10 +1052,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetMatrixTempoSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -987,17 +1065,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetMatrixVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixVolumeSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixVolumeRequest>
-                        for SetMatrixVolumeSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetMatrixVolumeRequest>
+                    for SetMatrixVolumeSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixVolumeRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_matrix_volume(request).await };
+                            let fut = async move {
+                                (*inner).set_matrix_volume(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1008,10 +1092,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetMatrixVolumeSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1020,15 +1105,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetMatrixPan" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixPanSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetMatrixPanRequest> for SetMatrixPanSvc<T> {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetMatrixPanRequest>
+                    for SetMatrixPanSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixPanRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_matrix_pan(request).await };
+                            let fut = async move {
+                                (*inner).set_matrix_pan(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1039,10 +1132,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetMatrixPanSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1051,17 +1145,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/TriggerColumn" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerColumnSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerColumnRequest>
-                        for TriggerColumnSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::TriggerColumnRequest>
+                    for TriggerColumnSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerColumnRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).trigger_column(request).await };
+                            let fut = async move {
+                                (*inner).trigger_column(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1072,10 +1172,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = TriggerColumnSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1084,17 +1185,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetColumnVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetColumnVolumeSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetColumnVolumeRequest>
-                        for SetColumnVolumeSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetColumnVolumeRequest>
+                    for SetColumnVolumeSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetColumnVolumeRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_column_volume(request).await };
+                            let fut = async move {
+                                (*inner).set_column_volume(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1105,10 +1212,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetColumnVolumeSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1117,9 +1225,15 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/TriggerRow" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerRowSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerRowRequest> for TriggerRowSvc<T> {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::TriggerRowRequest>
+                    for TriggerRowSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerRowRequest>,
@@ -1136,10 +1250,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = TriggerRowSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1148,15 +1263,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/TriggerSlot" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSlotSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::TriggerSlotRequest> for TriggerSlotSvc<T> {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::TriggerSlotRequest>
+                    for TriggerSlotSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerSlotRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).trigger_slot(request).await };
+                            let fut = async move {
+                                (*inner).trigger_slot(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1167,10 +1290,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = TriggerSlotSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1179,15 +1303,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetClipName" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipNameSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetClipNameRequest> for SetClipNameSvc<T> {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetClipNameRequest>
+                    for SetClipNameSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetClipNameRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_clip_name(request).await };
+                            let fut = async move {
+                                (*inner).set_clip_name(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1198,10 +1330,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetClipNameSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1210,15 +1343,23 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/SetClipData" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipDataSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine> tonic::server::UnaryService<super::SetClipDataRequest> for SetClipDataSvc<T> {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetClipDataRequest>
+                    for SetClipDataSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetClipDataRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).set_clip_data(request).await };
+                            let fut = async move {
+                                (*inner).set_clip_data(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1229,10 +1370,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = SetClipDataSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
@@ -1241,18 +1383,22 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetOccasionalMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalMatrixUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalMatrixUpdatesRequest,
-                        > for GetOccasionalMatrixUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalMatrixUpdatesRequest,
+                    > for GetOccasionalMatrixUpdatesSvc<T> {
                         type Response = super::GetOccasionalMatrixUpdatesReply;
                         type ResponseStream = T::GetOccasionalMatrixUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalMatrixUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
                             let fut = async move {
@@ -1268,10 +1414,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetOccasionalMatrixUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1280,18 +1427,22 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetContinuousMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousMatrixUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousMatrixUpdatesRequest,
-                        > for GetContinuousMatrixUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousMatrixUpdatesRequest,
+                    > for GetContinuousMatrixUpdatesSvc<T> {
                         type Response = super::GetContinuousMatrixUpdatesReply;
                         type ResponseStream = T::GetContinuousMatrixUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousMatrixUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
                             let fut = async move {
@@ -1307,10 +1458,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetContinuousMatrixUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1319,18 +1471,22 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetContinuousColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousColumnUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousColumnUpdatesRequest,
-                        > for GetContinuousColumnUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousColumnUpdatesRequest,
+                    > for GetContinuousColumnUpdatesSvc<T> {
                         type Response = super::GetContinuousColumnUpdatesReply;
                         type ResponseStream = T::GetContinuousColumnUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousColumnUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
                             let fut = async move {
@@ -1346,10 +1502,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetContinuousColumnUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1358,22 +1515,27 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetOccasionalSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalSlotUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalSlotUpdatesRequest,
-                        > for GetOccasionalSlotUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalSlotUpdatesRequest,
+                    > for GetOccasionalSlotUpdatesSvc<T> {
                         type Response = super::GetOccasionalSlotUpdatesReply;
                         type ResponseStream = T::GetOccasionalSlotUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalSlotUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).get_occasional_slot_updates(request).await };
+                            let fut = async move {
+                                (*inner).get_occasional_slot_updates(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1384,10 +1546,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetOccasionalSlotUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1396,22 +1559,27 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetContinuousSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousSlotUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousSlotUpdatesRequest,
-                        > for GetContinuousSlotUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousSlotUpdatesRequest,
+                    > for GetContinuousSlotUpdatesSvc<T> {
                         type Response = super::GetContinuousSlotUpdatesReply;
                         type ResponseStream = T::GetContinuousSlotUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousSlotUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousSlotUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).get_continuous_slot_updates(request).await };
+                            let fut = async move {
+                                (*inner).get_continuous_slot_updates(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1422,10 +1590,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetContinuousSlotUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1434,22 +1603,27 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetOccasionalClipUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalClipUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalClipUpdatesRequest,
-                        > for GetOccasionalClipUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalClipUpdatesRequest,
+                    > for GetOccasionalClipUpdatesSvc<T> {
                         type Response = super::GetOccasionalClipUpdatesReply;
                         type ResponseStream = T::GetOccasionalClipUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalClipUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).get_occasional_clip_updates(request).await };
+                            let fut = async move {
+                                (*inner).get_occasional_clip_updates(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1460,10 +1634,11 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetOccasionalClipUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
@@ -1472,22 +1647,27 @@ pub mod clip_engine_server {
                 "/playtime.clip_engine.ClipEngine/GetOccasionalTrackUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalTrackUpdatesSvc<T: ClipEngine>(pub Arc<T>);
-                    impl<T: ClipEngine>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalTrackUpdatesRequest,
-                        > for GetOccasionalTrackUpdatesSvc<T>
-                    {
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalTrackUpdatesRequest,
+                    > for GetOccasionalTrackUpdatesSvc<T> {
                         type Response = super::GetOccasionalTrackUpdatesReply;
                         type ResponseStream = T::GetOccasionalTrackUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalTrackUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalTrackUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut =
-                                async move { (*inner).get_occasional_track_updates(request).await };
+                            let fut = async move {
+                                (*inner).get_occasional_track_updates(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -1498,23 +1678,28 @@ pub mod clip_engine_server {
                         let inner = inner.0;
                         let method = GetOccasionalTrackUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec).apply_compression_config(
-                            accept_compression_encodings,
-                            send_compression_encodings,
-                        );
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }
