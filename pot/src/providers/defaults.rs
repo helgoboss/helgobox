@@ -138,7 +138,7 @@ impl<'a> SearchInput for DefaultSearchInput<'a> {
     }
 
     fn product_name(&self) -> Option<Cow<str>> {
-        Some(self.entry.name.to_string().into())
+        Some(self.entry.to_string().into())
     }
 
     fn file_extension(&self) -> Option<&str> {
