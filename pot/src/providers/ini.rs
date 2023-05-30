@@ -158,11 +158,12 @@ impl Database for IniDatabase {
                             true
                         }
                         SuperPluginKind::Js(k) => {
-                            let safe_path = k.path.replace(['/', '\\', '.'], "_");
+                            let lowercase_safe_path = k.path.replace(['/', '\\', '.'], "_").to_lowercase();
+                            let lowercase_plugin_identifier = plugin_identifier.to_lowercase();
                             tracing::trace!(
-                                "Test JS '{safe_path}' vs. INI plug-in identifier '{plugin_identifier}'"
+                                "Test JS '{lowercase_safe_path}' vs. INI plug-in identifier '{lowercase_plugin_identifier}'"
                             );
-                            if plugin_identifier != safe_path {
+                            if lowercase_plugin_identifier != lowercase_safe_path {
                                 return false;
                             }
                             true
