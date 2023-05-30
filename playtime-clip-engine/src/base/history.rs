@@ -17,6 +17,9 @@ impl History {
 
     /// Returns the label of the next undoable action if there is one.
     pub fn next_undo_label(&self) -> Option<&str> {
+        if !self.can_undo() {
+            return None;
+        }
         let state = self.undo_stack.last()?;
         Some(&state.label)
     }
