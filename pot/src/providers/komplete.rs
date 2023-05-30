@@ -1123,7 +1123,7 @@ impl PresetDb {
                             sql.add_param(&like_expression);
                         }
                         SearchField::FileExtension => {
-                            conjunction += "i.file_ext = ?";
+                            conjunction += "i.file_ext LIKE ?";
                             sql.add_param(search_expression);
                         }
                     }

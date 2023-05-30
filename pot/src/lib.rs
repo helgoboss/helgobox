@@ -434,46 +434,34 @@ impl SearchEvaluator {
         if self.processed_search_expression.is_empty() {
             return true;
         }
-        if self.options.search_fields.contains(SearchField::PresetName)
-            && self.matches_normal(input.preset_name())
-        {
-            return true;
-        }
-        if self
-            .options
+        self.options
             .search_fields
-            .contains(SearchField::ProductName)
-        {
-            if let Some(product_name) = input.product_name() {
-                if self.matches_normal(&product_name) {
-                    return true;
+            .iter()
+            .any(|search_field| match search_field {
+                SearchField::PresetName => self.matches_internal(input.preset_name()),
+                SearchField::ProductName => {
+                    if let Some(product_name) = input.product_name() {
+                        self.matches_internal(&product_name)
+                    } else {
+                        false
+                    }
                 }
-            }
-        }
-        if self
-            .options
-            .search_fields
-            .contains(SearchField::FileExtension)
-        {
-            if let Some(ext) = input.file_extension() {
-                if self.matches_exact(ext) {
-                    return true;
+                SearchField::FileExtension => {
+                    if let Some(ext) = input.file_extension() {
+                        self.matches_internal(ext)
+                    } else {
+                        false
+                    }
                 }
-            }
-        }
-        false
+            })
     }
 
-    fn matches_normal(&self, text: &str) -> bool {
+    fn matches_internal(&self, text: &str) -> bool {
         let lowercase_text = text.to_lowercase();
         match &self.wild_match {
             None => lowercase_text.contains(&self.processed_search_expression),
             Some(wild_match) => wild_match.matches(&lowercase_text),
         }
-    }
-
-    fn matches_exact(&self, text: &str) -> bool {
-        self.processed_search_expression == text.to_lowercase()
     }
 }
 
