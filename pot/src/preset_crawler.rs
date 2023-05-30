@@ -315,7 +315,7 @@ fn determine_preset_file_destination(
         let file_name = format!("{}.RfxChain", &preset_name);
         let sanitized_file_name = sanitize_filename::sanitize(file_name);
         reaper_resource_dir
-            .join("FXChains")
+            .join("FXChains/Pot")
             .join(sanitized_effect_name)
             .join(sanitized_file_name)
     }
