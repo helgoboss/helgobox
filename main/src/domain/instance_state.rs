@@ -16,7 +16,7 @@ use crate::domain::{
 };
 use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::{
-    ApiClipWithColumn, ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
+    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
@@ -95,14 +95,6 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
-    /// For clip matrix copy and paste via controller.
-    ///
-    /// Not persistent
-    copied_clips_in_slot: Vec<playtime_api::persistence::Clip>,
-    /// For clip matrix copy and paste via controller.
-    ///
-    /// Not persistent
-    copied_clips_in_row: Vec<ApiClipWithColumn>,
     /// Instance track.
     ///
     /// The instance track is persistent but it's persisted from the session, not from here.
@@ -228,8 +220,6 @@ impl InstanceState {
             global_control_and_feedback_state: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
-            copied_clips_in_slot: vec![],
-            copied_clips_in_row: vec![],
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
@@ -377,22 +367,6 @@ impl InstanceState {
             ClipMatrixRef::Foreign(id) if instance_id == *id => Some(ClipMatrixRelevance::Borrows),
             _ => None,
         }
-    }
-
-    pub fn copy_clips(&mut self, clips: Vec<playtime_api::persistence::Clip>) {
-        self.copied_clips_in_slot = clips;
-    }
-
-    pub fn copied_clips(&self) -> &[playtime_api::persistence::Clip] {
-        &self.copied_clips_in_slot
-    }
-
-    pub fn copy_clips_in_row(&mut self, clips: Vec<ApiClipWithColumn>) {
-        self.copied_clips_in_row = clips;
-    }
-
-    pub fn copied_clips_in_row(&self) -> &[ApiClipWithColumn] {
-        &self.copied_clips_in_row
     }
 
     pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {

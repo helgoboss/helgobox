@@ -43,8 +43,20 @@ pub struct Matrix<H> {
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::MatrixCommand>,
     history: History,
+    clipboard: MatrixClipboard,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
+}
+
+#[derive(Debug, Default)]
+struct MatrixClipboard {
+    content: Option<MatrixClipboardContent>,
+}
+
+#[derive(Debug)]
+enum MatrixClipboardContent {
+    Slot(Vec<api::Clip>),
+    Scene(Vec<ApiClipWithColumn>),
 }
 
 #[derive(Debug, Default)]
@@ -188,6 +200,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             command_receiver: main_command_receiver,
             rt_command_sender,
             history: History::default(),
+            clipboard: Default::default(),
             _worker_pool: worker_pool,
         }
     }
@@ -366,6 +379,30 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             })
     }
 
+    /// Cuts the given scene's clips to the matrix clipboard.
+    pub fn cut_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        self.copy_scene(row_index)?;
+        self.clear_scene(row_index)?;
+        Ok(())
+    }
+
+    /// Copies the given scene's clips to the matrix clipboard.
+    pub fn copy_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        let clips = self.all_clips_in_scene(row_index).collect();
+        self.clipboard.content = Some(MatrixClipboardContent::Scene(clips));
+        Ok(())
+    }
+
+    /// Pastes the clips stored in the matrix clipboard into the given scene.
+    pub fn paste_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        let content = self.clipboard.content.as_ref().ok_or("clipboard empty")?;
+        let MatrixClipboardContent::Scene(clips) = content else {
+            return Err("clipboard doesn't contain scene contents");
+        };
+        self.replace_row_with_clips(row_index, clips.clone())?;
+        Ok(())
+    }
+
     /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
@@ -388,6 +425,34 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Returns an iterator over all scene-following columns.
     fn scene_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.iter().filter(|c| c.follows_scene())
+    }
+
+    /// Cuts the given slot's clips to the matrix clipboard.
+    pub fn cut_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        self.copy_slot(address)?;
+        self.clear_slot(address)?;
+        Ok(())
+    }
+
+    /// Copies the given slot's clips to the matrix clipboard.
+    pub fn copy_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        let slot = self.get_slot(address)?;
+        let clips_in_slot = slot
+            .clips()
+            .filter_map(|clip| clip.save(self.permanent_project()).ok())
+            .collect();
+        self.clipboard.content = Some(MatrixClipboardContent::Slot(clips_in_slot));
+        Ok(())
+    }
+
+    /// Pastes the clips stored in the matrix clipboard into the given slot.
+    pub fn paste_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        let content = self.clipboard.content.as_ref().ok_or("clipboard empty")?;
+        let MatrixClipboardContent::Slot(clips) = content else {
+            return Err("clipboard doesn't contain slot contents");
+        };
+        self.add_clips_to_slot(address, clips.clone())?;
+        Ok(())
     }
 
     /// Clears the given slot.

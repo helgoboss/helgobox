@@ -262,6 +262,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
             TriggerSlotAction::StartEditing => matrix.start_editing_slot(slot_address),
             TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
+            TriggerSlotAction::Copy => matrix.copy_slot(slot_address),
+            TriggerSlotAction::Cut => matrix.cut_slot(slot_address),
+            TriggerSlotAction::Paste => matrix.paste_slot(slot_address),
         })
     }
 
@@ -396,6 +399,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 Ok(())
             }
             TriggerRowAction::Clear => matrix.clear_scene(row_index),
+            TriggerRowAction::Copy => matrix.copy_scene(row_index),
+            TriggerRowAction::Cut => matrix.cut_scene(row_index),
+            TriggerRowAction::Paste => matrix.paste_scene(row_index),
         })
     }
 

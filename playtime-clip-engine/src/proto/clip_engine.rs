@@ -597,6 +597,9 @@ impl TriggerColumnAction {
 pub enum TriggerRowAction {
     Play = 0,
     Clear = 1,
+    Copy = 2,
+    Cut = 3,
+    Paste = 4,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -607,6 +610,9 @@ impl TriggerRowAction {
         match self {
             TriggerRowAction::Play => "TRIGGER_ROW_ACTION_PLAY",
             TriggerRowAction::Clear => "TRIGGER_ROW_ACTION_CLEAR",
+            TriggerRowAction::Copy => "TRIGGER_ROW_ACTION_COPY",
+            TriggerRowAction::Cut => "TRIGGER_ROW_ACTION_CUT",
+            TriggerRowAction::Paste => "TRIGGER_ROW_ACTION_PASTE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -614,6 +620,9 @@ impl TriggerRowAction {
         match value {
             "TRIGGER_ROW_ACTION_PLAY" => Some(Self::Play),
             "TRIGGER_ROW_ACTION_CLEAR" => Some(Self::Clear),
+            "TRIGGER_ROW_ACTION_COPY" => Some(Self::Copy),
+            "TRIGGER_ROW_ACTION_CUT" => Some(Self::Cut),
+            "TRIGGER_ROW_ACTION_PASTE" => Some(Self::Paste),
             _ => None,
         }
     }
@@ -626,6 +635,9 @@ pub enum TriggerSlotAction {
     Record = 2,
     StartEditing = 3,
     Clear = 4,
+    Copy = 5,
+    Cut = 6,
+    Paste = 7,
 }
 impl TriggerSlotAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -639,6 +651,9 @@ impl TriggerSlotAction {
             TriggerSlotAction::Record => "TRIGGER_SLOT_ACTION_RECORD",
             TriggerSlotAction::StartEditing => "TRIGGER_SLOT_ACTION_START_EDITING",
             TriggerSlotAction::Clear => "TRIGGER_SLOT_ACTION_CLEAR",
+            TriggerSlotAction::Copy => "TRIGGER_SLOT_ACTION_COPY",
+            TriggerSlotAction::Cut => "TRIGGER_SLOT_ACTION_CUT",
+            TriggerSlotAction::Paste => "TRIGGER_SLOT_ACTION_PASTE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -649,6 +664,9 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_RECORD" => Some(Self::Record),
             "TRIGGER_SLOT_ACTION_START_EDITING" => Some(Self::StartEditing),
             "TRIGGER_SLOT_ACTION_CLEAR" => Some(Self::Clear),
+            "TRIGGER_SLOT_ACTION_COPY" => Some(Self::Copy),
+            "TRIGGER_SLOT_ACTION_CUT" => Some(Self::Cut),
+            "TRIGGER_SLOT_ACTION_PASTE" => Some(Self::Paste),
             _ => None,
         }
     }

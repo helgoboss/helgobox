@@ -87,32 +87,14 @@ impl RealearnTarget for ClipRowTarget {
                 if !value.is_on() {
                     return Ok(HitResponse::ignored());
                 }
-                let clips_in_scene: Vec<_> = self
-                    .with_matrix(context.control_context, |matrix| {
-                        matrix.all_clips_in_scene(self.basics.row_index).collect()
-                    })?;
-                if clips_in_scene.is_empty() {
-                    // Row is empty. Check if there's something to paste.
-                    let copied_clips_in_row = context
-                        .control_context
-                        .instance_state
-                        .borrow()
-                        .copied_clips_in_row()
-                        .to_vec();
-                    if copied_clips_in_row.is_empty() {
-                        return Err("no clips to paste");
+                self.with_matrix(context.control_context, |matrix| {
+                    if matrix.scene_is_empty(self.basics.row_index) {
+                        matrix.paste_scene(self.basics.row_index)?;
+                    } else {
+                        matrix.copy_scene(self.basics.row_index)?;
                     }
-                    self.with_matrix(context.control_context, |matrix| {
-                        matrix
-                            .replace_row_with_clips(self.basics.row_index, copied_clips_in_row)?;
-                        Ok(HitResponse::processed_with_effect())
-                    })?
-                } else {
-                    // Row has clips. Copy them.
-                    let mut instance_state = context.control_context.instance_state.borrow_mut();
-                    instance_state.copy_clips_in_row(clips_in_scene);
                     Ok(HitResponse::processed_with_effect())
-                }
+                })?
             }
             ClipRowAction::ClearScene => {
                 if !value.is_on() {

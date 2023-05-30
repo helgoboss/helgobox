@@ -109,38 +109,14 @@ impl RealearnTarget for ClipManagementTarget {
                 if !value.is_on() {
                     return Ok(HitResponse::ignored());
                 }
-                let clips_in_slot: Vec<_> = self.with_matrix(context, |matrix| {
-                    let Some(slot) = matrix.find_slot(self.slot_coordinates) else {
-                        return vec![];
-                    };
-                    slot.clips()
-                        .filter_map(|clip| {
-                            clip.save(context.control_context.processor_context.project())
-                                .ok()
-                        })
-                        .collect()
-                })?;
-                if clips_in_slot.is_empty() {
-                    // No clip in that slot. Check if there's something to paste.
-                    let copied_clips = context
-                        .control_context
-                        .instance_state
-                        .borrow()
-                        .copied_clips()
-                        .to_vec();
-                    if copied_clips.is_empty() {
-                        return Err("no clip available to paste");
+                self.with_matrix(context, |matrix| {
+                    if matrix.slot_is_empty(self.slot_coordinates) {
+                        matrix.paste_slot(self.slot_coordinates)?;
+                    } else {
+                        matrix.copy_slot(self.slot_coordinates)?;
                     }
-                    self.with_matrix(context, |matrix| {
-                        matrix.add_clips_to_slot(self.slot_coordinates, copied_clips)?;
-                        Ok(HitResponse::processed_with_effect())
-                    })?
-                } else {
-                    // We have clips in that slot. Copy them.
-                    let mut instance_state = context.control_context.instance_state.borrow_mut();
-                    instance_state.copy_clips(clips_in_slot);
                     Ok(HitResponse::processed_with_effect())
-                }
+                })?
             }
         }
     }
