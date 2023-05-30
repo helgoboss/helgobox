@@ -197,6 +197,9 @@ pub struct ClapPlugin {
 #[derive(Clone, Debug)]
 pub struct JsPlugin {
     /// Relative path from JS root dir.
+    ///
+    /// This is a runtime path and it's not normalized to lower-case! So it shouldn't be used
+    /// as an ID.
     pub path: String,
 }
 

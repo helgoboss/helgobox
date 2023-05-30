@@ -27,8 +27,11 @@ impl PluginId {
     }
 
     pub fn js(id_expression: &str) -> Result<Self, &'static str> {
+        // It's better to normalize to lowercase. When loading the FX via TrackFX_AddByName,
+        // REAPER is case-insensitive anyway and we should be as well when doing comparisons.
+        let lowercase_id_expression = id_expression.to_lowercase();
         let id = Self::Js {
-            js_id: LimitedAsciiString::try_from_str(id_expression)?,
+            js_id: LimitedAsciiString::try_from_str(&lowercase_id_expression)?,
         };
         Ok(id)
     }
@@ -231,7 +234,7 @@ mod tests {
     #[test]
     pub fn js() {
         assert_eq!(
-            PluginId::parse_from_rxml_line(r#"<JS analysis/hund """#),
+            PluginId::parse_from_rxml_line(r#"<JS Analysis/hund """#),
             Ok(PluginId::js("analysis/hund").unwrap())
         );
     }
