@@ -622,6 +622,7 @@ pub enum TriggerSlotAction {
     Stop = 1,
     Record = 2,
     StartEditing = 3,
+    Clear = 4,
 }
 impl TriggerSlotAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -634,6 +635,7 @@ impl TriggerSlotAction {
             TriggerSlotAction::Stop => "TRIGGER_SLOT_ACTION_STOP",
             TriggerSlotAction::Record => "TRIGGER_SLOT_ACTION_RECORD",
             TriggerSlotAction::StartEditing => "TRIGGER_SLOT_ACTION_START_EDITING",
+            TriggerSlotAction::Clear => "TRIGGER_SLOT_ACTION_CLEAR",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -643,6 +645,7 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_STOP" => Some(Self::Stop),
             "TRIGGER_SLOT_ACTION_RECORD" => Some(Self::Record),
             "TRIGGER_SLOT_ACTION_START_EDITING" => Some(Self::StartEditing),
+            "TRIGGER_SLOT_ACTION_CLEAR" => Some(Self::Clear),
             _ => None,
         }
     }
