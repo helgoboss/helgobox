@@ -596,6 +596,7 @@ impl TriggerColumnAction {
 #[repr(i32)]
 pub enum TriggerRowAction {
     Play = 0,
+    Clear = 1,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -605,12 +606,14 @@ impl TriggerRowAction {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             TriggerRowAction::Play => "TRIGGER_ROW_ACTION_PLAY",
+            TriggerRowAction::Clear => "TRIGGER_ROW_ACTION_CLEAR",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "TRIGGER_ROW_ACTION_PLAY" => Some(Self::Play),
+            "TRIGGER_ROW_ACTION_CLEAR" => Some(Self::Clear),
             _ => None,
         }
     }

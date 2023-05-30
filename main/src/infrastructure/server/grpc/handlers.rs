@@ -395,6 +395,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 matrix.play_scene(row_index);
                 Ok(())
             }
+            TriggerRowAction::Clear => matrix.clear_scene(row_index),
         })
     }
 
