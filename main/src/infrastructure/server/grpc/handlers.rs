@@ -16,10 +16,10 @@ use playtime_clip_engine::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
-    SetClipNameRequest, SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest,
-    SetMatrixVolumeRequest, SlotAddress, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSlotAction, TriggerSlotRequest,
+    SetClipNameRequest, SetColumnPanRequest, SetColumnVolumeRequest, SetMatrixPanRequest,
+    SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotAddress, TriggerColumnAction,
+    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
+    TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlayClipOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
@@ -457,6 +457,24 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             let track = column.playback_track()?;
             track.set_volume(
                 Volume::from_db(db),
+                GangBehavior::DenyGang,
+                GroupingBehavior::PreventGrouping,
+            );
+            Ok(())
+        })
+    }
+
+    async fn set_column_pan(
+        &self,
+        request: Request<SetColumnPanRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let pan = ReaperPanValue::new(req.pan.clamp(-1.0, 1.0));
+        handle_column_command(&req.column_address, |matrix, column_index| {
+            let column = matrix.get_column(column_index)?;
+            let track = column.playback_track()?;
+            track.set_pan(
+                Pan::from_reaper_value(pan),
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );
