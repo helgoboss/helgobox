@@ -26,10 +26,9 @@ use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, 
 use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, UndoBehavior};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
 use std::{future, iter};
 use tokio_stream::wrappers::BroadcastStream;
-use tonic::{Code, Request, Response, Status};
+use tonic::{Request, Response, Status};
 
 #[derive(Debug, Default)]
 pub struct RealearnClipEngine {}

@@ -2412,7 +2412,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                                 let resp = ui.label(&param.macro_param.name);
                                 resp.on_hover_ui(|ui| {
                                     let hover_text = if let Some(fx_param) = &param.fx_param {
-                                        fx_param.name().into_string()
+                                        fx_param.name().map(|n| n.into_string()).unwrap_or_default()
                                     } else {
                                         format!(
                                             "Mapped parameter {} doesn't exist in actual plug-in",

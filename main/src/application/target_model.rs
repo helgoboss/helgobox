@@ -3310,10 +3310,10 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
 
 pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'static, str> {
     let position = index + 1;
-    match fx_param {
+    match fx_param.and_then(|p| p.name().ok()) {
         None => format!("{position}. <Not present>").into(),
-        Some(p) => {
-            let name = p.name().into_inner();
+        Some(name) => {
+            let name = name.into_inner();
             // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
             let name = name.to_string_lossy();
             if name.is_empty() {

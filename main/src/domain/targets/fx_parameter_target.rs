@@ -223,7 +223,9 @@ impl RealearnTarget for FxParameterTarget {
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
         match key {
             "fx_parameter.index" => Some(PropValue::Index(self.param.index())),
-            "fx_parameter.name" => Some(PropValue::Text(self.param.name().into_string().into())),
+            "fx_parameter.name" => Some(PropValue::Text(
+                self.param.name().ok()?.into_string().into(),
+            )),
             "fx_parameter.macro.name" => {
                 self.with_macro_param(|_, _, p| PropValue::Text(p.name.clone().into()))
             }

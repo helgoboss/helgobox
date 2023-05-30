@@ -981,7 +981,13 @@ impl VirtualFxParameter {
             ByName(name) => fx
                 .parameters()
                 // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
-                .find(|p| name.matches(&p.name().into_inner().to_string_lossy()))
+                .find(|p| {
+                    if let Ok(param_name) = p.name() {
+                        name.matches(&param_name.into_inner().to_string_lossy())
+                    } else {
+                        false
+                    }
+                })
                 .ok_or_else(|| FxParameterResolveError::FxParameterNotFound {
                     name: Some(name.clone()),
                     index: None,

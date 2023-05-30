@@ -3228,7 +3228,12 @@ impl<'a> MutableMappingPanel<'a> {
                         ));
                         // We also set name so that we can easily switch between types.
                         // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
-                        let param_name = param.name().into_inner().to_string_lossy().to_string();
+                        let param_name = param
+                            .name()
+                            .unwrap()
+                            .into_inner()
+                            .to_string_lossy()
+                            .to_string();
                         self.change_mapping(MappingCommand::ChangeTarget(
                             TargetCommand::SetParamName(param_name),
                         ));
