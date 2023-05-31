@@ -94,7 +94,15 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         self.env
             .raw_set(self.y_key.clone(), y_value)
             .map_err(|_| "couldn't set y variable")?;
-        let context_lua_value = self.lua.as_ref().to_value(&context).unwrap();
+        let mut serialize_options = mlua::SerializeOptions::new();
+        // This is important, otherwise e.g. a None color ends up as some userdata and not nil.
+        serialize_options.serialize_none_to_null = false;
+        serialize_options.serialize_unit_to_null = false;
+        let context_lua_value = self
+            .lua
+            .as_ref()
+            .to_value_with(&context, serialize_options)
+            .unwrap();
         self.env
             .raw_set(self.context_key.clone(), context_lua_value)
             .map_err(|_| "couldn't set context variable")?;
