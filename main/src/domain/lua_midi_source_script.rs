@@ -4,6 +4,7 @@ use helgoboss_learn::{
     RawMidiEvent, RgbColor,
 };
 use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
+use std::borrow::Cow;
 use std::error::Error;
 
 #[derive(Clone, Debug)]
@@ -64,7 +65,10 @@ impl From<RgbColor> for ScriptColor {
 }
 
 impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
-    fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
+    fn execute(
+        &self,
+        input_value: FeedbackValue,
+    ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         // TODO-medium We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
         //  scripts!
@@ -95,10 +99,7 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
             .raw_set(self.context_key.clone(), context_lua_value)
             .map_err(|_| "couldn't set context variable")?;
         // Invoke script
-        let value: Value = self
-            .function
-            .call(())
-            .map_err(|_| "failed to invoke Lua script")?;
+        let value: Value = self.function.call(()).map_err(|e| e.to_string())?;
         // Process return value
         let outcome: LuaScriptOutcome = self
             .lua

@@ -3,6 +3,7 @@ use helgoboss_learn::{
     create_raw_midi_events_singleton, AbsoluteValue, FeedbackValue, MidiSourceAddress,
     MidiSourceScript, MidiSourceScriptOutcome, RawMidiEvent,
 };
+use std::borrow::Cow;
 
 use std::sync::Arc;
 
@@ -46,7 +47,10 @@ impl EelMidiSourceScript {
 }
 
 impl MidiSourceScript for EelMidiSourceScript {
-    fn execute(&self, input_value: FeedbackValue) -> Result<MidiSourceScriptOutcome, &'static str> {
+    fn execute(
+        &self,
+        input_value: FeedbackValue,
+    ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         let y_value = match input_value {
             // TODO-medium Find a constant for this which is defined in EEL
             FeedbackValue::Off => f64::MIN,
@@ -64,14 +68,14 @@ impl MidiSourceScript for EelMidiSourceScript {
             self.eel_unit.program.execute();
             let msg_size = self.eel_unit.msg_size.get().round() as i32;
             if msg_size < 0 {
-                return Err("invalid message size");
+                return Err("invalid message size".into());
             };
             let slice = self.eel_unit.vm.get_mem_slice(0, msg_size as u32);
             let address = self.eel_unit.address.get();
             (slice, address)
         };
         if slice.is_empty() {
-            return Err("empty message");
+            return Err("empty message".into());
         }
         let mut array = [0; RawMidiEvent::MAX_LENGTH];
         let mut i = 0u32;
