@@ -100,7 +100,6 @@ pub struct MainState {
     last_preset_id: Option<PresetId>,
     last_filters: Filters,
     bank_index: u32,
-    load_preset_window_behavior: LoadPresetWindowBehavior,
     preset_cache: PresetCache,
     dialog: Option<Dialog>,
     mouse: EnigoMouse,
@@ -407,7 +406,6 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
         let key_input = KeyInput {
             auto_preview: state.main_state.auto_preview,
             os_window: state.main_state.os_window,
-            load_preset_window_behavior: state.main_state.load_preset_window_behavior,
             pot_unit: state.main_state.pot_unit.clone(),
             dialog: &mut state.main_state.dialog,
         };
@@ -545,7 +543,6 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                     shared_pot_unit: &state.main_state.pot_unit,
                                     show_stats: &mut state.main_state.show_stats,
                                     auto_preview: &mut state.main_state.auto_preview,
-                                    load_preset_window_behavior: &mut state.main_state.load_preset_window_behavior,
                                 };
                                 add_right_options_dropdown(input, ui);
                                 // Search field
@@ -721,7 +718,6 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                         last_preset_id: state.main_state.last_preset_id,
                         auto_preview: state.main_state.auto_preview,
                         os_window: state.main_state.os_window,
-                        load_preset_window_behavior: state.main_state.load_preset_window_behavior,
                         dialog: &mut state.main_state.dialog,
                     };
                     add_preset_table(input, ui, &mut state.main_state.preset_cache);
@@ -1405,7 +1401,6 @@ struct PresetTableInput<'a> {
     last_preset_id: Option<PresetId>,
     auto_preview: bool,
     os_window: Window,
-    load_preset_window_behavior: LoadPresetWindowBehavior,
     dialog: &'a mut Option<Dialog>,
 }
 
@@ -1499,7 +1494,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                         input.pot_unit,
                                         input.toasts,
                                         LoadPresetOptions {
-                                            window_behavior: input.load_preset_window_behavior,
+                                            window_behavior_override: Some(LoadPresetWindowBehavior::NeverShow),
                                             audio_sample_behavior: LoadAudioSampleBehavior {
                                                 // At the moment, previews are always C4.
                                                 root_pitch: Some(-60),
@@ -1564,10 +1559,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 input.os_window,
                                 input.pot_unit,
                                 input.toasts,
-                                LoadPresetOptions {
-                                    window_behavior: input.load_preset_window_behavior,
-                                    ..Default::default()
-                                },
+                                LoadPresetOptions::default(),
                                 input.dialog,
                             );
                         }
@@ -1712,7 +1704,7 @@ fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, u
                             data.preset.common.name.clone(),
                         );
                         let options = LoadPresetOptions {
-                            window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+                            window_behavior_override: Some(LoadPresetWindowBehavior::AlwaysShow),
                             ..Default::default()
                         };
                         if let Err(e) = input.pot_unit.load_preset(&factory_preset, options) {
@@ -1861,7 +1853,6 @@ struct RightOptionsDropdownInput<'a> {
     shared_pot_unit: &'a SharedRuntimePotUnit,
     show_stats: &'a mut bool,
     auto_preview: &'a mut bool,
-    load_preset_window_behavior: &'a mut LoadPresetWindowBehavior,
 }
 
 fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
@@ -1870,7 +1861,7 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
         ui.menu_button("FX window behavior", |ui| {
             for behavior in LoadPresetWindowBehavior::iter() {
                 ui.selectable_value(
-                    input.load_preset_window_behavior,
+                    &mut input.pot_unit.default_load_preset_window_behavior,
                     behavior,
                     behavior.as_ref(),
                 );
@@ -2258,7 +2249,6 @@ fn show_current_preset_panel(
 struct KeyInput<'a> {
     auto_preview: bool,
     os_window: Window,
-    load_preset_window_behavior: LoadPresetWindowBehavior,
     pot_unit: SharedRuntimePotUnit,
     dialog: &'a mut Option<Dialog>,
 }
@@ -2287,10 +2277,7 @@ fn execute_key_action(
                     input.os_window,
                     pot_unit,
                     toasts,
-                    LoadPresetOptions {
-                        window_behavior: input.load_preset_window_behavior,
-                        ..Default::default()
-                    },
+                    LoadPresetOptions::default(),
                     input.dialog,
                 );
             }
@@ -2476,7 +2463,6 @@ impl MainState {
             last_preset_id: None,
             last_filters: Default::default(),
             bank_index: 0,
-            load_preset_window_behavior: Default::default(),
             preset_cache: PresetCache::new(),
             dialog: Default::default(),
             mouse: Default::default(),

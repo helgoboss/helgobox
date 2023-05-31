@@ -6,9 +6,7 @@ use crate::domain::{
 use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use pot::{
-    pot_db, Destination, LoadPresetOptions, LoadPresetWindowBehavior, PresetId, RuntimePotUnit,
-};
+use pot::{pot_db, Destination, LoadPresetOptions, PresetId, RuntimePotUnit};
 use reaper_high::{Fx, Project, Track};
 
 #[derive(Debug)]
@@ -68,12 +66,8 @@ impl RealearnTarget for LoadPotPresetTarget {
             .find_preset_by_id(preset_id)
             .ok_or("preset not found")?;
         let fx_index = self.fx.index();
-        let options = LoadPresetOptions {
-            window_behavior: LoadPresetWindowBehavior::AlwaysShow,
-            ..Default::default()
-        };
         pot_unit
-            .load_preset_at(&preset, options, &|_| {
+            .load_preset_at(&preset, LoadPresetOptions::default(), &|_| {
                 let dest = Destination {
                     chain: self.fx.chain().clone(),
                     fx_index,

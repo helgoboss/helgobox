@@ -158,6 +158,7 @@ pub struct RuntimePotUnit {
     build_counter: u64,
     sound_player: SoundPlayer,
     preview_volume: ReaperVolumeValue,
+    pub default_load_preset_window_behavior: LoadPresetWindowBehavior,
     pub destination_descriptor: DestinationDescriptor,
     pub name_track_after_preset: bool,
     show_excluded_filter_items: bool,
@@ -578,6 +579,7 @@ impl RuntimePotUnit {
             show_excluded_filter_items: false,
             running_background_task: None,
             integration,
+            default_load_preset_window_behavior: Default::default(),
         };
         let shared_unit = Arc::new(Mutex::new(unit));
         blocking_lock_arc(&shared_unit, "PotUnit from load").rebuild_collections(
@@ -722,7 +724,15 @@ impl RuntimePotUnit {
         options: LoadPresetOptions,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, LoadPresetError> {
-        match self.load_preset_at_internal(preset, options, build_destination) {
+        let window_behavior = options
+            .window_behavior_override
+            .unwrap_or(self.default_load_preset_window_behavior);
+        match self.load_preset_at_internal(
+            preset,
+            window_behavior,
+            options.audio_sample_behavior,
+            build_destination,
+        ) {
             Ok(fx) => Ok(fx),
             Err(LoadPresetError::UnsupportedPresetFormat { file_extension, .. }) => {
                 // Unsupported format. But maybe we have a shim file?
@@ -740,7 +750,8 @@ impl RuntimePotUnit {
                 let outcome = self.load_file_based_preset(
                     &shim_file_path,
                     build_destination,
-                    options,
+                    window_behavior,
+                    options.audio_sample_behavior,
                     true,
                     &protected_fx,
                 )?;
@@ -754,7 +765,8 @@ impl RuntimePotUnit {
         &mut self,
         preset_file: &Path,
         build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
-        options: LoadPresetOptions,
+        window_behavior: LoadPresetWindowBehavior,
+        audio_sample_behavior: LoadAudioSampleBehavior,
         is_shim_preset: bool,
         protected_fx: &Fx,
     ) -> Result<LoadPresetOutcome, LoadPresetError> {
@@ -767,19 +779,30 @@ impl RuntimePotUnit {
         let outcome = match ext.to_lowercase().as_str() {
             _ if is_audio_file_extension(ext) => {
                 let dest = build_destination(self)?;
-                load_audio_preset(preset_file, &dest, options, protected_fx)?
+                load_audio_preset(
+                    preset_file,
+                    &dest,
+                    window_behavior,
+                    audio_sample_behavior,
+                    protected_fx,
+                )?
             }
             "nksf" | "nksfx" => {
                 let dest = build_destination(self)?;
-                load_nks_preset(preset_file, &dest, options, protected_fx)?
+                load_nks_preset(preset_file, &dest, window_behavior, protected_fx)?
             }
             "rfxchain" => {
                 let dest = build_destination(self)?;
-                load_rfx_chain_preset_using_chunks(preset_file, &dest, options, protected_fx)?
+                load_rfx_chain_preset_using_chunks(
+                    preset_file,
+                    &dest,
+                    window_behavior,
+                    protected_fx,
+                )?
             }
             "rtracktemplate" => {
                 let dest = build_destination(self)?;
-                load_track_template_preset(preset_file, &dest, options, protected_fx)?
+                load_track_template_preset(preset_file, &dest, window_behavior, protected_fx)?
             }
             x => {
                 return Err(LoadPresetError::UnsupportedPresetFormat {
@@ -795,7 +818,8 @@ impl RuntimePotUnit {
     fn load_preset_at_internal(
         &mut self,
         preset: &Preset,
-        options: LoadPresetOptions,
+        window_behavior: LoadPresetWindowBehavior,
+        audio_sample_behavior: LoadAudioSampleBehavior,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, LoadPresetError> {
         let protected_fx = self.protected_fx().clone();
@@ -803,7 +827,8 @@ impl RuntimePotUnit {
             PresetKind::FileBased(k) => self.load_file_based_preset(
                 &k.path,
                 build_destination,
-                options,
+                window_behavior,
+                audio_sample_behavior,
                 false,
                 &protected_fx,
             )?,
@@ -812,14 +837,20 @@ impl RuntimePotUnit {
                 build_destination,
                 &k.path_to_rpp,
                 k.fx_chain_range.clone(),
-                options,
+                window_behavior,
                 &protected_fx,
             )?,
             PresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
                     let dest = build_destination(self)?;
-                    load_internal_preset(plugin_id, preset.name(), &dest, options, &protected_fx)
-                        .map_err(LoadPresetError::Other)?
+                    load_internal_preset(
+                        plugin_id,
+                        preset.name(),
+                        &dest,
+                        window_behavior,
+                        &protected_fx,
+                    )
+                    .map_err(LoadPresetError::Other)?
                 } else {
                     return Err(LoadPresetError::Other(
                         "Plug-in for internal preset not found".into(),
@@ -828,7 +859,7 @@ impl RuntimePotUnit {
             }
             PresetKind::DefaultFactory(plugin_id) => {
                 let dest = build_destination(self)?;
-                load_default_factory_preset(*plugin_id, &dest, options, &protected_fx)
+                load_default_factory_preset(*plugin_id, &dest, window_behavior, &protected_fx)
                     .map_err(LoadPresetError::Other)?
             }
         };
@@ -1353,7 +1384,7 @@ struct ParamAssignment {
 fn load_nks_preset(
     path: &Path,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let nks_file = NksFile::load(path)?;
@@ -1361,7 +1392,7 @@ fn load_nks_preset(
     load_preset_single_fx(
         nks_content.plugin_id,
         destination,
-        options,
+        window_behavior,
         protected_fx,
         |fx| {
             fx.set_vst_chunk(nks_content.vst_chunk)?;
@@ -1407,10 +1438,10 @@ pub fn resolve_macro_param_id_to_index(param_id: PotFxParamId, fx: &Fx) -> Optio
 fn load_rfx_chain_preset_using_add_fx(
     path: &Path,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, true, protected_fx, || {
+    load_preset_multi_fx(destination, window_behavior, true, protected_fx, || {
         let root_dir = Reaper::get().resource_path().join("FXChains");
         let relative_path = path.strip_prefix(&root_dir)?;
         let relative_path = relative_path.to_string_lossy().to_string();
@@ -1434,21 +1465,26 @@ fn load_rfx_chain_preset_using_add_fx(
 fn load_rfx_chain_preset_using_chunks(
     path: &Path,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let rppxml =
         fs::read_to_string(path).map_err(|_| "couldn't read FX chain template as string")?;
-    load_rfx_chain_preset_using_chunks_from_string(&rppxml, destination, options, protected_fx)
+    load_rfx_chain_preset_using_chunks_from_string(
+        &rppxml,
+        destination,
+        window_behavior,
+        protected_fx,
+    )
 }
 
 fn load_rfx_chain_preset_using_chunks_from_string(
     rppxml: &str,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, false, protected_fx, || {
+    load_preset_multi_fx(destination, window_behavior, false, protected_fx, || {
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
         let rppxml: String = rppxml.lines().map(|l| l.trim()).join("\n");
         let fx_chain_content_chunk = Chunk::new(rppxml);
@@ -1467,7 +1503,7 @@ fn load_project_based_rfx_chain_preset(
     build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     path_to_rpp: &Path,
     fx_chain_range: Range<usize>,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     let project_rppxml =
@@ -1477,7 +1513,7 @@ fn load_project_based_rfx_chain_preset(
     load_rfx_chain_preset_using_chunks_from_string(
         fx_chain_rppxml,
         destination,
-        options,
+        window_behavior,
         protected_fx,
     )
 }
@@ -1485,10 +1521,10 @@ fn load_project_based_rfx_chain_preset(
 fn load_track_template_preset(
     path: &Path,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_multi_fx(destination, options, false, protected_fx, || {
+    load_preset_multi_fx(destination, window_behavior, false, protected_fx, || {
         let rppxml =
             fs::read_to_string(path).map_err(|_| "couldn't read track template as string")?;
         // Our chunk stuff assumes we have a chunk without indentation. Time to use proper parsing...
@@ -1511,85 +1547,104 @@ fn load_internal_preset(
     plugin_id: PluginId,
     preset_name: &str,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
-        fx.activate_preset_by_name(preset_name)?;
-        Ok(Default::default())
-    })
+    load_preset_single_fx(
+        plugin_id,
+        destination,
+        window_behavior,
+        protected_fx,
+        |fx| {
+            fx.activate_preset_by_name(preset_name)?;
+            Ok(Default::default())
+        },
+    )
 }
 
 fn load_default_factory_preset(
     plugin_id: PluginId,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
-    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
-        fx.activate_preset(FxPresetRef::FactoryPreset)?;
-        Ok(Default::default())
-    })
+    load_preset_single_fx(
+        plugin_id,
+        destination,
+        window_behavior,
+        protected_fx,
+        |fx| {
+            fx.activate_preset(FxPresetRef::FactoryPreset)?;
+            Ok(Default::default())
+        },
+    )
 }
 
 fn load_audio_preset(
     path: &Path,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
+    audio_sample_behavior: LoadAudioSampleBehavior,
     protected_fx: &Fx,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
     const RS5K_VST_ID: i32 = 1920167789;
     let plugin_id = PluginId::Vst2 {
         vst_magic_number: RS5K_VST_ID,
     };
-    load_preset_single_fx(plugin_id, destination, options, protected_fx, |fx| {
-        // First try it the modern way ...
-        if load_media_in_specific_rs5k_modern(fx, path).is_err() {
-            // ... and if this didn't work, try it the old-school way.
-            // Make sure RS5k has focus
-            let window_is_open_now = fx.window_is_open();
-            if window_is_open_now {
-                if !fx.window_has_focus() {
-                    fx.hide_floating_window();
+    load_preset_single_fx(
+        plugin_id,
+        destination,
+        window_behavior,
+        protected_fx,
+        |fx| {
+            // First try it the modern way ...
+            if load_media_in_specific_rs5k_modern(fx, path).is_err() {
+                // ... and if this didn't work, try it the old-school way.
+                // Make sure RS5k has focus
+                let window_is_open_now = fx.window_is_open();
+                if window_is_open_now {
+                    if !fx.window_has_focus() {
+                        fx.hide_floating_window();
+                        fx.show_in_floating_window();
+                    }
+                } else {
                     fx.show_in_floating_window();
                 }
-            } else {
-                fx.show_in_floating_window();
+                // Load into RS5k
+                load_media_in_last_focused_rs5k(path)?;
             }
-            // Load into RS5k
-            load_media_in_last_focused_rs5k(path)?;
-        }
-        // Set RS5k options
-        let (mode, pitch_for_start_note) =
-            if let Some(root_pitch) = options.audio_sample_behavior.root_pitch {
-                // Value range -80 to 80, makes 161 discrete values.
-                let normalized_value = (root_pitch + 80).max(0) as f64 / 160.0;
-                (
-                    reaper_str!("2"),
-                    ReaperNormalizedFxParamValue::new(normalized_value),
-                )
-            } else {
-                (reaper_str!("1"), ReaperNormalizedFxParamValue::default())
-            };
-        unsafe {
-            let _ = fx.set_named_config_param("MODE", mode.as_c_str().as_ptr() as _);
-        }
-        let _ = fx
-            .parameter_by_index(5)
-            .set_reaper_normalized_value(pitch_for_start_note);
-        let obey_note_off_val =
-            ReaperNormalizedFxParamValue::new(options.audio_sample_behavior.obey_note_off.into());
-        let _ = fx
-            .parameter_by_index(11)
-            .set_reaper_normalized_value(obey_note_off_val);
-        Ok(Default::default())
-    })
+            // Set RS5k options
+            let (mode, pitch_for_start_note) =
+                if let Some(root_pitch) = audio_sample_behavior.root_pitch {
+                    // Value range -80 to 80, makes 161 discrete values.
+                    let normalized_value = (root_pitch + 80).max(0) as f64 / 160.0;
+                    (
+                        reaper_str!("2"),
+                        ReaperNormalizedFxParamValue::new(normalized_value),
+                    )
+                } else {
+                    (reaper_str!("1"), ReaperNormalizedFxParamValue::default())
+                };
+            unsafe {
+                let _ = fx.set_named_config_param("MODE", mode.as_c_str().as_ptr() as _);
+            }
+            let _ = fx
+                .parameter_by_index(5)
+                .set_reaper_normalized_value(pitch_for_start_note);
+            let obey_note_off_val =
+                ReaperNormalizedFxParamValue::new(audio_sample_behavior.obey_note_off.into());
+            let _ = fx
+                .parameter_by_index(11)
+                .set_reaper_normalized_value(obey_note_off_val);
+            Ok(Default::default())
+        },
+    )
 }
 
 fn load_preset_single_fx(
     plugin_id: PluginId,
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     protected_fx: &Fx,
     f: impl FnOnce(&Fx) -> Result<InternalLoadPresetOutcome, Box<dyn Error>>,
 ) -> Result<LoadPresetOutcome, Box<dyn Error>> {
@@ -1600,9 +1655,7 @@ fn load_preset_single_fx(
         .unwrap_or(false);
     let output = ensure_fx_has_correct_type(plugin_id, destination, existing_fx, protected_fx)?;
     let outcome = f(&output.fx)?;
-    options
-        .window_behavior
-        .open_or_close(&output.fx, fx_was_open_before, output.op);
+    window_behavior.open_or_close(&output.fx, fx_was_open_before, output.op);
     let outcome = LoadPresetOutcome {
         fx: output.fx,
         banks: outcome.banks,
@@ -1617,7 +1670,7 @@ struct InternalLoadPresetOutcome {
 
 fn load_preset_multi_fx(
     destination: &Destination,
-    options: LoadPresetOptions,
+    window_behavior: LoadPresetWindowBehavior,
     remove_existing_fx_manually: bool,
     protected_fx: &Fx,
     f: impl FnOnce() -> Result<Fx, Box<dyn Error>>,
@@ -1641,9 +1694,7 @@ fn load_preset_multi_fx(
     }
     let fx = f()?;
     for fx in destination.chain.fxs() {
-        options
-            .window_behavior
-            .open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
+        window_behavior.open_or_close(&fx, fx_was_open_before, FxEnsureOp::Replaced);
     }
     let outcome = LoadPresetOutcome { fx, banks: vec![] };
     Ok(outcome)
@@ -1755,7 +1806,7 @@ impl Destination {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct LoadPresetOptions {
-    pub window_behavior: LoadPresetWindowBehavior,
+    pub window_behavior_override: Option<LoadPresetWindowBehavior>,
     pub audio_sample_behavior: LoadAudioSampleBehavior,
 }
 

@@ -90,7 +90,7 @@ pub async fn record_previews(
         let preview_file_path = get_preview_file_path_from_hash(&reaper_resource_dir, hash);
         // Load preset
         let options = LoadPresetOptions {
-            window_behavior: LoadPresetWindowBehavior::AlwaysShow,
+            window_behavior_override: Some(LoadPresetWindowBehavior::AlwaysShow),
             audio_sample_behavior: Default::default(),
         };
         {
