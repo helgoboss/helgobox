@@ -7,10 +7,13 @@ use std::fmt::{Debug, Display, Formatter};
 pub trait NamedChannelSender {
     type Msg;
 
-    /// Sends the given message if the channel still has space, otherwise does nothing.
+    /// Sends the given message if the channel still has space and the receiver is still
+    /// connected, otherwise does nothing.
     fn send_if_space(&self, msg: Self::Msg);
 
     /// Sends the given message if the channel still has space, otherwise panics.
+    ///
+    /// If the receiver is disconnected, does nothing.
     fn send_complaining(&self, msg: Self::Msg);
 }
 
@@ -37,7 +40,19 @@ impl<T> NamedChannelSender for SenderToNormalThread<T> {
     }
 
     fn send_complaining(&self, msg: T) {
-        self.send_internal(msg).unwrap();
+        let result = self.send_internal(msg);
+        if !receiver_is_disconnected(&result) {
+            // Complain
+            result.unwrap();
+        }
+    }
+}
+
+fn receiver_is_disconnected<T>(result: &Result<(), NamedChannelTrySendError<T>>) -> bool {
+    if let Err(e) = &result {
+        matches!(e.try_send_error, TrySendError::Disconnected(_))
+    } else {
+        false
     }
 }
 
@@ -141,7 +156,11 @@ impl<T> NamedChannelSender for SenderToRealTimeThread<T> {
     }
 
     fn send_complaining(&self, msg: T) {
-        self.send_internal(msg).unwrap();
+        let result = self.send_internal(msg);
+        if !receiver_is_disconnected(&result) {
+            // Complain
+            result.unwrap();
+        }
     }
 }
 
