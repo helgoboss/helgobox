@@ -11,7 +11,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2023-05-28 (v2.15.0-pre.7)`
+|Last update of text: |`2023-06-01 (v2.15.0)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
