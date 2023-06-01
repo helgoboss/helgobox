@@ -134,17 +134,23 @@ end
 
 -- ## Code ##
 ]]
+local mode_count = 10
 local parameters = {
     {
         index = 0,
         name = "Mode",
-        value_count = 10,
+        value_count = mode_count,
     },
     {
         index = 1,
         name = "Macro bank",
         value_count = 100,
     },
+}
+local browse_mode_condition ={
+    kind = "Bank",
+    parameter = 0,
+    bank_index = 0,
 }
 local macro_mode_condition ={
     kind = "Bank",
@@ -172,8 +178,8 @@ local groups = {
         activation_condition = macro_mode_condition,
     },
     {
-        id = "macro-init",
-        name = "Macro initialization",
+        id = "init",
+        name = "Initialization",
     },
     {
         id = "manual",
@@ -213,29 +219,45 @@ local mappings = {
     },
     {
         name = "Init screens",
-        group = "macro-init",
+        group = "init",
         source = {
             kind = "MidiScript",
             script_kind = "lua",
             script = reusable_lua_code .. [[
 
+local mode = y
+local layout
+local text
+if mode == nil then
+    layout = 0
+    text = ""
+elseif mode == 0 then
+    layout = 2
+    text = "Browse"
+elseif mode == 1 then
+    layout = 1
+    text = "Macros"
+end
+
 return {
-    address = 1000,
     messages = {
         create_notification_text_msg("Initializing", "Pot Control"),
-        create_screen_layout_msg(1),
+        create_screen_layout_msg(layout),
         create_screen_props_msg({
-            create_text_prop_change(8, 0, y and "Macros" or nil),
+            create_text_prop_change(8, 0, text),
         }),
     }
 } ]],
         },
         glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
+            target_interval = {0, 0.1111111111111111},
         },
         target = {
-            kind = "Dummy",
+            kind = "FxParameterValue",
+            parameter = {
+                address = "ById",
+                index = 0,
+            },
         },
     },
     {
