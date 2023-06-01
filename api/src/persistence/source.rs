@@ -187,7 +187,8 @@ mod midi {
     #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub kind: Option<MidiScriptKind>,
+        #[serde(alias = "kind")]
+        pub script_kind: Option<MidiScriptKind>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub script: Option<String>,
     }

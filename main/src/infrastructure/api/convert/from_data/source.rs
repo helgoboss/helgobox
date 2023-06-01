@@ -133,7 +133,7 @@ pub fn convert_source(
                 }
                 Script => {
                     let s = persistence::MidiScriptSource {
-                        kind: style.required_value(data.midi_script_kind),
+                        script_kind: style.required_value(data.midi_script_kind),
                         script: style.required_value(data.midi_script),
                     };
                     persistence::Source::MidiScript(s)

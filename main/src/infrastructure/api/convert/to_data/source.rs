@@ -41,7 +41,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         midi_script_kind: match &s {
-            MidiScript(s) => s.kind.unwrap_or_default(),
+            MidiScript(s) => s.script_kind.unwrap_or_default(),
             _ => Default::default(),
         },
         midi_script: match &s {
@@ -94,7 +94,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
         osc_arg_type: match &s {
             Osc(s) => s
                 .argument
-                .map(|arg| convert_osc_arg_type(arg.kind.unwrap_or_default()))
+                .map(|arg| convert_osc_arg_type(arg.arg_kind.unwrap_or_default()))
                 .unwrap_or_default(),
             _ => Default::default(),
         },

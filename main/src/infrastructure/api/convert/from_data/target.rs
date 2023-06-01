@@ -960,7 +960,7 @@ fn convert_route_descriptor(
             &data.clip_column,
             style,
         ),
-        kind: {
+        route_kind: {
             use persistence::TrackRouteKind as T;
             use TrackRouteType::*;
             let kind = match data.track_route_data.r#type {

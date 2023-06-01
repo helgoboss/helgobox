@@ -62,7 +62,7 @@ fn convert_osc_argument(
     let arg_index = arg_index?;
     let arg = persistence::OscArgument {
         index: Some(arg_index),
-        kind: style.required_value(convert_osc_arg_kind(arg_type)),
+        arg_kind: style.required_value(convert_osc_arg_kind(arg_type)),
         value_range: style.required_value(convert_osc_value_range(value_range)),
     };
     style.required_value(arg)

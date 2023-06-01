@@ -803,7 +803,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let (osc_arg_index, osc_arg_type, osc_arg_value_range) = if let Some(a) = d.argument {
                 (
                     a.index,
-                    convert_osc_arg_type(a.kind.unwrap_or_default()),
+                    convert_osc_arg_type(a.arg_kind.unwrap_or_default()),
                     convert_osc_value_range(a.value_range),
                 )
             } else {
@@ -1176,7 +1176,7 @@ fn convert_route_desc(t: RouteDescriptor) -> ConversionResult<RouteDesc> {
             convert_track_desc(commons.track.unwrap_or_default())?,
             TrackRoutePropValues {
                 selector_type: TrackRouteSelectorType::Dynamic,
-                r#type: convert_route_kind(commons.kind.unwrap_or_default()),
+                r#type: convert_route_kind(commons.route_kind.unwrap_or_default()),
                 expression,
                 ..Default::default()
             },
@@ -1185,7 +1185,7 @@ fn convert_route_desc(t: RouteDescriptor) -> ConversionResult<RouteDesc> {
             convert_track_desc(commons.track.unwrap_or_default())?,
             TrackRoutePropValues {
                 selector_type: TrackRouteSelectorType::ById,
-                r#type: convert_route_kind(commons.kind.unwrap_or_default()),
+                r#type: convert_route_kind(commons.route_kind.unwrap_or_default()),
                 id: if let Some(id) = id {
                     Some(Guid::from_string_without_braces(&id)?)
                 } else {
@@ -1198,7 +1198,7 @@ fn convert_route_desc(t: RouteDescriptor) -> ConversionResult<RouteDesc> {
             convert_track_desc(commons.track.unwrap_or_default())?,
             TrackRoutePropValues {
                 selector_type: TrackRouteSelectorType::ByIndex,
-                r#type: convert_route_kind(commons.kind.unwrap_or_default()),
+                r#type: convert_route_kind(commons.route_kind.unwrap_or_default()),
                 index,
                 ..Default::default()
             },
@@ -1207,7 +1207,7 @@ fn convert_route_desc(t: RouteDescriptor) -> ConversionResult<RouteDesc> {
             convert_track_desc(commons.track.unwrap_or_default())?,
             TrackRoutePropValues {
                 selector_type: TrackRouteSelectorType::ByName,
-                r#type: convert_route_kind(commons.kind.unwrap_or_default()),
+                r#type: convert_route_kind(commons.route_kind.unwrap_or_default()),
                 name,
                 ..Default::default()
             },

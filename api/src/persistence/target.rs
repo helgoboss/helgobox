@@ -1890,7 +1890,8 @@ pub struct RouteDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind: Option<TrackRouteKind>,
+    #[serde(alias = "kind")]
+    pub route_kind: Option<TrackRouteKind>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
