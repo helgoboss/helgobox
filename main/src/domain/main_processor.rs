@@ -41,6 +41,7 @@ use base::{
     hash_util, LimitedAsciiString, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
+use indexmap::IndexSet;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
@@ -1063,7 +1064,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Mapping activation is supported for both compartments and target activation
         // might change also in non-virtual controller mappings due to dynamic targets.
-        let mut changed_mappings = HashSet::new();
+        let mut changed_mappings = IndexSet::new();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         // In order to avoid a mutable borrow of mappings and an immutable borrow of
         // parameters at the same time, we need to separate into READ activation
