@@ -822,6 +822,7 @@ impl RuntimePotUnit {
         audio_sample_behavior: LoadAudioSampleBehavior,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, LoadPresetError> {
+        let _ = self.sound_player.stop();
         let protected_fx = self.protected_fx().clone();
         let outcome = match &preset.kind {
             PresetKind::FileBased(k) => self.load_file_based_preset(
