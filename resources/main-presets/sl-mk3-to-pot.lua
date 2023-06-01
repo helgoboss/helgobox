@@ -265,7 +265,7 @@ return {
     {
         name = "Up - Previous macro bank",
         group = "macro-banks",
-        feedback_enable = false,
+        feedback_enabled = false,
         source = {
             kind = "MidiControlChangeValue",
             channel = 15,
