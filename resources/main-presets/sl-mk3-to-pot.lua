@@ -134,12 +134,11 @@ end
 
 -- ## Code ##
 ]]
-local mode_count = 10
 local parameters = {
     {
         index = 0,
         name = "Mode",
-        value_count = mode_count,
+        value_count = 10,
     },
     {
         index = 1,
@@ -178,10 +177,6 @@ local groups = {
         activation_condition = macro_mode_condition,
     },
     {
-        id = "init",
-        name = "Initialization",
-    },
-    {
         id = "manual",
         name = "Manual",
     },
@@ -218,46 +213,51 @@ local mappings = {
         },
     },
     {
-        name = "Init screens",
-        group = "init",
+        name = "Init macro mode",
+        group = "modes",
+        activation_condition = macro_mode_condition,
         source = {
             kind = "MidiScript",
             script_kind = "lua",
             script = reusable_lua_code .. [[
 
-local mode = y
-local layout
-local text
-if mode == nil then
-    layout = 0
-    text = ""
-elseif mode == 0 then
-    layout = 2
-    text = "Browse"
-elseif mode == 1 then
-    layout = 1
-    text = "Macros"
-end
-
 return {
+    address = 1000,
     messages = {
-        create_notification_text_msg("Initializing", "Pot Control"),
-        create_screen_layout_msg(layout),
+        create_notification_text_msg("Initializing", "macro mode"),
+        create_screen_layout_msg(1),
         create_screen_props_msg({
-            create_text_prop_change(8, 0, text),
+            create_text_prop_change(8, 0, y and "Macros" or nil),
         }),
     }
 } ]],
         },
-        glue = {
-            target_interval = {0, 0.1111111111111111},
+        target = {
+            kind = "Dummy",
+        },
+    },
+    {
+        name = "Init browse mode",
+        group = "modes",
+        activation_condition = browse_mode_condition,
+        source = {
+            kind = "MidiScript",
+            script_kind = "lua",
+            script = reusable_lua_code .. [[
+
+return {
+    address = 1000,
+    messages = {
+        create_notification_text_msg("Initializing", "browse mode"),
+        create_screen_layout_msg(2),
+        create_screen_props_msg({
+            create_text_prop_change(8, 0, y and "Browse" or nil),
+        }),
+    }
+} ]],
         },
         target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
+            kind = "Dummy",
         },
     },
     {
