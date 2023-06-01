@@ -1,4 +1,9 @@
 local reusable_lua_code = [[
+-- ## Constants ##
+
+local black = { r = 0, g = 0, b = 0 }
+local white = { r = 255, g = 255, b = 255 }
+
 -- ## Functions ##
 
 function to_ascii(text)
@@ -213,26 +218,15 @@ local mappings = {
             kind = "MidiScript",
             script_kind = "lua",
             script = reusable_lua_code .. [[
-local black = { r = 0, g = 0, b = 0 }
-local white = { r = 255, g = 255, b = 255 }
-local color = y and white or black
-local changes = {
-    create_text_prop_change(8, 0, y and "Macros" or nil),
-}
-
-for column = 0, 7 do
-    concat_table(changes, {
-        -- Make the knob visible (by making it white)
-        create_rgb_color_prop_change(column, 1, color),
-    })
-end
 
 return {
     address = 1000,
     messages = {
         create_notification_text_msg("Initializing", "Pot Control"),
         create_screen_layout_msg(1),
-        create_screen_props_msg(changes),
+        create_screen_props_msg({
+            create_text_prop_change(8, 0, y and "Macros" or nil),
+        }),
     }
 } ]],
         },
@@ -379,15 +373,57 @@ return {
 for i = 0, 7 do
     local human_i = i + 1
     local param_expression = "mapped_fx_parameter_indexes[p[1] * 8 + " .. i .. "]"
-    local param_value_mapping = {
-        name = "Encoder " .. human_i .. ": Macro " .. human_i,
+    local param_value_control_mapping = {
+        name = "Encoder " .. human_i .. ": Macro control " .. human_i,
         group = "macro-parameters",
+        feedback_enabled = false,
         source = {
             kind = "MidiControlChangeValue",
             channel = 15,
             controller_number = 21 + i,
             character = "Relative1",
             fourteen_bit = false,
+        },
+        glue = {
+            step_size_interval = { 0.01, 0.05 },
+            step_factor_interval = { 1, 5 },
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "Dynamic",
+                fx = {
+                    address = "Instance",
+                },
+                expression = param_expression,
+            },
+        },
+    }
+    local param_value_feedback_mapping = {
+        name = "Encoder " .. human_i .. ": Macro feedback " .. human_i,
+        group = "macro-parameters",
+        control_enabled = false,
+        source = {
+            kind = "MidiScript",
+            script_kind = "lua",
+            script = reusable_lua_code .. [[
+local column = ]] .. i .. [[
+
+local color_offset = 1000
+local object = 1
+local color = y and white or black
+local value = y and math.floor(y * 127) or 0
+return {
+    address = color_offset + column * 8 + object,
+    messages = {
+        create_screen_props_msg({
+            -- Make the knob visible (by making it white)
+            create_rgb_color_prop_change(column, object, color),
+            -- Rotate the knob so it reflects the parameter value
+            create_value_prop_change(column, 0, value),
+        }),
+    }
+}]],
         },
         glue = {
             step_size_interval = { 0.01, 0.05 },
@@ -559,7 +595,8 @@ return {
             },
         },
     }
-    table.insert(mappings, param_value_mapping)
+    table.insert(mappings, param_value_control_mapping)
+    table.insert(mappings, param_value_feedback_mapping)
     table.insert(mappings, section_name_mapping)
     table.insert(mappings, param_name_mapping)
     table.insert(mappings, param_value_label_mapping)
