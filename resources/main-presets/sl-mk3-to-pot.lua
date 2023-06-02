@@ -1,3 +1,5 @@
+-- ## Constants ##
+
 local reusable_lua_code = [[
 -- ## Constants ##
 
@@ -134,6 +136,70 @@ end
 
 -- ## Code ##
 ]]
+
+-- ## Functions ##
+
+function concat_table(t1, t2)
+    for i = 1, #t2 do
+        t1[#t1 + 1] = t2[i]
+    end
+end
+
+function create_browse_mappings(title, column, target)
+    local human_column = column + 1
+    return {
+        {
+            name = "Encoder " .. human_column .. " - Browse products",
+            group = "browse-columns",
+            source = {
+                kind = "MidiControlChangeValue",
+                channel = 15,
+                controller_number = 21 + column,
+                character = "Relative1",
+                fourteen_bit = false,
+            },
+            glue = {
+                step_factor_interval = { -10, 5 },
+            },
+            target = target,
+        },
+        {
+            name = "Screen " .. human_column .. " - Browse products",
+            group = "browse-columns",
+            source = {
+                kind = "MidiScript",
+                script_kind = "lua",
+                script = reusable_lua_code .. [[
+local column = ]] .. column .. [[
+
+local object = 0
+local part_1 = y and string.sub(y, 1, 9) or nil
+local part_2 = y and string.sub(y, 10, 18) or nil
+return {
+    address = column * 9 + object,
+    messages = {
+        create_screen_props_msg({
+            --create_rgb_color_prop_change(column, object, white),
+            --create_value_prop_change(column, object, 1),
+            --create_text_prop_change(column, object, "]]..title..[["),
+            create_text_prop_change(column, object + 0, part_1),
+            create_text_prop_change(column, object + 1, part_2),
+        }),
+    }
+} ]],
+            },
+            glue = {
+                feedback = {
+                    kind = "Text",
+                },
+            },
+            target = target,
+        }
+    }
+end
+
+-- ## Code ##
+
 local parameters = {
     {
         index = 0,
@@ -146,12 +212,12 @@ local parameters = {
         value_count = 100,
     },
 }
-local browse_mode_condition ={
+local browse_mode_condition = {
     kind = "Bank",
     parameter = 0,
     bank_index = 0,
 }
-local macro_mode_condition ={
+local macro_mode_condition = {
     kind = "Bank",
     parameter = 0,
     bank_index = 1,
@@ -177,6 +243,16 @@ local groups = {
         activation_condition = macro_mode_condition,
     },
     {
+        id = "browse-columns",
+        name = "Browse columns",
+        activation_condition = browse_mode_condition,
+    },
+    {
+        id = "browse-actions",
+        name = "Browse actions",
+        activation_condition = browse_mode_condition,
+    },
+    {
         id = "manual",
         name = "Manual",
     },
@@ -199,10 +275,10 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            source_interval = {0.16, 1},
-            target_interval = {0, 0.1111111111111111},
+            source_interval = { 0.16, 1 },
+            target_interval = { 0, 0.1111111111111111 },
             wrap = true,
-            step_size_interval = {0.1111111111111111, 0.1111111111111111},
+            step_size_interval = { 0.1111111111111111, 0.1111111111111111 },
         },
         target = {
             kind = "FxParameterValue",
@@ -368,10 +444,10 @@ return {
 local column = 8
 local object = 1
 return {
-    address = column * 8 + object,
+    address = column * 9 + object,
     messages = {
         create_screen_props_msg({
-            create_text_prop_change(8, object, y),
+            create_text_prop_change(column, object, y),
         }),
     }
 } ]],
@@ -390,8 +466,154 @@ return {
             },
         },
     },
+    {
+        name = "Preview preset",
+        group = "browse-actions",
+        feedback_enabled = false,
+        source = {
+            kind = "MidiControlChangeValue",
+            channel = 15,
+            controller_number = 57,
+            character = "Button",
+            fourteen_bit = false,
+        },
+        glue = {
+            step_size_interval = { 0.01, 0.05 },
+            button_filter = "PressOnly",
+        },
+        target = {
+            kind = "PreviewPotPreset",
+        },
+    },
+    {
+        name = "Preview preset feedback",
+        group = "browse-actions",
+        control_enabled = false,
+        source = {
+            kind = "MidiControlChangeValue",
+            channel = 15,
+            controller_number = 57,
+            character = "Button",
+            fourteen_bit = false,
+        },
+        glue = {
+            source_interval = { 0.1, 1 },
+            step_size_interval = { 0.01, 0.05 },
+            button_filter = "PressOnly",
+        },
+        target = {
+            kind = "Dummy",
+        },
+    },
+    {
+        name = "Load preset",
+        group = "browse-actions",
+        feedback_enabled = false,
+        source = {
+            kind = "MidiControlChangeValue",
+            channel = 15,
+            controller_number = 58,
+            character = "Button",
+            fourteen_bit = false,
+        },
+        glue = {
+            step_size_interval = { 0.01, 0.05 },
+            button_filter = "PressOnly",
+        },
+        target = {
+            kind = "LoadPotPreset",
+            fx = {
+                address = "ByIndex",
+                chain = {
+                    address = "Track",
+                    track = {
+                        address = "Selected",
+                    },
+                },
+                index = 0,
+            },
+        },
+    },
+    {
+        name = "Load preset feedback",
+        group = "browse-actions",
+        control_enabled = false,
+        source = {
+            kind = "MidiControlChangeValue",
+            channel = 15,
+            controller_number = 58,
+            character = "Button",
+            fourteen_bit = false,
+        },
+        glue = {
+            source_interval = { 0.45, 1 },
+            step_size_interval = { 0.01, 0.05 },
+            button_filter = "PressOnly",
+        },
+        target = {
+            kind = "Dummy",
+        },
+    },
 }
 
+-- One browser per column
+concat_table(
+        mappings,
+        create_browse_mappings("Database", 0, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "Database",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Kind", 1, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "ProductKind",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Product", 2, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "Bank",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Bank", 3, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "SubBank",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Category", 4, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "Category",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("->", 5, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "SubCategory",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Character", 6, {
+            kind = "BrowsePotFilterItems",
+            item_kind = "Mode",
+        })
+)
+concat_table(
+        mappings,
+        create_browse_mappings("Preset", 7, {
+            kind = "BrowsePotPresets",
+        })
+)
+
+-- One macro parameter per column
 for i = 0, 7 do
     local human_i = i + 1
     local param_expression = "mapped_fx_parameter_indexes[p[1] * 8 + " .. i .. "]"
@@ -436,7 +658,7 @@ local object = 1
 local color = y and white or black
 local value = y and math.floor(y * 127) or 0
 return {
-    address = color_offset + column * 8 + object,
+    address = color_offset + column * 9 + object,
     messages = {
         create_screen_props_msg({
             -- Make the knob visible (by making it white)
@@ -474,7 +696,7 @@ local column = ]] .. i .. [[
 
 local object = 0
 return {
-    address = column * 8 + object,
+    address = column * 9 + object,
     messages = {
         create_screen_props_msg({
             create_text_prop_change(column, object, y),
@@ -513,7 +735,7 @@ local column = ]] .. i .. [[
 
 local object = 1
 return {
-    address = column * 8 + object,
+    address = column * 9 + object,
     messages = {
         create_screen_props_msg({
             create_text_prop_change(column, object, y),
@@ -552,7 +774,7 @@ local column = ]] .. i .. [[
 
 local object = 3
 return {
-    address = column * 8 + object,
+    address = column * 9 + object,
     messages = {
         create_screen_props_msg({
             create_text_prop_change(column, object, y),
@@ -591,7 +813,7 @@ local column = ]] .. i .. [[
 
 local object = 2
 return {
-    address = column * 8 + object,
+    address = column * 9 + object,
     messages = {
         create_screen_props_msg({
             create_text_prop_change(column, object, y),
