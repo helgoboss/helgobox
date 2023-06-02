@@ -176,18 +176,22 @@ function create_browse_mappings(title, column, target)
                 script = reusable_lua_code .. [[
 local column = ]] .. column .. [[
 
-local label = y and y.label or nil
-local name_1 = y and string.sub(y.name, 1, 9) or nil
-local name_2 = y and string.sub(y.name, 10, 18) or nil
+local label = y and y.label or ""
+local name_1 = y and string.sub(y.name, 1, 9) or ""
+local name_2 = y and string.sub(y.name, 10, 18) or ""
 local color = y and white or black
 return {
     address = column,
     messages = {
         create_screen_props_msg({
+            -- White background
             create_rgb_color_prop_change(column, 0, color),
             create_value_prop_change(column, 0, 1),
+            -- Header
             create_text_prop_change(column, 0, label),
+            -- Empty line
             create_text_prop_change(column, 1, ""),
+            -- Name
             create_text_prop_change(column, 2, name_1),
             create_text_prop_change(column, 3, name_2),
         }),
@@ -205,7 +209,7 @@ if context.mode == 1 then
         }
     }
 else
-    local name = context.prop("target.text_value")
+    local name = context.prop("target.text_value") or "-"
     return {
         feedback_event = {
             value = {
@@ -729,7 +733,6 @@ for i = 0, 7 do
     local human_i = i + 1
     local param_expression = "mapped_fx_parameter_indexes[p[1] * 8 + " .. i .. "]"
     local param_value_control_mapping = {
-        enabled = false,
         name = "Encoder " .. human_i .. ": Macro control " .. human_i,
         group = "macro-parameters",
         feedback_enabled = false,
@@ -743,6 +746,75 @@ for i = 0, 7 do
         glue = {
             step_size_interval = { 0.01, 0.05 },
             step_factor_interval = { 1, 5 },
+        },
+        target = {
+            kind = "FxParameterValue",
+            parameter = {
+                address = "Dynamic",
+                fx = {
+                    address = "Instance",
+                },
+                expression = param_expression,
+            },
+        },
+    }
+    local param_screen_mapping = {
+        name = "Screen " .. human_i,
+        group = "macro-parameters",
+        control_enabled = false,
+        source = {
+            kind = "MidiScript",
+            script_kind = "lua",
+            script = reusable_lua_code .. [[
+local column = ]] .. i .. [[
+
+local color = y and white or black
+local section_name = y and y.section_name or ""
+local macro_name = y and y.macro_name or ""
+local normalized_param_value = y and y.param_value or 0.0
+local midi_param_value = math.floor(normalized_param_value * 127)
+local param_name = y and y.param_name or ""
+local param_value_label = y and y.param_value_label or ""
+return {
+    address = column,
+    messages = {
+        create_screen_props_msg({
+            create_text_prop_change(column, 0, section_name),
+            create_text_prop_change(column, 1, macro_name),
+            -- Make the knob visible (by making it white)
+            create_rgb_color_prop_change(column, 1, color),
+            -- Rotate the knob so it reflects the parameter value
+            create_value_prop_change(column, 0, midi_param_value),
+            create_text_prop_change(column, 2, param_value_label),
+            create_text_prop_change(column, 3, param_name),
+        }),
+    }
+} ]],
+        },
+        glue = {
+            feedback = {
+                kind = "Dynamic",
+                script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.text_value",
+        }
+    }
+else
+    return {
+        feedback_event = {
+            value = {
+                section_name = context.prop("target.fx_parameter.macro.new_section.name"),
+                macro_name = context.prop("target.fx_parameter.macro.name"),
+                param_value = context.prop("y"),
+                param_value_label = context.prop("target.text_value"),
+                param_name = context.prop("target.fx_parameter.name"),
+            }
+        },
+    }
+end]],
+            },
         },
         target = {
             kind = "FxParameterValue",
@@ -793,171 +865,8 @@ return {
             },
         },
     }
-    local section_name_mapping = {
-        enabled = false,
-        name = "Screen " .. human_i .. ": Section " .. human_i .. " name",
-        group = "macro-parameters",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = ]] .. i .. [[
-
-local object = 0
-return {
-    address = column * 9 + object,
-    messages = {
-        create_screen_props_msg({
-            create_text_prop_change(column, object, y),
-        }),
-    }
-}]],
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
-            feedback = {
-                kind = "Text",
-                text_expression = "{{ target.fx_parameter.macro.new_section.name }}",
-            },
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "Dynamic",
-                fx = {
-                    address = "Instance",
-                },
-                expression = param_expression,
-            },
-        },
-    }
-    local macro_name_mapping = {
-        enabled = false,
-        name = "Screen " .. human_i .. ": Macro " .. human_i .. " name",
-        group = "macro-parameters",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = ]] .. i .. [[
-
-local object = 1
-return {
-    address = column * 9 + object,
-    messages = {
-        create_screen_props_msg({
-            create_text_prop_change(column, object, y),
-        }),
-    }
-}]],
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
-            feedback = {
-                kind = "Text",
-                text_expression = "{{ target.fx_parameter.macro.name }}",
-            },
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "Dynamic",
-                fx = {
-                    address = "Instance",
-                },
-                expression = param_expression,
-            },
-        },
-    }
-    local param_name_mapping = {
-        enabled = false,
-        name = "Screen " .. human_i .. ": Param " .. human_i .. " name",
-        group = "macro-resolved-parameters",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = ]] .. i .. [[
-
-local object = 3
-return {
-    address = column * 9 + object,
-    messages = {
-        create_screen_props_msg({
-            create_text_prop_change(column, object, y),
-        }),
-    }
-}]],
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
-            feedback = {
-                kind = "Text",
-                text_expression = "{{ target.fx_parameter.name }}",
-            },
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "Dynamic",
-                fx = {
-                    address = "Instance",
-                },
-                expression = param_expression,
-            },
-        },
-    }
-    local param_value_label_mapping = {
-        enabled = false,
-        name = "Screen 1: Macro 1 value",
-        group = "macro-parameters",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = ]] .. i .. [[
-
-local object = 2
-return {
-    address = column * 9 + object,
-    messages = {
-        create_screen_props_msg({
-            create_text_prop_change(column, object, y),
-        }),
-    }
-} ]],
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
-            feedback = {
-                kind = "Text",
-            },
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "Dynamic",
-                fx = {
-                    address = "Instance",
-                },
-                expression = param_expression,
-            },
-        },
-    }
     table.insert(mappings, param_value_control_mapping)
-    table.insert(mappings, param_value_feedback_mapping)
-    table.insert(mappings, section_name_mapping)
-    table.insert(mappings, param_name_mapping)
-    table.insert(mappings, param_value_label_mapping)
-    table.insert(mappings, macro_name_mapping)
+    table.insert(mappings, param_screen_mapping)
 end
 
 return {

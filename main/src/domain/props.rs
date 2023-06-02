@@ -4,7 +4,7 @@ use crate::domain::{
     UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{PropProvider, PropValue, Target};
+use helgoboss_learn::{NumericValue, PropProvider, PropValue, Target};
 use realearn_api::persistence::TrackScope;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
@@ -72,9 +72,11 @@ impl<'a> PropProvider for MappingPropProvider<'a> {
                 props.get_value(self.mapping, self.mapping.targets().first(), self.context)
             }
             None => {
-                if let (Some(key), Some(target)) =
-                    (key.strip_prefix("target."), self.mapping.targets().first())
-                {
+                let target = self.mapping.targets().first()?;
+                if key == "y" {
+                    let y = target.current_value(self.context)?;
+                    Some(PropValue::Normalized(y.to_unit_value()))
+                } else if let Some(key) = key.strip_prefix("target.") {
                     target.prop_value(key, self.context)
                 } else {
                     None
