@@ -163,7 +163,7 @@ function create_browse_mappings(title, column, target)
             },
             glue = {
                 step_factor_interval = { -10, 5 },
-                wrap = true,
+                wrap = false,
             },
             target = target,
         },
@@ -176,25 +176,45 @@ function create_browse_mappings(title, column, target)
                 script = reusable_lua_code .. [[
 local column = ]] .. column .. [[
 
-local object = 0
-local part_1 = y and string.sub(y, 1, 9) or nil
-local part_2 = y and string.sub(y, 10, 18) or nil
+local label = y and y.label or nil
+local name_1 = y and string.sub(y.name, 1, 9) or nil
+local name_2 = y and string.sub(y.name, 10, 18) or nil
+local color = y and white or black
 return {
-    address = column * 9 + object,
+    address = column,
     messages = {
         create_screen_props_msg({
-            --create_rgb_color_prop_change(column, object, white),
-            --create_value_prop_change(column, object, 1),
-            --create_text_prop_change(column, object, "]]..title..[["),
-            create_text_prop_change(column, object + 0, part_1),
-            create_text_prop_change(column, object + 1, part_2),
+            create_rgb_color_prop_change(column, 0, color),
+            create_value_prop_change(column, 0, 1),
+            create_text_prop_change(column, 0, label),
+            create_text_prop_change(column, 1, ""),
+            create_text_prop_change(column, 2, name_1),
+            create_text_prop_change(column, 3, name_2),
         }),
     }
 } ]],
             },
             glue = {
                 feedback = {
-                    kind = "Text",
+                    kind = "Dynamic",
+                    script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.text_value",
+        }
+    }
+else
+    local name = context.prop("target.text_value")
+    return {
+        feedback_event = {
+            value = {
+                label = "]]..title..[[",
+                name = name,
+            }
+        },
+    }
+end]],
                 },
             },
             target = target,
@@ -300,15 +320,28 @@ local mappings = {
             kind = "MidiScript",
             script_kind = "lua",
             script = reusable_lua_code .. [[
-
 return {
     address = 1000,
     messages = {
-        create_notification_text_msg("Initializing", "macro mode"),
         create_screen_layout_msg(1),
-        create_screen_props_msg({
-            create_text_prop_change(8, 0, y and "Macros" or nil),
-        }),
+    }
+} ]],
+        },
+        target = {
+            kind = "Dummy",
+        },
+    },    {
+        name = "Init browse mode",
+        group = "modes",
+        activation_condition = browse_mode_condition,
+        source = {
+            kind = "MidiScript",
+            script_kind = "lua",
+            script = reusable_lua_code .. [[
+return {
+    address = 1000,
+    messages = {
+        create_screen_layout_msg(2),
     }
 } ]],
         },
@@ -317,27 +350,102 @@ return {
         },
     },
     {
-        name = "Init browse mode",
+        enabled = false,
+        name = "Macro mode preset info",
+        group = "modes",
+        activation_condition = macro_mode_condition,
+        source = {
+            kind = "MidiScript",
+            script_kind = "lua",
+            script = reusable_lua_code .. [[
+local column = 8
+local preset_name = y and y.preset_name or ""
+local preset_name_1 = string.sub(preset_name, 1, 9)
+local preset_name_2 = string.sub(preset_name, 10, 18)
+return {
+    address = column,
+    messages = {
+        create_screen_props_msg({
+            create_text_prop_change(column, 0, preset_name_1),
+            create_text_prop_change(column, 1, preset_name_2),
+        }),
+    }
+} ]],
+        },
+        glue = {
+            feedback = {
+                kind = "Dynamic",
+                script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.text_value",
+            "target.preset.name",
+        }
+    }
+else
+    local preset_name = context.prop("target.preset.name")
+    return {
+        feedback_event = {
+            value = {
+                preset_name = preset_name,
+            }
+        },
+    }
+end]],
+            },
+        },
+        target = {
+            kind = "LoadPotPreset",
+        },
+    },
+    {
+        name = "Browse mode preset info",
         group = "modes",
         activation_condition = browse_mode_condition,
         source = {
             kind = "MidiScript",
             script_kind = "lua",
             script = reusable_lua_code .. [[
-
+local column = 8
+local product_name = y and y.product_name or ""
+local product_name_1 = string.sub(product_name, 1, 9)
+local product_name_2 = string.sub(product_name, 10, 18)
 return {
-    address = 1000,
+    address = column,
     messages = {
-        create_notification_text_msg("Initializing", "browse mode"),
-        create_screen_layout_msg(2),
         create_screen_props_msg({
-            create_text_prop_change(8, 0, y and "Browse" or nil),
+            create_text_prop_change(column, 0, product_name_1),
+            create_text_prop_change(column, 1, product_name_2),
         }),
     }
 } ]],
         },
+        glue = {
+            feedback = {
+                kind = "Dynamic",
+                script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.text_value",
+            "target.preset.product.name",
+        }
+    }
+else
+    local product_name = context.prop("target.preset.product.name")
+    return {
+        feedback_event = {
+            value = {
+                product_name = product_name,
+            }
+        },
+    }
+end]],
+            },
+        },
         target = {
-            kind = "Dummy",
+            kind = "BrowsePotPresets",
         },
     },
     {
@@ -446,12 +554,11 @@ return {
             script_kind = "lua",
             script = reusable_lua_code .. [[
 local column = 8
-local object = 1
 return {
-    address = column * 9 + object,
+    address = column + 1,
     messages = {
         create_screen_props_msg({
-            create_text_prop_change(column, object, y),
+            create_text_prop_change(column, 2, y),
         }),
     }
 } ]],
@@ -622,6 +729,7 @@ for i = 0, 7 do
     local human_i = i + 1
     local param_expression = "mapped_fx_parameter_indexes[p[1] * 8 + " .. i .. "]"
     local param_value_control_mapping = {
+        enabled = false,
         name = "Encoder " .. human_i .. ": Macro control " .. human_i,
         group = "macro-parameters",
         feedback_enabled = false,
@@ -648,6 +756,7 @@ for i = 0, 7 do
         },
     }
     local param_value_feedback_mapping = {
+        enabled = false,
         name = "Encoder " .. human_i .. ": Macro feedback " .. human_i,
         group = "macro-parameters",
         control_enabled = false,
@@ -662,7 +771,7 @@ local object = 1
 local color = y and white or black
 local value = y and math.floor(y * 127) or 0
 return {
-    address = color_offset + column * 9 + object,
+    address = 5000 + column,
     messages = {
         create_screen_props_msg({
             -- Make the knob visible (by making it white)
@@ -672,10 +781,6 @@ return {
         }),
     }
 }]],
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
         },
         target = {
             kind = "FxParameterValue",
@@ -689,6 +794,7 @@ return {
         },
     }
     local section_name_mapping = {
+        enabled = false,
         name = "Screen " .. human_i .. ": Section " .. human_i .. " name",
         group = "macro-parameters",
         control_enabled = false,
@@ -728,6 +834,7 @@ return {
         },
     }
     local macro_name_mapping = {
+        enabled = false,
         name = "Screen " .. human_i .. ": Macro " .. human_i .. " name",
         group = "macro-parameters",
         control_enabled = false,
@@ -767,6 +874,7 @@ return {
         },
     }
     local param_name_mapping = {
+        enabled = false,
         name = "Screen " .. human_i .. ": Param " .. human_i .. " name",
         group = "macro-resolved-parameters",
         control_enabled = false,
@@ -806,6 +914,7 @@ return {
         },
     }
     local param_value_label_mapping = {
+        enabled = false,
         name = "Screen 1: Macro 1 value",
         group = "macro-parameters",
         control_enabled = false,

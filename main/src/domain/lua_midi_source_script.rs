@@ -52,7 +52,6 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         // Build input data
         let context = ScriptContext {
             feedback_event: ScriptFeedbackEvent {
-                // TODO-high CONTINUE
                 value: None,
                 color: input_value.color().map(ScriptColor::from),
                 background_color: input_value.background_color().map(ScriptColor::from),

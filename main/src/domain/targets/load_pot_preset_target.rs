@@ -78,13 +78,7 @@ impl RealearnTarget for LoadPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let mut instance_state = context.instance_state.borrow_mut();
-        let pot_unit = match instance_state.pot_unit() {
-            Ok(u) => u,
-            Err(_) => return false,
-        };
-        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 1");
-        pot_unit.preset_id().is_some() && self.fx.is_available()
+        true
     }
 
     fn project(&self) -> Option<Project> {
@@ -101,10 +95,6 @@ impl RealearnTarget for LoadPotPresetTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::LoadPotPreset)
-    }
-
-    fn can_report_current_value(&self) -> bool {
-        false
     }
 
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
