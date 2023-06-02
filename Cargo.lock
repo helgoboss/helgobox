@@ -2221,6 +2221,7 @@ dependencies = [
  "regex",
  "rosc",
  "serde",
+ "serde_json",
  "serde_repr",
  "serde_with",
  "strum",

@@ -58,8 +58,8 @@ impl MidiSourceScript for EelMidiSourceScript {
                 AbsoluteValue::Continuous(v) => v.get(),
                 AbsoluteValue::Discrete(f) => f.actual() as f64,
             },
-            // TODO-medium Make this work by using EEL string support.
-            FeedbackValue::Textual(t) => t.text.as_ptr() as isize as f64,
+            // Rest not supported for EEL
+            _ => f64::MIN,
         };
         let (slice, address) = unsafe {
             self.eel_unit.y.set(y_value);

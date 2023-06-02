@@ -1,6 +1,6 @@
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackStyle, FeedbackValue, NumericFeedbackValue, RgbColor,
-    TextualFeedbackValue, UnitValue,
+    AbsoluteValue, ComplexFeedbackValue, FeedbackStyle, FeedbackValue, NumericFeedbackValue,
+    RgbColor, TextualFeedbackValue, UnitValue,
 };
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -35,7 +35,9 @@ impl ScriptFeedbackEvent {
             Some(ScriptFeedbackValue::Text(t)) => {
                 FeedbackValue::Textual(TextualFeedbackValue::new(style, t.into()))
             }
-            Some(ScriptFeedbackValue::Complex(_)) => todo!(),
+            Some(ScriptFeedbackValue::Complex(v)) => {
+                FeedbackValue::Complex(ComplexFeedbackValue::new(style, v))
+            }
         }
     }
 }

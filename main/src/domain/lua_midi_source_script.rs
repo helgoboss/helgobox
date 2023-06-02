@@ -68,6 +68,11 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
                 .text
                 .to_lua(self.lua.as_ref())
                 .map_err(|_| "couldn't convert string to Lua string")?,
+            FeedbackValue::Complex(v) => self
+                .lua
+                .as_ref()
+                .to_value(&v.value)
+                .map_err(|_| "couldn't convert complex value to Lua value")?,
         };
         // Set input data as variables "y" and "context".
         self.env
