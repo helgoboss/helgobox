@@ -1,7 +1,7 @@
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
-    RawMidiEvent, RgbColor,
+    RawMidiEvent,
 };
 use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
 use std::borrow::Cow;

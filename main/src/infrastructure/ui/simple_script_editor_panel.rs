@@ -64,6 +64,7 @@ impl ScriptEngine for LuaFeedbackScriptEngine {
         let test_input = FeedbackScriptInput {
             prop_provider: &|_: &str| None,
         };
+        script.used_props()?;
         script.feedback(test_input)?;
         Ok(Box::new(()))
     }

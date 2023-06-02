@@ -1,5 +1,5 @@
-use crate::base::SendOrSyncWhatever;
-use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent, ScriptFeedbackValue};
+use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
+use base::Trafficker;
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
     PropProvider, PropValue,
@@ -7,9 +7,6 @@ use helgoboss_learn::{
 use mlua::{Function, Lua, LuaSerdeExt, Table, ToLua, Value};
 use std::borrow::Cow;
 use std::error::Error;
-use std::ffi::c_void;
-use std::marker::PhantomData;
-use std::mem;
 
 #[derive(Clone, Debug)]
 pub struct LuaFeedbackScript<'lua> {
@@ -53,6 +50,7 @@ impl<'lua> LuaFeedbackScript<'lua> {
         // Build input data
         let context_table = {
             let table = lua.create_table()?;
+            table.set("mode", 0)?;
             let prop = lua.create_function(move |_, key: String| {
                 let prop_provider: &dyn PropProvider = unsafe { trafficker.get() };
                 let prop_value = prop_provider.get_prop_value(&key);
@@ -61,11 +59,11 @@ impl<'lua> LuaFeedbackScript<'lua> {
             table.set("prop", prop)?;
             table
         };
-        self.env.raw_set("context", context_table)?;
+        self.env.raw_set(self.context_key.clone(), context_table)?;
         // Invoke script
         let value: Value = self.function.call(())?;
         // Process return value
-        let output: LuaScriptOutput = self.lua.as_ref().from_value(value)?;
+        let output: LuaScriptFeedbackOutput = self.lua.as_ref().from_value(value)?;
         let feedback_value = match output.feedback_event {
             None => FeedbackValue::Off,
             Some(e) => e.into_api_feedback_value(),
@@ -102,47 +100,31 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
             .map_err(|e| e.to_string().into())
     }
 
-    fn used_props(&self) -> Vec<String> {
-        todo!()
+    fn used_props(&self) -> Result<Vec<String>, Box<dyn Error>> {
+        let lua = self.lua.as_ref();
+        // Build input data
+        let context_table = {
+            let table = lua.create_table()?;
+            table.set("mode", 1)?;
+            table
+        };
+        self.env.raw_set(self.context_key.clone(), context_table)?;
+        // Invoke script
+        let value: Value = self.function.call(())?;
+        // Process return value
+        let output: LuaScriptUsedPropsOutput = self.lua.as_ref().from_value(value)?;
+        Ok(output.used_props)
     }
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-struct LuaScriptOutput {
+struct LuaScriptFeedbackOutput {
     feedback_event: Option<ScriptFeedbackEvent>,
 }
 
-/// This utility provides a way to pass a trait object reference that is neither `Send` nor
-/// `'static` into functions that require these traits.
-///
-/// Dangerous stuff and rarely necessary! You go down to C level with this.
-struct Trafficker {
-    thin_ptr: *const c_void,
-}
-
-unsafe impl Send for Trafficker {}
-
-impl Trafficker {
-    /// Put a reference to a trait object reference in here (`&&dyn ...`).
-    ///
-    /// We need a reference to a reference here because
-    pub fn new<T: Copy>(thin_ref: &T) -> Self {
-        let thin_ptr = thin_ref as *const _ as *const c_void;
-        Self { thin_ptr }
-    }
-
-    /// Get it out again.
-    ///
-    /// Make sure you use the same type as in `new`! We can't make `T` a type parameter of the
-    /// struct because otherwise the borrow checker would complain that things go out of scope.
-    ///
-    /// # Safety
-    ///
-    /// If you don't provide the proper type or the reference passed to `new` went out of scope,
-    /// things crash horribly.
-    pub unsafe fn get<T: Copy>(&self) -> T {
-        *(self.thin_ptr as *const T)
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct LuaScriptUsedPropsOutput {
+    used_props: Vec<String>,
 }
 
 #[cfg(test)]
@@ -152,6 +134,31 @@ mod tests {
         AbsoluteValue, FeedbackStyle, NumericFeedbackValue, PropValue, RgbColor,
         TextualFeedbackValue, UnitValue,
     };
+
+    #[test]
+    fn used_props() {
+        // Given
+        let text = r#"
+            if context.mode == 0 then
+                return {
+                    feedback_event = nil
+                }
+            else
+                return {
+                    used_props = {
+                        "hello",
+                        "bye",
+                    },
+                }
+            end
+        "#;
+        let lua = SafeLua::new().unwrap();
+        let script = LuaFeedbackScript::compile(&lua, text).unwrap();
+        // When
+        let used_props = script.used_props().unwrap();
+        // Then
+        assert_eq!(used_props, vec!["hello".to_string(), "bye".to_string()]);
+    }
 
     #[test]
     fn off_feedback() {

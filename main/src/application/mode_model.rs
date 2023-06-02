@@ -1,5 +1,4 @@
 use crate::domain::{BackboneState, EelTransformation, LuaFeedbackScript, Mode};
-use std::error::Error;
 
 use helgoboss_learn::{
     check_mode_applicability, create_unit_value_interval, full_discrete_interval,

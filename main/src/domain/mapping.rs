@@ -19,8 +19,8 @@ use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
     ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropProvider, PropValue,
-    RawMidiEvent, SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
+    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
+    SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
