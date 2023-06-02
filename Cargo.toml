@@ -31,7 +31,7 @@ realearn-api = { path = "api" }
 realearn-macros = { path = "macros" }
 playtime-api = { path = "playtime-api" }
 realearn-csi = { path = "csi" }
-helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
+helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["reaper-low"] }
 helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
 
 # 3rd-party
