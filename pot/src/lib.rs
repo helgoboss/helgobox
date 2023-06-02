@@ -886,6 +886,11 @@ impl RuntimePotUnit {
         self.runtime_state.preset_id
     }
 
+    pub fn find_currently_selected_preset(&self) -> Option<Preset> {
+        let preset_id = self.runtime_state.preset_id?;
+        pot_db().find_preset_by_id(preset_id)
+    }
+
     pub fn set_preset_id(&mut self, id: Option<PresetId>) {
         self.runtime_state.preset_id = id;
         self.integration.notify_preset_changed(id);

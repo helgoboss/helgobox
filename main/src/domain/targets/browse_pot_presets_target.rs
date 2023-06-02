@@ -1,15 +1,16 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, InstanceStateChanged, MappingControlContext,
-    PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_unit_to_discrete_value_with_none, get_preset_property, Compartment,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use base::{blocking_lock, blocking_lock_arc};
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, PropValue, Target, UnitValue,
 };
-use pot::{pot_db, PresetId, RuntimePotUnit};
+use pot::{Preset, PresetId, RuntimePotUnit};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -152,27 +153,23 @@ impl RealearnTarget for BrowsePotPresetsTarget {
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
-        let mut instance_state = context.instance_state.borrow_mut();
-        let pot_unit = instance_state.pot_unit().ok()?;
-        let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 4");
-        let preset_id = match self.current_preset_id(&pot_unit) {
-            None => return Some("<None>".into()),
-            Some(id) => id,
-        };
-        let preset = match pot_db().find_preset_by_id(preset_id) {
-            None => return Some("<Not found>".into()),
-            Some(p) => p,
-        };
-        Some(preset.common.name.into())
+        if let PropValue::Text(text) = self.prop_value("preset.name", context)? {
+            Some(text)
+        } else {
+            None
+        }
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 5");
-        let preset_id = self.current_preset_id(&pot_unit)?;
-        let preset_index = self.find_index_of_preset(&pot_unit, preset_id)?;
+        let preset_index = pot_unit.find_index_of_preset(pot_unit.preset_id()?)?;
         Some(NumericValue::Discrete(preset_index as i32 + 1))
+    }
+
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
+        self.with_selected_preset(context, |p| get_preset_property(p?, key))
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -187,7 +184,7 @@ impl<'a> Target<'a> for BrowsePotPresetsTarget {
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 6");
-        let preset_id = self.current_preset_id(&pot_unit);
+        let preset_id = pot_unit.preset_id();
         Some(self.convert_preset_id_to_absolute_value(&pot_unit, preset_id))
     }
 
@@ -202,7 +199,7 @@ impl BrowsePotPresetsTarget {
         pot_unit: &RuntimePotUnit,
         preset_id: Option<PresetId>,
     ) -> AbsoluteValue {
-        let preset_index = preset_id.and_then(|id| self.find_index_of_preset(pot_unit, id));
+        let preset_index = preset_id.and_then(|id| pot_unit.find_index_of_preset(id));
         let actual = match preset_index {
             None => 0,
             Some(i) => i + 1,
@@ -223,12 +220,19 @@ impl BrowsePotPresetsTarget {
         convert_unit_to_discrete_value_with_none(value, self.preset_count(pot_unit))
     }
 
-    fn current_preset_id(&self, pot_unit: &RuntimePotUnit) -> Option<PresetId> {
-        pot_unit.preset_id()
-    }
-
-    fn find_index_of_preset(&self, pot_unit: &RuntimePotUnit, id: PresetId) -> Option<u32> {
-        pot_unit.find_index_of_preset(id)
+    fn with_selected_preset<R>(
+        &self,
+        context: ControlContext,
+        f: impl FnOnce(Option<&Preset>) -> R,
+    ) -> R {
+        let mut instance_state = context.instance_state.borrow_mut();
+        if let Ok(pot_unit) = instance_state.pot_unit() {
+            let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotPresetsTarget 4");
+            let preset = pot_unit.find_currently_selected_preset();
+            f(preset.as_ref())
+        } else {
+            f(None)
+        }
     }
 }
 

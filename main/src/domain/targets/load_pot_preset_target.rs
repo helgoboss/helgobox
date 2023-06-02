@@ -1,13 +1,14 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use pot::{pot_db, Destination, LoadPresetOptions, PresetId, RuntimePotUnit};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
+use pot::{pot_db, Destination, LoadPresetOptions, Preset};
 use reaper_high::{Fx, Project, Track};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadPotPresetTarget {
@@ -58,10 +59,8 @@ impl RealearnTarget for LoadPotPresetTarget {
         }
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
-        let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 3");
-        let preset_id = self
-            .current_preset_id(&pot_unit)
-            .ok_or("no preset selected")?;
+        let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 3");
+        let preset_id = pot_unit.preset_id().ok_or("no preset selected")?;
         let preset = pot_db()
             .find_preset_by_id(preset_id)
             .ok_or("preset not found")?;
@@ -85,7 +84,7 @@ impl RealearnTarget for LoadPotPresetTarget {
             Err(_) => return false,
         };
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 1");
-        self.current_preset_id(&pot_unit).is_some() && self.fx.is_available()
+        pot_unit.preset_id().is_some() && self.fx.is_available()
     }
 
     fn project(&self) -> Option<Project> {
@@ -107,6 +106,18 @@ impl RealearnTarget for LoadPotPresetTarget {
     fn can_report_current_value(&self) -> bool {
         false
     }
+
+    fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
+        self.with_loaded_preset(|p| get_preset_property(p?, key))
+    }
+
+    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+        if let PropValue::Text(text) = self.prop_value("preset.name", context)? {
+            Some(text)
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> Target<'a> for LoadPotPresetTarget {
@@ -122,8 +133,14 @@ impl<'a> Target<'a> for LoadPotPresetTarget {
 }
 
 impl LoadPotPresetTarget {
-    fn current_preset_id(&self, pot_unit: &RuntimePotUnit) -> Option<PresetId> {
-        pot_unit.preset_id()
+    fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&Preset>) -> R) -> R {
+        match BackboneState::target_state()
+            .borrow()
+            .current_fx_preset(&self.fx)
+        {
+            None => f(None),
+            Some(p) => f(Some(&p.preset)),
+        }
     }
 }
 
@@ -135,3 +152,16 @@ pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
     supports_fx: true,
     ..DEFAULT_TARGET
 };
+
+pub fn get_preset_property(p: &Preset, key: &str) -> Option<PropValue> {
+    let value = match key {
+        "preset.name" => p.common.name.clone().into(),
+        "preset.product.name" => p.common.product_name.as_ref()?.clone().into(),
+        "preset.file_ext" => p.kind.file_extension()?.to_string().into(),
+        "preset.author" => p.common.metadata.author.as_ref()?.clone().into(),
+        "preset.vendor" => p.common.metadata.vendor.as_ref()?.clone().into(),
+        "preset.comment" => p.common.metadata.comment.as_ref()?.clone().into(),
+        _ => return None,
+    };
+    Some(value)
+}
