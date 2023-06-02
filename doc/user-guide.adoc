@@ -3767,7 +3767,7 @@ TIP: If you want to control _other_ mappings only and not _this_ mapping, just p
 
 Determines whether to send numeric or textual feedback to the source.
 
-* *Numeric feedback: Transformation (EEL):* Sends numeric feedback to the source. This is the default. The text field below allows you to specify an optional feedback transformation formula, which is much like <<control-transformation>> but used for translating a target value back to a source value for feedback purposes. Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this since version 2:
+* *Numeric feedback: EEL transformation:* Sends numeric feedback to the source. This is the default. The text field below allows you to specify an optional feedback transformation formula, which is much like <<control-transformation>> but used for translating a target value back to a source value for feedback purposes. Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this since version 2:
 .. Apply target interval.
 .. Apply reverse.
 .. Apply transformation.

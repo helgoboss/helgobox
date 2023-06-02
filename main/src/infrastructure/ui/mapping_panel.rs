@@ -74,10 +74,11 @@ use crate::infrastructure::ui::util::{
 };
 use crate::infrastructure::ui::{
     menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
-    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaMidiScriptEngine, MainPanel,
-    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
-    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TargetFilterPanel,
-    TextualFeedbackExpressionEngine, YamlEditorPanel, CONTROL_TRANSFORMATION_TEMPLATES,
+    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaFeedbackScriptEngine,
+    LuaMidiScriptEngine, MainPanel, MappingHeaderPanel, MappingRowsPanel,
+    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
+    SimpleScriptEditorPanel, TargetFilterPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    CONTROL_TRANSFORMATION_TEMPLATES,
 };
 use base::Global;
 
@@ -798,7 +799,7 @@ impl MappingPanel {
         )?;
         match result {
             FeedbackPopupMenuResult::EditMultiLine => {
-                self.edit_feedback_transformation_or_text_expression();
+                self.edit_feedback_descriptor();
             }
             FeedbackPopupMenuResult::ChangeColor(instruction) => {
                 let cmd = match instruction.target {
@@ -1073,12 +1074,13 @@ impl MappingPanel {
         self.edit_script_in_simple_editor(engine, help_url, get_value, set_value);
     }
 
-    fn edit_feedback_transformation_or_text_expression(&self) {
+    fn edit_feedback_descriptor(&self) {
         let mapping = self.mapping();
         let feedback_type = mapping.borrow().mode_model.feedback_type();
         match feedback_type {
-            FeedbackType::Numerical => self.edit_feedback_transformation(),
-            FeedbackType::Textual => self.edit_textual_feedback_expression(),
+            FeedbackType::Numeric => self.edit_feedback_transformation(),
+            FeedbackType::Text => self.edit_textual_feedback_expression(),
+            FeedbackType::Dynamic => self.edit_lua_feedback_script(),
         }
     }
 
@@ -1103,6 +1105,23 @@ impl MappingPanel {
         let session = self.session.clone();
         self.edit_script_in_simple_editor(
             Box::new(TextualFeedbackExpressionEngine),
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            |m| m.mode_model.textual_feedback_expression().to_owned(),
+            move |m, eel| {
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    m,
+                    MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
+                    None,
+                );
+            },
+        );
+    }
+
+    fn edit_lua_feedback_script(&self) {
+        let session = self.session.clone();
+        self.edit_script_in_simple_editor(
+            Box::new(LuaFeedbackScriptEngine::new()),
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {

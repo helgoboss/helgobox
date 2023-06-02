@@ -41,14 +41,19 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         }
         match g.feedback.unwrap_or_default() {
             Numeric(fb) => FbData {
-                feedback_type: T::Numerical,
+                feedback_type: T::Numeric,
                 commons: convert_fb_commons(fb.commons),
                 transformation: fb.transformation.unwrap_or_default(),
             },
             Text(fb) => FbData {
-                feedback_type: T::Textual,
+                feedback_type: T::Text,
                 commons: convert_fb_commons(fb.commons),
                 transformation: fb.text_expression.unwrap_or_default(),
+            },
+            Dynamic(fb) => FbData {
+                feedback_type: T::Dynamic,
+                commons: convert_fb_commons(fb.commons),
+                transformation: fb.script.unwrap_or_default(),
             },
         }
     };

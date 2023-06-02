@@ -28,8 +28,14 @@ pub use eel_transformation::*;
 mod eel_midi_source_script;
 pub use eel_midi_source_script::*;
 
+mod lua_script_commons;
+pub use lua_script_commons::*;
+
 mod lua_midi_source_script;
 pub use lua_midi_source_script::*;
+
+mod lua_feedback_script;
+pub use lua_feedback_script::*;
 
 mod flexible_midi_source_script;
 pub use flexible_midi_source_script::*;

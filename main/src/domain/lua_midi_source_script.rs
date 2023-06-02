@@ -1,4 +1,4 @@
-use crate::domain::SafeLua;
+use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent, RgbColor,
@@ -41,29 +41,6 @@ struct ScriptContext {
     feedback_event: ScriptFeedbackEvent,
 }
 
-#[derive(serde::Serialize)]
-struct ScriptFeedbackEvent {
-    color: Option<ScriptColor>,
-    background_color: Option<ScriptColor>,
-}
-
-#[derive(serde::Serialize)]
-struct ScriptColor {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl From<RgbColor> for ScriptColor {
-    fn from(c: RgbColor) -> Self {
-        Self {
-            r: c.r(),
-            g: c.g(),
-            b: c.b(),
-        }
-    }
-}
-
 impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
     fn execute(
         &self,
@@ -75,6 +52,8 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         // Build input data
         let context = ScriptContext {
             feedback_event: ScriptFeedbackEvent {
+                // TODO-high CONTINUE
+                value: None,
                 color: input_value.color().map(ScriptColor::from),
                 background_color: input_value.background_color().map(ScriptColor::from),
             },

@@ -1,11 +1,12 @@
-use crate::domain::{EelTransformation, Mode};
+use crate::domain::{BackboneState, EelTransformation, LuaFeedbackScript, Mode};
+use std::error::Error;
 
 use helgoboss_learn::{
     check_mode_applicability, create_unit_value_interval, full_discrete_interval,
     full_unit_interval, AbsoluteMode, ButtonUsage, DetailedSourceCharacter, DiscreteIncrement,
-    EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval, ModeApplicabilityCheckInput,
-    ModeParameter, ModeSettings, OutOfRangeBehavior, TakeoverMode, UnitValue, ValueSequence,
-    VirtualColor,
+    EncoderUsage, FeedbackProcessor, FeedbackType, FireMode, GroupInteraction, Interval,
+    ModeApplicabilityCheckInput, ModeParameter, ModeSettings, OutOfRangeBehavior, TakeoverMode,
+    UnitValue, ValueSequence, VirtualColor,
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
@@ -636,11 +637,20 @@ impl ModeModel {
             } else {
                 Default::default()
             },
-            feedback_type: self.feedback_type,
-            textual_feedback_expression: if is_relevant(ModeParameter::TextualFeedbackExpression) {
-                self.textual_feedback_expression.to_owned()
-            } else {
-                String::new()
+            feedback_processor: match self.feedback_type {
+                FeedbackType::Numeric => FeedbackProcessor::Numeric,
+                FeedbackType::Text => FeedbackProcessor::Text {
+                    expression: self.textual_feedback_expression.to_owned(),
+                },
+                FeedbackType::Dynamic => {
+                    let lua = unsafe { BackboneState::main_thread_lua() };
+                    match LuaFeedbackScript::compile(lua, &self.textual_feedback_expression) {
+                        Ok(script) => FeedbackProcessor::Dynamic { script },
+                        Err(_) => FeedbackProcessor::Text {
+                            expression: " ".to_string(),
+                        },
+                    }
+                }
             },
             feedback_color: self.feedback_color.clone(),
             feedback_background_color: self.feedback_background_color.clone(),

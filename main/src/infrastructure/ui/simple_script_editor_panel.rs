@@ -1,14 +1,14 @@
 use crate::domain::{
-    AdditionalTransformationInput, EelMidiSourceScript, EelTransformation, LuaMidiSourceScript,
-    SafeLua, Script,
+    AdditionalTransformationInput, EelMidiSourceScript, EelTransformation, LuaFeedbackScript,
+    LuaMidiSourceScript, SafeLua, Script,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::ID_YAML_HELP_BUTTON;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;
 use helgoboss_learn::{
-    AbsoluteValue, FeedbackStyle, FeedbackValue, MidiSourceScript, NumericFeedbackValue,
-    RawMidiEvent, RawMidiPattern, UnitValue,
+    AbsoluteValue, FeedbackScript, FeedbackScriptInput, FeedbackStyle, FeedbackValue,
+    MidiSourceScript, NumericFeedbackValue, RawMidiEvent, RawMidiPattern, UnitValue,
 };
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -31,6 +31,45 @@ impl LuaMidiScriptEngine {
         Self {
             lua: SafeLua::new().unwrap(),
         }
+    }
+}
+
+impl ScriptEngine for LuaMidiScriptEngine {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        let script = LuaMidiSourceScript::compile(&self.lua, code)?;
+        script.execute(create_midi_script_test_feedback_value())?;
+        Ok(Box::new(()))
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".lua"
+    }
+}
+
+pub struct LuaFeedbackScriptEngine {
+    lua: SafeLua,
+}
+
+impl LuaFeedbackScriptEngine {
+    pub fn new() -> Self {
+        Self {
+            lua: SafeLua::new().unwrap(),
+        }
+    }
+}
+
+impl ScriptEngine for LuaFeedbackScriptEngine {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        let script = LuaFeedbackScript::compile(&self.lua, code)?;
+        let test_input = FeedbackScriptInput {
+            get_prop_value: &|_| None,
+        };
+        script.feedback(test_input)?;
+        Ok(Box::new(()))
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".lua"
     }
 }
 
@@ -145,18 +184,6 @@ fn create_midi_script_test_feedback_value() -> FeedbackValue<'static> {
         FeedbackStyle::default(),
         AbsoluteValue::Continuous(UnitValue::new(0.0)),
     ))
-}
-
-impl ScriptEngine for LuaMidiScriptEngine {
-    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
-        let script = LuaMidiSourceScript::compile(&self.lua, code)?;
-        script.execute(create_midi_script_test_feedback_value())?;
-        Ok(Box::new(()))
-    }
-
-    fn file_extension(&self) -> &'static str {
-        ".lua"
-    }
 }
 
 pub struct ScriptEditorInput<A> {

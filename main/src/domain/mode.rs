@@ -1,3 +1,4 @@
-use crate::domain::{ControlEventTimestamp, EelTransformation};
+use crate::domain::{ControlEventTimestamp, EelTransformation, LuaFeedbackScript};
 
-pub type Mode = helgoboss_learn::Mode<EelTransformation, ControlEventTimestamp>;
+pub type Mode =
+    helgoboss_learn::Mode<EelTransformation, LuaFeedbackScript<'static>, ControlEventTimestamp>;

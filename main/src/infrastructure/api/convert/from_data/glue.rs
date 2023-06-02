@@ -6,7 +6,7 @@ use helgoboss_learn::{
     GroupInteraction, OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
 use realearn_api::persistence;
-use realearn_api::persistence::{NumericFeedback, PropColor, TextFeedback};
+use realearn_api::persistence::{DynamicFeedback, NumericFeedback, PropColor, TextFeedback};
 
 pub fn convert_glue(
     data: ModeModelData,
@@ -120,19 +120,26 @@ pub fn convert_glue(
             use persistence::Feedback as T;
             use FeedbackType::*;
             let v = match data.feedback_type {
-                Numerical => T::Numeric(NumericFeedback {
+                Numeric => T::Numeric(NumericFeedback {
                     commons: convert_feedback_commons(
                         data.feedback_color,
                         data.feedback_background_color,
                     )?,
                     transformation: style.required_value(data.eel_feedback_transformation),
                 }),
-                Textual => T::Text(TextFeedback {
+                Text => T::Text(TextFeedback {
                     commons: convert_feedback_commons(
                         data.feedback_color,
                         data.feedback_background_color,
                     )?,
                     text_expression: style.required_value(data.eel_feedback_transformation),
+                }),
+                Dynamic => T::Dynamic(DynamicFeedback {
+                    commons: convert_feedback_commons(
+                        data.feedback_color,
+                        data.feedback_background_color,
+                    )?,
+                    script: style.required_value(data.eel_feedback_transformation),
                 }),
             };
             style.required_value(v)

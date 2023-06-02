@@ -215,6 +215,7 @@ pub struct FeedbackCommons {
 pub enum Feedback {
     Numeric(NumericFeedback),
     Text(TextFeedback),
+    Dynamic(DynamicFeedback),
 }
 
 impl Default for Feedback {
@@ -237,6 +238,14 @@ pub struct TextFeedback {
     pub commons: FeedbackCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_expression: Option<String>,
+}
+
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+pub struct DynamicFeedback {
+    #[serde(flatten)]
+    pub commons: FeedbackCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script: Option<String>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

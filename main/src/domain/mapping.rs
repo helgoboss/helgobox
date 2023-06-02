@@ -288,7 +288,7 @@ impl MainMapping {
             .iter()
             .any(|p| prop_is_affected_by(p, evt, self, target, context));
         let (is_affected, new_value, handle_performance_mapping) =
-            if self.core.mode.wants_textual_feedback() {
+            if self.core.mode.wants_advanced_feedback() {
                 // For textual feedback only those props matter. Updating y_last is not relevant because
                 // textual feedback is feedback-only.
                 (props_are_affected, None, false)
@@ -604,7 +604,7 @@ impl MainMapping {
             .iter()
             .filter_map(|p| prop_feedback_resolution(p, self, t))
             .max();
-        if self.mode().wants_textual_feedback() {
+        if self.mode().wants_advanced_feedback() {
             // For textual feedback, we just need to look at the props.
             max_resolution_required_by_props
         } else {
@@ -1127,12 +1127,10 @@ impl MainMapping {
         //   form of feedback it sends, it just provides us with options and we can choose.
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
-        let feedback_value = if self.core.mode.wants_textual_feedback() {
-            let v = self
-                .core
+        let feedback_value = if self.core.mode.wants_advanced_feedback() {
+            self.core
                 .mode
-                .query_textual_feedback(&|key| get_prop_value(key, self, control_context));
-            FeedbackValue::Textual(v)
+                .build_feedback(&|key| get_prop_value(key, self, control_context))
         } else {
             let style = self
                 .core
