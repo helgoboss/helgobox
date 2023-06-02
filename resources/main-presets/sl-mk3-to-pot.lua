@@ -12,7 +12,10 @@ function to_ascii(text)
     local bytes = {}
     if text ~= nil then
         for i = 1, string.len(text) do
-            bytes[i] = string.byte(text, i)
+            local byte = string.byte(text, i)
+            if byte < 128 then
+                table.insert(bytes, byte)
+            end
         end
     end
     -- Null terminator
@@ -160,6 +163,7 @@ function create_browse_mappings(title, column, target)
             },
             glue = {
                 step_factor_interval = { -10, 5 },
+                wrap = true,
             },
             target = target,
         },
