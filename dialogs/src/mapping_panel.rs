@@ -466,8 +466,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         dropdown(
             ids.named_id("IDC_MODE_FEEDBACK_TYPE_COMBO_BOX"),
             context.rect(231, 306, 163, 30),
-        ) + CBS_SORT
-            + WS_TABSTOP,
+        ) + WS_TABSTOP,
         edittext(
             ids.named_id("ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL"),
             context.rect(231, 323, 179, 14),

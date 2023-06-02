@@ -689,7 +689,6 @@ pub enum Style {
     WS_CHILD,
     CBS_DROPDOWNLIST,
     CBS_HASSTRINGS,
-    CBS_SORT,
     ES_MULTILINE,
     ES_READONLY,
     ES_WANTRETURN,
