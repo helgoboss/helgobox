@@ -291,6 +291,7 @@ pub mod root {
     pub const IDC_EDIT_TAGS_BUTTON: u32 = 30234;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 30235;
     pub const ID_YAML_EDITOR_PANEL: u32 = 30241;
+    #[allow(dead_code)]
     pub const ID_YAML_TEXT_EDITOR_BUTTON: u32 = 30237;
     pub const ID_YAML_EDIT_CONTROL: u32 = 30238;
     pub const ID_YAML_HELP_BUTTON: u32 = 30239;

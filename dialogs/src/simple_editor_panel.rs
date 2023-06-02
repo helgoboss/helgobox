@@ -1,3 +1,4 @@
+use crate::base::Condition::SkipOnMacOs;
 use crate::base::*;
 
 pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
@@ -7,7 +8,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             "Open in text editor",
             ids.named_id("ID_YAML_TEXT_EDITOR_BUTTON"),
             context.rect(371, 291, 68, 14),
-        ),
+        ) + SkipOnMacOs,
         edittext(
             ids.named_id("ID_YAML_EDIT_CONTROL"),
             context.rect(0, 0, 490, 284),
