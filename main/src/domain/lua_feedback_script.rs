@@ -2,7 +2,7 @@ use crate::base::SendOrSyncWhatever;
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent, ScriptFeedbackValue};
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
-    PropValue,
+    PropProvider, PropValue,
 };
 use mlua::{Function, Lua, LuaSerdeExt, Table, ToLua, Value};
 use std::borrow::Cow;
@@ -42,21 +42,20 @@ impl<'lua> LuaFeedbackScript<'lua> {
         input: FeedbackScriptInput,
     ) -> Result<FeedbackScriptOutput, Box<dyn Error>> {
         let lua = self.lua.as_ref();
-        // We use the mlua "send" feature to make Lua instances implement Send. However, here
-        // for once we have a Rust function that is not Send, so create_function() complains.
-        // We ignore this because in our usage scenario (= async immediate execution), we don't
+        let thin_ref = &input.prop_provider;
+        // We need to use the Trafficker here because mlua requires the input to create_function()
+        // to be 'static and Send. However, here we have a Rust function that doesn't fulfill any
+        // of these requirements, so create_function() would complain. However, in this case, the
+        // requirements are unnecessarily strict. Because in our usage scenario (= synchronous
+        // immediate execution, just once), the function can't go out of scope and we also don't
         // send anything to another thread.
-        let thin_ref = &input.get_prop_value;
-        let thin_ptr = thin_ref as *const _ as *const c_void;
-        let thin_ptr_wrapper = unsafe { SendOrSyncWhatever::new(thin_ptr) };
+        let trafficker = Trafficker::new(thin_ref);
         // Build input data
         let context_table = {
             let table = lua.create_table()?;
             let prop = lua.create_function(move |_, key: String| {
-                let thin_ptr = *thin_ptr_wrapper.get();
-                let thin_ref = unsafe { &*(thin_ptr as *const &dyn Fn(&str) -> Option<PropValue>) };
-                let get_prop_value = *thin_ref;
-                let prop_value = (get_prop_value)(&key);
+                let prop_provider: &dyn PropProvider = unsafe { trafficker.get() };
+                let prop_value = prop_provider.get_prop_value(&key);
                 Ok(prop_value.map(LuaPropValue))
             })?;
             table.set("prop", prop)?;
@@ -113,24 +112,35 @@ struct LuaScriptOutput {
     feedback_event: Option<ScriptFeedbackEvent>,
 }
 
-struct Trafficker<T> {
+/// This utility provides a way to pass a trait object reference that is neither `Send` nor
+/// `'static` into functions that require these traits.
+///
+/// Dangerous stuff and rarely necessary! You go down to C level with this.
+struct Trafficker {
     thin_ptr: *const c_void,
-    _p: PhantomData<T>,
 }
 
-unsafe impl<T> Send for Trafficker<T> {}
+unsafe impl Send for Trafficker {}
 
-impl<T: Copy> Trafficker<T> {
-    pub fn new(val: T) -> Self {
-        let thin_ref = &val;
+impl Trafficker {
+    /// Put a reference to a trait object reference in here (`&&dyn ...`).
+    ///
+    /// We need a reference to a reference here because
+    pub fn new<T: Copy>(thin_ref: &T) -> Self {
         let thin_ptr = thin_ref as *const _ as *const c_void;
-        Self {
-            thin_ptr,
-            _p: Default::default(),
-        }
+        Self { thin_ptr }
     }
 
-    pub unsafe fn get_ref(&self) -> T {
+    /// Get it out again.
+    ///
+    /// Make sure you use the same type as in `new`! We can't make `T` a type parameter of the
+    /// struct because otherwise the borrow checker would complain that things go out of scope.
+    ///
+    /// # Safety
+    ///
+    /// If you don't provide the proper type or the reference passed to `new` went out of scope,
+    /// things crash horribly.
+    pub unsafe fn get<T: Copy>(&self) -> T {
         *(self.thin_ptr as *const T)
     }
 }
@@ -155,7 +165,7 @@ mod tests {
         let script = LuaFeedbackScript::compile(&lua, text).unwrap();
         // When
         let input = FeedbackScriptInput {
-            get_prop_value: &|_| None,
+            prop_provider: &|_: &str| None,
         };
         let output = script.feedback(input).unwrap();
         // Then
@@ -177,7 +187,7 @@ mod tests {
         let script = LuaFeedbackScript::compile(&lua, text).unwrap();
         // When
         let input = FeedbackScriptInput {
-            get_prop_value: &|_| None,
+            prop_provider: &|_: &str| None,
         };
         let output = script.feedback(input).unwrap();
         // Then
@@ -207,7 +217,7 @@ mod tests {
         let script = LuaFeedbackScript::compile(&lua, text).unwrap();
         // When
         let input = FeedbackScriptInput {
-            get_prop_value: &|_| None,
+            prop_provider: &|_: &str| None,
         };
         let output = script.feedback(input).unwrap();
         // Then
@@ -234,7 +244,7 @@ mod tests {
         let script = LuaFeedbackScript::compile(&lua, text).unwrap();
         // When
         let input = FeedbackScriptInput {
-            get_prop_value: &|key| match key {
+            prop_provider: &|key: &str| match key {
                 "name" => Some(PropValue::Text("hello".into())),
                 _ => None,
             },

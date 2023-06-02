@@ -4,7 +4,7 @@ use crate::domain::{
     UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{PropValue, Target};
+use helgoboss_learn::{PropProvider, PropValue, Target};
 use realearn_api::persistence::TrackScope;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
@@ -54,20 +54,31 @@ pub fn prop_is_affected_by(
     }
 }
 
-pub fn get_prop_value(
-    key: &str,
-    mapping: &MainMapping,
-    control_context: ControlContext,
-) -> Option<PropValue> {
-    match key.parse::<Props>().ok() {
-        Some(props) => props.get_value(mapping, mapping.targets().first(), control_context),
-        None => {
-            if let (Some(key), Some(target)) =
-                (key.strip_prefix("target."), mapping.targets().first())
-            {
-                target.prop_value(key, control_context)
-            } else {
-                None
+pub struct MappingPropProvider<'a> {
+    mapping: &'a MainMapping,
+    context: ControlContext<'a>,
+}
+
+impl<'a> MappingPropProvider<'a> {
+    pub fn new(mapping: &'a MainMapping, context: ControlContext<'a>) -> Self {
+        Self { mapping, context }
+    }
+}
+
+impl<'a> PropProvider for MappingPropProvider<'a> {
+    fn get_prop_value(&self, key: &str) -> Option<PropValue> {
+        match key.parse::<Props>().ok() {
+            Some(props) => {
+                props.get_value(self.mapping, self.mapping.targets().first(), self.context)
+            }
+            None => {
+                if let (Some(key), Some(target)) =
+                    (key.strip_prefix("target."), self.mapping.targets().first())
+                {
+                    target.prop_value(key, self.context)
+                } else {
+                    None
+                }
             }
         }
     }

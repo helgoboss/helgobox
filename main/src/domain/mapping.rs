@@ -1,15 +1,15 @@
 use crate::domain::{
-    get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
-    ActivationCondition, BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent,
-    ControlContext, ControlEvent, ControlEventTimestamp, ControlOptions, ExtendedProcessorContext,
-    FeedbackResolution, GroupId, HitResponse, KeyMessage, KeySource, MappingActivationEffect,
-    MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
-    MidiSource, Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState,
-    PluginParamIndex, PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget,
-    RealTimeTargetUpdate, RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
-    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    prop_feedback_resolution, prop_is_affected_by, ActivationChange, ActivationCondition,
+    BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
+    ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
+    HitResponse, KeyMessage, KeySource, MappingActivationEffect, MappingControlContext,
+    MappingData, MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource,
+    Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
+    PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
+    RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget, ReaperMessage,
+    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
+    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
+    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -19,8 +19,8 @@ use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
     ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
-    SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
+    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropProvider, PropValue,
+    RawMidiEvent, SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -1127,15 +1127,11 @@ impl MainMapping {
         //   form of feedback it sends, it just provides us with options and we can choose.
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
+        let prop_provider = MappingPropProvider::new(self, control_context);
         let feedback_value = if self.core.mode.wants_advanced_feedback() {
-            self.core
-                .mode
-                .build_feedback(&|key| get_prop_value(key, self, control_context))
+            self.core.mode.build_feedback(&prop_provider)
         } else {
-            let style = self
-                .core
-                .mode
-                .feedback_style(&|key| get_prop_value(key, self, control_context));
+            let style = self.core.mode.feedback_style(&prop_provider);
             FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
         };
         let source_feedback_is_okay = if self.core.options.feedback_send_behavior

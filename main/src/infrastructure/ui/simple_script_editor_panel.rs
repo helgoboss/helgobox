@@ -62,7 +62,7 @@ impl ScriptEngine for LuaFeedbackScriptEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let script = LuaFeedbackScript::compile(&self.lua, code)?;
         let test_input = FeedbackScriptInput {
-            get_prop_value: &|_| None,
+            prop_provider: &|_: &str| None,
         };
         script.feedback(test_input)?;
         Ok(Box::new(()))
