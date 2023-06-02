@@ -179,6 +179,7 @@ local column = ]] .. column .. [[
 local label = y and y.label or ""
 local name_1 = y and string.sub(y.name, 1, 9) or ""
 local name_2 = y and string.sub(y.name, 10, 18) or ""
+local name_3 = y and string.sub(y.name, 19, 27) or ""
 local color = y and white or black
 return {
     address = column,
@@ -189,11 +190,13 @@ return {
             create_value_prop_change(column, 0, 1),
             -- Header
             create_text_prop_change(column, 0, label),
-            -- Empty line
+            -- Empty lines
             create_text_prop_change(column, 1, ""),
+            create_text_prop_change(column, 2, ""),
             -- Name
-            create_text_prop_change(column, 2, name_1),
-            create_text_prop_change(column, 3, name_2),
+            create_text_prop_change(column, 3, name_1),
+            create_text_prop_change(column, 4, name_2),
+            create_text_prop_change(column, 5, name_3),
         }),
     }
 } ]],
@@ -569,8 +572,22 @@ return {
         },
         glue = {
             feedback = {
-                kind = "Text",
-                text_expression = "Bank: {{ target.text_value }}",
+                kind = "Dynamic",
+                script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.text_value",
+        }
+    }
+else
+    local bank = context.prop("target.text_value")
+    return {
+        feedback_event = {
+            value = "Bank: " .. (bank + 1)
+        },
+    }
+end]],
             },
         },
         target = {
