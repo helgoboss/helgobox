@@ -5,8 +5,8 @@ local color_two = { r = 0x79, g = 0x55, b = 0x48 }
 local color_three = { r = 0xff, g = 0x57, b = 0x22 }
 local color_four = { r = 0xff, g = 0xeb, b = 0x3b }
 local color_five = { r = 0x4c, g = 0xaf, b = 0x50 }
-local preview_action_color = { r = 0xff, g = 0xeb, b = 0x3b }
-local load_action_color = { r = 0xf4, g = 0x43, b = 0x36 }
+local preview_action_color = { r = 0x30, g = 0x4f, b = 0xfe }
+local load_action_color = { r = 0xb7, g = 0x1c, b = 0x1c }
 local reusable_lua_code = [[
 -- ## Constants ##
 
@@ -245,6 +245,7 @@ local name_1 = y and string.sub(y.name, 1, 9) or ""
 local name_2 = y and string.sub(y.name, 10, 18) or ""
 local name_3 = y and string.sub(y.name, 19, 27) or ""
 local color = y and (context.feedback_event.color or white) or black
+local action_color = y and (action and action.color or nil) or black
 return {
     address = column,
     messages = {
@@ -258,7 +259,7 @@ return {
             create_text_prop_change(column, 2, name_1),
             create_text_prop_change(column, 3, name_2),
             -- Footer
-            create_rgb_color_prop_change(column, 2, action and action.color or black),
+            create_rgb_color_prop_change(column, 2, action_color),
             create_value_prop_change(column, 2, 0),
             create_text_prop_change(column, 4, ""),
             create_text_prop_change(column, 5, action and action.name or ""),
@@ -771,14 +772,14 @@ concat_table(
 )
 concat_table(
         mappings,
-        create_browse_mappings("Category", 4, color_three, nil, {
+        create_browse_mappings("Type", 4, color_three, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Category",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("->", 5, color_three, nil, {
+        create_browse_mappings("Sub type", 5, color_three, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubCategory",
         })
