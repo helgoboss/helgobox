@@ -212,7 +212,7 @@ end
 function create_browse_mappings(title, column, color, action, target)
     local human_column = column + 1
     local color_string = serialize_table(color)
-    return {
+    local mappings = {
         {
             name = "Encoder " .. human_column .. " - Browse products",
             group = "browse-columns",
@@ -294,6 +294,53 @@ end]],
             target = target,
         }
     }
+    if action ~= nil then
+        local control_action_mapping = {
+            name = action.name .. " (control)",
+            group = "browse-actions",
+            feedback_enabled = false,
+            source = {
+                kind = "MidiControlChangeValue",
+                channel = 15,
+                controller_number = 51 + action.column,
+                character = "Button",
+                fourteen_bit = false,
+            },
+            glue = {
+                step_size_interval = { 0.01, 0.05 },
+                button_filter = "PressOnly",
+            },
+            target = action.target,
+        }
+        local feedback_action_mapping = {
+            name = action.name .. " (feedback)",
+            group = "browse-actions",
+            control_enabled = false,
+            source = {
+                kind = "MidiScript",
+                script_kind = "lua",
+                script = reusable_lua_code .. [[
+local column = ]] .. action.column .. [[
+
+local color = y and ]] .. serialize_table(action.color) .. [[ or nil
+
+local led_index = 4 + column
+return {
+    address = led_address_offset + led_index,
+    messages = {
+        create_led_msg(led_index, 1, color),
+    }
+}
+]],
+            },
+            target = {
+                kind = "Dummy",
+            },
+        }
+        table.insert(mappings, control_action_mapping)
+        table.insert(mappings, feedback_action_mapping)
+    end
+    return mappings
 end
 
 -- ## Code ##
@@ -665,108 +712,34 @@ end]],
             },
         },
     },
-    {
-        name = "Preview preset",
-        group = "browse-actions",
-        feedback_enabled = false,
-        source = {
-            kind = "MidiControlChangeValue",
-            channel = 15,
-            controller_number = 57,
-            character = "Button",
-            fourteen_bit = false,
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            button_filter = "PressOnly",
-        },
-        target = {
-            kind = "PreviewPotPreset",
-        },
-    },
-    {
-        name = "Preview preset feedback",
-        group = "browse-actions",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = 6
-local led_index = 4 + column
-local color = y and ]] .. serialize_table(preview_action_color) .. [[ or nil
-
-return {
-    address = led_address_offset + led_index,
-    messages = {
-        create_led_msg(led_index, 1, color),
-    }
-}
-]],
-        },
-        target = {
-            kind = "Dummy",
-        },
-    },
-    {
-        name = "Load preset",
-        group = "browse-actions",
-        feedback_enabled = false,
-        source = {
-            kind = "MidiControlChangeValue",
-            channel = 15,
-            controller_number = 58,
-            character = "Button",
-            fourteen_bit = false,
-        },
-        glue = {
-            step_size_interval = { 0.01, 0.05 },
-            button_filter = "PressOnly",
-        },
-        target = {
-            kind = "LoadPotPreset",
-            fx = {
-                address = "ByIndex",
-                chain = {
-                    address = "Track",
-                    track = {
-                        address = "Selected",
-                    },
-                },
-                index = 0,
-            },
-        },
-    },
-    {
-        name = "Load preset feedback",
-        group = "browse-actions",
-        control_enabled = false,
-        source = {
-            kind = "MidiControlChangeValue",
-            channel = 15,
-            controller_number = 58,
-            character = "Button",
-            fourteen_bit = false,
-        },
-        glue = {
-            source_interval = { 0.45, 1 },
-            step_size_interval = { 0.01, 0.05 },
-            button_filter = "PressOnly",
-        },
-        target = {
-            kind = "Dummy",
-        },
-    },
 }
 
 -- One browser per column
 local preview_action = {
     name = "Preview",
     color = preview_action_color,
+    column = 6,
+    target = {
+        kind = "PreviewPotPreset",
+    },
 }
 local load_action = {
     name = "Load",
     color = load_action_color,
+    column = 7,
+    target = {
+        kind = "LoadPotPreset",
+        fx = {
+            address = "ByIndex",
+            chain = {
+                address = "Track",
+                track = {
+                    address = "Selected",
+                },
+            },
+            index = 0,
+        },
+    },
 }
 concat_table(
         mappings,
