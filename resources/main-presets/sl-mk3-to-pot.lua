@@ -141,6 +141,28 @@ end
 ]]
 
 -- ## Functions ##
+function serialize_table(val, name, skipnewlines, depth)
+    skipnewlines = skipnewlines or false
+    depth = depth or 0
+    local tmp = string.rep(" ", depth)
+    if name then tmp = tmp .. name .. " = " end
+    if type(val) == "table" then
+        tmp = tmp .. "{" .. (not skipnewlines and "\n" or "")
+        for k, v in pairs(val) do
+            tmp =  tmp .. serialize_table(v, k, skipnewlines, depth + 1) .. "," .. (not skipnewlines and "\n" or "")
+        end
+        tmp = tmp .. string.rep(" ", depth) .. "}"
+    elseif type(val) == "number" then
+        tmp = tmp .. tostring(val)
+    elseif type(val) == "string" then
+        tmp = tmp .. string.format("%q", val)
+    elseif type(val) == "boolean" then
+        tmp = tmp .. (val and "true" or "false")
+    else
+        tmp = tmp .. "\"[inserializeable datatype:" .. type(val) .. "]\""
+    end
+    return tmp
+end
 
 function concat_table(t1, t2)
     for i = 1, #t2 do
@@ -148,8 +170,9 @@ function concat_table(t1, t2)
     end
 end
 
-function create_browse_mappings(title, column, target)
+function create_browse_mappings(title, column, color, target)
     local human_column = column + 1
+    local color_string = serialize_table(color)
     return {
         {
             name = "Encoder " .. human_column .. " - Browse products",
@@ -180,7 +203,7 @@ local label = y and y.label or ""
 local name_1 = y and string.sub(y.name, 1, 9) or ""
 local name_2 = y and string.sub(y.name, 10, 18) or ""
 local name_3 = y and string.sub(y.name, 19, 27) or ""
-local color = y and white or black
+local color = y and (context.feedback_event.color or white) or black
 return {
     address = column,
     messages = {
@@ -199,7 +222,8 @@ return {
             create_text_prop_change(column, 5, name_3),
         }),
     }
-} ]],
+}
+]],
             },
             glue = {
                 feedback = {
@@ -215,6 +239,7 @@ else
     local name = context.prop("target.text_value") or "-"
     return {
         feedback_event = {
+            color = ]]..color_string..[[,
             value = {
                 label = "]]..title..[[",
                 name = name,
@@ -689,58 +714,63 @@ end]],
 }
 
 -- One browser per column
+local color_one = { r = 0x21, g = 0x96, b = 0xf3 }
+local color_two = { r = 0x79, g = 0x55, b = 0x48 }
+local color_three = { r = 0xff, g = 0x57, b = 0x22 }
+local color_four = { r = 0xff, g = 0xeb, b = 0x3b }
+local color_five = { r = 0x4c, g = 0xaf, b = 0x50 }
 concat_table(
         mappings,
-        create_browse_mappings("Database", 0, {
+        create_browse_mappings("Database", 0, color_one, {
             kind = "BrowsePotFilterItems",
             item_kind = "Database",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Kind", 1, {
+        create_browse_mappings("Kind", 1, color_one, {
             kind = "BrowsePotFilterItems",
             item_kind = "ProductKind",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Product", 2, {
+        create_browse_mappings("Product", 2, color_two, {
             kind = "BrowsePotFilterItems",
             item_kind = "Bank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Bank", 3, {
+        create_browse_mappings("Bank", 3, color_two, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubBank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Category", 4, {
+        create_browse_mappings("Category", 4, color_three, {
             kind = "BrowsePotFilterItems",
             item_kind = "Category",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("->", 5, {
+        create_browse_mappings("->", 5, color_three, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubCategory",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Character", 6, {
+        create_browse_mappings("Character", 6, color_four, {
             kind = "BrowsePotFilterItems",
             item_kind = "Mode",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Preset", 7, {
+        create_browse_mappings("Preset", 7, color_five, {
             kind = "BrowsePotPresets",
         })
 )
