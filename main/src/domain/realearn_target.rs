@@ -228,6 +228,7 @@ pub trait RealearnTarget {
         true
     }
 
+    /// Used for target "Global: Last touched" and queryable as target prop.
     fn is_available(&self, context: ControlContext) -> bool;
 
     fn project(&self) -> Option<Project> {

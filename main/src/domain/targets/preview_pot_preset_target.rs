@@ -6,7 +6,7 @@ use crate::domain::{
 use base::{blocking_lock_arc, SoundPlayer};
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use pot::{find_preview_file, pot_db, PresetId, RuntimePotUnit};
+use pot::{find_preview_file, pot_db, preview_exists, PresetId, RuntimePotUnit};
 use reaper_high::Reaper;
 
 #[derive(Debug)]
@@ -75,7 +75,10 @@ impl RealearnTarget for PreviewPotPresetTarget {
             Err(_) => return false,
         };
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 2");
-        self.current_preset_id(&pot_unit).is_some()
+        match pot_unit.find_currently_selected_preset() {
+            None => false,
+            Some(p) => preview_exists(&p, &Reaper::get().resource_path()),
+        }
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -107,6 +110,5 @@ impl PreviewPotPresetTarget {
 pub const PREVIEW_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Pot: Preview preset",
     short_name: "Preview Pot preset",
-    hint: "Highly experimental!!!",
     ..DEFAULT_TARGET
 };

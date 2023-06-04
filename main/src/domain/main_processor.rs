@@ -3397,26 +3397,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
             return;
         }
         let new_target_value = aggregate_target_values(new_values.into_iter());
-        if let Some(new_value) = new_target_value {
-            // Feedback
-            let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
-            let with_projection_feedback = mapping_feedback_is_effectively_on;
-            let with_source_feedback = self.instance_feedback_is_effectively_enabled()
-                && mapping_feedback_is_effectively_on;
-            let feedback_value = m
-                .feedback_entry_point(
-                    with_projection_feedback,
-                    with_source_feedback,
-                    new_value,
-                    self.control_context(),
-                )
-                .map(CompoundFeedbackValue::normal);
-            self.send_feedback(
-                mappings_with_virtual_targets,
-                FeedbackReason::Normal,
-                feedback_value,
-            );
-            self.notify_target_value_changed(m, new_value);
+        // Feedback
+        let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
+        let with_projection_feedback = mapping_feedback_is_effectively_on;
+        let with_source_feedback =
+            self.instance_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
+        let feedback_value = m
+            .feedback_entry_point(
+                with_projection_feedback,
+                with_source_feedback,
+                new_target_value,
+                self.control_context(),
+            )
+            .map(CompoundFeedbackValue::normal);
+        self.send_feedback(
+            mappings_with_virtual_targets,
+            FeedbackReason::Normal,
+            feedback_value,
+        );
+        if let Some(v) = new_target_value {
+            self.notify_target_value_changed(m, v);
         }
     }
 

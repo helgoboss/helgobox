@@ -61,7 +61,7 @@ use base::Global;
 /// can still be discrete or continuous, it's orthogonal.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
-    /// "Fire-only", so like switch but whenever it only makes sense to send "on", not "off".
+    /// "Fire-only", so like switch but it only makes sense to send "on", not "off".
     ///
     /// Rendered as one trigger button.
     Trigger,

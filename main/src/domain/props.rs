@@ -4,7 +4,7 @@ use crate::domain::{
     UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{NumericValue, PropProvider, PropValue, Target};
+use helgoboss_learn::{PropProvider, PropValue, Target};
 use realearn_api::persistence::TrackScope;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;

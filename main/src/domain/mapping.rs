@@ -1090,7 +1090,7 @@ impl MainMapping {
         new_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
-        self.feedback_entry_point(true, true, new_target_value?, control_context)
+        self.feedback_entry_point(true, true, new_target_value, control_context)
             .map(CompoundFeedbackValue::normal)
     }
 
@@ -1103,7 +1103,7 @@ impl MainMapping {
         self.feedback_entry_point(
             with_projection_feedback,
             true,
-            self.current_aggregated_target_value(context)?,
+            self.current_aggregated_target_value(context),
             context,
         )
         .map(CompoundFeedbackValue::normal)
@@ -1116,7 +1116,7 @@ impl MainMapping {
         &self,
         with_projection_feedback: bool,
         with_source_feedback: bool,
-        combined_target_value: AbsoluteValue,
+        combined_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
@@ -1132,7 +1132,7 @@ impl MainMapping {
             self.core.mode.build_feedback(&prop_provider)
         } else {
             let style = self.core.mode.feedback_style(&prop_provider);
-            FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
+            FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value?))
         };
         let source_feedback_is_okay = if self.core.options.feedback_send_behavior
             == FeedbackSendBehavior::PreventEchoFeedback
@@ -1237,7 +1237,7 @@ impl MainMapping {
                 self.feedback_entry_point(
                     false,
                     true,
-                    self.current_aggregated_target_value(context)?,
+                    self.current_aggregated_target_value(context),
                     context,
                 )
                 .map(CompoundFeedbackValue::feedback_after_control)
