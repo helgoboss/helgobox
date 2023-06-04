@@ -6,6 +6,8 @@ use helgoboss_learn::{
 };
 use mlua::{Function, Lua, LuaSerdeExt, Table, ToLua, Value};
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::error::Error;
 
 #[derive(Clone, Debug)]
@@ -101,31 +103,31 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
             .map_err(|e| e.to_string().into())
     }
 
-    fn used_props(&self) -> Result<Vec<String>, Box<dyn Error>> {
-        let lua = self.lua.as_ref();
-        // Build input data
-        let context_table = {
-            let table = lua.create_table()?;
-            table.set("mode", 1)?;
-            table
+    fn used_props(&self) -> Result<HashSet<String>, Box<dyn Error>> {
+        let prop_provider = TrackingPropProvider::default();
+        let input = FeedbackScriptInput {
+            prop_provider: &prop_provider,
         };
-        self.env.raw_set(self.context_key.clone(), context_table)?;
-        // Invoke script
-        let value: Value = self.function.call(())?;
-        // Process return value
-        let output: LuaScriptUsedPropsOutput = self.lua.as_ref().from_value(value)?;
-        Ok(output.used_props)
+        self.feedback_internal(input)?;
+        Ok(prop_provider.used_props.take())
+    }
+}
+
+#[derive(Default)]
+struct TrackingPropProvider {
+    used_props: RefCell<HashSet<String>>,
+}
+
+impl PropProvider for TrackingPropProvider {
+    fn get_prop_value(&self, key: &str) -> Option<PropValue> {
+        self.used_props.borrow_mut().insert(key.to_string());
+        None
     }
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct LuaScriptFeedbackOutput {
     feedback_event: Option<ScriptFeedbackEvent>,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-struct LuaScriptUsedPropsOutput {
-    used_props: Vec<String>,
 }
 
 #[cfg(test)]

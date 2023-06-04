@@ -291,30 +291,23 @@ return {
                 feedback = {
                     kind = "Dynamic",
                     script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.text_value",
+local name = context.prop("target.text_value") or "-"
+local secondary_prop_key = ]] .. serialize(secondary_prop_key) .. [[
+
+local secondary_prop_value = secondary_prop_key and context.prop(secondary_prop_key) or ""
+local available = context.prop("target.available")
+return {
+    feedback_event = {
+        color = ]] .. color_string .. [[,
+        value = {
+            label = "]] .. title .. [[",
+            name = name,
+            secondary_prop = secondary_prop_value,
+            available = available,
         }
-    }
-else
-    local name = context.prop("target.text_value") or "-"
-    local secondary_prop_key = ]] .. serialize(secondary_prop_key) .. [[
-    
-    local secondary_prop_value = secondary_prop_key and context.prop(secondary_prop_key) or ""
-    local available = context.prop("target.available")
-    return {
-        feedback_event = {
-            color = ]] .. color_string .. [[,
-            value = {
-                label = "]] .. title .. [[",
-                name = name,
-                secondary_prop = secondary_prop_value,
-                available = available,
-            }
-        },
-    }
-end]],
+    },
+}
+]],
                 },
             },
             target = target,
@@ -372,22 +365,15 @@ return {
                     feedback = {
                         kind = "Dynamic",
                         script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.available",
+local available = context.prop("target.available")
+return {
+    feedback_event = {
+        value = {
+            available = available,
         }
-    }
-else
-    local available = context.prop("target.available")
-    return {
-        feedback_event = {
-            value = {
-                available = available,
-            }
-        },
-    }
-end]],
+    },
+}
+]],
                     },
                 },
                 target = action.target,
@@ -579,23 +565,15 @@ return {
             feedback = {
                 kind = "Dynamic",
                 script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.text_value",
-            "target.preset.name",
+local preset_name = context.prop("target.preset.name")
+return {
+    feedback_event = {
+        value = {
+            preset_name = preset_name,
         }
-    }
-else
-    local preset_name = context.prop("target.preset.name")
-    return {
-        feedback_event = {
-            value = {
-                preset_name = preset_name,
-            }
-        },
-    }
-end]],
+    },
+}
+]],
             },
         },
         target = load_preset_target,
@@ -719,20 +697,13 @@ return {
             feedback = {
                 kind = "Dynamic",
                 script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.text_value",
-        }
-    }
-else
-    local bank = context.prop("target.text_value")
-    return {
-        feedback_event = {
-            value = "Bank: " .. (bank + 1)
-        },
-    }
-end]],
+local bank = context.prop("target.text_value")
+return {
+    feedback_event = {
+        value = "Bank: " .. (bank + 1)
+    },
+}
+]],
             },
         },
         target = {
@@ -919,25 +890,18 @@ return {
             feedback = {
                 kind = "Dynamic",
                 script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.text_value",
+return {
+    feedback_event = {
+        value = {
+            section_name = context.prop("target.fx_parameter.macro.new_section.name"),
+            macro_name = context.prop("target.fx_parameter.macro.name"),
+            param_value = context.prop("y"),
+            param_value_label = context.prop("target.text_value"),
+            param_name = context.prop("target.fx_parameter.name"),
         }
-    }
-else
-    return {
-        feedback_event = {
-            value = {
-                section_name = context.prop("target.fx_parameter.macro.new_section.name"),
-                macro_name = context.prop("target.fx_parameter.macro.name"),
-                param_value = context.prop("y"),
-                param_value_label = context.prop("target.text_value"),
-                param_name = context.prop("target.fx_parameter.name"),
-            }
-        },
-    }
-end]],
+    },
+}
+]],
             },
         },
         target = {
