@@ -1,7 +1,8 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use base::{blocking_lock_arc, SoundPlayer};
 use derivative::Derivative;
@@ -78,6 +79,19 @@ impl RealearnTarget for PreviewPotPresetTarget {
         match pot_unit.find_currently_selected_preset() {
             None => false,
             Some(p) => preview_exists(&p, &Reaper::get().resource_path()),
+        }
+    }
+
+    fn process_change_event(
+        &self,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        match evt {
+            CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetChanged { .. },
+            )) => (true, None),
+            _ => (false, None),
         }
     }
 

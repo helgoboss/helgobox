@@ -345,14 +345,62 @@ end]],
             },
             target = action.target,
         }
-        local feedback_action_mapping = {
-            name = action.name .. " (feedback)",
-            group = "browse-actions",
-            control_enabled = false,
-            source = {
-                kind = "MidiScript",
-                script_kind = "lua",
-                script = reusable_lua_code .. [[
+        local feedback_action_mapping
+        if action.control_kind == "trigger" then
+            feedback_action_mapping = {
+                name = action.name .. " (feedback)",
+                group = "browse-actions",
+                control_enabled = false,
+                source = {
+                    kind = "MidiScript",
+                    script_kind = "lua",
+                    script = reusable_lua_code .. [[
+local column = ]] .. column .. [[
+
+local color = (y and y.available) and ]] .. serialize(action.color) .. [[ or nil
+
+local led_index = 4 + column
+return {
+    address = led_address_offset + led_index,
+    messages = {
+        create_led_msg(led_index, 1, color),
+    }
+}
+]],
+                },
+                glue = {
+                    feedback = {
+                        kind = "Dynamic",
+                        script = [[
+if context.mode == 1 then
+    return {
+        used_props = {
+            "target.available",
+        }
+    }
+else
+    local available = context.prop("target.available")
+    return {
+        feedback_event = {
+            value = {
+                available = available,
+            }
+        },
+    }
+end]],
+                    },
+                },
+                target = action.target,
+            }
+        else
+            feedback_action_mapping = {
+                name = action.name .. " (feedback)",
+                group = "browse-actions",
+                control_enabled = false,
+                source = {
+                    kind = "MidiScript",
+                    script_kind = "lua",
+                    script = reusable_lua_code .. [[
 local column = ]] .. column .. [[
 
 local color = (y and y ~= 0) and ]] .. serialize(action.color) .. [[ or nil
@@ -365,9 +413,11 @@ return {
     }
 }
 ]],
-            },
-            target = action.target,
-        }
+                },
+                target = action.target,
+            }
+
+        end
         table.insert(mappings, control_action_mapping)
         table.insert(mappings, feedback_action_mapping)
     end
