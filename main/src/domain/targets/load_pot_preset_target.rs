@@ -1,7 +1,8 @@
 use crate::domain::{
-    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, FxDescriptor,
-    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    BackboneState, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    FxDescriptor, HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
@@ -116,6 +117,19 @@ impl RealearnTarget for LoadPotPresetTarget {
             Some(text)
         } else {
             None
+        }
+    }
+
+    fn process_change_event(
+        &self,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        match evt {
+            CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetLoaded,
+            )) => (true, None),
+            _ => (false, None),
         }
     }
 }

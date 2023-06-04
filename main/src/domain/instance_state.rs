@@ -700,6 +700,7 @@ pub enum PotStateChangedEvent {
         id: Option<PresetId>,
     },
     IndexesRebuilt,
+    PresetLoaded,
 }
 
 pub enum ClipMatrixRelevance<'a> {
@@ -732,6 +733,10 @@ impl PotIntegration for RealearnPotIntegration {
         BackboneState::target_state()
             .borrow_mut()
             .set_current_fx_preset(fx, preset);
+        self.sender
+            .send_complaining(InstanceStateChanged::PotStateChanged(
+                PotStateChangedEvent::PresetLoaded,
+            ));
     }
 
     fn exclude_list(&self) -> Ref<PotFilterExcludes> {
