@@ -215,6 +215,7 @@ function create_browse_mappings(title, column, color, action, target)
     local mappings = {
         {
             name = "Encoder " .. human_column .. " - Browse products",
+            feedback_enabled = false,
             group = "browse-columns",
             source = {
                 kind = "MidiControlChangeValue",
@@ -231,6 +232,7 @@ function create_browse_mappings(title, column, color, action, target)
         },
         {
             name = "Screen " .. human_column .. " - Browse products",
+            control_enabled = false,
             group = "browse-columns",
             source = {
                 kind = "MidiScript",
@@ -436,6 +438,7 @@ local mappings = {
     },
     {
         name = "Init macro mode",
+        control_enabled = false,
         group = "modes",
         activation_condition = macro_mode_condition,
         source = {
@@ -454,6 +457,7 @@ return {
         },
     }, {
         name = "Init browse mode",
+        control_enabled = false,
         group = "modes",
         activation_condition = browse_mode_condition,
         source = {
@@ -472,9 +476,10 @@ return {
         },
     },
     {
-        enabled = false,
         name = "Macro mode preset info",
         group = "modes",
+        enabled = false,
+        control_enabled = false,
         activation_condition = macro_mode_condition,
         source = {
             kind = "MidiScript",
@@ -524,6 +529,7 @@ end]],
     {
         name = "Browse mode preset info",
         group = "modes",
+        control_enabled = false,
         activation_condition = browse_mode_condition,
         source = {
             kind = "MidiScript",
@@ -885,44 +891,6 @@ else
     }
 end]],
             },
-        },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "Dynamic",
-                fx = {
-                    address = "Instance",
-                },
-                expression = param_expression,
-            },
-        },
-    }
-    local param_value_feedback_mapping = {
-        enabled = false,
-        name = "Encoder " .. human_i .. ": Macro feedback " .. human_i,
-        group = "macro-parameters",
-        control_enabled = false,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = ]] .. i .. [[
-
-local color_offset = 1000
-local object = 1
-local color = y and white or black
-local value = y and math.floor(y * 127) or 0
-return {
-    address = column_knob_address_offset + column,
-    messages = {
-        create_screen_props_msg({
-            -- Make the knob visible (by making it white)
-            create_rgb_color_prop_change(column, object, color),
-            -- Rotate the knob so it reflects the parameter value
-            create_value_prop_change(column, 0, value),
-        }),
-    }
-}]],
         },
         target = {
             kind = "FxParameterValue",
