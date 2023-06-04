@@ -4,10 +4,10 @@ use crate::domain::{
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
-use base::{blocking_lock_arc, SoundPlayer};
+use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use pot::{find_preview_file, pot_db, preview_exists, PresetId, RuntimePotUnit};
+use pot::{preview_exists, PresetId, RuntimePotUnit};
 use reaper_high::Reaper;
 
 #[derive(Debug)]
@@ -20,19 +20,14 @@ impl UnresolvedReaperTargetDef for UnresolvedPreviewPotPresetTarget {
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::PreviewPotPreset(
-            PreviewPotPresetTarget {
-                sound_player: SoundPlayer::new(),
-            },
+            PreviewPotPresetTarget {},
         )])
     }
 }
 
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Eq, PartialEq)]
-pub struct PreviewPotPresetTarget {
-    #[derivative(PartialEq = "ignore")]
-    sound_player: SoundPlayer,
-}
+pub struct PreviewPotPresetTarget {}
 
 impl RealearnTarget for PreviewPotPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
@@ -47,24 +42,17 @@ impl RealearnTarget for PreviewPotPresetTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let pot_unit = instance_state.pot_unit()?;
+        let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
         if value.is_on() {
-            let mut instance_state = context.control_context.instance_state.borrow_mut();
-            let pot_unit = instance_state.pot_unit()?;
-            let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
             let preset_id = self
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
-            let preset = pot_db()
-                .find_preset_by_id(preset_id)
-                .ok_or("couldn't find preset")?;
-            let reaper_resource_dir = Reaper::get().resource_path();
-            let preview_file = find_preview_file(&preset, &reaper_resource_dir)
-                .ok_or("couldn't find preset preview file")?;
-            self.sound_player.load_file(&preview_file)?;
-            self.sound_player.play()?;
+            pot_unit.play_preview(preset_id)?;
             Ok(HitResponse::processed_with_effect())
         } else {
-            self.sound_player.stop()?;
+            pot_unit.stop_preview()?;
             Ok(HitResponse::processed_with_effect())
         }
     }

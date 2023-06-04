@@ -637,8 +637,9 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                         .on_disabled_hover_text("Preset preview not available")
                                         .clicked()
                                     {
-                                        let result = pot_unit.play_preview(preset_id);
-                                        process_potential_error(&result, &mut toasts);
+                                        if let Err(e) = pot_unit.play_preview(preset_id) {
+                                            show_error_toast(e, &mut toasts);
+                                        }
                                     }
                                 },
                             );

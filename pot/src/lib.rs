@@ -648,7 +648,7 @@ impl RuntimePotUnit {
         );
     }
 
-    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), Box<dyn Error>> {
+    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
         let preset = pot_db()
             .find_preset_by_id(preset_id)
             .ok_or("couldn't find preset")?;
