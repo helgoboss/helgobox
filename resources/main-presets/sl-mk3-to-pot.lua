@@ -1,12 +1,18 @@
 -- ## Constants ##
 
+-- Browse colors
 local color_one = { r = 0x21, g = 0x96, b = 0xf3 }
 local color_two = { r = 0x79, g = 0x55, b = 0x48 }
 local color_three = { r = 0xff, g = 0x57, b = 0x22 }
 local color_four = { r = 0xff, g = 0xeb, b = 0x3b }
 local color_five = { r = 0x4c, g = 0xaf, b = 0x50 }
+
+-- Action colors
+local filter_action_color = { r = 0xff, g = 0xff, b = 0xff }
 local preview_action_color = { r = 0x30, g = 0x4f, b = 0xfe }
 local load_action_color = { r = 0xb7, g = 0x1c, b = 0x1c }
+
+-- More
 local reusable_lua_code = [[
 -- ## Constants ##
 
@@ -299,6 +305,13 @@ end]],
         }
     }
     if action ~= nil then
+        local button_filter
+        local absolute_mode = "Normal"
+        if action.control_kind == "trigger" then
+            button_filter = "PressOnly"
+        elseif action.control_kind == "toggle" then
+            absolute_mode = "ToggleButton"
+        end
         local control_action_mapping = {
             name = action.name .. " (control)",
             group = "browse-actions",
@@ -306,13 +319,13 @@ end]],
             source = {
                 kind = "MidiControlChangeValue",
                 channel = 15,
-                controller_number = 51 + action.column,
+                controller_number = 51 + column,
                 character = "Button",
                 fourteen_bit = false,
             },
             glue = {
-                step_size_interval = { 0.01, 0.05 },
-                button_filter = "PressOnly",
+                absolute_mode = absolute_mode,
+                button_filter = button_filter,
             },
             target = action.target,
         }
@@ -324,9 +337,9 @@ end]],
                 kind = "MidiScript",
                 script_kind = "lua",
                 script = reusable_lua_code .. [[
-local column = ]] .. action.column .. [[
+local column = ]] .. column .. [[
 
-local color = y and ]] .. serialize_table(action.color) .. [[ or nil
+local color = (y and y ~= 0) and ]] .. serialize_table(action.color) .. [[ or nil
 
 local led_index = 4 + column
 return {
@@ -337,9 +350,7 @@ return {
 }
 ]],
             },
-            target = {
-                kind = "Dummy",
-            },
+            target = action.target,
         }
         table.insert(mappings, control_action_mapping)
         table.insert(mappings, feedback_action_mapping)
@@ -723,10 +734,46 @@ end]],
 }
 
 -- One browser per column
+local favorite_filter_action = {
+    name = "Favorite",
+    color = filter_action_color,
+    control_kind = "toggle",
+    target = {
+        kind = "BrowsePotFilterItems",
+        item_kind = "IsFavorite",
+    },
+}
+local available_filter_action = {
+    name = "Available",
+    color = filter_action_color,
+    control_kind = "toggle",
+    target = {
+        kind = "BrowsePotFilterItems",
+        item_kind = "IsAvailable",
+    },
+}
+local supported_filter_action = {
+    name = "Supported",
+    color = filter_action_color,
+    control_kind = "toggle",
+    target = {
+        kind = "BrowsePotFilterItems",
+        item_kind = "IsSupported",
+    },
+}
+local user_filter_action = {
+    name = "User",
+    color = filter_action_color,
+    control_kind = "toggle",
+    target = {
+        kind = "BrowsePotFilterItems",
+        item_kind = "IsUser",
+    },
+}
 local preview_action = {
     name = "Preview",
     color = preview_action_color,
-    column = 6,
+    control_kind = "trigger",
     target = {
         kind = "PreviewPotPreset",
     },
@@ -734,7 +781,7 @@ local preview_action = {
 local load_action = {
     name = "Load",
     color = load_action_color,
-    column = 7,
+    control_kind = "trigger",
     target = {
         kind = "LoadPotPreset",
         fx = {
@@ -751,28 +798,28 @@ local load_action = {
 }
 concat_table(
         mappings,
-        create_browse_mappings("Database", 0, color_one, nil, {
+        create_browse_mappings("Database", 0, color_one, available_filter_action, {
             kind = "BrowsePotFilterItems",
             item_kind = "Database",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Kind", 1, color_one, nil, {
+        create_browse_mappings("Kind", 1, color_one, supported_filter_action, {
             kind = "BrowsePotFilterItems",
             item_kind = "ProductKind",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Product", 2, color_two, nil, {
+        create_browse_mappings("Product", 2, color_two, favorite_filter_action, {
             kind = "BrowsePotFilterItems",
             item_kind = "Bank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Bank", 3, color_two, nil, {
+        create_browse_mappings("Bank", 3, color_two, user_filter_action, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubBank",
         })
