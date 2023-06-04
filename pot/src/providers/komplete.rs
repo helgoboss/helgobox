@@ -779,8 +779,9 @@ impl PresetDb {
     ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
         let sql = format!(
             r#"
-                    SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id, i.vendor, i.author, i.comment, i.file_size, i.mod_date
+                    SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id, i.vendor, i.author, i.comment, i.file_size, i.mod_date, cp.state
                     FROM k_sound_info i 
+                        LEFT OUTER JOIN k_content_path cp ON cp.id = i.content_path_id
                         LEFT OUTER JOIN k_bank_chain bc ON i.bank_chain_id = bc.id
                         LEFT OUTER JOIN ({BANK_SQL_QUERY}) AS parent_bc ON bc.entry1 = parent_bc.entry1
                     WHERE i.id = ?
@@ -797,6 +798,7 @@ impl PresetDb {
                 let bank_id: Option<u32> = row.get(5)?;
                 let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
                 let preview_file = determine_preview_file(&path);
+                let content_path_state: Option<u32> = row.get(11)?;
                 let common = PresetCommon {
                     persistent_id: PersistentPresetId::new(
                         persistent_db_id.clone(),
@@ -816,6 +818,8 @@ impl PresetDb {
                     // now. It probably would slow scrolling down quite a bit.
                     content_hash: None,
                     db_specific_preview_file: preview_file,
+                    is_supported: SUPPORTED_FILE_EXTENSIONS.contains(&file_ext.as_str()),
+                    is_available: content_path_state == Some(1),
                     metadata: PresetMetadata {
                         author: row.get(6).ok(),
                         vendor: row.get(7).ok(),

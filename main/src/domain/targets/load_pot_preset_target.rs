@@ -79,13 +79,19 @@ impl RealearnTarget for LoadPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
+        if !self.fx.is_available() {
+            return false;
+        }
         let mut instance_state = context.instance_state.borrow_mut();
         let pot_unit = match instance_state.pot_unit() {
             Ok(u) => u,
             Err(_) => return false,
         };
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 1");
-        pot_unit.preset_id().is_some() && self.fx.is_available()
+        match pot_unit.find_currently_selected_preset() {
+            None => false,
+            Some(p) => p.common.is_available && p.common.is_supported,
+        }
     }
 
     fn project(&self) -> Option<Project> {
@@ -127,7 +133,7 @@ impl RealearnTarget for LoadPotPresetTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::PresetLoaded,
+                PotStateChangedEvent::PresetLoaded | PotStateChangedEvent::PresetChanged { .. },
             )) => (true, None),
             _ => (false, None),
         }

@@ -230,6 +230,8 @@ impl Database for ProjectDatabase {
                 product_name: build_product_name(ctx, preset_entry).map(|n| n.to_string()),
                 content_hash: Some(preset_entry.track_preset.content_hash),
                 db_specific_preview_file: None,
+                is_supported: true,
+                is_available: !preset_entry.track_preset.used_plugins.is_empty(),
                 metadata: Default::default(),
             },
             kind: PresetKind::ProjectBased(ProjectBasedPresetKind {

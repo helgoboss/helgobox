@@ -274,6 +274,8 @@ impl Database for IniDatabase {
                 product_name: Some(build_product_name(preset_entry, plugin).to_string()),
                 content_hash: preset_entry.content_hash,
                 db_specific_preview_file: None,
+                is_supported: true,
+                is_available: preset_entry.plugin.is_some(),
                 metadata: Default::default(),
             },
             kind: PresetKind::Internal(InternalPresetKind {

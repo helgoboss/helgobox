@@ -188,6 +188,8 @@ impl Database for DirectoryDatabase {
                 product_name: build_product_name(ctx, preset_entry),
                 content_hash: Some(preset_entry.content_hash),
                 db_specific_preview_file: None,
+                is_supported: true,
+                is_available: !preset_entry.plugin_cores.is_empty(),
                 metadata: Default::default(),
             },
             kind: PresetKind::FileBased(FiledBasedPresetKind {

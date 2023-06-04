@@ -1318,6 +1318,8 @@ pub struct PresetCommon {
     /// path. It's not necessary or encouraged to already check for its existence of this file. This
     /// will be checked by the consumer.
     pub db_specific_preview_file: Option<PathBuf>,
+    pub is_supported: bool,
+    pub is_available: bool,
     pub metadata: PresetMetadata,
 }
 
@@ -1967,6 +1969,8 @@ pub fn create_plugin_factory_preset(
             product_name: Some(plugin.to_string()),
             content_hash: None,
             db_specific_preview_file: None,
+            is_supported: true,
+            is_available: true,
             metadata: Default::default(),
         },
         kind: PresetKind::DefaultFactory(plugin.core.id),
