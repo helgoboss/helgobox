@@ -192,6 +192,8 @@ enum TargetProps {
     TargetTypeName(TargetTypeNameProp),
     #[strum(serialize = "target.type.long_name")]
     TargetTypeLongName(TargetTypeLongNameProp),
+    #[strum(serialize = "target.available")]
+    TargetAvailable(TargetAvailableProp),
     #[strum(serialize = "target.text_value")]
     TextValue(TargetTextValueProp),
     #[strum(serialize = "target.numeric_value")]
@@ -462,6 +464,16 @@ impl TargetProp for TargetTypeLongNameProp {
         Some(PropValue::Text(
             args.object.target.reaper_target_type()?.to_string().into(),
         ))
+    }
+}
+
+#[derive(Default)]
+struct TargetAvailableProp;
+
+impl TargetProp for TargetAvailableProp {
+    fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
+        let is_available = args.object.target.is_available(args.control_context);
+        Some(PropValue::Boolean(is_available))
     }
 }
 

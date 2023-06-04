@@ -82,6 +82,7 @@ impl<'lua> ToLua<'lua> for LuaPropValue {
             PropValue::Index(i) => i.to_lua(lua),
             PropValue::Numeric(NumericValue::Decimal(i)) => i.to_lua(lua),
             PropValue::Numeric(NumericValue::Discrete(i)) => i.to_lua(lua),
+            PropValue::Boolean(state) => state.to_lua(lua),
             PropValue::Text(t) => t.to_lua(lua),
             PropValue::Color(c) => {
                 let script_color = ScriptColor::from(c);
