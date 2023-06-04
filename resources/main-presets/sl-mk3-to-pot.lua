@@ -12,6 +12,14 @@ local filter_action_color = { r = 0xff, g = 0xff, b = 0xff }
 local preview_action_color = { r = 0x30, g = 0x4f, b = 0xfe }
 local load_action_color = { r = 0xb7, g = 0x1c, b = 0x1c }
 
+-- Targets
+local load_preset_target = {
+    kind = "LoadPotPreset",
+    fx = {
+        address = "Instance"
+    },
+}
+
 -- More
 local reusable_lua_code = [[
 -- ## Constants ##
@@ -490,7 +498,6 @@ return {
     {
         name = "Macro mode preset info",
         group = "modes",
-        enabled = false,
         control_enabled = false,
         activation_condition = macro_mode_condition,
         source = {
@@ -534,9 +541,7 @@ else
 end]],
             },
         },
-        target = {
-            kind = "LoadPotPreset",
-        },
+        target = load_preset_target,
     },
     {
         name = "Browse mode preset info",
@@ -782,19 +787,7 @@ local load_action = {
     name = "Load",
     color = load_action_color,
     control_kind = "trigger",
-    target = {
-        kind = "LoadPotPreset",
-        fx = {
-            address = "ByIndex",
-            chain = {
-                address = "Track",
-                track = {
-                    address = "Selected",
-                },
-            },
-            index = 0,
-        },
-    },
+    target = load_preset_target
 }
 concat_table(
         mappings,
