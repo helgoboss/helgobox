@@ -127,8 +127,16 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         Ok(HitResponse::processed_with_effect())
     }
 
-    fn is_available(&self, _: ControlContext) -> bool {
-        true
+    fn is_available(&self, context: ControlContext) -> bool {
+        let mut instance_state = context.instance_state.borrow_mut();
+        let Ok(shared_pot_unit) = instance_state.pot_unit() else {
+            return false;
+        };
+        let pot_unit = blocking_lock_arc(
+            &shared_pot_unit,
+            "PotUnit from BrowsePotFilterItemsTarget is_available",
+        );
+        pot_unit.supports_filter_kind(self.settings.kind)
     }
 
     fn process_change_event(

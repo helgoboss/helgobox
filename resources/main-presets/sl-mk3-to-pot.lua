@@ -255,15 +255,16 @@ function create_browse_mappings(title, column, color, action, secondary_prop_key
 local column = ]] .. column .. [[
 
 local action = ]] .. serialize(action) .. [[
- 
-local label = y and y.label or ""
-local name_1 = y and string.sub(y.name, 1, 9) or ""
-local name_2 = y and string.sub(y.name, 10, 18) or ""
-local name_3 = y and string.sub(y.name, 19, 27) or ""
-local secondary_prop = y and y.secondary_prop or ""
-local color = y and (context.feedback_event.color or white) or black
-local action_name = y and action and action.name or nil
-local action_color = y and (action and action.color or nil) or black
+
+local available = y and y.available or false
+local label = available and y.label or ""
+local name_1 = available and string.sub(y.name, 1, 9) or ""
+local name_2 = available and string.sub(y.name, 10, 18) or ""
+local name_3 = available and string.sub(y.name, 19, 27) or ""
+local secondary_prop = available and y.secondary_prop or ""
+local color = available and (context.feedback_event.color or white) or black
+local action_name = available and action and action.name or nil
+local action_color = available and (action and action.color or nil) or black
 return {
     address = column,
     messages = {
@@ -301,13 +302,15 @@ else
     local secondary_prop_key = ]] .. serialize(secondary_prop_key) .. [[
     
     local secondary_prop_value = secondary_prop_key and context.prop(secondary_prop_key) or ""
+    local available = context.prop("target.available")
     return {
         feedback_event = {
             color = ]] .. color_string .. [[,
             value = {
                 label = "]] .. title .. [[",
                 name = name,
-                secondary_prop = secondary_prop_value
+                secondary_prop = secondary_prop_value,
+                available = available,
             }
         },
     }
