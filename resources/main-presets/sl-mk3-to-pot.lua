@@ -186,7 +186,7 @@ end
 
 -- ## Functions ##
 -- https://stackoverflow.com/a/6081639
-function serialize_table_internal(val, name, skipnewlines, depth)
+function serialize_internal(val, name, skipnewlines, depth)
     skipnewlines = skipnewlines or false
     depth = depth or 0
     local tmp = string.rep(" ", depth)
@@ -196,7 +196,7 @@ function serialize_table_internal(val, name, skipnewlines, depth)
     if type(val) == "table" then
         tmp = tmp .. "{" .. (not skipnewlines and "\n" or "")
         for k, v in pairs(val) do
-            tmp = tmp .. serialize_table_internal(v, k, skipnewlines, depth + 1) .. "," .. (not skipnewlines and "\n" or "")
+            tmp = tmp .. serialize_internal(v, k, skipnewlines, depth + 1) .. "," .. (not skipnewlines and "\n" or "")
         end
         tmp = tmp .. string.rep(" ", depth) .. "}"
     elseif type(val) == "number" then
@@ -210,11 +210,11 @@ function serialize_table_internal(val, name, skipnewlines, depth)
     end
     return tmp
 end
-function serialize_table(val)
+function serialize(val)
     if val == nil then
         return "nil"
     end
-    return serialize_table_internal(val, nil, true, nil)
+    return serialize_internal(val, nil, true, nil)
 end
 
 function concat_table(t1, t2)
@@ -223,9 +223,9 @@ function concat_table(t1, t2)
     end
 end
 
-function create_browse_mappings(title, column, color, action, target)
+function create_browse_mappings(title, column, color, action, secondary_prop_key, target)
     local human_column = column + 1
-    local color_string = serialize_table(color)
+    local color_string = serialize(color)
     local mappings = {
         {
             name = "Encoder " .. human_column .. " - " .. title,
@@ -254,12 +254,13 @@ function create_browse_mappings(title, column, color, action, target)
                 script = reusable_lua_code .. [[
 local column = ]] .. column .. [[
 
-local action = ]] .. serialize_table(action) .. [[
-
+local action = ]] .. serialize(action) .. [[
+ 
 local label = y and y.label or ""
 local name_1 = y and string.sub(y.name, 1, 9) or ""
 local name_2 = y and string.sub(y.name, 10, 18) or ""
 local name_3 = y and string.sub(y.name, 19, 27) or ""
+local secondary_prop = y and y.secondary_prop or ""
 local color = y and (context.feedback_event.color or white) or black
 local action_name = y and action and action.name or nil
 local action_color = y and (action and action.color or nil) or black
@@ -279,7 +280,7 @@ return {
             create_rgb_color_prop_change(column, 2, action_color),
             create_value_prop_change(column, 2, 0),
             create_text_prop_change(column, 4, ""),
-            create_text_prop_change(column, 5, action_name),
+            create_text_prop_change(column, 5, action_name or secondary_prop),
         }),
     }
 }
@@ -297,12 +298,16 @@ if context.mode == 1 then
     }
 else
     local name = context.prop("target.text_value") or "-"
+    local secondary_prop_key = ]] .. serialize(secondary_prop_key) .. [[
+    
+    local secondary_prop_value = secondary_prop_key and context.prop(secondary_prop_key) or ""
     return {
         feedback_event = {
             color = ]] .. color_string .. [[,
             value = {
                 label = "]] .. title .. [[",
                 name = name,
+                secondary_prop = secondary_prop_value
             }
         },
     }
@@ -347,7 +352,7 @@ end]],
                 script = reusable_lua_code .. [[
 local column = ]] .. column .. [[
 
-local color = (y and y ~= 0) and ]] .. serialize_table(action.color) .. [[ or nil
+local color = (y and y ~= 0) and ]] .. serialize(action.color) .. [[ or nil
 
 local led_index = 4 + column
 return {
@@ -496,10 +501,9 @@ return {
         },
     },
     {
-        name = "Macro mode preset info",
+        name = "Preset info",
         group = "modes",
         control_enabled = false,
-        activation_condition = macro_mode_condition,
         source = {
             kind = "MidiScript",
             script_kind = "lua",
@@ -542,56 +546,6 @@ end]],
             },
         },
         target = load_preset_target,
-    },
-    {
-        name = "Browse mode preset info",
-        group = "modes",
-        control_enabled = false,
-        activation_condition = browse_mode_condition,
-        source = {
-            kind = "MidiScript",
-            script_kind = "lua",
-            script = reusable_lua_code .. [[
-local column = 8
-local product_name = y and y.product_name or ""
-local product_name_1 = string.sub(product_name, 1, 9)
-local product_name_2 = string.sub(product_name, 10, 18)
-return {
-    address = column,
-    messages = {
-        create_screen_props_msg({
-            create_text_prop_change(column, 0, product_name_1),
-            create_text_prop_change(column, 1, product_name_2),
-        }),
-    }
-} ]],
-        },
-        glue = {
-            feedback = {
-                kind = "Dynamic",
-                script = [[
-if context.mode == 1 then
-    return {
-        used_props = {
-            "target.text_value",
-            "target.preset.product.name",
-        }
-    }
-else
-    local product_name = context.prop("target.preset.product.name")
-    return {
-        feedback_event = {
-            value = {
-                product_name = product_name,
-            }
-        },
-    }
-end]],
-            },
-        },
-        target = {
-            kind = "BrowsePotPresets",
-        },
     },
     {
         name = "Set instance FX",
@@ -791,56 +745,56 @@ local load_action = {
 }
 concat_table(
         mappings,
-        create_browse_mappings("Database", 0, color_one, available_filter_action, {
+        create_browse_mappings("Database", 0, color_one, available_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Database",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Kind", 1, color_one, supported_filter_action, {
+        create_browse_mappings("Kind", 1, color_one, supported_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "ProductKind",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Product", 2, color_two, favorite_filter_action, {
+        create_browse_mappings("Product", 2, color_two, favorite_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Bank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Bank", 3, color_two, user_filter_action, {
+        create_browse_mappings("Bank", 3, color_two, user_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubBank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Type", 4, color_three, nil, {
+        create_browse_mappings("Type", 4, color_three, preview_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Category",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Sub type", 5, color_three, nil, {
+        create_browse_mappings("Sub type", 5, color_three, load_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubCategory",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Character", 6, color_four, preview_action, {
+        create_browse_mappings("Character", 6, color_four, nil, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Mode",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Preset", 7, color_five, load_action, {
+        create_browse_mappings("Preset", 7, color_five, nil, "target.preset.product.name", {
             kind = "BrowsePotPresets",
         })
 )
