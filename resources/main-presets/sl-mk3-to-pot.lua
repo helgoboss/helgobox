@@ -214,7 +214,7 @@ function create_browse_mappings(title, column, color, action, target)
     local color_string = serialize_table(color)
     local mappings = {
         {
-            name = "Encoder " .. human_column .. " - Browse products",
+            name = "Encoder " .. human_column .. " - " .. title,
             feedback_enabled = false,
             group = "browse-columns",
             source = {
@@ -247,6 +247,7 @@ local name_1 = y and string.sub(y.name, 1, 9) or ""
 local name_2 = y and string.sub(y.name, 10, 18) or ""
 local name_3 = y and string.sub(y.name, 19, 27) or ""
 local color = y and (context.feedback_event.color or white) or black
+local action_name = y and action and action.name or nil
 local action_color = y and (action and action.color or nil) or black
 return {
     address = column,
@@ -264,7 +265,7 @@ return {
             create_rgb_color_prop_change(column, 2, action_color),
             create_value_prop_change(column, 2, 0),
             create_text_prop_change(column, 4, ""),
-            create_text_prop_change(column, 5, action and action.name or ""),
+            create_text_prop_change(column, 5, action_name),
         }),
     }
 }
