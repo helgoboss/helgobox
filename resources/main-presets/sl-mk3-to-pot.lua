@@ -261,6 +261,7 @@ local label = available and y.label or ""
 local name_1 = available and string.sub(y.name, 1, 9) or ""
 local name_2 = available and string.sub(y.name, 10, 18) or ""
 local name_3 = available and string.sub(y.name, 19, 27) or ""
+local progress = (available and y.index and y.count) and ("" .. (y.index + 1) .. "/" .. y.count) or ""
 local secondary_prop = available and y.secondary_prop or ""
 local color = available and (context.feedback_event.color or white) or black
 local action_name = available and action and action.name or nil
@@ -273,7 +274,7 @@ return {
             create_rgb_color_prop_change(column, 0, color),
             create_value_prop_change(column, 0, 1),
             create_text_prop_change(column, 0, label),
-            create_text_prop_change(column, 1, ""),
+            create_text_prop_change(column, 1, progress),
             -- Content
             create_text_prop_change(column, 2, name_1),
             create_text_prop_change(column, 3, name_2),
@@ -291,6 +292,8 @@ return {
                 feedback = {
                     kind = "Dynamic",
                     script = [[
+local index = context.prop("target.discrete_value")
+local count = context.prop("target.discrete_value_count")
 local name = context.prop("target.text_value") or "-"
 local secondary_prop_key = ]] .. serialize(secondary_prop_key) .. [[
 
@@ -304,6 +307,8 @@ return {
             name = name,
             secondary_prop = secondary_prop_value,
             available = available,
+            index = index,
+            count = count,
         }
     },
 }
