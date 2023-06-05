@@ -666,7 +666,7 @@ impl NicaChunkContent {
                     .into_iter()
                     .map(move |param| MacroParam {
                         name: param.name,
-                        section_name: param.section.unwrap_or_default(),
+                        section: param.section,
                         fx_param: param.id.map(|id| PotFxParam {
                             param_id: match plugin_kind {
                                 PluginKind::Vst2 => PotFxParamId::Index(id),

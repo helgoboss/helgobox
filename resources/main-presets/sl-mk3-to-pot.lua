@@ -1,25 +1,44 @@
 -- ## Constants ##
 
 function color(hex)
-    hex = hex:gsub("#","")
+    hex = hex:gsub("#", "")
     return {
-        r = tonumber("0x"..hex:sub(1,2)),
-        g = tonumber("0x"..hex:sub(3,4)),
-        b = tonumber("0x"..hex:sub(5,6)),
+        r = tonumber("0x" .. hex:sub(1, 2)),
+        g = tonumber("0x" .. hex:sub(3, 4)),
+        b = tonumber("0x" .. hex:sub(5, 6)),
     }
 end
 
+-- Palette
+
+local black = color("#000000")
+local white = color("#ffffff")
+local palette = {
+    color("#2196f3"),
+    color("#795548"),
+    color("#ff5722"),
+    color("#ffeb3b"),
+    color("#4caf50"),
+    color("#304ffe"),
+    color("#b71c1c"),
+    color("#9c27b0"),
+}
+
+
 -- Browser colors
-local browse_dbs_color = color("#2196f3")
-local browse_products_color = color("#795548")
-local browse_types_color = color("#ff5722")
-local browse_characters_color = color("#ffeb3b")
-local browse_presets_color = color("#4caf50")
+local browse_dbs_color = palette[1]
+local browse_products_color = palette[2]
+local browse_types_color = palette[3]
+local browse_characters_color = palette[4]
+local browse_presets_color = palette[5]
 
 -- Action colors
-local filter_action_color = color("#ffffff")
-local preview_action_color = color("#304ffe")
-local load_action_color = color("#b71c1c")
+local filter_action_color = white
+local preview_action_color = palette[6]
+local load_action_color = palette[7]
+
+-- Macro colors
+local macro_colors = palette
 
 -- Targets
 local load_preset_target = {
@@ -200,7 +219,7 @@ function serialize_internal(val, name, skipnewlines, depth)
     depth = depth or 0
     local tmp = string.rep(" ", depth)
     if name then
-        tmp = tmp .. name .. " = "
+        tmp = tmp .. "[" .. serialize(name) .. "]" .. " = "
     end
     if type(val) == "table" then
         tmp = tmp .. "{" .. (not skipnewlines and "\n" or "")
@@ -877,7 +896,7 @@ for i = 0, 7 do
             script = reusable_lua_code .. [[
 local column = ]] .. i .. [[
 
-local color = y and white or black
+local color = y and (context.feedback_event.color or white) or black
 local section_name = y and y.section_name or ""
 local macro_name = y and y.macro_name or ""
 local normalized_param_value = y and y.param_value or 0.0
@@ -888,6 +907,7 @@ return {
     address = column,
     messages = {
         create_screen_props_msg({
+            create_rgb_color_prop_change(column, 0, color),
             create_text_prop_change(column, 0, section_name),
             create_text_prop_change(column, 1, macro_name),
             -- Make the knob visible (by making it white)
@@ -904,8 +924,15 @@ return {
             feedback = {
                 kind = "Dynamic",
                 script = [[
+
+local macro_colors = ]] .. serialize(macro_colors) .. [[
+
+local section_index = context.prop("target.fx_parameter.macro.section.index")
+local color = section_index and macro_colors[section_index + 1] or nil
+
 return {
     feedback_event = {
+        color = color,
         value = {
             section_name = context.prop("target.fx_parameter.macro.new_section.name"),
             macro_name = context.prop("target.fx_parameter.macro.name"),

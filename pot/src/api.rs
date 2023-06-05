@@ -424,28 +424,33 @@ impl MacroParamBank {
     pub fn name(&self) -> String {
         let mut name = String::with_capacity(32);
         for p in &self.params {
-            if !p.section_name.is_empty() {
-                if !name.is_empty() {
-                    name += " / ";
-                }
-                name += &p.section_name;
+            if let Some(section) = &p.section {
+                name += " / ";
+                name += section;
             }
         }
         name
     }
 
-    pub fn resolve_param_section_name(&self, slot_index: u32) -> &str {
-        (0..=slot_index)
+    /// Returns the index of the section to which the parameter in the given slot belongs.
+    pub fn resolve_param_section_index(&self, slot_index: u32) -> Option<u32> {
+        self.params[0..=slot_index as usize]
+            .iter()
+            .filter(|param| param.section.is_some())
+            .enumerate()
+            .map(|(i, _)| i as u32)
+            .last()
+    }
+
+    /// Returns the section to which the parameter in the given slot belongs.
+    ///
+    /// The parameter itself only carries its section name if it's the beginning of a new section.
+    pub fn resolve_param_section(&self, slot_index: u32) -> Option<&str> {
+        // Search from right to left
+        self.params[0..=slot_index as usize]
+            .iter()
             .rev()
-            .find_map(|i| {
-                let param = self.params.get(i as usize)?;
-                if param.section_name.is_empty() {
-                    None
-                } else {
-                    Some(param.section_name.as_str())
-                }
-            })
-            .unwrap_or_default()
+            .find_map(|param| Some(param.section.as_ref()?.as_str()))
     }
 
     pub fn params(&self) -> &[MacroParam] {
@@ -480,7 +485,8 @@ impl MacroParamBank {
 #[derive(Clone, Debug)]
 pub struct MacroParam {
     pub name: String,
-    pub section_name: String,
+    /// The parameter itself only carries its section name if it's the beginning of a new section.
+    pub section: Option<String>,
     pub fx_param: Option<PotFxParam>,
 }
 

@@ -2396,7 +2396,7 @@ fn show_macro_params(ui: &mut Ui, fx: &Fx, current_preset: &CurrentPreset, bank_
                                 return;
                             };
                             ui.vertical(|ui| {
-                                ui.strong(&param.macro_param.section_name);
+                                ui.strong(param.macro_param.section.as_deref().unwrap_or_default());
                                 let resp = ui.label(&param.macro_param.name);
                                 resp.on_hover_ui(|ui| {
                                     let hover_text = if let Some(fx_param) = &param.fx_param {

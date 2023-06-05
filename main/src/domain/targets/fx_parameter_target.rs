@@ -233,12 +233,16 @@ impl RealearnTarget for FxParameterTarget {
                 self.with_macro_param(|b, _, _| PropValue::Text(b.name().into()))
             }
             "fx_parameter.macro.section.name" => self.with_macro_param(|b, i, _| {
-                let section_name = b.resolve_param_section_name(i);
+                let section_name = b.resolve_param_section(i).unwrap_or_default();
                 PropValue::Text(section_name.to_string().into())
             }),
-            "fx_parameter.macro.new_section.name" => {
-                self.with_macro_param(|_, _, p| PropValue::Text(p.section_name.clone().into()))
-            }
+            "fx_parameter.macro.section.index" => self.with_macro_param(|b, i, _| {
+                let section = b.resolve_param_section_index(i)?;
+                Some(PropValue::Index(section))
+            })?,
+            "fx_parameter.macro.new_section.name" => self.with_macro_param(|_, _, p| {
+                PropValue::Text(p.section.clone().unwrap_or_default().into())
+            }),
             _ => None,
         }
     }
