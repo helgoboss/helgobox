@@ -70,7 +70,7 @@ function to_ascii(text)
         end
     end
     -- Null terminator
-    table.insert(bytes, 0x00)
+    table.insert(bytes, 0)
     return bytes
 end
 
@@ -207,6 +207,26 @@ function create_led_msg(led_index, led_behavior, color)
         math.floor(color.g / 2),
         math.floor(color.b / 2),
     })
+end
+
+function create_left_right_animation(global_millis, max_char_count, frame_length, text)
+    if text == nil then
+        return nil
+    end
+    if #text > max_char_count then
+        local frame_count = #text - max_char_count
+        local frame_index = math.floor(global_millis / frame_length) % (frame_count * 2)
+        local text_offset
+        if frame_index < frame_count then
+            text_offset = frame_index
+        else
+            local distance = frame_index - frame_count
+            text_offset = frame_count - distance
+        end
+        return text:sub(text_offset + 1, text_offset + max_char_count)
+    else
+        return text
+    end
 end
 
 -- ## Code ##
@@ -582,14 +602,16 @@ return {
             script = reusable_lua_code .. [[
 local column = 8
 local preset_name = y and y.preset_name or ""
-local preset_name_1 = string.sub(preset_name, 1, 9)
-local preset_name_2 = string.sub(preset_name, 10, 18)
+local max_char_count = 9
+local frame_length = 150
+local preset_name_animation = y and create_left_right_animation(y.millis, max_char_count, frame_length, y.preset_name) or ""
+local product_name_animation = y and create_left_right_animation(y.millis, max_char_count, frame_length, y.product_name) or ""
 return {
     address = column,
     messages = {
         create_screen_props_msg({
-            create_text_prop_change(column, 0, preset_name_1),
-            create_text_prop_change(column, 1, preset_name_2),
+            create_text_prop_change(column, 0, preset_name_animation),
+            create_text_prop_change(column, 1, product_name_animation),
         }),
     }
 } ]],
@@ -598,11 +620,15 @@ return {
             feedback = {
                 kind = "Dynamic",
                 script = [[
+local millis = context.prop("global.realearn.time")
 local preset_name = context.prop("target.preset.name")
+local product_name = context.prop("target.preset.product.name")
 return {
     feedback_event = {
         value = {
             preset_name = preset_name,
+            product_name = product_name,
+            millis = millis,
         }
     },
 }
