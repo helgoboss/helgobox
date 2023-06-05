@@ -3781,6 +3781,11 @@ Determines whether to send numeric or textual feedback to the source.
 [cols="m,1"]
 |===
 |
+global.realearn.time
+|
+Time in milliseconds since ReaLearn has been loaded (the first instance).
+
+|
 mapping.name
 |
 Name of the mapping. Contains the explicitly assigned mapping name, never an automatically generated one.
@@ -3794,6 +3799,16 @@ If the target value can be represented using some kind of name, this name is pre
 
 This is the default value shown if textual feedback is enabled and the textual feedback
 expression is empty.
+
+|
+target.discrete_value
+|
+The current target value as zero-based integer. This only works for discrete targets.
+
+|
+target.discrete_value_count
+|
+The number of possible values in the current target. This only works for discrete targets.
 
 |
 target.numeric_value

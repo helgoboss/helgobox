@@ -90,6 +90,7 @@ impl<'lua> ToLua<'lua> for LuaPropValue {
                 let script_color = ScriptColor::from(c);
                 lua.to_value(&script_color)
             }
+            PropValue::DurationInMillis(d) => d.to_lua(lua),
         }
     }
 }

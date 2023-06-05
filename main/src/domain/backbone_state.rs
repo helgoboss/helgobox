@@ -22,12 +22,14 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
+use std::time::{Duration, Instant};
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
 
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
 pub struct BackboneState {
+    time_of_start: Instant,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     source_state: RefCell<RealearnSourceState>,
     target_state: RefCell<RealearnTargetState>,
@@ -146,6 +148,7 @@ impl BackboneState {
         target_context: RealearnTargetState,
     ) -> Self {
         Self {
+            time_of_start: Instant::now(),
             additional_feedback_event_sender,
             source_state: Default::default(),
             target_state: RefCell::new(target_context),
@@ -158,6 +161,10 @@ impl BackboneState {
             global_pot_filter_exclude_list: Default::default(),
             recently_focused_fx_container: Default::default(),
         }
+    }
+
+    pub fn duration_since_time_of_start(&self) -> Duration {
+        self.time_of_start.elapsed()
     }
 
     pub fn pot_filter_exclude_list(&self) -> Ref<PotFilterExcludes> {

@@ -1,10 +1,10 @@
 use crate::domain::{
-    get_fx_name, get_track_color, get_track_name, CompoundChangeEvent, CompoundMappingTarget,
-    ControlContext, FeedbackResolution, MainMapping, RealearnTarget, ReaperTarget,
-    UnresolvedCompoundMappingTarget,
+    get_fx_name, get_track_color, get_track_name, BackboneState, CompoundChangeEvent,
+    CompoundMappingTarget, ControlContext, FeedbackResolution, MainMapping, RealearnTarget,
+    ReaperTarget, UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{PropProvider, PropValue, Target};
+use helgoboss_learn::{AbsoluteValue, NumericValue, PropProvider, PropValue, Target};
 use realearn_api::persistence::TrackScope;
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
@@ -87,6 +87,7 @@ impl<'a> PropProvider for MappingPropProvider<'a> {
 }
 
 enum Props {
+    Global(GlobalProps),
     Mapping(MappingProps),
     Target(TargetProps),
 }
@@ -99,6 +100,10 @@ impl Props {
         target: &UnresolvedCompoundMappingTarget,
     ) -> Option<FeedbackResolution> {
         match self {
+            Props::Global(p) => {
+                let args = PropFeedbackResolutionArgs { object: () };
+                p.feedback_resolution(args)
+            }
             Props::Mapping(p) => {
                 let args = PropFeedbackResolutionArgs { object: mapping };
                 p.feedback_resolution(args)
@@ -121,6 +126,14 @@ impl Props {
         control_context: ControlContext,
     ) -> bool {
         match self {
+            Props::Global(p) => {
+                let args = PropIsAffectedByArgs {
+                    event,
+                    object: (),
+                    control_context,
+                };
+                p.is_affected_by(args)
+            }
             Props::Mapping(p) => {
                 let args = PropIsAffectedByArgs {
                     event,
@@ -150,6 +163,13 @@ impl Props {
         control_context: ControlContext,
     ) -> Option<PropValue> {
         match self {
+            Props::Global(p) => {
+                let args = PropGetValueArgs {
+                    object: (),
+                    control_context,
+                };
+                p.get_value(args)
+            }
             Props::Mapping(p) => {
                 let args = PropGetValueArgs {
                     object: mapping,
@@ -172,10 +192,18 @@ impl FromStr for Props {
     type Err = strum::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse::<MappingProps>()
-            .map(Props::Mapping)
+        s.parse::<GlobalProps>()
+            .map(Props::Global)
+            .or_else(|_| s.parse::<MappingProps>().map(Props::Mapping))
             .or_else(|_| s.parse::<TargetProps>().map(Props::Target))
     }
+}
+
+#[enum_dispatch]
+#[derive(strum::EnumString)]
+enum GlobalProps {
+    #[strum(serialize = "global.realearn.time")]
+    GlobalRealearnTime(GlobalRealearnTimeProp),
 }
 
 #[enum_dispatch]
@@ -196,6 +224,10 @@ enum TargetProps {
     TargetAvailable(TargetAvailableProp),
     #[strum(serialize = "target.text_value")]
     TextValue(TargetTextValueProp),
+    #[strum(serialize = "target.discrete_value")]
+    DiscreteValue(TargetDiscreteValueProp),
+    #[strum(serialize = "target.discrete_value_count")]
+    DiscreteValueCount(TargetDiscreteValueCountProp),
     #[strum(serialize = "target.numeric_value")]
     NumericValue(TargetNumericValueProp),
     #[strum(serialize = "target.numeric_value.unit")]
@@ -216,6 +248,24 @@ enum TargetProps {
     RouteIndex(TargetRouteIndexProp),
     #[strum(serialize = "target.route.name")]
     RouteName(TargetRouteNameProp),
+}
+
+#[enum_dispatch(GlobalProps)]
+trait GlobalProp {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<()>,
+    ) -> Option<FeedbackResolution> {
+        let _ = args;
+        None
+    }
+
+    /// Returns whether the value of this property could be affected by the given change event.
+    fn is_affected_by(&self, args: PropIsAffectedByArgs<()>) -> bool;
+
+    /// Returns the current value of this property.
+    fn get_value(&self, args: PropGetValueArgs<()>) -> Option<PropValue>;
 }
 
 #[enum_dispatch(MappingProps)]
@@ -289,6 +339,27 @@ struct PropGetValueArgs<'a, T> {
 }
 
 #[derive(Default)]
+struct GlobalRealearnTimeProp;
+
+impl GlobalProp for GlobalRealearnTimeProp {
+    fn feedback_resolution(&self, _: PropFeedbackResolutionArgs<()>) -> Option<FeedbackResolution> {
+        Some(FeedbackResolution::High)
+    }
+
+    fn is_affected_by(&self, _: PropIsAffectedByArgs<()>) -> bool {
+        false
+    }
+
+    fn get_value(&self, _: PropGetValueArgs<()>) -> Option<PropValue> {
+        Some(PropValue::DurationInMillis(
+            BackboneState::get()
+                .duration_since_time_of_start()
+                .as_millis() as _,
+        ))
+    }
+}
+
+#[derive(Default)]
 struct MappingNameProp;
 
 impl MappingProp for MappingNameProp {
@@ -319,6 +390,44 @@ impl TargetProp for TargetTextValueProp {
         Some(PropValue::Text(
             input.object.target.text_value(input.control_context)?,
         ))
+    }
+}
+
+#[derive(Default)]
+struct TargetDiscreteValueCountProp;
+
+impl TargetProp for TargetDiscreteValueCountProp {
+    fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
+        let discrete_count = args
+            .object
+            .target
+            .control_type_and_character(args.control_context)
+            .0
+            .discrete_count()?;
+        Some(PropValue::Numeric(NumericValue::Discrete(
+            discrete_count as _,
+        )))
+    }
+}
+
+#[derive(Default)]
+struct TargetDiscreteValueProp;
+
+impl TargetProp for TargetDiscreteValueProp {
+    fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
+        let i = match args.object.target.current_value(args.control_context)? {
+            AbsoluteValue::Continuous(uv) => {
+                let step_size = args
+                    .object
+                    .target
+                    .control_type_and_character(args.control_context)
+                    .0
+                    .step_size()?;
+                (uv.get() / step_size.get()).round() as u32
+            }
+            AbsoluteValue::Discrete(d) => d.actual(),
+        };
+        Some(PropValue::Index(i))
     }
 }
 

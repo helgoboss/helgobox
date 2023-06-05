@@ -2776,12 +2776,6 @@ fn load_preset_and_regain_focus(
     os_window.focus_first_child();
 }
 
-fn process_potential_error(result: &Result<(), Box<dyn Error>>, toasts: &mut Toasts) {
-    if let Err(e) = result {
-        process_error(&**e, toasts);
-    }
-}
-
 fn process_error(error: &dyn Error, toasts: &mut Toasts) {
     show_error_toast(&error.to_string(), toasts);
 }
