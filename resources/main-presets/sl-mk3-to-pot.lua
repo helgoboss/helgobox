@@ -1,16 +1,25 @@
 -- ## Constants ##
 
--- Browse colors
-local color_one = { r = 0x21, g = 0x96, b = 0xf3 }
-local color_two = { r = 0x79, g = 0x55, b = 0x48 }
-local color_three = { r = 0xff, g = 0x57, b = 0x22 }
-local color_four = { r = 0xff, g = 0xeb, b = 0x3b }
-local color_five = { r = 0x4c, g = 0xaf, b = 0x50 }
+function color(hex)
+    hex = hex:gsub("#","")
+    return {
+        r = tonumber("0x"..hex:sub(1,2)),
+        g = tonumber("0x"..hex:sub(3,4)),
+        b = tonumber("0x"..hex:sub(5,6)),
+    }
+end
+
+-- Browser colors
+local browse_dbs_color = color("#2196f3")
+local browse_products_color = color("#795548")
+local browse_types_color = color("#ff5722")
+local browse_characters_color = color("#ffeb3b")
+local browse_presets_color = color("#4caf50")
 
 -- Action colors
-local filter_action_color = { r = 0xff, g = 0xff, b = 0xff }
-local preview_action_color = { r = 0x30, g = 0x4f, b = 0xfe }
-local load_action_color = { r = 0xb7, g = 0x1c, b = 0x1c }
+local filter_action_color = color("#ffffff")
+local preview_action_color = color("#304ffe")
+local load_action_color = color("#b71c1c")
 
 -- Targets
 local load_preset_target = {
@@ -774,56 +783,56 @@ local load_action = {
 }
 concat_table(
         mappings,
-        create_browse_mappings("Database", 0, color_one, available_filter_action, nil, {
+        create_browse_mappings("Database", 0, browse_dbs_color, available_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Database",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Kind", 1, color_one, supported_filter_action, nil, {
+        create_browse_mappings("Kind", 1, browse_dbs_color, supported_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "ProductKind",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Product", 2, color_two, favorite_filter_action, nil, {
+        create_browse_mappings("Product", 2, browse_products_color, favorite_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Bank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Bank", 3, color_two, user_filter_action, nil, {
+        create_browse_mappings("Bank", 3, browse_products_color, user_filter_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubBank",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Type", 4, color_three, preview_action, nil, {
+        create_browse_mappings("Type", 4, browse_types_color, preview_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Category",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Sub type", 5, color_three, load_action, nil, {
+        create_browse_mappings("Sub type", 5, browse_types_color, load_action, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "SubCategory",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Character", 6, color_four, nil, nil, {
+        create_browse_mappings("Character", 6, browse_characters_color, nil, nil, {
             kind = "BrowsePotFilterItems",
             item_kind = "Mode",
         })
 )
 concat_table(
         mappings,
-        create_browse_mappings("Preset", 7, color_five, nil, "target.preset.product.name", {
+        create_browse_mappings("Preset", 7, browse_presets_color, nil, "target.preset.product.name", {
             kind = "BrowsePotPresets",
         })
 )
