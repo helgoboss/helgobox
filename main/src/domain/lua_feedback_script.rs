@@ -143,25 +143,21 @@ mod tests {
     fn used_props() {
         // Given
         let text = r#"
-            if context.mode == 0 then
-                return {
-                    feedback_event = nil
-                }
-            else
-                return {
-                    used_props = {
-                        "hello",
-                        "bye",
-                    },
-                }
-            end
+            local foo = context.prop("bye")
+            local bla = context.prop("hello")
+            return {
+                feedback_event = nil
+            }
         "#;
         let lua = SafeLua::new().unwrap();
         let script = LuaFeedbackScript::compile(&lua, text).unwrap();
         // When
         let used_props = script.used_props().unwrap();
         // Then
-        assert_eq!(used_props, vec!["hello".to_string(), "bye".to_string()]);
+        assert_eq!(
+            used_props,
+            HashSet::from(["hello".to_string(), "bye".to_string()])
+        );
     }
 
     #[test]
