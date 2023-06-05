@@ -11,7 +11,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2023-06-01 (v2.15.0)`
+|Last update of text: |`2023-06-05 (v2.16.0-pre.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1623,7 +1623,7 @@ This section provides the following mapping-related settings and functions:
  number of top-level configuration properties set for that mapping. That way you can immediately see if a mapping
  has advanced settings or not. You can learn more about the available properties in the section
  <<advanced-settings,Advanced settings>>.
-** *Open in text editor:* Opens the settings in the system text editor or whatever program is associated with
+** *Open in text editor (Windows and Linux only):* Opens the settings in the system text editor or whatever program is associated with
  YAML files. It depends on your system setup if this works or not. If it does and if your text editor is good,
  this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting). As soon
  as you save the file and close the editor, the text will automatically appear in the "Advanced settings"
@@ -2134,7 +2134,7 @@ This source is feedback-only and exists for enabling more complex feedback use c
 * *Script:* The script. Is disabled if the script contains more than one line.
 * *…:* Opens the script in a separate window (for multi-line scripts).
 
-TIP: Prefer the <<display-source>> source over this one whenever possible. It's faster and easier to use.
+TIP: Prefer the <<display-source>> source over this one whenever possible. It's easier to use.
 
 *General mechanics*
 
@@ -2142,7 +2142,7 @@ TIP: Prefer the <<display-source>> source over this one whenever possible. It's 
 * *Script input*
 ** The main input is the current feedback value, which the script can access as a variable.
 * *Script output*
-** The main output that the script is supposed to provide is the MIDI message to be sent to the MIDI device.
+** The main output that the script is supposed to return is the MIDI message to be sent to the MIDI device.
 ** Additionally, the script can provide a so-called _feedback address_, which is supposed to uniquely identify the LED, motor fader or display. It's important to provide an address if you want ReaLearn to handle feedback relay correctly, e.g. that it switches off the LED when not in use anymore and doesn't switch it off if another mapping "takes over" the same LED. By convention, the constant (non-variable) bytes of the MIDI message should be used as address. The examples below might help to understand.
 
 *EEL script specifics*
@@ -2168,7 +2168,7 @@ msg_size = 3;
 *Lua script specifics*
 
 * *Script input*
-** Lua scripts can access both numeric and text feedback values.
+** Lua scripts can access numeric, text and dynamic feedback values.
 ** Here's the list of input variables:
 *** `y`: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
 *** `context.feedback_event.color`: The color as set in the <<glue>> section. Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
@@ -3394,6 +3394,16 @@ target.fx_parameter.macro.section.name
 Name of the corresponding Pot macro parameter section. Only works if this parameter is part of a preset loaded via Pot.
 
 |
+target.fx_parameter.macro.section.index
+|
+Zero-based index of the corresponding Pot macro parameter section (within the current bank). Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.new_section.name
+|
+Name of the corresponding Pot macro parameter section, but only if this parameter marks the start of a new section. Only works if this parameter is part of a preset loaded via Pot.
+
+|
 target.fx_parameter.macro.bank.name
 |
 Name of the corresponding Pot macro parameter bank. Only works if this parameter is part of a preset loaded via Pot.
@@ -3429,6 +3439,42 @@ Use this target to browse a collection of presets. By default, this is the compl
 
 The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available presets. Once you have selected a preset, you can audition it via <<pot-preview-preset>> (if it's a sound preset) and load it via <<pot-load-preset>>.
 
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+preset.name
+|
+Name of the preset.
+
+|
+preset.product.name
+|
+Name of the product to which this preset belongs, if available.
+
+|
+preset.file_ext
+|
+File extension of the preset, in case it's a file-based preset.
+
+|
+preset.author
+|
+Name of the preset author, if available.
+
+|
+preset.vendor
+|
+Name of the preset vendor, if available.
+
+|
+preset.comment
+|
+Preset comment, if available.
+
+|===
+
 [#pot-preview-preset]
 ====== Pot: Preview preset
 
@@ -3445,6 +3491,8 @@ NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if yo
 Settings:
 
 * *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in. The best idea is to use FX selector <<by-position>>. Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change. Then the target would turn inactive and stop working.
+
+This target supports the same additional placeholders for textual feedback expressions as <<pot-browse-presets>>. The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.
 
 ====== Send: Automation mode
 
@@ -3765,19 +3813,35 @@ TIP: If you want to control _other_ mappings only and not _this_ mapping, just p
 
 ===== Feedback type
 
-Determines whether to send numeric or textual feedback to the source.
+Determines whether to send numeric, textual or dynamic feedback to the source.
 
-* *Numeric feedback: EEL transformation:* Sends numeric feedback to the source. This is the default. The text field below allows you to specify an optional feedback transformation formula, which is much like <<control-transformation>> but used for translating a target value back to a source value for feedback purposes. Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this since version 2:
+====== Numeric feedback: EEL transformation
+
+Sends numeric feedback to the source. This is the default.
+
+The text field below allows you to specify an optional feedback transformation formula, which is much like <<control-transformation>> but used for translating a target value back to a source value for feedback purposes. Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`.
+
+
+
+Example: `x = y * 2`.
+
+ReaLearn's feedback processing order is like this since version 2:
 .. Apply target interval.
 .. Apply reverse.
 .. Apply transformation.
 .. Apply source interval.
-* [[textual-feedback,textual feedback]] *Textual feedback: Text expression:* With this option, ReaLearn will send textual feedback values to the source. This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_ and the <<display-source, MIDI Display source>>. The field below contains the _textual feedback expression_. Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
-** Whatever text you enter here, will be sent verbatim to the source.
-** Of course, entering a fixed text here is not very exciting. Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
-** You can do that by using placeholders, delimited by double braces. Example: `{{target.text_value}}`.
-** Which placeholders are available, depends very much on the type of the mapping target. However, there are some which are available for (almost) any target:
-+
+
+[#textual-feedback]
+====== Textual feedback: Text expression
+
+With this option, ReaLearn will send textual feedback values to the source. This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<script-source>>.
+
+The field below contains the _textual feedback expression_. Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text. Whatever text you enter here, will be sent verbatim to the source.
+
+Of course, entering a fixed text here is not very exciting. Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted! You can do that by using placeholders, delimited by double braces. Example: `{{target.text_value}}`.
+
+Which placeholders are available, depends very much on the type of the mapping target. However, there are some which are available for (almost) any target:
+
 [cols="m,1"]
 |===
 |
@@ -3799,6 +3863,15 @@ If the target value can be represented using some kind of name, this name is pre
 
 This is the default value shown if textual feedback is enabled and the textual feedback
 expression is empty.
+
+|
+target.available
+|
+A boolean value indicating whether the target is currently available or not.
+
+Most targets that are _active_ are also _available_. But some targets can be _active_ and _unavailable_. Example: <<pot-preview-preset>> is not _available_ if no preview is available for the preset currently selected in Pot browser. But the target is still considered _active_ in this case!
+
+Usually used together with <<dynamic-feedback>>, for example in order to display different things on displays depending on the target's availability.
 
 |
 target.discrete_value
@@ -3876,15 +3949,143 @@ target.route.name
 |
 Name of the first resolved target send/receive/output (if supported).
 |===
-+
+
 For target-specific placeholders, please look up the corresponding <<target>> section.
 
+[#dynamic-feedback]
+====== Dynamic feedback: Lua script
+
+This feedback type puts you fully in charge about which feedback to send to the source. It does so by letting you define a Lua script that builds numeric, textual or even arbitrarily structured feedback.
+
+*General mechanics*
+
+* ReaLearn executes your script whenever one of the ReaLearn-provided properties used in your script might have changed its value.
+* The script receives an input and must produce an output.
+* *Script input*
+** The input is a function `context.prop` which you can use to query arbitrary properties, e.g. target or mapping properties. Those properties are the very same properties that you can use in <<textual-feedback,textual feedback>>.
+** Here's an example how to use this function:
++
+[source,lua]
+----
+local preset_name = context.prop("target.preset.name")
+local param_name = context.prop("target.fx_parameter.name")
+----
++
+** Values returned by this function can be `nil`! E.g. target-related properties return a `nil` value whenever the mapping or target turns inactive, which is a very common situation. So it's important to prepare your Lua code for that, otherwise script execution fails and no feedback will be sent. One way to deal with a `nil` value returned by `context.prop` is to also return `nil` as `value` (see below).
+* *Script output*
+** The output that the script is supposed to return is a table which looks as in the following example:
++
+[source,lua]
+----
+return {
+    feedback_event = {
+        -- The feedback value <1>
+        value = "Arbitrary text",
+        -- An optional color <2>
+        color = { r = 0, g = 255, b = 0 },
+        -- An optional background color <3>
+        background_color = nil,
+    }
+}
+----
+<1> In this example it's a text value, but it can be anything!
+<2> Has the same effect as color in <<feedback-style>>
+<3> Has the same effect as background color in <<feedback-style>>
++
+** The most important thing here is `value`. It can either be ...
+*** ... a string (ideal for display sources)
+*** ... a number (ideal for LEDs and motor faders)
+*** ... `nil` (which means "turn the source off", e.g. turn off the LED, turn down the motorfader, clear the display text)
+*** ... or anything else (`true`, `false` or an arbitrary table ... at the moment, this is only useful for the <<script-source>> source because other sources don't know how to deal with it)
+* *Examples*
+** Displays the number of milliseconds passed since ReaLearn was loaded:
++
+[source,lua]
+----
+local millis = context.prop("global.realearn.time")
+return {
+    feedback_event = {
+        value = "" .. millis .. "ms"
+    },
+}
+----
++
+** Creates an animation to make a long FX name visible on a tiny screen.
++
+[source,lua]
+----
+function create_left_right_animation(global_millis, max_char_count, frame_length, text)
+    if text == nil then
+        return nil
+    end
+    if #text > max_char_count then
+        local frame_count = #text - max_char_count
+        local frame_index = math.floor(global_millis / frame_length) % (frame_count * 2)
+        local text_offset
+        if frame_index < frame_count then
+            text_offset = frame_index
+        else
+            local distance = frame_index - frame_count
+            text_offset = frame_count - distance
+        end
+        return text:sub(text_offset + 1, text_offset + max_char_count)
+    else
+        return text
+    end
+end
+
+-- The maximum number of characters we want to display at once
+local max_char_count = 10
+-- How many milliseconds to remain in one position
+local frame_length = 150
+local millis = context.prop("global.realearn.time")
+local fx_name = context.prop("target.fx.name")
+local animation = create_left_right_animation(millis, 10, frame_length, fx_name)
+return {
+    feedback_event = {
+        value = animation
+    },
+}
+----
++
+** Returns a structured feedback value ...
++
+[source,lua]
+----
+return {
+    feedback_event = {
+        value = {
+            available = context.prop("target.available"),
+            more_info = {
+                index = context.prop("target.discrete_value"),
+                count = context.prop("target.discrete_value_count"),
+            },
+        }
+    },
+}
+----
+** ... which can then be processed by a <<script-source>> source (this example is not realistic, it just shows how you can access the value table returned by the glue section feedback script):
++
+[source,lua]
+----
+return {
+    address = 0x4bb0,
+    messages = {
+        { 0xb0, 0x4b, y.more_info.index, y.more_info.count }
+    }
+}
+----
+
+
+
 [#feedback-style]
-===== Feedback style (... button)
+===== Feedback style
 
-The ... button options to change the _feedback style_. At the moment, it's all about setting colors. Expect more style properties to follow in future versions of ReaLearn.
+The ... button provides options to change the _feedback style_. At the moment, it's all about setting colors.
 
-* *Text color / Background color:* With this you can define the color and background color of the displayed text. Of course this will only work if the display source supports it!
+TIP: If you use <<dynamic-feedback>>, changes made here don't have any effect because you are supposed to provide style properties as part of the Lua script result (which is much more flexible).
+
+* *Color / Background color:* With this you can define the color and background color of the displayed text. Of course this will only work if the display source supports it!
 ** *<Default color>:* Chooses the default color, that is the one which is preferred for the corresponding controller and display type.
 ** *<Pick color...>:* Opens a color picker so you can choose the color of your choice.
 ** *_Property name_:* Maybe you don't want a fixed color but a dynamic one that changes whenever your target changes. Choose one of the following properties to make that happen:
