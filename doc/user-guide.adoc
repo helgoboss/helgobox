@@ -3444,32 +3444,32 @@ This target supports the following additional placeholders in textual feedback e
 [cols="m,1"]
 |===
 |
-preset.name
+target.preset.name
 |
 Name of the preset.
 
 |
-preset.product.name
+target.preset.product.name
 |
 Name of the product to which this preset belongs, if available.
 
 |
-preset.file_ext
+target.preset.file_ext
 |
 File extension of the preset, in case it's a file-based preset.
 
 |
-preset.author
+target.preset.author
 |
 Name of the preset author, if available.
 
 |
-preset.vendor
+target.preset.vendor
 |
 Name of the preset vendor, if available.
 
 |
-preset.comment
+target.preset.comment
 |
 Preset comment, if available.
 
