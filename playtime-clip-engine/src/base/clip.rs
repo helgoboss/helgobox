@@ -4,17 +4,18 @@ use crate::rt::supplier::{
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ClipChangeEvent, OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
-    create_file_api_source, create_pcm_source_from_api_source, CreateApiSourceMode,
+    create_file_api_source, create_pcm_source_from_api_source, make_media_file_path_absolute,
+    CreateApiSourceMode,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
 use reaper_high::{Project, Reaper, Track};
-use reaper_medium::Bpm;
-use std::fmt;
+use reaper_medium::{Bpm, PeakFileMode};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+use std::{fmt, fs};
 use ulid::Ulid;
 
 /// Describes a clip.
@@ -174,6 +175,20 @@ impl Clip {
 
     pub fn api_source(&self) -> &api::Source {
         &self.source
+    }
+
+    pub fn peak_file_contents(&self, permanent_project: Option<Project>) -> Option<Vec<u8>> {
+        let api::Source::File(s) = &self.source else {
+            return None;
+        };
+        let media_file_path = make_media_file_path_absolute(permanent_project, &s.path).ok()?;
+        let peak_file = Reaper::get().medium_reaper().get_peak_file_name_ex_2(
+            &media_file_path,
+            2000,
+            PeakFileMode::Read,
+            ".reapeaks",
+        );
+        fs::read(peak_file).ok()
     }
 
     pub fn create_pcm_source(

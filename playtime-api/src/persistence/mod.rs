@@ -1037,6 +1037,7 @@ pub struct BeatTimeBase {
     ///
     /// This information is used by the clip engine to determine how much to speed up or
     /// slow down the material depending on the current project tempo.
+    // TODO-high-clip-engine Feels strange here, maybe move to audio settings
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_tempo: Option<Bpm>,
     /// The time signature of this clip.

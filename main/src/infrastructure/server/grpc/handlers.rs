@@ -8,9 +8,10 @@ use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
     qualified_occasional_slot_update, Empty, FullClipAddress, FullColumnAddress, FullRowAddress,
-    FullSlotAddress, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
-    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    FullSlotAddress, GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
+    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
+    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
+    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
@@ -265,6 +266,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerSlotAction::Copy => matrix.copy_slot(slot_address),
             TriggerSlotAction::Cut => matrix.cut_slot(slot_address),
             TriggerSlotAction::Paste => matrix.paste_slot(slot_address),
+            TriggerSlotAction::FillWithSelectedItem => {
+                matrix.replace_slot_contents_with_selected_item(slot_address)
+            }
         })
     }
 
@@ -489,6 +493,20 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             Ok(())
         })
     }
+
+    async fn get_clip_detail(
+        &self,
+        request: Request<GetClipDetailRequest>,
+    ) -> Result<Response<GetClipDetailReply>, Status> {
+        let req = request.into_inner();
+        handle_clip_query(&req.clip_address, |matrix, clip_address| {
+            let clip = matrix.get_clip(clip_address)?;
+            let reply = GetClipDetailReply {
+                rea_peaks: clip.peak_file_contents(matrix.permanent_project()),
+            };
+            Ok(reply)
+        })
+    }
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
@@ -538,11 +556,19 @@ fn handle_matrix_command(
     matrix_id: &str,
     handler: impl FnOnce(&mut RealearnClipMatrix) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
-    App::get()
+    handle_matrix_internal(matrix_id, handler)?;
+    Ok(Response::new(Empty {}))
+}
+
+fn handle_matrix_internal<R>(
+    matrix_id: &str,
+    handler: impl FnOnce(&mut RealearnClipMatrix) -> Result<R, &'static str>,
+) -> Result<R, Status> {
+    let r = App::get()
         .with_clip_matrix_mut(matrix_id, handler)
         .map_err(Status::unknown)?
         .map_err(Status::not_found)?;
-    Ok(Response::new(Empty {}))
+    Ok(r)
 }
 
 fn handle_column_command(
@@ -586,11 +612,27 @@ fn handle_clip_command(
     full_clip_address: &Option<FullClipAddress>,
     handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
+    handle_clip_internal(full_clip_address, handler)?;
+    Ok(Response::new(Empty {}))
+}
+
+fn handle_clip_query<R>(
+    full_clip_address: &Option<FullClipAddress>,
+    handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<R, &'static str>,
+) -> Result<Response<R>, Status> {
+    let r = handle_clip_internal(full_clip_address, handler)?;
+    Ok(Response::new(r))
+}
+
+fn handle_clip_internal<R>(
+    full_clip_address: &Option<FullClipAddress>,
+    handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<R, &'static str>,
+) -> Result<R, Status> {
     let full_clip_address = full_clip_address
         .as_ref()
         .ok_or_else(|| Status::invalid_argument("need full clip address"))?;
     let clip_addr = convert_clip_address_to_engine(&full_clip_address.clip_address)?;
-    handle_matrix_command(&full_clip_address.matrix_id, |matrix| {
+    handle_matrix_internal(&full_clip_address.matrix_id, |matrix| {
         handler(matrix, clip_addr)
     })
 }

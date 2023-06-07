@@ -420,11 +420,8 @@ impl Column {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<SlotChangeEvent> {
-        let item = self
-            .project
-            .or_current_project()
-            .first_selected_item()
-            .ok_or("no item selected")?;
+        let project = self.project.or_current_project();
+        let item = project.first_selected_item().ok_or("no item selected")?;
         let source = source_util::create_api_source_from_item(item, false)
             .map_err(|_| "couldn't create source from item")?;
         let clip = api::Clip {
@@ -435,8 +432,8 @@ impl Column {
             active_source: Default::default(),
             // TODO-high-clip-engine Derive whether time or beat from item/track/project
             time_base: ClipTimeBase::Beat(BeatTimeBase {
-                // TODO-high-clip-engine Correctly determine audio tempo if audio
-                audio_tempo: None,
+                // TODO-high-clip-engine Correctly determine audio tempo, only if audio
+                audio_tempo: Some(api::Bpm::new(project.tempo().bpm().get())?),
                 // TODO-high-clip-engine Correctly determine time signature at item position
                 time_signature: TimeSignature {
                     numerator: 4,

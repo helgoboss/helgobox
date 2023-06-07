@@ -38,7 +38,7 @@ pub fn determine_tempo_from_beat_time_base(beat_time_base: &BeatTimeBase, is_mid
     } else {
         let tempo = beat_time_base
             .audio_tempo
-            .expect("material has time base 'beat' but no tempo");
+            .expect("audio material has time base 'beat' but no tempo");
         Bpm::new(tempo.get())
     }
 }

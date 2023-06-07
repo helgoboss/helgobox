@@ -131,19 +131,26 @@ fn create_pcm_source_from_midi_chunk_based_api_source(
     Ok(source)
 }
 
+pub fn make_media_file_path_absolute(
+    project_for_relative_path: Option<Project>,
+    path: &Path,
+) -> ClipEngineResult<PathBuf> {
+    if path.is_relative() {
+        project_for_relative_path
+            .ok_or("slot source given as relative file but without project")?
+            .make_path_absolute(path)
+            .ok_or("couldn't make clip source path absolute")
+    } else {
+        Ok(path.to_path_buf())
+    }
+}
+
 pub fn create_pcm_source_from_file_based_api_source(
     project_for_relative_path: Option<Project>,
     source: &FileSource,
     import_midi_as_in_project_midi: bool,
 ) -> ClipEngineResult<OwnedSource> {
-    let absolute_file = if source.path.is_relative() {
-        project_for_relative_path
-            .ok_or("slot source given as relative file but without project")?
-            .make_path_absolute(&source.path)
-            .ok_or("couldn't make clip source path absolute")?
-    } else {
-        source.path.clone()
-    };
+    let absolute_file = make_media_file_path_absolute(project_for_relative_path, &source.path)?;
     let source = if import_midi_as_in_project_midi {
         Reaper::get().with_pref_import_as_mid_file_reference(false, || {
             OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)
