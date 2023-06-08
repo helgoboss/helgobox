@@ -10,6 +10,7 @@ pub const GROUP_FEEDBACK_ENABLED: bool = true;
 
 pub const SOURCE_OSC_IS_RELATIVE: bool = false;
 pub const SOURCE_MACKIE_LCD_EXTENDER_INDEX: u8 = 0;
+pub const SOURCE_X_TOUCH_MACKIE_LCD_EXTENDER_INDEX: u8 = 0;
 
 pub const UNIT_INTERVAL: Interval<f64> = Interval(0.0, 1.0);
 pub const GLUE_STEP_SIZE_INTERVAL: Interval<f64> = Interval(0.01, 0.01);

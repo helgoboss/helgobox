@@ -63,6 +63,20 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
                     }
                 }
             }
+            XTouchMackieLcd(s) => {
+                let extender_index = s
+                    .extender_index
+                    .unwrap_or(defaults::SOURCE_X_TOUCH_MACKIE_LCD_EXTENDER_INDEX);
+                match extender_index {
+                    0 => DisplayType::XTouchMackieLcd,
+                    1 => DisplayType::XTouchMackieXtLcd,
+                    _ => {
+                        return Err(
+                            "at the moment, only extender indexes 0 and 1 are supported".into()
+                        )
+                    }
+                }
+            }
             MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
             SiniConE24Display(_) => DisplayType::SiniConE24,
             LaunchpadProScrollingTextDisplay(_) => DisplayType::LaunchpadProScrollingText,
@@ -70,6 +84,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
         },
         display_id: match &s {
             MackieLcd(s) => s.channel,
+            XTouchMackieLcd(s) => s.channel,
             MackieSevenSegmentDisplay(s) => s
                 .scope
                 .map(convert_mackie_seven_segment_display_scope)
@@ -79,6 +94,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
         },
         line: match &s {
             MackieLcd(s) => s.line,
+            XTouchMackieLcd(s) => s.line,
             MackieSevenSegmentDisplay(_) => None,
             SiniConE24Display(s) => s.item_index,
             _ => None,
