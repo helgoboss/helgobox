@@ -310,13 +310,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         label: impl Into<String>,
         f: impl FnOnce(&mut Self) -> ClipEngineResult<R>,
     ) -> ClipEngineResult<R> {
-        let owned_label = label.into();
-        self.history
-            .add(format!("Before {owned_label}"), self.save());
         let result = f(self);
         if result.is_ok() {
-            self.history.add(owned_label, self.save());
-            self.emit(ClipMatrixEvent::HistoryChanged);
+            self.add_history_entry(label.into());
         }
         result
     }
@@ -412,7 +408,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        self.add_history_entry("Before clearing scene".to_owned());
         self.clear_scene_internal(row_index)
     }
 
@@ -420,7 +415,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
         }
-        // TODO-medium This is not optimal because it will create multiple undo points.
         for column in self.scene_columns() {
             column.clear_slot(row_index);
         }
@@ -471,7 +465,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clear_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         // The undo point after clip removal is created later, in response to the upcoming event
         // that indicates that the slot has actually been cleared.
-        self.add_history_entry("Before clip removal".to_owned());
         self.clear_slot_internal(address)?;
         Ok(())
     }
@@ -949,7 +942,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if self.is_recording() {
             return Err("recording already");
         }
-        self.add_history_entry("Before clip recording".into());
         get_column_mut(&mut self.columns, address.column())?.record_slot(
             address.row(),
             &self.settings.clip_record_settings,
