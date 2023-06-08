@@ -4,8 +4,8 @@ use crate::rt::supplier::{
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{ClipChangeEvent, OverridableMatrixSettings, ProcessingRelevantClipSettings};
 use crate::source_util::{
-    create_file_api_source, create_pcm_source_from_api_source, make_media_file_path_absolute,
-    CreateApiSourceMode,
+    create_file_api_source, create_pcm_source_from_api_source, create_pcm_source_from_media_file,
+    make_media_file_path_absolute, CreateApiSourceMode,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
@@ -14,6 +14,8 @@ use playtime_api::persistence::{ClipColor, ClipTimeBase, Db, Section, SourceOrig
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::{Bpm, PeakFileMode};
 use std::fmt::{Display, Formatter};
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt, fs};
 use ulid::Ulid;
@@ -177,18 +179,55 @@ impl Clip {
         &self.source
     }
 
-    pub fn peak_file_contents(&self, permanent_project: Option<Project>) -> Option<Vec<u8>> {
+    pub fn peak_file_contents(
+        &self,
+        permanent_project: Option<Project>,
+    ) -> ClipEngineResult<impl Future<Output = ClipEngineResult<Vec<u8>>> + 'static> {
+        let media_file_path = self
+            .absolute_media_file_path(permanent_project)
+            .ok_or("no audio clip or path not found")?;
+        let future = async move {
+            let peak_file = get_peak_file_path(&media_file_path);
+            tracing::debug!("Trying to read peak file {:?}", &peak_file);
+            match fs::read(&peak_file) {
+                Ok(content) => Ok(content),
+                Err(_) => {
+                    // Peak file doesn't exist yet. Build it.
+                    let pcm_source = create_pcm_source_from_media_file(&media_file_path, false)?;
+                    // Begin building
+                    if !pcm_source.as_raw().peaks_build_begin() {
+                        // REAPER sometimes seems to have some peaks cached in memory or so? Then
+                        // it refuses to begin peak building. Make sure all peaks are cleared and
+                        // try starting another build.
+                        pcm_source.as_raw().peaks_clear(true);
+                        if !pcm_source.as_raw().peaks_build_begin() {
+                            return Err(
+                                "peaks not available and source says that building not necessary",
+                            );
+                        }
+                    }
+                    // Do the actual building
+                    tracing::debug!("Building peak file");
+                    while pcm_source.as_raw().peaks_build_run() {
+                        base::future_util::millis(10).await;
+                    }
+                    // Finish building
+                    pcm_source.as_raw().peaks_build_finish();
+                    // We need to query the peak file path again. It's weird but it can be a
+                    // different one now!
+                    let peak_file = get_peak_file_path(&media_file_path);
+                    fs::read(peak_file).map_err(|_| "peaks built but couldn't be found")
+                }
+            }
+        };
+        Ok(future)
+    }
+
+    fn absolute_media_file_path(&self, permanent_project: Option<Project>) -> Option<PathBuf> {
         let api::Source::File(s) = &self.source else {
             return None;
         };
-        let media_file_path = make_media_file_path_absolute(permanent_project, &s.path).ok()?;
-        let peak_file = Reaper::get().medium_reaper().get_peak_file_name_ex_2(
-            &media_file_path,
-            2000,
-            PeakFileMode::Read,
-            ".reapeaks",
-        );
-        fs::read(peak_file).ok()
+        make_media_file_path_absolute(permanent_project, &s.path).ok()
     }
 
     pub fn create_pcm_source(
@@ -295,4 +334,13 @@ pub fn create_api_source_from_recorded_midi_source(
         temporary_project,
     );
     api_source.map_err(|_| "failed creating API source from mirror source")
+}
+
+fn get_peak_file_path(media_file_path: &Path) -> PathBuf {
+    Reaper::get().medium_reaper().get_peak_file_name_ex_2(
+        media_file_path,
+        2000,
+        PeakFileMode::Read,
+        ".reapeaks",
+    )
 }

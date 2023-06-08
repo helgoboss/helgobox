@@ -2,6 +2,7 @@ use crate::domain::RealearnClipMatrix;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::grpc::WithSessionId;
 use base::future_util;
+use base::tracing_util::ok_or_log_as_warn;
 use futures::{FutureExt, Stream, StreamExt};
 use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
@@ -499,13 +500,15 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         request: Request<GetClipDetailRequest>,
     ) -> Result<Response<GetClipDetailReply>, Status> {
         let req = request.into_inner();
-        handle_clip_query(&req.clip_address, |matrix, clip_address| {
+        let peak_file_future = handle_clip_internal(&req.clip_address, |matrix, clip_address| {
             let clip = matrix.get_clip(clip_address)?;
-            let reply = GetClipDetailReply {
-                rea_peaks: clip.peak_file_contents(matrix.permanent_project()),
-            };
-            Ok(reply)
-        })
+            let peak_file_future = clip.peak_file_contents(matrix.permanent_project())?;
+            Ok(peak_file_future)
+        })?;
+        let reply = GetClipDetailReply {
+            rea_peaks: ok_or_log_as_warn(peak_file_future.await),
+        };
+        Ok(Response::new(reply))
     }
 }
 

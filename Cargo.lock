@@ -3643,6 +3643,7 @@ version = "0.1.0"
 dependencies = [
  "assert_no_alloc",
  "atomic",
+ "base",
  "crossbeam-channel",
  "derivative",
  "derive_more",

@@ -151,12 +151,23 @@ pub fn create_pcm_source_from_file_based_api_source(
     import_midi_as_in_project_midi: bool,
 ) -> ClipEngineResult<OwnedSource> {
     let absolute_file = make_media_file_path_absolute(project_for_relative_path, &source.path)?;
+    // TODO-high-clip-engine This seems to return a source even if the file doesn't exist ...
+    //  which is good in a way because we don't want matrix loading to fail just because one
+    //  media file is not available currently. We need to support the concept of a source being
+    //  offline.
+    create_pcm_source_from_media_file(&absolute_file, import_midi_as_in_project_midi)
+}
+
+pub fn create_pcm_source_from_media_file(
+    absolute_file: &Path,
+    import_midi_as_in_project_midi: bool,
+) -> ClipEngineResult<OwnedSource> {
     let source = if import_midi_as_in_project_midi {
         Reaper::get().with_pref_import_as_mid_file_reference(false, || {
-            OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)
+            OwnedSource::from_file(absolute_file, MidiImportBehavior::UsePreference)
         })
     } else {
-        OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)
+        OwnedSource::from_file(absolute_file, MidiImportBehavior::ForceNoMidiImport)
     };
     let source = source?;
     if rt::source_util::pcm_source_is_midi(source.as_ref().as_raw()) {

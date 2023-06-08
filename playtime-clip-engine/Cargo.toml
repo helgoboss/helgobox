@@ -11,6 +11,7 @@ reaper-low.workspace = true
 playtime-api.workspace = true
 helgoboss-midi.workspace = true
 helgoboss-learn.workspace = true
+base.workspace = true
 # Ring buffer for clip stretching
 rtrb = "0.2.1"
 crossbeam-channel.workspace = true
