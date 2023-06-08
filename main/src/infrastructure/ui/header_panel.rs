@@ -297,13 +297,15 @@ impl HeaderPanel {
                 .is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
-            let last_focused_fx_id = BackboneState::get().previously_focused_fx().and_then(|fx| {
-                if fx.is_available() {
-                    FxId::from_fx(&fx, true).ok()
-                } else {
-                    None
-                }
-            });
+            let last_relevant_focused_fx_id = BackboneState::get()
+                .last_relevant_focused_fx_id(session.processor_context().containing_fx())
+                .and_then(|fx| {
+                    if fx.is_available() {
+                        FxId::from_fx(&fx, true).ok()
+                    } else {
+                        None
+                    }
+                });
             let entries = vec![
                 item("Copy listed mappings", || {
                     MainMenuAction::CopyListedMappingsAsJson
@@ -503,7 +505,7 @@ impl HeaderPanel {
                 menu(
                     "Instance-wide FX-to-preset links",
                     generate_fx_to_preset_links_menu_entries(
-                        last_focused_fx_id.as_ref(),
+                        last_relevant_focused_fx_id.as_ref(),
                         &main_preset_manager,
                         session.instance_preset_link_config(),
                         PresetLinkScope::Instance,
@@ -571,7 +573,7 @@ impl HeaderPanel {
                 menu(
                     "Global FX-to-preset links",
                     generate_fx_to_preset_links_menu_entries(
-                        last_focused_fx_id.as_ref(),
+                        last_relevant_focused_fx_id.as_ref(),
                         &main_preset_manager,
                         preset_link_manager.config(),
                         PresetLinkScope::Global,

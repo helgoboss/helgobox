@@ -489,11 +489,16 @@ impl BackboneState {
         self.recently_focused_fx_container.borrow_mut().feed(new_fx);
     }
 
-    /// The special thing about this is that this doesn't return the currently focused FX but the
-    /// last focused one. That's important because when queried from ReaLearn UI, the current one
+    /// The special thing about this is that this doesn't necessarily return the currently focused
+    /// FX. It could also be the previously focused one.
+    ///
+    /// That's important because when queried from ReaLearn UI, the current one
     /// is mostly ReaLearn itself - which is in most cases not what we want.
-    pub fn previously_focused_fx(&self) -> Option<Fx> {
-        self.recently_focused_fx_container.borrow().previous.clone()
+    pub fn last_relevant_focused_fx_id(&self, this_realearn_fx: &Fx) -> Option<Fx> {
+        self.recently_focused_fx_container
+            .borrow()
+            .last_relevant_fx(this_realearn_fx)
+            .cloned()
     }
 
     pub fn feedback_is_allowed(
@@ -610,7 +615,14 @@ struct RecentlyFocusedFxContainer {
 }
 
 impl RecentlyFocusedFxContainer {
-    fn feed(&mut self, new_fx: Option<Fx>) {
+    pub fn last_relevant_fx(&self, this_realearn_fx: &Fx) -> Option<&Fx> {
+        [self.current.as_ref(), self.previous.as_ref()]
+            .into_iter()
+            .flatten()
+            .find(|fx| fx.is_available() && *fx != this_realearn_fx)
+    }
+
+    pub fn feed(&mut self, new_fx: Option<Fx>) {
         // Never clear any memorized FX.
         let Some(new_fx) = new_fx else {
             return;
