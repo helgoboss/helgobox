@@ -305,13 +305,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    fn undoable<R>(&mut self, label: impl Into<String>, f: impl FnOnce(&mut Self) -> R) -> R {
+    fn undoable<R>(
+        &mut self,
+        label: impl Into<String>,
+        f: impl FnOnce(&mut Self) -> ClipEngineResult<R>,
+    ) -> ClipEngineResult<R> {
         let owned_label = label.into();
         self.history
             .add(format!("Before {owned_label}"), self.save());
         let result = f(self);
-        self.history.add(owned_label, self.save());
-        self.emit(ClipMatrixEvent::HistoryChanged);
+        if result.is_ok() {
+            self.history.add(owned_label, self.save());
+            self.emit(ClipMatrixEvent::HistoryChanged);
+        }
         result
     }
 
@@ -436,11 +442,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Copies the given slot's clips to the matrix clipboard.
     pub fn copy_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        let slot = self.get_slot(address)?;
-        let clips_in_slot = slot
-            .clips()
-            .filter_map(|clip| clip.save(self.permanent_project()).ok())
-            .collect();
+        let clips_in_slot = self.get_slot(address)?.api_clips(self.permanent_project());
         self.clipboard.content = Some(MatrixClipboardContent::Slot(clips_in_slot));
         Ok(())
     }
@@ -451,8 +453,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let MatrixClipboardContent::Slot(clips) = content else {
             return Err("clipboard doesn't contain slot contents");
         };
-        self.add_clips_to_slot(address, clips.clone())?;
-        Ok(())
+        let cloned_clips = clips.clone();
+        self.undoable("Paste slot", move |matrix| {
+            matrix.add_clips_to_slot(address, cloned_clips)?;
+            let event = SlotChangeEvent::Clips("Added clips to slot");
+            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
+            Ok(())
+        })
     }
 
     /// Clears the given slot.
@@ -460,6 +467,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         // The undo point after clip removal is created later, in response to the upcoming event
         // that indicates that the slot has actually been cleared.
         self.add_history_entry("Before clip removal".to_owned());
+        self.clear_slot_internal(address)?;
+        Ok(())
+    }
+
+    fn clear_slot_internal(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         self.get_column(address.column)?.clear_slot(address.row);
         Ok(())
     }
@@ -521,31 +533,27 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Adds the given clips to the given slot.
-    pub fn add_clips_to_slot(
+    fn add_clips_to_slot(
         &mut self,
         address: ClipSlotAddress,
         api_clips: Vec<api::Clip>,
     ) -> ClipEngineResult<()> {
-        self.undoable("Fill slot with clips", |matrix| {
-            let column = get_column_mut(&mut matrix.columns, address.column)?;
-            for api_clip in api_clips {
-                // TODO-high-clip-engine CONTINUE Starting from here, don't let the methods return events anymore!
-                //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
-                //  for all clips). But on the other hand, it doesn't know about batches
-                //  and might therefore build a list of events for nothing!
-                column.fill_slot_with_clip(
-                    address.row,
-                    api_clip,
-                    &matrix.chain_equipment,
-                    &matrix.recorder_request_sender,
-                    &matrix.settings,
-                    FillClipMode::Add,
-                )?;
-            }
-            let event = SlotChangeEvent::Clips("added clips to slot");
-            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
-            Ok(())
-        })
+        let column = get_column_mut(&mut self.columns, address.column)?;
+        for api_clip in api_clips {
+            // TODO-high-clip-engine CONTINUE Starting from here, don't let the methods return events anymore!
+            //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
+            //  for all clips). But on the other hand, it doesn't know about batches
+            //  and might therefore build a list of events for nothing!
+            column.fill_slot_with_clip(
+                address.row,
+                api_clip,
+                &self.chain_equipment,
+                &self.recorder_request_sender,
+                &self.settings,
+                FillClipMode::Add,
+            )?;
+        }
+        Ok(())
     }
 
     /// Replaces the slot contents with the currently selected REAPER item.
@@ -581,6 +589,46 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             options,
         };
         column.play_slot(args);
+        Ok(())
+    }
+
+    pub fn move_slot_contents_to(
+        &mut self,
+        source_address: ClipSlotAddress,
+        dest_address: ClipSlotAddress,
+    ) -> ClipEngineResult<()> {
+        if source_address == dest_address {
+            return Ok(());
+        }
+        let clips_in_slot = self
+            .get_slot(source_address)?
+            .api_clips(self.permanent_project());
+        self.undoable("Move-dragged slot", |matrix| {
+            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
+            matrix.clear_slot_internal(source_address)?;
+            matrix.emit(ClipMatrixEvent::EverythingChanged);
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn copy_slot_contents_to(
+        &mut self,
+        source_address: ClipSlotAddress,
+        dest_address: ClipSlotAddress,
+    ) -> ClipEngineResult<()> {
+        if source_address == dest_address {
+            return Ok(());
+        }
+        let clips_in_slot = self
+            .get_slot(source_address)?
+            .api_clips(self.permanent_project());
+        self.undoable("Copy-dragged slot", |matrix| {
+            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
+            let event = SlotChangeEvent::Clips("Copied clips to slot");
+            matrix.emit(ClipMatrixEvent::slot_changed(dest_address, event));
+            Ok(())
+        })?;
         Ok(())
     }
 

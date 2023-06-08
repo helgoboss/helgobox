@@ -566,6 +566,14 @@ impl Slot {
         self.contents.iter().map(|c| &c.clip)
     }
 
+    /// Returns all clips in this slot, converted to standalone API clips. Can be empty.
+    pub fn api_clips(&self, permanent_project: Option<Project>) -> Vec<api::Clip> {
+        self.contents
+            .iter()
+            .filter_map(|c| c.clip.save(permanent_project).ok())
+            .collect()
+    }
+
     /// Returns clip at the given index.
     ///
     /// # Errors

@@ -123,6 +123,18 @@ pub struct TriggerSlotRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DragSlotRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub source_slot_address: ::core::option::Option<SlotAddress>,
+    #[prost(message, optional, tag = "3")]
+    pub destination_slot_address: ::core::option::Option<SlotAddress>,
+    #[prost(enumeration = "DragSlotAction", tag = "4")]
+    pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetClipNameRequest {
     #[prost(message, optional, tag = "1")]
     pub clip_address: ::core::option::Option<FullClipAddress>,
@@ -692,6 +704,32 @@ impl TriggerSlotAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum DragSlotAction {
+    Move = 0,
+    Copy = 1,
+}
+impl DragSlotAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            DragSlotAction::Move => "DRAG_SLOT_ACTION_MOVE",
+            DragSlotAction::Copy => "DRAG_SLOT_ACTION_COPY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DRAG_SLOT_ACTION_MOVE" => Some(Self::Move),
+            "DRAG_SLOT_ACTION_COPY" => Some(Self::Copy),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TrackInputMonitoring {
     Unknown = 0,
     Off = 1,
@@ -871,6 +909,10 @@ pub mod clip_engine_server {
         async fn trigger_slot(
             &self,
             request: tonic::Request<super::TriggerSlotRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn drag_slot(
+            &self,
+            request: tonic::Request<super::DragSlotRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Clip commands
         async fn set_clip_name(
@@ -1389,6 +1431,44 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerSlotSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/DragSlot" => {
+                    #[allow(non_camel_case_types)]
+                    struct DragSlotSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::DragSlotRequest>
+                    for DragSlotSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DragSlotRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).drag_slot(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DragSlotSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
