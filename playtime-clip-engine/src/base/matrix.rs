@@ -367,10 +367,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Returns an iterator over all clips in a row whose column is a scene follower.
-    pub fn all_clips_in_scene(
-        &self,
-        row_index: usize,
-    ) -> impl Iterator<Item = ApiClipWithColumn> + '_ {
+    fn all_clips_in_scene(&self, row_index: usize) -> impl Iterator<Item = ApiClipWithColumn> + '_ {
         let project = self.permanent_project();
         self.columns
             .iter()
@@ -405,16 +402,24 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let MatrixClipboardContent::Scene(clips) = content else {
             return Err("clipboard doesn't contain scene contents");
         };
-        self.replace_row_with_clips(row_index, clips.clone())?;
-        Ok(())
+        let cloned_clips = clips.clone();
+        self.undoable("Fill row with clips", |matrix| {
+            matrix.replace_row_with_clips(row_index, cloned_clips)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
     /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        self.add_history_entry("Before clearing scene".to_owned());
+        self.clear_scene_internal(row_index)
+    }
+
+    fn clear_scene_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
         }
-        self.add_history_entry("Before clearing scene".to_owned());
         // TODO-medium This is not optimal because it will create multiple undo points.
         for column in self.scene_columns() {
             column.clear_slot(row_index);
@@ -507,29 +512,26 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Replaces the given row with the given clips.
-    pub fn replace_row_with_clips(
+    fn replace_row_with_clips(
         &mut self,
         row_index: usize,
         clips: Vec<ApiClipWithColumn>,
     ) -> ClipEngineResult<()> {
-        self.undoable("Fill row with clips", |matrix| {
-            for clip in clips {
-                let column = match get_column_mut(&mut matrix.columns, clip.column_index).ok() {
-                    None => break,
-                    Some(c) => c,
-                };
-                column.fill_slot_with_clip(
-                    row_index,
-                    clip.value,
-                    &matrix.chain_equipment,
-                    &matrix.recorder_request_sender,
-                    &matrix.settings,
-                    FillClipMode::Replace,
-                )?;
-            }
-            matrix.notify_everything_changed();
-            Ok(())
-        })
+        for clip in clips {
+            let column = match get_column_mut(&mut self.columns, clip.column_index).ok() {
+                None => break,
+                Some(c) => c,
+            };
+            column.fill_slot_with_clip(
+                row_index,
+                clip.value,
+                &self.chain_equipment,
+                &self.recorder_request_sender,
+                &self.settings,
+                FillClipMode::Replace,
+            )?;
+        }
+        Ok(())
     }
 
     /// Adds the given clips to the given slot.
@@ -592,7 +594,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn move_slot_contents_to(
+    pub fn move_slot_to(
         &mut self,
         source_address: ClipSlotAddress,
         dest_address: ClipSlotAddress,
@@ -603,16 +605,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let clips_in_slot = self
             .get_slot(source_address)?
             .api_clips(self.permanent_project());
-        self.undoable("Move-dragged slot", |matrix| {
+        self.undoable("Move slot to", |matrix| {
             matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
             matrix.clear_slot_internal(source_address)?;
-            matrix.emit(ClipMatrixEvent::EverythingChanged);
+            matrix.notify_everything_changed();
             Ok(())
         })?;
         Ok(())
     }
 
-    pub fn copy_slot_contents_to(
+    pub fn copy_slot_to(
         &mut self,
         source_address: ClipSlotAddress,
         dest_address: ClipSlotAddress,
@@ -623,13 +625,46 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let clips_in_slot = self
             .get_slot(source_address)?
             .api_clips(self.permanent_project());
-        self.undoable("Copy-dragged slot", |matrix| {
+        self.undoable("Copy slot to", |matrix| {
             matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
             let event = SlotChangeEvent::Clips("Copied clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(dest_address, event));
             Ok(())
         })?;
         Ok(())
+    }
+
+    pub fn move_scene_to(
+        &mut self,
+        source_row_index: usize,
+        dest_row_index: usize,
+    ) -> ClipEngineResult<()> {
+        if source_row_index == dest_row_index {
+            return Ok(());
+        }
+        let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
+        self.undoable("Move scene to", |matrix| {
+            matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
+            matrix.clear_scene_internal(source_row_index)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
+    pub fn copy_scene_to(
+        &mut self,
+        source_row_index: usize,
+        dest_row_index: usize,
+    ) -> ClipEngineResult<()> {
+        if source_row_index == dest_row_index {
+            return Ok(());
+        }
+        let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
+        self.undoable("Copy scene to", |matrix| {
+            matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
     /// Plays the given slot.

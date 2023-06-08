@@ -8,11 +8,12 @@ use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_slot_update, DragSlotAction, DragSlotRequest, Empty, FullClipAddress,
-    FullColumnAddress, FullRowAddress, FullSlotAddress, GetClipDetailReply, GetClipDetailRequest,
-    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
-    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    qualified_occasional_slot_update, DragRowAction, DragRowRequest, DragSlotAction,
+    DragSlotRequest, Empty, FullClipAddress, FullColumnAddress, FullRowAddress, FullSlotAddress,
+    GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
+    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
+    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
+    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
@@ -283,12 +284,21 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let source_slot_address = convert_slot_address_to_engine(&req.source_slot_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
         handle_matrix_command(&req.matrix_id, |matrix| match action {
-            DragSlotAction::Move => {
-                matrix.move_slot_contents_to(source_slot_address, dest_slot_address);
-                Ok(())
+            DragSlotAction::Move => matrix.move_slot_to(source_slot_address, dest_slot_address),
+            DragSlotAction::Copy => matrix.copy_slot_to(source_slot_address, dest_slot_address),
+        })
+    }
+
+    async fn drag_row(&self, request: Request<DragRowRequest>) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let action = DragRowAction::from_i32(req.action)
+            .ok_or_else(|| Status::invalid_argument("unknown drag row action"))?;
+        handle_matrix_command(&req.matrix_id, |matrix| match action {
+            DragRowAction::Move => {
+                matrix.move_scene_to(req.source_row_index as _, req.destination_row_index as _)
             }
-            DragSlotAction::Copy => {
-                matrix.copy_slot_contents_to(source_slot_address, dest_slot_address)
+            DragRowAction::Copy => {
+                matrix.copy_scene_to(req.source_row_index as _, req.destination_row_index as _)
             }
         })
     }

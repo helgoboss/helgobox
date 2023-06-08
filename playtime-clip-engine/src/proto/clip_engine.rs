@@ -115,6 +115,18 @@ pub struct TriggerRowRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DragRowRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub source_row_index: u32,
+    #[prost(uint32, tag = "3")]
+    pub destination_row_index: u32,
+    #[prost(enumeration = "DragRowAction", tag = "4")]
+    pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerSlotRequest {
     #[prost(message, optional, tag = "1")]
     pub slot_address: ::core::option::Option<FullSlotAddress>,
@@ -653,6 +665,32 @@ impl TriggerRowAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum DragRowAction {
+    Move = 0,
+    Copy = 1,
+}
+impl DragRowAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            DragRowAction::Move => "DRAG_ROW_ACTION_MOVE",
+            DragRowAction::Copy => "DRAG_ROW_ACTION_COPY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DRAG_ROW_ACTION_MOVE" => Some(Self::Move),
+            "DRAG_ROW_ACTION_COPY" => Some(Self::Copy),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TriggerSlotAction {
     Play = 0,
     Stop = 1,
@@ -904,6 +942,10 @@ pub mod clip_engine_server {
         async fn trigger_row(
             &self,
             request: tonic::Request<super::TriggerRowRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn drag_row(
+            &self,
+            request: tonic::Request<super::DragRowRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Slot commands
         async fn trigger_slot(
@@ -1391,6 +1433,44 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerRowSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/DragRow" => {
+                    #[allow(non_camel_case_types)]
+                    struct DragRowSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::DragRowRequest>
+                    for DragRowSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DragRowRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).drag_row(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DragRowSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
