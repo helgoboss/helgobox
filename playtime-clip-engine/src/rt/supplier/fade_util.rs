@@ -121,6 +121,9 @@ enum BlockLocation {
 }
 
 // 240 frames = 5ms at 48 kHz
+// TODO-high-clip-engine That's not enough. Take some pad/organ sound and it will click!
+//  And this, gentlemen, is why the stop process needs to be asynchronous = needs to cover
+//  multiple audio callback cycles.
 const FADE_LENGTH: usize = 240;
 pub const SECTION_FADE_LENGTH: usize = FADE_LENGTH;
 pub const INTERACTION_FADE_LENGTH: usize = FADE_LENGTH;

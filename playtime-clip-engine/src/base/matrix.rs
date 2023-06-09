@@ -408,15 +408,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        self.clear_scene_internal(row_index)
+        self.undoable("Clear scene", |matrix| {
+            matrix.clear_scene_internal(row_index)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
     fn clear_scene_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
         }
-        for column in self.scene_columns() {
-            column.clear_slot(row_index);
+        for column in self.scene_columns_mut() {
+            // If the slot doesn't exist in that column, it's okay.
+            let _ = column.clear_slot(row_index);
         }
         Ok(())
     }
@@ -430,6 +435,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Returns an iterator over all scene-following columns.
     fn scene_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.iter().filter(|c| c.follows_scene())
+    }
+
+    /// Returns a mutable iterator over all scene-following columns.
+    fn scene_columns_mut(&mut self) -> impl Iterator<Item = &mut Column> {
+        self.columns.iter_mut().filter(|c| c.follows_scene())
     }
 
     /// Cuts the given slot's clips to the matrix clipboard.
@@ -463,14 +473,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Clears the given slot.
     pub fn clear_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        // The undo point after clip removal is created later, in response to the upcoming event
-        // that indicates that the slot has actually been cleared.
-        self.clear_slot_internal(address)?;
-        Ok(())
+        self.undoable("Clear slot", move |matrix| {
+            matrix.clear_slot_internal(address)?;
+            let event = SlotChangeEvent::Clips("");
+            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
+            Ok(())
+        })
     }
 
     fn clear_slot_internal(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        self.get_column(address.column)?.clear_slot(address.row);
+        self.get_column_mut(address.column)?
+            .clear_slot(address.row)?;
         Ok(())
     }
 
@@ -599,8 +612,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .get_slot(source_address)?
             .api_clips(self.permanent_project());
         self.undoable("Move slot to", |matrix| {
-            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
             matrix.clear_slot_internal(source_address)?;
+            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
             matrix.notify_everything_changed();
             Ok(())
         })?;

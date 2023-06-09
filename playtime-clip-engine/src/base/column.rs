@@ -370,9 +370,15 @@ impl Column {
         change_events
     }
 
-    /// Asynchronously clears the given slot.
-    pub fn clear_slot(&self, slot_index: usize) {
+    /// Clears the given slot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the slot doesn't exist.
+    pub fn clear_slot(&mut self, slot_index: usize) -> ClipEngineResult<()> {
+        self.get_slot_mut(slot_index)?.clear();
         self.rt_command_sender.clear_slot(slot_index);
+        Ok(())
     }
 
     /// Freezes the complete column.

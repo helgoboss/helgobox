@@ -800,6 +800,10 @@ impl Slot {
         Ok(SlotChangeEvent::Clips("MIDI overdub finished"))
     }
 
+    pub fn clear(&mut self) {
+        self.contents.clear();
+    }
+
     pub fn slot_cleared(&mut self) -> Option<SlotChangeEvent> {
         if self.is_empty() {
             return None;
