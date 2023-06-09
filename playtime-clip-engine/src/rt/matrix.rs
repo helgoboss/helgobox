@@ -1,4 +1,4 @@
-use crate::base::{ClipSlotAddress, MainMatrixCommandSender};
+use crate::base::{ClipSlotAddress, MainMatrixCommandSender, MatrixGarbage};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipOptions, ColumnPlayRowArgs,
@@ -112,17 +112,10 @@ impl Matrix {
         while let Ok(command) = self.command_receiver.try_recv() {
             use MatrixCommand::*;
             match command {
-                InsertColumn(index, handle) => {
-                    self.column_handles.insert(index, handle);
-                }
-                RemoveColumn(index) => {
-                    let handle = self.column_handles.remove(index);
-                    self.main_command_sender.throw_away(handle);
-                }
-                ClearColumns => {
-                    for handles in self.column_handles.drain(..) {
-                        self.main_command_sender.throw_away(handles);
-                    }
+                SetColumnHandles(handles) => {
+                    let old_handles = mem::replace(&mut self.column_handles, handles);
+                    self.main_command_sender
+                        .throw_away(MatrixGarbage::ColumnHandles(old_handles));
                 }
             }
         }
@@ -286,29 +279,17 @@ impl Matrix {
 }
 
 pub enum MatrixCommand {
-    InsertColumn(usize, ColumnHandle),
-    RemoveColumn(usize),
-    ClearColumns,
+    SetColumnHandles(Vec<ColumnHandle>),
 }
 
 pub trait RtMatrixCommandSender {
-    fn insert_column(&self, index: usize, handle: ColumnHandle);
-    fn remove_column(&self, index: usize);
-    fn clear_columns(&self);
+    fn set_column_handles(&self, handles: Vec<ColumnHandle>);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl RtMatrixCommandSender for Sender<MatrixCommand> {
-    fn insert_column(&self, index: usize, handle: ColumnHandle) {
-        self.send_command(MatrixCommand::InsertColumn(index, handle));
-    }
-
-    fn remove_column(&self, index: usize) {
-        self.send_command(MatrixCommand::RemoveColumn(index));
-    }
-
-    fn clear_columns(&self) {
-        self.send_command(MatrixCommand::ClearColumns);
+    fn set_column_handles(&self, handles: Vec<ColumnHandle>) {
+        self.send_command(MatrixCommand::SetColumnHandles(handles));
     }
 
     fn send_command(&self, command: MatrixCommand) {

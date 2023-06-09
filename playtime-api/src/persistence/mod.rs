@@ -520,8 +520,55 @@ impl EvenQuantization {
     }
 }
 
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ColumnId(String);
+
+impl ColumnId {
+    pub fn random() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for ColumnId {
+    fn default() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct SlotId(String);
+
+impl SlotId {
+    pub fn random() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for SlotId {
+    fn default() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ClipId(String);
+
+impl ClipId {
+    pub fn random() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for ClipId {
+    fn default() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Column {
+    #[serde(default)]
+    pub id: ColumnId,
     pub clip_play_settings: ColumnClipPlaySettings,
     pub clip_record_settings: ColumnClipRecordSettings,
     /// Slots in this column.
@@ -712,7 +759,7 @@ pub struct ReaperPitchShiftMode {
     pub sub_mode: u32,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum RecordOrigin {
     /// Records using the hardware input set for the track (MIDI or stereo).
@@ -751,6 +798,8 @@ impl Default for RecordOrigin {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Slot {
+    #[serde(default)]
+    pub id: SlotId,
     /// Slot index within the column (= row), starting at zero.
     pub row: usize,
     /// Clip which currently lives in this slot.
@@ -773,8 +822,8 @@ impl Slot {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Clip {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    #[serde(default)]
+    pub id: ClipId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// Source of the audio/MIDI material of this clip.

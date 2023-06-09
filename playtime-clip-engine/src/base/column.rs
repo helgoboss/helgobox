@@ -1,9 +1,9 @@
 use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs, ColumnPlayRowArgs,
+    ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnHandle, ColumnPlayRowArgs,
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
-    OverridableMatrixSettings, SharedColumn, SlotChangeEvent, WeakColumn,
+    OverridableMatrixSettings, SharedColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -13,8 +13,9 @@ use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnPlayMode,
-    Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, TimeSignature,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnId,
+    ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, SlotId,
+    TimeSignature,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -22,14 +23,16 @@ use reaper_medium::{
     create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, HelpMode,
     MeasureAlignment, OwnedPreviewRegister, ReaperMutex, ReaperVolumeValue,
 };
-use std::iter;
+use std::collections::HashMap;
 use std::ptr::NonNull;
 use std::sync::Arc;
+use std::{iter, mem};
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 #[derive(Clone, Debug)]
 pub struct Column {
+    id: ColumnId,
     settings: ColumnSettings,
     rt_settings: rt::ColumnSettings,
     rt_command_sender: ColumnCommandSender,
@@ -45,6 +48,14 @@ pub struct ColumnSettings {
     pub clip_record_settings: ColumnClipRecordSettings,
 }
 
+impl ColumnSettings {
+    pub fn from_api(api_column: &api::Column) -> Self {
+        Self {
+            clip_record_settings: api_column.clip_record_settings.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct PlayingPreviewRegister {
     _preview_register: SharedRegister,
@@ -53,12 +64,13 @@ struct PlayingPreviewRegister {
 }
 
 impl Column {
-    pub fn new(permanent_project: Option<Project>) -> Self {
+    pub fn new(id: ColumnId, permanent_project: Option<Project>) -> Self {
         let (command_sender, command_receiver) = crossbeam_channel::bounded(500);
         let (event_sender, event_receiver) = crossbeam_channel::bounded(500);
         let source = rt::Column::new(permanent_project, command_receiver, event_sender);
         let shared_source = SharedColumn::new(source);
         Self {
+            id,
             settings: Default::default(),
             rt_settings: Default::default(),
             // preview_register: {
@@ -73,16 +85,20 @@ impl Column {
         }
     }
 
+    pub fn id(&self) -> &ColumnId {
+        &self.id
+    }
+
     pub fn set_play_mode(&mut self, play_mode: ColumnPlayMode) {
         self.rt_settings.play_mode = play_mode;
     }
 
     pub fn duplicate_without_contents(&self) -> Self {
-        let mut duplicate = Self::new(self.project);
+        let mut duplicate = Self::new(ColumnId::random(), self.project);
         duplicate.settings = self.settings.clone();
         duplicate.rt_settings = self.rt_settings.clone();
         if let Some(pr) = &self.preview_register {
-            duplicate.init_preview_register(pr.track.clone());
+            duplicate.init_preview_register_if_necessary(pr.track.clone());
         }
         duplicate
     }
@@ -99,7 +115,6 @@ impl Column {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        self.clear_slots();
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
             let guid = Guid::from_string_without_braces(id.get())?;
@@ -107,47 +122,54 @@ impl Column {
         } else {
             None
         };
-        self.init_preview_register(track);
+        self.init_preview_register_if_necessary(track);
         // Settings
-        self.settings.clip_record_settings = api_column.clip_record_settings;
-        self.rt_settings.audio_resample_mode =
-            api_column.clip_play_settings.audio_settings.resample_mode;
-        self.rt_settings.audio_time_stretch_mode = api_column
-            .clip_play_settings
-            .audio_settings
-            .time_stretch_mode;
-        self.rt_settings.audio_cache_behavior =
-            api_column.clip_play_settings.audio_settings.cache_behavior;
-        self.rt_settings.play_mode = api_column.clip_play_settings.mode.unwrap_or_default();
-        self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
-        self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
+        self.settings = ColumnSettings::from_api(&api_column);
+        self.rt_settings = rt::ColumnSettings::from_api(&api_column);
         // Slots
+        let mut old_slots: HashMap<_, _> = mem::take(&mut self.slots)
+            .into_iter()
+            .map(|s| (s.id().clone(), s))
+            .collect();
         for api_slot in api_column.slots.unwrap_or_default() {
             let row = api_slot.row;
-            for api_clip in api_slot.into_clips() {
-                let clip = Clip::load(api_clip);
-                let slot = get_slot_mut_insert(&mut self.slots, row);
-                fill_slot_with_clip_internal(
-                    slot,
-                    clip,
-                    chain_equipment,
-                    recorder_request_sender,
-                    matrix_settings,
-                    &self.rt_settings,
-                    &self.rt_command_sender,
-                    self.project,
-                    FillClipMode::Add,
-                )?;
-            }
+            let mut slot = if let Some(mut old_slot) = old_slots.remove(&api_slot.id) {
+                old_slot.set_index(row);
+                old_slot
+            } else {
+                Slot::new(api_slot.id.clone(), row)
+            };
+            slot.load(
+                api_slot.into_clips(),
+                chain_equipment,
+                recorder_request_sender,
+                matrix_settings,
+                &self.rt_settings,
+                &self.rt_command_sender,
+                self.project,
+            )?;
+            *get_slot_mut_insert(&mut self.slots, row) = slot;
         }
+        // Sync
+        self.sync_matrix_settings_to_rt_internal(matrix_settings);
         Ok(())
     }
 
-    fn init_preview_register(&mut self, track: Option<Track>) {
+    fn init_preview_register_if_necessary(&mut self, track: Option<Track>) {
+        if let Some(r) = &self.preview_register {
+            if r.track == track {
+                // No need to init. Column already uses a preview register for that track.
+                return;
+            }
+        }
         self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
     }
 
-    pub fn sync_settings_to_rt(&self, matrix_settings: &MatrixSettings) {
+    pub fn sync_matrix_settings_to_rt(&self, matrix_settings: &MatrixSettings) {
+        self.sync_matrix_settings_to_rt_internal(matrix_settings);
+    }
+
+    fn sync_matrix_settings_to_rt_internal(&self, matrix_settings: &MatrixSettings) {
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
         self.rt_command_sender
@@ -220,6 +242,7 @@ impl Column {
                 .map(api::TrackId::new)
         });
         api::Column {
+            id: self.id.clone(),
             clip_play_settings: ColumnClipPlaySettings {
                 mode: Some(self.rt_settings.play_mode),
                 track: track_id,
@@ -243,8 +266,11 @@ impl Column {
         }
     }
 
-    pub fn rt_column(&self) -> WeakColumn {
-        self.rt_column.downgrade()
+    pub fn create_handle(&self) -> ColumnHandle {
+        ColumnHandle {
+            pointer: self.rt_column.downgrade(),
+            command_sender: self.rt_command_sender.clone(),
+        }
     }
 
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, SlotChangeEvent)> {
@@ -406,8 +432,7 @@ impl Column {
             return Err("slot is not empty");
         }
         let clip = Clip::load(api_clip);
-        fill_slot_with_clip_internal(
-            slot,
+        slot.fill_slot_with_clip_internal(
             clip,
             chain_equipment,
             recorder_request_sender,
@@ -431,7 +456,7 @@ impl Column {
         let source = source_util::create_api_source_from_item(item, false)
             .map_err(|_| "couldn't create source from item")?;
         let clip = api::Clip {
-            id: None,
+            id: Default::default(),
             name: None,
             source,
             frozen_source: None,
@@ -665,7 +690,7 @@ fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
     let mut current_row_count = slots.len();
     if current_row_count < row_count {
         slots.resize_with(row_count, || {
-            let slot = Slot::new(current_row_count);
+            let slot = Slot::new(SlotId::random(), current_row_count);
             current_row_count += 1;
             slot
         });
@@ -673,35 +698,6 @@ fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
 }
 
 const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
-
-#[allow(clippy::too_many_arguments)]
-fn fill_slot_with_clip_internal(
-    slot: &mut Slot,
-    mut clip: Clip,
-    chain_equipment: &ChainEquipment,
-    recorder_request_sender: &Sender<RecorderRequest>,
-    matrix_settings: &MatrixSettings,
-    column_settings: &rt::ColumnSettings,
-    rt_command_sender: &ColumnCommandSender,
-    project: Option<Project>,
-    mode: FillClipMode,
-) -> ClipEngineResult<SlotChangeEvent> {
-    let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
-        project,
-        chain_equipment,
-        recorder_request_sender,
-        &matrix_settings.overridable,
-        column_settings,
-    )?;
-    slot.fill_with_clip(clip, &rt_clip, pooled_midi_source, mode);
-    let args = ColumnFillSlotArgs {
-        slot_index: slot.index(),
-        clip: rt_clip,
-        mode,
-    };
-    rt_command_sender.fill_slot_with_clip(Box::new(Some(args)));
-    Ok(SlotChangeEvent::Clips("filled slot"))
-}
 
 fn resolve_recording_track(
     column_settings: &ColumnClipRecordSettings,

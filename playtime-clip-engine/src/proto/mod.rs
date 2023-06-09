@@ -104,6 +104,7 @@ impl qualified_occasional_slot_update::Update {
         let api_slot =
             slot.save(matrix.permanent_project())
                 .unwrap_or(playtime_api::persistence::Slot {
+                    id: slot.id().clone(),
                     row: slot.index(),
                     clip_old: None,
                     clips: None,

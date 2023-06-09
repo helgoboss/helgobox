@@ -1,7 +1,7 @@
 use crate::base::{
     create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
-    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+    MatrixSettings, VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
@@ -9,10 +9,10 @@ use crate::rt::supplier::{
     RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
-    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnSetClipLoopedArgs, FillClipMode,
-    InternalClipPlayState, MidiOverdubInstruction, NormalRecordingOutcome,
-    OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn, SlotChangeEvent,
-    SlotRecordInstruction, SlotRuntimeData,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnFillSlotArgs,
+    ColumnSetClipLoopedArgs, FillClipMode, InternalClipPlayState, MidiOverdubInstruction,
+    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
+    SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
@@ -22,7 +22,7 @@ use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
-    MidiClipRecordMode, PositiveSecond, RecordOrigin,
+    MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
 };
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
@@ -30,11 +30,13 @@ use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
     TrackArea, UiRefreshBehavior,
 };
+use std::collections::HashMap;
 use std::ptr::null_mut;
 use std::{iter, mem};
 
 #[derive(Clone, Debug)]
 pub struct Slot {
+    id: SlotId,
     index: usize,
     /// If this is set, the slot contains a clip.
     ///
@@ -66,6 +68,26 @@ pub struct Content {
 }
 
 impl Content {
+    pub fn new(clip: Clip, rt_clip: &rt::Clip, pooled_midi_source: Option<ClipSource>) -> Self {
+        Content {
+            clip,
+            runtime_data: SlotRuntimeData {
+                play_state: Default::default(),
+                pos: rt_clip.shared_pos(),
+                peak: rt_clip.shared_peak(),
+                material_info: rt_clip.material_info().unwrap(),
+            },
+            pooled_midi_source,
+        }
+    }
+
+    pub fn apply(&mut self, api_clip: api::Clip) {
+        if self.clip == Clip::load(api_clip) {
+            return;
+        }
+        // TODO-high CONTINUE Actually apply clip differences!
+    }
+
     /// Returns the effective length (tempo adjusted and taking the section into account).
     pub fn effective_length_in_seconds(
         &self,
@@ -172,13 +194,18 @@ impl Content {
 }
 
 impl Slot {
-    pub fn new(index: usize) -> Self {
+    pub fn new(id: SlotId, index: usize) -> Self {
         Self {
+            id,
             index,
             contents: vec![],
             state: Default::default(),
             temporary_route: None,
         }
+    }
+
+    pub fn id(&self) -> &SlotId {
+        &self.id
     }
 
     pub fn is_empty(&self) -> bool {
@@ -187,6 +214,10 @@ impl Slot {
 
     pub fn index(&self) -> usize {
         self.index
+    }
+
+    pub(crate) fn set_index(&mut self, new_index: usize) {
+        self.index = new_index;
     }
 
     /// Returns `None` if this slot doesn't need to be saved (because it's empty).
@@ -217,11 +248,84 @@ impl Slot {
             return None;
         }
         let api_slot = api::Slot {
+            id: self.id.clone(),
             row: self.index,
             clip_old: None,
             clips: Some(clips),
         };
         Some(api_slot)
+    }
+
+    pub fn load(
+        &mut self,
+        api_clips: Vec<api::Clip>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &MatrixSettings,
+        column_settings: &rt::ColumnSettings,
+        rt_command_sender: &ColumnCommandSender,
+        project: Option<Project>,
+    ) -> ClipEngineResult<()> {
+        let mut old_contents: HashMap<_, _> = mem::take(&mut self.contents)
+            .into_iter()
+            .map(|c| (c.clip.id().clone(), c))
+            .collect();
+        for api_clip in api_clips {
+            let content = if let Some(mut old_content) = old_contents.remove(&api_clip.id) {
+                // TODO-high CONTINUE Important to update content
+                old_content.apply(api_clip);
+                old_content
+            } else {
+                let mut clip = Clip::load(api_clip);
+                let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
+                    project,
+                    chain_equipment,
+                    recorder_request_sender,
+                    &matrix_settings.overridable,
+                    column_settings,
+                )?;
+                let content = Content::new(clip, &rt_clip, pooled_midi_source);
+                // TODO-high CONTINUE Not correct anymore if this is undo/redo
+                let args = ColumnFillSlotArgs {
+                    slot_index: self.index(),
+                    clip: rt_clip,
+                    mode: FillClipMode::Add,
+                };
+                rt_command_sender.fill_slot_with_clip(Box::new(Some(args)));
+                content
+            };
+            self.contents.push(content);
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn fill_slot_with_clip_internal(
+        &mut self,
+        mut clip: Clip,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &MatrixSettings,
+        column_settings: &rt::ColumnSettings,
+        rt_command_sender: &ColumnCommandSender,
+        project: Option<Project>,
+        mode: FillClipMode,
+    ) -> ClipEngineResult<SlotChangeEvent> {
+        let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
+            project,
+            chain_equipment,
+            recorder_request_sender,
+            &matrix_settings.overridable,
+            column_settings,
+        )?;
+        self.fill_with_clip(clip, &rt_clip, pooled_midi_source, mode);
+        let args = ColumnFillSlotArgs {
+            slot_index: self.index(),
+            clip: rt_clip,
+            mode,
+        };
+        rt_command_sender.fill_slot_with_clip(Box::new(Some(args)));
+        Ok(SlotChangeEvent::Clips("filled slot"))
     }
 
     pub fn is_recording(&self) -> bool {
@@ -731,16 +835,7 @@ impl Slot {
         pooled_midi_source: Option<ClipSource>,
         mode: FillClipMode,
     ) {
-        let content = Content {
-            clip,
-            runtime_data: SlotRuntimeData {
-                play_state: Default::default(),
-                pos: rt_clip.shared_pos(),
-                peak: rt_clip.shared_peak(),
-                material_info: rt_clip.material_info().unwrap(),
-            },
-            pooled_midi_source,
-        };
+        let content = Content::new(clip, rt_clip, pooled_midi_source);
         match mode {
             FillClipMode::Add => {
                 self.contents.push(content);

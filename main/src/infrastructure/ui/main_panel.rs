@@ -931,7 +931,7 @@ fn get_track_peaks(track: &Track) -> Vec<f64> {
     // TODO-high-clip-engine CONTINUE Respect solo (same as a recent ReaLearn issue)
     (0..channel_count)
         .map(|ch| {
-            let volume = unsafe { reaper.track_get_peak_info(track, ch as u32 + 1024) };
+            let volume = unsafe { reaper.track_get_peak_info(track, ch as u32) };
             volume.get()
         })
         .collect()

@@ -1813,7 +1813,7 @@ pub struct CommittedRecording {
 /// All settings of a clip that affect processing.
 ///
 /// To be sent back to the main thread to update the main thread clip.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ProcessingRelevantClipSettings {
     pub time_base: api::ClipTimeBase,
     pub looped: bool,

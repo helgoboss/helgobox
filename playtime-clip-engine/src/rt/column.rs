@@ -297,6 +297,22 @@ pub struct ColumnSettings {
     pub play_mode: ColumnPlayMode,
 }
 
+impl ColumnSettings {
+    pub fn from_api(api_column: &api::Column) -> Self {
+        Self {
+            clip_play_start_timing: api_column.clip_play_settings.start_timing,
+            clip_play_stop_timing: api_column.clip_play_settings.stop_timing,
+            audio_time_stretch_mode: api_column
+                .clip_play_settings
+                .audio_settings
+                .time_stretch_mode,
+            audio_resample_mode: api_column.clip_play_settings.audio_settings.resample_mode,
+            audio_cache_behavior: api_column.clip_play_settings.audio_settings.cache_behavior,
+            play_mode: api_column.clip_play_settings.mode.unwrap_or_default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct OverridableMatrixSettings {
     pub clip_play_start_timing: ClipPlayStartTiming,

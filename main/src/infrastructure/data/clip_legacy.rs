@@ -24,6 +24,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                     let output =
                         determine_legacy_clip_track(desc.index, main_mappings, controller_mappings);
                     let api_column = api::Column {
+                        id: Default::default(),
                         clip_play_settings: api::ColumnClipPlaySettings {
                             track: output
                                 .resolve_track(containing_track.cloned())?
@@ -33,7 +34,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                         clip_record_settings: Default::default(),
                         slots: {
                             let api_clip = api::Clip {
-                                id: None,
+                                id: Default::default(),
                                 name: None,
                                 source: match desc.descriptor.content.clone() {
                                     ClipContent::File { file } => {
@@ -59,6 +60,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                                 midi_settings: Default::default(),
                             };
                             let api_slot = api::Slot {
+                                id: Default::default(),
                                 // In the previous clip system, we had only one dimension.
                                 row: 0,
                                 clip_old: None,

@@ -10,3 +10,5 @@ serde.workspace = true
 schemars.workspace = true
 # For being able to use various attributes that can help in Rust-to-Dart code generation
 realearn-macros.workspace = true
+# For generating random IDs
+nanoid.workspace = true

@@ -20,14 +20,15 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
     TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId};
+use std::collections::HashMap;
 use std::thread::JoinHandle;
-use std::{cmp, thread};
+use std::{cmp, mem, thread};
 
 #[derive(Debug)]
 pub struct Matrix<H> {
@@ -66,19 +67,40 @@ pub struct MatrixSettings {
     pub overridable: OverridableMatrixSettings,
 }
 
+impl MatrixSettings {
+    pub fn from_api(matrix: &api::Matrix) -> Self {
+        Self {
+            common_tempo_range: matrix.common_tempo_range,
+            clip_record_settings: matrix.clip_record_settings,
+            overridable: OverridableMatrixSettings {
+                clip_play_start_timing: matrix.clip_play_settings.start_timing,
+                clip_play_stop_timing: matrix.clip_play_settings.stop_timing,
+                audio_time_stretch_mode: matrix.clip_play_settings.audio_settings.time_stretch_mode,
+                audio_resample_mode: matrix.clip_play_settings.audio_settings.resample_mode,
+                audio_cache_behavior: matrix.clip_play_settings.audio_settings.cache_behavior,
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum MatrixCommand {
-    ThrowAway(ColumnHandle),
+    ThrowAway(MatrixGarbage),
+}
+
+#[derive(Debug)]
+pub enum MatrixGarbage {
+    ColumnHandles(Vec<ColumnHandle>),
 }
 
 pub trait MainMatrixCommandSender {
-    fn throw_away(&self, handle: ColumnHandle);
+    fn throw_away(&self, garbage: MatrixGarbage);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl MainMatrixCommandSender for Sender<MatrixCommand> {
-    fn throw_away(&self, handle: ColumnHandle) {
-        self.send_command(MatrixCommand::ThrowAway(handle));
+    fn throw_away(&self, garbage: MatrixGarbage) {
+        self.send_command(MatrixCommand::ThrowAway(garbage));
     }
 
     fn send_command(&self, command: MatrixCommand) {
@@ -199,7 +221,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             containing_track,
             command_receiver: main_command_receiver,
             rt_command_sender,
-            history: History::default(),
+            history: History::new(Default::default()),
             clipboard: Default::default(),
             _worker_pool: worker_pool,
         }
@@ -210,69 +232,45 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+        self.columns.clear();
         self.load_internal(api_matrix)?;
-        self.clear_history();
+        self.history = History::new(self.save());
         Ok(())
     }
 
-    fn clear_history(&mut self) {
-        self.history.clear();
-        self.emit(ClipMatrixEvent::HistoryChanged);
-    }
-
-    // TODO-medium We might be able to improve that to take API matrix by reference. This would
-    //  slightly benefit undo/redo performance.
     fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
-        self.clear_columns();
         let permanent_project = self.permanent_project();
-        // Main settings
-        self.settings.common_tempo_range = api_matrix.common_tempo_range;
-        self.settings.overridable.audio_resample_mode =
-            api_matrix.clip_play_settings.audio_settings.resample_mode;
-        self.settings.overridable.audio_time_stretch_mode = api_matrix
-            .clip_play_settings
-            .audio_settings
-            .time_stretch_mode;
-        self.settings.overridable.audio_cache_behavior =
-            api_matrix.clip_play_settings.audio_settings.cache_behavior;
-        self.settings.clip_record_settings = api_matrix.clip_record_settings;
-        // Real-time settings
-        self.settings.overridable.clip_play_start_timing =
-            api_matrix.clip_play_settings.start_timing;
-        self.settings.overridable.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
-        // Columns
-        for (i, api_column) in api_matrix
-            .columns
-            .unwrap_or_default()
+        self.settings = MatrixSettings::from_api(&api_matrix);
+        let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
             .into_iter()
-            .enumerate()
-        {
-            let mut column = Column::new(permanent_project);
+            .map(|c| (c.id().clone(), c))
+            .collect();
+        for api_column in api_matrix.columns.unwrap_or_default().into_iter() {
+            let mut column = old_columns
+                .remove(&api_column.id)
+                .unwrap_or_else(|| Column::new(api_column.id.clone(), permanent_project));
             column.load(
                 api_column,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
             )?;
-            column.sync_settings_to_rt(&self.settings);
-            initialize_new_column(i, column, &self.rt_command_sender, &mut self.columns);
+            self.columns.push(column);
         }
-        // Rows
         self.rows = api_matrix
             .rows
             .unwrap_or_default()
             .into_iter()
             .map(|_| Row {})
             .collect();
-        // Emit event
         self.notify_everything_changed();
+        self.sync_column_handles_to_rt();
         Ok(())
     }
 
-    fn clear_columns(&mut self) {
-        // TODO-medium How about suspension?
-        self.columns.clear();
-        self.rt_command_sender.clear_columns();
+    fn sync_column_handles_to_rt(&mut self) {
+        let column_handles = self.columns.iter().map(|c| c.create_handle()).collect();
+        self.rt_command_sender.set_column_handles(column_handles);
     }
 
     pub fn next_undo_label(&self) -> Option<&str> {
@@ -292,6 +290,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn undo(&mut self) -> ClipEngineResult<()> {
+        // TODO-medium-clip-engine We could probably make it work without clone.
         let api_matrix = self.history.undo()?.clone();
         self.load_internal(api_matrix)?;
         self.emit(ClipMatrixEvent::HistoryChanged);
@@ -766,6 +765,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         clips: Vec<ApiClipWithColumn>,
         row_index: usize,
     ) -> ClipEngineResult<()> {
+        let mut need_handle_sync = false;
         for clip in clips {
             // First try to put it within same column as clip itself
             let original_column = get_column_mut(&mut self.columns, clip.column_index)?;
@@ -789,14 +789,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         let same_column = self.columns.get(clip.column_index).unwrap();
                         let mut duplicate = same_column.duplicate_without_contents();
                         duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
-                        duplicate.sync_settings_to_rt(&self.settings);
-                        let duplicate_index = self.columns.len();
-                        initialize_new_column(
-                            duplicate_index,
-                            duplicate,
-                            &self.rt_command_sender,
-                            &mut self.columns,
-                        );
+                        duplicate.sync_matrix_settings_to_rt(&self.settings);
+                        self.columns.push(duplicate);
+                        need_handle_sync = true;
                         self.columns.last_mut().unwrap()
                     }
                 };
@@ -808,6 +803,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 &self.settings,
                 FillClipMode::Replace,
             )?;
+        }
+        if need_handle_sync {
+            self.sync_column_handles_to_rt();
         }
         Ok(())
     }
@@ -1297,17 +1295,3 @@ impl<T> WithColumn<T> {
 pub type SlotWithColumn<'a> = WithColumn<&'a Slot>;
 
 pub type ApiClipWithColumn = WithColumn<api::Clip>;
-
-fn initialize_new_column(
-    column_index: usize,
-    column: Column,
-    rt_command_sender: &Sender<rt::MatrixCommand>,
-    columns: &mut Vec<Column>,
-) {
-    let handle = ColumnHandle {
-        pointer: column.rt_column(),
-        command_sender: column.rt_command_sender().clone(),
-    };
-    rt_command_sender.insert_column(column_index, handle);
-    columns.push(column);
-}

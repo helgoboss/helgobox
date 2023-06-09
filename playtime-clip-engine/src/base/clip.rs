@@ -10,20 +10,17 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
-use playtime_api::persistence::{ClipColor, ClipTimeBase, Db, Section, SourceOrigin};
+use playtime_api::persistence::{ClipColor, ClipId, ClipTimeBase, Db, Section, SourceOrigin};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::{Bpm, PeakFileMode};
-use std::fmt::{Display, Formatter};
+use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::{fmt, fs};
-use ulid::Ulid;
 
 /// Describes a clip.
 ///
 /// Not loaded yet.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Clip {
     id: ClipId,
     name: Option<String>,
@@ -34,38 +31,11 @@ pub struct Clip {
     processing_relevant_settings: ProcessingRelevantClipSettings,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct ClipId(Ulid);
-
-impl ClipId {
-    pub fn random() -> Self {
-        Self(Ulid::new())
-    }
-}
-
-impl Display for ClipId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl FromStr for ClipId {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let ulid = Ulid::from_str(s).map_err(|_| "couldn't decode string as ULID")?;
-        Ok(ClipId(ulid))
-    }
-}
-
 impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
-            id: api_clip
-                .id
-                .and_then(|s| ClipId::from_str(&s).ok())
-                .unwrap_or_else(ClipId::random),
+            id: api_clip.id,
             name: api_clip.name,
             color: api_clip.color,
             source: api_clip.source,
@@ -91,7 +61,7 @@ impl Clip {
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
-            id: ClipId::random(),
+            id: Default::default(),
             name: recording_track.name().map(|n| n.into_string()),
             color: ClipColor::PlayTrackColor,
             source: api_source,
@@ -122,7 +92,7 @@ impl Clip {
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
-            id: Some(self.id.to_string()),
+            id: self.id.clone(),
             name: self.name.clone(),
             source: {
                 if let Some(midi_source) = midi_source {
@@ -290,8 +260,8 @@ impl Clip {
         ClipChangeEvent::Everything
     }
 
-    pub fn id(&self) -> ClipId {
-        self.id
+    pub fn id(&self) -> &ClipId {
+        &self.id
     }
 
     pub fn volume(&self) -> Db {

@@ -2,17 +2,18 @@ use crate::ClipEngineResult;
 use playtime_api::persistence as api;
 
 /// Data structure holding the undo history.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct History {
     undo_stack: Vec<State>,
     redo_stack: Vec<State>,
 }
 
 impl History {
-    /// Clears the complete history.
-    pub fn clear(&mut self) {
-        self.redo_stack.clear();
-        self.undo_stack.clear();
+    pub fn new(initial_matrix: api::Matrix) -> Self {
+        Self {
+            undo_stack: vec![State::new("Initial".to_string(), initial_matrix)],
+            redo_stack: vec![],
+        }
     }
 
     /// Returns the label of the next undoable action if there is one.
