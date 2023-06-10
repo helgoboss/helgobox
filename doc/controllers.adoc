@@ -100,7 +100,7 @@ possible by providing a 1:1 mapping of real control elements to virtual control 
 controller, the virtual control elements are sometimes numeric, sometimes named and sometimes both. Some controller
 presets offer a controller layout (and thus can be instantly used with the _Projection_ feature), others not (yet).
 
-=== Akai "APC Key 25"
+=== Akai APC Key 25 MkI
 
 This controller works with ReaLearn out of the box, including feedback. It doesn't have encoders though, so the full
 potential of ReaLearn can't be used.
@@ -109,6 +109,10 @@ potential of ReaLearn can't be used.
 ==== Presets
 
 * *Akai APC Key 25*
+
+=== Akai MPD 218
+
+There's an link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/akai-mpd-218[unofficial preset].
 
 === Arturia KeyLab MkII
 
