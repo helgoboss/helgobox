@@ -491,6 +491,10 @@ There are https://github.com/helgoboss/realearn/tree/master/resources/controller
 
 There's an https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/nektar-panorama-p6[unofficial preset] contributed by Torsten Anders.
 
+=== Novation Launch Control XL MkII
+
+There's an https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/novation-launch-control-xl-mkii[unofficial preset] contributed by Bassman.
+
 === Novation Launchpad Pro
 
 This controller works well with ReaLearn, including feedback and LED color selection. There's a multitude of very
