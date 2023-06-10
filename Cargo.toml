@@ -116,6 +116,7 @@ webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround
 
 # TODO-low-wait Wait until https://github.com/RustAudio/vst-rs/issues/184 merged.
 vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param-props" }
+#vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
 #[patch.'https://github.com/helgoboss/reaper-rs.git']
