@@ -1,3 +1,9 @@
 Here you will find third-party *controller presets* that didn't make it yet into the official Helgoboss ReaPack repository.
 
+== Use ad-hoc
+
+Copy the raw `json` or `lua` file content, open ReaLearn's controller compartment and press "Import from clipboard".
+
+== Properly install as main preset
+
 Put the controller preset `json` files into your REAPER resource directory footnote:[REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder] at `Data/helgoboss/realearn/presets/controller`.

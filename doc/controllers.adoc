@@ -581,3 +581,7 @@ MCU mode also works, but just partially and it doesn't offer complete customizat
 
 * *PreSonus FaderPort 8*
 
+
+=== https://www.rme-audio.de/arc-usb.html[RME ARC USB]
+
+There's an link:https://github.com/helgoboss/realearn/tree/master/resources/controller-presets/unofficial/rme-arc-usb[unofficial preset].
