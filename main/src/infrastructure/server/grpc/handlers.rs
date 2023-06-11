@@ -24,7 +24,7 @@ use playtime_clip_engine::proto::{
     TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
     TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
 };
-use playtime_clip_engine::rt::ColumnPlayClipOptions;
+use playtime_clip_engine::rt::ColumnPlaySlotOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
 use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, UndoBehavior};
 use std::collections::HashMap;
@@ -259,7 +259,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .ok_or_else(|| Status::invalid_argument("unknown trigger slot action"))?;
         handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
             TriggerSlotAction::Play => {
-                matrix.play_slot(slot_address, ColumnPlayClipOptions::default())
+                matrix.play_slot(slot_address, ColumnPlaySlotOptions::default())
             }
             TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
@@ -386,7 +386,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let action = TriggerColumnAction::from_i32(req.action)
             .ok_or_else(|| Status::invalid_argument("unknown trigger column action"))?;
         handle_column_command(&req.column_address, |matrix, column_index| match action {
-            TriggerColumnAction::Stop => matrix.stop_column(column_index),
+            TriggerColumnAction::Stop => matrix.stop_column(column_index, None),
             TriggerColumnAction::ToggleMute => {
                 let column = matrix.get_column(column_index)?;
                 let track = column.playback_track()?;
@@ -418,6 +418,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 );
                 Ok(())
             }
+            TriggerColumnAction::Remove => matrix.remove_column(column_index),
         })
     }
 
@@ -437,6 +438,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Copy => matrix.copy_scene(row_index),
             TriggerRowAction::Cut => matrix.cut_scene(row_index),
             TriggerRowAction::Paste => matrix.paste_scene(row_index),
+            TriggerRowAction::Remove => todo!(),
         })
     }
 

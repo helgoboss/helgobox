@@ -62,7 +62,7 @@ impl RealearnTarget for ClipColumnTarget {
                         if !value.is_on() {
                             return Ok(HitResponse::ignored());
                         }
-                        matrix.stop_column(self.column_index)?;
+                        matrix.stop_column(self.column_index, None)?;
                     }
                 }
                 Ok(HitResponse::processed_with_effect())
@@ -154,7 +154,7 @@ impl RealTimeClipColumnTarget {
                 }
                 let matrix = context.clip_matrix()?;
                 let matrix = matrix.lock();
-                matrix.stop_column(self.column_index)
+                matrix.stop_column(self.column_index, None)
             }
         }
     }

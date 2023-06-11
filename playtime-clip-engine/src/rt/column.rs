@@ -391,11 +391,12 @@ impl Column {
                     ref_pos,
                     &args.timeline,
                     Some(args.slot_index),
+                    None,
                 );
             }
             Ok(())
         } else if args.options.stop_column_if_slot_empty {
-            self.stop_all_clips(audio_request_props, ref_pos, &args.timeline, None);
+            self.stop_all_clips(audio_request_props, ref_pos, &args.timeline, None, None);
             Ok(())
         } else {
             Err("slot is empty")
@@ -422,13 +423,14 @@ impl Column {
                 args.ref_pos,
                 &args.timeline,
                 Some(args.slot_index),
+                None,
             );
         }
         let play_args = ColumnPlaySlotArgs {
             slot_index: args.slot_index,
             timeline: args.timeline,
             ref_pos: Some(args.ref_pos),
-            options: ColumnPlayClipOptions {
+            options: ColumnPlaySlotOptions {
                 stop_column_if_slot_empty: true,
                 start_timing: None,
             },
@@ -438,7 +440,13 @@ impl Column {
 
     pub fn stop(&mut self, args: ColumnStopArgs, audio_request_props: BasicAudioRequestProps) {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-        self.stop_all_clips(audio_request_props, ref_pos, &args.timeline, None);
+        self.stop_all_clips(
+            audio_request_props,
+            ref_pos,
+            &args.timeline,
+            None,
+            args.stop_timing,
+        );
     }
 
     fn stop_all_clips(
@@ -447,6 +455,7 @@ impl Column {
         ref_pos: PositionInSeconds,
         timeline: &HybridTimeline,
         except: Option<usize>,
+        stop_timing: Option<ClipPlayStopTiming>,
     ) {
         for (i, slot) in self
             .slots
@@ -455,7 +464,7 @@ impl Column {
             .filter(|(i, _)| except.map(|e| e != *i).unwrap_or(true))
         {
             let stop_args = SlotStopArgs {
-                stop_timing: None,
+                stop_timing,
                 timeline,
                 ref_pos: Some(ref_pos),
                 enforce_play_stop: true,
@@ -535,7 +544,13 @@ impl Column {
                 if self.settings.play_mode.is_exclusive() {
                     let timeline = clip_timeline(self.project, false);
                     let ref_pos = timeline.cursor_pos();
-                    self.stop_all_clips(audio_request_props, ref_pos, &timeline, Some(slot_index));
+                    self.stop_all_clips(
+                        audio_request_props,
+                        ref_pos,
+                        &timeline,
+                        Some(slot_index),
+                        None,
+                    );
                 }
                 (Ok(()), Ok(slot_runtime_data))
             }
@@ -954,7 +969,7 @@ pub struct ColumnPlaySlotArgs {
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
-    pub options: ColumnPlayClipOptions,
+    pub options: ColumnPlaySlotOptions,
 }
 
 #[derive(Clone, Debug)]
@@ -965,7 +980,9 @@ pub struct ColumnPlayRowArgs {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ColumnPlayClipOptions {
+pub struct ColumnPlaySlotOptions {
+    /// If the slot to be played is empty and this is `false`, nothing happens. If it's `true`,
+    /// it acts like a column stop button (good for matrix controllers without column stop button).
     pub stop_column_if_slot_empty: bool,
     pub start_timing: Option<ClipPlayStartTiming>,
 }
@@ -984,6 +1001,7 @@ pub struct ColumnStopArgs {
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of columns.
     pub ref_pos: Option<PositionInSeconds>,
+    pub stop_timing: Option<ClipPlayStopTiming>,
 }
 
 #[derive(Debug)]

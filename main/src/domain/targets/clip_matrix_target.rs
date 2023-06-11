@@ -203,7 +203,7 @@ impl RealTimeClipMatrixTarget {
                 }
                 let matrix = context.clip_matrix()?;
                 let matrix = matrix.lock();
-                matrix.stop();
+                matrix.stop(None);
                 Ok(())
             }
             _ => Err("only matrix stop has real-time target support"),

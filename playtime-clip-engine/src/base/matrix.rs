@@ -8,7 +8,7 @@ use crate::rt::supplier::{
     RecordingEquipment,
 };
 use crate::rt::{
-    ClipChangeEvent, ColumnHandle, ColumnPlayClipOptions, ColumnPlayRowArgs, ColumnPlaySlotArgs,
+    ClipChangeEvent, ColumnHandle, ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnPlaySlotOptions,
     ColumnStopArgs, ColumnStopSlotArgs, FillClipMode, OverridableMatrixSettings,
     QualifiedClipChangeEvent, QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent,
     WeakColumn,
@@ -20,7 +20,7 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, ColumnPlayMode, Db,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
     TempoRange,
 };
@@ -28,6 +28,7 @@ use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId};
 use std::collections::HashMap;
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 use std::{cmp, mem, thread};
 
 #[derive(Debug)]
@@ -39,6 +40,12 @@ pub struct Matrix<H> {
     chain_equipment: ChainEquipment,
     recorder_request_sender: Sender<RecorderRequest>,
     columns: Vec<Column>,
+    /// Contains columns that are not in use anymore since the last column removal operation.
+    ///
+    /// They are still kept around in order to allow for a smooth fadeout of the clips on the
+    /// removed column (instead of abruptly interrupt playing and therefore ending up with an
+    /// annoying click).
+    retired_columns: Vec<RetiredColumn>,
     rows: Vec<Row>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
@@ -47,6 +54,26 @@ pub struct Matrix<H> {
     clipboard: MatrixClipboard,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
+}
+
+#[derive(Debug)]
+struct RetiredColumn {
+    time_of_retirement: Instant,
+    _column: Column,
+}
+
+impl RetiredColumn {
+    pub fn new(column: Column) -> Self {
+        Self {
+            time_of_retirement: Instant::now(),
+            _column: column,
+        }
+    }
+
+    pub fn is_still_alive(&self) -> bool {
+        const MAX_RETIRED_DURATION: Duration = Duration::from_millis(1000);
+        self.time_of_retirement.elapsed() < MAX_RETIRED_DURATION
+    }
 }
 
 #[derive(Debug, Default)]
@@ -217,6 +244,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             },
             recorder_request_sender,
             columns: vec![],
+            retired_columns: vec![],
             rows: vec![],
             containing_track,
             command_receiver: main_command_receiver,
@@ -232,7 +260,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
-        self.columns.clear();
         self.load_internal(api_matrix)?;
         self.history = History::new(self.save());
         Ok(())
@@ -265,6 +292,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .collect();
         self.notify_everything_changed();
         self.sync_column_handles_to_rt();
+        // Retire old and now unused columns
+        self.retired_columns
+            .extend(old_columns.into_values().map(RetiredColumn::new));
         Ok(())
     }
 
@@ -400,6 +430,25 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let cloned_clips = clips.clone();
         self.undoable("Fill row with clips", |matrix| {
             matrix.replace_row_with_clips(row_index, cloned_clips)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
+    pub fn remove_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        if column_index >= self.columns.len() {
+            return Err("column doesn't exist");
+        }
+        self.undoable("Remove column", |matrix| {
+            let column = matrix.columns.remove(column_index);
+            let timeline = matrix.timeline();
+            column.stop(ColumnStopArgs {
+                timeline,
+                ref_pos: None,
+                stop_timing: Some(ClipPlayStopTiming::Immediately),
+            });
+            matrix.retired_columns.push(RetiredColumn::new(column));
+            matrix.sync_column_handles_to_rt();
             matrix.notify_everything_changed();
             Ok(())
         })
@@ -585,7 +634,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn play_slot(
         &self,
         address: ClipSlotAddress,
-        options: ColumnPlayClipOptions,
+        options: ColumnPlaySlotOptions,
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = get_column(&self.columns, address.column)?;
@@ -696,6 +745,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let args = ColumnStopArgs {
             ref_pos: Some(timeline.cursor_pos()),
             timeline,
+            stop_timing: None,
         };
         for c in &self.columns {
             c.stop(args.clone());
@@ -838,12 +888,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Stops all slots in the given column.
-    pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
+    pub fn stop_column(
+        &self,
+        index: usize,
+        stop_timing: Option<ClipPlayStopTiming>,
+    ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
         let column = self.get_column(index)?;
         let args = ColumnStopArgs {
             timeline,
             ref_pos: None,
+            stop_timing,
         };
         column.stop(args);
         Ok(())
@@ -862,10 +917,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    fn remove_obsolete_retired_columns(&mut self) {
+        self.retired_columns.retain(|c| c.is_still_alive());
+    }
+
     /// Polls this matrix and returns a list of gathered events.
     ///
     /// Polling is absolutely essential, e.g. to detect changes or finish recordings.
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
+        self.remove_obsolete_retired_columns();
         self.process_commands();
         let events: Vec<_> = self
             .columns

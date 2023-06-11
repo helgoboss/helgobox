@@ -9,7 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress, ClipTransportOptions};
 use playtime_clip_engine::rt::{
-    ClipChangeEvent, ColumnPlayClipOptions, InternalClipPlayState, QualifiedClipChangeEvent,
+    ClipChangeEvent, ColumnPlaySlotOptions, InternalClipPlayState, QualifiedClipChangeEvent,
     QualifiedSlotChangeEvent, SlotChangeEvent,
 };
 use realearn_api::persistence::ClipTransportAction;
@@ -69,8 +69,8 @@ struct ClipTransportTargetBasics {
 }
 
 impl ClipTransportTargetBasics {
-    fn play_options(&self) -> ColumnPlayClipOptions {
-        ColumnPlayClipOptions {
+    fn play_options(&self) -> ColumnPlaySlotOptions {
+        ColumnPlaySlotOptions {
             stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
             start_timing: self.options.play_start_timing,
         }
@@ -176,8 +176,10 @@ impl RealearnTarget for ClipTransportTarget {
                                         // Not armed but column stopping on empty slots enabled.
                                         // Since we already know that the slot is empty, we do
                                         // it explicitly without invoking play passing that option.
-                                        matrix
-                                            .stop_column(self.basics.slot_coordinates.column())?;
+                                        matrix.stop_column(
+                                            self.basics.slot_coordinates.column(),
+                                            None,
+                                        )?;
                                     } else {
                                         return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                     }

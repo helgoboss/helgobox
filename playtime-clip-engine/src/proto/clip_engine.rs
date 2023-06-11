@@ -603,6 +603,7 @@ pub enum TriggerColumnAction {
     ToggleMute = 1,
     ToggleSolo = 2,
     ToggleArm = 3,
+    Remove = 4,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -615,6 +616,7 @@ impl TriggerColumnAction {
             TriggerColumnAction::ToggleMute => "TRIGGER_COLUMN_ACTION_TOGGLE_MUTE",
             TriggerColumnAction::ToggleSolo => "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO",
             TriggerColumnAction::ToggleArm => "TRIGGER_COLUMN_ACTION_TOGGLE_ARM",
+            TriggerColumnAction::Remove => "TRIGGER_COLUMN_ACTION_REMOVE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -624,6 +626,7 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_TOGGLE_MUTE" => Some(Self::ToggleMute),
             "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO" => Some(Self::ToggleSolo),
             "TRIGGER_COLUMN_ACTION_TOGGLE_ARM" => Some(Self::ToggleArm),
+            "TRIGGER_COLUMN_ACTION_REMOVE" => Some(Self::Remove),
             _ => None,
         }
     }
@@ -636,6 +639,7 @@ pub enum TriggerRowAction {
     Copy = 2,
     Cut = 3,
     Paste = 4,
+    Remove = 5,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -649,6 +653,7 @@ impl TriggerRowAction {
             TriggerRowAction::Copy => "TRIGGER_ROW_ACTION_COPY",
             TriggerRowAction::Cut => "TRIGGER_ROW_ACTION_CUT",
             TriggerRowAction::Paste => "TRIGGER_ROW_ACTION_PASTE",
+            TriggerRowAction::Remove => "TRIGGER_ROW_ACTION_REMOVE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -659,6 +664,7 @@ impl TriggerRowAction {
             "TRIGGER_ROW_ACTION_COPY" => Some(Self::Copy),
             "TRIGGER_ROW_ACTION_CUT" => Some(Self::Cut),
             "TRIGGER_ROW_ACTION_PASTE" => Some(Self::Paste),
+            "TRIGGER_ROW_ACTION_REMOVE" => Some(Self::Remove),
             _ => None,
         }
     }

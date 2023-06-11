@@ -1,8 +1,8 @@
 use crate::base::{ClipSlotAddress, MainMatrixCommandSender, MatrixGarbage};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipOptions, ColumnPlayRowArgs,
-    ColumnPlaySlotArgs, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopSlotArgs,
+    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayRowArgs, ColumnPlaySlotArgs,
+    ColumnPlaySlotOptions, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopSlotArgs,
     RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{base, clip_timeline, ClipEngineResult, HybridTimeline, Timeline};
@@ -168,7 +168,7 @@ impl Matrix {
     pub fn play_clip(
         &self,
         coordinates: ClipSlotAddress,
-        options: ColumnPlayClipOptions,
+        options: ColumnPlaySlotOptions,
     ) -> ClipEngineResult<()> {
         let handle = self.column_handle(coordinates.column())?;
         let args = ColumnPlaySlotArgs {
@@ -213,22 +213,28 @@ impl Matrix {
             .unwrap_or(false)
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&self, stop_timing: Option<ClipPlayStopTiming>) {
         let timeline = self.timeline();
         let args = ColumnStopArgs {
             ref_pos: Some(timeline.cursor_pos()),
             timeline,
+            stop_timing,
         };
         for handle in &self.column_handles {
             handle.command_sender.stop(args.clone());
         }
     }
 
-    pub fn stop_column(&self, index: usize) -> ClipEngineResult<()> {
+    pub fn stop_column(
+        &self,
+        index: usize,
+        stop_timing: Option<ClipPlayStopTiming>,
+    ) -> ClipEngineResult<()> {
         let handle = self.column_handle(index)?;
         let args = ColumnStopArgs {
             timeline: self.timeline(),
             ref_pos: None,
+            stop_timing,
         };
         handle.command_sender.stop(args);
         Ok(())
