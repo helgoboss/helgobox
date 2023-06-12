@@ -438,7 +438,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Copy => matrix.copy_scene(row_index),
             TriggerRowAction::Cut => matrix.cut_scene(row_index),
             TriggerRowAction::Paste => matrix.paste_scene(row_index),
-            TriggerRowAction::Remove => todo!(),
+            TriggerRowAction::Remove => matrix.remove_row(row_index),
         })
     }
 

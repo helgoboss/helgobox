@@ -1,5 +1,6 @@
 use crate::ClipEngineResult;
 use derivative::Derivative;
+use reaper_medium::PcmSourceTransfer;
 use std::collections::Bound;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
@@ -127,6 +128,17 @@ fn required_slice_length(
 }
 
 impl<'a> AudioBufMut<'a> {
+    /// # Safety
+    ///
+    /// REAPER can crash if you pass an invalid pointer.
+    pub unsafe fn from_pcm_source_transfer(transfer: &mut PcmSourceTransfer) -> Self {
+        Self::from_raw(
+            transfer.samples(),
+            transfer.nch() as _,
+            transfer.length() as _,
+        )
+    }
+
     /// # Panics
     ///
     /// Panics if requested frame count is zero.

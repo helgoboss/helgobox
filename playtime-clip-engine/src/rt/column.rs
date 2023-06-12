@@ -3,8 +3,8 @@ use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidi
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipProcessArgs, ClipRecordingPollArgs,
     HandleSlotEvent, InternalClipPlayState, NormalRecordingOutcome, OwnedAudioBuffer, Slot,
-    SlotPlayArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData,
-    SlotStopArgs, TransportChange,
+    SlotPlayArgs, SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction,
+    SlotRuntimeData, SlotStopArgs, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -33,6 +33,10 @@ pub struct Column {
     matrix_settings: OverridableMatrixSettings,
     settings: ColumnSettings,
     slots: Vec<Slot>,
+    /// Slots end up here when removed.
+    ///
+    /// They stay there until they have faded out (prevents abrupt stops).
+    retired_slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     command_receiver: Receiver<ColumnCommand>,
@@ -122,6 +126,10 @@ impl ColumnCommandSender {
         self.send_task(ColumnCommand::StopSlot(args));
     }
 
+    pub fn remove_slot(&self, index: usize) {
+        self.send_task(ColumnCommand::RemoveSlot(index));
+    }
+
     pub fn stop(&self, args: ColumnStopArgs) {
         self.send_task(ColumnCommand::Stop(args));
     }
@@ -175,6 +183,7 @@ impl ColumnCommandSender {
 pub enum ColumnCommand {
     ClearSlots,
     ClearSlot(usize),
+    RemoveSlot(usize),
     UpdateSettings(ColumnSettings),
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
@@ -326,6 +335,8 @@ const MAX_AUDIO_CHANNEL_COUNT: usize = 64;
 const MAX_BLOCK_SIZE: usize = 2048;
 
 /// At the time of this writing, a slot is just around 900 byte, so 100 slots take roughly 90 kB.
+/// TODO-high-clip-engine 100 slots in one column is a lot ... but don't we want to guarantee
+///  "no allocation" even for thousands of slots?
 const MAX_SLOT_COUNT_WITHOUT_REALLOCATION: usize = 100;
 
 impl Column {
@@ -339,6 +350,7 @@ impl Column {
             matrix_settings: Default::default(),
             settings: Default::default(),
             slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
+            retired_slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
             project: permanent_project,
             command_receiver,
             event_sender,
@@ -499,6 +511,16 @@ impl Column {
         slot.stop(clip_args, &event_handler)
     }
 
+    pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
+        if index >= self.slots.len() {
+            return Err("slot to be removed doesn't exist");
+        }
+        let mut slot = self.slots.remove(index);
+        slot.initiate_removal();
+        self.retired_slots.push(slot);
+        Ok(())
+    }
+
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, args.slot_index)
             .get_clip_mut(args.clip_index)?
@@ -618,8 +640,7 @@ impl Column {
 
     pub fn clear_slot(&mut self, index: usize) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, index)?;
-        let event_handler = ClipEventHandler::new(&self.event_sender, index);
-        slot.clear(&event_handler)?;
+        slot.clear();
         Ok(())
     }
 
@@ -661,6 +682,9 @@ impl Column {
                     let result = self.stop_slot(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
                 }
+                RemoveSlot(index) => {
+                    self.remove_slot(index).unwrap();
+                }
                 Stop(args) => {
                     self.stop(args, audio_request_props);
                 }
@@ -699,7 +723,7 @@ impl Column {
         }
     }
 
-    fn get_samples(&mut self, args: GetSamplesArgs) {
+    fn get_samples(&mut self, mut args: GetSamplesArgs) {
         // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
         // current thread. This operation needs an allocation at the first time it's executed
         // on a specific thread. If Live FX multi-processing is enabled, get_samples() will be
@@ -742,92 +766,40 @@ impl Column {
             // Get samples
             let timeline_cursor_pos = timeline.cursor_pos();
             let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-            let output_channel_count = args.block.nch() as usize;
-            let output_frame_count = args.block.length() as usize;
-            let mut output_buffer = unsafe {
-                AudioBufMut::from_raw(
-                    args.block.samples(),
-                    output_channel_count,
-                    output_frame_count,
-                )
-            };
             // rt_debug!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
+            let mut slot_args = SlotProcessArgs {
+                block: &mut *args.block,
+                mix_buffer_chunk: &mut self.mix_buffer_chunk,
+                timeline: &timeline,
+                timeline_cursor_pos,
+                timeline_tempo,
+                resync,
+                matrix_settings: &self.matrix_settings,
+                column_settings: &self.settings,
+            };
+            // Fade out retired slots
+            self.retired_slots.retain_mut(|slot| {
+                let outcome = slot.process(&mut slot_args);
+                // As long as the slot still wrote audio frames, we keep it in memory. But as soon
+                // as no audio frames are written anymore, we can safely assume it's stopped and
+                // drop it.
+                outcome.num_audio_frames_written > 0
+            });
+            // Play current slots
             for (row, slot) in self.slots.iter_mut().enumerate() {
-                // Our strategy is to always write all available source channels into the mix
-                // buffer. From a performance perspective, it would actually be enough to take
-                // only as many channels as we need (= track channel count). However, always using
-                // the source channel count as reference is much simpler, in particular when it
-                // comes to caching and pre-buffering. Also, in practice this is rarely an issue.
-                // Most samples out there used in typical stereo track setups have no more than 2
-                // channels. And if they do, the user can always down-mix to the desired channel
-                // count up-front.
-                let clip_count = slot.clip_count();
-                if clip_count == 0 {
-                    // If the slot doesn't have any clip, there's nothing useful it can process.
-                    continue;
-                }
-                // TODO-high-clip-engine We should move this logic to the slot. It's not just for better
-                //  encapsulation but also for more performance (maybe we can use iterators
-                //  instead of bound checks).
-                for i in 0..clip_count {
-                    let clip_channel_count = {
-                        let clip = slot.find_clip(i).unwrap();
-                        match clip.material_info() {
-                            Ok(info) => info.channel_count(),
-                            // If the clip doesn't have material, it's probably recording. We still
-                            // allow the slot to process because it could propagate some play state
-                            // changes. With a channel count of zero though.
-                            Err(_) => 0,
-                        }
-                    };
-                    let mut mix_buffer = AudioBufMut::from_slice(
-                        &mut self.mix_buffer_chunk,
-                        clip_channel_count,
-                        output_frame_count,
-                    )
-                    .unwrap();
-                    let mut inner_args = ClipProcessArgs {
-                        clip_index: i,
-                        dest_buffer: &mut mix_buffer,
-                        dest_sample_rate: args.block.sample_rate(),
-                        midi_event_list: args
-                            .block
-                            .midi_event_list_mut()
-                            .expect("no MIDI event list available"),
-                        timeline: &timeline,
-                        timeline_cursor_pos,
-                        timeline_tempo,
-                        resync,
-                        matrix_settings: &self.matrix_settings,
-                        column_settings: &self.settings,
-                    };
-                    let event_handler = ClipEventHandler::new(&self.event_sender, row);
-                    if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
-                        if outcome.num_audio_frames_written > 0 {
-                            output_buffer
-                                .slice_mut(0..outcome.num_audio_frames_written)
-                                .modify_frames(|sample| {
-                                    // TODO-high-performance This is a hot code path. We might want to skip bound checks
-                                    //  in sample_value_at().
-                                    if sample.index.channel < clip_channel_count {
-                                        sample.value
-                                            + mix_buffer.sample_value_at(sample.index).unwrap()
-                                    } else {
-                                        // Clip doesn't have material on this channel.
-                                        0.0
-                                    }
-                                })
-                        }
-                        if let Some(changed_play_state) = outcome.changed_play_state {
-                            self.event_sender
-                                .slot_play_state_changed(row, changed_play_state);
-                        }
-                    }
+                let outcome = slot.process(&mut slot_args);
+                if let Some(changed_play_state) = outcome.changed_play_state {
+                    self.event_sender
+                        .slot_play_state_changed(row, changed_play_state);
                 }
             }
         });
         debug_assert_eq!(args.block.samples_out(), args.block.length());
+    }
+
+    fn timeline(&self) -> HybridTimeline {
+        clip_timeline(self.project, false)
     }
 
     fn extended(&mut self, _args: ExtendedArgs) -> i32 {
@@ -1122,6 +1094,16 @@ impl<'a> ClipEventHandler<'a> {
             event_sender,
         }
     }
+}
+
+struct NoopClipEventHandler;
+
+impl HandleSlotEvent for NoopClipEventHandler {
+    fn midi_overdub_finished(&self, _mirror_source: ClipSource) {}
+
+    fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
+
+    fn slot_cleared(&self, _clips: Vec<Clip>) {}
 }
 
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {

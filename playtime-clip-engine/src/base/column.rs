@@ -5,17 +5,17 @@ use crate::rt::{
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
     OverridableMatrixSettings, SharedColumn, SlotChangeEvent,
 };
-use crate::{rt, source_util, ClipEngineResult};
+use crate::{rt, source_util, ClipEngineResult, HybridTimeline};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnId,
-    ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, SlotId,
-    TimeSignature,
+    preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipPlayStopTiming,
+    ClipTimeBase, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    ColumnId, ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section,
+    SlotId, TimeSignature,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -516,6 +516,22 @@ impl Column {
 
     pub(crate) fn stop_slot(&self, args: ColumnStopSlotArgs) {
         self.rt_command_sender.stop_slot(args);
+    }
+
+    pub(crate) fn remove_slot(&mut self, slot_index: usize) -> ClipEngineResult<()> {
+        if slot_index >= self.slots.len() {
+            return Err("slot to be removed doesn't exist");
+        }
+        self.slots.remove(slot_index);
+        self.reindex_slots();
+        self.rt_command_sender.remove_slot(slot_index);
+        Ok(())
+    }
+
+    fn reindex_slots(&mut self) {
+        for (i, slot) in self.slots.iter_mut().enumerate() {
+            slot.set_index(i);
+        }
     }
 
     pub(crate) fn stop(&self, args: ColumnStopArgs) {

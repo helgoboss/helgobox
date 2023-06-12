@@ -4,21 +4,33 @@ use crate::conversion_util::{
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    Clip, ClipProcessArgs, ClipRecordingPollArgs, ColumnProcessTransportChangeArgs, ColumnSettings,
-    FillClipMode, HandleSlotEvent, InternalClipPlayState, OverridableMatrixSettings, SharedPeak,
-    SharedPos, SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
+    AudioBufMut, Clip, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
+    ColumnProcessTransportChangeArgs, ColumnSettings, FillClipMode, HandleSlotEvent,
+    InternalClipPlayState, OverridableMatrixSettings, SharedPeak, SharedPos, SlotInstruction,
+    SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
-use crate::{ClipEngineResult, ErrorWithPayload};
+use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence::ClipPlayStopTiming;
 use playtime_api::runtime::ClipPlayState;
-use reaper_medium::{Bpm, PlayState, PositionInSeconds};
-use std::mem;
+use reaper_medium::{Bpm, Hz, PcmSourceTransfer, PlayState, PositionInSeconds};
+use std::{cmp, mem};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Slot {
     clips: Vec<Clip>,
+    retired_clips: Vec<Clip>,
     runtime_data: InternalRuntimeData,
+}
+
+impl Default for Slot {
+    fn default() -> Self {
+        Self {
+            clips: Vec::with_capacity(10),
+            retired_clips: Vec::with_capacity(10),
+            runtime_data: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -28,6 +40,10 @@ struct InternalRuntimeData {
 }
 
 impl Slot {
+    pub fn last_play_state(&self) -> InternalClipPlayState {
+        self.runtime_data.last_play_state
+    }
+
     /// Returns the index at which the clip landed.
     pub fn fill(&mut self, clip: Clip, mode: FillClipMode) -> usize {
         // TODO-medium Suspend previous clip if playing.
@@ -80,6 +96,15 @@ impl Slot {
         Ok(())
     }
 
+    /// Stops the slot immediately, initiating fade-outs if necessary.
+    ///
+    /// Consumer should just wait for the slot to be stopped and then not use it anymore.
+    pub fn initiate_removal(&mut self) {
+        for clip in &mut self.clips {
+            clip.initiate_removal()
+        }
+    }
+
     /// Stops all clips in this slot.
     pub fn stop<H: HandleSlotEvent>(
         &mut self,
@@ -113,20 +138,12 @@ impl Slot {
         }
     }
 
-    pub fn clear<H: HandleSlotEvent>(&mut self, event_handler: &H) -> ClipEngineResult<()> {
-        if self.clips.is_empty() {
-            return Err("already empty");
+    pub fn clear(&mut self) {
+        let mut old_clips = mem::take(&mut self.clips);
+        for mut old_clip in &mut old_clips {
+            old_clip.initiate_removal();
         }
-        let mut all_clips_removed = true;
-        for clip in &mut self.clips {
-            if !clip.initiate_removal()? {
-                all_clips_removed = false;
-            }
-        }
-        if all_clips_removed {
-            self.clear_internal(event_handler);
-        }
-        Ok(())
+        self.retired_clips = old_clips;
     }
 
     fn clear_internal<H: HandleSlotEvent>(&mut self, event_handler: &H) {
@@ -334,34 +351,41 @@ impl Slot {
         Ok(())
     }
 
-    pub fn process<H: HandleSlotEvent>(
-        &mut self,
-        args: &mut ClipProcessArgs,
-        event_handler: &H,
-    ) -> ClipEngineResult<SlotProcessingOutcome> {
-        measure_time("slot.process.time", || {
-            let clip = self.get_clip_mut(args.clip_index)?;
-            let clip_outcome = clip.process(args);
-            let changed_play_state = if clip_outcome.clear_slot {
-                self.clear_internal(event_handler);
-                None
+    pub fn process(&mut self, args: &mut SlotProcessArgs) -> SlotProcessingOutcome {
+        // Our strategy is to always write all available source channels into the mix
+        // buffer. From a performance perspective, it would actually be enough to take
+        // only as many channels as we need (= track channel count). However, always using
+        // the source channel count as reference is much simpler, in particular when it
+        // comes to caching and pre-buffering. Also, in practice this is rarely an issue.
+        // Most samples out there used in typical stereo track setups have no more than 2
+        // channels. And if they do, the user can always down-mix to the desired channel
+        // count up-front.
+        let mut num_audio_frames_written = 0;
+        // Fade out retired clips
+        self.retired_clips.retain_mut(|clip| {
+            let outcome = process_clip(clip, args, &mut num_audio_frames_written);
+            // As long as the clip still wrote audio frames, we keep it in memory. But as soon
+            // as no audio frames are written anymore, we can safely assume it's stopped and
+            // drop it.
+            outcome.num_audio_frames_written > 0
+        });
+        // Play current clips
+        let mut new_slot_play_state = InternalClipPlayState::default();
+        for clip in &mut self.clips {
+            process_clip(clip, args, &mut num_audio_frames_written);
+            // Aggregate clip play states into slot play state
+            new_slot_play_state = cmp::max(new_slot_play_state, clip.play_state());
+        }
+        let last_play_state =
+            mem::replace(&mut self.runtime_data.last_play_state, new_slot_play_state);
+        SlotProcessingOutcome {
+            changed_play_state: if new_slot_play_state != last_play_state {
+                Some(new_slot_play_state)
             } else {
-                let play_state = clip.play_state();
-                let last_play_state = self.runtime_data.last_play_state;
-                if play_state == last_play_state {
-                    None
-                } else {
-                    debug!("Clip state changed: {:?}", play_state);
-                    self.runtime_data.last_play_state = play_state;
-                    Some(play_state)
-                }
-            };
-            let outcome = SlotProcessingOutcome {
-                changed_play_state,
-                num_audio_frames_written: clip_outcome.num_audio_frames_written,
-            };
-            Ok(outcome)
-        })
+                None
+            },
+            num_audio_frames_written,
+        }
     }
 
     pub fn is_stoppable(&self) -> bool {
@@ -521,4 +545,74 @@ impl SlotRuntimeData {
     pub fn peak(&self) -> UnitValue {
         self.peak.reset()
     }
+}
+
+fn process_clip(
+    clip: &mut Clip,
+    args: &mut SlotProcessArgs,
+    total_num_audio_frames_written: &mut usize,
+) -> ClipProcessingOutcome {
+    let clip_channel_count = {
+        match clip.material_info() {
+            Ok(info) => info.channel_count(),
+            // If the clip doesn't have material, it's probably recording. We still
+            // allow the slot to process because it could propagate some play state
+            // changes. With a channel count of zero though.
+            Err(_) => 0,
+        }
+    };
+    let mut mix_buffer = AudioBufMut::from_slice(
+        args.mix_buffer_chunk,
+        clip_channel_count,
+        args.block.length() as _,
+    )
+    .unwrap();
+    let mut inner_args = ClipProcessArgs {
+        dest_buffer: &mut mix_buffer,
+        dest_sample_rate: args.block.sample_rate(),
+        midi_event_list: args
+            .block
+            .midi_event_list_mut()
+            .expect("no MIDI event list available"),
+        timeline: args.timeline,
+        timeline_cursor_pos: args.timeline_cursor_pos,
+        timeline_tempo: args.timeline_tempo,
+        resync: args.resync,
+        matrix_settings: args.matrix_settings,
+        column_settings: args.column_settings,
+    };
+    let outcome = clip.process(&mut inner_args);
+    // Aggregate number of written audio frames
+    *total_num_audio_frames_written = cmp::max(
+        *total_num_audio_frames_written,
+        outcome.num_audio_frames_written,
+    );
+    // Write from mix buffer to destination buffer
+    if outcome.num_audio_frames_written > 0 {
+        let mut output_buffer = unsafe { AudioBufMut::from_pcm_source_transfer(args.block) };
+        output_buffer
+            .slice_mut(0..outcome.num_audio_frames_written)
+            .modify_frames(|sample| {
+                // TODO-high-performance This is a hot code path. We might want to skip bound checks
+                //  in sample_value_at().
+                if sample.index.channel < clip_channel_count {
+                    sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
+                } else {
+                    // Clip doesn't have material on this channel.
+                    0.0
+                }
+            })
+    }
+    outcome
+}
+
+pub struct SlotProcessArgs<'a> {
+    pub block: &'a mut PcmSourceTransfer,
+    pub mix_buffer_chunk: &'a mut [f64],
+    pub timeline: &'a HybridTimeline,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub timeline_tempo: Bpm,
+    pub resync: bool,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a ColumnSettings,
 }

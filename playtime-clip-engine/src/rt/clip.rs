@@ -33,6 +33,7 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, PcmSourceTransfer,
     PositionInSeconds,
 };
+use std::mem;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
@@ -54,6 +55,17 @@ struct PlaySettings {
     stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
     time_base: ClipTimeBase,
+}
+
+impl Default for PlaySettings {
+    fn default() -> Self {
+        Self {
+            start_timing: None,
+            stop_timing: None,
+            looped: false,
+            time_base: ClipTimeBase::Time,
+        }
+    }
 }
 
 fn calculate_beat_count(tempo: Bpm, duration: DurationInSeconds) -> u32 {
@@ -193,7 +205,6 @@ enum StateAfterSuspension {
     Stopped,
     /// Play was suspended for initiating recording.
     Recording(RecordingState),
-    ToBeRemoved,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -268,17 +279,18 @@ impl Clip {
         }
     }
 
-    /// Returns `true` if this clip is ready for removal (not playing).
+    /// Stops the clip immediately, initiating fade-outs if necessary.
     ///
-    /// If not, it schedules removal.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if recording.
-    pub fn initiate_removal(&mut self) -> ClipEngineResult<bool> {
+    /// Consumer should just wait for the clip to be stopped and then not use it anymore.
+    pub fn initiate_removal(&mut self) {
         match &mut self.state {
-            ClipState::Ready(s) => Ok(s.initiate_removal()),
-            ClipState::Recording(_) => Err("recording"),
+            ClipState::Ready(s) => s.initiate_removal(),
+            ClipState::Recording(_) => {
+                self.state = ClipState::Ready(ReadyState {
+                    state: ReadySubState::Stopped,
+                    play_settings: PlaySettings::default(),
+                })
+            }
         }
     }
 
@@ -481,6 +493,11 @@ impl Clip {
         self.supplier_chain.material_info()
     }
 
+    /// Returns the current clip play state.
+    ///
+    /// Attention: If the clip is being suspended (e.g. fading out), this will return the state
+    /// after suspension, e.g. "Stopped". So  don't use this to check whether processing is still
+    /// necessary.
     pub fn play_state(&self) -> InternalClipPlayState {
         match &self.state {
             ClipState::Ready(s) => s.play_state(),
@@ -526,25 +543,21 @@ impl Clip {
 }
 
 impl ReadyState {
-    pub fn initiate_removal(&mut self) -> bool {
+    pub fn initiate_removal(&mut self) {
         use ReadySubState::*;
-        match self.state {
+        self.state = match self.state {
             Playing(PlayingState { pos: Some(pos), .. }) => {
-                self.state = ReadySubState::Suspending(SuspendingState {
-                    next_state: StateAfterSuspension::ToBeRemoved,
+                ReadySubState::Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Stopped,
                     pos,
-                });
-                false
+                })
             }
-            Suspending(s) => {
-                self.state = ReadySubState::Suspending(SuspendingState {
-                    next_state: StateAfterSuspension::ToBeRemoved,
-                    ..s
-                });
-                false
-            }
-            _ => true,
-        }
+            Suspending(s) => ReadySubState::Suspending(SuspendingState {
+                next_state: StateAfterSuspension::Stopped,
+                ..s
+            }),
+            _ => ReadySubState::Stopped,
+        };
     }
 
     /// Returns `None` if time base is not "Beat".
@@ -892,7 +905,6 @@ impl ReadyState {
         };
         ClipProcessingOutcome {
             num_audio_frames_written: fill_samples_outcome.num_audio_frames_written,
-            clear_slot: false,
         }
     }
 
@@ -1122,37 +1134,31 @@ impl ReadyState {
             &material_info,
             shared_peak,
         );
-        let (next_state, clear_slot, recording_state) =
+        let (next_state, recording_state) =
             if let Some(next_frame) = fill_samples_outcome.next_frame {
                 // Suspension not finished yet.
                 let next_state = ReadySubState::Suspending(SuspendingState {
                     pos: next_frame,
                     ..s
                 });
-                (next_state, false, None)
+                (next_state, None)
             } else {
                 // Suspension finished.
                 use StateAfterSuspension::*;
                 self.reset_for_play(supplier_chain);
                 match s.next_state {
-                    Playing(s) => (ReadySubState::Playing(s), false, None),
-                    Paused => (
-                        ReadySubState::Paused(PausedState { pos: s.pos }),
-                        false,
-                        None,
-                    ),
+                    Playing(s) => (ReadySubState::Playing(s), None),
+                    Paused => (ReadySubState::Paused(PausedState { pos: s.pos }), None),
                     Stopped => {
                         supplier_chain.pre_buffer_simple(0);
-                        (ReadySubState::Stopped, false, None)
+                        (ReadySubState::Stopped, None)
                     }
-                    Recording(s) => (self.state, false, Some(s)),
-                    ToBeRemoved => (ReadySubState::Stopped, true, None),
+                    Recording(s) => (self.state, Some(s)),
                 }
             };
         self.state = next_state;
         let outcome = ClipProcessingOutcome {
             num_audio_frames_written: fill_samples_outcome.num_audio_frames_written,
-            clear_slot,
         };
         (outcome, recording_state)
     }
@@ -1336,7 +1342,6 @@ impl ReadyState {
                 StateAfterSuspension::Paused => ClipPlayState::Paused,
                 StateAfterSuspension::Stopped => ClipPlayState::Stopped,
                 StateAfterSuspension::Recording(_) => ClipPlayState::Recording,
-                StateAfterSuspension::ToBeRemoved => ClipPlayState::Stopped,
             },
             Paused(_) => ClipPlayState::Paused,
         };
@@ -1579,7 +1584,6 @@ pub enum ClipStopBehavior {
 }
 
 pub struct ClipProcessArgs<'a, 'b> {
-    pub clip_index: usize,
     /// The destination buffer dictates the desired output frame count but it doesn't dictate the
     /// channel count! Its channel count should always match the channel count of the clip itself.
     pub dest_buffer: &'a mut AudioBufMut<'b>,
@@ -1615,7 +1619,7 @@ struct LogNaturalDeviationArgs<T: Timeline> {
 }
 
 /// Play state of a slot.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct InternalClipPlayState(pub ClipPlayState);
 
 impl From<ClipPlayState> for InternalClipPlayState {
@@ -1659,6 +1663,9 @@ impl InternalClipPlayState {
     }
 
     /// If you want to know if it's worth to push out position updates.
+    ///
+    /// Attention: This will return `false` if the clip is being suspended (e.g. fading out), so
+    /// don't use this to check whether processing is still necessary.
     pub fn is_advancing(&self) -> bool {
         use ClipPlayState::*;
         matches!(
@@ -1778,7 +1785,6 @@ impl Default for Go {
 #[derive(Default)]
 pub struct ClipProcessingOutcome {
     pub num_audio_frames_written: usize,
-    pub clear_slot: bool,
 }
 
 struct FillSamplesOutcome {

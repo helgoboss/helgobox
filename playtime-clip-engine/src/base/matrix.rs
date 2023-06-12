@@ -454,6 +454,22 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
+    pub fn remove_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        if row_index >= self.row_count() {
+            return Err("row doesn't exist");
+        }
+        self.undoable("Remove row", |matrix| {
+            matrix.rows.remove(row_index);
+            for column in &mut matrix.columns {
+                // It's possible that the slot index doesn't exist in that column because slots
+                // are added lazily.
+                let _ = column.remove_slot(row_index);
+            }
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
     /// Clears the slots of all scene-following columns.
     pub fn clear_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         self.undoable("Clear scene", |matrix| {
@@ -721,7 +737,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
-    /// Plays the given slot.
+    /// Stops the given slot.
     pub fn stop_slot(
         &self,
         address: ClipSlotAddress,
