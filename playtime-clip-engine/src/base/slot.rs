@@ -11,8 +11,8 @@ use crate::rt::supplier::{
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnFillSlotArgs,
     ColumnSetClipLoopedArgs, FillClipMode, InternalClipPlayState, MidiOverdubInstruction,
-    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, RtSlot, RtSlotId,
-    SharedRtColumn, SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
+    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, RtClipId, RtSlot,
+    RtSlotId, SharedRtColumn, SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
@@ -20,7 +20,7 @@ use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
+    ChannelRange, ClipId, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
     MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
 };
 use playtime_api::runtime::ClipPlayState;
@@ -459,10 +459,13 @@ impl Slot {
             recording_equipment: specific_stuff.recording_equipment,
             settings: *matrix_record_settings,
         };
-        let instruction = if self.contents.first().is_some() {
+        let (clip_id, instruction) = if let Some(content) = self.contents.first() {
             // There's a clip already. That makes it easy because we have the clip struct
             // already, including the complete clip supplier chain, and can reuse it.
-            SlotRecordInstruction::ExistingClip(args)
+            (
+                content.clip.id().clone(),
+                SlotRecordInstruction::ExistingClip(args),
+            )
         } else {
             // There's no clip yet so we need to create the clip including the complete supplier
             // chain from scratch. We need to do create much of the stuff here already because
@@ -480,7 +483,9 @@ impl Slot {
             let timeline_cursor_pos = timeline.cursor_pos();
             let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
             let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
+            let clip_id = ClipId::random();
             let new_clip_instruction = RecordNewClipInstruction {
+                clip_id: RtClipId::from_clip_id(&clip_id),
                 supplier_chain,
                 project: Some(project),
                 shared_pos: Default::default(),
@@ -489,9 +494,13 @@ impl Slot {
                 timeline_cursor_pos,
                 settings: *matrix_record_settings,
             };
-            SlotRecordInstruction::NewClip(new_clip_instruction)
+            (
+                clip_id,
+                SlotRecordInstruction::NewClip(new_clip_instruction),
+            )
         };
         let next_state = SlotState::RequestedRecording(RequestedRecordingState {
+            clip_id,
             pooled_midi_source: specific_stuff.pooled_midi_source,
         });
         // Above code was only for checking preconditions and preparing stuff.
@@ -898,6 +907,7 @@ impl Slot {
                 self.state = {
                     // This must be a real recording, not overdub.
                     let recording_state = RecordingState {
+                        clip_id: s.clip_id,
                         pooled_midi_source: s.pooled_midi_source,
                         runtime_data,
                     };
@@ -947,6 +957,7 @@ impl Slot {
                 SlotState::RequestedRecording(_) => Err("clip recording was not yet acknowledged"),
                 SlotState::Recording(mut s) => {
                     let clip = Clip::from_recording(
+                        s.clip_id,
                         recording.kind_specific,
                         recording.clip_settings,
                         temporary_project,
@@ -993,11 +1004,13 @@ enum SlotState {
 
 #[derive(Clone, Debug)]
 struct RequestedRecordingState {
+    clip_id: ClipId,
     pooled_midi_source: Option<ClipSource>,
 }
 
 #[derive(Clone, Debug)]
 struct RecordingState {
+    clip_id: ClipId,
     /// This must be set for MIDI recordings.
     pooled_midi_source: Option<ClipSource>,
     runtime_data: SlotRuntimeData,

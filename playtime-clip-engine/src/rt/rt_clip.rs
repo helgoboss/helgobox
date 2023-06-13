@@ -40,13 +40,14 @@ use std::sync::Arc;
 pub struct RtClipId(u64);
 
 impl RtClipId {
-    pub fn from_slot_id(clip_id: &ClipId) -> Self {
+    pub fn from_clip_id(clip_id: &ClipId) -> Self {
         Self(base::hash_util::calculate_non_crypto_hash(clip_id))
     }
 }
 
 #[derive(Debug)]
 pub struct RtClip {
+    id: RtClipId,
     supplier_chain: SupplierChain,
     state: ClipState,
     project: Option<Project>,
@@ -229,6 +230,7 @@ struct RollbackData {
 impl RtClip {
     /// Must not call in real-time thread!
     pub fn ready(
+        id: RtClipId,
         pcm_source: ClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &RtColumnSettings,
@@ -249,6 +251,7 @@ impl RtClip {
         supplier_chain.configure_complete_chain(chain_settings)?;
         supplier_chain.pre_buffer_simple(0);
         let clip = Self {
+            id,
             supplier_chain,
             state: ClipState::Ready(ready_state),
             project: permanent_project,
@@ -265,6 +268,7 @@ impl RtClip {
         };
         instruction.supplier_chain.emit_audio_recording_task();
         Self {
+            id: instruction.clip_id,
             supplier_chain: instruction.supplier_chain,
             state: ClipState::Recording(recording_state),
             project: instruction.project,
@@ -1561,6 +1565,7 @@ pub enum SlotRecordInstruction {
 
 #[derive(Debug)]
 pub struct RecordNewClipInstruction {
+    pub clip_id: RtClipId,
     pub supplier_chain: SupplierChain,
     pub project: Option<Project>,
     pub shared_pos: SharedPos,

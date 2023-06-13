@@ -2,7 +2,9 @@ use crate::rt::supplier::{
     ChainEquipment, ClipSource, KindSpecificRecordingOutcome, RecorderRequest,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{ClipChangeEvent, OverridableMatrixSettings, ProcessingRelevantClipSettings};
+use crate::rt::{
+    ClipChangeEvent, OverridableMatrixSettings, ProcessingRelevantClipSettings, RtClipId,
+};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, create_pcm_source_from_media_file,
     make_media_file_path_absolute, CreateApiSourceMode,
@@ -23,6 +25,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, PartialEq, Debug)]
 pub struct Clip {
     id: ClipId,
+    rt_id: RtClipId,
     name: Option<String>,
     color: api::ClipColor,
     source: api::Source,
@@ -35,6 +38,7 @@ impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
             processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
+            rt_id: RtClipId::from_clip_id(&api_clip.id),
             id: api_clip.id,
             name: api_clip.name,
             color: api_clip.color,
@@ -45,6 +49,7 @@ impl Clip {
     }
 
     pub fn from_recording(
+        id: ClipId,
         kind_specific_outcome: KindSpecificRecordingOutcome,
         clip_settings: ProcessingRelevantClipSettings,
         temporary_project: Option<Project>,
@@ -61,7 +66,8 @@ impl Clip {
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
-            id: Default::default(),
+            rt_id: RtClipId::from_clip_id(&id),
+            id,
             name: recording_track.name().map(|n| n.into_string()),
             color: ClipColor::PlayTrackColor,
             source: api_source,
@@ -232,6 +238,7 @@ impl Clip {
             None
         };
         let rt_clip = rt::RtClip::ready(
+            self.rt_id,
             pcm_source,
             matrix_settings,
             column_settings,
