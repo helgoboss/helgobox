@@ -51,3 +51,5 @@ ulid = "1.0.0"
 either.workspace = true
 # For being able to serialize the persistent matrix data to JSON
 serde_json.workspace = true
+# For being able to quickly looking up slots and clips by ID while still maintaining order
+indexmap.workspace = true

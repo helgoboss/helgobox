@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use xxhash_rust::xxh3::Xxh3;
+use xxhash_rust::xxh3::{Xxh3, Xxh3Builder};
 
 /// This newtype should be used whenever it matters to keep a stable hash function, for example
 /// when the hashes are going to be persisted.
@@ -62,5 +62,10 @@ pub fn calculate_non_crypto_hash<T: Hash>(t: &T) -> u64 {
 
 /// Creates a hasher for calculating a 64-bit non-crypto hash.
 pub fn create_non_crypto_hasher() -> impl Hasher {
-    xxhash_rust::xxh3::Xxh3::new()
+    Xxh3::new()
+}
+
+/// Creates a builder for a hasher for calculating a 64-bit non-crypto hash.
+pub fn create_non_crypto_hash_builder() -> Xxh3Builder {
+    Xxh3Builder::new()
 }

@@ -3652,6 +3652,7 @@ dependencies = [
  "enumflags2",
  "helgoboss-learn",
  "helgoboss-midi",
+ "indexmap 1.7.0",
  "metrics",
  "nanoid",
  "num_enum 0.5.4",

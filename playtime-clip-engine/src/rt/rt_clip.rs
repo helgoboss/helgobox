@@ -24,8 +24,8 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::ShortMessage;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ClipAudioSettings, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization,
-    MatrixClipRecordSettings, PositiveSecond,
+    ClipAudioSettings, ClipId, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, Db,
+    EvenQuantization, MatrixClipRecordSettings, PositiveSecond,
 };
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::Project;
@@ -33,9 +33,17 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, PcmSourceTransfer,
     PositionInSeconds,
 };
-use std::mem;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct RtClipId(u64);
+
+impl RtClipId {
+    pub fn from_slot_id(clip_id: &ClipId) -> Self {
+        Self(base::hash_util::calculate_non_crypto_hash(clip_id))
+    }
+}
 
 #[derive(Debug)]
 pub struct RtClip {

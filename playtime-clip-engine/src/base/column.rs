@@ -1,21 +1,21 @@
 use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnHandle, ColumnPlayRowArgs,
+    ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadSlotsArgs, ColumnPlayRowArgs,
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
-    OverridableMatrixSettings, SharedRtColumn, SlotChangeEvent,
+    OverridableMatrixSettings, RtColumnEvent, RtSlots, SharedRtColumn, SlotChangeEvent,
 };
-use crate::{rt, source_util, ClipEngineResult, HybridTimeline};
+use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipPlayStopTiming,
-    ClipTimeBase, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
-    ColumnId, ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section,
-    SlotId, TimeSignature,
+    preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnId,
+    ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, SlotId,
+    TimeSignature,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -24,9 +24,9 @@ use reaper_medium::{
     MeasureAlignment, OwnedPreviewRegister, ReaperMutex, ReaperVolumeValue,
 };
 use std::collections::HashMap;
+use std::iter;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use std::{iter, mem};
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
@@ -39,7 +39,7 @@ pub struct Column {
     rt_column: SharedRtColumn,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
-    event_receiver: Receiver<ColumnEvent>,
+    event_receiver: Receiver<RtColumnEvent>,
     project: Option<Project>,
 }
 
@@ -126,39 +126,44 @@ impl Column {
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
         self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
-        // Slots
-        let mut old_slots: HashMap<_, _> = mem::take(&mut self.slots)
+        // Create slots for all rows
+        let api_slots = api_column.slots.unwrap_or_default();
+        let max_row_index = api_slots.iter().map(|api_slot| api_slot.row).max();
+        let row_count = max_row_index.map(|i| i + 1).unwrap_or(0);
+        let mut api_slots_map: HashMap<_, _> = api_slots
             .into_iter()
-            .map(|s| (s.id().clone(), s))
+            .map(|api_slot| (api_slot.row, api_slot))
             .collect();
-        for api_slot in api_column.slots.unwrap_or_default() {
-            let row = api_slot.row;
-            let mut slot = if let Some(mut old_slot) = old_slots.remove(&api_slot.id) {
-                old_slot.set_index(row);
-                old_slot
-            } else {
-                Slot::new(api_slot.id.clone(), row)
-            };
-            slot.load(
-                api_slot.into_clips(),
-                chain_equipment,
-                recorder_request_sender,
-                matrix_settings,
-                &self.rt_settings,
-                &self.rt_command_sender,
-                self.project,
-            )?;
-            *get_slot_mut_insert(&mut self.slots, row) = slot;
-        }
-        // TODO-high CONTINUE We need to tell the real-time column what changes to make.
-        //  One way would be to do the change detection completely in the real-time column, not
-        //  here. But that would let the main thread do more than necessary (e.g. load
-        //  PCM sources that are loaded already).
-        //  Another way would be to send multiple messages for each detected change, but that's
-        //  not transactional enough. Also, we would have to send "clear" or "remove" commands for
-        //  now unused slots anyway.
-        //  Or we
+        self.slots = (0..row_count)
+            .map(|row_index| {
+                if let Some(api_slot) = api_slots_map.remove(&row_index) {
+                    let mut slot = Slot::new(api_slot.id.clone(), row_index);
+                    slot.load(api_slot.into_clips());
+                    slot
+                } else {
+                    Slot::new(SlotId::random(), row_index)
+                }
+            })
+            .collect();
+        // Bring slots online
+        let rt_slots: RtSlots = self
+            .slots
+            .iter_mut()
+            .map(|slot| {
+                let rt_slot = slot.bring_online(
+                    chain_equipment,
+                    recorder_request_sender,
+                    matrix_settings,
+                    &self.rt_settings,
+                    self.project,
+                );
+                (rt_slot.id(), rt_slot)
+            })
+            .collect();
+        // Splinter real-time slots and send them to the real-time column
         self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
+        self.rt_command_sender
+            .load_slots(ColumnLoadSlotsArgs { slots: rt_slots });
         Ok(())
     }
 
@@ -192,10 +197,7 @@ impl Column {
         //  If multiple clips are currently playing in one column, we shouldn't add new columns
         //  but put the clips into one slot! This is a new possibility and this is a good use case!
         self.slots.iter().enumerate().flat_map(|(i, s)| {
-            let is_playing = s
-                .play_state()
-                .map(|ps| ps.is_as_good_as_playing())
-                .unwrap_or(false);
+            let is_playing = s.play_state().is_as_good_as_playing();
             if is_playing {
                 Either::Left(s.clips().map(move |c| (i, c)))
             } else {
@@ -287,7 +289,7 @@ impl Column {
         // Process source events and generate clip change events
         let mut change_events = vec![];
         while let Ok(evt) = self.event_receiver.try_recv() {
-            use ColumnEvent::*;
+            use RtColumnEvent::*;
             let change_event = match evt {
                 SlotPlayStateChanged {
                     slot_index,
@@ -369,25 +371,23 @@ impl Column {
         }
         // Add position updates
         let continuous_clip_events = self.slots.iter().enumerate().flat_map(|(row, slot)| {
-            let nothing = Either::Right(iter::empty());
-            let Ok(play_state) = slot.play_state() else {
-                return nothing;
-            };
-            if !play_state.is_advancing() {
-                return nothing;
+            if !slot.play_state().is_advancing() {
+                return Either::Right(iter::empty());
             }
             let temp_project = self.project.or_current_project();
             let iter = match slot.relevant_contents() {
                 RelevantContent::Normal(contents) => {
-                    let iter = contents.map(move |content| {
-                        let seconds = content.position_in_seconds(timeline_tempo);
+                    let iter = contents.filter_map(move |content| {
+                        let online_data = content.online_data.as_ref()?;
+                        let seconds =
+                            online_data.position_in_seconds(&content.clip, timeline_tempo);
                         let event = SlotChangeEvent::Continuous {
-                            proportional: content.proportional_position().unwrap_or_default(),
+                            proportional: online_data.proportional_position().unwrap_or_default(),
                             seconds,
-                            peak: content.peak(),
+                            peak: online_data.peak(),
                         };
                         content.notify_pos_changed(temp_project, timeline_tempo, seconds);
-                        (row, event)
+                        Some((row, event))
                     });
                     Either::Left(iter)
                 }

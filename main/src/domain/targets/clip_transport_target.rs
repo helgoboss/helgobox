@@ -54,10 +54,8 @@ pub struct ClipTransportTarget {
 
 impl ClipTransportTarget {
     pub fn clip_play_state(&self, matrix: &RealearnClipMatrix) -> Option<InternalClipPlayState> {
-        matrix
-            .find_slot(self.basics.slot_coordinates)?
-            .play_state()
-            .ok()
+        let play_state = matrix.find_slot(self.basics.slot_coordinates)?.play_state();
+        Some(play_state)
     }
 }
 

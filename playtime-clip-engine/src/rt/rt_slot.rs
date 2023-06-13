@@ -1,7 +1,6 @@
 use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
-use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
@@ -11,26 +10,26 @@ use crate::rt::{
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
 use helgoboss_learn::UnitValue;
-use playtime_api::persistence::ClipPlayStopTiming;
+use playtime_api::persistence::{ClipPlayStopTiming, SlotId};
 use playtime_api::runtime::ClipPlayState;
-use reaper_medium::{Bpm, Hz, PcmSourceTransfer, PlayState, PositionInSeconds};
+use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds};
 use std::{cmp, mem};
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct RtSlotId(u64);
+
+impl RtSlotId {
+    pub fn from_slot_id(slot_id: &SlotId) -> Self {
+        Self(base::hash_util::calculate_non_crypto_hash(slot_id))
+    }
+}
 
 #[derive(Debug)]
 pub struct RtSlot {
+    id: RtSlotId,
     clips: Vec<RtClip>,
     retired_clips: Vec<RtClip>,
     runtime_data: InternalRuntimeData,
-}
-
-impl Default for RtSlot {
-    fn default() -> Self {
-        Self {
-            clips: Vec::with_capacity(10),
-            retired_clips: Vec::with_capacity(10),
-            runtime_data: Default::default(),
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -40,6 +39,25 @@ struct InternalRuntimeData {
 }
 
 impl RtSlot {
+    pub fn new(id: RtSlotId, clips: Vec<RtClip>) -> Self {
+        Self {
+            id,
+            clips,
+            retired_clips: Vec::with_capacity(10),
+            runtime_data: Default::default(),
+        }
+    }
+
+    pub fn load(&mut self, slot: &mut RtSlot) {
+        // TODO-high-clip-engine We shouldn't just swap this but take the changed parts out of
+        //  the right-hand slot.
+        mem::swap(self, slot);
+    }
+
+    pub fn id(&self) -> RtSlotId {
+        self.id
+    }
+
     pub fn last_play_state(&self) -> InternalClipPlayState {
         self.runtime_data.last_play_state
     }

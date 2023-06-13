@@ -83,7 +83,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 matrix
                     .all_slots()
                     .map(|slot| {
-                        let play_state = slot.value().play_state().unwrap_or_default();
+                        let play_state = slot.value().play_state();
                         let address = SlotAddress {
                             column_index: slot.column_index() as u32,
                             row_index: slot.value().index() as u32,
