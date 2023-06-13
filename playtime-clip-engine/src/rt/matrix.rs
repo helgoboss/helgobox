@@ -3,7 +3,7 @@ use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     BasicAudioRequestProps, ColumnCommandSender, ColumnPlayRowArgs, ColumnPlaySlotArgs,
     ColumnPlaySlotOptions, ColumnProcessTransportChangeArgs, ColumnStopArgs, ColumnStopSlotArgs,
-    RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
+    RelevantPlayStateChange, SharedRtColumn, TransportChange, WeakRtColumn,
 };
 use crate::{base, clip_timeline, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -38,9 +38,9 @@ const MAX_COLUMN_COUNT_WITHOUT_REALLOCATION: usize = 1000;
 /// can decide what to do based on the current target value. But in case we need it, that would be
 /// the way to go.
 #[derive(Debug)]
-pub struct Matrix {
+pub struct RtMatrix {
     column_handles: Vec<ColumnHandle>,
-    command_receiver: Receiver<MatrixCommand>,
+    command_receiver: Receiver<RtMatrixCommand>,
     main_command_sender: Sender<base::MatrixCommand>,
     project: Option<Project>,
     last_project_play_state: PlayState,
@@ -49,42 +49,42 @@ pub struct Matrix {
 
 #[derive(Debug)]
 pub struct ColumnHandle {
-    pub pointer: WeakColumn,
+    pub pointer: WeakRtColumn,
     pub command_sender: ColumnCommandSender,
 }
 
 #[derive(Clone, Debug)]
-pub struct SharedMatrix(Arc<Mutex<Matrix>>);
+pub struct SharedRtMatrix(Arc<Mutex<RtMatrix>>);
 
 #[derive(Clone, Debug)]
-pub struct WeakMatrix(Weak<Mutex<Matrix>>);
+pub struct WeakRtMatrix(Weak<Mutex<RtMatrix>>);
 
-impl SharedMatrix {
-    pub fn new(matrix: Matrix) -> Self {
+impl SharedRtMatrix {
+    pub fn new(matrix: RtMatrix) -> Self {
         Self(Arc::new(Mutex::new(matrix)))
     }
 
     /// The real-time matrix should be locked only from real-time threads.
     ///
     /// Then we have no contention and this is super fast.
-    pub fn lock(&self) -> MutexGuard<Matrix> {
+    pub fn lock(&self) -> MutexGuard<RtMatrix> {
         non_blocking_lock(&self.0, "real-time matrix")
     }
 
-    pub fn downgrade(&self) -> WeakMatrix {
-        WeakMatrix(Arc::downgrade(&self.0))
+    pub fn downgrade(&self) -> WeakRtMatrix {
+        WeakRtMatrix(Arc::downgrade(&self.0))
     }
 }
 
-impl WeakMatrix {
-    pub fn upgrade(&self) -> Option<SharedMatrix> {
-        self.0.upgrade().map(SharedMatrix)
+impl WeakRtMatrix {
+    pub fn upgrade(&self) -> Option<SharedRtMatrix> {
+        self.0.upgrade().map(SharedRtMatrix)
     }
 }
 
-impl Matrix {
+impl RtMatrix {
     pub fn new(
-        command_receiver: Receiver<MatrixCommand>,
+        command_receiver: Receiver<RtMatrixCommand>,
         command_sender: Sender<base::MatrixCommand>,
         project: Option<Project>,
     ) -> Self {
@@ -110,7 +110,7 @@ impl Matrix {
             self.detect_and_process_play_position_jump(audio_request_props);
         }
         while let Ok(command) = self.command_receiver.try_recv() {
-            use MatrixCommand::*;
+            use RtMatrixCommand::*;
             match command {
                 SetColumnHandles(handles) => {
                     let old_handles = mem::replace(&mut self.column_handles, handles);
@@ -263,11 +263,11 @@ impl Matrix {
         Ok(())
     }
 
-    pub fn column(&self, index: usize) -> ClipEngineResult<SharedColumn> {
+    pub fn column(&self, index: usize) -> ClipEngineResult<SharedRtColumn> {
         self.column_internal(index)
     }
 
-    fn column_internal(&self, index: usize) -> ClipEngineResult<SharedColumn> {
+    fn column_internal(&self, index: usize) -> ClipEngineResult<SharedRtColumn> {
         let handle = self.column_handle(index)?;
         handle
             .pointer
@@ -275,7 +275,7 @@ impl Matrix {
             .ok_or("column doesn't exist anymore")
     }
 
-    fn columns_internal(&self) -> impl Iterator<Item = SharedColumn> + '_ {
+    fn columns_internal(&self) -> impl Iterator<Item = SharedRtColumn> + '_ {
         self.column_handles.iter().flat_map(|h| h.pointer.upgrade())
     }
 
@@ -284,21 +284,21 @@ impl Matrix {
     }
 }
 
-pub enum MatrixCommand {
+pub enum RtMatrixCommand {
     SetColumnHandles(Vec<ColumnHandle>),
 }
 
 pub trait RtMatrixCommandSender {
     fn set_column_handles(&self, handles: Vec<ColumnHandle>);
-    fn send_command(&self, command: MatrixCommand);
+    fn send_command(&self, command: RtMatrixCommand);
 }
 
-impl RtMatrixCommandSender for Sender<MatrixCommand> {
+impl RtMatrixCommandSender for Sender<RtMatrixCommand> {
     fn set_column_handles(&self, handles: Vec<ColumnHandle>) {
-        self.send_command(MatrixCommand::SetColumnHandles(handles));
+        self.send_command(RtMatrixCommand::SetColumnHandles(handles));
     }
 
-    fn send_command(&self, command: MatrixCommand) {
+    fn send_command(&self, command: RtMatrixCommand) {
         self.try_send(command).unwrap();
     }
 }

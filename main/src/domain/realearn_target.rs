@@ -38,7 +38,7 @@ use helgoboss_learn::{
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt;
-use playtime_clip_engine::rt::WeakMatrix;
+use playtime_clip_engine::rt::WeakRtMatrix;
 use realearn_api::persistence::{LearnableTargetKind, TrackScope};
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
@@ -422,11 +422,11 @@ pub struct ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct RealTimeControlContext<'a> {
-    pub clip_matrix: Option<&'a WeakMatrix>,
+    pub clip_matrix: Option<&'a WeakRtMatrix>,
 }
 
 impl<'a> RealTimeControlContext<'a> {
-    pub fn clip_matrix(&self) -> Result<rt::SharedMatrix, &'static str> {
+    pub fn clip_matrix(&self) -> Result<rt::SharedRtMatrix, &'static str> {
         let weak_matrix = self
             .clip_matrix
             .ok_or("real-time clip matrix not yet initialized")?;

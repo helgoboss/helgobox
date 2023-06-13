@@ -13,7 +13,7 @@ use playtime_clip_engine::base::{
 };
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, Column};
+use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, RtColumn};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     AudioHookRegister, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
@@ -503,7 +503,7 @@ fn find_first_dev_with_play_msg() -> Option<MidiInputDeviceId> {
 
 fn write_midi_to_clip_slot(
     block_props: BasicAudioRequestProps,
-    src: &mut MutexGuard<Column>,
+    src: &mut MutexGuard<RtColumn>,
     slot_index: usize,
     dev: MidiInputDevice,
     channel_filter: Option<Channel>,

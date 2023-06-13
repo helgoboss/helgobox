@@ -424,7 +424,7 @@ impl InstanceState {
 
     pub(super) fn update_real_time_clip_matrix(
         &self,
-        real_time_matrix: Option<rt::WeakMatrix>,
+        real_time_matrix: Option<rt::WeakRtMatrix>,
         is_owned: bool,
     ) {
         let rt_task = NormalRealTimeTask::SetClipMatrix {

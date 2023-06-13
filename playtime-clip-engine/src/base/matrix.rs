@@ -11,7 +11,7 @@ use crate::rt::{
     ClipChangeEvent, ColumnHandle, ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnPlaySlotOptions,
     ColumnStopArgs, ColumnStopSlotArgs, FillClipMode, OverridableMatrixSettings,
     QualifiedClipChangeEvent, QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent,
-    WeakColumn,
+    WeakRtColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -34,7 +34,7 @@ use std::{cmp, mem, thread};
 #[derive(Debug)]
 pub struct Matrix<H> {
     /// Don't lock this from the main thread, only from real-time threads!
-    rt_matrix: rt::SharedMatrix,
+    rt_matrix: rt::SharedRtMatrix,
     settings: MatrixSettings,
     handler: H,
     chain_equipment: ChainEquipment,
@@ -49,7 +49,7 @@ pub struct Matrix<H> {
     rows: Vec<Row>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
-    rt_command_sender: Sender<rt::MatrixCommand>,
+    rt_command_sender: Sender<rt::RtMatrixCommand>,
     history: History,
     clipboard: MatrixClipboard,
     // We use this just for RAII (joining worker threads when dropped)
@@ -225,10 +225,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             );
         });
         let project = containing_track.as_ref().map(|t| t.project());
-        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
+        let rt_matrix = rt::RtMatrix::new(rt_command_receiver, main_command_sender, project);
         Self {
             rt_matrix: {
-                let m = rt::SharedMatrix::new(rt_matrix);
+                let m = rt::SharedRtMatrix::new(rt_matrix);
                 // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,
                 // locking a mutex the first time apparently allocates. If we don't lock the
                 // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
@@ -255,7 +255,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn real_time_matrix(&self) -> rt::WeakMatrix {
+    pub fn real_time_matrix(&self) -> rt::WeakRtMatrix {
         self.rt_matrix.downgrade()
     }
 
@@ -291,14 +291,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .map(|_| Row {})
             .collect();
         self.notify_everything_changed();
-        self.sync_column_handles_to_rt();
+        self.sync_column_handles_to_rt_matrix();
         // Retire old and now unused columns
         self.retired_columns
             .extend(old_columns.into_values().map(RetiredColumn::new));
         Ok(())
     }
 
-    fn sync_column_handles_to_rt(&mut self) {
+    fn sync_column_handles_to_rt_matrix(&mut self) {
         let column_handles = self.columns.iter().map(|c| c.create_handle()).collect();
         self.rt_command_sender.set_column_handles(column_handles);
     }
@@ -448,7 +448,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 stop_timing: Some(ClipPlayStopTiming::Immediately),
             });
             matrix.retired_columns.push(RetiredColumn::new(column));
-            matrix.sync_column_handles_to_rt();
+            matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
             Ok(())
         })
@@ -855,7 +855,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         let same_column = self.columns.get(clip.column_index).unwrap();
                         let mut duplicate = same_column.duplicate_without_contents();
                         duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
-                        duplicate.sync_matrix_settings_to_rt(&self.settings);
+                        duplicate.sync_matrix_and_column_settings_to_rt_column(&self.settings);
                         self.columns.push(duplicate);
                         need_handle_sync = true;
                         self.columns.last_mut().unwrap()
@@ -871,7 +871,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             )?;
         }
         if need_handle_sync {
-            self.sync_column_handles_to_rt();
+            self.sync_column_handles_to_rt_matrix();
         }
         Ok(())
     }
@@ -1188,7 +1188,7 @@ pub struct ClipRecordTask {
 
 #[derive(Debug)]
 pub struct ClipRecordDestination {
-    pub column_source: WeakColumn,
+    pub column_source: WeakRtColumn,
     pub slot_index: usize,
     /// If this is set, it's important to write the MIDI events during the *post* phase of the audio
     /// callback, otherwise the written MIDI events would be played back a moment later, which

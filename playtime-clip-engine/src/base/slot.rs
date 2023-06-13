@@ -11,7 +11,7 @@ use crate::rt::supplier::{
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnFillSlotArgs,
     ColumnSetClipLoopedArgs, FillClipMode, InternalClipPlayState, MidiOverdubInstruction,
-    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
+    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, SharedRtColumn,
     SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
@@ -68,7 +68,7 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn new(clip: Clip, rt_clip: &rt::Clip, pooled_midi_source: Option<ClipSource>) -> Self {
+    pub fn new(clip: Clip, rt_clip: &rt::RtClip, pooled_midi_source: Option<ClipSource>) -> Self {
         Content {
             clip,
             runtime_data: SlotRuntimeData {
@@ -262,7 +262,7 @@ impl Slot {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
-        column_settings: &rt::ColumnSettings,
+        column_settings: &rt::RtColumnSettings,
         rt_command_sender: &ColumnCommandSender,
         project: Option<Project>,
     ) -> ClipEngineResult<()> {
@@ -306,7 +306,7 @@ impl Slot {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
-        column_settings: &rt::ColumnSettings,
+        column_settings: &rt::RtColumnSettings,
         rt_command_sender: &ColumnCommandSender,
         project: Option<Project>,
         mode: FillClipMode,
@@ -337,14 +337,14 @@ impl Slot {
         &mut self,
         matrix_record_settings: &MatrixClipRecordSettings,
         column_record_settings: &ColumnClipRecordSettings,
-        rt_column_settings: &rt::ColumnSettings,
+        rt_column_settings: &rt::RtColumnSettings,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         handler: &H,
         containing_track: Option<&Track>,
         overridable_matrix_settings: &OverridableMatrixSettings,
         recording_track: &Track,
-        rt_column: &SharedColumn,
+        rt_column: &SharedRtColumn,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<()> {
         if self.state.is_pretty_much_recording() {
@@ -421,7 +421,7 @@ impl Slot {
         handler: &H,
         matrix_record_settings: &MatrixClipRecordSettings,
         overridable_matrix_settings: &OverridableMatrixSettings,
-        rt_column_settings: &rt::ColumnSettings,
+        rt_column_settings: &rt::RtColumnSettings,
         recorder_request_sender: &Sender<RecorderRequest>,
         chain_equipment: &ChainEquipment,
         project: Project,
@@ -831,7 +831,7 @@ impl Slot {
     pub(crate) fn fill_with_clip(
         &mut self,
         clip: Clip,
-        rt_clip: &rt::Clip,
+        rt_clip: &rt::RtClip,
         pooled_midi_source: Option<ClipSource>,
         mode: FillClipMode,
     ) {
@@ -1019,7 +1019,7 @@ fn create_record_stuff(
     matrix_record_settings: &MatrixClipRecordSettings,
     column_settings: &ColumnClipRecordSettings,
     recording_track: &Track,
-    column_source: &SharedColumn,
+    column_source: &SharedRtColumn,
     desired_midi_overdub_instruction: Option<MidiOverdubInstruction>,
 ) -> ClipEngineResult<(CommonRecordStuff, ModeSpecificRecordStuff)> {
     let (input, temporary_route) = {

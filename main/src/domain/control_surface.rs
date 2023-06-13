@@ -22,7 +22,7 @@ use std::cell::RefCell;
 
 use base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
-use playtime_clip_engine::rt::WeakMatrix;
+use playtime_clip_engine::rt::WeakRtMatrix;
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
     MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ReaProject,
@@ -85,7 +85,7 @@ pub enum Garbage {
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
     MidiCaptureSender(MidiCaptureSender),
-    ClipMatrix(WeakMatrix),
+    ClipMatrix(WeakRtMatrix),
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {

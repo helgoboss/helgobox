@@ -28,7 +28,7 @@ use base::{
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::base::{ClipRecordDestination, VirtualClipRecordAudioInput};
 use playtime_clip_engine::rt::supplier::WriteAudioRequest;
-use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakMatrix};
+use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakRtMatrix};
 use std::convert::TryInto;
 use std::mem;
 use std::ptr::null_mut;
@@ -66,7 +66,7 @@ pub struct RealTimeProcessor {
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
     sample_rate: Hz,
-    clip_matrix: Option<WeakMatrix>,
+    clip_matrix: Option<WeakRtMatrix>,
     clip_matrix_is_owned: bool,
     clip_record_task: Option<FxInputClipRecordTask>,
 }
@@ -1251,7 +1251,7 @@ impl<'a> Caller<'a> {
 pub enum NormalRealTimeTask {
     SetClipMatrix {
         is_owned: bool,
-        matrix: Option<WeakMatrix>,
+        matrix: Option<WeakRtMatrix>,
     },
     UpdateAllMappings(Compartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(Compartment, Box<Option<RealTimeMapping>>),
@@ -1386,7 +1386,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    matrix: Option<&WeakMatrix>,
+    matrix: Option<&WeakRtMatrix>,
     is_rendering: bool,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
@@ -1480,7 +1480,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    clip_matrix: Option<&WeakMatrix>,
+    clip_matrix: Option<&WeakRtMatrix>,
     is_rendering: bool,
 ) {
     let pure_control_event = flatten_control_midi_event(value_event);
@@ -1684,7 +1684,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    matrix: Option<&WeakMatrix>,
+    matrix: Option<&WeakRtMatrix>,
     is_rendering: bool,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check

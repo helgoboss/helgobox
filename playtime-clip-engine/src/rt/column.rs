@@ -1,10 +1,10 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, BasicAudioRequestProps, Clip, ClipProcessArgs, ClipRecordingPollArgs,
-    HandleSlotEvent, InternalClipPlayState, NormalRecordingOutcome, OwnedAudioBuffer, Slot,
-    SlotPlayArgs, SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction,
-    SlotRuntimeData, SlotStopArgs, TransportChange,
+    AudioBufMut, BasicAudioRequestProps, ClipProcessArgs, ClipRecordingPollArgs, HandleSlotEvent,
+    InternalClipPlayState, NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtSlot, SlotPlayArgs,
+    SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData,
+    SlotStopArgs, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -29,17 +29,17 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 /// Only such methods are public which are allowed to use from real-time threads. Other ones
 /// are private and called from the method that processes the incoming commands.
 #[derive(Debug)]
-pub struct Column {
+pub struct RtColumn {
     matrix_settings: OverridableMatrixSettings,
-    settings: ColumnSettings,
-    slots: Vec<Slot>,
+    settings: RtColumnSettings,
+    slots: Vec<RtSlot>,
     /// Slots end up here when removed.
     ///
     /// They stay there until they have faded out (prevents abrupt stops).
-    retired_slots: Vec<Slot>,
+    retired_slots: Vec<RtSlot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
-    command_receiver: Receiver<ColumnCommand>,
+    command_receiver: Receiver<RtColumnCommand>,
     event_sender: Sender<ColumnEvent>,
     /// Enough reserved memory to hold one audio block of an arbitrary size.
     mix_buffer_chunk: Vec<f64>,
@@ -47,26 +47,26 @@ pub struct Column {
 }
 
 #[derive(Clone, Debug)]
-pub struct SharedColumn(Arc<Mutex<Column>>);
+pub struct SharedRtColumn(Arc<Mutex<RtColumn>>);
 
 #[derive(Clone, Debug)]
-pub struct WeakColumn(Weak<Mutex<Column>>);
+pub struct WeakRtColumn(Weak<Mutex<RtColumn>>);
 
-impl SharedColumn {
-    pub fn new(column_source: Column) -> Self {
+impl SharedRtColumn {
+    pub fn new(column_source: RtColumn) -> Self {
         Self(Arc::new(Mutex::new(column_source)))
     }
 
-    pub fn lock(&self) -> MutexGuard<Column> {
+    pub fn lock(&self) -> MutexGuard<RtColumn> {
         non_blocking_lock(&self.0, "real-time column")
     }
 
-    pub fn lock_allow_blocking(&self) -> MutexGuard<Column> {
+    pub fn lock_allow_blocking(&self) -> MutexGuard<RtColumn> {
         blocking_lock(&self.0)
     }
 
-    pub fn downgrade(&self) -> WeakColumn {
-        WeakColumn(Arc::downgrade(&self.0))
+    pub fn downgrade(&self) -> WeakRtColumn {
+        WeakRtColumn(Arc::downgrade(&self.0))
     }
 
     pub fn strong_count(&self) -> usize {
@@ -74,78 +74,78 @@ impl SharedColumn {
     }
 }
 
-impl WeakColumn {
-    pub fn upgrade(&self) -> Option<SharedColumn> {
-        self.0.upgrade().map(SharedColumn)
+impl WeakRtColumn {
+    pub fn upgrade(&self) -> Option<SharedRtColumn> {
+        self.0.upgrade().map(SharedRtColumn)
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ColumnCommandSender {
-    command_sender: Sender<ColumnCommand>,
+    command_sender: Sender<RtColumnCommand>,
 }
 
 impl ColumnCommandSender {
-    pub fn new(command_sender: Sender<ColumnCommand>) -> Self {
+    pub fn new(command_sender: Sender<RtColumnCommand>) -> Self {
         Self { command_sender }
     }
 
     pub fn clear_slots(&self) {
-        self.send_task(ColumnCommand::ClearSlots);
+        self.send_task(RtColumnCommand::ClearSlots);
     }
 
-    pub fn update_settings(&self, settings: ColumnSettings) {
-        self.send_task(ColumnCommand::UpdateSettings(settings));
+    pub fn update_settings(&self, settings: RtColumnSettings) {
+        self.send_task(RtColumnCommand::UpdateSettings(settings));
     }
 
     pub fn update_matrix_settings(&self, settings: OverridableMatrixSettings) {
-        self.send_task(ColumnCommand::UpdateMatrixSettings(settings));
+        self.send_task(RtColumnCommand::UpdateMatrixSettings(settings));
     }
 
     pub fn fill_slot_with_clip(&self, args: Box<Option<ColumnFillSlotArgs>>) {
-        self.send_task(ColumnCommand::FillSlot(args));
+        self.send_task(RtColumnCommand::FillSlot(args));
     }
 
     pub fn process_transport_change(&self, args: ColumnProcessTransportChangeArgs) {
-        self.send_task(ColumnCommand::ProcessTransportChange(args));
+        self.send_task(RtColumnCommand::ProcessTransportChange(args));
     }
 
     pub fn clear_slot(&self, slot_index: usize) {
-        self.send_task(ColumnCommand::ClearSlot(slot_index));
+        self.send_task(RtColumnCommand::ClearSlot(slot_index));
     }
 
     pub fn play_slot(&self, args: ColumnPlaySlotArgs) {
-        self.send_task(ColumnCommand::PlaySlot(args));
+        self.send_task(RtColumnCommand::PlaySlot(args));
     }
 
     pub fn play_row(&self, args: ColumnPlayRowArgs) {
-        self.send_task(ColumnCommand::PlayRow(args));
+        self.send_task(RtColumnCommand::PlayRow(args));
     }
 
     pub fn stop_slot(&self, args: ColumnStopSlotArgs) {
-        self.send_task(ColumnCommand::StopSlot(args));
+        self.send_task(RtColumnCommand::StopSlot(args));
     }
 
     pub fn remove_slot(&self, index: usize) {
-        self.send_task(ColumnCommand::RemoveSlot(index));
+        self.send_task(RtColumnCommand::RemoveSlot(index));
     }
 
     pub fn stop(&self, args: ColumnStopArgs) {
-        self.send_task(ColumnCommand::Stop(args));
+        self.send_task(RtColumnCommand::Stop(args));
     }
 
     pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
-        self.send_task(ColumnCommand::SetClipLooped(args));
+        self.send_task(RtColumnCommand::SetClipLooped(args));
     }
 
     pub fn pause_slot(&self, index: usize) {
         let args = ColumnPauseSlotArgs { index };
-        self.send_task(ColumnCommand::PauseSlot(args));
+        self.send_task(RtColumnCommand::PauseSlot(args));
     }
 
     pub fn seek_slot(&self, index: usize, desired_pos: UnitValue) {
         let args = ColumnSeekSlotArgs { index, desired_pos };
-        self.send_task(ColumnCommand::SeekSlot(args));
+        self.send_task(RtColumnCommand::SeekSlot(args));
     }
 
     pub fn set_clip_volume(&self, slot_index: usize, clip_index: usize, volume: Db) {
@@ -154,7 +154,7 @@ impl ColumnCommandSender {
             clip_index,
             volume,
         };
-        self.send_task(ColumnCommand::SetClipVolume(args));
+        self.send_task(RtColumnCommand::SetClipVolume(args));
     }
 
     pub fn set_clip_section(&self, slot_index: usize, clip_index: usize, section: api::Section) {
@@ -163,7 +163,7 @@ impl ColumnCommandSender {
             clip_index,
             section,
         };
-        self.send_task(ColumnCommand::SetClipSection(args));
+        self.send_task(RtColumnCommand::SetClipSection(args));
     }
 
     pub fn record_clip(&self, slot_index: usize, instruction: SlotRecordInstruction) {
@@ -171,20 +171,20 @@ impl ColumnCommandSender {
             slot_index,
             instruction,
         };
-        self.send_task(ColumnCommand::RecordClip(Box::new(Some(args))));
+        self.send_task(RtColumnCommand::RecordClip(Box::new(Some(args))));
     }
 
-    fn send_task(&self, task: ColumnCommand) {
+    fn send_task(&self, task: RtColumnCommand) {
         self.command_sender.try_send(task).unwrap();
     }
 }
 
 #[derive(Debug)]
-pub enum ColumnCommand {
+pub enum RtColumnCommand {
     ClearSlots,
     ClearSlot(usize),
     RemoveSlot(usize),
-    UpdateSettings(ColumnSettings),
+    UpdateSettings(RtColumnSettings),
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
     FillSlot(Box<Option<ColumnFillSlotArgs>>),
@@ -211,7 +211,7 @@ pub trait ColumnEventSender {
         material_info: MaterialInfo,
     );
 
-    fn slot_cleared(&self, slot_index: usize, clips: Vec<Clip>);
+    fn slot_cleared(&self, slot_index: usize, clips: Vec<RtClip>);
 
     fn record_request_acknowledged(
         &self,
@@ -225,7 +225,7 @@ pub trait ColumnEventSender {
 
     fn interaction_failed(&self, failure: InteractionFailure);
 
-    fn dispose(&self, garbage: ColumnGarbage);
+    fn dispose(&self, garbage: RtColumnGarbage);
 
     fn send_event(&self, event: ColumnEvent);
 }
@@ -253,7 +253,7 @@ impl ColumnEventSender for Sender<ColumnEvent> {
         self.send_event(event);
     }
 
-    fn slot_cleared(&self, slot_index: usize, clips: Vec<Clip>) {
+    fn slot_cleared(&self, slot_index: usize, clips: Vec<RtClip>) {
         let event = ColumnEvent::SlotCleared { slot_index, clips };
         self.send_event(event);
     }
@@ -283,7 +283,7 @@ impl ColumnEventSender for Sender<ColumnEvent> {
         self.send_event(event);
     }
 
-    fn dispose(&self, garbage: ColumnGarbage) {
+    fn dispose(&self, garbage: RtColumnGarbage) {
         self.send_event(ColumnEvent::Dispose(garbage));
     }
 
@@ -297,7 +297,7 @@ impl ColumnEventSender for Sender<ColumnEvent> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ColumnSettings {
+pub struct RtColumnSettings {
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
     pub audio_time_stretch_mode: Option<AudioTimeStretchMode>,
@@ -306,7 +306,7 @@ pub struct ColumnSettings {
     pub play_mode: ColumnPlayMode,
 }
 
-impl ColumnSettings {
+impl RtColumnSettings {
     pub fn from_api(api_column: &api::Column) -> Self {
         Self {
             clip_play_start_timing: api_column.clip_play_settings.start_timing,
@@ -339,13 +339,13 @@ const MAX_BLOCK_SIZE: usize = 2048;
 ///  "no allocation" even for thousands of slots?
 const MAX_SLOT_COUNT_WITHOUT_REALLOCATION: usize = 100;
 
-impl Column {
+impl RtColumn {
     pub fn new(
         permanent_project: Option<Project>,
-        command_receiver: Receiver<ColumnCommand>,
+        command_receiver: Receiver<RtColumnCommand>,
         event_sender: Sender<ColumnEvent>,
     ) -> Self {
-        debug!("Slot size: {}", std::mem::size_of::<Slot>());
+        debug!("Slot size: {}", std::mem::size_of::<RtSlot>());
         Self {
             matrix_settings: Default::default(),
             settings: Default::default(),
@@ -370,11 +370,11 @@ impl Column {
             .clip_material_info_changed(args.slot_index, clip_index, material_info);
     }
 
-    pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
+    pub fn slot(&self, index: usize) -> ClipEngineResult<&RtSlot> {
         get_slot(&self.slots, index)
     }
 
-    pub fn slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut Slot> {
+    pub fn slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut RtSlot> {
         self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
     }
 
@@ -533,7 +533,7 @@ impl Column {
             .set_section(args.section)
     }
 
-    /// See [`Clip::recording_poll`].
+    /// See [`RtClip::recording_poll`].
     pub fn recording_poll(
         &mut self,
         slot_index: usize,
@@ -646,7 +646,7 @@ impl Column {
 
     fn process_commands(&mut self, audio_request_props: BasicAudioRequestProps) {
         while let Ok(task) = self.command_receiver.try_recv() {
-            use ColumnCommand::*;
+            use RtColumnCommand::*;
             match task {
                 ClearSlots => {
                     self.clear_slots();
@@ -665,7 +665,7 @@ impl Column {
                     let args = boxed_args.take().unwrap();
                     self.fill_slot(args);
                     self.event_sender
-                        .dispose(ColumnGarbage::FillSlotArgs(boxed_args));
+                        .dispose(RtColumnGarbage::FillSlotArgs(boxed_args));
                 }
                 PlaySlot(args) => {
                     let result = self.play_slot(args, audio_request_props);
@@ -709,7 +709,7 @@ impl Column {
                         self.record_clip(args.slot_index, args.instruction, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
                     self.event_sender
-                        .dispose(ColumnGarbage::RecordClipArgs(boxed_args));
+                        .dispose(RtColumnGarbage::RecordClipArgs(boxed_args));
                 }
             }
         }
@@ -809,7 +809,7 @@ impl Column {
     }
 }
 
-impl CustomPcmSource for SharedColumn {
+impl CustomPcmSource for SharedRtColumn {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         unimplemented!()
     }
@@ -913,7 +913,7 @@ impl CustomPcmSource for SharedColumn {
 #[derive(Debug)]
 pub struct ColumnFillSlotArgs {
     pub slot_index: usize,
-    pub clip: Clip,
+    pub clip: RtClip,
     pub mode: FillClipMode,
 }
 
@@ -1019,17 +1019,17 @@ pub struct ColumnWithSlotArgs<'a> {
     pub use_slot: &'a dyn Fn(),
 }
 
-fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
+fn get_slot(slots: &[RtSlot], index: usize) -> ClipEngineResult<&RtSlot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
-fn get_slot_mut(slots: &mut [Slot], index: usize) -> ClipEngineResult<&mut Slot> {
+fn get_slot_mut(slots: &mut [RtSlot], index: usize) -> ClipEngineResult<&mut RtSlot> {
     slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
 const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
 
-fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
+fn get_slot_mut_insert(slots: &mut Vec<RtSlot>, index: usize) -> &mut RtSlot {
     if index >= slots.len() {
         slots.resize_with(index + 1, Default::default);
     }
@@ -1049,7 +1049,7 @@ pub enum ColumnEvent {
     },
     SlotCleared {
         slot_index: usize,
-        clips: Vec<Clip>,
+        clips: Vec<RtClip>,
     },
     RecordRequestAcknowledged {
         slot_index: usize,
@@ -1065,7 +1065,7 @@ pub enum ColumnEvent {
         slot_index: usize,
         outcome: NormalRecordingOutcome,
     },
-    Dispose(ColumnGarbage),
+    Dispose(RtColumnGarbage),
     InteractionFailed(InteractionFailure),
 }
 
@@ -1076,9 +1076,9 @@ pub struct InteractionFailure {
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-pub enum ColumnGarbage {
+pub enum RtColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
-    Clip(Clip),
+    Clip(RtClip),
     RecordClipArgs(Box<Option<ColumnRecordClipArgs>>),
 }
 
@@ -1103,7 +1103,7 @@ impl HandleSlotEvent for NoopClipEventHandler {
 
     fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
 
-    fn slot_cleared(&self, _clips: Vec<Clip>) {}
+    fn slot_cleared(&self, _clips: Vec<RtClip>) {}
 }
 
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
@@ -1117,7 +1117,7 @@ impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
             .normal_recording_finished(self.slot_index, outcome);
     }
 
-    fn slot_cleared(&self, clips: Vec<Clip>) {
+    fn slot_cleared(&self, clips: Vec<RtClip>) {
         self.event_sender.slot_cleared(self.slot_index, clips);
     }
 }

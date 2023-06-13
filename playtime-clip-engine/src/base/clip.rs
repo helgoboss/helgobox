@@ -214,8 +214,8 @@ impl Clip {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &rt::ColumnSettings,
-    ) -> ClipEngineResult<(rt::Clip, Option<ClipSource>)> {
+        column_settings: &rt::RtColumnSettings,
+    ) -> ClipEngineResult<(rt::RtClip, Option<ClipSource>)> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
             SourceOrigin::Frozen => self
@@ -231,7 +231,7 @@ impl Clip {
         } else {
             None
         };
-        let rt_clip = rt::Clip::ready(
+        let rt_clip = rt::RtClip::ready(
             pcm_source,
             matrix_settings,
             column_settings,

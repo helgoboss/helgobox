@@ -12,7 +12,7 @@ use crate::rt::supplier::{
     WithMaterialInfo, WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::{
-    BasicAudioRequestProps, ColumnSettings, OverridableMatrixSettings, QuantizedPosCalcEquipment,
+    BasicAudioRequestProps, OverridableMatrixSettings, QuantizedPosCalcEquipment, RtColumnSettings,
 };
 use crate::source_util::create_empty_midi_source;
 use crate::timeline::{clip_timeline, Timeline};
@@ -1313,7 +1313,7 @@ pub struct RecordingArgs {
 impl RecordingArgs {
     pub fn from_stuff(
         project: Option<Project>,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
         overridable_matrix_settings: &OverridableMatrixSettings,
         matrix_record_settings: &MatrixClipRecordSettings,
         recording_equipment: RecordingEquipment,

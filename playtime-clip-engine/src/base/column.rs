@@ -3,7 +3,7 @@ use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnEvent, ColumnHandle, ColumnPlayRowArgs,
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
-    OverridableMatrixSettings, SharedColumn, SlotChangeEvent,
+    OverridableMatrixSettings, SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult, HybridTimeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -34,9 +34,9 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 pub struct Column {
     id: ColumnId,
     settings: ColumnSettings,
-    rt_settings: rt::ColumnSettings,
+    rt_settings: rt::RtColumnSettings,
     rt_command_sender: ColumnCommandSender,
-    rt_column: SharedColumn,
+    rt_column: SharedRtColumn,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
     event_receiver: Receiver<ColumnEvent>,
@@ -67,8 +67,8 @@ impl Column {
     pub fn new(id: ColumnId, permanent_project: Option<Project>) -> Self {
         let (command_sender, command_receiver) = crossbeam_channel::bounded(500);
         let (event_sender, event_receiver) = crossbeam_channel::bounded(500);
-        let source = rt::Column::new(permanent_project, command_receiver, event_sender);
-        let shared_source = SharedColumn::new(source);
+        let source = rt::RtColumn::new(permanent_project, command_receiver, event_sender);
+        let shared_source = SharedRtColumn::new(source);
         Self {
             id,
             settings: Default::default(),
@@ -125,7 +125,7 @@ impl Column {
         self.init_preview_register_if_necessary(track);
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
-        self.rt_settings = rt::ColumnSettings::from_api(&api_column);
+        self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
         // Slots
         let mut old_slots: HashMap<_, _> = mem::take(&mut self.slots)
             .into_iter()
@@ -150,8 +150,15 @@ impl Column {
             )?;
             *get_slot_mut_insert(&mut self.slots, row) = slot;
         }
-        // Sync
-        self.sync_matrix_settings_to_rt_internal(matrix_settings);
+        // TODO-high CONTINUE We need to tell the real-time column what changes to make.
+        //  One way would be to do the change detection completely in the real-time column, not
+        //  here. But that would let the main thread do more than necessary (e.g. load
+        //  PCM sources that are loaded already).
+        //  Another way would be to send multiple messages for each detected change, but that's
+        //  not transactional enough. Also, we would have to send "clear" or "remove" commands for
+        //  now unused slots anyway.
+        //  Or we
+        self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
         Ok(())
     }
 
@@ -165,11 +172,14 @@ impl Column {
         self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
     }
 
-    pub fn sync_matrix_settings_to_rt(&self, matrix_settings: &MatrixSettings) {
-        self.sync_matrix_settings_to_rt_internal(matrix_settings);
+    pub fn sync_matrix_and_column_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
+        self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
     }
 
-    fn sync_matrix_settings_to_rt_internal(&self, matrix_settings: &MatrixSettings) {
+    fn sync_matrix_and_column_settings_to_rt_column_internal(
+        &self,
+        matrix_settings: &MatrixSettings,
+    ) {
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
         self.rt_command_sender

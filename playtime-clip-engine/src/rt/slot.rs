@@ -4,9 +4,9 @@ use crate::conversion_util::{
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, Clip, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
-    ColumnProcessTransportChangeArgs, ColumnSettings, FillClipMode, HandleSlotEvent,
-    InternalClipPlayState, OverridableMatrixSettings, SharedPeak, SharedPos, SlotInstruction,
+    AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
+    ColumnProcessTransportChangeArgs, FillClipMode, HandleSlotEvent, InternalClipPlayState,
+    OverridableMatrixSettings, RtClip, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction,
     SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
@@ -17,13 +17,13 @@ use reaper_medium::{Bpm, Hz, PcmSourceTransfer, PlayState, PositionInSeconds};
 use std::{cmp, mem};
 
 #[derive(Debug)]
-pub struct Slot {
-    clips: Vec<Clip>,
-    retired_clips: Vec<Clip>,
+pub struct RtSlot {
+    clips: Vec<RtClip>,
+    retired_clips: Vec<RtClip>,
     runtime_data: InternalRuntimeData,
 }
 
-impl Default for Slot {
+impl Default for RtSlot {
     fn default() -> Self {
         Self {
             clips: Vec::with_capacity(10),
@@ -39,13 +39,13 @@ struct InternalRuntimeData {
     stop_was_caused_by_transport_change: bool,
 }
 
-impl Slot {
+impl RtSlot {
     pub fn last_play_state(&self) -> InternalClipPlayState {
         self.runtime_data.last_play_state
     }
 
     /// Returns the index at which the clip landed.
-    pub fn fill(&mut self, clip: Clip, mode: FillClipMode) -> usize {
+    pub fn fill(&mut self, clip: RtClip, mode: FillClipMode) -> usize {
         // TODO-medium Suspend previous clip if playing.
         match mode {
             FillClipMode::Add => {
@@ -64,7 +64,7 @@ impl Slot {
         !self.clips.is_empty()
     }
 
-    pub fn find_clip(&self, index: usize) -> Option<&Clip> {
+    pub fn find_clip(&self, index: usize) -> Option<&RtClip> {
         self.clips.get(index)
     }
 
@@ -72,11 +72,11 @@ impl Slot {
         self.clips.len()
     }
 
-    pub fn clips(&self) -> &[Clip] {
+    pub fn clips(&self) -> &[RtClip] {
         &self.clips
     }
 
-    /// See [`Clip::recording_poll`].
+    /// See [`RtClip::recording_poll`].
     pub fn recording_poll<H: HandleSlotEvent>(
         &mut self,
         args: ClipRecordingPollArgs,
@@ -166,7 +166,7 @@ impl Slot {
         &mut self,
         instruction: SlotRecordInstruction,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> Result<Option<SlotRuntimeData>, ErrorWithPayload<SlotRecordInstruction>> {
         use SlotRecordInstruction::*;
         match instruction {
@@ -178,7 +178,7 @@ impl Slot {
                         NewClip(instruction),
                     ));
                 }
-                let clip = Clip::recording(instruction);
+                let clip = RtClip::recording(instruction);
                 let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
                 self.clips.push(clip);
                 Ok(Some(runtime_data))
@@ -242,7 +242,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut Clip> {
+    pub fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut RtClip> {
         self.clips.get_mut(index).ok_or(CLIP_DOESNT_EXIST)
     }
 
@@ -392,7 +392,7 @@ impl Slot {
         self.clips.iter().any(|c| c.play_state().is_stoppable())
     }
 
-    fn get_clips_mut(&mut self) -> ClipEngineResult<&mut [Clip]> {
+    fn get_clips_mut(&mut self) -> ClipEngineResult<&mut [RtClip]> {
         if self.clips.is_empty() {
             return Err(SLOT_NOT_FILLED);
         }
@@ -403,7 +403,7 @@ impl Slot {
 impl InternalRuntimeData {
     fn stop_clip_by_transport<H: HandleSlotEvent>(
         &mut self,
-        clip: &mut Clip,
+        clip: &mut RtClip,
         args: &SlotProcessTransportChangeArgs,
         keep_starting_with_transport: bool,
         event_handler: &H,
@@ -426,7 +426,7 @@ impl InternalRuntimeData {
 pub struct SlotProcessTransportChangeArgs<'a> {
     pub column_args: &'a ColumnProcessTransportChangeArgs,
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
@@ -466,7 +466,7 @@ pub struct SlotProcessingOutcome {
 }
 
 fn play_clip_by_transport(
-    clip: &mut Clip,
+    clip: &mut RtClip,
     args: &SlotProcessTransportChangeArgs,
 ) -> Option<SlotInstruction> {
     let args = SlotPlayArgs {
@@ -490,7 +490,7 @@ pub struct SlotRuntimeData {
 }
 
 impl SlotRuntimeData {
-    pub fn from_recording_clip(clip: &Clip) -> Self {
+    pub fn from_recording_clip(clip: &RtClip) -> Self {
         Self {
             play_state: clip.play_state(),
             pos: clip.shared_pos(),
@@ -548,7 +548,7 @@ impl SlotRuntimeData {
 }
 
 fn process_clip(
-    clip: &mut Clip,
+    clip: &mut RtClip,
     args: &mut SlotProcessArgs,
     total_num_audio_frames_written: &mut usize,
 ) -> ClipProcessingOutcome {
@@ -614,5 +614,5 @@ pub struct SlotProcessArgs<'a> {
     pub timeline_tempo: Bpm,
     pub resync: bool,
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
 }

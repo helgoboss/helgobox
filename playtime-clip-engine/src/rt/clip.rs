@@ -15,7 +15,7 @@ use crate::rt::supplier::{
     MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{ColumnSettings, OverridableMatrixSettings};
+use crate::rt::{OverridableMatrixSettings, RtColumnSettings};
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
 use atomic::Atomic;
@@ -38,7 +38,7 @@ use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct Clip {
+pub struct RtClip {
     supplier_chain: SupplierChain,
     state: ClipState,
     project: Option<Project>,
@@ -218,12 +218,12 @@ struct RollbackData {
     play_settings: PlaySettings,
 }
 
-impl Clip {
+impl RtClip {
     /// Must not call in real-time thread!
     pub fn ready(
         pcm_source: ClipSource,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
         clip_settings: &ProcessingRelevantClipSettings,
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
@@ -370,7 +370,7 @@ impl Clip {
         &mut self,
         args: ClipRecordArgs,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> Result<(), ErrorWithPayload<ClipRecordArgs>> {
         use ClipState::*;
         match &mut self.state {
@@ -1194,7 +1194,7 @@ impl ReadyState {
         project: Option<Project>,
         supplier_chain: &mut SupplierChain,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> Option<RecordingState> {
         let recording_args = RecordingArgs::from_stuff(
             project,
@@ -1404,7 +1404,7 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> ReadyState {
         debug!("Finishing recording");
         let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
@@ -1468,7 +1468,7 @@ pub struct SlotPlayArgs<'a> {
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
     pub start_timing: Option<ClipPlayStartTiming>,
 }
 
@@ -1494,14 +1494,14 @@ pub struct SlotStopArgs<'a> {
     /// playing the clip.
     pub enforce_play_stop: bool,
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
     pub audio_request_props: BasicAudioRequestProps,
 }
 
 #[derive(Debug)]
 pub struct ClipRecordingPollArgs<'a> {
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
     pub audio_request_props: BasicAudioRequestProps,
 }
 
@@ -1595,7 +1595,7 @@ pub struct ClipProcessArgs<'a, 'b> {
     /// Tells the clip to re-calculate its ideal play position (set when doing resume-from-pause).
     pub resync: bool,
     pub matrix_settings: &'a OverridableMatrixSettings,
-    pub column_settings: &'a ColumnSettings,
+    pub column_settings: &'a RtColumnSettings,
 }
 
 impl<'a, 'b> ClipProcessArgs<'a, 'b> {
@@ -1795,7 +1795,7 @@ struct FillSamplesOutcome {
 pub trait HandleSlotEvent {
     fn midi_overdub_finished(&self, mirror_source: ClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
-    fn slot_cleared(&self, clips: Vec<Clip>);
+    fn slot_cleared(&self, clips: Vec<RtClip>);
 }
 
 /// Holds the result of a normal (non-overdub) recording.
@@ -1849,7 +1849,7 @@ impl ProcessingRelevantClipSettings {
         record_settings: &MatrixClipRecordSettings,
         data: &CompleteRecordingData,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> ClipEngineResult<Self> {
         let current_play_start_timing = column_settings
             .clip_play_start_timing
@@ -1902,7 +1902,7 @@ impl ProcessingRelevantClipSettings {
     fn create_chain_settings(
         &self,
         matrix_settings: &OverridableMatrixSettings,
-        column_settings: &ColumnSettings,
+        column_settings: &RtColumnSettings,
     ) -> ChainSettings {
         ChainSettings {
             looped: self.looped,

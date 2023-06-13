@@ -14,7 +14,7 @@ use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
 
 use once_cell::sync::Lazy;
-use playtime_clip_engine::rt::WeakMatrix;
+use playtime_clip_engine::rt::WeakRtMatrix;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -320,7 +320,7 @@ impl BackboneState {
     fn update_rt_clip_matrix_of_referencing_instances(
         &self,
         this_instance_id: InstanceId,
-        real_time_matrix: Option<WeakMatrix>,
+        real_time_matrix: Option<WeakRtMatrix>,
     ) {
         for (id, is) in self.instance_states.borrow().iter() {
             if *id == this_instance_id {
