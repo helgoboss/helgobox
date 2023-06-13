@@ -417,7 +417,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         // would hurt the usual ReaLearn experience.
         let column = column.lock_allow_blocking();
         let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
-        let Some(first_clip) = slot.clips().first() else {
+        let Some(first_clip) = slot.first_clip() else {
             return Some(AbsoluteValue::Continuous(UnitValue::MIN));
         };
         let val = match self.basics.action {

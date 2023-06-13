@@ -2,7 +2,7 @@ use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
-    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtSlot, RtSlotId, SlotPlayArgs,
+    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClips, RtSlot, RtSlotId, SlotPlayArgs,
     SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData,
     SlotStopArgs, TransportChange,
 };
@@ -219,7 +219,7 @@ pub trait RtColumnEventSender {
         material_info: MaterialInfo,
     );
 
-    fn slot_cleared(&self, slot_index: usize, clips: Vec<RtClip>);
+    fn slot_cleared(&self, slot_index: usize, clips: RtClips);
 
     fn record_request_acknowledged(
         &self,
@@ -261,7 +261,7 @@ impl RtColumnEventSender for Sender<RtColumnEvent> {
         self.send_event(event);
     }
 
-    fn slot_cleared(&self, slot_index: usize, clips: Vec<RtClip>) {
+    fn slot_cleared(&self, slot_index: usize, clips: RtClips) {
         let event = RtColumnEvent::SlotCleared { slot_index, clips };
         self.send_event(event);
     }
@@ -643,6 +643,7 @@ impl RtColumn {
     }
 
     pub fn clear_slots(&mut self) {
+        // TODO-high Retire
         self.slots.clear();
     }
 
@@ -653,12 +654,13 @@ impl RtColumn {
                 // We have an old slot with the same ID. Reuse it for smooth transition!
                 // At first, we load the new slot's contents into the old slot.
                 old_slot.load(slot);
-                // Then we discard the new slot by putting it "into the trash" and getting the
-                // updated old slot "out of the trash".
+                // Then we discard the new exploited slot by putting it "into the trash" and getting
+                // the updated old slot "out of the trash".
                 mem::swap(slot, old_slot);
             }
         }
         self.slots = args.slots;
+        // TODO-high Retire old slots (but really only the old ones, not the exploited ones)
         self.event_sender
             .dispose(RtColumnGarbage::OldSlots(old_slots));
         Ok(())
@@ -1078,7 +1080,7 @@ pub enum RtColumnEvent {
     },
     SlotCleared {
         slot_index: usize,
-        clips: Vec<RtClip>,
+        clips: RtClips,
     },
     RecordRequestAcknowledged {
         slot_index: usize,
@@ -1133,7 +1135,7 @@ impl HandleSlotEvent for NoopClipEventHandler {
 
     fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
 
-    fn slot_cleared(&self, _clips: Vec<RtClip>) {}
+    fn slot_cleared(&self, _clips: RtClips) {}
 }
 
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
@@ -1147,7 +1149,7 @@ impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
             .normal_recording_finished(self.slot_index, outcome);
     }
 
-    fn slot_cleared(&self, clips: Vec<RtClip>) {
+    fn slot_cleared(&self, clips: RtClips) {
         self.event_sender.slot_cleared(self.slot_index, clips);
     }
 }

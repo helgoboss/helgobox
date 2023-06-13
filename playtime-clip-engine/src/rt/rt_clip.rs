@@ -15,7 +15,7 @@ use crate::rt::supplier::{
     MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{OverridableMatrixSettings, RtColumnSettings};
+use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnSettings};
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
 use atomic::Atomic;
@@ -275,6 +275,10 @@ impl RtClip {
             shared_pos: instruction.shared_pos,
             shared_peak: instruction.shared_peak,
         }
+    }
+
+    pub fn id(&self) -> RtClipId {
+        self.id
     }
 
     /// If recording, delivers material info of the material that's being recorded.
@@ -1808,7 +1812,7 @@ struct FillSamplesOutcome {
 pub trait HandleSlotEvent {
     fn midi_overdub_finished(&self, mirror_source: ClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
-    fn slot_cleared(&self, clips: Vec<RtClip>);
+    fn slot_cleared(&self, clips: RtClips);
 }
 
 /// Holds the result of a normal (non-overdub) recording.

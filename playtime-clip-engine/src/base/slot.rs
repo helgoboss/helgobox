@@ -316,7 +316,7 @@ impl Slot {
                 .ok()?;
             let online_data = OnlineData::new(&rt_clip, pooled_midi_source);
             content.online_data = Some(online_data);
-            Some(rt_clip)
+            Some((rt_clip.id(), rt_clip))
         });
         RtSlot::new(self.rt_id, rt_clips.collect())
     }

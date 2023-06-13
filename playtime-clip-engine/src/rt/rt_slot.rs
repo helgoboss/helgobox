@@ -5,15 +5,17 @@ use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
     ColumnProcessTransportChangeArgs, FillClipMode, HandleSlotEvent, InternalClipPlayState,
-    OverridableMatrixSettings, RtClip, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction,
-    SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
+    OverridableMatrixSettings, RtClip, RtClipId, RtColumnSettings, SharedPeak, SharedPos,
+    SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
 use helgoboss_learn::UnitValue;
+use indexmap::IndexMap;
 use playtime_api::persistence::{ClipPlayStopTiming, SlotId};
 use playtime_api::runtime::ClipPlayState;
 use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds};
 use std::{cmp, mem};
+use xxhash_rust::xxh3::Xxh3Builder;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct RtSlotId(u64);
@@ -24,11 +26,13 @@ impl RtSlotId {
     }
 }
 
+pub type RtClips = IndexMap<RtClipId, RtClip, Xxh3Builder>;
+
 #[derive(Debug)]
 pub struct RtSlot {
     id: RtSlotId,
-    clips: Vec<RtClip>,
-    retired_clips: Vec<RtClip>,
+    clips: RtClips,
+    retired_clips: RtClips,
     runtime_data: InternalRuntimeData,
 }
 
@@ -39,11 +43,11 @@ struct InternalRuntimeData {
 }
 
 impl RtSlot {
-    pub fn new(id: RtSlotId, clips: Vec<RtClip>) -> Self {
+    pub fn new(id: RtSlotId, clips: RtClips) -> Self {
         Self {
             id,
+            retired_clips: RtClips::with_capacity_and_hasher(clips.len(), clips.hasher().clone()),
             clips,
-            retired_clips: Vec::with_capacity(10),
             runtime_data: Default::default(),
         }
     }
@@ -52,6 +56,19 @@ impl RtSlot {
         // TODO-high-clip-engine We shouldn't just swap this but take the changed parts out of
         //  the right-hand slot.
         mem::swap(self, slot);
+
+        // let mut old_clips = mem::take(&mut self.clips);
+        // for (_, slot) in &mut args.slots {
+        //     if let Some(old_slot) = old_slots.get_mut(&slot.id()) {
+        //         // We have an old slot with the same ID. Reuse it for smooth transition!
+        //         // At first, we load the new slot's contents into the old slot.
+        //         old_slot.load(slot);
+        //         // Then we discard the new slot by putting it "into the trash" and getting the
+        //         // updated old slot "out of the trash".
+        //         mem::swap(slot, old_slot);
+        //     }
+        // }
+        // self.slots = args.slots;
     }
 
     pub fn id(&self) -> RtSlotId {
@@ -67,12 +84,12 @@ impl RtSlot {
         // TODO-medium Suspend previous clip if playing.
         match mode {
             FillClipMode::Add => {
-                self.clips.push(clip);
+                self.clips.insert(clip.id(), clip);
                 self.clips.len() - 1
             }
             FillClipMode::Replace => {
                 self.clips.clear();
-                self.clips.push(clip);
+                self.clips.insert(clip.id(), clip);
                 0
             }
         }
@@ -83,15 +100,15 @@ impl RtSlot {
     }
 
     pub fn find_clip(&self, index: usize) -> Option<&RtClip> {
-        self.clips.get(index)
+        Some(self.clips.get_index(index)?.1)
     }
 
     pub fn clip_count(&self) -> usize {
         self.clips.len()
     }
 
-    pub fn clips(&self) -> &[RtClip] {
-        &self.clips
+    pub fn first_clip(&self) -> Option<&RtClip> {
+        Some(self.clips.first()?.1)
     }
 
     /// See [`RtClip::recording_poll`].
@@ -118,7 +135,7 @@ impl RtSlot {
     ///
     /// Consumer should just wait for the slot to be stopped and then not use it anymore.
     pub fn initiate_removal(&mut self) {
-        for clip in &mut self.clips {
+        for clip in self.clips.values_mut() {
             clip.initiate_removal()
         }
     }
@@ -158,7 +175,7 @@ impl RtSlot {
 
     pub fn clear(&mut self) {
         let mut old_clips = mem::take(&mut self.clips);
-        for mut old_clip in &mut old_clips {
+        for mut old_clip in old_clips.values_mut() {
             old_clip.initiate_removal();
         }
         self.retired_clips = old_clips;
@@ -198,7 +215,7 @@ impl RtSlot {
                 }
                 let clip = RtClip::recording(instruction);
                 let runtime_data = SlotRuntimeData::from_recording_clip(&clip);
-                self.clips.push(clip);
+                self.clips.insert(clip.id(), clip);
                 Ok(Some(runtime_data))
             }
             ExistingClip(args) => {
@@ -207,7 +224,7 @@ impl RtSlot {
                     None => {
                         return Err(ErrorWithPayload::new("slot empty", ExistingClip(args)));
                     }
-                    Some(c) => c,
+                    Some(c) => c.1,
                 };
                 match clip.record(args, matrix_settings, column_settings) {
                     Ok(_) => {
@@ -226,7 +243,7 @@ impl RtSlot {
                             MidiOverdub(instruction),
                         ));
                     }
-                    Some(c) => c,
+                    Some(c) => c.1,
                 };
                 match clip.midi_overdub(instruction) {
                     Ok(_) => Ok(None),
@@ -261,7 +278,7 @@ impl RtSlot {
     }
 
     pub fn get_clip_mut(&mut self, index: usize) -> ClipEngineResult<&mut RtClip> {
-        self.clips.get_mut(index).ok_or(CLIP_DOESNT_EXIST)
+        Ok(self.clips.get_index_mut(index).ok_or(CLIP_DOESNT_EXIST)?.1)
     }
 
     pub fn process_transport_change<H: HandleSlotEvent>(
@@ -271,7 +288,7 @@ impl RtSlot {
     ) -> ClipEngineResult<()> {
         let mut instruction = None;
         {
-            for clip in &mut self.clips {
+            for clip in self.clips.values_mut() {
                 let inst = match args.column_args.change {
                     TransportChange::PlayState(rel_change) => {
                         // We have a relevant transport change.
@@ -380,7 +397,7 @@ impl RtSlot {
         // count up-front.
         let mut num_audio_frames_written = 0;
         // Fade out retired clips
-        self.retired_clips.retain_mut(|clip| {
+        self.retired_clips.retain(|_, clip| {
             let outcome = process_clip(clip, args, &mut num_audio_frames_written);
             // As long as the clip still wrote audio frames, we keep it in memory. But as soon
             // as no audio frames are written anymore, we can safely assume it's stopped and
@@ -389,7 +406,7 @@ impl RtSlot {
         });
         // Play current clips
         let mut new_slot_play_state = InternalClipPlayState::default();
-        for clip in &mut self.clips {
+        for clip in self.clips.values_mut() {
             process_clip(clip, args, &mut num_audio_frames_written);
             // Aggregate clip play states into slot play state
             new_slot_play_state = cmp::max(new_slot_play_state, clip.play_state());
@@ -407,14 +424,14 @@ impl RtSlot {
     }
 
     pub fn is_stoppable(&self) -> bool {
-        self.clips.iter().any(|c| c.play_state().is_stoppable())
+        self.clips.values().any(|c| c.play_state().is_stoppable())
     }
 
-    fn get_clips_mut(&mut self) -> ClipEngineResult<&mut [RtClip]> {
+    fn get_clips_mut(&mut self) -> ClipEngineResult<impl Iterator<Item = &mut RtClip>> {
         if self.clips.is_empty() {
             return Err(SLOT_NOT_FILLED);
         }
-        Ok(&mut self.clips)
+        Ok(self.clips.values_mut())
     }
 }
 
