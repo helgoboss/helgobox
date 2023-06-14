@@ -276,7 +276,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         let permanent_project = self.permanent_project();
+        let necessary_row_count = api_matrix.necessary_row_count();
+        // Settings
         self.settings = MatrixSettings::from_api(&api_matrix);
+        // Columns
         let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
             .into_iter()
             .map(|c| (c.id().clone(), c))
@@ -290,20 +293,25 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
+                necessary_row_count,
             )?;
             self.columns.push(column);
         }
+        // Rows
         self.rows = api_matrix
             .rows
             .unwrap_or_default()
             .into_iter()
             .map(|_| Row {})
             .collect();
-        self.notify_everything_changed();
+        self.rows.resize(necessary_row_count, Row {});
+        // Sync to real-time matrix
         self.sync_column_handles_to_rt_matrix();
         // Retire old and now unused columns
         self.retired_columns
             .extend(old_columns.into_values().map(RetiredColumn::new));
+        // Notify listeners
+        self.notify_everything_changed();
         Ok(())
     }
 

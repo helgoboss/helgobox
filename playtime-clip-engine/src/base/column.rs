@@ -114,6 +114,7 @@ impl Column {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
+        necessary_row_count: usize,
     ) -> ClipEngineResult<()> {
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
@@ -128,13 +129,11 @@ impl Column {
         self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
         // Create slots for all rows
         let api_slots = api_column.slots.unwrap_or_default();
-        let max_row_index = api_slots.iter().map(|api_slot| api_slot.row).max();
-        let row_count = max_row_index.map(|i| i + 1).unwrap_or(0);
         let mut api_slots_map: HashMap<_, _> = api_slots
             .into_iter()
             .map(|api_slot| (api_slot.row, api_slot))
             .collect();
-        self.slots = (0..row_count)
+        self.slots = (0..necessary_row_count)
             .map(|row_index| {
                 if let Some(api_slot) = api_slots_map.remove(&row_index) {
                     let mut slot = Slot::new(api_slot.id.clone(), row_index);
@@ -160,7 +159,7 @@ impl Column {
                 (rt_slot.id(), rt_slot)
             })
             .collect();
-        // Splinter real-time slots and send them to the real-time column
+        // Send real-time slots to the real-time column
         self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
         self.rt_command_sender.load(ColumnLoadArgs {
             new_slots: rt_slots,

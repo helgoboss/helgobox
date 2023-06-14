@@ -15,6 +15,7 @@
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::cmp;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection
@@ -38,6 +39,35 @@ pub struct Matrix {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
+}
+
+impl Matrix {
+    /// Calculates the effective number of rows, taking the rows vector *and* the slots in each
+    /// column into account.
+    pub fn necessary_row_count(&self) -> usize {
+        cmp::max(
+            self.necessary_row_count_of_columns(),
+            self.necessary_row_count_of_rows(),
+        )
+    }
+
+    fn necessary_row_count_of_columns(&self) -> usize {
+        let Some(columns) = self.columns.as_ref() else {
+            return 0;
+        };
+        columns
+            .iter()
+            .map(|col| col.necessary_row_count())
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn necessary_row_count_of_rows(&self) -> usize {
+        let Some(rows) = self.rows.as_ref() else {
+            return 0;
+        };
+        rows.len()
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -576,6 +606,22 @@ pub struct Column {
     /// Only filled slots need to be mentioned here.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slots: Option<Vec<Slot>>,
+}
+
+impl Column {
+    /// Calculates the necessary number of rows in this column in order to keep all the defined
+    /// slots.
+    pub fn necessary_row_count(&self) -> usize {
+        let Some(slots) = self.slots.as_ref() else {
+            return 0;
+        };
+        slots
+            .iter()
+            .map(|s| s.row)
+            .max()
+            .map(|max| max + 1)
+            .unwrap_or(0)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
