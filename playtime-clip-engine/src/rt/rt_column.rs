@@ -662,7 +662,7 @@ impl RtColumn {
         // For each new slot, check if there's a corresponding old slot. In that case, update
         // the old slot instead of completely replacing it with the new one. This keeps unchanged
         // playing slots playing.
-        for (_, new_slot) in &mut args.new_slots {
+        for (i, new_slot) in args.new_slots.values_mut().enumerate() {
             if let Some(mut old_slot) = old_slots.remove(&new_slot.id()) {
                 // We have an old slot with the same ID. Reuse it for smooth transition!
                 // Load the new slot's clips into the old clip by the slot's terms. After this, the
@@ -670,6 +670,9 @@ impl RtColumn {
                 old_slot.load(&self.event_sender, mem::take(&mut new_slot.clips));
                 // Declare the old slot to be the new slot
                 let obsolete_slot = mem::replace(new_slot, old_slot);
+                // The old slot might actually still be playing. Notify listeners.
+                self.event_sender
+                    .slot_play_state_changed(i, new_slot.last_play_state());
                 // Dispose the obsolete slot
                 self.event_sender
                     .dispose(RtColumnGarbage::Slot(obsolete_slot));

@@ -281,6 +281,7 @@ impl Slot {
         Some(api_slot)
     }
 
+    /// Loads the given clips into the slot but doesn't bring them online yet.
     pub fn load(&mut self, api_clips: Vec<api::Clip>) {
         self.contents = api_clips
             .into_iter()
@@ -288,6 +289,7 @@ impl Slot {
             .collect();
     }
 
+    /// Brings the previously loaded clips online.
     pub fn bring_online(
         &mut self,
         chain_equipment: &ChainEquipment,
