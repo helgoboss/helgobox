@@ -289,6 +289,8 @@ impl RtClip {
     /// playing, applying just the differences.
     pub fn apply(&mut self, other_clip: &mut RtClip) {
         // TODO-high CONTINUE At the very least, we should apply clip settings.
+        // Really important to reconnect the shared position and peak info variables, otherwise the
+        // UI will not display them anymore.
         self.shared_pos = other_clip.shared_pos.clone();
         self.shared_peak = other_clip.shared_peak.clone();
     }

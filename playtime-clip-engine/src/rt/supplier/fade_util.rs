@@ -125,7 +125,7 @@ enum BlockLocation {
 /// I tested 5ms, that's not enough. Take some pad/organ sound and it will click!
 /// And this, gentlemen, is why the stop process needs to be asynchronous = needs to cover
 /// multiple audio callback cycles.
-const FADE_LENGTH: usize = 48000;
+const FADE_LENGTH: usize = 2400;
 pub const SECTION_FADE_LENGTH: usize = FADE_LENGTH;
 pub const INTERACTION_FADE_LENGTH: usize = FADE_LENGTH;
 pub const START_END_FADE_LENGTH: usize = FADE_LENGTH;
