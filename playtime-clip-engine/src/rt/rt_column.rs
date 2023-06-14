@@ -2,9 +2,9 @@ use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{MaterialInfo, RtClipSource, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
-    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClips, RtSlot, RtSlotId, SlotPlayArgs,
-    SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData,
-    SlotStopArgs, TransportChange,
+    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClips, RtSlot, RtSlotId,
+    SlotPlayArgs, SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction,
+    SlotRuntimeData, SlotStopArgs, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -210,26 +210,26 @@ pub enum RtColumnCommand {
 }
 
 pub trait RtColumnEventSender {
-    fn slot_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState);
+    fn slot_play_state_changed(&self, slot_id: RtSlotId, play_state: InternalClipPlayState);
 
     fn clip_material_info_changed(
         &self,
-        slot_index: usize,
-        clip_index: usize,
+        slot_id: RtSlotId,
+        clip_id: RtClipId,
         material_info: MaterialInfo,
     );
 
-    fn slot_cleared(&self, slot_index: usize, clips: RtClips);
+    fn slot_cleared(&self, slot_id: RtSlotId, clips: RtClips);
 
     fn record_request_acknowledged(
         &self,
-        slot_index: usize,
+        slot_id: RtSlotId,
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     );
 
-    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: RtClipSource);
+    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: RtClipSource);
 
-    fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome);
+    fn normal_recording_finished(&self, slot_id: RtSlotId, outcome: NormalRecordingOutcome);
 
     fn interaction_failed(&self, failure: InteractionFailure);
 
@@ -239,9 +239,9 @@ pub trait RtColumnEventSender {
 }
 
 impl RtColumnEventSender for Sender<RtColumnEvent> {
-    fn slot_play_state_changed(&self, slot_index: usize, play_state: InternalClipPlayState) {
+    fn slot_play_state_changed(&self, slot_id: RtSlotId, play_state: InternalClipPlayState) {
         let event = RtColumnEvent::SlotPlayStateChanged {
-            slot_index,
+            slot_id,
             play_state,
         };
         self.send_event(event);
@@ -249,45 +249,42 @@ impl RtColumnEventSender for Sender<RtColumnEvent> {
 
     fn clip_material_info_changed(
         &self,
-        slot_index: usize,
-        clip_index: usize,
+        slot_id: RtSlotId,
+        clip_id: RtClipId,
         material_info: MaterialInfo,
     ) {
         let event = RtColumnEvent::ClipMaterialInfoChanged {
-            slot_index,
-            clip_index,
+            slot_id,
+            clip_id,
             material_info,
         };
         self.send_event(event);
     }
 
-    fn slot_cleared(&self, slot_index: usize, clips: RtClips) {
-        let event = RtColumnEvent::SlotCleared { slot_index, clips };
+    fn slot_cleared(&self, slot_id: RtSlotId, clips: RtClips) {
+        let event = RtColumnEvent::SlotCleared { slot_id, clips };
         self.send_event(event);
     }
 
     fn record_request_acknowledged(
         &self,
-        slot_index: usize,
+        slot_id: RtSlotId,
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     ) {
-        let event = RtColumnEvent::RecordRequestAcknowledged { slot_index, result };
+        let event = RtColumnEvent::RecordRequestAcknowledged { slot_id, result };
         self.send_event(event);
     }
 
-    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: RtClipSource) {
+    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: RtClipSource) {
         let event = RtColumnEvent::MidiOverdubFinished {
-            slot_index,
+            slot_id,
             mirror_source,
         };
         self.send_event(event);
     }
 
-    fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome) {
-        let event = RtColumnEvent::NormalRecordingFinished {
-            slot_index,
-            outcome,
-        };
+    fn normal_recording_finished(&self, slot_id: RtSlotId, outcome: NormalRecordingOutcome) {
+        let event = RtColumnEvent::NormalRecordingFinished { slot_id, outcome };
         self.send_event(event);
     }
 
@@ -376,9 +373,11 @@ impl RtColumn {
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) -> ClipEngineResult<()> {
         let material_info = args.clip.material_info().unwrap();
-        let clip_index = get_slot_mut(&mut self.slots, args.slot_index)?.fill(args.clip, args.mode);
+        let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
+        let clip_id = args.clip.id();
+        slot.fill(args.clip, args.mode);
         self.event_sender
-            .clip_material_info_changed(args.slot_index, clip_index, material_info);
+            .clip_material_info_changed(slot.id(), clip_id, material_info);
         Ok(())
     }
 
@@ -477,7 +476,7 @@ impl RtColumn {
         except: Option<usize>,
         stop_timing: Option<ClipPlayStopTiming>,
     ) {
-        for (i, slot) in self
+        for (_, slot) in self
             .slots
             .values_mut()
             .enumerate()
@@ -492,7 +491,7 @@ impl RtColumn {
                 column_settings: &self.settings,
                 audio_request_props,
             };
-            let event_handler = ClipEventHandler::new(&self.event_sender, i);
+            let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
             let _ = slot.stop(stop_args, &event_handler);
         }
     }
@@ -515,12 +514,12 @@ impl RtColumn {
             audio_request_props,
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
-        let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
+        let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
         slot.stop(clip_args, &event_handler)
     }
 
     pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
-        let (_, mut slot) = self
+        let (_, slot) = self
             .slots
             .shift_remove_index(index)
             .ok_or("slot to be removed doesn't exist")?;
@@ -558,7 +557,7 @@ impl RtColumn {
                     column_settings: &self.settings,
                     audio_request_props,
                 };
-                let event_handler = ClipEventHandler::new(&self.event_sender, slot_index);
+                let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
                 slot.recording_poll(args, &event_handler)
             }
             Err(_) => false,
@@ -572,6 +571,7 @@ impl RtColumn {
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        let slot_id = slot.id();
         let result = slot.record_clip(instruction, &self.matrix_settings, &self.settings);
         let (informative_result, ack_result) = match result {
             Ok(slot_runtime_data) => {
@@ -591,7 +591,7 @@ impl RtColumn {
             Err(e) => (Err(e.message), Err(e.payload)),
         };
         self.event_sender
-            .record_request_acknowledged(slot_index, ack_result);
+            .record_request_acknowledged(slot_id, ack_result);
         informative_result
     }
 
@@ -636,8 +636,8 @@ impl RtColumn {
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
         };
-        for (i, slot) in self.slots.values_mut().enumerate() {
-            let event_handler = ClipEventHandler::new(&self.event_sender, i);
+        for slot in self.slots.values_mut() {
+            let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
             let _ = slot.process_transport_change(&args, &event_handler);
         }
     }
@@ -662,7 +662,7 @@ impl RtColumn {
         // For each new slot, check if there's a corresponding old slot. In that case, update
         // the old slot instead of completely replacing it with the new one. This keeps unchanged
         // playing slots playing.
-        for (i, new_slot) in args.new_slots.values_mut().enumerate() {
+        for new_slot in args.new_slots.values_mut() {
             if let Some(mut old_slot) = old_slots.remove(&new_slot.id()) {
                 // We have an old slot with the same ID. Reuse it for smooth transition!
                 // Load the new slot's clips into the old clip by the slot's terms. After this, the
@@ -672,7 +672,7 @@ impl RtColumn {
                 let obsolete_slot = mem::replace(new_slot, old_slot);
                 // The old slot might actually still be playing. Notify listeners.
                 self.event_sender
-                    .slot_play_state_changed(i, new_slot.last_play_state());
+                    .slot_play_state_changed(new_slot.id(), new_slot.last_play_state());
                 // Dispose the obsolete slot
                 self.event_sender
                     .dispose(RtColumnGarbage::Slot(obsolete_slot));
@@ -777,7 +777,7 @@ impl RtColumn {
         }
     }
 
-    fn get_samples(&mut self, mut args: GetSamplesArgs) {
+    fn get_samples(&mut self, args: GetSamplesArgs) {
         // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
         // current thread. This operation needs an allocation at the first time it's executed
         // on a specific thread. If Live FX multi-processing is enabled, get_samples() will be
@@ -848,11 +848,11 @@ impl RtColumn {
                 keep
             });
             // Play current slots
-            for (row, slot) in self.slots.values_mut().enumerate() {
+            for slot in self.slots.values_mut() {
                 let outcome = slot.process(&mut slot_args);
                 if let Some(changed_play_state) = outcome.changed_play_state {
                     self.event_sender
-                        .slot_play_state_changed(row, changed_play_state);
+                        .slot_play_state_changed(slot.id(), changed_play_state);
                 }
             }
         });
@@ -1100,30 +1100,30 @@ const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
 #[derive(Debug)]
 pub enum RtColumnEvent {
     SlotPlayStateChanged {
-        slot_index: usize,
+        slot_id: RtSlotId,
         play_state: InternalClipPlayState,
     },
     ClipMaterialInfoChanged {
-        slot_index: usize,
-        clip_index: usize,
+        slot_id: RtSlotId,
+        clip_id: RtClipId,
         material_info: MaterialInfo,
     },
     SlotCleared {
-        slot_index: usize,
+        slot_id: RtSlotId,
         clips: RtClips,
     },
     RecordRequestAcknowledged {
-        slot_index: usize,
+        slot_id: RtSlotId,
         /// Slot runtime data is returned only if it's a recording from scratch (slot was not
         /// filled before).
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     },
     MidiOverdubFinished {
-        slot_index: usize,
+        slot_id: RtSlotId,
         mirror_source: RtClipSource,
     },
     NormalRecordingFinished {
-        slot_index: usize,
+        slot_id: RtSlotId,
         outcome: NormalRecordingOutcome,
     },
     Dispose(RtColumnGarbage),
@@ -1147,14 +1147,14 @@ pub enum RtColumnGarbage {
 }
 
 struct ClipEventHandler<'a> {
-    slot_index: usize,
     event_sender: &'a Sender<RtColumnEvent>,
+    slot_id: RtSlotId,
 }
 
 impl<'a> ClipEventHandler<'a> {
-    pub fn new(event_sender: &'a Sender<RtColumnEvent>, slot_index: usize) -> Self {
+    pub fn new(event_sender: &'a Sender<RtColumnEvent>, slot_id: RtSlotId) -> Self {
         Self {
-            slot_index,
+            slot_id,
             event_sender,
         }
     }
@@ -1173,16 +1173,16 @@ impl HandleSlotEvent for NoopClipEventHandler {
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
     fn midi_overdub_finished(&self, mirror_source: RtClipSource) {
         self.event_sender
-            .midi_overdub_finished(self.slot_index, mirror_source);
+            .midi_overdub_finished(self.slot_id, mirror_source);
     }
 
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome) {
         self.event_sender
-            .normal_recording_finished(self.slot_index, outcome);
+            .normal_recording_finished(self.slot_id, outcome);
     }
 
     fn slot_cleared(&self, clips: RtClips) {
-        self.event_sender.slot_cleared(self.slot_index, clips);
+        self.event_sender.slot_cleared(self.slot_id, clips);
     }
 }
 

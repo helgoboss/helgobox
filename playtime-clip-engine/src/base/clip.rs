@@ -269,6 +269,10 @@ impl Clip {
         &self.id
     }
 
+    pub fn rt_id(&self) -> RtClipId {
+        self.rt_id
+    }
+
     pub fn volume(&self) -> Db {
         self.processing_relevant_settings.volume
     }

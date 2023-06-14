@@ -18,6 +18,7 @@ use crate::source_util::{create_file_api_source, create_pcm_source_from_file_bas
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
+use indexmap::IndexMap;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipId, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
@@ -31,6 +32,7 @@ use reaper_medium::{
 };
 use std::mem;
 use std::ptr::null_mut;
+use xxhash_rust::xxh3::Xxh3Builder;
 
 #[derive(Clone, Debug)]
 pub struct Slot {
@@ -46,11 +48,13 @@ pub struct Slot {
     /// - The clip is active and is currently being MIDI-overdubbed.
     /// - The clip is inactive, which means it's about to be replaced with different clip content
     ///   that's in the process of being recorded right now.
-    contents: Vec<Content>,
+    contents: Contents,
     state: SlotState,
     /// Route which was created temporarily for recording.
     temporary_route: Option<TrackRoute>,
 }
+
+type Contents = IndexMap<RtClipId, Content, Xxh3Builder>;
 
 #[derive(Clone, Debug)]
 pub struct Content {
@@ -217,7 +221,7 @@ impl Slot {
             id,
             index,
             play_state: Default::default(),
-            contents: vec![],
+            contents: Default::default(),
             state: Default::default(),
             temporary_route: None,
         }
@@ -248,7 +252,7 @@ impl Slot {
         let slot_is_pretty_much_recording = self.state.is_pretty_much_recording();
         let clips: Vec<_> = self
             .contents
-            .iter()
+            .values()
             .filter_map(|content| {
                 let is_recording =
                     slot_is_pretty_much_recording || self.play_state.is_somehow_recording();
@@ -285,7 +289,10 @@ impl Slot {
     pub fn load(&mut self, api_clips: Vec<api::Clip>) {
         self.contents = api_clips
             .into_iter()
-            .map(|api_clip| Content::new(Clip::load(api_clip)))
+            .map(|api_clip| {
+                let clip = Clip::load(api_clip);
+                (clip.rt_id(), Content::new(clip))
+            })
             .collect();
     }
 
@@ -298,7 +305,7 @@ impl Slot {
         column_settings: &rt::RtColumnSettings,
         project: Option<Project>,
     ) -> RtSlot {
-        let rt_clips = self.contents.iter_mut().filter_map(|content| {
+        let rt_clips = self.contents.values_mut().filter_map(|content| {
             let (rt_clip, pooled_midi_source) = content
                 .clip
                 .create_real_time_clip(
@@ -375,7 +382,7 @@ impl Slot {
         if self.play_state.is_somehow_recording() {
             return Err("recording already according to play state");
         }
-        let desired_midi_overdub_instruction = if let Some(content) = self.contents.first() {
+        let desired_midi_overdub_instruction = if let Some((_, content)) = self.contents.first() {
             use MidiClipRecordMode::*;
             let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
                 Normal => false,
@@ -454,7 +461,7 @@ impl Slot {
             recording_equipment: specific_stuff.recording_equipment,
             settings: *matrix_record_settings,
         };
-        let (clip_id, instruction) = if let Some(content) = self.contents.first() {
+        let (clip_id, instruction) = if let Some((_, content)) = self.contents.first() {
             // There's a clip already. That makes it easy because we have the clip struct
             // already, including the complete clip supplier chain, and can reuse it.
             (
@@ -521,7 +528,7 @@ impl Slot {
     ) -> ClipEngineResult<()> {
         // If we had a file-based source before and now have an in-project source, make a pooled
         // copy of the in-project source.
-        let content = self
+        let (_, content) = self
             .contents
             .first_mut()
             .expect("content not set although overdubbing");
@@ -594,11 +601,11 @@ impl Slot {
     /// # Errors
     ///
     /// Returns an error if this slot doesn't contain any clip.
-    fn get_contents(&self) -> ClipEngineResult<&[Content]> {
+    fn get_contents(&self) -> ClipEngineResult<impl Iterator<Item = &Content>> {
         if self.contents.is_empty() {
             return Err(SLOT_NOT_FILLED);
         }
-        Ok(&self.contents)
+        Ok(self.contents.values())
     }
 
     /// Adjusts the section length of all contained clips that are online.
@@ -611,7 +618,10 @@ impl Slot {
         factor: f64,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<()> {
-        for (i, content) in get_contents_mut(&mut self.contents)?.iter_mut().enumerate() {
+        for (i, content) in get_contents_mut(&mut self.contents)?
+            .values_mut()
+            .enumerate()
+        {
             let Some(online_data) = content.online_data.as_mut() else {
                 continue;
             };
@@ -634,14 +644,14 @@ impl Slot {
 
     /// Returns whether this slot contains freezable clips.
     pub fn is_freezeable(&self) -> bool {
-        self.contents.iter().any(|content| content.is_freezable())
+        self.contents.values().any(|content| content.is_freezable())
     }
 
     /// Freezes all clips in this slot.
     ///
     /// Doesn't error if the slot is empty.
     pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
-        for content in &mut self.contents {
+        for content in self.contents.values_mut() {
             if !content.is_freezable() {
                 continue;
             }
@@ -709,19 +719,19 @@ impl Slot {
 
     fn edited_clip_item(&self, temporary_project: Project) -> Option<Item> {
         self.contents
-            .iter()
+            .values()
             .find_map(|content| content.edited_clip_item(temporary_project))
     }
 
     /// Returns all clips in this slot. Can be empty.
     pub fn clips(&self) -> impl Iterator<Item = &Clip> {
-        self.contents.iter().map(|c| &c.clip)
+        self.contents.values().map(|c| &c.clip)
     }
 
     /// Returns all clips in this slot, converted to standalone API clips. Can be empty.
     pub fn api_clips(&self, permanent_project: Option<Project>) -> Vec<api::Clip> {
         self.contents
-            .iter()
+            .values()
             .filter_map(|c| c.clip.save(permanent_project).ok())
             .collect()
     }
@@ -737,7 +747,7 @@ impl Slot {
 
     /// Returns the content at the given clip index.
     fn get_content(&self, index: usize) -> ClipEngineResult<&Content> {
-        self.contents.get(index).ok_or(CLIP_DOESNT_EXIST)
+        Ok(self.contents.get_index(index).ok_or(CLIP_DOESNT_EXIST)?.1)
     }
 
     /// Returns the content at the given clip index, mutable.
@@ -779,7 +789,10 @@ impl Slot {
         volume: Db,
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<ClipChangeEvent> {
-        for (i, content) in get_contents_mut(&mut self.contents)?.iter_mut().enumerate() {
+        for (i, content) in get_contents_mut(&mut self.contents)?
+            .values_mut()
+            .enumerate()
+        {
             content.clip.set_volume(volume);
             column_command_sender.set_clip_volume(self.index, i, volume);
         }
@@ -796,7 +809,7 @@ impl Slot {
         column_command_sender: &ColumnCommandSender,
     ) -> ClipEngineResult<ClipChangeEvent> {
         let new_looped_value = !self.get_content(0)?.clip.looped();
-        for (i, content) in self.contents.iter_mut().enumerate() {
+        for (i, content) in self.contents.values_mut().enumerate() {
             content.clip.set_looped(new_looped_value);
             let args = ColumnSetClipLoopedArgs {
                 slot_index: self.index,
@@ -832,10 +845,13 @@ impl Slot {
 
     pub fn update_material_info(
         &mut self,
-        clip_index: usize,
+        clip_id: RtClipId,
         material_info: MaterialInfo,
     ) -> ClipEngineResult<()> {
-        let content = self.get_content_mut(clip_index)?;
+        let content = self
+            .contents
+            .get_mut(&clip_id)
+            .ok_or("clip doesn't exist")?;
         let online_data = content.online_data.as_mut().ok_or("clip is not online")?;
         online_data.runtime_data.material_info = material_info;
         Ok(())
@@ -851,7 +867,7 @@ impl Slot {
         if let SlotState::Recording(s) = &self.state {
             RelevantContent::Recording(&s.runtime_data)
         } else {
-            RelevantContent::Normal(self.contents.iter())
+            RelevantContent::Normal(self.contents.values())
         }
     }
 
@@ -866,14 +882,10 @@ impl Slot {
             clip,
             online_data: Some(OnlineData::new(rt_clip, pooled_midi_source)),
         };
-        match mode {
-            FillClipMode::Add => {
-                self.contents.push(content);
-            }
-            FillClipMode::Replace => {
-                self.contents = vec![content];
-            }
+        if mode == FillClipMode::Replace {
+            self.contents.clear();
         }
+        self.contents.insert(content.clip.rt_id(), content);
     }
 
     pub fn notify_recording_request_acknowledged(
@@ -968,7 +980,8 @@ impl Slot {
                             pooled_midi_source: s.pooled_midi_source,
                         }),
                     };
-                    self.contents = vec![content];
+                    self.contents.clear();
+                    self.contents.insert(content.clip.rt_id(), content);
                     self.state = SlotState::Normal;
                     Ok(SlotChangeEvent::Clips("clip recording finished"))
                 }
@@ -1017,15 +1030,18 @@ impl SlotState {
     }
 }
 
-fn get_contents_mut(contents: &mut Vec<Content>) -> ClipEngineResult<&mut [Content]> {
+fn get_contents_mut(contents: &mut Contents) -> ClipEngineResult<&mut Contents> {
     if contents.is_empty() {
         return Err(SLOT_NOT_FILLED);
     }
-    Ok(contents.as_mut_slice())
+    Ok(contents)
 }
 
-fn get_content_mut(contents: &mut [Content], clip_index: usize) -> ClipEngineResult<&mut Content> {
-    contents.get_mut(clip_index).ok_or(CLIP_DOESNT_EXIST)
+fn get_content_mut(contents: &mut Contents, clip_index: usize) -> ClipEngineResult<&mut Content> {
+    Ok(contents
+        .get_index_mut(clip_index)
+        .ok_or(CLIP_DOESNT_EXIST)?
+        .1)
 }
 
 struct CommonRecordStuff {

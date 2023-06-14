@@ -3,13 +3,14 @@ use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnPlayRowArgs,
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
-    OverridableMatrixSettings, RtColumnEvent, RtSlots, SharedRtColumn, SlotChangeEvent,
+    OverridableMatrixSettings, RtColumnEvent, RtSlotId, RtSlots, SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
+use indexmap::IndexMap;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
@@ -27,6 +28,7 @@ use std::collections::HashMap;
 use std::iter;
 use std::ptr::NonNull;
 use std::sync::Arc;
+use xxhash_rust::xxh3::Xxh3Builder;
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
@@ -38,10 +40,12 @@ pub struct Column {
     rt_command_sender: ColumnCommandSender,
     rt_column: SharedRtColumn,
     preview_register: Option<PlayingPreviewRegister>,
-    slots: Vec<Slot>,
+    slots: Slots,
     event_receiver: Receiver<RtColumnEvent>,
     project: Option<Project>,
 }
+
+type Slots = IndexMap<RtSlotId, Slot, Xxh3Builder>;
 
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
@@ -79,7 +83,7 @@ impl Column {
             preview_register: None,
             rt_column: shared_source,
             rt_command_sender: ColumnCommandSender::new(command_sender),
-            slots: vec![],
+            slots: Default::default(),
             event_receiver,
             project: permanent_project,
         }
@@ -135,19 +139,20 @@ impl Column {
             .collect();
         self.slots = (0..necessary_row_count)
             .map(|row_index| {
-                if let Some(api_slot) = api_slots_map.remove(&row_index) {
+                let slot = if let Some(api_slot) = api_slots_map.remove(&row_index) {
                     let mut slot = Slot::new(api_slot.id.clone(), row_index);
                     slot.load(api_slot.into_clips());
                     slot
                 } else {
                     Slot::new(SlotId::random(), row_index)
-                }
+                };
+                (slot.rt_id(), slot)
             })
             .collect();
         // Bring slots online
         let rt_slots: RtSlots = self
             .slots
-            .iter_mut()
+            .values_mut()
             .map(|slot| {
                 let rt_slot = slot.bring_online(
                     chain_equipment,
@@ -196,7 +201,7 @@ impl Column {
         // TODO-high-clip-engine This is used for building a scene from the currently playing clips.
         //  If multiple clips are currently playing in one column, we shouldn't add new columns
         //  but put the clips into one slot! This is a new possibility and this is a good use case!
-        self.slots.iter().enumerate().flat_map(|(i, s)| {
+        self.slots.values().enumerate().flat_map(|(i, s)| {
             let is_playing = s.play_state().is_as_good_as_playing();
             if is_playing {
                 Either::Left(s.clips().map(move |c| (i, c)))
@@ -211,12 +216,8 @@ impl Column {
         self.rt_command_sender.clear_slots();
     }
 
-    pub fn find_slot(&self, index: usize) -> Option<&Slot> {
-        self.slots.get(index)
-    }
-
     pub fn get_slot(&self, index: usize) -> ClipEngineResult<&Slot> {
-        self.slots.get(index).ok_or(SLOT_DOESNT_EXIST)
+        Ok(self.slots.get_index(index).ok_or(SLOT_DOESNT_EXIST)?.1)
     }
 
     pub(crate) fn get_slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut Slot> {
@@ -233,9 +234,9 @@ impl Column {
 
     /// Returns whether the slot at the given index is empty.
     pub(crate) fn slot_is_empty(&self, index: usize) -> bool {
-        match self.slots.get(index) {
+        match self.slots.get_index(index) {
             None => true,
-            Some(s) => s.is_empty(),
+            Some((_, s)) => s.is_empty(),
         }
     }
 
@@ -270,7 +271,7 @@ impl Column {
             slots: {
                 let slots = self
                     .slots
-                    .iter()
+                    .values()
                     .filter_map(|slot| slot.save(self.project))
                     .collect();
                 Some(slots)
@@ -292,52 +293,51 @@ impl Column {
             use RtColumnEvent::*;
             let change_event = match evt {
                 SlotPlayStateChanged {
-                    slot_index,
+                    slot_id,
                     play_state,
                 } => {
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
                         slot.update_play_state(play_state);
+                        Some((slot.index(), SlotChangeEvent::PlayState(play_state)))
+                    } else {
+                        None
                     }
-                    Some((slot_index, SlotChangeEvent::PlayState(play_state)))
                 }
                 ClipMaterialInfoChanged {
-                    slot_index,
-                    clip_index,
+                    slot_id,
+                    clip_id,
                     material_info,
                 } => {
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
-                        let _ = slot.update_material_info(clip_index, material_info);
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
+                        let _ = slot.update_material_info(clip_id, material_info);
                     }
                     None
                 }
                 Dispose(_) => None,
                 RecordRequestAcknowledged {
-                    slot_index, result, ..
+                    slot_id, result, ..
                 } => {
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
                         slot.notify_recording_request_acknowledged(result).unwrap();
                     }
                     None
                 }
                 MidiOverdubFinished {
-                    slot_index,
+                    slot_id,
                     mirror_source,
                 } => {
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
                         let event = slot
                             .notify_midi_overdub_finished(mirror_source, self.project)
                             .unwrap();
-                        Some((slot_index, event))
+                        Some((slot.index(), event))
                     } else {
                         None
                     }
                 }
-                NormalRecordingFinished {
-                    slot_index,
-                    outcome,
-                } => {
+                NormalRecordingFinished { slot_id, outcome } => {
                     let recording_track = &self.effective_recording_track().unwrap();
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
                         let event = slot
                             .notify_normal_recording_finished(
                                 outcome,
@@ -345,7 +345,7 @@ impl Column {
                                 recording_track,
                             )
                             .unwrap();
-                        Some((slot_index, event))
+                        Some((slot.index(), event))
                     } else {
                         None
                     }
@@ -357,9 +357,9 @@ impl Column {
                         .help_set(formatted, HelpMode::Temporary);
                     None
                 }
-                SlotCleared { slot_index, .. } => {
-                    if let Some(slot) = self.slots.get_mut(slot_index) {
-                        slot.slot_cleared().map(|e| (slot_index, e))
+                SlotCleared { slot_id, .. } => {
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
+                        slot.slot_cleared().map(|e| (slot.index(), e))
                     } else {
                         None
                     }
@@ -370,7 +370,7 @@ impl Column {
             }
         }
         // Add position updates
-        let continuous_clip_events = self.slots.iter().enumerate().flat_map(|(row, slot)| {
+        let continuous_clip_events = self.slots.values().enumerate().flat_map(|(row, slot)| {
             if !slot.play_state().is_advancing() {
                 return Either::Right(iter::empty());
             }
@@ -420,7 +420,7 @@ impl Column {
     /// Freezes the complete column.
     pub async fn freeze(&mut self, _column_index: usize) -> ClipEngineResult<()> {
         let playback_track = self.playback_track()?.clone();
-        for (_, slot) in self.slots.iter_mut().enumerate() {
+        for slot in self.slots.values_mut() {
             // TODO-high-clip-matrix implement
             let _ = slot.freeze(&playback_track).await;
         }
@@ -532,14 +532,14 @@ impl Column {
         if slot_index >= self.slots.len() {
             return Err("slot to be removed doesn't exist");
         }
-        self.slots.remove(slot_index);
+        self.slots.shift_remove_index(slot_index);
         self.reindex_slots();
         self.rt_command_sender.remove_slot(slot_index);
         Ok(())
     }
 
     fn reindex_slots(&mut self) {
-        for (i, slot) in self.slots.iter_mut().enumerate() {
+        for (i, slot) in self.slots.values_mut().enumerate() {
             slot.set_index(i);
         }
     }
@@ -566,12 +566,12 @@ impl Column {
     }
 
     pub fn slots(&self) -> impl Iterator<Item = &Slot> + '_ {
-        self.slots.iter()
+        self.slots.values()
     }
 
     /// Returns whether some slots in this column are currently playing/recording.
     pub fn is_stoppable(&self) -> bool {
-        self.slots.iter().any(|slot| slot.is_stoppable())
+        self.slots.values().any(|slot| slot.is_stoppable())
     }
 
     pub fn is_armed_for_recording(&self) -> bool {
@@ -600,7 +600,7 @@ impl Column {
     }
 
     pub fn is_recording(&self) -> bool {
-        self.slots.iter().any(|s| s.is_recording())
+        self.slots.values().any(|s| s.is_recording())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -703,23 +703,23 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot_mut(slots: &mut [Slot], index: usize) -> ClipEngineResult<&mut Slot> {
-    slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
+fn get_slot_mut(slots: &mut Slots, index: usize) -> ClipEngineResult<&mut Slot> {
+    Ok(slots.get_index_mut(index).ok_or(SLOT_DOESNT_EXIST)?.1)
 }
 
-fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
+fn get_slot_mut_insert(slots: &mut Slots, slot_index: usize) -> &mut Slot {
     upsize_if_necessary(slots, slot_index + 1);
-    slots.get_mut(slot_index).unwrap()
+    slots.get_index_mut(slot_index).unwrap().1
 }
 
-fn upsize_if_necessary(slots: &mut Vec<Slot>, row_count: usize) {
-    let mut current_row_count = slots.len();
+fn upsize_if_necessary(slots: &mut Slots, row_count: usize) {
+    let current_row_count = slots.len();
     if current_row_count < row_count {
-        slots.resize_with(row_count, || {
-            let slot = Slot::new(SlotId::random(), current_row_count);
-            current_row_count += 1;
-            slot
+        let missing_rows = (current_row_count..row_count).map(|i| {
+            let slot = Slot::new(SlotId::random(), i);
+            (slot.rt_id(), slot)
         });
+        slots.extend(missing_rows);
     }
 }
 
