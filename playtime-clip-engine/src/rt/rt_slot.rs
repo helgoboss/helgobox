@@ -5,10 +5,12 @@ use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
     ColumnProcessTransportChangeArgs, FillClipMode, HandleSlotEvent, InternalClipPlayState,
-    OverridableMatrixSettings, RtClip, RtClipId, RtColumnSettings, SharedPeak, SharedPos,
-    SlotInstruction, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
+    OverridableMatrixSettings, RtClip, RtClipId, RtColumnEvent, RtColumnEventSender,
+    RtColumnGarbage, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction, SlotPlayArgs,
+    SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use indexmap::IndexMap;
 use playtime_api::persistence::{ClipPlayStopTiming, SlotId};
@@ -17,7 +19,7 @@ use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds};
 use std::{cmp, mem};
 use xxhash_rust::xxh3::Xxh3Builder;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct RtSlotId(u64);
 
 impl RtSlotId {
@@ -28,11 +30,12 @@ impl RtSlotId {
 
 pub type RtClips = IndexMap<RtClipId, RtClip, Xxh3Builder>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RtSlot {
     id: RtSlotId,
-    clips: RtClips,
-    retired_clips: RtClips,
+    pub(crate) clips: RtClips,
+    /// This is a vec of an option because RtClip doesn't implement Default.
+    retired_clips: Vec<Option<RtClip>>,
     runtime_data: InternalRuntimeData,
 }
 
@@ -46,29 +49,39 @@ impl RtSlot {
     pub fn new(id: RtSlotId, clips: RtClips) -> Self {
         Self {
             id,
-            retired_clips: RtClips::with_capacity_and_hasher(clips.len(), clips.hasher().clone()),
+            retired_clips: Vec::with_capacity(clips.len()),
             clips,
             runtime_data: Default::default(),
         }
     }
 
-    pub fn load(&mut self, slot: &mut RtSlot) {
-        // TODO-high-clip-engine We shouldn't just swap this but take the changed parts out of
-        //  the right-hand slot.
-        mem::swap(self, slot);
-
-        // let mut old_clips = mem::take(&mut self.clips);
-        // for (_, slot) in &mut args.slots {
-        //     if let Some(old_slot) = old_slots.get_mut(&slot.id()) {
-        //         // We have an old slot with the same ID. Reuse it for smooth transition!
-        //         // At first, we load the new slot's contents into the old slot.
-        //         old_slot.load(slot);
-        //         // Then we discard the new slot by putting it "into the trash" and getting the
-        //         // updated old slot "out of the trash".
-        //         mem::swap(slot, old_slot);
-        //     }
-        // }
-        // self.slots = args.slots;
+    /// Replaces the clips in this slot with the given ones but keeps unchanged clips playing if
+    /// possible and fades out still playing old clips.
+    ///
+    /// Exploits the given clips and replaces them with trash! They should not be used anymore.
+    pub fn load(&mut self, event_sender: &Sender<RtColumnEvent>, mut new_clips: RtClips) {
+        // Take old clips out
+        let mut old_clips = mem::take(&mut self.clips);
+        // For each new clip, check if there's a corresponding old clip. In that case, update
+        // the old clip instead of completely replacing it with the new one. This keeps unchanged
+        // playing clips playing.
+        for (_, new_clip) in &mut new_clips {
+            if let Some(mut old_clip) = old_clips.remove(&new_clip.id()) {
+                // We have an old clip with the same ID. Reuse it for smooth transition!
+                // Apply the new clip's settings to the old clip.
+                old_clip.apply(new_clip);
+                // Declare the old clip to be the new clip
+                let obsolete_clip = mem::replace(new_clip, old_clip);
+                // Dispose the obsolete clip
+                event_sender.dispose(RtColumnGarbage::Clip(Some(obsolete_clip)));
+            }
+        }
+        // Declare the mixture of updated and new clips as the new clip collection!
+        self.clips = new_clips;
+        // Retire old and now unused clips
+        retire_clips(&mut old_clips, &mut self.retired_clips);
+        // Dispose old and now empty clip collection
+        event_sender.dispose(RtColumnGarbage::Clips(old_clips));
     }
 
     pub fn id(&self) -> RtSlotId {
@@ -173,12 +186,9 @@ impl RtSlot {
         }
     }
 
+    /// Removes all the clips in this slot.
     pub fn clear(&mut self) {
-        let mut old_clips = mem::take(&mut self.clips);
-        for mut old_clip in old_clips.values_mut() {
-            old_clip.initiate_removal();
-        }
-        self.retired_clips = old_clips;
+        retire_clips(&mut self.clips, &mut self.retired_clips);
     }
 
     fn clear_internal<H: HandleSlotEvent>(&mut self, event_handler: &H) {
@@ -397,12 +407,22 @@ impl RtSlot {
         // count up-front.
         let mut num_audio_frames_written = 0;
         // Fade out retired clips
-        self.retired_clips.retain(|_, clip| {
-            let outcome = process_clip(clip, args, &mut num_audio_frames_written);
-            // As long as the clip still wrote audio frames, we keep it in memory. But as soon
-            // as no audio frames are written anymore, we can safely assume it's stopped and
-            // drop it.
-            outcome.num_audio_frames_written > 0
+        self.retired_clips.retain_mut(|clip| {
+            let keep = if let Some(clip) = clip.as_mut() {
+                let outcome = process_clip(clip, args, &mut num_audio_frames_written);
+                // As long as the clip still wrote audio frames, we keep it in memory. But as soon
+                // as no audio frames are written anymore, we can safely assume it's stopped and
+                // drop it.
+                outcome.num_audio_frames_written > 0
+            } else {
+                false
+            };
+            // If done, dispose the slot in order to avoid deallocation in real-time thread
+            if !keep {
+                args.event_sender
+                    .dispose(RtColumnGarbage::Clip(clip.take()));
+            }
+            keep
         });
         // Play current clips
         let mut new_slot_play_state = InternalClipPlayState::default();
@@ -650,4 +670,12 @@ pub struct SlotProcessArgs<'a> {
     pub resync: bool,
     pub matrix_settings: &'a OverridableMatrixSettings,
     pub column_settings: &'a RtColumnSettings,
+    pub event_sender: &'a Sender<RtColumnEvent>,
+}
+
+fn retire_clips(clips: &mut RtClips, retired_clips: &mut Vec<Option<RtClip>>) {
+    for (_, mut clip) in clips.drain(..) {
+        clip.initiate_removal();
+        retired_clips.push(Some(clip))
+    }
 }

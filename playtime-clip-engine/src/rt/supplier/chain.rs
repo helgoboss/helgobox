@@ -1,12 +1,12 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Cache, CacheRequest, ClipSource, CommandProcessor, Downbeat,
-    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier,
-    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
-    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
-    Recorder, RecordingArgs, Resampler, Section, SectionBounds, StartEndHandler,
-    StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
+    LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier, PollRecordingOutcome,
+    PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState, Recorder, RecordingArgs,
+    Resampler, RtClipSource, Section, SectionBounds, StartEndHandler, StopRecordingOutcome,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -289,7 +289,7 @@ impl SupplierChain {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<ClipSource>,
+        in_project_midi_source: Option<RtClipSource>,
         settings: MidiOverdubSettings,
     ) {
         // With MIDI, there's no contention.

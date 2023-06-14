@@ -21,7 +21,7 @@ use reaper_medium::{
 };
 
 #[derive(Clone, Debug)]
-pub struct ClipSource {
+pub struct RtClipSource {
     source: OwnedPcmSource,
     midi_state: MidiState,
 }
@@ -101,7 +101,7 @@ impl NoteState {
     }
 }
 
-impl ClipSource {
+impl RtClipSource {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
             source: reaper_source,
@@ -177,7 +177,7 @@ impl ClipSource {
     }
 }
 
-impl AudioSupplier for ClipSource {
+impl AudioSupplier for RtClipSource {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -190,7 +190,7 @@ impl AudioSupplier for ClipSource {
     }
 }
 
-impl WithMaterialInfo for ClipSource {
+impl WithMaterialInfo for RtClipSource {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let info = if pcm_source_is_midi(&self.source) {
             let info = MidiMaterialInfo {
@@ -210,7 +210,7 @@ impl WithMaterialInfo for ClipSource {
     }
 }
 
-impl MidiSupplier for ClipSource {
+impl MidiSupplier for RtClipSource {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -290,8 +290,8 @@ impl MidiSupplier for ClipSource {
     }
 }
 
-impl WithSource for ClipSource {
-    fn source(&self) -> Option<&ClipSource> {
+impl WithSource for RtClipSource {
+    fn source(&self) -> Option<&RtClipSource> {
         Some(self)
     }
 }

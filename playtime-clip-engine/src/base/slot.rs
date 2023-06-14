@@ -5,8 +5,8 @@ use crate::base::{
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
-    ChainEquipment, ClipSource, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
-    RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
+    ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, Recorder,
+    RecorderRequest, RecordingArgs, RecordingEquipment, RtClipSource, SupplierChain,
 };
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnFillSlotArgs,
@@ -69,11 +69,11 @@ pub struct OnlineData {
     ///
     /// Now that we have pooled MIDI anyway, we don't need to send a finished MIDI recording back
     /// to the main thread using the "mirror source" method (which we did before).
-    pooled_midi_source: Option<ClipSource>,
+    pooled_midi_source: Option<RtClipSource>,
 }
 
 impl OnlineData {
-    pub fn new(rt_clip: &rt::RtClip, pooled_midi_source: Option<ClipSource>) -> Self {
+    pub fn new(rt_clip: &rt::RtClip, pooled_midi_source: Option<RtClipSource>) -> Self {
         Self {
             runtime_data: SlotRuntimeData {
                 play_state: Default::default(),
@@ -138,13 +138,6 @@ impl Content {
         } else {
             false
         }
-    }
-
-    pub fn apply(&mut self, api_clip: api::Clip) {
-        if self.clip == Clip::load(api_clip) {
-            return;
-        }
-        // TODO-high CONTINUE Actually apply clip differences!
     }
 
     pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
@@ -864,7 +857,7 @@ impl Slot {
         &mut self,
         clip: Clip,
         rt_clip: &rt::RtClip,
-        pooled_midi_source: Option<ClipSource>,
+        pooled_midi_source: Option<RtClipSource>,
         mode: FillClipMode,
     ) {
         let content = Content {
@@ -921,7 +914,7 @@ impl Slot {
 
     pub fn notify_midi_overdub_finished(
         &mut self,
-        mirror_source: ClipSource,
+        mirror_source: RtClipSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<SlotChangeEvent> {
         self.remove_temporary_route();
@@ -1005,14 +998,14 @@ enum SlotState {
 #[derive(Clone, Debug)]
 struct RequestedRecordingState {
     clip_id: ClipId,
-    pooled_midi_source: Option<ClipSource>,
+    pooled_midi_source: Option<RtClipSource>,
 }
 
 #[derive(Clone, Debug)]
 struct RecordingState {
     clip_id: ClipId,
     /// This must be set for MIDI recordings.
-    pooled_midi_source: Option<ClipSource>,
+    pooled_midi_source: Option<RtClipSource>,
     runtime_data: SlotRuntimeData,
 }
 
@@ -1047,7 +1040,7 @@ enum ModeSpecificRecordStuff {
 
 struct FromScratchRecordStuff {
     recording_equipment: RecordingEquipment,
-    pooled_midi_source: Option<ClipSource>,
+    pooled_midi_source: Option<RtClipSource>,
 }
 
 struct MidiOverdubRecordStuff {
@@ -1197,7 +1190,7 @@ pub fn create_midi_overdub_instruction(
                 file_based_api_source,
                 true,
             )?;
-            Some(ClipSource::new(in_project_source.into_raw()))
+            Some(RtClipSource::new(in_project_source.into_raw()))
         }
         api::Source::MidiChunk(_) => {
             // We have an in-project MIDI source already. Great!

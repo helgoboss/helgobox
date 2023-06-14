@@ -9,9 +9,9 @@ use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, ClipSource, MaterialInfo, MidiSupplier,
-    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo,
-    SupplyResponse, WithMaterialInfo, WithSource,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    RtClipSource, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
+    WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
 
@@ -45,7 +45,7 @@ impl CacheResponseChannel {
 #[derive(Debug)]
 pub enum CacheRequest {
     CacheSource {
-        source: ClipSource,
+        source: RtClipSource,
         response_sender: Sender<CacheResponse>,
     },
     DiscardCachedData(CachedData),
@@ -64,7 +64,7 @@ pub struct CachedData {
 }
 
 impl CachedData {
-    fn is_still_valid(&self, source: &ClipSource) -> bool {
+    fn is_still_valid(&self, source: &RtClipSource) -> bool {
         source.reaper_source().get_file_name(|path| {
             if let Some(path) = path {
                 path == self.file_path
@@ -167,7 +167,7 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
 }
 
 fn cache_source(
-    source: &mut ClipSource,
+    source: &mut RtClipSource,
     response_sender: Sender<CacheResponse>,
 ) -> ClipEngineResult<()> {
     let audio_material_info = match source.material_info() {
@@ -207,7 +207,7 @@ fn cache_source(
 }
 
 trait CacheRequestSender {
-    fn cache_source(&self, source: ClipSource, response_sender: Sender<CacheResponse>);
+    fn cache_source(&self, source: RtClipSource, response_sender: Sender<CacheResponse>);
 
     fn discard_cached_data(&self, data: CachedData);
 
@@ -215,7 +215,7 @@ trait CacheRequestSender {
 }
 
 impl CacheRequestSender for Sender<CacheRequest> {
-    fn cache_source(&self, source: ClipSource, response_sender: Sender<CacheResponse>) {
+    fn cache_source(&self, source: RtClipSource, response_sender: Sender<CacheResponse>) {
         let request = CacheRequest::CacheSource {
             source,
             response_sender,

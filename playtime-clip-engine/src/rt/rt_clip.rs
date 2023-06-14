@@ -6,13 +6,13 @@ use crate::conversion_util::{
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
-    AudioSupplier, ChainEquipment, ChainSettings, ClipSource, CompleteRecordingData,
+    AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
     KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
     PollRecordingOutcome, RecordState, Recorder, RecorderRequest, RecordingArgs,
-    RecordingEquipment, RecordingOutcome, StopRecordingOutcome, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
-    MIDI_FRAME_RATE,
+    RecordingEquipment, RecordingOutcome, RtClipSource, StopRecordingOutcome, SupplierChain,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnSettings};
@@ -231,10 +231,10 @@ impl RtClip {
     /// Must not call in real-time thread!
     pub fn ready(
         id: RtClipId,
-        pcm_source: ClipSource,
+        pcm_source: RtClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &RtColumnSettings,
-        clip_settings: &ProcessingRelevantClipSettings,
+        clip_settings: &RtClipSettings,
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
@@ -279,6 +279,16 @@ impl RtClip {
 
     pub fn id(&self) -> RtClipId {
         self.id
+    }
+
+    /// Applies properties of the given clip to this clip.
+    ///
+    /// This gets called when the slot load logic detects an existing clip with the same ID.
+    /// Instead of replacing the slot's clip with the new clip, it lets the old clip (this one!)
+    /// apply the properties of the new clip to itself. This makes it possible to keep the clip
+    /// playing, applying just the differences.
+    pub fn apply(&mut self, other_clip: &mut RtClip) {
+        // TODO-high CONTINUE At the very least, we should apply clip settings.
     }
 
     /// If recording, delivers material info of the material that's being recorded.
@@ -1423,7 +1433,7 @@ impl RecordingState {
         column_settings: &RtColumnSettings,
     ) -> ReadyState {
         debug!("Finishing recording");
-        let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
+        let clip_settings = RtClipSettings::derive_from_recording(
             &self.settings,
             &outcome.data,
             matrix_settings,
@@ -1584,7 +1594,7 @@ pub struct MidiOverdubInstruction {
     /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
     /// one, this field will contain an in-project MIDI source. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.
-    pub in_project_midi_source: Option<ClipSource>,
+    pub in_project_midi_source: Option<RtClipSource>,
     pub settings: MidiOverdubSettings,
 }
 
@@ -1810,7 +1820,7 @@ struct FillSamplesOutcome {
 }
 
 pub trait HandleSlotEvent {
-    fn midi_overdub_finished(&self, mirror_source: ClipSource);
+    fn midi_overdub_finished(&self, mirror_source: RtClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
     fn slot_cleared(&self, clips: RtClips);
 }
@@ -1829,7 +1839,7 @@ pub enum NormalRecordingOutcome {
 #[derive(Clone, Debug)]
 pub struct CommittedRecording {
     pub kind_specific: KindSpecificRecordingOutcome,
-    pub clip_settings: ProcessingRelevantClipSettings,
+    pub clip_settings: RtClipSettings,
     pub material_info: MaterialInfo,
 }
 
@@ -1837,7 +1847,7 @@ pub struct CommittedRecording {
 ///
 /// To be sent back to the main thread to update the main thread clip.
 #[derive(Clone, PartialEq, Debug)]
-pub struct ProcessingRelevantClipSettings {
+pub struct RtClipSettings {
     pub time_base: api::ClipTimeBase,
     pub looped: bool,
     pub volume: api::Db,
@@ -1848,7 +1858,7 @@ pub struct ProcessingRelevantClipSettings {
     pub midi_settings: api::ClipMidiSettings,
 }
 
-impl ProcessingRelevantClipSettings {
+impl RtClipSettings {
     pub fn from_api(clip: &api::Clip) -> Self {
         Self {
             time_base: clip.time_base,

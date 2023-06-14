@@ -260,7 +260,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+        // We make a fresh start by throwing away all existing columns (with preview registers).
+        // In theory, we don't need to do this because our core loading logic (the same that we also
+        // use for undo/redo) should ideally be solid enough to react correctly when loading
+        // something completely different. But who knows, maybe we have bugs in there and with the
+        // following simple line we can effectively prevent those from having an effect here.
+        self.retired_columns
+            .extend(self.columns.drain(..).map(RetiredColumn::new));
+        // Core loading logic
         self.load_internal(api_matrix)?;
+        // We want to reset undo/redo history
         self.history = History::new(self.save());
         Ok(())
     }

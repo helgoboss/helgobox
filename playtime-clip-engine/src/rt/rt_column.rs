@@ -1,5 +1,5 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
-use crate::rt::supplier::{ClipSource, MaterialInfo, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{MaterialInfo, RtClipSource, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
     NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClips, RtSlot, RtSlotId, SlotPlayArgs,
@@ -39,7 +39,7 @@ pub struct RtColumn {
     /// Slots end up here when removed.
     ///
     /// They stay there until they have faded out (prevents abrupt stops).
-    retired_slots: RtSlots,
+    retired_slots: Vec<RtSlot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     command_receiver: Receiver<RtColumnCommand>,
@@ -97,8 +97,8 @@ impl ColumnCommandSender {
         self.send_task(RtColumnCommand::ClearSlots);
     }
 
-    pub fn load_slots(&self, args: ColumnLoadSlotsArgs) {
-        self.send_task(RtColumnCommand::LoadSlots(args));
+    pub fn load(&self, args: ColumnLoadArgs) {
+        self.send_task(RtColumnCommand::Load(args));
     }
 
     pub fn update_settings(&self, settings: RtColumnSettings) {
@@ -189,7 +189,7 @@ impl ColumnCommandSender {
 #[derive(Debug)]
 pub enum RtColumnCommand {
     ClearSlots,
-    LoadSlots(ColumnLoadSlotsArgs),
+    Load(ColumnLoadArgs),
     ClearSlot(usize),
     RemoveSlot(usize),
     UpdateSettings(RtColumnSettings),
@@ -227,7 +227,7 @@ pub trait RtColumnEventSender {
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     );
 
-    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: ClipSource);
+    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: RtClipSource);
 
     fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome);
 
@@ -275,7 +275,7 @@ impl RtColumnEventSender for Sender<RtColumnEvent> {
         self.send_event(event);
     }
 
-    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: ClipSource) {
+    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: RtClipSource) {
         let event = RtColumnEvent::MidiOverdubFinished {
             slot_index,
             mirror_source,
@@ -362,10 +362,7 @@ impl RtColumn {
                 MAX_SLOT_COUNT_WITHOUT_REALLOCATION,
                 hash_builder.clone(),
             ),
-            retired_slots: RtSlots::with_capacity_and_hasher(
-                MAX_SLOT_COUNT_WITHOUT_REALLOCATION,
-                hash_builder,
-            ),
+            retired_slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
             project: permanent_project,
             command_receiver,
             event_sender,
@@ -523,13 +520,17 @@ impl RtColumn {
     }
 
     pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
-        let (slot_id, mut slot) = self
+        let (_, mut slot) = self
             .slots
             .shift_remove_index(index)
             .ok_or("slot to be removed doesn't exist")?;
-        slot.initiate_removal();
-        self.retired_slots.insert(slot_id, slot);
+        self.retire_slot(slot);
         Ok(())
+    }
+
+    fn retire_slot(&mut self, mut slot: RtSlot) {
+        slot.initiate_removal();
+        self.retired_slots.push(slot);
     }
 
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
@@ -641,34 +642,50 @@ impl RtColumn {
         }
     }
 
+    /// The duration of this column source is infinite.
     fn duration(&self) -> DurationInSeconds {
         DurationInSeconds::MAX
     }
 
+    /// Clears all the slots in this column, fading out still playing clips.
     pub fn clear_slots(&mut self) {
-        // TODO-high Retire
-        self.slots.clear();
+        for slot in self.slots.values_mut() {
+            slot.clear();
+        }
     }
 
-    pub fn load_slots(&mut self, mut args: ColumnLoadSlotsArgs) -> ClipEngineResult<()> {
+    /// Replaces the slots in this column with the given ones but keeps unchanged slots playing
+    /// if possible and fades out still playing old slots.
+    pub fn load(&mut self, mut args: ColumnLoadArgs) {
+        // Take old slots out
         let mut old_slots = mem::take(&mut self.slots);
-        for (_, slot) in &mut args.slots {
-            if let Some(old_slot) = old_slots.get_mut(&slot.id()) {
+        // For each new slot, check if there's a corresponding old slot. In that case, update
+        // the old slot instead of completely replacing it with the new one. This keeps unchanged
+        // playing slots playing.
+        for (_, new_slot) in &mut args.new_slots {
+            if let Some(mut old_slot) = old_slots.remove(&new_slot.id()) {
                 // We have an old slot with the same ID. Reuse it for smooth transition!
-                // At first, we load the new slot's contents into the old slot.
-                old_slot.load(slot);
-                // Then we discard the new exploited slot by putting it "into the trash" and getting
-                // the updated old slot "out of the trash".
-                mem::swap(slot, old_slot);
+                // Load the new slot's clips into the old clip by the slot's terms. After this, the
+                // new slot doesn't have clips and should not be used anymore.
+                old_slot.load(&self.event_sender, mem::take(&mut new_slot.clips));
+                // Declare the old slot to be the new slot
+                let obsolete_slot = mem::replace(new_slot, old_slot);
+                // Dispose the obsolete slot
+                self.event_sender
+                    .dispose(RtColumnGarbage::Slot(obsolete_slot));
             }
         }
-        self.slots = args.slots;
-        // TODO-high Retire old slots (but really only the old ones, not the exploited ones)
-        self.event_sender
-            .dispose(RtColumnGarbage::OldSlots(old_slots));
-        Ok(())
+        // Declare the mixture of updated and new slots as the new slot collection!
+        self.slots = args.new_slots;
+        // Retire old and now unused slots
+        for (_, slot) in old_slots.drain(..) {
+            self.retire_slot(slot);
+        }
+        // Dispose old and now empty slot collection
+        self.event_sender.dispose(RtColumnGarbage::Slots(old_slots));
     }
 
+    /// Clears the clips in the given slot, fading out still playing clips.
     pub fn clear_slot(&mut self, index: usize) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, index)?;
         slot.clear();
@@ -682,8 +699,8 @@ impl RtColumn {
                 ClearSlots => {
                     self.clear_slots();
                 }
-                LoadSlots(args) => {
-                    self.load_slots(args).unwrap();
+                Load(args) => {
+                    self.load(args);
                 }
                 ClearSlot(slot_index) => {
                     let result = self.clear_slot(slot_index);
@@ -811,14 +828,21 @@ impl RtColumn {
                 resync,
                 matrix_settings: &self.matrix_settings,
                 column_settings: &self.settings,
+                event_sender: &self.event_sender,
             };
             // Fade out retired slots
-            self.retired_slots.retain(|_, slot| {
+            self.retired_slots.retain_mut(|slot| {
                 let outcome = slot.process(&mut slot_args);
                 // As long as the slot still wrote audio frames, we keep it in memory. But as soon
                 // as no audio frames are written anymore, we can safely assume it's stopped and
                 // drop it.
-                outcome.num_audio_frames_written > 0
+                let keep = outcome.num_audio_frames_written > 0;
+                // If done, dispose the slot in order to avoid deallocation in real-time thread
+                if !keep {
+                    self.event_sender
+                        .dispose(RtColumnGarbage::Slot(mem::take(slot)));
+                }
+                keep
             });
             // Play current slots
             for (row, slot) in self.slots.values_mut().enumerate() {
@@ -947,8 +971,8 @@ impl CustomPcmSource for SharedRtColumn {
 pub type RtSlots = IndexMap<RtSlotId, RtSlot, Xxh3Builder>;
 
 #[derive(Debug)]
-pub struct ColumnLoadSlotsArgs {
-    pub slots: RtSlots,
+pub struct ColumnLoadArgs {
+    pub new_slots: RtSlots,
 }
 
 #[derive(Debug)]
@@ -1093,7 +1117,7 @@ pub enum RtColumnEvent {
     },
     MidiOverdubFinished {
         slot_index: usize,
-        mirror_source: ClipSource,
+        mirror_source: RtClipSource,
     },
     NormalRecordingFinished {
         slot_index: usize,
@@ -1111,10 +1135,12 @@ pub struct InteractionFailure {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum RtColumnGarbage {
+    Slot(RtSlot),
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
-    Clip(RtClip),
+    Clip(Option<RtClip>),
     RecordClipArgs(Box<Option<ColumnRecordClipArgs>>),
-    OldSlots(RtSlots),
+    Slots(RtSlots),
+    Clips(RtClips),
 }
 
 struct ClipEventHandler<'a> {
@@ -1134,7 +1160,7 @@ impl<'a> ClipEventHandler<'a> {
 struct NoopClipEventHandler;
 
 impl HandleSlotEvent for NoopClipEventHandler {
-    fn midi_overdub_finished(&self, _mirror_source: ClipSource) {}
+    fn midi_overdub_finished(&self, _mirror_source: RtClipSource) {}
 
     fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
 
@@ -1142,7 +1168,7 @@ impl HandleSlotEvent for NoopClipEventHandler {
 }
 
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
-    fn midi_overdub_finished(&self, mirror_source: ClipSource) {
+    fn midi_overdub_finished(&self, mirror_source: RtClipSource) {
         self.event_sender
             .midi_overdub_finished(self.slot_index, mirror_source);
     }

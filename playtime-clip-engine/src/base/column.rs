@@ -1,7 +1,7 @@
 use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadSlotsArgs, ColumnPlayRowArgs,
+    ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnPlayRowArgs,
     ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
     OverridableMatrixSettings, RtColumnEvent, RtSlots, SharedRtColumn, SlotChangeEvent,
 };
@@ -162,8 +162,9 @@ impl Column {
             .collect();
         // Splinter real-time slots and send them to the real-time column
         self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
-        self.rt_command_sender
-            .load_slots(ColumnLoadSlotsArgs { slots: rt_slots });
+        self.rt_command_sender.load(ColumnLoadArgs {
+            new_slots: rt_slots,
+        });
         Ok(())
     }
 
