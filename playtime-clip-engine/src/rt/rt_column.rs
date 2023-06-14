@@ -93,6 +93,10 @@ impl ColumnCommandSender {
         Self { command_sender }
     }
 
+    pub fn move_slot(&self, args: ColumnMoveSlotArgs) {
+        self.send_task(RtColumnCommand::MoveSlot(args));
+    }
+
     pub fn clear_slots(&self) {
         self.send_task(RtColumnCommand::ClearSlots);
     }
@@ -190,6 +194,7 @@ impl ColumnCommandSender {
 pub enum RtColumnCommand {
     ClearSlots,
     Load(ColumnLoadArgs),
+    MoveSlot(ColumnMoveSlotArgs),
     ClearSlot(usize),
     RemoveSlot(usize),
     UpdateSettings(RtColumnSettings),
@@ -695,6 +700,17 @@ impl RtColumn {
         Ok(())
     }
 
+    pub fn move_slot(&mut self, args: ColumnMoveSlotArgs) -> ClipEngineResult<()> {
+        if args.source_index >= self.slots.len() {
+            return Err("source index out of bounds");
+        }
+        if args.dest_index >= self.slots.len() {
+            return Err("destination index out of bounds");
+        }
+        self.slots.swap_indices(args.source_index, args.dest_index);
+        Ok(())
+    }
+
     fn process_commands(&mut self, audio_request_props: BasicAudioRequestProps) {
         while let Ok(task) = self.command_receiver.try_recv() {
             use RtColumnCommand::*;
@@ -708,6 +724,9 @@ impl RtColumn {
                 ClearSlot(slot_index) => {
                     let result = self.clear_slot(slot_index);
                     self.notify_user_about_failed_interaction(result);
+                }
+                MoveSlot(args) => {
+                    self.move_slot(args).unwrap();
                 }
                 UpdateSettings(s) => {
                     self.settings = s;
@@ -976,6 +995,12 @@ pub type RtSlots = IndexMap<RtSlotId, RtSlot, Xxh3Builder>;
 #[derive(Debug)]
 pub struct ColumnLoadArgs {
     pub new_slots: RtSlots,
+}
+
+#[derive(Debug)]
+pub struct ColumnMoveSlotArgs {
+    pub source_index: usize,
+    pub dest_index: usize,
 }
 
 #[derive(Debug)]

@@ -681,7 +681,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn move_slot_to(
+    pub fn move_slot(
         &mut self,
         source_address: ClipSlotAddress,
         dest_address: ClipSlotAddress,
@@ -689,16 +689,23 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if source_address == dest_address {
             return Ok(());
         }
-        let clips_in_slot = self
-            .get_slot(source_address)?
-            .api_clips(self.permanent_project());
-        self.undoable("Move slot to", |matrix| {
-            matrix.clear_slot_internal(source_address)?;
-            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
-            matrix.notify_everything_changed();
-            Ok(())
-        })?;
-        Ok(())
+        self.undoable("Move slot", |matrix| {
+            if source_address.column == dest_address.column {
+                // Special handling. We can easily move within the same column.
+                let column = matrix.get_column_mut(source_address.column)?;
+                column.move_slot(source_address.row, dest_address.row)?;
+                matrix.notify_everything_changed();
+                Ok(())
+            } else {
+                let clips_in_slot = matrix
+                    .get_slot(source_address)?
+                    .api_clips(matrix.permanent_project());
+                matrix.clear_slot_internal(source_address)?;
+                matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
+                matrix.notify_everything_changed();
+                Ok(())
+            }
+        })
     }
 
     pub fn copy_slot_to(

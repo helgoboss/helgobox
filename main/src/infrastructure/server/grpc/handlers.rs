@@ -284,7 +284,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let source_slot_address = convert_slot_address_to_engine(&req.source_slot_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
         handle_matrix_command(&req.matrix_id, |matrix| match action {
-            DragSlotAction::Move => matrix.move_slot_to(source_slot_address, dest_slot_address),
+            DragSlotAction::Move => matrix.move_slot(source_slot_address, dest_slot_address),
             DragSlotAction::Copy => matrix.copy_slot_to(source_slot_address, dest_slot_address),
         })
     }
