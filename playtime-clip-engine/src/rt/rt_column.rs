@@ -39,7 +39,7 @@ pub struct RtColumn {
     /// Slots end up here when removed.
     ///
     /// They stay there until they have faded out (prevents abrupt stops).
-    retired_slots: Vec<RtSlot>,
+    retired_slots: RtSlots,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     command_receiver: Receiver<RtColumnCommand>,
@@ -354,14 +354,18 @@ impl RtColumn {
         event_sender: Sender<RtColumnEvent>,
     ) -> Self {
         debug!("Slot size: {}", std::mem::size_of::<RtSlot>());
+        let hash_builder = base::hash_util::create_non_crypto_hash_builder();
         Self {
             matrix_settings: Default::default(),
             settings: Default::default(),
             slots: RtSlots::with_capacity_and_hasher(
                 MAX_SLOT_COUNT_WITHOUT_REALLOCATION,
-                base::hash_util::create_non_crypto_hash_builder(),
+                hash_builder.clone(),
             ),
-            retired_slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
+            retired_slots: RtSlots::with_capacity_and_hasher(
+                MAX_SLOT_COUNT_WITHOUT_REALLOCATION,
+                hash_builder,
+            ),
             project: permanent_project,
             command_receiver,
             event_sender,
@@ -519,13 +523,12 @@ impl RtColumn {
     }
 
     pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
-        let mut slot = self
+        let (slot_id, mut slot) = self
             .slots
             .shift_remove_index(index)
-            .ok_or("slot to be removed doesn't exist")?
-            .1;
+            .ok_or("slot to be removed doesn't exist")?;
         slot.initiate_removal();
-        self.retired_slots.push(slot);
+        self.retired_slots.insert(slot_id, slot);
         Ok(())
     }
 
@@ -810,7 +813,7 @@ impl RtColumn {
                 column_settings: &self.settings,
             };
             // Fade out retired slots
-            self.retired_slots.retain_mut(|slot| {
+            self.retired_slots.retain(|_, slot| {
                 let outcome = slot.process(&mut slot_args);
                 // As long as the slot still wrote audio frames, we keep it in memory. But as soon
                 // as no audio frames are written anymore, we can safely assume it's stopped and
