@@ -731,6 +731,12 @@ fn send_occasional_matrix_updates_caused_by_reaper(
         }
     }
     let update: Option<R> = match event {
+        ChangeEvent::TrackAdded(_)
+        | ChangeEvent::TrackRemoved(_)
+        | ChangeEvent::TracksReordered(_) => {
+            let project = matrix.temporary_project();
+            Some(R::Matrix(occasional_matrix_update::Update::tracks(project)))
+        }
         ChangeEvent::TrackVolumeChanged(e) => {
             let db = Volume::from_reaper_value(e.new_value).db();
             if e.track.is_master_track() {

@@ -88,6 +88,14 @@ pub struct SetColumnPanRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetColumnTrackRequest {
+    #[prost(message, optional, tag = "1")]
+    pub column_address: ::core::option::Option<FullColumnAddress>,
+    #[prost(string, optional, tag = "2")]
+    pub track_id: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Empty {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -304,7 +312,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -344,6 +352,9 @@ pub mod occasional_matrix_update {
         /// Time signature (= REAPER master time signature)
         #[prost(message, tag = "10")]
         TimeSignature(super::TimeSignature),
+        /// Available tracks (= REAPER tracks)
+        #[prost(message, tag = "11")]
+        Tracks(super::Tracks),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -454,6 +465,22 @@ pub struct MidiInputDevice {
     pub id: u32,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Tracks {
+    #[prost(message, repeated, tag = "1")]
+    pub track: ::prost::alloc::vec::Vec<Track>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Track {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "3")]
+    pub level: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -947,6 +974,10 @@ pub mod clip_engine_server {
             &self,
             request: tonic::Request<super::SetColumnPanRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_column_track(
+            &self,
+            request: tonic::Request<super::SetColumnTrackRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Row commands
         async fn trigger_row(
             &self,
@@ -1404,6 +1435,46 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SetColumnPanSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetColumnTrack" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetColumnTrackSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetColumnTrackRequest>
+                    for SetColumnTrackSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetColumnTrackRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_column_track(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetColumnTrackSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

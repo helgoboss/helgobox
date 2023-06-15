@@ -16,7 +16,7 @@ use playtime_api::persistence::{
     preferred_clip_midi_settings, BeatTimeBase, ClipAudioSettings, ClipColor, ClipTimeBase,
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, ColumnId,
     ColumnPlayMode, Db, MatrixClipRecordSettings, PositiveBeat, PositiveSecond, Section, SlotId,
-    TimeSignature,
+    TimeSignature, TrackId,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -143,6 +143,12 @@ impl Column {
         &self.rt_command_sender
     }
 
+    pub fn resolve_track_by_id(&self, track_id: &TrackId) -> ClipEngineResult<Track> {
+        let guid = Guid::from_string_without_braces(track_id.get())?;
+        let track = self.project.or_current_project().track_by_guid(&guid)?;
+        Ok(track)
+    }
+
     pub fn load(
         &mut self,
         api_column: api::Column,
@@ -153,8 +159,7 @@ impl Column {
     ) -> ClipEngineResult<()> {
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
-            let guid = Guid::from_string_without_braces(id.get())?;
-            self.project.or_current_project().track_by_guid(&guid).ok()
+            self.resolve_track_by_id(id).ok()
         } else {
             None
         };
@@ -578,7 +583,7 @@ impl Column {
         self.rt_command_sender.stop(args);
     }
 
-    pub(crate) fn panic(&self) {
+    pub fn panic(&self) {
         self.rt_command_sender.panic();
     }
 
@@ -617,6 +622,17 @@ impl Column {
     pub fn effective_recording_track(&self) -> ClipEngineResult<Track> {
         let playback_track = self.playback_track()?;
         resolve_recording_track(&self.settings.clip_record_settings, playback_track)
+    }
+
+    /// Sets the playback track of this column.
+    pub fn set_playback_track(&mut self, track_id: Option<&TrackId>) -> ClipEngineResult<()> {
+        let track = if let Some(id) = track_id {
+            Some(self.resolve_track_by_id(id)?)
+        } else {
+            None
+        };
+        self.init_preview_register_if_necessary(track);
+        Ok(())
     }
 
     /// Returns the playback track of this column.

@@ -4,6 +4,7 @@ use crate::infrastructure::server::grpc::WithSessionId;
 use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
 use futures::{FutureExt, Stream, StreamExt};
+use playtime_api::persistence::TrackId;
 use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
@@ -19,10 +20,10 @@ use playtime_clip_engine::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
-    SetClipNameRequest, SetColumnPanRequest, SetColumnVolumeRequest, SetMatrixPanRequest,
-    SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotAddress, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
-    TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
+    SetClipNameRequest, SetColumnPanRequest, SetColumnTrackRequest, SetColumnVolumeRequest,
+    SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotAddress,
+    TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest,
+    TriggerRowAction, TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlaySlotOptions;
 use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
@@ -168,6 +169,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                         Update::history_state(matrix),
                         // TODO click enabled
                         Update::time_signature(project),
+                        Update::tracks(project),
                     ];
                     let updates: Vec<_> = updates
                         .into_iter()
@@ -531,6 +533,26 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         })
     }
 
+    async fn set_column_track(
+        &self,
+        request: Request<SetColumnTrackRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        // We shouldn't just change the column track directly, otherwise we get abrupt clicks
+        // (audio) and hanging notes (MIDI). The following is a dirty but efficient solution to
+        // prevent this.
+        let req = request.into_inner();
+        handle_column_internal(&req.column_address, |matrix, column_index| {
+            matrix.get_column(column_index)?.panic();
+            Ok(())
+        })?;
+        future_util::millis(50).await;
+        handle_column_command(&req.column_address, |matrix, column_index| {
+            let track_id = req.track_id.map(TrackId::new);
+            matrix.set_column_playback_track(column_index, track_id.as_ref())?;
+            Ok(())
+        })
+    }
+
     async fn get_clip_detail(
         &self,
         request: Request<GetClipDetailRequest>,
@@ -614,11 +636,19 @@ fn handle_column_command(
     full_column_id: &Option<FullColumnAddress>,
     handler: impl FnOnce(&mut RealearnClipMatrix, usize) -> Result<(), &'static str>,
 ) -> Result<Response<Empty>, Status> {
+    handle_column_internal(full_column_id, handler)?;
+    Ok(Response::new(Empty {}))
+}
+
+fn handle_column_internal<R>(
+    full_column_id: &Option<FullColumnAddress>,
+    handler: impl FnOnce(&mut RealearnClipMatrix, usize) -> Result<R, &'static str>,
+) -> Result<R, Status> {
     let full_column_id = full_column_id
         .as_ref()
         .ok_or_else(|| Status::invalid_argument("need full column address"))?;
     let column_index = full_column_id.column_index as usize;
-    handle_matrix_command(&full_column_id.matrix_id, |matrix| {
+    handle_matrix_internal(&full_column_id.matrix_id, |matrix| {
         handler(matrix, column_index)
     })
 }

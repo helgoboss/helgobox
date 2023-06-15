@@ -22,7 +22,7 @@ use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
-    TempoRange,
+    TempoRange, TrackId,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId};
@@ -536,6 +536,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let clips_in_slot = self.get_slot(address)?.api_clips(self.permanent_project());
         self.clipboard.content = Some(MatrixClipboardContent::Slot(clips_in_slot));
         Ok(())
+    }
+
+    /// Sets the playback track of the given column.
+    pub fn set_column_playback_track(
+        &mut self,
+        column_index: usize,
+        track_id: Option<&TrackId>,
+    ) -> ClipEngineResult<()> {
+        self.undoable("Set column playback track", move |matrix| {
+            let column = matrix.get_column_mut(column_index)?;
+            column.set_playback_track(track_id)?;
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
     /// Pastes the clips stored in the matrix clipboard into the given slot.

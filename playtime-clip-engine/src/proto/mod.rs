@@ -2,13 +2,14 @@ mod clip_engine;
 
 use crate::base::{Clip, ClipSlotAddress, History, Matrix, Slot};
 use crate::rt::InternalClipPlayState;
-use crate::{base, clip_timeline, ClipEngineResult, Timeline};
+use crate::{base, clip_timeline, proto, ClipEngineResult, Timeline};
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{Project, Track};
 use reaper_medium::{
     Bpm, Db, InputMonitoringMode, PlayState, ReaperPanValue, RecordingInput, RgbColor,
 };
+use std::cmp;
 
 impl occasional_matrix_update::Update {
     pub fn volume(db: Db) -> Self {
@@ -39,6 +40,29 @@ impl occasional_matrix_update::Update {
 
     pub fn time_signature(project: Project) -> Self {
         Self::TimeSignature(TimeSignature::from_engine(project))
+    }
+
+    pub fn tracks(project: Project) -> Self {
+        let mut level = 0i32;
+        let tracks = project.tracks().map(|t| {
+            let folder_depth_change = t.folder_depth_change();
+            let track = clip_engine::Track::from_engine(t, level.unsigned_abs() as u32);
+            level += folder_depth_change;
+            track
+        });
+        Self::Tracks(Tracks {
+            track: tracks.collect(),
+        })
+    }
+}
+
+impl clip_engine::Track {
+    pub fn from_engine(track: Track, level: u32) -> Self {
+        Self {
+            id: track.guid().to_string_without_braces(),
+            name: track.name().unwrap_or_default().into_string(),
+            level,
+        }
     }
 }
 
