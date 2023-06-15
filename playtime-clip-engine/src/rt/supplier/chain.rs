@@ -1,6 +1,3 @@
-use crate::conversion_util::{
-    convert_duration_in_frames_to_seconds, convert_position_in_frames_to_seconds,
-};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
@@ -269,10 +266,6 @@ impl SupplierChain {
         self.pre_buffer_supplier().send_command(command);
     }
 
-    pub fn volume(&self) -> Db {
-        Db::new(self.amplifier().volume().get()).unwrap_or_default()
-    }
-
     pub fn set_volume(&mut self, volume: Db) {
         self.amplifier_mut()
             .set_volume(reaper_medium::Db::new(volume.get()));
@@ -452,27 +445,6 @@ impl SupplierChain {
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
         let command = ChainPreBufferCommand::KeepPlayingUntilEndOfCurrentCycle { pos };
         self.pre_buffer_supplier().send_command(command);
-    }
-
-    pub fn section(&self) -> api::Section {
-        let (bounds, material_info) = {
-            let mut guard = self.pre_buffer_wormhole();
-            (
-                guard.supplier().bounds(),
-                guard.recorder().material_info().unwrap(),
-            )
-        };
-        let start_pos_in_secs = convert_position_in_frames_to_seconds(
-            bounds.start_frame() as _,
-            material_info.frame_rate(),
-        );
-        let length_in_secs = bounds
-            .length()
-            .map(|l| convert_duration_in_frames_to_seconds(l, material_info.frame_rate()));
-        api::Section {
-            start_pos: PositiveSecond::new(start_pos_in_secs.get()).unwrap_or_default(),
-            length: length_in_secs.map(|l| PositiveSecond::new(l.get()).unwrap_or_default()),
-        }
     }
 
     pub fn set_section(&mut self, start: PositiveSecond, length: Option<PositiveSecond>) {

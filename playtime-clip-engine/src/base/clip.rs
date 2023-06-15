@@ -250,7 +250,7 @@ impl Clip {
             pcm_source,
             matrix_settings,
             column_settings,
-            &self.rt_settings,
+            self.rt_settings,
             permanent_project,
             chain_equipment,
             recorder_request_sender,

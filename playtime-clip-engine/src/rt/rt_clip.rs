@@ -55,28 +55,6 @@ pub struct RtClip {
     shared_peak: SharedPeak,
 }
 
-/// Contains only the state that's relevant for playing *and* not kept or not kept sufficiently in
-/// the supply chain. E.g. the time stretch mode is not kept here because the time stretcher
-/// supplier holds it itself.
-#[derive(Copy, Clone, Debug)]
-struct PlaySettings {
-    start_timing: Option<ClipPlayStartTiming>,
-    stop_timing: Option<ClipPlayStopTiming>,
-    looped: bool,
-    time_base: ClipTimeBase,
-}
-
-impl Default for PlaySettings {
-    fn default() -> Self {
-        Self {
-            start_timing: None,
-            stop_timing: None,
-            looped: false,
-            time_base: ClipTimeBase::Time,
-        }
-    }
-}
-
 fn calculate_beat_count(tempo: Bpm, duration: DurationInSeconds) -> u32 {
     let beats_per_sec = tempo.get() / 60.0;
     (duration.get() * beats_per_sec).round() as u32
@@ -92,7 +70,7 @@ enum ClipState {
 #[derive(Copy, Clone, Debug)]
 struct ReadyState {
     state: ReadySubState,
-    play_settings: PlaySettings,
+    settings: RtClipSettings,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -224,7 +202,7 @@ struct RecordingState {
 
 #[derive(Copy, Clone, Debug)]
 struct RollbackData {
-    play_settings: PlaySettings,
+    clip_settings: RtClipSettings,
 }
 
 impl RtClip {
@@ -234,15 +212,11 @@ impl RtClip {
         pcm_source: RtClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &RtColumnSettings,
-        clip_settings: &RtClipSettings,
+        clip_settings: RtClipSettings,
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
     ) -> ClipEngineResult<Self> {
-        let ready_state = ReadyState {
-            state: ReadySubState::Stopped,
-            play_settings: clip_settings.create_play_settings(),
-        };
         let mut supplier_chain = SupplierChain::new(
             Recorder::ready(pcm_source, recorder_request_sender.clone()),
             chain_equipment.clone(),
@@ -250,6 +224,10 @@ impl RtClip {
         let chain_settings = clip_settings.create_chain_settings(matrix_settings, column_settings);
         supplier_chain.configure_complete_chain(chain_settings)?;
         supplier_chain.pre_buffer_simple(0);
+        let ready_state = ReadyState {
+            state: ReadySubState::Stopped,
+            settings: clip_settings,
+        };
         let clip = Self {
             id,
             supplier_chain,
@@ -290,18 +268,17 @@ impl RtClip {
     ///
     /// # Errors
     ///
-    /// If this clip or the given clip is recording.
+    /// If this clip or the given clip is recording or material doesn't deliver info.
     pub fn apply(&mut self, args: ApplyClipArgs) -> ClipEngineResult<()> {
-        // TODO-high CONTINUE We should add the RtClipSettings as RtClip field and remove the
-        //  PlaySettings of the ready state in favor of this one ... it's more straightforward.
-        //  Yes, the supplier chain keeps some of the state redundantly, but that's okay. This is
-        //  an implementation detail.
-        // let set_settings_args = SetClipSettingsArgs {
-        //     clip_settings: args.other_clip.settings()?,
-        //     matrix_settings: args.matrix_settings,
-        //     column_settings: args.column_settings,
-        // };
-        // self.set_settings(set_settings_args)?;
+        let (ClipState::Ready(this_clip), ClipState::Ready(new_clip))= (&mut self.state, &mut args.other_clip.state) else {
+            return Err("can't apply if this or given clip is in recording state");
+        };
+        let setting_args = SetClipSettingsArgs {
+            clip_settings: new_clip.settings,
+            matrix_settings: args.matrix_settings,
+            column_settings: args.column_settings,
+        };
+        this_clip.set_settings(setting_args, &mut self.supplier_chain)?;
         // Really important to reconnect the shared position and peak info variables, otherwise the
         // UI will not display them anymore.
         self.shared_pos = args.other_clip.shared_pos.clone();
@@ -333,7 +310,7 @@ impl RtClip {
             ClipState::Recording(_) => {
                 self.state = ClipState::Ready(ReadyState {
                     state: ReadySubState::Stopped,
-                    play_settings: PlaySettings::default(),
+                    settings: Default::default(),
                 })
             }
         }
@@ -409,7 +386,7 @@ impl RtClip {
     pub fn looped(&self) -> bool {
         use ClipState::*;
         match self.state {
-            Ready(s) => s.play_settings.looped,
+            Ready(s) => s.settings.looped,
             Recording(_) => false,
         }
     }
@@ -632,7 +609,7 @@ impl ReadyState {
 
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self, is_midi: bool) -> Option<Bpm> {
-        determine_tempo_from_time_base(&self.play_settings.time_base, is_midi)
+        determine_tempo_from_time_base(&self.settings.time_base, is_midi)
     }
 
     pub fn set_settings(
@@ -640,6 +617,7 @@ impl ReadyState {
         args: SetClipSettingsArgs,
         supplier_chain: &mut SupplierChain,
     ) -> ClipEngineResult<()> {
+        self.settings = args.clip_settings;
         let material_info = supplier_chain.material_info()?;
         let chain_settings = args
             .clip_settings
@@ -664,27 +642,27 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
         material_info: &MaterialInfo,
     ) {
-        self.play_settings.time_base = time_base;
+        self.settings.time_base = time_base;
         supplier_chain.set_time_base(&time_base, material_info);
     }
 
     fn set_start_timing(&mut self, start_timing: Option<ClipPlayStartTiming>) {
-        self.play_settings.start_timing = start_timing;
+        self.settings.start_timing = start_timing;
     }
 
     fn set_stop_timing(&mut self, stop_timing: Option<ClipPlayStopTiming>) {
-        self.play_settings.stop_timing = stop_timing;
+        self.settings.stop_timing = stop_timing;
     }
 
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
-        self.play_settings.looped = looped;
+        self.settings.looped = looped;
         if !looped {
             if let ReadySubState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
                 supplier_chain.keep_playing_until_end_of_current_cycle(pos);
                 return;
             }
         }
-        supplier_chain.set_looped(self.play_settings.looped);
+        supplier_chain.set_looped(self.settings.looped);
     }
 
     pub fn set_section(&mut self, section: api::Section, supplier_chain: &mut SupplierChain) {
@@ -759,13 +737,13 @@ impl ReadyState {
     }
 
     fn resolve_stop_timing(&self, stop_args: &SlotStopArgs) -> ConcreteClipPlayStopTiming {
-        let start_timing = stop_args.resolve_start_timing(self.play_settings.start_timing);
-        let stop_timing = stop_args.resolve_stop_timing(self.play_settings.stop_timing);
+        let start_timing = stop_args.resolve_start_timing(self.settings.start_timing);
+        let stop_timing = stop_args.resolve_stop_timing(self.settings.stop_timing);
         ConcreteClipPlayStopTiming::resolve(start_timing, stop_timing)
     }
 
     fn calculate_virtual_play_pos(&self, play_args: &SlotPlayArgs) -> VirtualPosition {
-        let start_timing = play_args.resolve_start_timing(self.play_settings.start_timing);
+        let start_timing = play_args.resolve_start_timing(self.settings.start_timing);
         use ClipPlayStartTiming::*;
         match start_timing {
             Immediately => VirtualPosition::Now,
@@ -833,7 +811,7 @@ impl ReadyState {
                                     })
                                 }
                                 UntilEndOfClip => {
-                                    if self.play_settings.looped {
+                                    if self.settings.looped {
                                         // Schedule
                                         supplier_chain.keep_playing_until_end_of_current_cycle(pos);
                                         Playing(PlayingState {
@@ -1275,7 +1253,7 @@ impl ReadyState {
     }
 
     fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {
-        supplier_chain.reset_for_play(self.play_settings.looped);
+        supplier_chain.reset_for_play(self.settings.looped);
     }
 
     // TODO-high-clip-engine The error type is too large!
@@ -1318,7 +1296,7 @@ impl ReadyState {
         let recording_state = RecordingState {
             rollback_data: {
                 let data = RollbackData {
-                    play_settings: self.play_settings,
+                    clip_settings: self.settings,
                 };
                 Some(data)
             },
@@ -1495,7 +1473,7 @@ impl RecordingState {
                 if let Some(rollback_data) = &self.rollback_data {
                     let ready_state = ReadyState {
                         state: ReadySubState::Stopped,
-                        play_settings: rollback_data.play_settings,
+                        settings: rollback_data.clip_settings,
                     };
                     debug!("Rolling back to old clip");
                     ClipRecordingStopOutcome::TransitionToReady(ready_state)
@@ -1542,7 +1520,7 @@ impl RecordingState {
             } else {
                 ReadySubState::Stopped
             },
-            play_settings: clip_settings.create_play_settings(),
+            settings: clip_settings,
         };
         // Send event
         let material_info = outcome.material_info();
@@ -1953,7 +1931,7 @@ pub struct CommittedRecording {
 /// All settings of a clip that affect processing.
 ///
 /// To be sent back to the main thread to update the main thread clip.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Default, Debug)]
 pub struct RtClipSettings {
     pub time_base: api::ClipTimeBase,
     pub looped: bool,
@@ -2060,15 +2038,6 @@ impl RtClipSettings {
                 .cache_behavior
                 .or(column_settings.audio_cache_behavior)
                 .unwrap_or(matrix_settings.audio_cache_behavior),
-        }
-    }
-
-    fn create_play_settings(&self) -> PlaySettings {
-        PlaySettings {
-            start_timing: self.start_timing,
-            stop_timing: self.stop_timing,
-            looped: self.looped,
-            time_base: self.time_base,
         }
     }
 }

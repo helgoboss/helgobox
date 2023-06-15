@@ -1036,7 +1036,7 @@ impl MidiResetMessages {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Section {
     /// Position in the source from which to start.
     ///
@@ -1115,10 +1115,11 @@ pub struct MidiChunkSource {
 }
 
 /// Decides if the clip will be adjusted to the current tempo.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipTimeBase {
     /// Material which doesn't need to be adjusted to the current tempo.
+    #[default]
     Time,
     /// Material which needs to be adjusted to the current tempo.
     Beat(BeatTimeBase),
