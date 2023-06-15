@@ -315,7 +315,7 @@ impl RtClip {
     /// use it anymore.
     pub fn initiate_removal(&mut self) {
         match &mut self.state {
-            ClipState::Ready(s) => s.panic(),
+            ClipState::Ready(s) => s.panic(&mut self.supplier_chain),
             ClipState::Recording(_) => {
                 self.state = ClipState::Ready(ReadyState {
                     state: ReadySubState::Stopped,
@@ -330,7 +330,7 @@ impl RtClip {
     /// Doesn't stop a clip recording.
     pub fn panic(&mut self) {
         match &mut self.state {
-            ClipState::Ready(s) => s.panic(),
+            ClipState::Ready(s) => s.panic(&mut self.supplier_chain),
             ClipState::Recording(_) => {}
         }
     }
@@ -585,13 +585,21 @@ impl RtClip {
 
 impl ReadyState {
     /// Stops the clip immediately, initiating fade-outs if necessary.
-    pub fn panic(&mut self) {
+    pub fn panic(&mut self, supplier_chain: &mut SupplierChain) {
         use ReadySubState::*;
         self.state = match self.state {
-            Playing(PlayingState { pos: Some(pos), .. }) => Suspending(SuspendingState {
-                next_state: StateAfterSuspension::Stopped,
-                pos,
-            }),
+            Playing(PlayingState { pos: Some(pos), .. }) => {
+                // Processing will automatically install an immediate stop interaction
+                // when entering the suspending state and there's no stop interaction yet.
+                // However, it will not do this when a stop interaction is installed already, e.g.
+                // a scheduled one (clip has scheduled stop). So we need to enforce an immediate
+                // one.
+                supplier_chain.install_immediate_stop_interaction(pos);
+                Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Stopped,
+                    pos,
+                })
+            }
             Suspending(s) => Suspending(SuspendingState {
                 next_state: StateAfterSuspension::Stopped,
                 ..s
