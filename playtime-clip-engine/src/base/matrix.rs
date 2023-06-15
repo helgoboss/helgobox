@@ -358,7 +358,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<R> {
         let result = f(self);
         if result.is_ok() {
-            self.add_history_entry(label.into());
+            self.history.add_buffered(label.into());
         }
         result
     }
@@ -508,8 +508,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    /// Adds a history entry and emits the appropriate event.
-    fn add_history_entry(&mut self, label: String) {
+    /// Adds a history entry immediately and emits the appropriate event.
+    fn add_history_entry_immediately(&mut self, label: String) {
         self.history.add(label, self.save());
         self.emit(ClipMatrixEvent::HistoryChanged);
     }
@@ -539,6 +539,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Pastes the clips stored in the matrix clipboard into the given slot.
+    // TODO-high-clip-engine In all copy scenarios, we must take care to create new unique IDs!
     pub fn paste_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         let content = self.clipboard.content.as_ref().ok_or("clipboard empty")?;
         let MatrixClipboardContent::Slot(clips) = content else {
@@ -969,6 +970,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ///
     /// Polling is absolutely essential, e.g. to detect changes or finish recordings.
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
+        self.poll_history();
         self.remove_obsolete_retired_columns();
         self.process_commands();
         let events: Vec<_> = self
@@ -989,9 +991,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .collect();
         let undo_point_label = events.iter().find_map(|evt| evt.undo_point_for_polling());
         if let Some(l) = undo_point_label {
-            self.add_history_entry(l.into());
+            // TODO-high-clip-engine Not sure if we should also add this buffered?
+            self.add_history_entry_immediately(l.into());
         }
         events
+    }
+
+    fn poll_history(&mut self) {
+        if !self.history.its_flush_time() {
+            return;
+        }
+        self.history.flush_buffer(self.save());
+        self.emit(ClipMatrixEvent::HistoryChanged);
     }
 
     /// Toggles the loop setting of the given slot.
@@ -1127,13 +1138,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         address: ClipAddress,
         api_clip: api::Clip,
     ) -> ClipEngineResult<()> {
-        let column = self.get_column_mut(address.slot_address.column)?;
-        column.set_clip_data(address.slot_address.row, address.clip_index, api_clip)?;
-        self.emit(ClipMatrixEvent::clip_changed(
-            address,
-            ClipChangeEvent::Everything,
-        ));
-        Ok(())
+        self.undoable("Change clip data", |matrix| {
+            let column = matrix.get_column_mut(address.slot_address.column)?;
+            column.set_clip_data(address.slot_address.row, address.clip_index, api_clip)?;
+            matrix.emit(ClipMatrixEvent::clip_changed(
+                address,
+                ClipChangeEvent::Everything,
+            ));
+            Ok(())
+        })
     }
 
     /// Returns the clip at the given address.

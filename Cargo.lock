@@ -3653,6 +3653,7 @@ dependencies = [
  "helgoboss-learn",
  "helgoboss-midi",
  "indexmap 1.7.0",
+ "itertools",
  "metrics",
  "nanoid",
  "num_enum 0.5.4",

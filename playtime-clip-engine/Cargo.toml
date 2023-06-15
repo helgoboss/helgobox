@@ -53,3 +53,5 @@ either.workspace = true
 serde_json.workspace = true
 # For being able to quickly looking up slots and clips by ID while still maintaining order
 indexmap.workspace = true
+# For joining undo history labels
+itertools.workspace = true

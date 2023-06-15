@@ -1,16 +1,57 @@
 use crate::ClipEngineResult;
+use itertools::Itertools;
 use playtime_api::persistence as api;
+use std::collections::HashSet;
+use std::mem;
+use std::time::{Duration, Instant};
 
 /// Data structure holding the undo history.
 #[derive(Debug)]
 pub struct History {
+    history_entry_buffer: HistoryEntryBuffer,
     undo_stack: Vec<State>,
     redo_stack: Vec<State>,
+}
+
+#[derive(Debug)]
+struct HistoryEntryBuffer {
+    time_of_last_addition: Instant,
+    labels: HashSet<String>,
+}
+
+impl HistoryEntryBuffer {
+    pub fn add(&mut self, label: String) {
+        self.time_of_last_addition = Instant::now();
+        self.labels.insert(label);
+    }
+
+    pub fn its_flush_time(&self) -> bool {
+        const DEBOUNCE_DURATION: Duration = Duration::from_millis(1000);
+        !self.labels.is_empty() && self.time_of_last_addition.elapsed() > DEBOUNCE_DURATION
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty()
+    }
+
+    pub fn flush(&mut self) -> HashSet<String> {
+        mem::take(&mut self.labels)
+    }
+}
+
+impl Default for HistoryEntryBuffer {
+    fn default() -> Self {
+        Self {
+            time_of_last_addition: Instant::now(),
+            labels: Default::default(),
+        }
+    }
 }
 
 impl History {
     pub fn new(initial_matrix: api::Matrix) -> Self {
         Self {
+            history_entry_buffer: Default::default(),
             undo_stack: vec![State::new("Initial".to_string(), initial_matrix)],
             redo_stack: vec![],
         }
@@ -41,9 +82,37 @@ impl History {
         !self.redo_stack.is_empty()
     }
 
+    pub fn its_flush_time(&self) -> bool {
+        self.history_entry_buffer.its_flush_time()
+    }
+
+    /// Doesn't add a history event immediately but buffers it until no change has happened for
+    /// some time.
+    pub fn add_buffered(&mut self, label: String) {
+        self.history_entry_buffer.add(label);
+    }
+
+    /// Adds the buffered history entries if the matrix is different from the one in the previous
+    /// undo point.
+    pub fn flush_buffer(&mut self, new_matrix: api::Matrix) {
+        let label = build_multi_label(self.history_entry_buffer.flush());
+        self.add_internal(label, new_matrix);
+    }
+
     /// Adds the given history entry if the matrix is different from the one in the previous
     /// undo point.
     pub fn add(&mut self, label: String, new_matrix: api::Matrix) {
+        let label = if self.history_entry_buffer.is_empty() {
+            label
+        } else {
+            let mut labels = self.history_entry_buffer.flush();
+            labels.insert(label);
+            build_multi_label(labels)
+        };
+        self.add_internal(label, new_matrix);
+    }
+
+    fn add_internal(&mut self, label: String, new_matrix: api::Matrix) {
         if let Some(prev_state) = self.undo_stack.last() {
             if new_matrix == prev_state.matrix {
                 return;
@@ -84,4 +153,8 @@ impl State {
     fn new(label: String, matrix: api::Matrix) -> Self {
         Self { label, matrix }
     }
+}
+
+fn build_multi_label(labels: HashSet<String>) -> String {
+    labels.iter().join(", ")
 }
