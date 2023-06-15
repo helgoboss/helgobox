@@ -1,3 +1,6 @@
+use crate::conversion_util::{
+    convert_duration_in_frames_to_seconds, convert_position_in_frames_to_seconds,
+};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
@@ -173,12 +176,12 @@ impl SupplierChain {
         Ok(chain)
     }
 
-    /// At the moment not suitable for applying while playing (because no special handling for
-    /// looped).
+    /// Not suitable for applying while playing (e.g. because no special handling for looped).
+    /// Use `RtClip::set_settings` instead.
     pub fn configure_complete_chain(&mut self, settings: ChainSettings) -> ClipEngineResult<()> {
         let material_info = self.material_info()?;
         self.set_looped(settings.looped);
-        self.set_time_base(&settings.time_base, material_info.is_midi())?;
+        self.set_time_base(&settings.time_base, &material_info);
         self.set_volume(settings.volume);
         self.set_section(settings.section.start_pos, settings.section.length);
         self.set_audio_fades_enabled_for_source(settings.audio_apply_source_fades);
@@ -207,7 +210,7 @@ impl SupplierChain {
         self.pre_buffer(req);
     }
 
-    fn set_time_base(&mut self, time_base: &ClipTimeBase, is_midi: bool) -> ClipEngineResult<()> {
+    pub fn set_time_base(&mut self, time_base: &ClipTimeBase, material_info: &MaterialInfo) {
         match time_base {
             ClipTimeBase::Time => {
                 debug!("Disable tempo adjustments");
@@ -219,11 +222,10 @@ impl SupplierChain {
                 debug!("Enable tempo adjustments");
                 self.time_stretcher_mut().set_active(true);
                 self.resampler_mut().set_tempo_adjustments_enabled(true);
-                let tempo = determine_tempo_from_beat_time_base(b, is_midi);
-                self.set_downbeat_in_beats(b.downbeat, tempo)?;
+                let tempo = determine_tempo_from_beat_time_base(b, material_info.is_midi());
+                self.set_downbeat_in_beats(b.downbeat, tempo, material_info);
             }
         }
-        Ok(())
     }
 
     pub fn is_playing_already(&self, pos: isize) -> bool {
@@ -235,12 +237,12 @@ impl SupplierChain {
         self.downbeat_mut().set_downbeat_frame(0);
     }
 
-    fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
+    pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
         let command = ChainPreBufferCommand::SetAudioFadesEnabledForSource(enabled);
         self.pre_buffer_supplier().send_command(command);
     }
 
-    fn set_midi_settings(&mut self, settings: api::ClipMidiSettings) {
+    pub fn set_midi_settings(&mut self, settings: api::ClipMidiSettings) {
         self.set_midi_reset_msg_range_for_interaction(settings.interaction_reset_settings);
         self.set_midi_reset_msg_range_for_source(settings.source_reset_settings);
         self.set_midi_reset_msg_range_for_section(settings.section_reset_settings);
@@ -267,16 +269,26 @@ impl SupplierChain {
         self.pre_buffer_supplier().send_command(command);
     }
 
+    pub fn volume(&self) -> Db {
+        Db::new(self.amplifier().volume().get()).unwrap_or_default()
+    }
+
     pub fn set_volume(&mut self, volume: Db) {
         self.amplifier_mut()
             .set_volume(reaper_medium::Db::new(volume.get()));
     }
 
-    fn set_downbeat_in_beats(&mut self, beat: PositiveBeat, tempo: Bpm) -> ClipEngineResult<()> {
-        self.downbeat_mut().set_downbeat_in_beats(beat, tempo)
+    fn set_downbeat_in_beats(
+        &mut self,
+        beat: PositiveBeat,
+        tempo: Bpm,
+        material_info: &MaterialInfo,
+    ) {
+        self.downbeat_mut()
+            .set_downbeat_in_beats(beat, tempo, material_info);
     }
 
-    fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
+    pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
         self.resampler_mut().set_mode(mode);
     }
 
@@ -363,7 +375,7 @@ impl SupplierChain {
             .unwrap();
     }
 
-    fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
+    pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
         use AudioCacheBehavior::*;
         let pre_buffer_enabled = match &cache_behavior {
             DirectFromDisk => true,
@@ -381,7 +393,7 @@ impl SupplierChain {
         }
     }
 
-    fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
+    pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
         use AudioTimeStretchMode::*;
         let use_vari_speed = match mode {
             VariSpeed => true,
@@ -440,6 +452,27 @@ impl SupplierChain {
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
         let command = ChainPreBufferCommand::KeepPlayingUntilEndOfCurrentCycle { pos };
         self.pre_buffer_supplier().send_command(command);
+    }
+
+    pub fn section(&self) -> api::Section {
+        let (bounds, material_info) = {
+            let mut guard = self.pre_buffer_wormhole();
+            (
+                guard.supplier().bounds(),
+                guard.recorder().material_info().unwrap(),
+            )
+        };
+        let start_pos_in_secs = convert_position_in_frames_to_seconds(
+            bounds.start_frame() as _,
+            material_info.frame_rate(),
+        );
+        let length_in_secs = bounds
+            .length()
+            .map(|l| convert_duration_in_frames_to_seconds(l, material_info.frame_rate()));
+        api::Section {
+            start_pos: PositiveSecond::new(start_pos_in_secs.get()).unwrap_or_default(),
+            length: length_in_secs.map(|l| PositiveSecond::new(l.get()).unwrap_or_default()),
+        }
     }
 
     pub fn set_section(&mut self, start: PositiveSecond, length: Option<PositiveSecond>) {

@@ -2,7 +2,7 @@ use crate::rt::supplier::{
     ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest, RtClipSource,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{ClipChangeEvent, OverridableMatrixSettings, RtClipId, RtClipSettings};
+use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, create_pcm_source_from_media_file,
     make_media_file_path_absolute, CreateApiSourceMode,
@@ -29,13 +29,13 @@ pub struct Clip {
     source: api::Source,
     frozen_source: Option<api::Source>,
     active_source: SourceOrigin,
-    processing_relevant_settings: RtClipSettings,
+    rt_settings: RtClipSettings,
 }
 
 impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
-            processing_relevant_settings: RtClipSettings::from_api(&api_clip),
+            rt_settings: RtClipSettings::from_api(&api_clip),
             rt_id: RtClipId::from_clip_id(&api_clip.id),
             id: api_clip.id,
             name: api_clip.name,
@@ -71,9 +71,19 @@ impl Clip {
             source: api_source,
             frozen_source: None,
             active_source: SourceOrigin::Normal,
-            processing_relevant_settings: clip_settings,
+            rt_settings: clip_settings,
         };
         Ok(clip)
+    }
+
+    pub fn rt_settings(&self) -> &RtClipSettings {
+        &self.rt_settings
+    }
+
+    pub fn set_data(&mut self, clip: Clip) {
+        self.color = clip.color;
+        self.name = clip.name;
+        self.rt_settings = clip.rt_settings;
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -107,15 +117,15 @@ impl Clip {
             },
             frozen_source: self.frozen_source.clone(),
             active_source: self.active_source,
-            time_base: self.processing_relevant_settings.time_base,
-            start_timing: self.processing_relevant_settings.start_timing,
-            stop_timing: self.processing_relevant_settings.stop_timing,
-            looped: self.processing_relevant_settings.looped,
-            volume: self.processing_relevant_settings.volume,
+            time_base: self.rt_settings.time_base,
+            start_timing: self.rt_settings.start_timing,
+            stop_timing: self.rt_settings.stop_timing,
+            looped: self.rt_settings.looped,
+            volume: self.rt_settings.volume,
             color: self.color.clone(),
-            section: self.processing_relevant_settings.section,
-            audio_settings: self.processing_relevant_settings.audio_settings,
-            midi_settings: self.processing_relevant_settings.midi_settings,
+            section: self.rt_settings.section,
+            audio_settings: self.rt_settings.audio_settings,
+            midi_settings: self.rt_settings.midi_settings,
         };
         Ok(clip)
     }
@@ -123,7 +133,7 @@ impl Clip {
     pub fn activate_frozen_source(&mut self, frozen_source: api::Source, tempo: Option<Bpm>) {
         self.frozen_source = Some(frozen_source);
         self.active_source = SourceOrigin::Frozen;
-        if let ClipTimeBase::Beat(tb) = &mut self.processing_relevant_settings.time_base {
+        if let ClipTimeBase::Beat(tb) = &mut self.rt_settings.time_base {
             let tempo = tempo.expect("tempo not given although beat time base");
             tb.audio_tempo = Some(api::Bpm::new(tempo.get()).unwrap())
         }
@@ -240,7 +250,7 @@ impl Clip {
             pcm_source,
             matrix_settings,
             column_settings,
-            &self.processing_relevant_settings,
+            &self.rt_settings,
             permanent_project,
             chain_equipment,
             recorder_request_sender,
@@ -249,20 +259,19 @@ impl Clip {
     }
 
     pub fn looped(&self) -> bool {
-        self.processing_relevant_settings.looped
+        self.rt_settings.looped
     }
 
     pub fn set_looped(&mut self, looped: bool) {
-        self.processing_relevant_settings.looped = looped;
+        self.rt_settings.looped = looped;
     }
 
     pub fn set_volume(&mut self, volume: Db) {
-        self.processing_relevant_settings.volume = volume;
+        self.rt_settings.volume = volume;
     }
 
-    pub fn set_name(&mut self, name: Option<String>) -> ClipChangeEvent {
+    pub fn set_name(&mut self, name: Option<String>) {
         self.name = name;
-        ClipChangeEvent::Everything
     }
 
     pub fn id(&self) -> &ClipId {
@@ -274,7 +283,7 @@ impl Clip {
     }
 
     pub fn volume(&self) -> Db {
-        self.processing_relevant_settings.volume
+        self.rt_settings.volume
     }
 
     pub fn tempo_factor(&self, timeline_tempo: Bpm, is_midi: bool) -> f64 {
@@ -286,20 +295,20 @@ impl Clip {
     }
 
     pub fn time_base(&self) -> &ClipTimeBase {
-        &self.processing_relevant_settings.time_base
+        &self.rt_settings.time_base
     }
 
     pub fn section(&self) -> Section {
-        self.processing_relevant_settings.section
+        self.rt_settings.section
     }
 
     pub fn set_section(&mut self, section: Section) {
-        self.processing_relevant_settings.section = section;
+        self.rt_settings.section = section;
     }
 
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self, is_midi: bool) -> Option<Bpm> {
-        determine_tempo_from_time_base(&self.processing_relevant_settings.time_base, is_midi)
+        determine_tempo_from_time_base(&self.rt_settings.time_base, is_midi)
     }
 }
 

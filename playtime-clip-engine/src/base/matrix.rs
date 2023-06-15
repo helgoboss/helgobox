@@ -9,7 +9,7 @@ use crate::rt::supplier::{
 };
 use crate::rt::{
     ClipChangeEvent, ColumnHandle, ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnPlaySlotOptions,
-    ColumnStopArgs, ColumnStopSlotArgs, FillClipMode, OverridableMatrixSettings,
+    ColumnStopArgs, ColumnStopSlotArgs, FillSlotMode, OverridableMatrixSettings,
     QualifiedClipChangeEvent, QualifiedSlotChangeEvent, RtMatrixCommandSender, SlotChangeEvent,
     WeakRtColumn,
 };
@@ -610,13 +610,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 None => break,
                 Some(c) => c,
             };
-            column.fill_slot_with_clips(
+            column.fill_slot(
                 row_index,
                 slot_content.value,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
-                FillClipMode::Replace,
+                FillSlotMode::Replace,
             )?;
         }
         Ok(())
@@ -628,13 +628,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         api_clips: Vec<api::Clip>,
     ) -> ClipEngineResult<()> {
         let column = get_column_mut(&mut self.columns, address.column)?;
-        column.fill_slot_with_clips(
+        column.fill_slot(
             address.row,
             api_clips,
             &self.chain_equipment,
             &self.recorder_request_sender,
             &self.settings,
-            FillClipMode::Replace,
+            FillSlotMode::Replace,
         )?;
         Ok(())
     }
@@ -889,13 +889,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         self.columns.last_mut().unwrap()
                     }
                 };
-            dest_column.fill_slot_with_clips(
+            dest_column.fill_slot(
                 row_index,
                 slot_content.value,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
-                FillClipMode::Replace,
+                FillSlotMode::Replace,
             )?;
         }
         if need_handle_sync {
@@ -1106,20 +1106,29 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         address: ClipAddress,
         name: Option<String>,
     ) -> ClipEngineResult<()> {
-        let event = self.get_clip_mut(address)?.set_name(name);
-        self.emit(ClipMatrixEvent::clip_changed(address, event));
-        Ok(())
+        self.undoable("Set clip name", |matrix| {
+            matrix.get_clip_mut(address)?.set_name(name);
+            matrix.emit(ClipMatrixEvent::clip_changed(
+                address,
+                ClipChangeEvent::Everything,
+            ));
+            Ok(())
+        })
     }
 
-    /// Sets the complete data of the given clip.
+    /// Applies most properties of the given clip to the clip at the given address.
+    ///
+    /// The following clip properties will not be changed:
+    ///
+    /// - ID
+    /// - Source(s)
     pub fn set_clip_data(
         &mut self,
         address: ClipAddress,
         api_clip: api::Clip,
     ) -> ClipEngineResult<()> {
-        let clip = self.get_clip_mut(address)?;
-        *clip = Clip::load(api_clip);
-        // TODO-high-clip-engine Sync important data to real-time processor
+        let column = self.get_column_mut(address.slot_address.column)?;
+        column.set_clip_data(address.slot_address.row, address.clip_index, api_clip)?;
         self.emit(ClipMatrixEvent::clip_changed(
             address,
             ClipChangeEvent::Everything,

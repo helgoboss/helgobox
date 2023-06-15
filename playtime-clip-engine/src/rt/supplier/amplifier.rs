@@ -35,6 +35,10 @@ impl<S> Amplifier<S> {
         &mut self.supplier
     }
 
+    pub fn volume(&self) -> Db {
+        self.volume
+    }
+
     pub fn set_volume(&mut self, volume: Db) {
         self.volume = volume;
         // TODO-medium Maybe improve the volume factor

@@ -2,7 +2,7 @@ use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotArgs,
-    ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillClipMode,
+    ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillSlotMode,
     OverridableMatrixSettings, RtColumnEvent, RtSlotId, RtSlots, SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
@@ -91,6 +91,17 @@ impl Column {
 
     pub fn id(&self) -> &ColumnId {
         &self.id
+    }
+
+    pub(crate) fn set_clip_data(
+        &mut self,
+        slot_index: usize,
+        clip_index: usize,
+        api_clip: api::Clip,
+    ) -> ClipEngineResult<()> {
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        slot.set_clip_data(clip_index, api_clip, &self.rt_command_sender)?;
+        Ok(())
     }
 
     pub fn move_slot(&mut self, source_index: usize, dest_index: usize) -> ClipEngineResult<()> {
@@ -448,17 +459,19 @@ impl Column {
     }
 
     /// Adds the given clips to the slot or replaces all existing ones.
-    pub(crate) fn fill_slot_with_clips(
+    ///
+    /// Immediately syncs to real-time column.
+    pub(crate) fn fill_slot(
         &mut self,
         slot_index: usize,
         api_clips: Vec<api::Clip>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
-        mode: FillClipMode,
+        mode: FillSlotMode,
     ) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.fill_slot_with_clips(
+        slot.fill(
             api_clips,
             chain_equipment,
             recorder_request_sender,
@@ -523,13 +536,13 @@ impl Column {
             },
             midi_settings: preferred_clip_midi_settings(),
         };
-        self.fill_slot_with_clips(
+        self.fill_slot(
             slot_index,
             vec![clip],
             chain_equipment,
             recorder_request_sender,
             matrix_settings,
-            FillClipMode::Replace,
+            FillSlotMode::Replace,
         )
     }
 

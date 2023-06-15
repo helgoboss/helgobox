@@ -10,9 +10,10 @@ use crate::rt::supplier::{
 };
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadSlotArgs,
-    ColumnSetClipLoopedArgs, FillClipMode, InternalClipPlayState, MidiOverdubInstruction,
-    NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, RtClipId, RtSlot,
-    RtSlotId, SharedRtColumn, SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
+    ColumnSetClipLoopedArgs, ColumnSetClipSettingsArgs, FillSlotMode, InternalClipPlayState,
+    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
+    RecordNewClipInstruction, RtClipId, RtSlot, RtSlotId, SharedRtColumn, SlotChangeEvent,
+    SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
 use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
@@ -317,8 +318,9 @@ impl Slot {
         RtSlot::new(self.rt_id, rt_clips.collect())
     }
 
+    /// Immediately syncs to real-time column.
     #[allow(clippy::too_many_arguments)]
-    pub fn fill_slot_with_clips(
+    pub fn fill(
         &mut self,
         api_clips: Vec<api::Clip>,
         chain_equipment: &ChainEquipment,
@@ -327,15 +329,15 @@ impl Slot {
         column_settings: &rt::RtColumnSettings,
         rt_command_sender: &ColumnCommandSender,
         project: Option<Project>,
-        mode: FillClipMode,
+        mode: FillSlotMode,
     ) {
         // Load clips
         let contents = load_api_clips(api_clips);
         match mode {
-            FillClipMode::Add => {
+            FillSlotMode::Add => {
                 self.contents.extend(contents);
             }
-            FillClipMode::Replace => {
+            FillSlotMode::Replace => {
                 self.contents = contents.collect();
             }
         }
@@ -349,10 +351,32 @@ impl Slot {
         );
         // Send real-time slot to the real-time column
         let args = ColumnLoadSlotArgs {
-            slot_index: self.index(),
+            slot_index: self.index,
             clips: rt_slot.clips,
         };
         rt_command_sender.load_slot(Box::new(Some(args)));
+    }
+
+    /// Immediately syncs to real-time column.
+    pub fn set_clip_data(
+        &mut self,
+        clip_index: usize,
+        api_clip: api::Clip,
+        rt_command_sender: &ColumnCommandSender,
+    ) -> ClipEngineResult<()> {
+        // Apply data to existing clip
+        let content = get_content_mut(&mut self.contents, clip_index)?;
+        let clip = &mut content.clip;
+        let new_clip = Clip::load(api_clip);
+        clip.set_data(new_clip);
+        // Sync to real-time column
+        let args = ColumnSetClipSettingsArgs {
+            slot_index: self.index,
+            clip_index,
+            settings: clip.rt_settings().clone(),
+        };
+        rt_command_sender.set_clip_settings(args);
+        Ok(())
     }
 
     pub fn is_recording(&self) -> bool {

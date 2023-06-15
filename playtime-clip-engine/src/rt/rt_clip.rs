@@ -15,7 +15,7 @@ use crate::rt::supplier::{
     MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
-use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnSettings};
+use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnEvent, RtColumnSettings};
 use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, Laziness, QuantizedPosition};
 use atomic::Atomic;
@@ -287,12 +287,26 @@ impl RtClip {
     /// Instead of replacing the slot's clip with the new clip, it lets the old clip (this one!)
     /// apply the properties of the new clip to itself. This makes it possible to keep the clip
     /// playing, applying just the differences.
-    pub fn apply(&mut self, other_clip: &mut RtClip) {
-        // TODO-high CONTINUE At the very least, we should apply clip settings.
+    ///
+    /// # Errors
+    ///
+    /// If this clip or the given clip is recording.
+    pub fn apply(&mut self, args: ApplyClipArgs) -> ClipEngineResult<()> {
+        // TODO-high CONTINUE We should add the RtClipSettings as RtClip field and remove the
+        //  PlaySettings of the ready state in favor of this one ... it's more straightforward.
+        //  Yes, the supplier chain keeps some of the state redundantly, but that's okay. This is
+        //  an implementation detail.
+        // let set_settings_args = SetClipSettingsArgs {
+        //     clip_settings: args.other_clip.settings()?,
+        //     matrix_settings: args.matrix_settings,
+        //     column_settings: args.column_settings,
+        // };
+        // self.set_settings(set_settings_args)?;
         // Really important to reconnect the shared position and peak info variables, otherwise the
         // UI will not display them anymore.
-        self.shared_pos = other_clip.shared_pos.clone();
-        self.shared_peak = other_clip.shared_peak.clone();
+        self.shared_pos = args.other_clip.shared_pos.clone();
+        self.shared_peak = args.other_clip.shared_peak.clone();
+        Ok(())
     }
 
     /// If recording, delivers material info of the material that's being recorded.
@@ -360,6 +374,14 @@ impl RtClip {
             }
         };
         Ok(instruction)
+    }
+
+    pub fn set_settings(&mut self, args: SetClipSettingsArgs) -> ClipEngineResult<()> {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => s.set_settings(args, &mut self.supplier_chain),
+            Recording(_) => Err("can't set settings while recording"),
+        }
     }
 
     pub fn set_looped(&mut self, looped: bool) -> ClipEngineResult<()> {
@@ -611,6 +633,47 @@ impl ReadyState {
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self, is_midi: bool) -> Option<Bpm> {
         determine_tempo_from_time_base(&self.play_settings.time_base, is_midi)
+    }
+
+    pub fn set_settings(
+        &mut self,
+        args: SetClipSettingsArgs,
+        supplier_chain: &mut SupplierChain,
+    ) -> ClipEngineResult<()> {
+        let material_info = supplier_chain.material_info()?;
+        let chain_settings = args
+            .clip_settings
+            .create_chain_settings(args.matrix_settings, args.column_settings);
+        self.set_time_base(chain_settings.time_base, supplier_chain, &material_info);
+        self.set_looped(chain_settings.looped, supplier_chain);
+        self.set_section(chain_settings.section, supplier_chain);
+        self.set_start_timing(args.clip_settings.start_timing);
+        self.set_stop_timing(args.clip_settings.stop_timing);
+        supplier_chain.set_volume(chain_settings.volume);
+        supplier_chain.set_audio_fades_enabled_for_source(chain_settings.audio_apply_source_fades);
+        supplier_chain.set_audio_time_stretch_mode(chain_settings.audio_time_stretch_mode);
+        supplier_chain.set_audio_resample_mode(chain_settings.audio_resample_mode);
+        supplier_chain.set_audio_cache_behavior(chain_settings.cache_behavior);
+        supplier_chain.set_midi_settings(args.clip_settings.midi_settings);
+        Ok(())
+    }
+
+    fn set_time_base(
+        &mut self,
+        time_base: ClipTimeBase,
+        supplier_chain: &mut SupplierChain,
+        material_info: &MaterialInfo,
+    ) {
+        self.play_settings.time_base = time_base;
+        supplier_chain.set_time_base(&time_base, material_info);
+    }
+
+    fn set_start_timing(&mut self, start_timing: Option<ClipPlayStartTiming>) {
+        self.play_settings.start_timing = start_timing;
+    }
+
+    fn set_stop_timing(&mut self, stop_timing: Option<ClipPlayStopTiming>) {
+        self.play_settings.stop_timing = stop_timing;
     }
 
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
@@ -1520,6 +1583,14 @@ pub struct SlotPlayArgs<'a> {
     pub start_timing: Option<ClipPlayStartTiming>,
 }
 
+#[derive(Debug)]
+pub struct SlotLoadArgs<'a> {
+    pub new_clips: RtClips,
+    pub event_sender: &'a Sender<RtColumnEvent>,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a RtColumnSettings,
+}
+
 impl<'a> SlotPlayArgs<'a> {
     pub fn resolve_start_timing(
         &self,
@@ -1624,6 +1695,20 @@ pub struct MidiOverdubInstruction {
 pub struct ClipRecordArgs {
     pub recording_equipment: RecordingEquipment,
     pub settings: MatrixClipRecordSettings,
+}
+
+#[derive(Debug)]
+pub struct ApplyClipArgs<'a> {
+    pub other_clip: &'a mut RtClip,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a RtColumnSettings,
+}
+
+#[derive(Debug)]
+pub struct SetClipSettingsArgs<'a> {
+    pub clip_settings: RtClipSettings,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a RtColumnSettings,
 }
 
 #[derive(Eq, PartialEq, Debug)]

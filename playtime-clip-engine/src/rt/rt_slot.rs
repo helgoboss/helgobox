@@ -3,11 +3,11 @@ use crate::conversion_util::{
 };
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
-    ColumnProcessTransportChangeArgs, FillClipMode, HandleSlotEvent, InternalClipPlayState,
+    ApplyClipArgs, AudioBufMut, ClipProcessArgs, ClipProcessingOutcome, ClipRecordingPollArgs,
+    ColumnProcessTransportChangeArgs, FillSlotMode, HandleSlotEvent, InternalClipPlayState,
     OverridableMatrixSettings, RtClip, RtClipId, RtColumnEvent, RtColumnEventSender,
-    RtColumnGarbage, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction, SlotPlayArgs,
-    SlotRecordInstruction, SlotStopArgs,
+    RtColumnGarbage, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction, SlotLoadArgs,
+    SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
 use crossbeam_channel::Sender;
@@ -59,31 +59,38 @@ impl RtSlot {
     /// possible and fades out still playing old clips.
     ///
     /// Exploits the given clips and replaces them with trash! They should not be used anymore.
-    pub fn load(&mut self, event_sender: &Sender<RtColumnEvent>, mut new_clips: RtClips) {
+    pub fn load(&mut self, mut args: SlotLoadArgs) {
         // Take old clips out
         let mut old_clips = mem::take(&mut self.clips);
         // For each new clip, check if there's a corresponding old clip. In that case, update
         // the old clip instead of completely replacing it with the new one. This keeps unchanged
         // playing clips playing.
-        for (_, new_clip) in &mut new_clips {
+        for (_, new_clip) in &mut args.new_clips {
             if let Some(mut old_clip) = old_clips.remove(&new_clip.id()) {
                 // We have an old clip with the same ID. Reuse it for smooth transition!
                 // Apply the new clip's settings to the old clip.
-                old_clip.apply(new_clip);
+                let apply_args = ApplyClipArgs {
+                    other_clip: new_clip,
+                    matrix_settings: args.matrix_settings,
+                    column_settings: args.column_settings,
+                };
+                let _ = old_clip.apply(apply_args);
                 // Declare the old clip to be the new clip
                 let obsolete_clip = mem::replace(new_clip, old_clip);
                 // Dispose the obsolete clip
-                event_sender.dispose(RtColumnGarbage::Clip(Some(obsolete_clip)));
+                args.event_sender
+                    .dispose(RtColumnGarbage::Clip(Some(obsolete_clip)));
             }
         }
         // Declare the mixture of updated and new clips as the new clip collection!
-        self.clips = new_clips;
+        self.clips = args.new_clips;
         // Retire old and now unused clips
         retire_clips(&mut old_clips, &mut self.retired_clips);
         // The old slot might actually still be playing. Notify listeners.
-        event_sender.slot_play_state_changed(self.id, self.runtime_data.last_play_state);
+        args.event_sender
+            .slot_play_state_changed(self.id, self.runtime_data.last_play_state);
         // Dispose old and now empty clip collection
-        event_sender.dispose(RtColumnGarbage::Clips(old_clips));
+        args.event_sender.dispose(RtColumnGarbage::Clips(old_clips));
     }
 
     pub fn id(&self) -> RtSlotId {
@@ -95,14 +102,14 @@ impl RtSlot {
     }
 
     /// Returns the index at which the clip landed.
-    pub fn fill(&mut self, clip: RtClip, mode: FillClipMode) -> usize {
+    pub fn fill(&mut self, clip: RtClip, mode: FillSlotMode) -> usize {
         // TODO-medium Suspend previous clip if playing.
         match mode {
-            FillClipMode::Add => {
+            FillSlotMode::Add => {
                 self.clips.insert(clip.id(), clip);
                 self.clips.len() - 1
             }
-            FillClipMode::Replace => {
+            FillSlotMode::Replace => {
                 self.clips.clear();
                 self.clips.insert(clip.id(), clip);
                 0

@@ -42,11 +42,15 @@ impl<S> Downbeat<S> {
         self.downbeat_frame
     }
 
-    pub fn set_downbeat_in_beats(&mut self, beat: PositiveBeat, tempo: Bpm) -> ClipEngineResult<()>
-    where
+    pub fn set_downbeat_in_beats(
+        &mut self,
+        beat: PositiveBeat,
+        tempo: Bpm,
+        material_info: &MaterialInfo,
+    ) where
         S: WithMaterialInfo,
     {
-        let source_frame_frate = self.supplier.material_info()?.frame_rate();
+        let source_frame_frate = material_info.frame_rate();
         let bps = tempo.get() / 60.0;
         let second = beat.get() / bps;
         let frame = convert_duration_in_seconds_to_frames(
@@ -54,7 +58,6 @@ impl<S> Downbeat<S> {
             source_frame_frate,
         );
         self.set_downbeat_frame(frame);
-        Ok(())
     }
 
     pub fn set_downbeat_frame(&mut self, frame: usize) {

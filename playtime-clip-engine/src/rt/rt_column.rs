@@ -2,9 +2,10 @@ use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{MaterialInfo, RtClipSource, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
-    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClips, RtSlot, RtSlotId,
-    SlotPlayArgs, SlotProcessArgs, SlotProcessTransportChangeArgs, SlotRecordInstruction,
-    SlotRuntimeData, SlotStopArgs, TransportChange,
+    NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClipSettings, RtClips, RtSlot,
+    RtSlotId, SetClipSettingsArgs, SlotLoadArgs, SlotPlayArgs, SlotProcessArgs,
+    SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData, SlotStopArgs,
+    TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -106,7 +107,7 @@ impl ColumnCommandSender {
     }
 
     pub fn update_settings(&self, settings: RtColumnSettings) {
-        self.send_task(RtColumnCommand::UpdateSettings(settings));
+        self.send_task(RtColumnCommand::UpdateColumnSettings(settings));
     }
 
     pub fn update_matrix_settings(&self, settings: OverridableMatrixSettings) {
@@ -147,6 +148,10 @@ impl ColumnCommandSender {
 
     pub fn panic(&self) {
         self.send_task(RtColumnCommand::Panic);
+    }
+
+    pub fn set_clip_settings(&self, args: ColumnSetClipSettingsArgs) {
+        self.send_task(RtColumnCommand::SetClipSettings(args));
     }
 
     pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
@@ -202,7 +207,7 @@ pub enum RtColumnCommand {
     MoveSlot(ColumnMoveSlotArgs),
     ClearSlot(usize),
     RemoveSlot(usize),
-    UpdateSettings(RtColumnSettings),
+    UpdateColumnSettings(RtColumnSettings),
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
     LoadSlot(Box<Option<ColumnLoadSlotArgs>>),
@@ -213,6 +218,7 @@ pub enum RtColumnCommand {
     Stop(ColumnStopArgs),
     PauseSlot(ColumnPauseSlotArgs),
     SeekSlot(ColumnSeekSlotArgs),
+    SetClipSettings(ColumnSetClipSettingsArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipLooped(ColumnSetClipLoopedArgs),
     SetClipSection(ColumnSetClipSectionArgs),
@@ -383,7 +389,13 @@ impl RtColumn {
 
     fn load_slot(&mut self, args: ColumnLoadSlotArgs) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
-        slot.load(&self.event_sender, args.clips);
+        let slot_args = SlotLoadArgs {
+            new_clips: args.clips,
+            event_sender: &self.event_sender,
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
+        };
+        slot.load(slot_args);
         Ok(())
     }
 
@@ -544,6 +556,17 @@ impl RtColumn {
         self.retired_slots.push(slot);
     }
 
+    pub fn set_clip_settings(&mut self, args: ColumnSetClipSettingsArgs) -> ClipEngineResult<()> {
+        let clip_args = SetClipSettingsArgs {
+            clip_settings: args.settings,
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
+        };
+        get_slot_mut(&mut self.slots, args.slot_index)?
+            .get_clip_mut(args.clip_index)?
+            .set_settings(clip_args)
+    }
+
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
         get_slot_mut(&mut self.slots, args.slot_index)?
             .get_clip_mut(args.clip_index)?
@@ -679,7 +702,13 @@ impl RtColumn {
                 // We have an old slot with the same ID. Reuse it for smooth transition!
                 // Load the new slot's clips into the old clip by the slot's terms. After this, the
                 // new slot doesn't have clips and should not be used anymore.
-                old_slot.load(&self.event_sender, mem::take(&mut new_slot.clips));
+                let slot_args = SlotLoadArgs {
+                    new_clips: mem::take(&mut new_slot.clips),
+                    event_sender: &self.event_sender,
+                    matrix_settings: &self.matrix_settings,
+                    column_settings: &self.settings,
+                };
+                old_slot.load(slot_args);
                 // Declare the old slot to be the new slot
                 let obsolete_slot = mem::replace(new_slot, old_slot);
                 // Dispose the obsolete slot
@@ -732,7 +761,7 @@ impl RtColumn {
                 MoveSlot(args) => {
                     self.move_slot(args).unwrap();
                 }
-                UpdateSettings(s) => {
+                UpdateColumnSettings(s) => {
                     self.settings = s;
                 }
                 UpdateMatrixSettings(s) => {
@@ -776,6 +805,9 @@ impl RtColumn {
                 }
                 SeekSlot(args) => {
                     self.seek_clip(args).unwrap();
+                }
+                SetClipSettings(args) => {
+                    self.set_clip_settings(args).unwrap();
                 }
                 SetClipLooped(args) => {
                     self.set_clip_looped(args).unwrap();
@@ -1013,7 +1045,7 @@ pub struct ColumnLoadSlotArgs {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum FillClipMode {
+pub enum FillSlotMode {
     Add,
     Replace,
 }
@@ -1080,6 +1112,13 @@ pub struct ColumnPauseSlotArgs {
 pub struct ColumnSeekSlotArgs {
     pub index: usize,
     pub desired_pos: UnitValue,
+}
+
+#[derive(Debug)]
+pub struct ColumnSetClipSettingsArgs {
+    pub slot_index: usize,
+    pub clip_index: usize,
+    pub settings: RtClipSettings,
 }
 
 #[derive(Debug)]

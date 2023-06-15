@@ -1210,7 +1210,7 @@ impl PositiveBeat {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Db(f64);
 
 impl Db {
