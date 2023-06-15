@@ -541,6 +541,7 @@ pub enum TriggerMatrixAction {
     Undo = 7,
     Redo = 8,
     ToggleClick = 9,
+    Panic = 10,
 }
 impl TriggerMatrixAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -571,6 +572,7 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::Undo => "TRIGGER_MATRIX_ACTION_UNDO",
             TriggerMatrixAction::Redo => "TRIGGER_MATRIX_ACTION_REDO",
             TriggerMatrixAction::ToggleClick => "TRIGGER_MATRIX_ACTION_TOGGLE_CLICK",
+            TriggerMatrixAction::Panic => "TRIGGER_MATRIX_ACTION_PANIC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -592,6 +594,7 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_UNDO" => Some(Self::Undo),
             "TRIGGER_MATRIX_ACTION_REDO" => Some(Self::Redo),
             "TRIGGER_MATRIX_ACTION_TOGGLE_CLICK" => Some(Self::ToggleClick),
+            "TRIGGER_MATRIX_ACTION_PANIC" => Some(Self::Panic),
             _ => None,
         }
     }

@@ -145,6 +145,10 @@ impl ColumnCommandSender {
         self.send_task(RtColumnCommand::Stop(args));
     }
 
+    pub fn panic(&self) {
+        self.send_task(RtColumnCommand::Panic);
+    }
+
     pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
         self.send_task(RtColumnCommand::SetClipLooped(args));
     }
@@ -193,6 +197,7 @@ impl ColumnCommandSender {
 #[derive(Debug)]
 pub enum RtColumnCommand {
     ClearSlots,
+    Panic,
     Load(ColumnLoadArgs),
     MoveSlot(ColumnMoveSlotArgs),
     ClearSlot(usize),
@@ -519,6 +524,12 @@ impl RtColumn {
         slot.stop(clip_args, &event_handler)
     }
 
+    pub fn panic(&mut self) {
+        for slot in self.slots.values_mut() {
+            slot.panic();
+        }
+    }
+
     pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
         let (_, slot) = self
             .slots
@@ -753,6 +764,9 @@ impl RtColumn {
                 }
                 Stop(args) => {
                     self.stop(args, audio_request_props);
+                }
+                Panic => {
+                    self.panic();
                 }
                 PauseSlot(args) => {
                     self.pause_slot(args).unwrap();

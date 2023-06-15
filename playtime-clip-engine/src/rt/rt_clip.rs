@@ -311,16 +311,27 @@ impl RtClip {
 
     /// Stops the clip immediately, initiating fade-outs if necessary.
     ///
-    /// Consumer should just wait for the clip to be stopped and then not use it anymore.
+    /// Also stops clip recording. Consumer should just wait for the clip to be stopped and then not
+    /// use it anymore.
     pub fn initiate_removal(&mut self) {
         match &mut self.state {
-            ClipState::Ready(s) => s.initiate_removal(),
+            ClipState::Ready(s) => s.panic(),
             ClipState::Recording(_) => {
                 self.state = ClipState::Ready(ReadyState {
                     state: ReadySubState::Stopped,
                     play_settings: PlaySettings::default(),
                 })
             }
+        }
+    }
+
+    /// Stops the clip immediately, initiating fade-outs if necessary.
+    ///
+    /// Doesn't stop a clip recording.
+    pub fn panic(&mut self) {
+        match &mut self.state {
+            ClipState::Ready(s) => s.panic(),
+            ClipState::Recording(_) => {}
         }
     }
 
@@ -573,20 +584,19 @@ impl RtClip {
 }
 
 impl ReadyState {
-    pub fn initiate_removal(&mut self) {
+    /// Stops the clip immediately, initiating fade-outs if necessary.
+    pub fn panic(&mut self) {
         use ReadySubState::*;
         self.state = match self.state {
-            Playing(PlayingState { pos: Some(pos), .. }) => {
-                ReadySubState::Suspending(SuspendingState {
-                    next_state: StateAfterSuspension::Stopped,
-                    pos,
-                })
-            }
-            Suspending(s) => ReadySubState::Suspending(SuspendingState {
+            Playing(PlayingState { pos: Some(pos), .. }) => Suspending(SuspendingState {
+                next_state: StateAfterSuspension::Stopped,
+                pos,
+            }),
+            Suspending(s) => Suspending(SuspendingState {
                 next_state: StateAfterSuspension::Stopped,
                 ..s
             }),
-            _ => ReadySubState::Stopped,
+            _ => Stopped,
         };
     }
 

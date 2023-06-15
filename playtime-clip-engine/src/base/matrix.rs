@@ -789,6 +789,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
+    /// Stops all slots in all columns immediately.
+    pub fn panic(&self) {
+        for c in &self.columns {
+            c.panic();
+        }
+    }
+
     /// Plays all slots of scene-following columns in the given row.
     pub fn play_scene(&self, index: usize) {
         let timeline = self.timeline();

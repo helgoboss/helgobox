@@ -148,10 +148,21 @@ impl RtSlot {
 
     /// Stops the slot immediately, initiating fade-outs if necessary.
     ///
-    /// Consumer should just wait for the slot to be stopped and then not use it anymore.
+    /// Also stops recording. Consumer should just wait for the slot to be stopped and then not use
+    /// it anymore.
     pub fn initiate_removal(&mut self) {
         for clip in self.clips.values_mut() {
             clip.initiate_removal()
+        }
+    }
+
+    /// Stops the slot immediately, initiating fade-outs if necessary.
+    ///
+    /// Doesn't touch recording.
+    pub fn panic(&mut self) {
+        self.runtime_data.stop_was_caused_by_transport_change = false;
+        for clip in self.clips.values_mut() {
+            clip.panic();
         }
     }
 

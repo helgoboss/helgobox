@@ -374,6 +374,10 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                     .action_by_command_id(CommandId::new(40364))
                     .invoke_as_trigger(Some(project))
                     .map_err(|e| e.message()),
+                TriggerMatrixAction::Panic => {
+                    matrix.panic();
+                    Ok(())
+                }
             }
         })
     }
