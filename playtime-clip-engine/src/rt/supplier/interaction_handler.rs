@@ -185,8 +185,11 @@ impl<S> InteractionHandler<S> {
             Some(i) => i,
         };
         if ongoing_interaction.kind == new_interaction.kind {
-            // Already fading into same direction. No need to substitute interaction.
-            return None;
+            // Already fading into same direction. But the fade-out end position might have changed.
+            // So we replace it with the new interaction. This is especially important when
+            // requesting immediate clip stop / panic while the clip has already been scheduled
+            // for stop.
+            return Some(new_interaction);
         }
         let begin_frame_of_new_fade = new_interaction.fade_begin_frame();
         let begin_frame_of_ongoing_fade = ongoing_interaction.fade_begin_frame();
