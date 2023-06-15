@@ -269,7 +269,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerSlotAction::Cut => matrix.cut_slot(slot_address),
             TriggerSlotAction::Paste => matrix.paste_slot(slot_address),
             TriggerSlotAction::FillWithSelectedItem => {
-                matrix.replace_slot_contents_with_selected_item(slot_address)
+                matrix.replace_slot_clips_with_selected_item(slot_address)
             }
         })
     }
@@ -295,7 +295,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .ok_or_else(|| Status::invalid_argument("unknown drag row action"))?;
         handle_matrix_command(&req.matrix_id, |matrix| match action {
             DragRowAction::Move => {
-                matrix.move_scene_to(req.source_row_index as _, req.destination_row_index as _)
+                matrix.move_scene(req.source_row_index as _, req.destination_row_index as _)
             }
             DragRowAction::Copy => {
                 matrix.copy_scene_to(req.source_row_index as _, req.destination_row_index as _)

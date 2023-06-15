@@ -80,6 +80,8 @@ impl RtSlot {
         self.clips = new_clips;
         // Retire old and now unused clips
         retire_clips(&mut old_clips, &mut self.retired_clips);
+        // The old slot might actually still be playing. Notify listeners.
+        event_sender.slot_play_state_changed(self.id, self.runtime_data.last_play_state);
         // Dispose old and now empty clip collection
         event_sender.dispose(RtColumnGarbage::Clips(old_clips));
     }

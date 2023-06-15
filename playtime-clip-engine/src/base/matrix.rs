@@ -84,7 +84,7 @@ struct MatrixClipboard {
 #[derive(Debug)]
 enum MatrixClipboardContent {
     Slot(Vec<api::Clip>),
-    Scene(Vec<ApiClipWithColumn>),
+    Scene(Vec<SlotContentsWithColumn>),
 }
 
 #[derive(Debug, Default)]
@@ -409,18 +409,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Returns an iterator over all clips in a row whose column is a scene follower.
-    fn all_clips_in_scene(&self, row_index: usize) -> impl Iterator<Item = ApiClipWithColumn> + '_ {
+    fn all_clips_in_scene(
+        &self,
+        row_index: usize,
+    ) -> impl Iterator<Item = SlotContentsWithColumn> + '_ {
         let project = self.permanent_project();
         self.columns
             .iter()
             .enumerate()
             .filter(|(_, c)| c.follows_scene())
             .filter_map(move |(i, c)| Some((i, c.get_slot(row_index).ok()?)))
-            .flat_map(move |(i, s)| {
-                s.clips().filter_map(move |clip| {
-                    let api_clip = clip.save(project).ok()?;
-                    Some(ApiClipWithColumn::new(i, api_clip))
-                })
+            .map(move |(i, s)| {
+                let api_clips = s.clips().filter_map(move |clip| clip.save(project).ok());
+                SlotContentsWithColumn::new(i, api_clips.collect())
             })
     }
 
@@ -545,7 +546,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         };
         let cloned_clips = clips.clone();
         self.undoable("Paste slot", move |matrix| {
-            matrix.add_clips_to_slot(address, cloned_clips)?;
+            matrix.replace_clips_in_slot(address, cloned_clips)?;
             let event = SlotChangeEvent::Clips("Added clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(address, event));
             Ok(())
@@ -602,16 +603,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     fn replace_row_with_clips(
         &mut self,
         row_index: usize,
-        clips: Vec<ApiClipWithColumn>,
+        slot_contents: Vec<SlotContentsWithColumn>,
     ) -> ClipEngineResult<()> {
-        for clip in clips {
-            let column = match get_column_mut(&mut self.columns, clip.column_index).ok() {
+        for slot_content in slot_contents {
+            let column = match get_column_mut(&mut self.columns, slot_content.column_index).ok() {
                 None => break,
                 Some(c) => c,
             };
-            column.fill_slot_with_clip(
+            column.fill_slot_with_clips(
                 row_index,
-                clip.value,
+                slot_content.value,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
@@ -621,44 +622,40 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    /// Adds the given clips to the given slot.
-    fn add_clips_to_slot(
+    fn replace_clips_in_slot(
         &mut self,
         address: ClipSlotAddress,
         api_clips: Vec<api::Clip>,
     ) -> ClipEngineResult<()> {
         let column = get_column_mut(&mut self.columns, address.column)?;
-        for api_clip in api_clips {
-            // TODO-high-clip-engine CONTINUE Starting from here, don't let the methods return events anymore!
-            //  Mmh, or maybe not. The deep method can know better what changed (e.g. toggle_looped
-            //  for all clips). But on the other hand, it doesn't know about batches
-            //  and might therefore build a list of events for nothing!
-            column.fill_slot_with_clip(
-                address.row,
-                api_clip,
-                &self.chain_equipment,
-                &self.recorder_request_sender,
-                &self.settings,
-                FillClipMode::Add,
-            )?;
-        }
+        column.fill_slot_with_clips(
+            address.row,
+            api_clips,
+            &self.chain_equipment,
+            &self.recorder_request_sender,
+            &self.settings,
+            FillClipMode::Replace,
+        )?;
         Ok(())
     }
 
     /// Replaces the slot contents with the currently selected REAPER item.
-    pub fn replace_slot_contents_with_selected_item(
+    pub fn replace_slot_clips_with_selected_item(
         &mut self,
         address: ClipSlotAddress,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with selected item", |matrix| {
             let column = get_column_mut(&mut matrix.columns, address.column)?;
-            let event = column.replace_slot_contents_with_selected_item(
+            column.replace_slot_clips_with_selected_item(
                 address.row,
                 &matrix.chain_equipment,
                 &matrix.recorder_request_sender,
                 &matrix.settings,
             )?;
-            matrix.emit(ClipMatrixEvent::slot_changed(address, event));
+            matrix.emit(ClipMatrixEvent::slot_changed(
+                address,
+                SlotChangeEvent::Clips(""),
+            ));
             Ok(())
         })
     }
@@ -701,7 +698,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     .get_slot(source_address)?
                     .api_clips(matrix.permanent_project());
                 matrix.clear_slot_internal(source_address)?;
-                matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
+                matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
                 matrix.notify_everything_changed();
                 Ok(())
             }
@@ -720,7 +717,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .get_slot(source_address)?
             .api_clips(self.permanent_project());
         self.undoable("Copy slot to", |matrix| {
-            matrix.add_clips_to_slot(dest_address, clips_in_slot)?;
+            matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
             let event = SlotChangeEvent::Clips("Copied clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(dest_address, event));
             Ok(())
@@ -728,7 +725,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn move_scene_to(
+    pub fn move_scene(
         &mut self,
         source_row_index: usize,
         dest_row_index: usize,
@@ -835,7 +832,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn build_scene_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
         self.undoable("Build scene", |matrix| {
-            let playing_clips = matrix.capture_playing_clips()?;
+            let playing_clips = matrix.capture_playing_clips();
             matrix.distribute_clips_to_scene(playing_clips, row_index)?;
             matrix.notify_everything_changed();
             Ok(())
@@ -852,13 +849,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn distribute_clips_to_scene(
         &mut self,
-        clips: Vec<ApiClipWithColumn>,
+        slot_contents: Vec<SlotContentsWithColumn>,
         row_index: usize,
     ) -> ClipEngineResult<()> {
         let mut need_handle_sync = false;
-        for clip in clips {
+        for slot_content in slot_contents {
             // First try to put it within same column as clip itself
-            let original_column = get_column_mut(&mut self.columns, clip.column_index)?;
+            let original_column = get_column_mut(&mut self.columns, slot_content.column_index)?;
             let dest_column =
                 if original_column.follows_scene() && original_column.slot_is_empty(row_index) {
                     // We have space in that column, good.
@@ -876,7 +873,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         c
                     } else {
                         // Not found. Create a new one.
-                        let same_column = self.columns.get(clip.column_index).unwrap();
+                        let same_column = self.columns.get(slot_content.column_index).unwrap();
                         let mut duplicate = same_column.duplicate_without_contents();
                         duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
                         duplicate.sync_matrix_and_column_settings_to_rt_column(&self.settings);
@@ -885,9 +882,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                         self.columns.last_mut().unwrap()
                     }
                 };
-            dest_column.fill_slot_with_clip(
+            dest_column.fill_slot_with_clips(
                 row_index,
-                clip.value,
+                slot_content.value,
                 &self.chain_equipment,
                 &self.recorder_request_sender,
                 &self.settings,
@@ -913,16 +910,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.scene_columns().all(|c| c.slot_is_empty(row_index))
     }
 
-    fn capture_playing_clips(&self) -> ClipEngineResult<Vec<ApiClipWithColumn>> {
+    fn capture_playing_clips(&self) -> Vec<SlotContentsWithColumn> {
         let project = self.permanent_project();
         self.columns
             .iter()
             .enumerate()
-            .flat_map(|(col_index, col)| {
-                col.playing_clips().map(move |(_, clip)| {
-                    let api_clip = clip.save(project)?;
-                    Ok(ApiClipWithColumn::new(col_index, api_clip))
-                })
+            .map(|(col_index, col)| {
+                let api_clips = col
+                    .playing_clips()
+                    .filter_map(move |(_, clip)| clip.save(project).ok());
+                SlotContentsWithColumn::new(col_index, api_clips.collect())
             })
             .collect()
     }
@@ -1394,4 +1391,4 @@ impl<T> WithColumn<T> {
 
 pub type SlotWithColumn<'a> = WithColumn<&'a Slot>;
 
-pub type ApiClipWithColumn = WithColumn<api::Clip>;
+pub type SlotContentsWithColumn = WithColumn<Vec<api::Clip>>;

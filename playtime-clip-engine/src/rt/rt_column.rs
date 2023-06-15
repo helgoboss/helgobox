@@ -113,8 +113,8 @@ impl ColumnCommandSender {
         self.send_task(RtColumnCommand::UpdateMatrixSettings(settings));
     }
 
-    pub fn fill_slot_with_clip(&self, args: Box<Option<ColumnFillSlotArgs>>) {
-        self.send_task(RtColumnCommand::FillSlot(args));
+    pub fn load_slot(&self, args: Box<Option<ColumnLoadSlotArgs>>) {
+        self.send_task(RtColumnCommand::LoadSlot(args));
     }
 
     pub fn process_transport_change(&self, args: ColumnProcessTransportChangeArgs) {
@@ -200,7 +200,7 @@ pub enum RtColumnCommand {
     UpdateSettings(RtColumnSettings),
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
-    FillSlot(Box<Option<ColumnFillSlotArgs>>),
+    LoadSlot(Box<Option<ColumnLoadSlotArgs>>),
     ProcessTransportChange(ColumnProcessTransportChangeArgs),
     PlaySlot(ColumnPlaySlotArgs),
     PlayRow(ColumnPlayRowArgs),
@@ -376,13 +376,9 @@ impl RtColumn {
         }
     }
 
-    fn fill_slot(&mut self, args: ColumnFillSlotArgs) -> ClipEngineResult<()> {
-        let material_info = args.clip.material_info().unwrap();
+    fn load_slot(&mut self, args: ColumnLoadSlotArgs) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
-        let clip_id = args.clip.id();
-        slot.fill(args.clip, args.mode);
-        self.event_sender
-            .clip_material_info_changed(slot.id(), clip_id, material_info);
+        slot.load(&self.event_sender, args.clips);
         Ok(())
     }
 
@@ -675,9 +671,6 @@ impl RtColumn {
                 old_slot.load(&self.event_sender, mem::take(&mut new_slot.clips));
                 // Declare the old slot to be the new slot
                 let obsolete_slot = mem::replace(new_slot, old_slot);
-                // The old slot might actually still be playing. Notify listeners.
-                self.event_sender
-                    .slot_play_state_changed(new_slot.id(), new_slot.last_play_state());
                 // Dispose the obsolete slot
                 self.event_sender
                     .dispose(RtColumnGarbage::Slot(obsolete_slot));
@@ -734,11 +727,11 @@ impl RtColumn {
                 UpdateMatrixSettings(s) => {
                     self.matrix_settings = s;
                 }
-                FillSlot(mut boxed_args) => {
+                LoadSlot(mut boxed_args) => {
                     let args = boxed_args.take().unwrap();
-                    self.fill_slot(args).unwrap();
+                    self.load_slot(args).unwrap();
                     self.event_sender
-                        .dispose(RtColumnGarbage::FillSlotArgs(boxed_args));
+                        .dispose(RtColumnGarbage::LoadSlotArgs(boxed_args));
                 }
                 PlaySlot(args) => {
                     let result = self.play_slot(args, audio_request_props);
@@ -878,10 +871,6 @@ impl RtColumn {
         debug_assert_eq!(args.block.samples_out(), args.block.length());
     }
 
-    fn timeline(&self) -> HybridTimeline {
-        clip_timeline(self.project, false)
-    }
-
     fn extended(&mut self, _args: ExtendedArgs) -> i32 {
         // TODO-medium Maybe implement PCM_SOURCE_EXT_NOTIFYPREVIEWPLAYPOS. This is the only
         //  extended call done by the preview register, at least for type WAVE.
@@ -1004,10 +993,9 @@ pub struct ColumnMoveSlotArgs {
 }
 
 #[derive(Debug)]
-pub struct ColumnFillSlotArgs {
+pub struct ColumnLoadSlotArgs {
     pub slot_index: usize,
-    pub clip: RtClip,
-    pub mode: FillClipMode,
+    pub clips: RtClips,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -1164,7 +1152,7 @@ pub struct InteractionFailure {
 #[allow(clippy::large_enum_variant)]
 pub enum RtColumnGarbage {
     Slot(RtSlot),
-    FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
+    LoadSlotArgs(Box<Option<ColumnLoadSlotArgs>>),
     Clip(Option<RtClip>),
     RecordClipArgs(Box<Option<ColumnRecordClipArgs>>),
     Slots(RtSlots),

@@ -9,7 +9,7 @@ use crate::rt::supplier::{
     RecorderRequest, RecordingArgs, RecordingEquipment, RtClipSource, SupplierChain,
 };
 use crate::rt::{
-    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnFillSlotArgs,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadSlotArgs,
     ColumnSetClipLoopedArgs, FillClipMode, InternalClipPlayState, MidiOverdubInstruction,
     NormalRecordingOutcome, OverridableMatrixSettings, RecordNewClipInstruction, RtClipId, RtSlot,
     RtSlotId, SharedRtColumn, SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
@@ -287,13 +287,7 @@ impl Slot {
 
     /// Loads the given clips into the slot but doesn't bring them online yet.
     pub fn load(&mut self, api_clips: Vec<api::Clip>) {
-        self.contents = api_clips
-            .into_iter()
-            .map(|api_clip| {
-                let clip = Clip::load(api_clip);
-                (clip.rt_id(), Content::new(clip))
-            })
-            .collect();
+        self.contents = load_api_clips(api_clips).collect();
     }
 
     /// Brings the previously loaded clips online.
@@ -324,9 +318,9 @@ impl Slot {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn fill_slot_with_clip_internal(
+    pub fn fill_slot_with_clips(
         &mut self,
-        mut clip: Clip,
+        api_clips: Vec<api::Clip>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
@@ -334,22 +328,31 @@ impl Slot {
         rt_command_sender: &ColumnCommandSender,
         project: Option<Project>,
         mode: FillClipMode,
-    ) -> ClipEngineResult<SlotChangeEvent> {
-        let (rt_clip, pooled_midi_source) = clip.create_real_time_clip(
-            project,
+    ) {
+        // Load clips
+        let contents = load_api_clips(api_clips);
+        match mode {
+            FillClipMode::Add => {
+                self.contents.extend(contents);
+            }
+            FillClipMode::Replace => {
+                self.contents = contents.collect();
+            }
+        }
+        // Bring slot online
+        let rt_slot = self.bring_online(
             chain_equipment,
             recorder_request_sender,
-            &matrix_settings.overridable,
+            matrix_settings,
             column_settings,
-        )?;
-        self.fill_with_clip(clip, &rt_clip, pooled_midi_source, mode);
-        let args = ColumnFillSlotArgs {
+            project,
+        );
+        // Send real-time slot to the real-time column
+        let args = ColumnLoadSlotArgs {
             slot_index: self.index(),
-            clip: rt_clip,
-            mode,
+            clips: rt_slot.clips,
         };
-        rt_command_sender.fill_slot_with_clip(Box::new(Some(args)));
-        Ok(SlotChangeEvent::Clips("filled slot"))
+        rt_command_sender.load_slot(Box::new(Some(args)));
     }
 
     pub fn is_recording(&self) -> bool {
@@ -869,23 +872,6 @@ impl Slot {
         } else {
             RelevantContent::Normal(self.contents.values())
         }
-    }
-
-    pub(crate) fn fill_with_clip(
-        &mut self,
-        clip: Clip,
-        rt_clip: &rt::RtClip,
-        pooled_midi_source: Option<RtClipSource>,
-        mode: FillClipMode,
-    ) {
-        let content = Content {
-            clip,
-            online_data: Some(OnlineData::new(rt_clip, pooled_midi_source)),
-        };
-        if mode == FillClipMode::Replace {
-            self.contents.clear();
-        }
-        self.contents.insert(content.clip.rt_id(), content);
     }
 
     pub fn notify_recording_request_acknowledged(
@@ -1471,4 +1457,11 @@ impl<'a, T: Iterator<Item = &'a Content>> RelevantContent<'a, T> {
         };
         Ok(res)
     }
+}
+
+fn load_api_clips(api_clips: Vec<api::Clip>) -> impl Iterator<Item = (RtClipId, Content)> {
+    api_clips.into_iter().map(|api_clip| {
+        let clip = Clip::load(api_clip);
+        (clip.rt_id(), Content::new(clip))
+    })
 }
