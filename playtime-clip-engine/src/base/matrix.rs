@@ -507,11 +507,34 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn insert_row_before(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        todo!()
+        self.undoable("Insert row before", |matrix| {
+            matrix.insert_row_internal(row_index)
+        })
     }
 
     pub fn insert_row_after(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        todo!()
+        self.undoable("Insert row after", |matrix| {
+            matrix.insert_row_internal(row_index + 1)
+        })
+    }
+
+    fn insert_row_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        if row_index > self.rows.len() {
+            return Err("row index too large");
+        }
+        self.rows.insert(row_index, Row::new(RowId::random()));
+        for column in &mut self.columns {
+            column.insert_slot(
+                row_index,
+                ColumnRtEquipment {
+                    chain_equipment: &self.chain_equipment,
+                    recorder_request_sender: &self.recorder_request_sender,
+                    matrix_settings: &self.settings,
+                },
+            )?;
+        }
+        self.notify_everything_changed();
+        Ok(())
     }
 
     pub fn remove_row(&mut self, row_index: usize) -> ClipEngineResult<()> {

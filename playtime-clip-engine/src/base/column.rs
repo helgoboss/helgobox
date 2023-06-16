@@ -622,6 +622,22 @@ impl Column {
         Ok(())
     }
 
+    pub(crate) fn insert_slot(
+        &mut self,
+        slot_index: usize,
+        rt_equipment: ColumnRtEquipment,
+    ) -> ClipEngineResult<()> {
+        if slot_index > self.slots.len() {
+            return Err("slot index too large");
+        }
+        let new_slot = Slot::new(SlotId::random(), slot_index);
+        self.slots.insert(new_slot.rt_id(), new_slot);
+        self.slots.move_index(self.slots.len() - 1, slot_index);
+        self.reindex_slots();
+        self.resync_slots_to_rt_column(rt_equipment);
+        Ok(())
+    }
+
     pub(crate) fn remove_slot(&mut self, slot_index: usize) -> ClipEngineResult<()> {
         if slot_index >= self.slots.len() {
             return Err("slot to be removed doesn't exist");
