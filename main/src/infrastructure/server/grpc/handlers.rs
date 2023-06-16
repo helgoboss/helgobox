@@ -442,8 +442,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             }
             TriggerColumnAction::Remove => matrix.remove_column(column_index),
             TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index),
-            TriggerColumnAction::InsertBefore => matrix.insert_column_before(column_index),
-            TriggerColumnAction::InsertAfter => matrix.insert_column_after(column_index),
+            TriggerColumnAction::Insert => matrix.insert_column(column_index),
         })
     }
 
@@ -465,8 +464,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Paste => matrix.paste_scene(row_index),
             TriggerRowAction::Remove => matrix.remove_row(row_index),
             TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
-            TriggerRowAction::InsertBefore => matrix.insert_row_before(row_index),
-            TriggerRowAction::InsertAfter => matrix.insert_row_after(row_index),
+            TriggerRowAction::Insert => matrix.insert_row(row_index),
         })
     }
 

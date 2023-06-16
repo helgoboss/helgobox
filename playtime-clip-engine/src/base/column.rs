@@ -94,6 +94,20 @@ impl Column {
         &self.id
     }
 
+    pub fn duplicate(&self, rt_equipment: ColumnRtEquipment) -> Self {
+        let mut new = self.duplicate_without_contents();
+        new.slots = self
+            .slots
+            .values()
+            .map(|slot| {
+                let duplicate_slot = slot.duplicate(slot.index());
+                (duplicate_slot.rt_id(), duplicate_slot)
+            })
+            .collect();
+        new.resync_slots_to_rt_column(rt_equipment);
+        new
+    }
+
     pub(crate) fn set_clip_data(
         &mut self,
         slot_index: usize,
@@ -613,7 +627,7 @@ impl Column {
             .slots
             .get_index(slot_index)
             .ok_or("slot doesn't exist")?;
-        let duplicate_slot = slot.duplicate();
+        let duplicate_slot = slot.duplicate(slot_index + 1);
         let new_index = duplicate_slot.index();
         self.slots.insert(duplicate_slot.rt_id(), duplicate_slot);
         self.slots.move_index(self.slots.len() - 1, new_index);

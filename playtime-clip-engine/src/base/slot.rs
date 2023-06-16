@@ -243,12 +243,12 @@ impl Slot {
         self.rt_id
     }
 
-    pub fn duplicate(&self) -> Self {
+    pub fn duplicate(&self, new_index: usize) -> Self {
         let new_id = SlotId::random();
         Self {
             rt_id: RtSlotId::from_slot_id(&new_id),
             id: new_id,
-            index: self.index + 1,
+            index: new_index,
             play_state: Default::default(),
             contents: self
                 .contents

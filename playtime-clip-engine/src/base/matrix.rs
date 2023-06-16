@@ -476,14 +476,24 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn duplicate_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        todo!()
+        self.undoable("Duplicate column", |matrix| {
+            let column = matrix
+                .columns
+                .get(column_index)
+                .ok_or("column doesn't exist")?;
+            let duplicate_column = column.duplicate(ColumnRtEquipment {
+                chain_equipment: &matrix.chain_equipment,
+                recorder_request_sender: &matrix.recorder_request_sender,
+                matrix_settings: &matrix.settings,
+            });
+            matrix.columns.insert(column_index + 1, duplicate_column);
+            matrix.sync_column_handles_to_rt_matrix();
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
-    pub fn insert_column_before(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        todo!()
-    }
-
-    pub fn insert_column_after(&mut self, column_index: usize) -> ClipEngineResult<()> {
+    pub fn insert_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
         todo!()
     }
 
@@ -506,35 +516,25 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
-    pub fn insert_row_before(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        self.undoable("Insert row before", |matrix| {
-            matrix.insert_row_internal(row_index)
+    pub fn insert_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        self.undoable("Insert row", |matrix| {
+            if row_index > matrix.rows.len() {
+                return Err("row index too large");
+            }
+            matrix.rows.insert(row_index, Row::new(RowId::random()));
+            for column in &mut matrix.columns {
+                column.insert_slot(
+                    row_index,
+                    ColumnRtEquipment {
+                        chain_equipment: &matrix.chain_equipment,
+                        recorder_request_sender: &matrix.recorder_request_sender,
+                        matrix_settings: &matrix.settings,
+                    },
+                )?;
+            }
+            matrix.notify_everything_changed();
+            Ok(())
         })
-    }
-
-    pub fn insert_row_after(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        self.undoable("Insert row after", |matrix| {
-            matrix.insert_row_internal(row_index + 1)
-        })
-    }
-
-    fn insert_row_internal(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        if row_index > self.rows.len() {
-            return Err("row index too large");
-        }
-        self.rows.insert(row_index, Row::new(RowId::random()));
-        for column in &mut self.columns {
-            column.insert_slot(
-                row_index,
-                ColumnRtEquipment {
-                    chain_equipment: &self.chain_equipment,
-                    recorder_request_sender: &self.recorder_request_sender,
-                    matrix_settings: &self.settings,
-                },
-            )?;
-        }
-        self.notify_everything_changed();
-        Ok(())
     }
 
     pub fn remove_row(&mut self, row_index: usize) -> ClipEngineResult<()> {

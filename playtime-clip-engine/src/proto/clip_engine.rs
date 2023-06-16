@@ -647,8 +647,7 @@ pub enum TriggerColumnAction {
     ToggleArm = 3,
     Remove = 4,
     Duplicate = 5,
-    InsertBefore = 6,
-    InsertAfter = 7,
+    Insert = 6,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -663,8 +662,7 @@ impl TriggerColumnAction {
             TriggerColumnAction::ToggleArm => "TRIGGER_COLUMN_ACTION_TOGGLE_ARM",
             TriggerColumnAction::Remove => "TRIGGER_COLUMN_ACTION_REMOVE",
             TriggerColumnAction::Duplicate => "TRIGGER_COLUMN_ACTION_DUPLICATE",
-            TriggerColumnAction::InsertBefore => "TRIGGER_COLUMN_ACTION_INSERT_BEFORE",
-            TriggerColumnAction::InsertAfter => "TRIGGER_COLUMN_ACTION_INSERT_AFTER",
+            TriggerColumnAction::Insert => "TRIGGER_COLUMN_ACTION_INSERT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -676,8 +674,7 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_TOGGLE_ARM" => Some(Self::ToggleArm),
             "TRIGGER_COLUMN_ACTION_REMOVE" => Some(Self::Remove),
             "TRIGGER_COLUMN_ACTION_DUPLICATE" => Some(Self::Duplicate),
-            "TRIGGER_COLUMN_ACTION_INSERT_BEFORE" => Some(Self::InsertBefore),
-            "TRIGGER_COLUMN_ACTION_INSERT_AFTER" => Some(Self::InsertAfter),
+            "TRIGGER_COLUMN_ACTION_INSERT" => Some(Self::Insert),
             _ => None,
         }
     }
@@ -692,8 +689,7 @@ pub enum TriggerRowAction {
     Paste = 4,
     Remove = 5,
     Duplicate = 6,
-    InsertBefore = 7,
-    InsertAfter = 8,
+    Insert = 7,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -709,8 +705,7 @@ impl TriggerRowAction {
             TriggerRowAction::Paste => "TRIGGER_ROW_ACTION_PASTE",
             TriggerRowAction::Remove => "TRIGGER_ROW_ACTION_REMOVE",
             TriggerRowAction::Duplicate => "TRIGGER_ROW_ACTION_DUPLICATE",
-            TriggerRowAction::InsertBefore => "TRIGGER_ROW_ACTION_INSERT_BEFORE",
-            TriggerRowAction::InsertAfter => "TRIGGER_ROW_ACTION_INSERT_AFTER",
+            TriggerRowAction::Insert => "TRIGGER_ROW_ACTION_INSERT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -723,8 +718,7 @@ impl TriggerRowAction {
             "TRIGGER_ROW_ACTION_PASTE" => Some(Self::Paste),
             "TRIGGER_ROW_ACTION_REMOVE" => Some(Self::Remove),
             "TRIGGER_ROW_ACTION_DUPLICATE" => Some(Self::Duplicate),
-            "TRIGGER_ROW_ACTION_INSERT_BEFORE" => Some(Self::InsertBefore),
-            "TRIGGER_ROW_ACTION_INSERT_AFTER" => Some(Self::InsertAfter),
+            "TRIGGER_ROW_ACTION_INSERT" => Some(Self::Insert),
             _ => None,
         }
     }
