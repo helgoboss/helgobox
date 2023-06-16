@@ -94,8 +94,12 @@ impl ColumnCommandSender {
         Self { command_sender }
     }
 
-    pub fn move_slot(&self, args: ColumnMoveSlotArgs) {
-        self.send_task(RtColumnCommand::MoveSlot(args));
+    pub fn move_slot_contents(&self, args: ColumnMoveSlotContentsArgs) {
+        self.send_task(RtColumnCommand::MoveSlotContents(args));
+    }
+
+    pub fn reorder_slots(&self, args: ColumnReorderSlotsArgs) {
+        self.send_task(RtColumnCommand::ReorderSlots(args));
     }
 
     pub fn clear_slots(&self) {
@@ -204,7 +208,8 @@ pub enum RtColumnCommand {
     ClearSlots,
     Panic,
     Load(ColumnLoadArgs),
-    MoveSlot(ColumnMoveSlotArgs),
+    MoveSlotContents(ColumnMoveSlotContentsArgs),
+    ReorderSlots(ColumnReorderSlotsArgs),
     ClearSlot(usize),
     RemoveSlot(usize),
     UpdateColumnSettings(RtColumnSettings),
@@ -733,7 +738,7 @@ impl RtColumn {
         Ok(())
     }
 
-    pub fn move_slot(&mut self, args: ColumnMoveSlotArgs) -> ClipEngineResult<()> {
+    pub fn move_slot_contents(&mut self, args: ColumnMoveSlotContentsArgs) -> ClipEngineResult<()> {
         if args.source_index >= self.slots.len() {
             return Err("source index out of bounds");
         }
@@ -741,6 +746,17 @@ impl RtColumn {
             return Err("destination index out of bounds");
         }
         self.slots.swap_indices(args.source_index, args.dest_index);
+        Ok(())
+    }
+
+    pub fn reorder_slots(&mut self, args: ColumnReorderSlotsArgs) -> ClipEngineResult<()> {
+        if args.source_index >= self.slots.len() {
+            return Err("source index out of bounds");
+        }
+        if args.dest_index >= self.slots.len() {
+            return Err("destination index out of bounds");
+        }
+        self.slots.move_index(args.source_index, args.dest_index);
         Ok(())
     }
 
@@ -758,8 +774,11 @@ impl RtColumn {
                     let result = self.clear_slot(slot_index);
                     self.notify_user_about_failed_interaction(result);
                 }
-                MoveSlot(args) => {
-                    self.move_slot(args).unwrap();
+                MoveSlotContents(args) => {
+                    self.move_slot_contents(args).unwrap();
+                }
+                ReorderSlots(args) => {
+                    self.reorder_slots(args).unwrap();
                 }
                 UpdateColumnSettings(s) => {
                     self.settings = s;
@@ -1033,7 +1052,13 @@ pub struct ColumnLoadArgs {
 }
 
 #[derive(Debug)]
-pub struct ColumnMoveSlotArgs {
+pub struct ColumnMoveSlotContentsArgs {
+    pub source_index: usize,
+    pub dest_index: usize,
+}
+
+#[derive(Debug)]
+pub struct ColumnReorderSlotsArgs {
     pub source_index: usize,
     pub dest_index: usize,
 }

@@ -566,6 +566,21 @@ impl Default for ColumnId {
 }
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RowId(String);
+
+impl RowId {
+    pub fn random() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for RowId {
+    fn default() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SlotId(String);
 
 impl SlotId {
@@ -727,7 +742,8 @@ pub struct ColumnClipPlayAudioSettings {
 ///   column type.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Row {
-    // TODO-clip-implement
+    #[serde(default)]
+    pub id: RowId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// An optional tempo associated with this row.

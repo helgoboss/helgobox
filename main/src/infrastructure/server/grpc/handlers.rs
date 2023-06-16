@@ -286,7 +286,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let source_slot_address = convert_slot_address_to_engine(&req.source_slot_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
         handle_matrix_command(&req.matrix_id, |matrix| match action {
-            DragSlotAction::Move => matrix.move_slot(source_slot_address, dest_slot_address),
+            DragSlotAction::Move => matrix.move_slot_to(source_slot_address, dest_slot_address),
             DragSlotAction::Copy => matrix.copy_slot_to(source_slot_address, dest_slot_address),
         })
     }
@@ -296,11 +296,12 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         let action = DragRowAction::from_i32(req.action)
             .ok_or_else(|| Status::invalid_argument("unknown drag row action"))?;
         handle_matrix_command(&req.matrix_id, |matrix| match action {
-            DragRowAction::Move => {
-                matrix.move_scene(req.source_row_index as _, req.destination_row_index as _)
-            }
-            DragRowAction::Copy => {
-                matrix.copy_scene_to(req.source_row_index as _, req.destination_row_index as _)
+            DragRowAction::MoveContent => matrix
+                .move_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
+            DragRowAction::CopyContent => matrix
+                .copy_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
+            DragRowAction::Reorder => {
+                matrix.reorder_rows(req.source_row_index as _, req.destination_row_index as _)
             }
         })
     }
@@ -540,12 +541,15 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         // We shouldn't just change the column track directly, otherwise we get abrupt clicks
         // (audio) and hanging notes (MIDI). The following is a dirty but efficient solution to
         // prevent this.
+        // Immediately stop everything in that column (gracefully)
         let req = request.into_inner();
         handle_column_internal(&req.column_address, |matrix, column_index| {
             matrix.get_column(column_index)?.panic();
             Ok(())
         })?;
+        // Make sure to wait long enough until fade outs and stuff finished
         future_util::millis(50).await;
+        // Finally change column track
         handle_column_command(&req.column_address, |matrix, column_index| {
             let track_id = req.track_id.map(TrackId::new);
             matrix.set_column_playback_track(column_index, track_id.as_ref())?;

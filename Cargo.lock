@@ -845,7 +845,7 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_lex",
- "indexmap 1.9.1",
+ "indexmap",
  "strsim 0.10.0",
  "termcolor",
  "textwrap",
@@ -2118,7 +2118,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap 1.9.1",
+ "indexmap",
  "slab",
  "tokio",
  "tokio-util 0.7.3",
@@ -2421,18 +2421,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.7.0"
-source = "git+https://github.com/helgoboss/indexmap?branch=feature/clion-workaround#e687dd2c52a1631f28fe57fb61a11ed0e7ab55d9"
-dependencies = [
- "autocfg 1.0.1",
- "hashbrown 0.11.2",
-]
-
-[[package]]
-name = "indexmap"
-version = "1.9.1"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown 0.12.3",
@@ -2840,7 +2831,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb2da0a53ecf563b398350e3c1834ad27dd050eb47977472f2e654ccb39ff75f"
 dependencies = [
- "indexmap 1.9.1",
+ "indexmap",
  "metrics",
  "metrics-util",
  "parking_lot 0.11.2",
@@ -3652,7 +3643,7 @@ dependencies = [
  "enumflags2",
  "helgoboss-learn",
  "helgoboss-midi",
- "indexmap 1.7.0",
+ "indexmap",
  "itertools",
  "metrics",
  "nanoid",
@@ -3727,7 +3718,7 @@ dependencies = [
  "enumset",
  "fallible-iterator",
  "futures",
- "indexmap 1.7.0",
+ "indexmap",
  "itertools",
  "lexical-sort",
  "nanoid",
@@ -4223,7 +4214,7 @@ dependencies = [
  "hex",
  "hostname",
  "image 0.22.5",
- "indexmap 1.7.0",
+ "indexmap",
  "itertools",
  "lazycell",
  "lru",
@@ -4329,7 +4320,7 @@ name = "realearn-dialogs"
 version = "0.1.0"
 dependencies = [
  "derive_more",
- "indexmap 1.7.0",
+ "indexmap",
 ]
 
 [[package]]
@@ -4902,7 +4893,7 @@ dependencies = [
  "base64 0.13.0",
  "chrono",
  "hex",
- "indexmap 1.9.1",
+ "indexmap",
  "serde",
  "serde_json",
  "serde_with_macros",
@@ -4928,7 +4919,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad104641f3c958dab30eb3010e834c2622d1f3f4c530fef1dee20ad9485f3c09"
 dependencies = [
  "dtoa",
- "indexmap 1.9.1",
+ "indexmap",
  "serde",
  "yaml-rust",
 ]
@@ -5580,7 +5571,7 @@ checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
 dependencies = [
  "futures-core",
  "futures-util",
- "indexmap 1.9.1",
+ "indexmap",
  "pin-project",
  "pin-project-lite",
  "rand 0.8.4",

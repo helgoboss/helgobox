@@ -1,9 +1,10 @@
 use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
-    ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotArgs,
-    ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnStopArgs, ColumnStopSlotArgs, FillSlotMode,
-    OverridableMatrixSettings, RtColumnEvent, RtSlotId, RtSlots, SharedRtColumn, SlotChangeEvent,
+    ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotContentsArgs,
+    ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnReorderSlotsArgs, ColumnStopArgs,
+    ColumnStopSlotArgs, FillSlotMode, OverridableMatrixSettings, RtColumnEvent, RtSlotId, RtSlots,
+    SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -104,7 +105,11 @@ impl Column {
         Ok(())
     }
 
-    pub fn move_slot(&mut self, source_index: usize, dest_index: usize) -> ClipEngineResult<()> {
+    pub fn move_slot_contents(
+        &mut self,
+        source_index: usize,
+        dest_index: usize,
+    ) -> ClipEngineResult<()> {
         if source_index >= self.slots.len() {
             return Err("source index out of bounds");
         }
@@ -117,13 +122,34 @@ impl Column {
         // This will get more complicated in future as soon as we support moving on non-empty slots.
         self.slots.swap_indices(source_index, dest_index);
         self.reindex_slots();
-        self.rt_command_sender.move_slot(ColumnMoveSlotArgs {
-            source_index,
-            dest_index,
-        });
+        self.rt_command_sender
+            .move_slot_contents(ColumnMoveSlotContentsArgs {
+                source_index,
+                dest_index,
+            });
         Ok(())
     }
 
+    pub(crate) fn reorder_slots(
+        &mut self,
+        source_index: usize,
+        dest_index: usize,
+    ) -> ClipEngineResult<()> {
+        if source_index >= self.slots.len() {
+            return Err("source slot doesn't exist");
+        }
+        if dest_index >= self.slots.len() {
+            return Err("destination slot doesn't exist");
+        }
+        self.slots.move_index(source_index, dest_index);
+        self.reindex_slots();
+        self.rt_command_sender
+            .reorder_slots(ColumnReorderSlotsArgs {
+                source_index,
+                dest_index,
+            });
+        Ok(())
+    }
     pub fn set_play_mode(&mut self, play_mode: ColumnPlayMode) {
         self.rt_settings.play_mode = play_mode;
     }

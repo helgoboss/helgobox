@@ -22,7 +22,7 @@ use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
-    TempoRange, TrackId,
+    RowId, TempoRange, TrackId,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId};
@@ -302,9 +302,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .rows
             .unwrap_or_default()
             .into_iter()
-            .map(|_| Row {})
+            .map(Row::from_api_row)
             .collect();
-        self.rows.resize(necessary_row_count, Row {});
+        self.rows
+            .resize_with(necessary_row_count, || Row::new(RowId::random()));
         // Sync to real-time matrix
         self.sync_column_handles_to_rt_matrix();
         // Retire old and now unused columns
@@ -693,7 +694,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn move_slot(
+    pub fn move_slot_to(
         &mut self,
         source_address: ClipSlotAddress,
         dest_address: ClipSlotAddress,
@@ -705,7 +706,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             if source_address.column == dest_address.column {
                 // Special handling. We can easily move within the same column.
                 let column = matrix.get_column_mut(source_address.column)?;
-                column.move_slot(source_address.row, dest_address.row)?;
+                column.move_slot_contents(source_address.row, dest_address.row)?;
                 matrix.notify_everything_changed();
                 Ok(())
             } else {
@@ -740,7 +741,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn move_scene(
+    pub fn move_scene_content_to(
         &mut self,
         source_row_index: usize,
         dest_row_index: usize,
@@ -749,7 +750,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             return Ok(());
         }
         let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
-        self.undoable("Move scene to", |matrix| {
+        self.undoable("Move scene content to", |matrix| {
             matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
             matrix.clear_scene_internal(source_row_index)?;
             matrix.notify_everything_changed();
@@ -757,7 +758,32 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
-    pub fn copy_scene_to(
+    pub fn reorder_rows(
+        &mut self,
+        source_row_index: usize,
+        dest_row_index: usize,
+    ) -> ClipEngineResult<()> {
+        if source_row_index >= self.rows.len() {
+            return Err("source row doesn't exist");
+        }
+        if source_row_index >= self.rows.len() {
+            return Err("destination row doesn't exist");
+        }
+        if source_row_index == dest_row_index {
+            return Ok(());
+        }
+        self.undoable("Reorder rows", |matrix| {
+            let source_row = matrix.rows.remove(source_row_index);
+            matrix.rows.insert(dest_row_index, source_row);
+            for column in &mut matrix.columns {
+                column.reorder_slots(source_row_index, dest_row_index)?;
+            }
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
+    pub fn copy_scene_content_to(
         &mut self,
         source_row_index: usize,
         dest_row_index: usize,
@@ -766,7 +792,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             return Ok(());
         }
         let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
-        self.undoable("Copy scene to", |matrix| {
+        self.undoable("Copy scene content to", |matrix| {
             matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
             matrix.notify_everything_changed();
             Ok(())

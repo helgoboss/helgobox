@@ -702,8 +702,9 @@ impl TriggerRowAction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum DragRowAction {
-    Move = 0,
-    Copy = 1,
+    MoveContent = 0,
+    CopyContent = 1,
+    Reorder = 2,
 }
 impl DragRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -712,15 +713,17 @@ impl DragRowAction {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            DragRowAction::Move => "DRAG_ROW_ACTION_MOVE",
-            DragRowAction::Copy => "DRAG_ROW_ACTION_COPY",
+            DragRowAction::MoveContent => "DRAG_ROW_ACTION_MOVE_CONTENT",
+            DragRowAction::CopyContent => "DRAG_ROW_ACTION_COPY_CONTENT",
+            DragRowAction::Reorder => "DRAG_ROW_ACTION_REORDER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "DRAG_ROW_ACTION_MOVE" => Some(Self::Move),
-            "DRAG_ROW_ACTION_COPY" => Some(Self::Copy),
+            "DRAG_ROW_ACTION_MOVE_CONTENT" => Some(Self::MoveContent),
+            "DRAG_ROW_ACTION_COPY_CONTENT" => Some(Self::CopyContent),
+            "DRAG_ROW_ACTION_REORDER" => Some(Self::Reorder),
             _ => None,
         }
     }

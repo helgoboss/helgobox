@@ -2,14 +2,13 @@ mod clip_engine;
 
 use crate::base::{Clip, ClipSlotAddress, History, Matrix, Slot};
 use crate::rt::InternalClipPlayState;
-use crate::{base, clip_timeline, proto, ClipEngineResult, Timeline};
+use crate::{base, clip_timeline, ClipEngineResult, Timeline};
 pub use clip_engine::*;
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{Project, Track};
 use reaper_medium::{
     Bpm, Db, InputMonitoringMode, PlayState, ReaperPanValue, RecordingInput, RgbColor,
 };
-use std::cmp;
 
 impl occasional_matrix_update::Update {
     pub fn volume(db: Db) -> Self {
