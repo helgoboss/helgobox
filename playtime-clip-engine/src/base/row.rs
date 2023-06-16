@@ -27,4 +27,11 @@ impl Row {
             time_signature: None,
         }
     }
+
+    pub fn duplicate(&self) -> Self {
+        Self {
+            id: RowId::random(),
+            name: self.name.clone(),
+        }
+    }
 }

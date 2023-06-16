@@ -76,6 +76,20 @@ impl Clip {
         Ok(clip)
     }
 
+    pub fn duplicate(&self) -> Self {
+        let new_id = ClipId::random();
+        Self {
+            rt_id: RtClipId::from_clip_id(&new_id),
+            id: new_id,
+            name: self.name.clone(),
+            color: self.color.clone(),
+            source: self.source.clone(),
+            frozen_source: self.frozen_source.clone(),
+            active_source: self.active_source.clone(),
+            rt_settings: self.rt_settings,
+        }
+    }
+
     pub fn rt_settings(&self) -> &RtClipSettings {
         &self.rt_settings
     }

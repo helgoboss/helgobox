@@ -9,12 +9,12 @@ use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_slot_update, DragRowAction, DragRowRequest, DragSlotAction,
-    DragSlotRequest, Empty, FullClipAddress, FullColumnAddress, FullRowAddress, FullSlotAddress,
-    GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
-    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
-    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
-    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    qualified_occasional_slot_update, DragColumnAction, DragColumnRequest, DragRowAction,
+    DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress, FullColumnAddress,
+    FullRowAddress, FullSlotAddress, GetClipDetailReply, GetClipDetailRequest,
+    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
@@ -306,6 +306,21 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         })
     }
 
+    async fn drag_column(
+        &self,
+        request: Request<DragColumnRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let action = DragColumnAction::from_i32(req.action)
+            .ok_or_else(|| Status::invalid_argument("unknown drag column action"))?;
+        handle_matrix_command(&req.matrix_id, |matrix| match action {
+            DragColumnAction::Reorder => matrix.reorder_columns(
+                req.source_column_index as _,
+                req.destination_column_index as _,
+            ),
+        })
+    }
+
     async fn set_clip_name(
         &self,
         request: Request<SetClipNameRequest>,
@@ -426,6 +441,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 Ok(())
             }
             TriggerColumnAction::Remove => matrix.remove_column(column_index),
+            TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index),
+            TriggerColumnAction::InsertBefore => matrix.insert_column_before(column_index),
+            TriggerColumnAction::InsertAfter => matrix.insert_column_after(column_index),
         })
     }
 
@@ -446,6 +464,9 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Cut => matrix.cut_scene(row_index),
             TriggerRowAction::Paste => matrix.paste_scene(row_index),
             TriggerRowAction::Remove => matrix.remove_row(row_index),
+            TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
+            TriggerRowAction::InsertBefore => matrix.insert_row_before(row_index),
+            TriggerRowAction::InsertAfter => matrix.insert_row_after(row_index),
         })
     }
 

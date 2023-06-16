@@ -178,10 +178,8 @@ impl Column {
     pub fn load(
         &mut self,
         api_column: api::Column,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
         necessary_row_count: usize,
+        rt_equipment: ColumnRtEquipment,
     ) -> ClipEngineResult<()> {
         // Track
         let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
@@ -212,26 +210,40 @@ impl Column {
             })
             .collect();
         // Bring slots online
+        self.resync_slots_to_rt_column(rt_equipment);
+        // Send real-time slots to the real-time column
+        self.sync_matrix_and_column_settings_to_rt_column_internal(rt_equipment.matrix_settings);
+        Ok(())
+    }
+
+    /// Resynchronizes all slots to the real-time column.
+    ///
+    /// Although this recreates all PCM sources and sends them to the real-time column, the
+    /// real-time column should take core to not do more than necessary and ensure a smooth
+    /// transition into the new state. This is the code that's also used for undo/redo (restoring
+    /// history states).
+    ///
+    /// So this can also be used for small changed when too lazy to create a real-time column
+    /// command. It's a bit heavier on resources though, so it shouldn't be used for column changes
+    /// that can happen very frequently.
+    fn resync_slots_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
         let rt_slots: RtSlots = self
             .slots
             .values_mut()
             .map(|slot| {
                 let rt_slot = slot.bring_online(
-                    chain_equipment,
-                    recorder_request_sender,
-                    matrix_settings,
+                    rt_equipment.chain_equipment,
+                    rt_equipment.recorder_request_sender,
+                    rt_equipment.matrix_settings,
                     &self.rt_settings,
                     self.project,
                 );
                 (rt_slot.id(), rt_slot)
             })
             .collect();
-        // Send real-time slots to the real-time column
-        self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
         self.rt_command_sender.load(ColumnLoadArgs {
             new_slots: rt_slots,
         });
-        Ok(())
     }
 
     fn init_preview_register_if_necessary(&mut self, track: Option<Track>) {
@@ -589,6 +601,27 @@ impl Column {
         self.rt_command_sender.stop_slot(args);
     }
 
+    pub(crate) fn duplicate_slot(
+        &mut self,
+        slot_index: usize,
+        rt_equipment: ColumnRtEquipment,
+    ) -> ClipEngineResult<()> {
+        if slot_index >= self.slots.len() {
+            return Err("slot to be removed doesn't exist");
+        }
+        let (_, slot) = self
+            .slots
+            .get_index(slot_index)
+            .ok_or("slot doesn't exist")?;
+        let duplicate_slot = slot.duplicate();
+        let new_index = duplicate_slot.index();
+        self.slots.insert(duplicate_slot.rt_id(), duplicate_slot);
+        self.slots.move_index(self.slots.len() - 1, new_index);
+        self.reindex_slots();
+        self.resync_slots_to_rt_column(rt_equipment);
+        Ok(())
+    }
+
     pub(crate) fn remove_slot(&mut self, slot_index: usize) -> ClipEngineResult<()> {
         if slot_index >= self.slots.len() {
             return Err("slot to be removed doesn't exist");
@@ -821,4 +854,11 @@ fn resolve_recording_track(
 pub(crate) struct SlotKit<'a> {
     pub slot: &'a mut Slot,
     pub sender: &'a ColumnCommandSender,
+}
+
+#[derive(Copy, Clone)]
+pub struct ColumnRtEquipment<'a> {
+    pub chain_equipment: &'a ChainEquipment,
+    pub recorder_request_sender: &'a Sender<RecorderRequest>,
+    pub matrix_settings: &'a MatrixSettings,
 }

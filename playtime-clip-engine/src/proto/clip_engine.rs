@@ -123,6 +123,18 @@ pub struct TriggerRowRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DragColumnRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub source_column_index: u32,
+    #[prost(uint32, tag = "3")]
+    pub destination_column_index: u32,
+    #[prost(enumeration = "DragColumnAction", tag = "4")]
+    pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragRowRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
@@ -634,6 +646,9 @@ pub enum TriggerColumnAction {
     ToggleSolo = 2,
     ToggleArm = 3,
     Remove = 4,
+    Duplicate = 5,
+    InsertBefore = 6,
+    InsertAfter = 7,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -647,6 +662,9 @@ impl TriggerColumnAction {
             TriggerColumnAction::ToggleSolo => "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO",
             TriggerColumnAction::ToggleArm => "TRIGGER_COLUMN_ACTION_TOGGLE_ARM",
             TriggerColumnAction::Remove => "TRIGGER_COLUMN_ACTION_REMOVE",
+            TriggerColumnAction::Duplicate => "TRIGGER_COLUMN_ACTION_DUPLICATE",
+            TriggerColumnAction::InsertBefore => "TRIGGER_COLUMN_ACTION_INSERT_BEFORE",
+            TriggerColumnAction::InsertAfter => "TRIGGER_COLUMN_ACTION_INSERT_AFTER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -657,6 +675,9 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_TOGGLE_SOLO" => Some(Self::ToggleSolo),
             "TRIGGER_COLUMN_ACTION_TOGGLE_ARM" => Some(Self::ToggleArm),
             "TRIGGER_COLUMN_ACTION_REMOVE" => Some(Self::Remove),
+            "TRIGGER_COLUMN_ACTION_DUPLICATE" => Some(Self::Duplicate),
+            "TRIGGER_COLUMN_ACTION_INSERT_BEFORE" => Some(Self::InsertBefore),
+            "TRIGGER_COLUMN_ACTION_INSERT_AFTER" => Some(Self::InsertAfter),
             _ => None,
         }
     }
@@ -670,6 +691,9 @@ pub enum TriggerRowAction {
     Cut = 3,
     Paste = 4,
     Remove = 5,
+    Duplicate = 6,
+    InsertBefore = 7,
+    InsertAfter = 8,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -684,6 +708,9 @@ impl TriggerRowAction {
             TriggerRowAction::Cut => "TRIGGER_ROW_ACTION_CUT",
             TriggerRowAction::Paste => "TRIGGER_ROW_ACTION_PASTE",
             TriggerRowAction::Remove => "TRIGGER_ROW_ACTION_REMOVE",
+            TriggerRowAction::Duplicate => "TRIGGER_ROW_ACTION_DUPLICATE",
+            TriggerRowAction::InsertBefore => "TRIGGER_ROW_ACTION_INSERT_BEFORE",
+            TriggerRowAction::InsertAfter => "TRIGGER_ROW_ACTION_INSERT_AFTER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -695,6 +722,32 @@ impl TriggerRowAction {
             "TRIGGER_ROW_ACTION_CUT" => Some(Self::Cut),
             "TRIGGER_ROW_ACTION_PASTE" => Some(Self::Paste),
             "TRIGGER_ROW_ACTION_REMOVE" => Some(Self::Remove),
+            "TRIGGER_ROW_ACTION_DUPLICATE" => Some(Self::Duplicate),
+            "TRIGGER_ROW_ACTION_INSERT_BEFORE" => Some(Self::InsertBefore),
+            "TRIGGER_ROW_ACTION_INSERT_AFTER" => Some(Self::InsertAfter),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DragColumnAction {
+    Reorder = 0,
+}
+impl DragColumnAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            DragColumnAction::Reorder => "DRAG_COLUMN_ACTION_REORDER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DRAG_COLUMN_ACTION_REORDER" => Some(Self::Reorder),
             _ => None,
         }
     }
@@ -980,6 +1033,10 @@ pub mod clip_engine_server {
         async fn set_column_track(
             &self,
             request: tonic::Request<super::SetColumnTrackRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn drag_column(
+            &self,
+            request: tonic::Request<super::DragColumnRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Row commands
         async fn trigger_row(
@@ -1478,6 +1535,44 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SetColumnTrackSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/DragColumn" => {
+                    #[allow(non_camel_case_types)]
+                    struct DragColumnSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::DragColumnRequest>
+                    for DragColumnSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DragColumnRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).drag_column(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = DragColumnSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

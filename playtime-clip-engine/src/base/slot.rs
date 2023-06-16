@@ -137,6 +137,13 @@ impl Content {
         }
     }
 
+    pub fn duplicate(&self) -> Self {
+        Self {
+            clip: self.clip.duplicate(),
+            online_data: None,
+        }
+    }
+
     pub fn is_freezable(&self) -> bool {
         if let Some(od) = self.online_data.as_ref() {
             od.is_freezable()
@@ -234,6 +241,26 @@ impl Slot {
 
     pub fn rt_id(&self) -> RtSlotId {
         self.rt_id
+    }
+
+    pub fn duplicate(&self) -> Self {
+        let new_id = SlotId::random();
+        Self {
+            rt_id: RtSlotId::from_slot_id(&new_id),
+            id: new_id,
+            index: self.index + 1,
+            play_state: Default::default(),
+            contents: self
+                .contents
+                .values()
+                .map(|content| {
+                    let duplicate_content = content.duplicate();
+                    (duplicate_content.clip.rt_id(), duplicate_content)
+                })
+                .collect(),
+            state: Default::default(),
+            temporary_route: None,
+        }
     }
 
     pub fn is_empty(&self) -> bool {

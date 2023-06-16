@@ -1,6 +1,6 @@
 use crate::base::history::History;
 use crate::base::row::Row;
-use crate::base::{Clip, Column, Slot, SlotKit};
+use crate::base::{Clip, Column, ColumnRtEquipment, Slot, SlotKit};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -290,10 +290,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 .unwrap_or_else(|| Column::new(api_column.id.clone(), permanent_project));
             column.load(
                 api_column,
-                &self.chain_equipment,
-                &self.recorder_request_sender,
-                &self.settings,
                 necessary_row_count,
+                ColumnRtEquipment {
+                    chain_equipment: &self.chain_equipment,
+                    recorder_request_sender: &self.recorder_request_sender,
+                    matrix_settings: &self.settings,
+                },
             )?;
             self.columns.push(column);
         }
@@ -473,6 +475,45 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
+    pub fn duplicate_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
+    pub fn insert_column_before(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
+    pub fn insert_column_after(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
+    pub fn duplicate_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        self.undoable("Duplicate row", |matrix| {
+            let row = matrix.rows.get(row_index).ok_or("row doesn't exist")?;
+            matrix.rows.insert(row_index + 1, row.duplicate());
+            for column in &mut matrix.columns {
+                column.duplicate_slot(
+                    row_index,
+                    ColumnRtEquipment {
+                        chain_equipment: &matrix.chain_equipment,
+                        recorder_request_sender: &matrix.recorder_request_sender,
+                        matrix_settings: &matrix.settings,
+                    },
+                )?;
+            }
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
+    pub fn insert_row_before(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
+    pub fn insert_row_after(&mut self, row_index: usize) -> ClipEngineResult<()> {
+        todo!()
+    }
+
     pub fn remove_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
         if row_index >= self.row_count() {
             return Err("row doesn't exist");
@@ -482,7 +523,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             for column in &mut matrix.columns {
                 // It's possible that the slot index doesn't exist in that column because slots
                 // are added lazily.
-                let _ = column.remove_slot(row_index);
+                column.remove_slot(row_index)?;
             }
             matrix.notify_everything_changed();
             Ok(())
@@ -758,6 +799,28 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
+    pub fn reorder_columns(
+        &mut self,
+        source_column_index: usize,
+        dest_column_index: usize,
+    ) -> ClipEngineResult<()> {
+        if source_column_index >= self.columns.len() {
+            return Err("source column doesn't exist");
+        }
+        if dest_column_index >= self.columns.len() {
+            return Err("destination column doesn't exist");
+        }
+        if source_column_index == dest_column_index {
+            return Ok(());
+        }
+        self.undoable("Reorder columns", |matrix| {
+            let source_column = matrix.columns.remove(source_column_index);
+            matrix.columns.insert(dest_column_index, source_column);
+            matrix.notify_everything_changed();
+            Ok(())
+        })
+    }
+
     pub fn reorder_rows(
         &mut self,
         source_row_index: usize,
@@ -766,7 +829,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if source_row_index >= self.rows.len() {
             return Err("source row doesn't exist");
         }
-        if source_row_index >= self.rows.len() {
+        if dest_row_index >= self.rows.len() {
             return Err("destination row doesn't exist");
         }
         if source_row_index == dest_row_index {
@@ -910,6 +973,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     original_column
                 } else {
                     // We need to find another appropriate column.
+                    // TODO-high We shouldn't do that but use the multi-clip-per-slot feature!
                     let original_column_track = original_column.playback_track().ok().cloned();
                     let existing_column = self.columns.iter_mut().find(|c| {
                         c.follows_scene()
