@@ -50,7 +50,6 @@ pub struct InstanceState {
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-    slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
     /// - Not persistent
@@ -212,7 +211,6 @@ impl InstanceState {
             clip_matrix_event_sender,
             audio_hook_task_sender,
             real_time_processor_sender,
-            slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
             mapping_infos: Default::default(),
@@ -432,12 +430,6 @@ impl InstanceState {
             matrix: real_time_matrix,
         };
         self.real_time_processor_sender.send_complaining(rt_task);
-    }
-
-    pub fn slot_contents_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.slot_contents_changed_subject.clone()
     }
 
     pub fn set_mapping_infos(&mut self, mapping_infos: HashMap<QualifiedMappingId, MappingInfo>) {

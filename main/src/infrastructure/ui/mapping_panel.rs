@@ -5896,15 +5896,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel.when(
-            self.session
-                .instance_state()
-                .borrow()
-                .slot_contents_changed(),
-            |view, _| {
-                view.invalidate_target_line_3_label_2();
-            },
-        );
-        self.panel.when(
             self.session.instance_state().borrow().on_mappings_changed(),
             |view, _| {
                 view.invalidate_window_title();

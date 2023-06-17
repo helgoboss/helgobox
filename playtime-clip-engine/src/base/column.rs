@@ -7,7 +7,6 @@ use crate::rt::{
     SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
-use base::hash_util::create_non_crypto_hash_builder;
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use enumflags2::BitFlags;
