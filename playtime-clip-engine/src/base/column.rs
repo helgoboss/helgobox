@@ -7,6 +7,7 @@ use crate::rt::{
     SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
+use base::hash_util::create_non_crypto_hash_builder;
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use enumflags2::BitFlags;
@@ -65,11 +66,18 @@ impl ColumnSettings {
 struct PlayingPreviewRegister {
     _preview_register: SharedRegister,
     play_handle: NonNull<preview_register_t>,
-    track: Option<Track>,
+    track: Track,
 }
 
 impl Column {
-    pub fn new(id: ColumnId, permanent_project: Option<Project>) -> Self {
+    /// Creates a column with default settings, all slots empty and without a track.
+    ///
+    /// In order to make the column fully functional, a playback track must be set at a later stage.
+    pub fn new(
+        id: ColumnId,
+        permanent_project: Option<Project>,
+        initial_slot_count: usize,
+    ) -> Self {
         let (command_sender, command_receiver) = crossbeam_channel::bounded(500);
         let (event_sender, event_receiver) = crossbeam_channel::bounded(500);
         let source = rt::RtColumn::new(permanent_project, command_receiver, event_sender);
@@ -78,13 +86,15 @@ impl Column {
             id,
             settings: Default::default(),
             rt_settings: Default::default(),
-            // preview_register: {
-            //     PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
-            // },
             preview_register: None,
             rt_column: shared_source,
             rt_command_sender: ColumnCommandSender::new(command_sender),
-            slots: Default::default(),
+            slots: (0..initial_slot_count)
+                .map(|i| {
+                    let slot = Slot::new(SlotId::random(), i);
+                    (slot.rt_id(), slot)
+                })
+                .collect(),
             event_receiver,
             project: permanent_project,
         }
@@ -168,13 +178,12 @@ impl Column {
         self.rt_settings.play_mode = play_mode;
     }
 
+    /// Duplicates the column including the playback track and the settings but without slots.
     pub fn duplicate_without_contents(&self) -> Self {
-        let mut duplicate = Self::new(ColumnId::random(), self.project);
+        let mut duplicate = Self::new(ColumnId::random(), self.project, self.slots.len());
         duplicate.settings = self.settings.clone();
         duplicate.rt_settings = self.rt_settings.clone();
-        if let Some(pr) = &self.preview_register {
-            duplicate.init_preview_register_if_necessary(pr.track.clone());
-        }
+        duplicate.set_playback_track(self.playback_track().ok().cloned());
         duplicate
     }
 
@@ -183,7 +192,7 @@ impl Column {
         &self.rt_command_sender
     }
 
-    pub fn resolve_track_by_id(&self, track_id: &TrackId) -> ClipEngineResult<Track> {
+    fn resolve_track_from_id(&self, track_id: &TrackId) -> ClipEngineResult<Track> {
         let guid = Guid::from_string_without_braces(track_id.get())?;
         let track = self.project.or_current_project().track_by_guid(&guid)?;
         Ok(track)
@@ -196,12 +205,12 @@ impl Column {
         rt_equipment: ColumnRtEquipment,
     ) -> ClipEngineResult<()> {
         // Track
-        let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
-            self.resolve_track_by_id(id).ok()
-        } else {
-            None
-        };
-        self.init_preview_register_if_necessary(track);
+        let track = api_column
+            .clip_play_settings
+            .track
+            .as_ref()
+            .and_then(|id| self.resolve_track_from_id(id).ok());
+        self.set_playback_track(track);
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
         self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
@@ -260,14 +269,18 @@ impl Column {
         });
     }
 
-    fn init_preview_register_if_necessary(&mut self, track: Option<Track>) {
-        if let Some(r) = &self.preview_register {
-            if r.track == track {
-                // No need to init. Column already uses a preview register for that track.
+    /// Sets the playback track, recreating the preview register if necessary.
+    pub fn set_playback_track(&mut self, track: Option<Track>) {
+        // Check if recreation of preview register is necessary
+        if let (Some(existing_register), Some(track)) = (&self.preview_register, track.as_ref()) {
+            if &existing_register.track == track {
+                // No need to recreate. Column already uses a preview register for that track.
                 return;
             }
         }
-        self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
+        // Update preview register
+        self.preview_register =
+            track.map(|t| PlayingPreviewRegister::new(self.rt_column.clone(), t));
     }
 
     pub fn sync_matrix_and_column_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
@@ -328,20 +341,11 @@ impl Column {
         }
     }
 
-    /// Returns the actual number of slots in this column.
-    ///
-    /// Just interesting for internal usage. For external usage, the matrix row count is important.
-    pub(super) fn slot_count(&self) -> usize {
-        self.slots.len()
-    }
-
     pub fn save(&self) -> api::Column {
-        let track_id = self.preview_register.as_ref().and_then(|reg| {
-            reg.track
-                .as_ref()
-                .map(|t| t.guid().to_string_without_braces())
-                .map(api::TrackId::new)
-        });
+        let track_id = self
+            .playback_track()
+            .ok()
+            .map(|t| TrackId::new(t.guid().to_string_without_braces()));
         api::Column {
             id: self.id.clone(),
             clip_play_settings: ColumnClipPlaySettings {
@@ -714,24 +718,23 @@ impl Column {
     }
 
     /// Sets the playback track of this column.
-    pub fn set_playback_track(&mut self, track_id: Option<&TrackId>) -> ClipEngineResult<()> {
+    pub fn set_playback_track_from_id(
+        &mut self,
+        track_id: Option<&TrackId>,
+    ) -> ClipEngineResult<()> {
         let track = if let Some(id) = track_id {
-            Some(self.resolve_track_by_id(id)?)
+            Some(self.resolve_track_from_id(id)?)
         } else {
             None
         };
-        self.init_preview_register_if_necessary(track);
+        self.set_playback_track(track);
         Ok(())
     }
 
     /// Returns the playback track of this column.
     pub fn playback_track(&self) -> ClipEngineResult<&Track> {
-        self.preview_register
-            .as_ref()
-            .ok_or("column inactive")?
-            .track
-            .as_ref()
-            .ok_or("no playback track set")
+        let preview_register = self.preview_register.as_ref().ok_or("column inactive")?;
+        Ok(&preview_register.track)
     }
 
     pub fn follows_scene(&self) -> bool {
@@ -779,20 +782,15 @@ impl Drop for PlayingPreviewRegister {
 }
 
 impl PlayingPreviewRegister {
-    pub fn new(source: impl CustomPcmSource + 'static, track: Option<Track>) -> Self {
+    pub fn new(source: impl CustomPcmSource + 'static, track: Track) -> Self {
         let mut register = OwnedPreviewRegister::default();
         register.set_volume(ReaperVolumeValue::ZERO_DB);
-        let (out_chan, preview_track) = if let Some(t) = track.as_ref() {
-            (-1, Some(t.raw()))
-        } else {
-            (0, None)
-        };
-        register.set_out_chan(out_chan);
-        register.set_preview_track(preview_track);
+        register.set_out_chan(-1);
+        register.set_preview_track(Some(track.raw()));
         let source = create_custom_owned_pcm_source(source);
         register.set_src(Some(FlexibleOwnedPcmSource::Custom(source)));
         let preview_register = Arc::new(ReaperMutex::new(register));
-        let play_handle = start_playing_preview(&preview_register, track.as_ref());
+        let play_handle = start_playing_preview(&preview_register, &track);
         Self {
             _preview_register: preview_register,
             play_handle,
@@ -801,45 +799,28 @@ impl PlayingPreviewRegister {
     }
 
     fn stop_playing_preview(&mut self) {
-        if let Some(track) = &self.track {
-            // Check prevents error message on project close.
-            let project = track.project();
-            // If not successful this probably means it was stopped already, so okay.
-            let _ = Reaper::get()
-                .medium_session()
-                .stop_track_preview_2(project.context(), self.play_handle);
-        } else {
-            // If not successful this probably means it was stopped already, so okay.
-            let _ = Reaper::get()
-                .medium_session()
-                .stop_preview(self.play_handle);
-        };
+        // Check prevents error message on project close.
+        let project = self.track.project();
+        // If not successful this probably means it was stopped already, so okay.
+        let _ = Reaper::get()
+            .medium_session()
+            .stop_track_preview_2(project.context(), self.play_handle);
     }
 }
 
-fn start_playing_preview(
-    reg: &SharedRegister,
-    track: Option<&Track>,
-) -> NonNull<preview_register_t> {
+fn start_playing_preview(reg: &SharedRegister, track: &Track) -> NonNull<preview_register_t> {
     debug!("Starting preview on track {:?}", &track);
     let buffering_behavior = BitFlags::empty();
     let measure_alignment = MeasureAlignment::PlayImmediately;
-    let result = if let Some(track) = track {
-        Reaper::get().medium_session().play_track_preview_2_ex(
+    Reaper::get()
+        .medium_session()
+        .play_track_preview_2_ex(
             track.project().context(),
             reg.clone(),
             buffering_behavior,
             measure_alignment,
         )
-    } else {
-        panic!("Attempting to initialize column without track. Not yet supported.")
-        // Reaper::get().medium_session().play_preview_ex(
-        //     reg.clone(),
-        //     buffering_behavior,
-        //     measure_alignment,
-        // )
-    };
-    result.unwrap()
+        .expect("starting column preview failed")
 }
 
 fn get_slot_mut(slots: &mut Slots, index: usize) -> ClipEngineResult<&mut Slot> {

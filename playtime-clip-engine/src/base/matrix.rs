@@ -20,7 +20,7 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, ColumnPlayMode, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
     RowId, TempoRange, TrackId,
 };
@@ -29,7 +29,7 @@ use reaper_medium::{Bpm, MidiInputDeviceId};
 use std::collections::HashMap;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use std::{cmp, mem, thread};
+use std::{mem, thread};
 
 #[derive(Debug)]
 pub struct Matrix<H> {
@@ -204,6 +204,7 @@ impl<H> Matrix<H> {
 }
 
 impl<H: ClipMatrixHandler> Matrix<H> {
+    /// Creates an empty matrix with no columns and no rows.
     pub fn new(handler: H, containing_track: Option<Track>) -> Self {
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
@@ -285,9 +286,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .map(|c| (c.id().clone(), c))
             .collect();
         for api_column in api_matrix.columns.unwrap_or_default().into_iter() {
-            let mut column = old_columns
-                .remove(&api_column.id)
-                .unwrap_or_else(|| Column::new(api_column.id.clone(), permanent_project));
+            let mut column = old_columns.remove(&api_column.id).unwrap_or_else(|| {
+                Column::new(
+                    api_column.id.clone(),
+                    permanent_project,
+                    necessary_row_count,
+                )
+            });
             column.load(
                 api_column,
                 necessary_row_count,
@@ -494,7 +499,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn insert_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        todo!()
+        self.undoable("Insert column", |matrix| {
+            let new_column = Column::new(
+                ColumnId::random(),
+                matrix.permanent_project(),
+                matrix.rows.len(),
+            );
+            // TODO-high Set playback track
+            matrix.columns.insert(column_index, new_column);
+            matrix.sync_column_handles_to_rt_matrix();
+            matrix.notify_everything_changed();
+            Ok(())
+        })
     }
 
     pub fn duplicate_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
@@ -611,7 +627,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         self.undoable("Set column playback track", move |matrix| {
             let column = matrix.get_column_mut(column_index)?;
-            column.set_playback_track(track_id)?;
+            column.set_playback_track_from_id(track_id)?;
             matrix.notify_everything_changed();
             Ok(())
         })
@@ -1177,17 +1193,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Returns the number of rows in this matrix.
-    ///
-    /// It's possible that the actual number of slots in a column is *higher* than the
-    /// official row count of this matrix. In that case, the higher number is returned.
     pub fn row_count(&self) -> usize {
-        let max_slot_count_per_col = self
-            .columns
-            .iter()
-            .map(|c| c.slot_count())
-            .max()
-            .unwrap_or(0);
-        cmp::max(self.rows.len(), max_slot_count_per_col)
+        self.rows.len()
     }
 
     /// Starts recording in the given slot.
