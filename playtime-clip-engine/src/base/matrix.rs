@@ -25,7 +25,7 @@ use playtime_api::persistence::{
     RowId, TempoRange, TrackId,
 };
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
-use reaper_medium::{Bpm, MidiInputDeviceId};
+use reaper_medium::{Bpm, MidiInputDeviceId, ReorderTracksBehavior};
 use std::collections::HashMap;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -498,14 +498,34 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         })
     }
 
+    fn determine_index_of_new_track(&self, new_column_index: usize) -> Option<u32> {
+        if self.columns.len() == 0 {
+            // We add the first column. Add track at end.
+            return Some(self.temporary_project().track_count());
+        }
+        let reference_column_index = if new_column_index < self.columns.len() {
+            // Add column in the middle. Add track above playback track of column which was
+            // previously at that position.
+            new_column_index
+        } else {
+            // Add column at end. Add track below playback track of last column.
+            new_column_index - 1
+        };
+        let reference_column = self.columns.get(reference_column_index)?;
+        reference_column.playback_track().ok()?.index()
+    }
+
     pub fn insert_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        let new_track = self
+            .determine_index_of_new_track(column_index)
+            .and_then(|i| self.temporary_project().insert_track_at(i).ok());
         self.undoable("Insert column", |matrix| {
-            let new_column = Column::new(
+            let mut new_column = Column::new(
                 ColumnId::random(),
                 matrix.permanent_project(),
                 matrix.rows.len(),
             );
-            // TODO-high Set playback track
+            new_column.set_playback_track(new_track);
             matrix.columns.insert(column_index, new_column);
             matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
@@ -843,21 +863,45 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         source_column_index: usize,
         dest_column_index: usize,
     ) -> ClipEngineResult<()> {
-        if source_column_index >= self.columns.len() {
-            return Err("source column doesn't exist");
-        }
-        if dest_column_index >= self.columns.len() {
-            return Err("destination column doesn't exist");
-        }
         if source_column_index == dest_column_index {
             return Ok(());
         }
         self.undoable("Reorder columns", |matrix| {
+            let source_column = matrix.get_column(source_column_index)?;
+            let dest_column = matrix.get_column(dest_column_index)?;
+            let _ = matrix.reorder_column_tracks(source_column, dest_column);
             let source_column = matrix.columns.remove(source_column_index);
             matrix.columns.insert(dest_column_index, source_column);
             matrix.notify_everything_changed();
             Ok(())
         })
+    }
+
+    fn reorder_column_tracks(
+        &self,
+        source_column: &Column,
+        dest_column: &Column,
+    ) -> ClipEngineResult<()> {
+        let source_track = source_column.playback_track()?;
+        let source_track_index = source_track
+            .index()
+            .ok_or("source track doesn't have index")?;
+        let dest_track = dest_column.playback_track()?;
+        let dest_track_index = dest_track
+            .index()
+            .ok_or("destination track doesn't have index")?;
+        source_track.project().unselect_all_tracks();
+        source_track.select_exclusively();
+        let reorder_index = if source_track_index < dest_track_index {
+            dest_track_index + 1
+        } else {
+            dest_track_index
+        };
+        Reaper::get()
+            .medium_reaper()
+            .reorder_selected_tracks(reorder_index, ReorderTracksBehavior::ExtendFolder)?;
+        Reaper::get().medium_reaper().update_arrange();
+        Ok(())
     }
 
     pub fn reorder_rows(
