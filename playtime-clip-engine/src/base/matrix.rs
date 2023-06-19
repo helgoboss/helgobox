@@ -29,7 +29,7 @@ use playtime_api::persistence::{
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
     RowId, TempoRange, TrackId,
 };
-use reaper_high::{OrCurrentProject, Project, Reaper, Track};
+use reaper_high::{ChangeEvent, OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, ReorderTracksBehavior};
 use std::collections::HashMap;
 use std::error::Error;
@@ -1344,6 +1344,46 @@ impl Matrix {
             self.add_history_entry_immediately(l.into(), vec![]);
         }
         events
+    }
+
+    pub fn process_reaper_change_events(&mut self, events: &[ChangeEvent]) {
+        for event in events {
+            match event {
+                ChangeEvent::TrackAdded(_) => {}
+                ChangeEvent::TrackRemoved(e) => {
+                    self.remove_all_columns_associated_with_track(&e.track);
+                }
+                ChangeEvent::TracksReordered(_) => {}
+                ChangeEvent::TrackNameChanged(e) => {
+                    self.rename_all_columns_associated_with_track(&e.track)
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn remove_all_columns_associated_with_track(&mut self, track: &Track) {
+        let _ = self.undoable("Remove columns due to track removal", |matrix| {
+            matrix.content.columns.retain(|col| !col.uses_track(track));
+            matrix.notify_everything_changed();
+            Ok(vec![])
+        });
+    }
+
+    fn rename_all_columns_associated_with_track(&mut self, track: &Track) {
+        let _ = self.undoable("Rename columns due to track renaming", |matrix| {
+            let track_name = track.name().ok_or("track has no name")?.into_string();
+            for col in matrix
+                .content
+                .columns
+                .iter_mut()
+                .filter(|c| c.uses_track(track))
+            {
+                col.set_name(track_name.clone());
+            }
+            matrix.notify_everything_changed();
+            Ok(vec![])
+        });
     }
 
     fn poll_history(&mut self) {

@@ -753,10 +753,18 @@ impl Column {
         Ok(())
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
+
     /// Returns the playback track of this column.
     pub fn playback_track(&self) -> ClipEngineResult<&Track> {
         let preview_register = self.preview_register.as_ref().ok_or("column inactive")?;
         Ok(&preview_register.track)
+    }
+
+    pub fn uses_track(&self, track: &Track) -> bool {
+        self.playback_track().ok() == Some(track)
     }
 
     pub fn follows_scene(&self) -> bool {

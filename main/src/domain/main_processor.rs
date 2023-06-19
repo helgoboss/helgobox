@@ -1730,6 +1730,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Process for clip engine
         let mut instance_state = self.basics.instance_state.borrow_mut();
         if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+            // Let matrix react to track changes etc.
+            matrix.process_reaper_change_events(events);
+            // Process for GUI
             for event in events {
                 self.basics.event_handler.handle_event_ignoring_error(
                     DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
