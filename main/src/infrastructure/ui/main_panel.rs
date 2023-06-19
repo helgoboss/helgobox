@@ -714,18 +714,21 @@ fn send_occasional_matrix_updates_caused_by_reaper(
     if matrix_update_sender.receiver_count() == 0 && track_update_sender.receiver_count() == 0 {
         return;
     }
-    fn track_update(
+    fn track_update(track: &Track, create_update: impl FnOnce() -> Update) -> R {
+        R::Track(QualifiedOccasionalTrackUpdate {
+            track_id: track.guid().to_string_without_braces(),
+            track_updates: vec![OccasionalTrackUpdate {
+                update: Some(create_update()),
+            }],
+        })
+    }
+    fn column_track_update(
         matrix: &RealearnClipMatrix,
         track: &Track,
         create_update: impl FnOnce() -> Update,
     ) -> Option<R> {
         if matrix.uses_playback_track(track) {
-            Some(R::Track(QualifiedOccasionalTrackUpdate {
-                track_id: track.guid().to_string_without_braces(),
-                track_updates: vec![OccasionalTrackUpdate {
-                    update: Some(create_update()),
-                }],
-            }))
+            Some(track_update(track, create_update))
         } else {
             None
         }
@@ -742,7 +745,7 @@ fn send_occasional_matrix_updates_caused_by_reaper(
             if e.track.is_master_track() {
                 Some(R::Matrix(occasional_matrix_update::Update::volume(db)))
             } else {
-                track_update(matrix, &e.track, || Update::volume(db))
+                column_track_update(matrix, &e.track, || Update::volume(db))
             }
         }
         ChangeEvent::TrackPanChanged(e) => {
@@ -753,29 +756,27 @@ fn send_occasional_matrix_updates_caused_by_reaper(
             if e.track.is_master_track() {
                 Some(R::Matrix(occasional_matrix_update::Update::pan(val)))
             } else {
-                track_update(matrix, &e.track, || Update::pan(val))
+                column_track_update(matrix, &e.track, || Update::pan(val))
             }
         }
-        ChangeEvent::TrackNameChanged(e) => {
-            track_update(matrix, &e.track, || Update::name(&e.track))
-        }
+        ChangeEvent::TrackNameChanged(e) => Some(track_update(&e.track, || Update::name(&e.track))),
         ChangeEvent::TrackInputChanged(e) => {
-            track_update(matrix, &e.track, || Update::input(e.new_value))
+            column_track_update(matrix, &e.track, || Update::input(e.new_value))
         }
         ChangeEvent::TrackInputMonitoringChanged(e) => {
-            track_update(matrix, &e.track, || Update::input_monitoring(e.new_value))
+            column_track_update(matrix, &e.track, || Update::input_monitoring(e.new_value))
         }
         ChangeEvent::TrackArmChanged(e) => {
-            track_update(matrix, &e.track, || Update::armed(e.new_value))
+            column_track_update(matrix, &e.track, || Update::armed(e.new_value))
         }
         ChangeEvent::TrackMuteChanged(e) => {
-            track_update(matrix, &e.track, || Update::mute(e.new_value))
+            column_track_update(matrix, &e.track, || Update::mute(e.new_value))
         }
         ChangeEvent::TrackSoloChanged(e) => {
-            track_update(matrix, &e.track, || Update::solo(e.new_value))
+            column_track_update(matrix, &e.track, || Update::solo(e.new_value))
         }
         ChangeEvent::TrackSelectedChanged(e) => {
-            track_update(matrix, &e.track, || Update::selected(e.new_value))
+            column_track_update(matrix, &e.track, || Update::selected(e.new_value))
         }
         ChangeEvent::MasterTempoChanged(e) => {
             // TODO-high-clip-engine Also notify correctly about time signature changes. Looks like

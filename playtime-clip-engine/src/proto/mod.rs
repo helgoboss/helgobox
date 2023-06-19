@@ -27,13 +27,13 @@ impl occasional_matrix_update::Update {
         Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
     }
 
-    pub fn complete_persistent_data<H>(matrix: &Matrix<H>) -> Self {
+    pub fn complete_persistent_data(matrix: &Matrix) -> Self {
         let matrix_json =
             serde_json::to_string(&matrix.save()).expect("couldn't represent matrix as JSON");
         Self::CompletePersistentData(matrix_json)
     }
 
-    pub fn history_state<H>(matrix: &Matrix<H>) -> Self {
+    pub fn history_state(matrix: &Matrix) -> Self {
         Self::HistoryState(HistoryState::from_engine(matrix.history()))
     }
 
@@ -123,7 +123,7 @@ impl qualified_occasional_slot_update::Update {
         Self::PlayState(SlotPlayState::from_engine(play_state.get()).into())
     }
 
-    pub fn complete_persistent_data<H>(matrix: &Matrix<H>, slot: &Slot) -> Self {
+    pub fn complete_persistent_data(matrix: &Matrix, slot: &Slot) -> Self {
         let api_slot =
             slot.save(matrix.permanent_project())
                 .unwrap_or(playtime_api::persistence::Slot {
@@ -138,7 +138,7 @@ impl qualified_occasional_slot_update::Update {
 }
 
 impl qualified_occasional_clip_update::Update {
-    pub fn complete_persistent_data<H>(matrix: &Matrix<H>, clip: &Clip) -> ClipEngineResult<Self> {
+    pub fn complete_persistent_data(matrix: &Matrix, clip: &Clip) -> ClipEngineResult<Self> {
         let api_clip = clip.save(Some(matrix.temporary_project()))?;
         let json = serde_json::to_string(&api_clip).expect("couldn't represent clip as JSON");
         Ok(Self::CompletePersistentData(json))

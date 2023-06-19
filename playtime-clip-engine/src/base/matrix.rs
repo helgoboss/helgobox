@@ -2,7 +2,7 @@ use crate::base::history::History;
 use crate::base::row::Row;
 use crate::base::{
     AddedTrack, BoxedReaperChange, Clip, Column, ColumnRtEquipment, ReaperChange,
-    RestorationInstruction, Slot, SlotKit,
+    ReaperChangeContext, RestorationInstruction, Slot, SlotKit,
 };
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
@@ -19,6 +19,7 @@ use crate::rt::{
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
+use derivative::Derivative;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
@@ -36,17 +37,19 @@ use std::time::{Duration, Instant};
 use std::{mem, thread};
 
 #[derive(Debug)]
-pub struct Matrix<H> {
+pub struct Matrix {
     history: History,
-    content: MatrixContent<H>,
+    content: MatrixContent,
 }
 
-#[derive(Debug)]
-pub(crate) struct MatrixContent<H> {
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub(crate) struct MatrixContent {
     /// Don't lock this from the main thread, only from real-time threads!
     rt_matrix: rt::SharedRtMatrix,
     settings: MatrixSettings,
-    handler: H,
+    #[derivative(Debug = "ignore")]
+    handler: Box<dyn ClipMatrixHandler>,
     chain_equipment: ChainEquipment,
     recorder_request_sender: Sender<RecorderRequest>,
     columns: Vec<Column>,
@@ -65,7 +68,7 @@ pub(crate) struct MatrixContent<H> {
     _worker_pool: WorkerPool,
 }
 
-impl<H> MatrixContent<H> {
+impl MatrixContent {
     pub fn sync_column_handles_to_rt_matrix(&mut self) {
         let column_handles = self.columns.iter().map(|c| c.create_handle()).collect();
         self.rt_command_sender.set_column_handles(column_handles);
@@ -74,9 +77,7 @@ impl<H> MatrixContent<H> {
     pub fn permanent_project(&self) -> Option<Project> {
         self.containing_track.as_ref().map(|t| t.project())
     }
-}
 
-impl<H: ClipMatrixHandler> MatrixContent<H> {
     pub fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         let permanent_project = self.permanent_project();
         let necessary_row_count = api_matrix.necessary_row_count();
@@ -121,6 +122,24 @@ impl<H: ClipMatrixHandler> MatrixContent<H> {
         self.retired_columns
             .extend(old_columns.into_values().map(RetiredColumn::new));
         // Notify listeners
+        self.notify_everything_changed();
+        Ok(())
+    }
+
+    pub fn set_column_playback_track(
+        &mut self,
+        column_index: usize,
+        track_id: Option<&TrackId>,
+    ) -> ClipEngineResult<()> {
+        let column = self.columns.get_mut(column_index).ok_or(NO_SUCH_COLUMN)?;
+        column.set_playback_track_from_id(
+            track_id,
+            ColumnRtEquipment {
+                chain_equipment: &self.chain_equipment,
+                recorder_request_sender: &self.recorder_request_sender,
+                matrix_settings: &self.settings,
+            },
+        )?;
         self.notify_everything_changed();
         Ok(())
     }
@@ -246,7 +265,7 @@ impl Drop for Worker {
     }
 }
 
-impl<H> Matrix<H> {
+impl Matrix {
     pub fn save(&self) -> api::Matrix {
         api::Matrix {
             columns: Some(
@@ -285,11 +304,9 @@ impl<H> Matrix<H> {
     pub fn temporary_project(&self) -> Project {
         self.permanent_project().or_current_project()
     }
-}
 
-impl<H: ClipMatrixHandler> Matrix<H> {
     /// Creates an empty matrix with no columns and no rows.
-    pub fn new(handler: H, containing_track: Option<Track>) -> Self {
+    pub fn new(handler: Box<dyn ClipMatrixHandler>, containing_track: Option<Track>) -> Self {
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
         let (pre_buffer_request_sender, pre_buffer_request_receiver) =
@@ -381,24 +398,24 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn undo(&mut self) -> ClipEngineResult<()> {
         self.restore_history_state(
             |history| history.undo(),
-            |ch| ch.pre_undo(),
-            |ch| ch.post_undo(),
+            |ch, context| ch.pre_undo(context),
+            |ch, context| ch.post_undo(context),
         )
     }
 
     pub fn redo(&mut self) -> ClipEngineResult<()> {
         self.restore_history_state(
             |history| history.redo(),
-            |ch| ch.pre_redo(),
-            |ch| ch.post_redo(),
+            |ch, context| ch.pre_redo(context),
+            |ch, context| ch.post_redo(context),
         )
     }
 
     fn restore_history_state(
         &mut self,
         pop_state: impl FnOnce(&mut History) -> ClipEngineResult<RestorationInstruction>,
-        pre_load: impl Fn(&mut dyn ReaperChange) -> Result<(), Box<dyn Error>>,
-        post_load: impl Fn(&mut dyn ReaperChange) -> Result<(), Box<dyn Error>>,
+        pre_load: impl Fn(&mut dyn ReaperChange, ReaperChangeContext) -> Result<(), Box<dyn Error>>,
+        post_load: impl Fn(&mut dyn ReaperChange, ReaperChangeContext) -> Result<(), Box<dyn Error>>,
     ) -> ClipEngineResult<()> {
         let instruction = pop_state(&mut self.history)?;
         // Apply pre-load REAPER changes
@@ -413,8 +430,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         // Undo => Insert REAPER track
         // Redo => -
         for change in instruction.reaper_changes.iter_mut() {
-            let bla = &mut self.content;
-            let _ = pre_load(&mut **change);
+            let context = ReaperChangeContext {
+                matrix: &mut self.content,
+            };
+            let _ = pre_load(&mut **change, context);
         }
         // Restore actual matrix state
         self.content.load_internal(instruction.matrix.clone())?;
@@ -430,7 +449,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         // Undo => -
         // Redo => Remove REAPER track
         for change in instruction.reaper_changes.iter_mut() {
-            let _ = post_load(&mut **change);
+            let context = ReaperChangeContext {
+                matrix: &mut self.content,
+            };
+            let _ = post_load(&mut **change, context);
         }
         // Emit change notification
         self.emit(ClipMatrixEvent::HistoryChanged);
@@ -614,7 +636,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let new_track =
             new_track_index.and_then(|i| self.temporary_project().insert_track_at(i).ok());
         let reaper_changes: Vec<BoxedReaperChange> = if let Some(t) = &new_track {
-            let reaper_change = AddedTrack::new(t);
+            let reaper_change = AddedTrack::new(t, column_index);
             vec![Box::new(reaper_change)]
         } else {
             vec![]
@@ -761,20 +783,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         track_id: Option<&TrackId>,
     ) -> ClipEngineResult<()> {
         self.undoable("Set column playback track", move |matrix| {
-            let column = matrix
+            matrix
                 .content
-                .columns
-                .get_mut(column_index)
-                .ok_or(NO_SUCH_COLUMN)?;
-            column.set_playback_track_from_id(
-                track_id,
-                ColumnRtEquipment {
-                    chain_equipment: &matrix.content.chain_equipment,
-                    recorder_request_sender: &matrix.content.recorder_request_sender,
-                    matrix_settings: &matrix.content.settings,
-                },
-            )?;
-            matrix.notify_everything_changed();
+                .set_column_playback_track(column_index, track_id)?;
             Ok(vec![])
         })
     }
@@ -1403,7 +1414,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             &self.content.settings.clip_record_settings,
             &self.content.chain_equipment,
             &self.content.recorder_request_sender,
-            &self.content.handler,
+            &*self.content.handler,
             self.content.containing_track.as_ref(),
             &self.content.settings.overridable,
         )
@@ -1653,7 +1664,7 @@ impl VirtualClipRecordAudioInput {
     }
 }
 
-pub trait ClipMatrixHandler: Sized {
+pub trait ClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask);
     fn emit_event(&self, event: ClipMatrixEvent);
 }

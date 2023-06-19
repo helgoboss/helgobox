@@ -189,6 +189,9 @@ impl Column {
     fn resolve_track_from_id(&self, track_id: &TrackId) -> ClipEngineResult<Track> {
         let guid = Guid::from_string_without_braces(track_id.get())?;
         let track = self.project.or_current_project().track_by_guid(&guid)?;
+        if !track.is_available() {
+            return Err("track not available");
+        }
         Ok(track)
     }
 
@@ -753,13 +756,13 @@ impl Column {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn record_slot<H: ClipMatrixHandler>(
+    pub(crate) fn record_slot(
         &mut self,
         slot_index: usize,
         matrix_record_settings: &MatrixClipRecordSettings,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
-        handler: &H,
+        handler: &dyn ClipMatrixHandler,
         containing_track: Option<&Track>,
         overridable_matrix_settings: &OverridableMatrixSettings,
     ) -> ClipEngineResult<()> {

@@ -2,6 +2,7 @@ use crate::base::{ClipMatrixHandler, MatrixContent};
 use crate::ClipEngineResult;
 use itertools::Itertools;
 use playtime_api::persistence as api;
+use playtime_api::persistence::TrackId;
 use reaper_high::{Chunk, Guid, Project, Track};
 use reaper_medium::ChunkCacheHint;
 use std::collections::BTreeSet;
@@ -109,7 +110,7 @@ impl History {
 
     /// Doesn't add a history event immediately but buffers it until no change has happened for
     /// some time.
-    pub fn add_buffered(&mut self, label: String, reaper_changes: Vec<BoxedReaperChange>) {
+    pub(crate) fn add_buffered(&mut self, label: String, reaper_changes: Vec<BoxedReaperChange>) {
         self.history_entry_buffer.add(label, reaper_changes);
     }
 
@@ -123,7 +124,7 @@ impl History {
 
     /// Adds the given history entry if the matrix is different from the one in the previous
     /// undo point.
-    pub fn add(
+    pub(crate) fn add(
         &mut self,
         label: String,
         new_matrix: api::Matrix,
@@ -156,7 +157,7 @@ impl History {
     }
 
     /// Marks the last action as undone and returns instructions to restore the previous state.
-    pub fn undo(&mut self) -> ClipEngineResult<RestorationInstruction> {
+    pub(crate) fn undo(&mut self) -> ClipEngineResult<RestorationInstruction> {
         if self.undo_stack.len() <= 1 {
             return Err("nothing to undo");
         }
@@ -176,7 +177,7 @@ impl History {
     }
 
     /// Marks the last undone action as redone and returns the matrix state to be loaded.
-    pub fn redo(&mut self) -> ClipEngineResult<RestorationInstruction> {
+    pub(crate) fn redo(&mut self) -> ClipEngineResult<RestorationInstruction> {
         // Put next state on the undo stack
         let next_state = self.redo_stack.pop().ok_or("nothing to redo")?;
         self.undo_stack.push(next_state);
@@ -200,35 +201,39 @@ struct State {
     pub reaper_changes: Vec<BoxedReaperChange>,
 }
 
-pub struct RestorationInstruction<'a> {
+pub(crate) struct RestorationInstruction<'a> {
     pub matrix: &'a api::Matrix,
     pub reaper_changes: &'a mut [BoxedReaperChange],
 }
 
 pub(crate) struct ReaperChangeContext<'a> {
-    pub matrix: &'a mut MatrixContent<()>,
+    pub matrix: &'a mut MatrixContent,
 }
 
-pub type BoxedReaperChange = Box<dyn ReaperChange>;
+pub(crate) type BoxedReaperChange = Box<dyn ReaperChange>;
 
-pub trait ReaperChange: Debug {
+pub(crate) trait ReaperChange: Debug {
     /// Executed before undoing the clip matrix change.
-    fn pre_undo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn pre_undo(&mut self, context: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let _ = context;
         Ok(())
     }
 
     /// Executed after undoing the clip matrix change.
-    fn post_undo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn post_undo(&mut self, context: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let _ = context;
         Ok(())
     }
 
     /// Executed before redoing the clip matrix change.
-    fn pre_redo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn pre_redo(&mut self, context: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let _ = context;
         Ok(())
     }
 
     /// Executed after redoing the clip matrix change.
-    fn post_redo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn post_redo(&mut self, context: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let _ = context;
         Ok(())
     }
 }
@@ -248,20 +253,22 @@ pub struct AddedTrack {
     project: Project,
     guid: Guid,
     index: u32,
+    associated_column_index: usize,
 }
 
 impl AddedTrack {
-    pub fn new(track: &Track) -> Self {
+    pub fn new(track: &Track, associated_column_index: usize) -> Self {
         Self {
             project: track.project(),
             guid: track.guid().clone(),
             index: track.index().unwrap(),
+            associated_column_index,
         }
     }
 }
 
 impl ReaperChange for AddedTrack {
-    fn post_undo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn post_undo(&mut self, _: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
         let track = self.project.track_by_guid(&self.guid)?;
         if !track.is_available() {
             // Track doesn't exist anymore, so no need to remove it
@@ -271,13 +278,17 @@ impl ReaperChange for AddedTrack {
         Ok(())
     }
 
-    fn pre_redo(&mut self) -> Result<(), Box<dyn Error>> {
+    fn pre_redo(&mut self, _: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
         let track = self.project.insert_track_at(self.index)?;
         self.guid = *track.guid();
         Ok(())
     }
 
-    fn post_redo(&mut self) -> Result<(), Box<dyn Error>> {
-        todo!()
+    fn post_redo(&mut self, context: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let id = TrackId::new(self.guid.to_string_without_braces());
+        context
+            .matrix
+            .set_column_playback_track(self.associated_column_index, Some(&id))?;
+        Ok(())
     }
 }

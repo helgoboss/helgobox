@@ -411,14 +411,14 @@ impl Slot {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn record_clip<H: ClipMatrixHandler>(
+    pub(crate) fn record_clip(
         &mut self,
         matrix_record_settings: &MatrixClipRecordSettings,
         column_record_settings: &ColumnClipRecordSettings,
         rt_column_settings: &rt::RtColumnSettings,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
-        handler: &H,
+        handler: &dyn ClipMatrixHandler,
         containing_track: Option<&Track>,
         overridable_matrix_settings: &OverridableMatrixSettings,
         recording_track: &Track,
@@ -497,10 +497,10 @@ impl Slot {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn record_from_scratch<H: ClipMatrixHandler>(
+    fn record_from_scratch(
         &mut self,
         column_command_sender: &ColumnCommandSender,
-        handler: &H,
+        handler: &dyn ClipMatrixHandler,
         matrix_record_settings: &MatrixClipRecordSettings,
         overridable_matrix_settings: &OverridableMatrixSettings,
         rt_column_settings: &rt::RtColumnSettings,
@@ -572,10 +572,10 @@ impl Slot {
         Ok(())
     }
 
-    fn record_as_midi_overdub<H: ClipMatrixHandler>(
+    fn record_as_midi_overdub(
         &mut self,
         column_command_sender: &ColumnCommandSender,
-        handler: &H,
+        handler: &dyn ClipMatrixHandler,
         project: Project,
         common_stuff: CommonRecordStuff,
         specific_stuff: MidiOverdubRecordStuff,
@@ -624,10 +624,10 @@ impl Slot {
         Ok(())
     }
 
-    fn initiate_recording<H: ClipMatrixHandler>(
+    fn initiate_recording(
         &mut self,
         column_command_sender: &ColumnCommandSender,
-        handler: &H,
+        handler: &dyn ClipMatrixHandler,
         next_state: SlotState,
         instruction: SlotRecordInstruction,
         temporary_route: Option<TrackRoute>,

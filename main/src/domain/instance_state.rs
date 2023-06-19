@@ -26,7 +26,7 @@ use realearn_api::persistence::PotFilterKind;
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
 
-pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
+pub type RealearnClipMatrix = Matrix;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
@@ -417,7 +417,10 @@ impl InstanceState {
             self.real_time_processor_sender.clone(),
             self.clip_matrix_event_sender.clone(),
         );
-        Matrix::new(clip_matrix_handler, self.processor_context.track().cloned())
+        Matrix::new(
+            Box::new(clip_matrix_handler),
+            self.processor_context.track().cloned(),
+        )
     }
 
     pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
