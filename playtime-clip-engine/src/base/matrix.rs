@@ -1,6 +1,9 @@
 use crate::base::history::History;
 use crate::base::row::Row;
-use crate::base::{Clip, Column, ColumnRtEquipment, Slot, SlotKit};
+use crate::base::{
+    AddedTrack, BoxedReaperChange, Clip, Column, ColumnRtEquipment, HistoryState, ReaperChange,
+    Slot, SlotKit,
+};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -27,12 +30,14 @@ use playtime_api::persistence::{
 use reaper_high::{OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, ReorderTracksBehavior};
 use std::collections::HashMap;
+use std::error::Error;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use std::{mem, thread};
 
 #[derive(Debug)]
 pub struct Matrix<H> {
+    history: History,
     /// Don't lock this from the main thread, only from real-time threads!
     rt_matrix: rt::SharedRtMatrix,
     settings: MatrixSettings,
@@ -50,7 +55,6 @@ pub struct Matrix<H> {
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::RtMatrixCommand>,
-    history: History,
     clipboard: MatrixClipboard,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
@@ -345,30 +349,71 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn undo(&mut self) -> ClipEngineResult<()> {
-        // TODO-medium-clip-engine We could probably make it work without clone.
-        let api_matrix = self.history.undo()?.clone();
-        self.load_internal(api_matrix)?;
-        self.emit(ClipMatrixEvent::HistoryChanged);
-        Ok(())
+        self.restore_history_state(
+            |history| history.undo(),
+            |ch| ch.pre_undo(),
+            |ch| ch.post_undo(),
+        )
     }
 
     pub fn redo(&mut self) -> ClipEngineResult<()> {
-        let api_matrix = self.history.redo()?.clone();
-        self.load_internal(api_matrix)?;
+        self.restore_history_state(
+            |history| history.redo(),
+            |ch| ch.pre_redo(),
+            |ch| ch.post_redo(),
+        )
+    }
+
+    fn restore_history_state(
+        &mut self,
+        pop_state: impl FnOnce(&mut History) -> ClipEngineResult<&HistoryState>,
+        pre_load: impl Fn(&dyn ReaperChange) -> Result<(), Box<dyn Error>>,
+        post_load: impl Fn(&dyn ReaperChange) -> Result<(), Box<dyn Error>>,
+    ) -> ClipEngineResult<()> {
+        let state = pop_state(&mut self.history)?;
+        // Apply pre-load REAPER changes
+        //
+        // # Example 1: Insert column
+        //
+        // Undo => -
+        // Redo => Insert REAPER track
+        //
+        // # Example 2: Remove column
+        //
+        // Undo => Insert REAPER track
+        // Redo => -
+        for change in &state.reaper_changes {
+            let _ = pre_load(&**change);
+        }
+        // Restore actual matrix state
+        self.load_internal(state.matrix.clone())?;
+        // Apply post-load REAPER changes
+        //
+        // # Example 1: Insert column
+        //
+        // Undo => Remove REAPER track
+        // Redo => -
+        //
+        // # Example 2: Remove column
+        //
+        // Undo => -
+        // Redo => Remove REAPER track
+        for change in &state.reaper_changes {
+            let _ = post_load(&**change);
+        }
+        // Emit change notification
         self.emit(ClipMatrixEvent::HistoryChanged);
         Ok(())
     }
 
-    fn undoable<R>(
+    fn undoable(
         &mut self,
         label: impl Into<String>,
-        f: impl FnOnce(&mut Self) -> ClipEngineResult<R>,
-    ) -> ClipEngineResult<R> {
-        let result = f(self);
-        if result.is_ok() {
-            self.history.add_buffered(label.into());
-        }
-        result
+        f: impl FnOnce(&mut Self) -> ClipEngineResult<Vec<BoxedReaperChange>>,
+    ) -> ClipEngineResult<()> {
+        let reaper_changes = f(self)?;
+        self.history.add_buffered(label.into(), reaper_changes);
+        Ok(())
     }
 
     /// Freezes the complete matrix.
@@ -457,7 +502,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Fill row with clips", |matrix| {
             matrix.replace_row_with_clips(row_index, cloned_clips)?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -476,7 +521,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.retired_columns.push(RetiredColumn::new(column));
             matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -494,10 +539,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.columns.insert(column_index + 1, duplicate_column);
             matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
+    /// Determines the index of a new REAPER track to be added togeter with the given new column.
+    ///
+    /// Only works if the existing column next to it has a playback track assigned.
     fn determine_index_of_new_track(&self, new_column_index: usize) -> Option<u32> {
         if self.columns.len() == 0 {
             // We add the first column. Add track at end.
@@ -516,9 +564,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn insert_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        let new_track = self
-            .determine_index_of_new_track(column_index)
-            .and_then(|i| self.temporary_project().insert_track_at(i).ok());
+        // Try to add new column track in REAPER
+        let new_track_index = self.determine_index_of_new_track(column_index);
+        let new_track =
+            new_track_index.and_then(|i| self.temporary_project().insert_track_at(i).ok());
+        let reaper_changes: Vec<BoxedReaperChange> = if let Some(t) = &new_track {
+            let reaper_change = AddedTrack::new(t);
+            vec![Box::new(reaper_change)]
+        } else {
+            vec![]
+        };
+        // Add actual column to matrix, with or without new track
         self.undoable("Insert column", |matrix| {
             let mut new_column = Column::new(
                 ColumnId::random(),
@@ -529,7 +585,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.columns.insert(column_index, new_column);
             matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(reaper_changes)
         })
     }
 
@@ -548,7 +604,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 )?;
             }
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -569,7 +625,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 )?;
             }
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -585,7 +641,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 column.remove_slot(row_index)?;
             }
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -594,7 +650,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Clear scene", |matrix| {
             matrix.clear_scene_internal(row_index)?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -610,8 +666,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     /// Adds a history entry immediately and emits the appropriate event.
-    fn add_history_entry_immediately(&mut self, label: String) {
-        self.history.add(label, self.save());
+    fn add_history_entry_immediately(
+        &mut self,
+        label: String,
+        reaper_changes: Vec<BoxedReaperChange>,
+    ) {
+        self.history.add(label, self.save(), reaper_changes);
         self.emit(ClipMatrixEvent::HistoryChanged);
     }
 
@@ -656,7 +716,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 },
             )?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -680,7 +740,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.replace_clips_in_slot(address, cloned_clips)?;
             let event = SlotChangeEvent::Clips("Added clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(address, event));
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -690,7 +750,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.clear_slot_internal(address)?;
             let event = SlotChangeEvent::Clips("");
             matrix.emit(ClipMatrixEvent::slot_changed(address, event));
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -787,7 +847,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 address,
                 SlotChangeEvent::Clips(""),
             ));
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -823,7 +883,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 let column = matrix.get_column_mut(source_address.column)?;
                 column.move_slot_contents(source_address.row, dest_address.row)?;
                 matrix.notify_everything_changed();
-                Ok(())
+                Ok(vec![])
             } else {
                 let clips_in_slot = matrix
                     .get_slot(source_address)?
@@ -831,7 +891,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 matrix.clear_slot_internal(source_address)?;
                 matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
                 matrix.notify_everything_changed();
-                Ok(())
+                Ok(vec![])
             }
         })
     }
@@ -851,7 +911,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
             let event = SlotChangeEvent::Clips("Copied clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(dest_address, event));
-            Ok(())
+            Ok(vec![])
         })?;
         Ok(())
     }
@@ -869,7 +929,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
             matrix.clear_scene_internal(source_row_index)?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -888,7 +948,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             let source_column = matrix.columns.remove(source_column_index);
             matrix.columns.insert(dest_column_index, source_column);
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -940,7 +1000,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 column.reorder_slots(source_row_index, dest_row_index)?;
             }
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -956,7 +1016,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.undoable("Copy scene content to", |matrix| {
             matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -1044,7 +1104,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             let playing_clips = matrix.capture_playing_clips();
             matrix.distribute_clips_to_scene(playing_clips, row_index)?;
             matrix.notify_everything_changed();
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -1195,7 +1255,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let undo_point_label = events.iter().find_map(|evt| evt.undo_point_for_polling());
         if let Some(l) = undo_point_label {
             // TODO-high-clip-engine Not sure if we should also add this buffered?
-            self.add_history_entry_immediately(l.into());
+            self.add_history_entry_immediately(l.into(), vec![]);
         }
         events
     }
@@ -1217,7 +1277,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 ClipAddress::legacy(address),
                 event,
             ));
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -1317,7 +1377,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 address,
                 ClipChangeEvent::Everything,
             ));
-            Ok(())
+            Ok(vec![])
         })
     }
 
@@ -1339,7 +1399,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 address,
                 ClipChangeEvent::Everything,
             ));
-            Ok(())
+            Ok(vec![])
         })
     }
 
