@@ -25,6 +25,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                         determine_legacy_clip_track(desc.index, main_mappings, controller_mappings);
                     let api_column = api::Column {
                         id: Default::default(),
+                        name: None,
                         clip_play_settings: api::ColumnClipPlaySettings {
                             track: output
                                 .resolve_track(containing_track.cloned())?

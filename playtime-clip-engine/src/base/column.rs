@@ -36,6 +36,7 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 #[derive(Clone, Debug)]
 pub struct Column {
     id: ColumnId,
+    name: Option<String>,
     settings: ColumnSettings,
     rt_settings: rt::RtColumnSettings,
     rt_command_sender: ColumnCommandSender,
@@ -83,6 +84,7 @@ impl Column {
         let shared_source = SharedRtColumn::new(source);
         Self {
             id,
+            name: None,
             settings: Default::default(),
             rt_settings: Default::default(),
             preview_register: None,
@@ -105,6 +107,7 @@ impl Column {
 
     pub fn duplicate(&self, rt_equipment: ColumnRtEquipment) -> Column {
         let mut duplicate = Self::new(ColumnId::random(), self.project, self.slots.len());
+        duplicate.name = self.name.clone();
         duplicate.settings = self.settings.clone();
         duplicate.rt_settings = self.rt_settings.clone();
         duplicate.set_playback_track_internal(self.playback_track().ok().cloned());
@@ -211,6 +214,7 @@ impl Column {
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
         self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
+        self.name = api_column.name;
         // Create slots for all rows
         let api_slots = api_column.slots.unwrap_or_default();
         let mut api_slots_map: HashMap<_, _> = api_slots
@@ -264,13 +268,20 @@ impl Column {
         });
     }
 
-    /// Sets the playback track, recreating the preview register if necessary.
+    /// Sets the playback track, recreating the preview register if necessary and auto-naming
+    /// the column according to the track name.
     ///
     /// Also resyncs everything to the real-time column in case no track was assigned before.
     pub fn set_playback_track(&mut self, track: Option<Track>, rt_equipment: ColumnRtEquipment) {
+        // Update name
+        if let Some(t) = &track {
+            self.name = t.name().map(|n| n.into_string());
+        }
+        // Set track
         let was_online_before = self.preview_register.is_some();
         self.set_playback_track_internal(track);
         let is_online_now = self.preview_register.is_some();
+        // Sync if necessary
         if !was_online_before && is_online_now {
             self.sync_everything_to_rt_column(rt_equipment);
         }
@@ -357,6 +368,7 @@ impl Column {
             .map(|t| TrackId::new(t.guid().to_string_without_braces()));
         api::Column {
             id: self.id.clone(),
+            name: self.name.clone(),
             clip_play_settings: ColumnClipPlaySettings {
                 mode: Some(self.rt_settings.play_mode),
                 track: track_id,

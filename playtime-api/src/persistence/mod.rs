@@ -614,6 +614,8 @@ impl Default for ClipId {
 pub struct Column {
     #[serde(default)]
     pub id: ColumnId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub clip_play_settings: ColumnClipPlaySettings,
     pub clip_record_settings: ColumnClipRecordSettings,
     /// Slots in this column.
