@@ -1,7 +1,7 @@
 use crate::base::history::History;
 use crate::base::row::Row;
 use crate::base::{
-    reorder_tracks, BoxedReaperChange, Clip, Column, ColumnRtEquipment, ReaperChange,
+    reorder_tracks, BoxedReaperChange, Clip, Column, ColumnRtEquipment, IdMode, ReaperChange,
     ReaperChangeContext, RestorationInstruction, Slot, SlotKit, TrackAdditionReaperChange,
     TrackReorderingReaperChange,
 };
@@ -80,6 +80,7 @@ impl MatrixContent {
         self.containing_track.as_ref().map(|t| t.project())
     }
 
+    /// Used by preset loading and by undo/redo.
     pub fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         let permanent_project = self.permanent_project();
         let necessary_row_count = api_matrix.necessary_row_count();
@@ -565,7 +566,7 @@ impl Matrix {
         };
         let cloned_clips = clips.clone();
         self.undoable("Fill row with clips", |matrix| {
-            matrix.replace_row_with_clips(row_index, cloned_clips)?;
+            matrix.replace_row_with_clips(row_index, cloned_clips, IdMode::AssignNewIds)?;
             matrix.notify_everything_changed();
             Ok(vec![])
         })
@@ -830,7 +831,7 @@ impl Matrix {
         };
         let cloned_clips = clips.clone();
         self.undoable("Paste slot", move |matrix| {
-            matrix.replace_clips_in_slot(address, cloned_clips)?;
+            matrix.replace_clips_in_slot(address, cloned_clips, IdMode::AssignNewIds)?;
             let event = SlotChangeEvent::Clips("Added clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(address, event));
             Ok(vec![])
@@ -888,6 +889,7 @@ impl Matrix {
         &mut self,
         row_index: usize,
         slot_contents: Vec<SlotContentsWithColumn>,
+        id_mode: IdMode,
     ) -> ClipEngineResult<()> {
         for slot_content in slot_contents {
             let column =
@@ -902,6 +904,7 @@ impl Matrix {
                 &self.content.recorder_request_sender,
                 &self.content.settings,
                 FillSlotMode::Replace,
+                id_mode,
             )?;
         }
         Ok(())
@@ -911,6 +914,7 @@ impl Matrix {
         &mut self,
         address: ClipSlotAddress,
         api_clips: Vec<api::Clip>,
+        id_mode: IdMode,
     ) -> ClipEngineResult<()> {
         let column = get_column_mut(&mut self.content.columns, address.column)?;
         column.fill_slot(
@@ -920,6 +924,7 @@ impl Matrix {
             &self.content.recorder_request_sender,
             &self.content.settings,
             FillSlotMode::Replace,
+            id_mode,
         )?;
         Ok(())
     }
@@ -983,7 +988,7 @@ impl Matrix {
                     .get_slot(source_address)?
                     .api_clips(matrix.permanent_project());
                 matrix.clear_slot_internal(source_address)?;
-                matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
+                matrix.replace_clips_in_slot(dest_address, clips_in_slot, IdMode::KeepIds)?;
                 matrix.notify_everything_changed();
                 Ok(vec![])
             }
@@ -1002,7 +1007,7 @@ impl Matrix {
             .get_slot(source_address)?
             .api_clips(self.permanent_project());
         self.undoable("Copy slot to", |matrix| {
-            matrix.replace_clips_in_slot(dest_address, clips_in_slot)?;
+            matrix.replace_clips_in_slot(dest_address, clips_in_slot, IdMode::AssignNewIds)?;
             let event = SlotChangeEvent::Clips("Copied clips to slot");
             matrix.emit(ClipMatrixEvent::slot_changed(dest_address, event));
             Ok(vec![])
@@ -1020,7 +1025,7 @@ impl Matrix {
         }
         let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
         self.undoable("Move scene content to", |matrix| {
-            matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
+            matrix.replace_row_with_clips(dest_row_index, clips_in_scene, IdMode::KeepIds)?;
             matrix.clear_scene_internal(source_row_index)?;
             matrix.notify_everything_changed();
             Ok(vec![])
@@ -1102,7 +1107,7 @@ impl Matrix {
         }
         let clips_in_scene = self.all_clips_in_scene(source_row_index).collect();
         self.undoable("Copy scene content to", |matrix| {
-            matrix.replace_row_with_clips(dest_row_index, clips_in_scene)?;
+            matrix.replace_row_with_clips(dest_row_index, clips_in_scene, IdMode::AssignNewIds)?;
             matrix.notify_everything_changed();
             Ok(vec![])
         })
@@ -1269,6 +1274,7 @@ impl Matrix {
                 &self.content.recorder_request_sender,
                 &self.content.settings,
                 FillSlotMode::Replace,
+                IdMode::AssignNewIds,
             )?;
         }
         if need_handle_sync {
@@ -1848,11 +1854,24 @@ fn validate_api_matrix(matrix: &api::Matrix) -> Result<(), ValidationError> {
         matrix.columns.iter().flatten().map(|col| &col.id),
     )?;
     ensure_no_duplicate("row IDs", matrix.rows.iter().flatten().map(|row| &row.id))?;
-    for col in matrix.columns.iter().flatten() {
-        ensure_no_duplicate("slot IDs", col.slots.iter().flatten().map(|slot| &slot.id))?;
-        for slot in col.slots.iter().flatten() {
-            ensure_no_duplicate("clip IDs", slot.clips.iter().flatten().map(|clip| &clip.id))?;
-        }
-    }
+    ensure_no_duplicate(
+        "slot IDs",
+        matrix
+            .columns
+            .iter()
+            .flatten()
+            .flat_map(|col| col.slots.iter().flatten())
+            .map(|slot| &slot.id),
+    )?;
+    ensure_no_duplicate(
+        "clip IDs",
+        matrix
+            .columns
+            .iter()
+            .flatten()
+            .flat_map(|col| col.slots.iter().flatten())
+            .flat_map(|slot| slot.clips.iter().flatten())
+            .map(|clip| &clip.id),
+    )?;
     Ok(())
 }

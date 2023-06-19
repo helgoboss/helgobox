@@ -314,8 +314,10 @@ impl Slot {
     }
 
     /// Loads the given clips into the slot but doesn't bring them online yet.
+    ///
+    /// Keeps the clip IDs, doesn't generate new ones.
     pub fn load(&mut self, api_clips: Vec<api::Clip>) {
-        self.contents = load_api_clips(api_clips).collect();
+        self.contents = load_api_clips(api_clips, IdMode::KeepIds).collect();
     }
 
     /// Brings the previously loaded clips online.
@@ -356,11 +358,12 @@ impl Slot {
         column_settings: &rt::RtColumnSettings,
         rt_command_sender: &ColumnCommandSender,
         project: Option<Project>,
-        mode: FillSlotMode,
+        fill_mode: FillSlotMode,
+        id_mode: IdMode,
     ) {
         // Load clips
-        let contents = load_api_clips(api_clips);
-        match mode {
+        let contents = load_api_clips(api_clips, id_mode);
+        match fill_mode {
             FillSlotMode::Add => {
                 self.contents.extend(contents);
             }
@@ -1510,9 +1513,32 @@ impl<'a, T: Iterator<Item = &'a Content>> RelevantContent<'a, T> {
     }
 }
 
-fn load_api_clips(api_clips: Vec<api::Clip>) -> impl Iterator<Item = (RtClipId, Content)> {
-    api_clips.into_iter().map(|api_clip| {
+fn load_api_clips(
+    api_clips: Vec<api::Clip>,
+    id_mode: IdMode,
+) -> impl Iterator<Item = (RtClipId, Content)> {
+    api_clips.into_iter().map(move |mut api_clip| {
+        if id_mode == IdMode::AssignNewIds {
+            api_clip.id = ClipId::random();
+        }
         let clip = Clip::load(api_clip);
         (clip.rt_id(), Content::new(clip))
     })
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum IdMode {
+    /// Keep object IDs.
+    ///
+    /// This should be used if it's important to track the "journey" of objects. This is then
+    /// used in the real-time column to decide whether a change affects an existing clip or is
+    /// something new. This in turn makes interruption-free playing possible in many cases, e.g.
+    /// undo/redo.
+    KeepIds,
+    /// Assign new objects IDs.
+    ///
+    /// This should be used whenever there's the danger of duplicate IDs. The rule is:
+    /// IDs must be unique across the whole matrix. E.g. clip IDs should not just be unique within
+    /// one slot but across all columns!
+    AssignNewIds,
 }

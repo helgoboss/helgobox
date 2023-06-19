@@ -1,4 +1,4 @@
-use crate::base::{Clip, ClipMatrixHandler, MatrixSettings, RelevantContent, Slot};
+use crate::base::{Clip, ClipMatrixHandler, IdMode, MatrixSettings, RelevantContent, Slot};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotContentsArgs,
@@ -550,7 +550,8 @@ impl Column {
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
-        mode: FillSlotMode,
+        fill_mode: FillSlotMode,
+        id_mode: IdMode,
     ) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
         slot.fill(
@@ -561,7 +562,8 @@ impl Column {
             &self.rt_settings,
             &self.rt_command_sender,
             self.project,
-            mode,
+            fill_mode,
+            id_mode,
         );
         Ok(())
     }
@@ -625,6 +627,7 @@ impl Column {
             recorder_request_sender,
             matrix_settings,
             FillSlotMode::Replace,
+            IdMode::KeepIds,
         )
     }
 
