@@ -80,6 +80,14 @@ pub struct SetColumnVolumeRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetColumnNameRequest {
+    #[prost(message, optional, tag = "1")]
+    pub column_address: ::core::option::Option<FullColumnAddress>,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetColumnPanRequest {
     #[prost(message, optional, tag = "1")]
     pub column_address: ::core::option::Option<FullColumnAddress>,
@@ -104,6 +112,18 @@ pub struct TriggerMatrixRequest {
     pub matrix_id: ::prost::alloc::string::String,
     #[prost(enumeration = "TriggerMatrixAction", tag = "2")]
     pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAllTracksRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAllTracksReply {
+    #[prost(message, repeated, tag = "1")]
+    pub track: ::prost::alloc::vec::Vec<TrackInList>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -324,7 +344,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -364,9 +384,6 @@ pub mod occasional_matrix_update {
         /// Time signature (= REAPER master time signature)
         #[prost(message, tag = "10")]
         TimeSignature(super::TimeSignature),
-        /// Available tracks (= REAPER tracks)
-        #[prost(message, tag = "11")]
-        Tracks(super::Tracks),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -480,13 +497,7 @@ pub struct MidiInputDevice {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Tracks {
-    #[prost(message, repeated, tag = "1")]
-    pub track: ::prost::alloc::vec::Vec<Track>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Track {
+pub struct TrackInList {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
@@ -648,6 +659,7 @@ pub enum TriggerColumnAction {
     Remove = 4,
     Duplicate = 5,
     Insert = 6,
+    Panic = 7,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -663,6 +675,7 @@ impl TriggerColumnAction {
             TriggerColumnAction::Remove => "TRIGGER_COLUMN_ACTION_REMOVE",
             TriggerColumnAction::Duplicate => "TRIGGER_COLUMN_ACTION_DUPLICATE",
             TriggerColumnAction::Insert => "TRIGGER_COLUMN_ACTION_INSERT",
+            TriggerColumnAction::Panic => "TRIGGER_COLUMN_ACTION_PANIC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -675,6 +688,7 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_REMOVE" => Some(Self::Remove),
             "TRIGGER_COLUMN_ACTION_DUPLICATE" => Some(Self::Duplicate),
             "TRIGGER_COLUMN_ACTION_INSERT" => Some(Self::Insert),
+            "TRIGGER_COLUMN_ACTION_PANIC" => Some(Self::Panic),
             _ => None,
         }
     }
@@ -690,6 +704,7 @@ pub enum TriggerRowAction {
     Remove = 5,
     Duplicate = 6,
     Insert = 7,
+    Panic = 8,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -706,6 +721,7 @@ impl TriggerRowAction {
             TriggerRowAction::Remove => "TRIGGER_ROW_ACTION_REMOVE",
             TriggerRowAction::Duplicate => "TRIGGER_ROW_ACTION_DUPLICATE",
             TriggerRowAction::Insert => "TRIGGER_ROW_ACTION_INSERT",
+            TriggerRowAction::Panic => "TRIGGER_ROW_ACTION_PANIC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -719,6 +735,7 @@ impl TriggerRowAction {
             "TRIGGER_ROW_ACTION_REMOVE" => Some(Self::Remove),
             "TRIGGER_ROW_ACTION_DUPLICATE" => Some(Self::Duplicate),
             "TRIGGER_ROW_ACTION_INSERT" => Some(Self::Insert),
+            "TRIGGER_ROW_ACTION_PANIC" => Some(Self::Panic),
             _ => None,
         }
     }
@@ -787,6 +804,7 @@ pub enum TriggerSlotAction {
     Cut = 6,
     Paste = 7,
     FillWithSelectedItem = 8,
+    Panic = 9,
 }
 impl TriggerSlotAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -806,6 +824,7 @@ impl TriggerSlotAction {
             TriggerSlotAction::FillWithSelectedItem => {
                 "TRIGGER_SLOT_ACTION_FILL_WITH_SELECTED_ITEM"
             }
+            TriggerSlotAction::Panic => "TRIGGER_SLOT_ACTION_PANIC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -822,6 +841,7 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_FILL_WITH_SELECTED_ITEM" => {
                 Some(Self::FillWithSelectedItem)
             }
+            "TRIGGER_SLOT_ACTION_PANIC" => Some(Self::Panic),
             _ => None,
         }
     }
@@ -994,6 +1014,11 @@ pub mod clip_engine_server {
     /// Generated trait containing gRPC methods that should be implemented for use with ClipEngineServer.
     #[async_trait]
     pub trait ClipEngine: Send + Sync + 'static {
+        /// Global queries
+        async fn get_all_tracks(
+            &self,
+            request: tonic::Request<super::GetAllTracksRequest>,
+        ) -> Result<tonic::Response<super::GetAllTracksReply>, tonic::Status>;
         /// Matrix commands
         async fn trigger_matrix(
             &self,
@@ -1015,6 +1040,10 @@ pub mod clip_engine_server {
         async fn trigger_column(
             &self,
             request: tonic::Request<super::TriggerColumnRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_column_name(
+            &self,
+            request: tonic::Request<super::SetColumnNameRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_column_volume(
             &self,
@@ -1220,6 +1249,46 @@ pub mod clip_engine_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
+                "/playtime.clip_engine.ClipEngine/GetAllTracks" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetAllTracksSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::GetAllTracksRequest>
+                    for GetAllTracksSvc<T> {
+                        type Response = super::GetAllTracksReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetAllTracksRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_all_tracks(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetAllTracksSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/TriggerMatrix" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerMatrixSvc<T: ClipEngine>(pub Arc<T>);
@@ -1409,6 +1478,46 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerColumnSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetColumnName" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetColumnNameSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetColumnNameRequest>
+                    for SetColumnNameSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetColumnNameRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_column_name(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetColumnNameSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

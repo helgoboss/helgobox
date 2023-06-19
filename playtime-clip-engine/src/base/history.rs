@@ -1,10 +1,9 @@
-use crate::base::{ClipMatrixHandler, MatrixContent};
+use crate::base::MatrixContent;
 use crate::ClipEngineResult;
 use itertools::Itertools;
 use playtime_api::persistence as api;
 use playtime_api::persistence::TrackId;
-use reaper_high::{Chunk, Guid, Project, Track};
-use reaper_medium::ChunkCacheHint;
+use reaper_high::{Guid, Project, Track};
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::Debug;

@@ -12,10 +12,8 @@ use base::default_util::{deserialize_null_default, is_default};
 use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::Display;
-use std::hash::Hash;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -169,6 +169,10 @@ impl ColumnCommandSender {
         self.send_task(RtColumnCommand::Panic);
     }
 
+    pub fn panic_slot(&self, slot_index: usize) {
+        self.send_task(RtColumnCommand::PanicSlot(slot_index));
+    }
+
     pub fn set_clip_settings(&self, args: ColumnSetClipSettingsArgs) {
         self.send_task(RtColumnCommand::SetClipSettings(args));
     }
@@ -225,6 +229,7 @@ impl ColumnCommandSender {
 pub enum RtColumnCommand {
     ClearSlots,
     Panic,
+    PanicSlot(usize),
     Load(ColumnLoadArgs),
     MoveSlotContents(ColumnMoveSlotContentsArgs),
     ReorderSlots(ColumnReorderSlotsArgs),
@@ -565,6 +570,11 @@ impl RtColumn {
         }
     }
 
+    pub fn panic_slot(&mut self, index: usize) -> ClipEngineResult<()> {
+        get_slot_mut(&mut self.slots, index)?.panic();
+        Ok(())
+    }
+
     pub fn remove_slot(&mut self, index: usize) -> ClipEngineResult<()> {
         let (_, slot) = self
             .slots
@@ -833,6 +843,9 @@ impl RtColumn {
                 }
                 Panic => {
                     self.panic();
+                }
+                PanicSlot(slot_index) => {
+                    self.panic_slot(slot_index).unwrap();
                 }
                 PauseSlot(args) => {
                     self.pause_slot(args).unwrap();

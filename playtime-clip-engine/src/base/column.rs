@@ -701,6 +701,10 @@ impl Column {
         self.rt_command_sender.panic();
     }
 
+    pub fn panic_slot(&self, slot_index: usize) {
+        self.rt_command_sender.panic_slot(slot_index);
+    }
+
     pub(crate) fn pause_slot(&self, slot_index: usize) {
         self.rt_command_sender.pause_slot(slot_index);
     }

@@ -11,8 +11,8 @@ use playtime_clip_engine::proto::{
     clip_engine_server, occasional_matrix_update, occasional_track_update,
     qualified_occasional_slot_update, DragColumnAction, DragColumnRequest, DragRowAction,
     DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress, FullColumnAddress,
-    FullRowAddress, FullSlotAddress, GetClipDetailReply, GetClipDetailRequest,
-    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    FullRowAddress, FullSlotAddress, GetAllTracksReply, GetAllTracksRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
@@ -20,13 +20,16 @@ use playtime_clip_engine::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
-    SetClipNameRequest, SetColumnPanRequest, SetColumnTrackRequest, SetColumnVolumeRequest,
-    SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest, SlotAddress,
-    TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest,
-    TriggerRowAction, TriggerRowRequest, TriggerSlotAction, TriggerSlotRequest,
+    SetClipNameRequest, SetColumnNameRequest, SetColumnPanRequest, SetColumnTrackRequest,
+    SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
+    SlotAddress, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
+    TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSlotAction,
+    TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlaySlotOptions;
-use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Tempo, Track, Volume};
+use reaper_high::{
+    GroupingBehavior, Guid, OrCurrentProject, Pan, Project, Reaper, Tempo, Track, Volume,
+};
 use reaper_medium::{Bpm, CommandId, Db, GangBehavior, ReaperPanValue, SoloMode, UndoBehavior};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -169,7 +172,6 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                         Update::history_state(matrix),
                         // TODO click enabled
                         Update::time_signature(project),
-                        Update::tracks(project),
                     ];
                     let updates: Vec<_> = updates
                         .into_iter()
@@ -273,6 +275,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerSlotAction::FillWithSelectedItem => {
                 matrix.replace_slot_clips_with_selected_item(slot_address)
             }
+            TriggerSlotAction::Panic => matrix.panic_slot(slot_address),
         })
     }
 
@@ -443,6 +446,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerColumnAction::Remove => matrix.remove_column(column_index),
             TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index),
             TriggerColumnAction::Insert => matrix.insert_column(column_index),
+            TriggerColumnAction::Panic => matrix.panic_column(column_index),
         })
     }
 
@@ -465,6 +469,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Remove => matrix.remove_row(row_index),
             TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
             TriggerRowAction::Insert => matrix.insert_row(row_index),
+            TriggerRowAction::Panic => matrix.panic_row(row_index),
         })
     }
 
@@ -590,6 +595,28 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             rea_peaks: ok_or_log_as_warn(peak_file_future.await),
         };
         Ok(Response::new(reply))
+    }
+
+    async fn get_all_tracks(
+        &self,
+        request: Request<GetAllTracksRequest>,
+    ) -> Result<Response<GetAllTracksReply>, Status> {
+        let req = request.into_inner();
+        let reply = handle_matrix_internal(&req.matrix_id, |matrix| {
+            let project = matrix.temporary_project();
+            Ok(get_all_tracks(project))
+        })?;
+        Ok(Response::new(reply))
+    }
+
+    async fn set_column_name(
+        &self,
+        request: Request<SetColumnNameRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        handle_column_command(&req.column_address, |matrix, column_index| {
+            matrix.set_column_name(column_index, req.name)
+        })
     }
 }
 
@@ -746,4 +773,17 @@ fn convert_clip_address_to_engine(
         .to_engine()
         .map_err(Status::invalid_argument)?;
     Ok(addr)
+}
+
+fn get_all_tracks(project: Project) -> GetAllTracksReply {
+    let mut level = 0i32;
+    let tracks = project.tracks().map(|t| {
+        let folder_depth_change = t.folder_depth_change();
+        let track = proto::TrackInList::from_engine(t, level.unsigned_abs() as u32);
+        level += folder_depth_change;
+        track
+    });
+    GetAllTracksReply {
+        track: tracks.collect(),
+    }
 }

@@ -16,7 +16,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp;
-use std::error::Error;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection

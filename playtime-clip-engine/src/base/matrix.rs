@@ -780,6 +780,20 @@ impl Matrix {
         Ok(())
     }
 
+    /// Sets the name of the column and the track.
+    ///
+    /// If the name is `None`, it resets the column name to the name of the track.
+    pub fn set_column_name(&mut self, column_index: usize, name: String) -> ClipEngineResult<()> {
+        self.undoable("Set column playback track", move |matrix| {
+            let column = matrix.get_column_mut(column_index)?;
+            if let Ok(t) = column.playback_track() {
+                t.set_name(name.clone());
+            }
+            column.set_name(name);
+            Ok(vec![])
+        })
+    }
+
     /// Sets the playback track of the given column.
     pub fn set_column_playback_track(
         &mut self,
@@ -1139,6 +1153,26 @@ impl Matrix {
         for c in &self.content.columns {
             c.panic();
         }
+    }
+
+    /// Stops column immediately.
+    pub fn panic_column(&self, column_index: usize) -> ClipEngineResult<()> {
+        self.get_column(column_index)?.panic();
+        Ok(())
+    }
+
+    /// Stops slot immediately.
+    pub fn panic_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
+        self.get_column(address.column)?.panic_slot(address.row);
+        Ok(())
+    }
+
+    /// Stops row immediately.
+    pub fn panic_row(&self, row_index: usize) -> ClipEngineResult<()> {
+        for col in &self.content.columns {
+            col.panic_slot(row_index);
+        }
+        Ok(())
     }
 
     /// Plays all slots of scene-following columns in the given row.
