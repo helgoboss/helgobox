@@ -1,4 +1,5 @@
 use crate::application::{Preset, PresetManager};
+use std::error::Error;
 
 use crate::base::notification;
 use crate::infrastructure::plugin::App;
@@ -77,8 +78,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.presets = preset_file_paths
             .filter_map(|p| match self.load_preset(&p) {
                 Ok(p) => Some(p),
-                Err(msg) => {
-                    notification::warn(msg);
+                Err(e) => {
+                    notification::warn(e.to_string());
                     None
                 }
             })
@@ -137,7 +138,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.preset_dir_path.join(format!("{id}.json"))
     }
 
-    fn load_preset(&self, path: &Path) -> Result<P, String> {
+    fn load_preset(&self, path: &Path) -> Result<P, Box<dyn Error>> {
         let relative_path = path
             .parent()
             .unwrap()
@@ -182,7 +183,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                     v,
                     App::version()
                 );
-                return Err(msg);
+                return Err(msg.into());
             }
         }
         data.to_model(id)
@@ -230,7 +231,7 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn from_model(preset: &Self::P) -> Self;
 
-    fn to_model(&self, id: String) -> Result<Self::P, String>;
+    fn to_model(&self, id: String) -> Result<Self::P, Box<dyn Error>>;
 
     fn clear_id(&mut self);
 

@@ -9,6 +9,7 @@ use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
 
 pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
@@ -70,7 +71,7 @@ impl PresetData for MainPresetData {
         }
     }
 
-    fn to_model(&self, id: String) -> Result<MainPreset, String> {
+    fn to_model(&self, id: String) -> Result<MainPreset, Box<dyn Error>> {
         let preset = MainPreset::new(
             id,
             self.name.clone(),

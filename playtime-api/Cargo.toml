@@ -12,3 +12,5 @@ schemars.workspace = true
 realearn-macros.workspace = true
 # For generating random IDs
 nanoid.workspace = true
+# For easier Display impl
+derive_more.workspace = true

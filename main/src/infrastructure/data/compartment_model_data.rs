@@ -9,9 +9,11 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use base::default_util::{deserialize_null_default, is_default};
+use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::fmt::Display;
 use std::hash::Hash;
 
@@ -106,7 +108,7 @@ impl CompartmentModelData {
         version: Option<&Version>,
         compartment: Compartment,
         session: Option<&Session>,
-    ) -> Result<CompartmentModel, String> {
+    ) -> Result<CompartmentModel, Box<dyn Error>> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
@@ -164,7 +166,7 @@ pub fn ensure_no_duplicate_compartment_data<'a>(
     mappings: &[MappingModelData],
     groups: &[GroupModelData],
     parameters: impl Iterator<Item = &'a ParamSetting>,
-) -> Result<(), String> {
+) -> Result<(), ValidationError> {
     ensure_no_duplicate("mapping IDs", mappings.iter().filter_map(|m| m.id.as_ref()))?;
     ensure_no_duplicate(
         "group IDs",
@@ -174,37 +176,4 @@ pub fn ensure_no_duplicate_compartment_data<'a>(
     )?;
     ensure_no_duplicate("parameter IDs", parameters.filter_map(|p| p.key.as_ref()))?;
     Ok(())
-}
-
-#[allow(clippy::unnecessary_filter_map)]
-pub fn ensure_no_duplicate<T>(list_label: &str, iter: T) -> Result<(), String>
-where
-    T: IntoIterator,
-    T::Item: Eq + Hash + Display,
-{
-    use std::fmt::Write;
-    let mut uniq = HashSet::new();
-    let duplicates: HashSet<_> = iter
-        .into_iter()
-        .filter_map(|d| {
-            if uniq.contains(&d) {
-                Some(d)
-            } else {
-                uniq.insert(d);
-                None
-            }
-        })
-        .collect();
-    if duplicates.is_empty() {
-        Ok(())
-    } else {
-        let mut s = format!("Found the following duplicate {list_label}: ");
-        for (i, d) in duplicates.into_iter().enumerate() {
-            if i > 0 {
-                s.push_str(", ");
-            }
-            let _ = write!(&mut s, "{d}");
-        }
-        Err(s)
-    }
 }

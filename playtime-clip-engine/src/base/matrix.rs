@@ -18,6 +18,7 @@ use crate::rt::{
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
+use base::validation_util::{ensure_no_duplicate, ValidationError};
 use crossbeam_channel::{Receiver, Sender};
 use derivative::Derivative;
 use helgoboss_learn::UnitValue;
@@ -84,6 +85,7 @@ impl MatrixContent {
         // Settings
         self.settings = MatrixSettings::from_api(&api_matrix);
         // Columns
+
         let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
             .into_iter()
             .map(|c| (c.id().clone(), c))
@@ -363,7 +365,7 @@ impl Matrix {
         self.content.rt_matrix.downgrade()
     }
 
-    pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+    pub fn load(&mut self, api_matrix: api::Matrix) -> Result<(), Box<dyn Error>> {
         // We make a fresh start by throwing away all existing columns (with preview registers).
         // In theory, we don't need to do this because our core loading logic (the same that we also
         // use for undo/redo) should ideally be solid enough to react correctly when loading
@@ -372,6 +374,8 @@ impl Matrix {
         self.content
             .retired_columns
             .extend(self.content.columns.drain(..).map(RetiredColumn::new));
+        // This is a public method so we need to expect the worst, also invalid data! Do checks.
+        validate_api_matrix(&api_matrix)?;
         // Core loading logic
         self.content.load_internal(api_matrix)?;
         // We want to reset undo/redo history
@@ -1762,3 +1766,18 @@ impl<T> WithColumn<T> {
 pub type SlotWithColumn<'a> = WithColumn<&'a Slot>;
 
 pub type SlotContentsWithColumn = WithColumn<Vec<api::Clip>>;
+
+fn validate_api_matrix(matrix: &api::Matrix) -> Result<(), ValidationError> {
+    ensure_no_duplicate(
+        "column IDs",
+        matrix.columns.iter().flatten().map(|col| &col.id),
+    )?;
+    ensure_no_duplicate("row IDs", matrix.rows.iter().flatten().map(|row| &row.id))?;
+    for col in matrix.columns.iter().flatten() {
+        ensure_no_duplicate("slot IDs", col.slots.iter().flatten().map(|slot| &slot.id))?;
+        for slot in col.slots.iter().flatten() {
+            ensure_no_duplicate("clip IDs", slot.clips.iter().flatten().map(|clip| &clip.id))?;
+        }
+    }
+    Ok(())
+}

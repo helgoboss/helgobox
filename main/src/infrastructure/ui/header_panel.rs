@@ -2089,7 +2089,7 @@ impl HeaderPanel {
                     session.import_compartment(compartment, Some(model));
                 }
                 Err(e) => {
-                    self.view.require_window().alert("ReaLearn", e);
+                    self.view.require_window().alert("ReaLearn", e.to_string());
                 }
             }
         }

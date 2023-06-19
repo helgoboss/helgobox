@@ -16,6 +16,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp;
+use std::error::Error;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection
@@ -550,7 +551,9 @@ impl EvenQuantization {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema, derive_more::Display,
+)]
 pub struct ColumnId(String);
 
 impl ColumnId {
@@ -565,7 +568,9 @@ impl Default for ColumnId {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema, derive_more::Display,
+)]
 pub struct RowId(String);
 
 impl RowId {
@@ -580,7 +585,9 @@ impl Default for RowId {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema, derive_more::Display,
+)]
 pub struct SlotId(String);
 
 impl SlotId {
@@ -595,7 +602,9 @@ impl Default for SlotId {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, JsonSchema, derive_more::Display,
+)]
 pub struct ClipId(String);
 
 impl ClipId {
