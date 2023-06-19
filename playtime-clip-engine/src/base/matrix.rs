@@ -1,8 +1,8 @@
 use crate::base::history::History;
 use crate::base::row::Row;
 use crate::base::{
-    AddedTrack, BoxedReaperChange, Clip, Column, ColumnRtEquipment, HistoryState, ReaperChange,
-    Slot, SlotKit,
+    AddedTrack, BoxedReaperChange, Clip, Column, ColumnRtEquipment, ReaperChange,
+    RestorationInstruction, Slot, SlotKit,
 };
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
@@ -38,6 +38,11 @@ use std::{mem, thread};
 #[derive(Debug)]
 pub struct Matrix<H> {
     history: History,
+    content: MatrixContent<H>,
+}
+
+#[derive(Debug)]
+pub(crate) struct MatrixContent<H> {
     /// Don't lock this from the main thread, only from real-time threads!
     rt_matrix: rt::SharedRtMatrix,
     settings: MatrixSettings,
@@ -58,6 +63,75 @@ pub struct Matrix<H> {
     clipboard: MatrixClipboard,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
+}
+
+impl<H> MatrixContent<H> {
+    pub fn sync_column_handles_to_rt_matrix(&mut self) {
+        let column_handles = self.columns.iter().map(|c| c.create_handle()).collect();
+        self.rt_command_sender.set_column_handles(column_handles);
+    }
+
+    pub fn permanent_project(&self) -> Option<Project> {
+        self.containing_track.as_ref().map(|t| t.project())
+    }
+}
+
+impl<H: ClipMatrixHandler> MatrixContent<H> {
+    pub fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+        let permanent_project = self.permanent_project();
+        let necessary_row_count = api_matrix.necessary_row_count();
+        // Settings
+        self.settings = MatrixSettings::from_api(&api_matrix);
+        // Columns
+        let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
+            .into_iter()
+            .map(|c| (c.id().clone(), c))
+            .collect();
+        for api_column in api_matrix.columns.unwrap_or_default().into_iter() {
+            let mut column = old_columns.remove(&api_column.id).unwrap_or_else(|| {
+                Column::new(
+                    api_column.id.clone(),
+                    permanent_project,
+                    necessary_row_count,
+                )
+            });
+            column.load(
+                api_column,
+                necessary_row_count,
+                ColumnRtEquipment {
+                    chain_equipment: &self.chain_equipment,
+                    recorder_request_sender: &self.recorder_request_sender,
+                    matrix_settings: &self.settings,
+                },
+            )?;
+            self.columns.push(column);
+        }
+        // Rows
+        self.rows = api_matrix
+            .rows
+            .unwrap_or_default()
+            .into_iter()
+            .map(Row::from_api_row)
+            .collect();
+        self.rows
+            .resize_with(necessary_row_count, || Row::new(RowId::random()));
+        // Sync to real-time matrix
+        self.sync_column_handles_to_rt_matrix();
+        // Retire old and now unused columns
+        self.retired_columns
+            .extend(old_columns.into_values().map(RetiredColumn::new));
+        // Notify listeners
+        self.notify_everything_changed();
+        Ok(())
+    }
+
+    pub fn notify_everything_changed(&self) {
+        self.emit(ClipMatrixEvent::EverythingChanged);
+    }
+
+    pub fn emit(&self, event: ClipMatrixEvent) {
+        self.handler.emit_event(event);
+    }
 }
 
 #[derive(Debug)]
@@ -175,19 +249,25 @@ impl Drop for Worker {
 impl<H> Matrix<H> {
     pub fn save(&self) -> api::Matrix {
         api::Matrix {
-            columns: Some(self.columns.iter().map(|column| column.save()).collect()),
-            rows: Some(self.rows.iter().map(|row| row.save()).collect()),
+            columns: Some(
+                self.content
+                    .columns
+                    .iter()
+                    .map(|column| column.save())
+                    .collect(),
+            ),
+            rows: Some(self.content.rows.iter().map(|row| row.save()).collect()),
             clip_play_settings: MatrixClipPlaySettings {
-                start_timing: self.settings.overridable.clip_play_start_timing,
-                stop_timing: self.settings.overridable.clip_play_stop_timing,
+                start_timing: self.content.settings.overridable.clip_play_start_timing,
+                stop_timing: self.content.settings.overridable.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.settings.overridable.audio_resample_mode,
-                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode,
-                    cache_behavior: self.settings.overridable.audio_cache_behavior,
+                    resample_mode: self.content.settings.overridable.audio_resample_mode,
+                    time_stretch_mode: self.content.settings.overridable.audio_time_stretch_mode,
+                    cache_behavior: self.content.settings.overridable.audio_cache_behavior,
                 },
             },
-            clip_record_settings: self.settings.clip_record_settings,
-            common_tempo_range: self.settings.common_tempo_range,
+            clip_record_settings: self.content.settings.clip_record_settings,
+            common_tempo_range: self.content.settings.common_tempo_range,
         }
     }
 
@@ -198,7 +278,7 @@ impl<H> Matrix<H> {
     /// Returns the project which contains this matrix, unless the matrix is project-less
     /// (monitoring FX chain).
     pub fn permanent_project(&self) -> Option<Project> {
-        self.containing_track.as_ref().map(|t| t.project())
+        self.content.permanent_project()
     }
 
     /// Returns the permanent project. If the matrix is project-less, the current project.
@@ -232,36 +312,38 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let project = containing_track.as_ref().map(|t| t.project());
         let rt_matrix = rt::RtMatrix::new(rt_command_receiver, main_command_sender, project);
         Self {
-            rt_matrix: {
-                let m = rt::SharedRtMatrix::new(rt_matrix);
-                // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,
-                // locking a mutex the first time apparently allocates. If we don't lock the
-                // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
-                // complain in debug builds.
-                drop(m.lock());
-                m
-            },
-            settings: Default::default(),
-            handler,
-            chain_equipment: ChainEquipment {
-                cache_request_sender,
-                pre_buffer_request_sender,
-            },
-            recorder_request_sender,
-            columns: vec![],
-            retired_columns: vec![],
-            rows: vec![],
-            containing_track,
-            command_receiver: main_command_receiver,
-            rt_command_sender,
             history: History::new(Default::default()),
-            clipboard: Default::default(),
-            _worker_pool: worker_pool,
+            content: MatrixContent {
+                rt_matrix: {
+                    let m = rt::SharedRtMatrix::new(rt_matrix);
+                    // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,
+                    // locking a mutex the first time apparently allocates. If we don't lock the
+                    // mutex now for the first time but do it in the real-time thread, assert_no_alloc will
+                    // complain in debug builds.
+                    drop(m.lock());
+                    m
+                },
+                settings: Default::default(),
+                handler,
+                chain_equipment: ChainEquipment {
+                    cache_request_sender,
+                    pre_buffer_request_sender,
+                },
+                recorder_request_sender,
+                columns: vec![],
+                retired_columns: vec![],
+                rows: vec![],
+                containing_track,
+                command_receiver: main_command_receiver,
+                rt_command_sender,
+                clipboard: Default::default(),
+                _worker_pool: worker_pool,
+            },
         }
     }
 
     pub fn real_time_matrix(&self) -> rt::WeakRtMatrix {
-        self.rt_matrix.downgrade()
+        self.content.rt_matrix.downgrade()
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
@@ -270,66 +352,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         // use for undo/redo) should ideally be solid enough to react correctly when loading
         // something completely different. But who knows, maybe we have bugs in there and with the
         // following simple line we can effectively prevent those from having an effect here.
-        self.retired_columns
-            .extend(self.columns.drain(..).map(RetiredColumn::new));
+        self.content
+            .retired_columns
+            .extend(self.content.columns.drain(..).map(RetiredColumn::new));
         // Core loading logic
-        self.load_internal(api_matrix)?;
+        self.content.load_internal(api_matrix)?;
         // We want to reset undo/redo history
         self.history = History::new(self.save());
         Ok(())
-    }
-
-    fn load_internal(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
-        let permanent_project = self.permanent_project();
-        let necessary_row_count = api_matrix.necessary_row_count();
-        // Settings
-        self.settings = MatrixSettings::from_api(&api_matrix);
-        // Columns
-        let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
-            .into_iter()
-            .map(|c| (c.id().clone(), c))
-            .collect();
-        for api_column in api_matrix.columns.unwrap_or_default().into_iter() {
-            let mut column = old_columns.remove(&api_column.id).unwrap_or_else(|| {
-                Column::new(
-                    api_column.id.clone(),
-                    permanent_project,
-                    necessary_row_count,
-                )
-            });
-            column.load(
-                api_column,
-                necessary_row_count,
-                ColumnRtEquipment {
-                    chain_equipment: &self.chain_equipment,
-                    recorder_request_sender: &self.recorder_request_sender,
-                    matrix_settings: &self.settings,
-                },
-            )?;
-            self.columns.push(column);
-        }
-        // Rows
-        self.rows = api_matrix
-            .rows
-            .unwrap_or_default()
-            .into_iter()
-            .map(Row::from_api_row)
-            .collect();
-        self.rows
-            .resize_with(necessary_row_count, || Row::new(RowId::random()));
-        // Sync to real-time matrix
-        self.sync_column_handles_to_rt_matrix();
-        // Retire old and now unused columns
-        self.retired_columns
-            .extend(old_columns.into_values().map(RetiredColumn::new));
-        // Notify listeners
-        self.notify_everything_changed();
-        Ok(())
-    }
-
-    fn sync_column_handles_to_rt_matrix(&mut self) {
-        let column_handles = self.columns.iter().map(|c| c.create_handle()).collect();
-        self.rt_command_sender.set_column_handles(column_handles);
     }
 
     pub fn next_undo_label(&self) -> Option<&str> {
@@ -366,11 +396,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn restore_history_state(
         &mut self,
-        pop_state: impl FnOnce(&mut History) -> ClipEngineResult<&HistoryState>,
-        pre_load: impl Fn(&dyn ReaperChange) -> Result<(), Box<dyn Error>>,
-        post_load: impl Fn(&dyn ReaperChange) -> Result<(), Box<dyn Error>>,
+        pop_state: impl FnOnce(&mut History) -> ClipEngineResult<RestorationInstruction>,
+        pre_load: impl Fn(&mut dyn ReaperChange) -> Result<(), Box<dyn Error>>,
+        post_load: impl Fn(&mut dyn ReaperChange) -> Result<(), Box<dyn Error>>,
     ) -> ClipEngineResult<()> {
-        let state = pop_state(&mut self.history)?;
+        let instruction = pop_state(&mut self.history)?;
         // Apply pre-load REAPER changes
         //
         // # Example 1: Insert column
@@ -382,11 +412,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         //
         // Undo => Insert REAPER track
         // Redo => -
-        for change in &state.reaper_changes {
-            let _ = pre_load(&**change);
+        for change in instruction.reaper_changes.iter_mut() {
+            let bla = &mut self.content;
+            let _ = pre_load(&mut **change);
         }
         // Restore actual matrix state
-        self.load_internal(state.matrix.clone())?;
+        self.content.load_internal(instruction.matrix.clone())?;
         // Apply post-load REAPER changes
         //
         // # Example 1: Insert column
@@ -398,8 +429,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         //
         // Undo => -
         // Redo => Remove REAPER track
-        for change in &state.reaper_changes {
-            let _ = post_load(&**change);
+        for change in instruction.reaper_changes.iter_mut() {
+            let _ = post_load(&mut **change);
         }
         // Emit change notification
         self.emit(ClipMatrixEvent::HistoryChanged);
@@ -418,7 +449,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Freezes the complete matrix.
     pub async fn freeze(&mut self) {
-        for (i, column) in self.columns.iter_mut().enumerate() {
+        for (i, column) in self.content.columns.iter_mut().enumerate() {
             let _ = column.freeze(i).await;
         }
     }
@@ -426,7 +457,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Takes the current effective matrix dimensions into account, so even if a slot doesn't exist
     /// yet physically in the column, it returns `true` if it *should* exist.
     pub fn slot_exists(&self, coordinates: ClipSlotAddress) -> bool {
-        coordinates.column < self.columns.len() && coordinates.row < self.row_count()
+        coordinates.column < self.content.columns.len() && coordinates.row < self.row_count()
     }
 
     /// Finds the column at the given index.
@@ -446,7 +477,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns an iterator over all slots in each column, including the column indexes.
     pub fn all_slots(&self) -> impl Iterator<Item = SlotWithColumn> + '_ {
-        self.columns
+        self.content
+            .columns
             .iter()
             .enumerate()
             .flat_map(|(column_index, column)| {
@@ -458,7 +490,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns an iterator over all columns.
     pub fn all_columns(&self) -> impl Iterator<Item = &Column> + '_ {
-        self.columns.iter()
+        self.content.columns.iter()
     }
 
     /// Returns an iterator over all clips in a row whose column is a scene follower.
@@ -467,7 +499,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         row_index: usize,
     ) -> impl Iterator<Item = SlotContentsWithColumn> + '_ {
         let project = self.permanent_project();
-        self.columns
+        self.content
+            .columns
             .iter()
             .enumerate()
             .filter(|(_, c)| c.follows_scene())
@@ -488,13 +521,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Copies the given scene's clips to the matrix clipboard.
     pub fn copy_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
         let clips = self.all_clips_in_scene(row_index).collect();
-        self.clipboard.content = Some(MatrixClipboardContent::Scene(clips));
+        self.content.clipboard.content = Some(MatrixClipboardContent::Scene(clips));
         Ok(())
     }
 
     /// Pastes the clips stored in the matrix clipboard into the given scene.
     pub fn paste_scene(&mut self, row_index: usize) -> ClipEngineResult<()> {
-        let content = self.clipboard.content.as_ref().ok_or("clipboard empty")?;
+        let content = self
+            .content
+            .clipboard
+            .content
+            .as_ref()
+            .ok_or("clipboard empty")?;
         let MatrixClipboardContent::Scene(clips) = content else {
             return Err("clipboard doesn't contain scene contents");
         };
@@ -507,19 +545,22 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn remove_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        if column_index >= self.columns.len() {
+        if column_index >= self.content.columns.len() {
             return Err("column doesn't exist");
         }
         self.undoable("Remove column", |matrix| {
-            let column = matrix.columns.remove(column_index);
+            let column = matrix.content.columns.remove(column_index);
             let timeline = matrix.timeline();
             column.stop(ColumnStopArgs {
                 timeline,
                 ref_pos: None,
                 stop_timing: Some(ClipPlayStopTiming::Immediately),
             });
-            matrix.retired_columns.push(RetiredColumn::new(column));
-            matrix.sync_column_handles_to_rt_matrix();
+            matrix
+                .content
+                .retired_columns
+                .push(RetiredColumn::new(column));
+            matrix.content.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
             Ok(vec![])
         })
@@ -528,16 +569,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn duplicate_column(&mut self, column_index: usize) -> ClipEngineResult<()> {
         self.undoable("Duplicate column", |matrix| {
             let column = matrix
+                .content
                 .columns
                 .get(column_index)
                 .ok_or("column doesn't exist")?;
             let duplicate_column = column.duplicate(ColumnRtEquipment {
-                chain_equipment: &matrix.chain_equipment,
-                recorder_request_sender: &matrix.recorder_request_sender,
-                matrix_settings: &matrix.settings,
+                chain_equipment: &matrix.content.chain_equipment,
+                recorder_request_sender: &matrix.content.recorder_request_sender,
+                matrix_settings: &matrix.content.settings,
             });
-            matrix.columns.insert(column_index + 1, duplicate_column);
-            matrix.sync_column_handles_to_rt_matrix();
+            matrix
+                .content
+                .columns
+                .insert(column_index + 1, duplicate_column);
+            matrix.content.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
             Ok(vec![])
         })
@@ -547,11 +592,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ///
     /// Only works if the existing column next to it has a playback track assigned.
     fn determine_index_of_new_track(&self, new_column_index: usize) -> Option<u32> {
-        if self.columns.len() == 0 {
+        if self.content.columns.len() == 0 {
             // We add the first column. Add track at end.
             return Some(self.temporary_project().track_count());
         }
-        let reference_column_index = if new_column_index < self.columns.len() {
+        let reference_column_index = if new_column_index < self.content.columns.len() {
             // Add column in the middle. Add track above playback track of column which was
             // previously at that position.
             new_column_index
@@ -559,7 +604,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             // Add column at end. Add track below playback track of last column.
             new_column_index - 1
         };
-        let reference_column = self.columns.get(reference_column_index)?;
+        let reference_column = self.content.columns.get(reference_column_index)?;
         reference_column.playback_track().ok()?.index()
     }
 
@@ -579,11 +624,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             let mut new_column = Column::new(
                 ColumnId::random(),
                 matrix.permanent_project(),
-                matrix.rows.len(),
+                matrix.content.rows.len(),
             );
             new_column.set_playback_track(new_track, matrix.column_rt_equipment());
-            matrix.columns.insert(column_index, new_column);
-            matrix.sync_column_handles_to_rt_matrix();
+            matrix.content.columns.insert(column_index, new_column);
+            matrix.content.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
             Ok(reaper_changes)
         })
@@ -591,15 +636,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn duplicate_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
         self.undoable("Duplicate row", |matrix| {
-            let row = matrix.rows.get(row_index).ok_or("row doesn't exist")?;
-            matrix.rows.insert(row_index + 1, row.duplicate());
-            for column in &mut matrix.columns {
+            let row = matrix
+                .content
+                .rows
+                .get(row_index)
+                .ok_or("row doesn't exist")?;
+            matrix.content.rows.insert(row_index + 1, row.duplicate());
+            for column in &mut matrix.content.columns {
                 column.duplicate_slot(
                     row_index,
                     ColumnRtEquipment {
-                        chain_equipment: &matrix.chain_equipment,
-                        recorder_request_sender: &matrix.recorder_request_sender,
-                        matrix_settings: &matrix.settings,
+                        chain_equipment: &matrix.content.chain_equipment,
+                        recorder_request_sender: &matrix.content.recorder_request_sender,
+                        matrix_settings: &matrix.content.settings,
                     },
                 )?;
             }
@@ -610,17 +659,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn insert_row(&mut self, row_index: usize) -> ClipEngineResult<()> {
         self.undoable("Insert row", |matrix| {
-            if row_index > matrix.rows.len() {
+            if row_index > matrix.content.rows.len() {
                 return Err("row index too large");
             }
-            matrix.rows.insert(row_index, Row::new(RowId::random()));
-            for column in &mut matrix.columns {
+            matrix
+                .content
+                .rows
+                .insert(row_index, Row::new(RowId::random()));
+            for column in &mut matrix.content.columns {
                 column.insert_slot(
                     row_index,
                     ColumnRtEquipment {
-                        chain_equipment: &matrix.chain_equipment,
-                        recorder_request_sender: &matrix.recorder_request_sender,
-                        matrix_settings: &matrix.settings,
+                        chain_equipment: &matrix.content.chain_equipment,
+                        recorder_request_sender: &matrix.content.recorder_request_sender,
+                        matrix_settings: &matrix.content.settings,
                     },
                 )?;
             }
@@ -634,8 +686,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             return Err("row doesn't exist");
         }
         self.undoable("Remove row", |matrix| {
-            matrix.rows.remove(row_index);
-            for column in &mut matrix.columns {
+            matrix.content.rows.remove(row_index);
+            for column in &mut matrix.content.columns {
                 // It's possible that the slot index doesn't exist in that column because slots
                 // are added lazily.
                 column.remove_slot(row_index)?;
@@ -677,12 +729,15 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns an iterator over all scene-following columns.
     fn scene_columns(&self) -> impl Iterator<Item = &Column> {
-        self.columns.iter().filter(|c| c.follows_scene())
+        self.content.columns.iter().filter(|c| c.follows_scene())
     }
 
     /// Returns a mutable iterator over all scene-following columns.
     fn scene_columns_mut(&mut self) -> impl Iterator<Item = &mut Column> {
-        self.columns.iter_mut().filter(|c| c.follows_scene())
+        self.content
+            .columns
+            .iter_mut()
+            .filter(|c| c.follows_scene())
     }
 
     /// Cuts the given slot's clips to the matrix clipboard.
@@ -695,7 +750,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     /// Copies the given slot's clips to the matrix clipboard.
     pub fn copy_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         let clips_in_slot = self.get_slot(address)?.api_clips(self.permanent_project());
-        self.clipboard.content = Some(MatrixClipboardContent::Slot(clips_in_slot));
+        self.content.clipboard.content = Some(MatrixClipboardContent::Slot(clips_in_slot));
         Ok(())
     }
 
@@ -706,13 +761,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         track_id: Option<&TrackId>,
     ) -> ClipEngineResult<()> {
         self.undoable("Set column playback track", move |matrix| {
-            let column = matrix.columns.get_mut(column_index).ok_or(NO_SUCH_COLUMN)?;
+            let column = matrix
+                .content
+                .columns
+                .get_mut(column_index)
+                .ok_or(NO_SUCH_COLUMN)?;
             column.set_playback_track_from_id(
                 track_id,
                 ColumnRtEquipment {
-                    chain_equipment: &matrix.chain_equipment,
-                    recorder_request_sender: &matrix.recorder_request_sender,
-                    matrix_settings: &matrix.settings,
+                    chain_equipment: &matrix.content.chain_equipment,
+                    recorder_request_sender: &matrix.content.recorder_request_sender,
+                    matrix_settings: &matrix.content.settings,
                 },
             )?;
             matrix.notify_everything_changed();
@@ -722,16 +781,21 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn column_rt_equipment(&self) -> ColumnRtEquipment {
         ColumnRtEquipment {
-            chain_equipment: &self.chain_equipment,
-            recorder_request_sender: &self.recorder_request_sender,
-            matrix_settings: &self.settings,
+            chain_equipment: &self.content.chain_equipment,
+            recorder_request_sender: &self.content.recorder_request_sender,
+            matrix_settings: &self.content.settings,
         }
     }
 
     /// Pastes the clips stored in the matrix clipboard into the given slot.
     // TODO-high-clip-engine In all copy scenarios, we must take care to create new unique IDs!
     pub fn paste_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        let content = self.clipboard.content.as_ref().ok_or("clipboard empty")?;
+        let content = self
+            .content
+            .clipboard
+            .content
+            .as_ref()
+            .ok_or("clipboard empty")?;
         let MatrixClipboardContent::Slot(clips) = content else {
             return Err("clipboard doesn't contain slot contents");
         };
@@ -797,16 +861,17 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot_contents: Vec<SlotContentsWithColumn>,
     ) -> ClipEngineResult<()> {
         for slot_content in slot_contents {
-            let column = match get_column_mut(&mut self.columns, slot_content.column_index).ok() {
-                None => break,
-                Some(c) => c,
-            };
+            let column =
+                match get_column_mut(&mut self.content.columns, slot_content.column_index).ok() {
+                    None => break,
+                    Some(c) => c,
+                };
             column.fill_slot(
                 row_index,
                 slot_content.value,
-                &self.chain_equipment,
-                &self.recorder_request_sender,
-                &self.settings,
+                &self.content.chain_equipment,
+                &self.content.recorder_request_sender,
+                &self.content.settings,
                 FillSlotMode::Replace,
             )?;
         }
@@ -818,13 +883,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         address: ClipSlotAddress,
         api_clips: Vec<api::Clip>,
     ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, address.column)?;
+        let column = get_column_mut(&mut self.content.columns, address.column)?;
         column.fill_slot(
             address.row,
             api_clips,
-            &self.chain_equipment,
-            &self.recorder_request_sender,
-            &self.settings,
+            &self.content.chain_equipment,
+            &self.content.recorder_request_sender,
+            &self.content.settings,
             FillSlotMode::Replace,
         )?;
         Ok(())
@@ -836,12 +901,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         address: ClipSlotAddress,
     ) -> ClipEngineResult<()> {
         self.undoable("Fill slot with selected item", |matrix| {
-            let column = get_column_mut(&mut matrix.columns, address.column)?;
+            let column = get_column_mut(&mut matrix.content.columns, address.column)?;
             column.replace_slot_clips_with_selected_item(
                 address.row,
-                &matrix.chain_equipment,
-                &matrix.recorder_request_sender,
-                &matrix.settings,
+                &matrix.content.chain_equipment,
+                &matrix.content.recorder_request_sender,
+                &matrix.content.settings,
             )?;
             matrix.emit(ClipMatrixEvent::slot_changed(
                 address,
@@ -858,7 +923,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         options: ColumnPlaySlotOptions,
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column(&self.columns, address.column)?;
+        let column = get_column(&self.content.columns, address.column)?;
         let args = ColumnPlaySlotArgs {
             slot_index: address.row,
             timeline,
@@ -945,8 +1010,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             let source_column = matrix.get_column(source_column_index)?;
             let dest_column = matrix.get_column(dest_column_index)?;
             let _ = matrix.reorder_column_tracks(source_column, dest_column);
-            let source_column = matrix.columns.remove(source_column_index);
-            matrix.columns.insert(dest_column_index, source_column);
+            let source_column = matrix.content.columns.remove(source_column_index);
+            matrix
+                .content
+                .columns
+                .insert(dest_column_index, source_column);
             matrix.notify_everything_changed();
             Ok(vec![])
         })
@@ -984,19 +1052,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         source_row_index: usize,
         dest_row_index: usize,
     ) -> ClipEngineResult<()> {
-        if source_row_index >= self.rows.len() {
+        if source_row_index >= self.content.rows.len() {
             return Err("source row doesn't exist");
         }
-        if dest_row_index >= self.rows.len() {
+        if dest_row_index >= self.content.rows.len() {
             return Err("destination row doesn't exist");
         }
         if source_row_index == dest_row_index {
             return Ok(());
         }
         self.undoable("Reorder rows", |matrix| {
-            let source_row = matrix.rows.remove(source_row_index);
-            matrix.rows.insert(dest_row_index, source_row);
-            for column in &mut matrix.columns {
+            let source_row = matrix.content.rows.remove(source_row_index);
+            matrix.content.rows.insert(dest_row_index, source_row);
+            for column in &mut matrix.content.columns {
                 column.reorder_slots(source_row_index, dest_row_index)?;
             }
             matrix.notify_everything_changed();
@@ -1027,7 +1095,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         stop_timing: Option<ClipPlayStopTiming>,
     ) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column(&self.columns, address.column)?;
+        let column = get_column(&self.content.columns, address.column)?;
         let args = ColumnStopSlotArgs {
             slot_index: address.row,
             timeline,
@@ -1046,14 +1114,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             timeline,
             stop_timing: None,
         };
-        for c in &self.columns {
+        for c in &self.content.columns {
             c.stop(args.clone());
         }
     }
 
     /// Stops all slots in all columns immediately.
     pub fn panic(&self) {
-        for c in &self.columns {
+        for c in &self.content.columns {
             c.panic();
         }
     }
@@ -1067,19 +1135,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             timeline,
             ref_pos: timeline_cursor_pos,
         };
-        for c in &self.columns {
+        for c in &self.content.columns {
             c.play_scene(args.clone());
         }
     }
 
     /// Returns the settings of this matrix.
     pub fn settings(&self) -> &MatrixSettings {
-        &self.settings
+        &self.content.settings
     }
 
     /// Sets the record duration for new clip recordings.
     pub fn set_record_duration(&mut self, record_length: RecordLength) {
-        self.settings.clip_record_settings.duration = record_length;
+        self.content.settings.clip_record_settings.duration = record_length;
         self.emit(ClipMatrixEvent::RecordDurationChanged);
     }
 
@@ -1109,11 +1177,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     fn notify_everything_changed(&self) {
-        self.emit(ClipMatrixEvent::EverythingChanged);
+        self.content.notify_everything_changed();
     }
 
     fn emit(&self, event: ClipMatrixEvent) {
-        self.handler.emit_event(event);
+        self.content.emit(event);
     }
 
     fn distribute_clips_to_scene(
@@ -1124,7 +1192,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let need_handle_sync = false;
         for slot_content in slot_contents {
             // First try to put it within same column as clip itself
-            let original_column = get_column_mut(&mut self.columns, slot_content.column_index)?;
+            let original_column =
+                get_column_mut(&mut self.content.columns, slot_content.column_index)?;
             let dest_column =
                 if original_column.follows_scene() && original_column.slot_is_empty(row_index) {
                     // We have space in that column, good.
@@ -1156,21 +1225,21 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             dest_column.fill_slot(
                 row_index,
                 slot_content.value,
-                &self.chain_equipment,
-                &self.recorder_request_sender,
-                &self.settings,
+                &self.content.chain_equipment,
+                &self.content.recorder_request_sender,
+                &self.content.settings,
                 FillSlotMode::Replace,
             )?;
         }
         if need_handle_sync {
-            self.sync_column_handles_to_rt_matrix();
+            self.content.sync_column_handles_to_rt_matrix();
         }
         Ok(())
     }
 
     /// Returns whether the given slot is empty.
     pub fn slot_is_empty(&self, address: ClipSlotAddress) -> bool {
-        let Some(column) = self.columns.get(address.column) else {
+        let Some(column) = self.content.columns.get(address.column) else {
             return false;
         };
         column.slot_is_empty(address.row)
@@ -1183,7 +1252,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     fn capture_playing_clips(&self) -> Vec<SlotContentsWithColumn> {
         let project = self.permanent_project();
-        self.columns
+        self.content
+            .columns
             .iter()
             .enumerate()
             .map(|(col_index, col)| {
@@ -1218,7 +1288,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     fn process_commands(&mut self) {
-        while let Ok(task) = self.command_receiver.try_recv() {
+        while let Ok(task) = self.content.command_receiver.try_recv() {
             match task {
                 MatrixCommand::ThrowAway(_) => {}
             }
@@ -1226,7 +1296,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     fn remove_obsolete_retired_columns(&mut self) {
-        self.retired_columns.retain(|c| c.is_still_alive());
+        self.content.retired_columns.retain(|c| c.is_still_alive());
     }
 
     /// Polls this matrix and returns a list of gathered events.
@@ -1237,6 +1307,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.remove_obsolete_retired_columns();
         self.process_commands();
         let events: Vec<_> = self
+            .content
             .columns
             .iter_mut()
             .enumerate()
@@ -1283,12 +1354,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns whether some slots in this matrix are currently playing/recording.
     pub fn is_stoppable(&self) -> bool {
-        self.columns.iter().any(|c| c.is_stoppable())
+        self.content.columns.iter().any(|c| c.is_stoppable())
     }
 
     /// Returns whether the given column is currently playing/recording.
     pub fn column_is_stoppable(&self, index: usize) -> bool {
-        self.columns
+        self.content
+            .columns
             .get(index)
             .map(|c| c.is_stoppable())
             .unwrap_or(false)
@@ -1296,7 +1368,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns whether the given column is armed for recording.
     pub fn column_is_armed_for_recording(&self, index: usize) -> bool {
-        self.columns
+        self.content
+            .columns
             .get(index)
             .map(|c| c.is_armed_for_recording())
             .unwrap_or(false)
@@ -1304,17 +1377,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns if the given track is a playback track in one of the matrix columns.
     pub fn uses_playback_track(&self, track: &Track) -> bool {
-        self.columns.iter().any(|c| c.playback_track() == Ok(track))
+        self.content
+            .columns
+            .iter()
+            .any(|c| c.playback_track() == Ok(track))
     }
 
     /// Returns the number of columns in this matrix.
     pub fn column_count(&self) -> usize {
-        self.columns.len()
+        self.content.columns.len()
     }
 
     /// Returns the number of rows in this matrix.
     pub fn row_count(&self) -> usize {
-        self.rows.len()
+        self.content.rows.len()
     }
 
     /// Starts recording in the given slot.
@@ -1322,31 +1398,31 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         if self.is_recording() {
             return Err("recording already");
         }
-        get_column_mut(&mut self.columns, address.column())?.record_slot(
+        get_column_mut(&mut self.content.columns, address.column())?.record_slot(
             address.row(),
-            &self.settings.clip_record_settings,
-            &self.chain_equipment,
-            &self.recorder_request_sender,
-            &self.handler,
-            self.containing_track.as_ref(),
-            &self.settings.overridable,
+            &self.content.settings.clip_record_settings,
+            &self.content.chain_equipment,
+            &self.content.recorder_request_sender,
+            &self.content.handler,
+            self.content.containing_track.as_ref(),
+            &self.content.settings.overridable,
         )
     }
 
     /// Returns whether any column in this matrix is recording.
     pub fn is_recording(&self) -> bool {
-        self.columns.iter().any(|c| c.is_recording())
+        self.content.columns.iter().any(|c| c.is_recording())
     }
 
     /// Pauses all clips in the given slot.
     pub fn pause_clip(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        get_column(&self.columns, address.column())?.pause_slot(address.row());
+        get_column(&self.content.columns, address.column())?.pause_slot(address.row());
         Ok(())
     }
 
     /// Seeks the given slot.
     pub fn seek_slot(&self, address: ClipSlotAddress, position: UnitValue) -> ClipEngineResult<()> {
-        get_column(&self.columns, address.column())?.seek_slot(address.row(), position);
+        get_column(&self.content.columns, address.column())?.seek_slot(address.row(), position);
         Ok(())
     }
 
@@ -1426,11 +1502,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     /// Returns the column at the given index.
     pub fn get_column(&self, index: usize) -> ClipEngineResult<&Column> {
-        get_column(&self.columns, index)
+        get_column(&self.content.columns, index)
     }
 
     fn get_column_mut(&mut self, index: usize) -> ClipEngineResult<&mut Column> {
-        get_column_mut(&mut self.columns, index)
+        get_column_mut(&mut self.content.columns, index)
     }
 
     fn get_clip_mut(&mut self, address: ClipAddress) -> ClipEngineResult<&mut Clip> {

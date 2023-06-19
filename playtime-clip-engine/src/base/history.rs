@@ -1,7 +1,9 @@
+use crate::base::{ClipMatrixHandler, MatrixContent};
 use crate::ClipEngineResult;
 use itertools::Itertools;
 use playtime_api::persistence as api;
-use reaper_high::{Guid, Project, Track};
+use reaper_high::{Chunk, Guid, Project, Track};
+use reaper_medium::ChunkCacheHint;
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::Debug;
@@ -12,8 +14,8 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct History {
     history_entry_buffer: HistoryEntryBuffer,
-    undo_stack: Vec<HistoryState>,
-    redo_stack: Vec<HistoryState>,
+    undo_stack: Vec<State>,
+    redo_stack: Vec<State>,
 }
 
 #[derive(Debug)]
@@ -71,11 +73,7 @@ impl History {
     pub fn new(initial_matrix: api::Matrix) -> Self {
         Self {
             history_entry_buffer: Default::default(),
-            undo_stack: vec![HistoryState::new(
-                "Initial".to_string(),
-                initial_matrix,
-                vec![],
-            )],
+            undo_stack: vec![State::new("Initial".to_string(), initial_matrix, vec![])],
             redo_stack: vec![],
         }
     }
@@ -153,60 +151,89 @@ impl History {
             }
         };
         self.redo_stack.clear();
-        let new_state = HistoryState::new(label, new_matrix, reaper_changes);
+        let new_state = State::new(label, new_matrix, reaper_changes);
         self.undo_stack.push(new_state);
     }
 
-    /// Marks the last action as undone and returns the matrix state to be loaded.
-    pub fn undo(&mut self) -> ClipEngineResult<&HistoryState> {
+    /// Marks the last action as undone and returns instructions to restore the previous state.
+    pub fn undo(&mut self) -> ClipEngineResult<RestorationInstruction> {
         if self.undo_stack.len() <= 1 {
             return Err("nothing to undo");
         }
-        let state = self.undo_stack.pop().unwrap();
-        self.redo_stack.push(state);
-        Ok(&self.undo_stack.last().unwrap())
+        // Put current state on the redo stack
+        let current_state = self.undo_stack.pop().unwrap();
+        self.redo_stack.push(current_state);
+        // Return instruction
+        let previous_state = self.undo_stack.last().unwrap();
+        let current_state = self.redo_stack.last_mut().unwrap();
+        let instruction = RestorationInstruction {
+            // We need to restore the matrix revision of the previous state
+            matrix: &previous_state.matrix,
+            // And we need to undo the REAPER changes associated with the *current state*
+            reaper_changes: &mut current_state.reaper_changes,
+        };
+        Ok(instruction)
     }
 
     /// Marks the last undone action as redone and returns the matrix state to be loaded.
-    pub fn redo(&mut self) -> ClipEngineResult<&HistoryState> {
-        let state = self.redo_stack.pop().ok_or("nothing to redo")?;
-        self.undo_stack.push(state);
-        Ok(&self.undo_stack.last().unwrap())
+    pub fn redo(&mut self) -> ClipEngineResult<RestorationInstruction> {
+        // Put next state on the undo stack
+        let next_state = self.redo_stack.pop().ok_or("nothing to redo")?;
+        self.undo_stack.push(next_state);
+        // Return instruction
+        let next_state = self.undo_stack.last_mut().unwrap();
+        let instruction = RestorationInstruction {
+            // We need to restore the matrix revision of the next state
+            matrix: &next_state.matrix,
+            // And we need to redo the REAPER changes associated with the *next state*
+            reaper_changes: &mut next_state.reaper_changes,
+        };
+        Ok(instruction)
     }
 }
 
 #[derive(Debug)]
-pub struct HistoryState {
+struct State {
     pub label: String,
     pub matrix: api::Matrix,
+    /// What needed to be done *within REAPER* in order to arrive at that matrix.
     pub reaper_changes: Vec<BoxedReaperChange>,
+}
+
+pub struct RestorationInstruction<'a> {
+    pub matrix: &'a api::Matrix,
+    pub reaper_changes: &'a mut [BoxedReaperChange],
+}
+
+pub(crate) struct ReaperChangeContext<'a> {
+    pub matrix: &'a mut MatrixContent<()>,
 }
 
 pub type BoxedReaperChange = Box<dyn ReaperChange>;
 
 pub trait ReaperChange: Debug {
     /// Executed before undoing the clip matrix change.
-    fn pre_undo(&self) -> Result<(), Box<dyn Error>> {
+    fn pre_undo(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 
     /// Executed after undoing the clip matrix change.
-    fn post_undo(&self) -> Result<(), Box<dyn Error>> {
+    fn post_undo(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 
     /// Executed before redoing the clip matrix change.
-    fn pre_redo(&self) -> Result<(), Box<dyn Error>> {
+    fn pre_redo(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 
     /// Executed after redoing the clip matrix change.
-    fn post_redo(&self) -> Result<(), Box<dyn Error>> {
+    fn post_redo(&mut self) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 }
 
-impl HistoryState {
+impl State {
     fn new(label: String, matrix: api::Matrix, reaper_changes: Vec<BoxedReaperChange>) -> Self {
         Self {
             label,
@@ -228,19 +255,13 @@ impl AddedTrack {
         Self {
             project: track.project(),
             guid: track.guid().clone(),
-            index: track.index().expect("added track doesn't have index"),
+            index: track.index().unwrap(),
         }
     }
 }
 
 impl ReaperChange for AddedTrack {
-    fn pre_redo(&self) -> Result<(), Box<dyn Error>> {
-        let track = self.project.insert_track_at(self.index)?;
-        // self.guid = track.guid().clone();
-        Ok(())
-    }
-
-    fn post_undo(&self) -> Result<(), Box<dyn Error>> {
+    fn post_undo(&mut self) -> Result<(), Box<dyn Error>> {
         let track = self.project.track_by_guid(&self.guid)?;
         if !track.is_available() {
             // Track doesn't exist anymore, so no need to remove it
@@ -248,5 +269,15 @@ impl ReaperChange for AddedTrack {
         }
         self.project.remove_track(&track);
         Ok(())
+    }
+
+    fn pre_redo(&mut self) -> Result<(), Box<dyn Error>> {
+        let track = self.project.insert_track_at(self.index)?;
+        self.guid = *track.guid();
+        Ok(())
+    }
+
+    fn post_redo(&mut self) -> Result<(), Box<dyn Error>> {
+        todo!()
     }
 }
