@@ -86,12 +86,27 @@ impl WeakRtColumn {
 
 #[derive(Clone, Debug)]
 pub struct ColumnCommandSender {
+    /// Whether the sender should indeed send the commands or discard them.
+    ///
+    /// If the column doesn't have an associated track, then it doesn't have a preview register.
+    /// If no preview is running, real-time column commands can't be processed on the real-time
+    /// side. Sending them anyway would make the tasks accumulate and get out-of-date. That's why
+    /// we should discard them in this case. A full resync will be done as soon as a track is
+    /// associated again.
+    is_enabled: bool,
     command_sender: Sender<RtColumnCommand>,
 }
 
 impl ColumnCommandSender {
     pub fn new(command_sender: Sender<RtColumnCommand>) -> Self {
-        Self { command_sender }
+        Self {
+            is_enabled: false,
+            command_sender,
+        }
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.is_enabled = enabled;
     }
 
     pub fn move_slot_contents(&self, args: ColumnMoveSlotContentsArgs) {
@@ -199,6 +214,9 @@ impl ColumnCommandSender {
     }
 
     fn send_task(&self, task: RtColumnCommand) {
+        if !self.is_enabled {
+            return;
+        }
         self.command_sender.try_send(task).unwrap();
     }
 }

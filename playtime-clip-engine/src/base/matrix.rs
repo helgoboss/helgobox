@@ -20,7 +20,7 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, ColumnPlayMode, Db,
+    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, Db,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
     RowId, TempoRange, TrackId,
 };
@@ -525,7 +525,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 matrix.permanent_project(),
                 matrix.rows.len(),
             );
-            new_column.set_playback_track(new_track);
+            new_column.set_playback_track(new_track, matrix.column_rt_equipment());
             matrix.columns.insert(column_index, new_column);
             matrix.sync_column_handles_to_rt_matrix();
             matrix.notify_everything_changed();
@@ -646,11 +646,26 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         track_id: Option<&TrackId>,
     ) -> ClipEngineResult<()> {
         self.undoable("Set column playback track", move |matrix| {
-            let column = matrix.get_column_mut(column_index)?;
-            column.set_playback_track_from_id(track_id)?;
+            let column = matrix.columns.get_mut(column_index).ok_or(NO_SUCH_COLUMN)?;
+            column.set_playback_track_from_id(
+                track_id,
+                ColumnRtEquipment {
+                    chain_equipment: &matrix.chain_equipment,
+                    recorder_request_sender: &matrix.recorder_request_sender,
+                    matrix_settings: &matrix.settings,
+                },
+            )?;
             matrix.notify_everything_changed();
             Ok(())
         })
+    }
+
+    fn column_rt_equipment(&self) -> ColumnRtEquipment {
+        ColumnRtEquipment {
+            chain_equipment: &self.chain_equipment,
+            recorder_request_sender: &self.recorder_request_sender,
+            matrix_settings: &self.settings,
+        }
     }
 
     /// Pastes the clips stored in the matrix clipboard into the given slot.
@@ -1046,7 +1061,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot_contents: Vec<SlotContentsWithColumn>,
         row_index: usize,
     ) -> ClipEngineResult<()> {
-        let mut need_handle_sync = false;
+        let need_handle_sync = false;
         for slot_content in slot_contents {
             // First try to put it within same column as clip itself
             let original_column = get_column_mut(&mut self.columns, slot_content.column_index)?;
@@ -1057,25 +1072,26 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 } else {
                     // We need to find another appropriate column.
                     // TODO-high We shouldn't do that but use the multi-clip-per-slot feature!
-                    let original_column_track = original_column.playback_track().ok().cloned();
-                    let existing_column = self.columns.iter_mut().find(|c| {
-                        c.follows_scene()
-                            && c.slot_is_empty(row_index)
-                            && c.playback_track().ok() == original_column_track.as_ref()
-                    });
-                    if let Some(c) = existing_column {
-                        // Found.
-                        c
-                    } else {
-                        // Not found. Create a new one.
-                        let same_column = self.columns.get(slot_content.column_index).unwrap();
-                        let mut duplicate = same_column.duplicate_without_contents();
-                        duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
-                        duplicate.sync_matrix_and_column_settings_to_rt_column(&self.settings);
-                        self.columns.push(duplicate);
-                        need_handle_sync = true;
-                        self.columns.last_mut().unwrap()
-                    }
+                    // let original_column_track = original_column.playback_track().ok().cloned();
+                    // let existing_column = self.columns.iter_mut().find(|c| {
+                    //     c.follows_scene()
+                    //         && c.slot_is_empty(row_index)
+                    //         && c.playback_track().ok() == original_column_track.as_ref()
+                    // });
+                    // if let Some(c) = existing_column {
+                    //     // Found.
+                    //     c
+                    // } else {
+                    //     // Not found. Create a new one.
+                    //     let same_column = self.columns.get(slot_content.column_index).unwrap();
+                    //     let mut duplicate = same_column.duplicate_without_contents();
+                    //     duplicate.set_play_mode(ColumnPlayMode::ExclusiveFollowingScene);
+                    //     duplicate.sync_matrix_and_column_settings_to_rt_column(&self.settings);
+                    //     self.columns.push(duplicate);
+                    //     need_handle_sync = true;
+                    //     self.columns.last_mut().unwrap()
+                    // }
+                    todo!()
                 };
             dest_column.fill_slot(
                 row_index,

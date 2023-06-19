@@ -103,9 +103,12 @@ impl Column {
         &self.id
     }
 
-    pub fn duplicate(&self, rt_equipment: ColumnRtEquipment) -> Self {
-        let mut new = self.duplicate_without_contents();
-        new.slots = self
+    pub fn duplicate(&self, rt_equipment: ColumnRtEquipment) -> Column {
+        let mut duplicate = Self::new(ColumnId::random(), self.project, self.slots.len());
+        duplicate.settings = self.settings.clone();
+        duplicate.rt_settings = self.rt_settings.clone();
+        duplicate.set_playback_track_internal(self.playback_track().ok().cloned());
+        duplicate.slots = self
             .slots
             .values()
             .map(|slot| {
@@ -113,8 +116,8 @@ impl Column {
                 (duplicate_slot.rt_id(), duplicate_slot)
             })
             .collect();
-        new.resync_slots_to_rt_column(rt_equipment);
-        new
+        duplicate.sync_everything_to_rt_column(rt_equipment);
+        duplicate
     }
 
     pub(crate) fn set_clip_data(
@@ -173,17 +176,9 @@ impl Column {
             });
         Ok(())
     }
+
     pub fn set_play_mode(&mut self, play_mode: ColumnPlayMode) {
         self.rt_settings.play_mode = play_mode;
-    }
-
-    /// Duplicates the column including the playback track and the settings but without slots.
-    pub fn duplicate_without_contents(&self) -> Self {
-        let mut duplicate = Self::new(ColumnId::random(), self.project, self.slots.len());
-        duplicate.settings = self.settings.clone();
-        duplicate.rt_settings = self.rt_settings.clone();
-        duplicate.set_playback_track(self.playback_track().ok().cloned());
-        duplicate
     }
 
     /// Returns the sender for sending commands to the corresponding real-time column.
@@ -209,7 +204,7 @@ impl Column {
             .track
             .as_ref()
             .and_then(|id| self.resolve_track_from_id(id).ok());
-        self.set_playback_track(track);
+        self.set_playback_track_internal(track);
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
         self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
@@ -231,10 +226,8 @@ impl Column {
                 (slot.rt_id(), slot)
             })
             .collect();
-        // Bring slots online
-        self.resync_slots_to_rt_column(rt_equipment);
-        // Send real-time slots to the real-time column
-        self.sync_matrix_and_column_settings_to_rt_column_internal(rt_equipment.matrix_settings);
+        // Sync to rt
+        self.sync_everything_to_rt_column(rt_equipment);
         Ok(())
     }
 
@@ -269,8 +262,21 @@ impl Column {
     }
 
     /// Sets the playback track, recreating the preview register if necessary.
-    pub fn set_playback_track(&mut self, track: Option<Track>) {
-        // Check if recreation of preview register is necessary
+    ///
+    /// Also resyncs everything to the real-time column in case no track was assigned before.
+    pub fn set_playback_track(&mut self, track: Option<Track>, rt_equipment: ColumnRtEquipment) {
+        let was_online_before = self.preview_register.is_some();
+        self.set_playback_track_internal(track);
+        let is_online_now = self.preview_register.is_some();
+        if !was_online_before && is_online_now {
+            self.sync_everything_to_rt_column(rt_equipment);
+        }
+    }
+
+    /// Sets the playback track, recreating the preview register if necessary.
+    fn set_playback_track_internal(&mut self, track: Option<Track>) {
+        // Check if recreation of preview register is necessary. Unnecessary recreation would
+        // interrupt playing.
         if let (Some(existing_register), Some(track)) = (&self.preview_register, track.as_ref()) {
             if &existing_register.track == track {
                 // No need to recreate. Column already uses a preview register for that track.
@@ -280,16 +286,17 @@ impl Column {
         // Update preview register
         self.preview_register =
             track.map(|t| PlayingPreviewRegister::new(self.rt_column.clone(), t));
+        // Enable/disable the sender as necessary
+        self.rt_command_sender
+            .set_enabled(self.preview_register.is_some());
     }
 
-    pub fn sync_matrix_and_column_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
-        self.sync_matrix_and_column_settings_to_rt_column_internal(matrix_settings);
+    fn sync_everything_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
+        self.sync_matrix_and_column_settings_to_rt_column(rt_equipment.matrix_settings);
+        self.resync_slots_to_rt_column(rt_equipment);
     }
 
-    fn sync_matrix_and_column_settings_to_rt_column_internal(
-        &self,
-        matrix_settings: &MatrixSettings,
-    ) {
+    fn sync_matrix_and_column_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
         self.rt_command_sender
@@ -720,13 +727,14 @@ impl Column {
     pub fn set_playback_track_from_id(
         &mut self,
         track_id: Option<&TrackId>,
+        rt_equipment: ColumnRtEquipment,
     ) -> ClipEngineResult<()> {
         let track = if let Some(id) = track_id {
             Some(self.resolve_track_from_id(id)?)
         } else {
             None
         };
-        self.set_playback_track(track);
+        self.set_playback_track(track, rt_equipment);
         Ok(())
     }
 
