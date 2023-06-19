@@ -3,7 +3,8 @@ use crate::ClipEngineResult;
 use itertools::Itertools;
 use playtime_api::persistence as api;
 use playtime_api::persistence::TrackId;
-use reaper_high::{Guid, Project, Track};
+use reaper_high::{Guid, Project, Reaper, Track};
+use reaper_medium::ReorderTracksBehavior;
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::Debug;
@@ -248,14 +249,14 @@ impl State {
 }
 
 #[derive(Clone, Debug)]
-pub struct AddedTrack {
+pub struct TrackAdditionReaperChange {
     project: Project,
     guid: Guid,
     index: u32,
     associated_column_index: usize,
 }
 
-impl AddedTrack {
+impl TrackAdditionReaperChange {
     pub fn new(track: &Track, associated_column_index: usize) -> Self {
         Self {
             project: track.project(),
@@ -266,7 +267,7 @@ impl AddedTrack {
     }
 }
 
-impl ReaperChange for AddedTrack {
+impl ReaperChange for TrackAdditionReaperChange {
     fn post_undo(&mut self, _: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
         let track = self.project.track_by_guid(&self.guid)?;
         if !track.is_available() {
@@ -290,4 +291,61 @@ impl ReaperChange for AddedTrack {
             .set_column_playback_track(self.associated_column_index, Some(&id))?;
         Ok(())
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct TrackReorderingReaperChange {
+    project: Project,
+    guid: Guid,
+    source_index: u32,
+    dest_index: u32,
+}
+
+impl TrackReorderingReaperChange {
+    pub fn new(track: &Track, dest_index: u32) -> Self {
+        Self {
+            project: track.project(),
+            guid: track.guid().clone(),
+            source_index: track.index().unwrap(),
+            dest_index,
+        }
+    }
+}
+
+impl ReaperChange for TrackReorderingReaperChange {
+    fn post_undo(&mut self, _: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let track = self.project.track_by_guid(&self.guid)?;
+        reorder_tracks(&track, self.source_index)?;
+        Ok(())
+    }
+
+    fn post_redo(&mut self, _: ReaperChangeContext) -> Result<(), Box<dyn Error>> {
+        let track = self.project.track_by_guid(&self.guid)?;
+        reorder_tracks(&track, self.dest_index)?;
+        Ok(())
+    }
+}
+
+pub fn reorder_tracks(
+    source_track: &Track,
+    dest_track_index: u32,
+) -> ClipEngineResult<TrackReorderingReaperChange> {
+    if !source_track.is_available() {
+        return Err("track doesn't exist".into());
+    }
+    let source_track_index = source_track
+        .index()
+        .ok_or("source track doesn't have index")?;
+    source_track.select_exclusively();
+    let reorder_index = if source_track_index < dest_track_index {
+        dest_track_index + 1
+    } else {
+        dest_track_index
+    };
+    let reaper_change = TrackReorderingReaperChange::new(source_track, dest_track_index);
+    Reaper::get()
+        .medium_reaper()
+        .reorder_selected_tracks(reorder_index, ReorderTracksBehavior::ExtendFolder)?;
+    Reaper::get().medium_reaper().update_arrange();
+    Ok(reaper_change)
 }

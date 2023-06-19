@@ -1,8 +1,9 @@
 use crate::base::history::History;
 use crate::base::row::Row;
 use crate::base::{
-    AddedTrack, BoxedReaperChange, Clip, Column, ColumnRtEquipment, ReaperChange,
-    ReaperChangeContext, RestorationInstruction, Slot, SlotKit,
+    reorder_tracks, BoxedReaperChange, Clip, Column, ColumnRtEquipment, ReaperChange,
+    ReaperChangeContext, RestorationInstruction, Slot, SlotKit, TrackAdditionReaperChange,
+    TrackReorderingReaperChange,
 };
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
@@ -576,12 +577,7 @@ impl Matrix {
         }
         self.undoable("Remove column", |matrix| {
             let column = matrix.content.columns.remove(column_index);
-            let timeline = matrix.timeline();
-            column.stop(ColumnStopArgs {
-                timeline,
-                ref_pos: None,
-                stop_timing: Some(ClipPlayStopTiming::Immediately),
-            });
+            column.panic();
             matrix
                 .content
                 .retired_columns
@@ -640,7 +636,7 @@ impl Matrix {
         let new_track =
             new_track_index.and_then(|i| self.temporary_project().insert_track_at(i).ok());
         let reaper_changes: Vec<BoxedReaperChange> = if let Some(t) = &new_track {
-            let reaper_change = AddedTrack::new(t, column_index);
+            let reaper_change = TrackAdditionReaperChange::new(t, column_index);
             vec![Box::new(reaper_change)]
         } else {
             vec![]
@@ -784,14 +780,18 @@ impl Matrix {
     ///
     /// If the name is `None`, it resets the column name to the name of the track.
     pub fn set_column_name(&mut self, column_index: usize, name: String) -> ClipEngineResult<()> {
-        self.undoable("Set column playback track", move |matrix| {
-            let column = matrix.get_column_mut(column_index)?;
-            if let Ok(t) = column.playback_track() {
-                t.set_name(name.clone());
-            }
-            column.set_name(name);
-            Ok(vec![])
-        })
+        if let Ok(t) = self.get_column(column_index)?.playback_track() {
+            // This will cause the matrix to rename the columns as well (uni-directional flow)
+            t.set_name(name.clone());
+            Ok(())
+        } else {
+            // Column isn't associated with a track. Rename the column itself.
+            self.undoable("Set column name", move |matrix| {
+                let column = matrix.get_column_mut(column_index)?;
+                column.set_name(name);
+                Ok(vec![])
+            })
+        }
     }
 
     /// Sets the playback track of the given column.
@@ -1038,14 +1038,19 @@ impl Matrix {
         self.undoable("Reorder columns", |matrix| {
             let source_column = matrix.get_column(source_column_index)?;
             let dest_column = matrix.get_column(dest_column_index)?;
-            let _ = matrix.reorder_column_tracks(source_column, dest_column);
+            let reaper_changes: Vec<BoxedReaperChange> =
+                if let Ok(change) = matrix.reorder_column_tracks(source_column, dest_column) {
+                    vec![Box::new(change)]
+                } else {
+                    vec![]
+                };
             let source_column = matrix.content.columns.remove(source_column_index);
             matrix
                 .content
                 .columns
                 .insert(dest_column_index, source_column);
             matrix.notify_everything_changed();
-            Ok(vec![])
+            Ok(reaper_changes)
         })
     }
 
@@ -1053,27 +1058,13 @@ impl Matrix {
         &self,
         source_column: &Column,
         dest_column: &Column,
-    ) -> ClipEngineResult<()> {
+    ) -> ClipEngineResult<TrackReorderingReaperChange> {
         let source_track = source_column.playback_track()?;
-        let source_track_index = source_track
-            .index()
-            .ok_or("source track doesn't have index")?;
         let dest_track = dest_column.playback_track()?;
         let dest_track_index = dest_track
             .index()
             .ok_or("destination track doesn't have index")?;
-        source_track.project().unselect_all_tracks();
-        source_track.select_exclusively();
-        let reorder_index = if source_track_index < dest_track_index {
-            dest_track_index + 1
-        } else {
-            dest_track_index
-        };
-        Reaper::get()
-            .medium_reaper()
-            .reorder_selected_tracks(reorder_index, ReorderTracksBehavior::ExtendFolder)?;
-        Reaper::get().medium_reaper().update_arrange();
-        Ok(())
+        reorder_tracks(source_track, dest_track_index)
     }
 
     pub fn reorder_rows(
@@ -1383,11 +1374,9 @@ impl Matrix {
     pub fn process_reaper_change_events(&mut self, events: &[ChangeEvent]) {
         for event in events {
             match event {
-                ChangeEvent::TrackAdded(_) => {}
                 ChangeEvent::TrackRemoved(e) => {
                     self.remove_all_columns_associated_with_track(&e.track);
                 }
-                ChangeEvent::TracksReordered(_) => {}
                 ChangeEvent::TrackNameChanged(e) => {
                     self.rename_all_columns_associated_with_track(&e.track)
                 }
@@ -1398,7 +1387,19 @@ impl Matrix {
 
     fn remove_all_columns_associated_with_track(&mut self, track: &Track) {
         let _ = self.undoable("Remove columns due to track removal", |matrix| {
-            matrix.content.columns.retain(|col| !col.uses_track(track));
+            let mut removed_track = false;
+            matrix.content.columns.retain(|col| {
+                let keep = !col.uses_track(track);
+                if !keep {
+                    removed_track = true;
+                }
+                keep
+            });
+            if !removed_track {
+                // This can happen when the track removal was caused by the matrix itself.
+                // In this case, we don't want to create yet another undo point.
+                return Err("track removed already");
+            }
             matrix.notify_everything_changed();
             Ok(vec![])
         });
