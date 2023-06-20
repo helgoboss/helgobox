@@ -2,41 +2,45 @@
 
 #[derive(Clone, Debug)]
 pub struct TimeSeries<T> {
-    pub entries: Vec<TimeSeriesEntry<T>>,
+    pub events: Vec<TimeSeriesEvent<T>>,
 }
 
 impl<T> TimeSeries<T> {
-    pub fn new(events: Vec<TimeSeriesEntry<T>>) -> Self {
-        Self { entries: events }
+    pub fn new(events: Vec<TimeSeriesEvent<T>>) -> Self {
+        Self { events }
     }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct TimeSeriesEntry<T> {
+pub struct TimeSeriesEvent<T> {
     pub frame: u64,
-    pub msg: T,
+    pub payload: T,
 }
 
-impl<T> TimeSeriesEntry<T> {
-    pub fn new(frame: u64, msg: T) -> Self {
-        Self { frame, msg }
+impl<T> TimeSeriesEvent<T> {
+    pub fn new(frame: u64, payload: T) -> Self {
+        Self { frame, payload }
     }
 }
 
 impl<T> TimeSeries<T> {
-    pub fn find_entries(&self, start_frame: u64, frame_count: u64) -> &[TimeSeriesEntry<T>] {
+    pub fn find_events_in_range(
+        &self,
+        start_frame: u64,
+        frame_count: u64,
+    ) -> &[TimeSeriesEvent<T>] {
         if frame_count == 0 {
             return &[];
         }
         let exclusive_end_frame = start_frame + frame_count;
         // Determine inclusive start index
-        let start_index = self.entries.partition_point(|e| e.frame < start_frame);
+        let start_index = self.events.partition_point(|e| e.frame < start_frame);
         // Determine exclusive end index
         let exclusive_end_index = self
-            .entries
+            .events
             .partition_point(|e| e.frame < exclusive_end_frame);
         // Return slice
-        &self.entries[start_index..exclusive_end_index]
+        &self.events[start_index..exclusive_end_index]
     }
 }
 
@@ -57,12 +61,18 @@ mod tests {
         ]);
         // When
         // Then
-        assert_eq!(time_series.find_entries(5, 10), &[e(5, 'a'), e(6, 'b'),]);
-        assert_eq!(time_series.find_entries(0, 0), &[]);
-        assert_eq!(time_series.find_entries(0, 1000), &time_series.entries);
-        assert_eq!(time_series.find_entries(1000, 5000), &[]);
         assert_eq!(
-            time_series.find_entries(15, 20),
+            time_series.find_events_in_range(5, 10),
+            &[e(5, 'a'), e(6, 'b'),]
+        );
+        assert_eq!(time_series.find_events_in_range(0, 0), &[]);
+        assert_eq!(
+            time_series.find_events_in_range(0, 1000),
+            &time_series.events
+        );
+        assert_eq!(time_series.find_events_in_range(1000, 5000), &[]);
+        assert_eq!(
+            time_series.find_events_in_range(15, 20),
             &[e(15, 'c'), e(15, 'd'), e(17, 'd'),]
         );
     }
@@ -82,16 +92,16 @@ mod tests {
         // When
         // Then
         assert_eq!(
-            time_series.find_entries(5, 10),
+            time_series.find_events_in_range(5, 10),
             &[e(5, 'a'), e(6, 'b'), e(14, 'c')]
         );
         assert_eq!(
-            time_series.find_entries(15, 20),
+            time_series.find_events_in_range(15, 20),
             &[e(15, 'd'), e(15, 'e'), e(17, 'f'),]
         );
     }
 
-    fn e<T>(frame: u64, msg: T) -> TimeSeriesEntry<T> {
-        TimeSeriesEntry::new(frame, msg)
+    fn e<T>(frame: u64, payload: T) -> TimeSeriesEvent<T> {
+        TimeSeriesEvent::new(frame, payload)
     }
 }
