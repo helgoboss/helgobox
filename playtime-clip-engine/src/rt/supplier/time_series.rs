@@ -30,27 +30,11 @@ impl<T> TimeSeries<T> {
         }
         let exclusive_end_frame = start_frame + frame_count;
         // Determine inclusive start index
-        let start_index_approximation =
-            match self.entries.binary_search_by_key(&start_frame, |e| e.frame) {
-                Ok(i) | Err(i) => i,
-            };
-        let start_index = self.entries[0..start_index_approximation]
-            .iter()
-            .rposition(|e| e.frame < start_frame)
-            .map(|i| i + 1)
-            .unwrap_or(start_index_approximation);
+        let start_index = self.entries.partition_point(|e| e.frame < start_frame);
         // Determine exclusive end index
-        let exclusive_end_index_approximation = match self
+        let exclusive_end_index = self
             .entries
-            .binary_search_by_key(&exclusive_end_frame, |e| e.frame)
-        {
-            Ok(i) | Err(i) => i,
-        };
-        let exclusive_end_index = self.entries[0..exclusive_end_index_approximation]
-            .iter()
-            .rposition(|e| e.frame < exclusive_end_frame)
-            .map(|i| i + 1)
-            .unwrap_or(exclusive_end_index_approximation);
+            .partition_point(|e| e.frame < exclusive_end_frame);
         // Return slice
         &self.entries[start_index..exclusive_end_index]
     }
