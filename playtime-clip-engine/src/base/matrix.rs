@@ -31,7 +31,7 @@ use playtime_api::persistence::{
     RowId, TempoRange, TrackId,
 };
 use reaper_high::{ChangeEvent, OrCurrentProject, Project, Reaper, Track};
-use reaper_medium::{Bpm, MidiInputDeviceId, ReorderTracksBehavior};
+use reaper_medium::{Bpm, MidiInputDeviceId};
 use std::collections::HashMap;
 use std::error::Error;
 use std::thread::JoinHandle;
@@ -615,7 +615,7 @@ impl Matrix {
     ///
     /// Only works if the existing column next to it has a playback track assigned.
     fn determine_index_of_new_track(&self, new_column_index: usize) -> Option<u32> {
-        if self.content.columns.len() == 0 {
+        if self.content.columns.is_empty() {
             // We add the first column. Add track at end.
             return Some(self.temporary_project().track_count());
         }
@@ -783,7 +783,7 @@ impl Matrix {
     pub fn set_column_name(&mut self, column_index: usize, name: String) -> ClipEngineResult<()> {
         if let Ok(t) = self.get_column(column_index)?.playback_track() {
             // This will cause the matrix to rename the columns as well (uni-directional flow)
-            t.set_name(name.clone());
+            t.set_name(name);
             Ok(())
         } else {
             // Column isn't associated with a track. Rename the column itself.

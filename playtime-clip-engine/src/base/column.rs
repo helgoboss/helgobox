@@ -543,6 +543,7 @@ impl Column {
     /// Adds the given clips to the slot or replaces all existing ones.
     ///
     /// Immediately syncs to real-time column.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn fill_slot(
         &mut self,
         slot_index: usize,

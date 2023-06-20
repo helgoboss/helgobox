@@ -260,7 +260,7 @@ impl TrackAdditionReaperChange {
     pub fn new(track: &Track, associated_column_index: usize) -> Self {
         Self {
             project: track.project(),
-            guid: track.guid().clone(),
+            guid: *track.guid(),
             index: track.index().unwrap(),
             associated_column_index,
         }
@@ -305,7 +305,7 @@ impl TrackReorderingReaperChange {
     pub fn new(track: &Track, dest_index: u32) -> Self {
         Self {
             project: track.project(),
-            guid: track.guid().clone(),
+            guid: *track.guid(),
             source_index: track.index().unwrap(),
             dest_index,
         }
@@ -331,7 +331,7 @@ pub fn reorder_tracks(
     dest_track_index: u32,
 ) -> ClipEngineResult<TrackReorderingReaperChange> {
     if !source_track.is_available() {
-        return Err("track doesn't exist".into());
+        return Err("track doesn't exist");
     }
     let source_track_index = source_track
         .index()

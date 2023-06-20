@@ -403,7 +403,7 @@ impl Slot {
         let args = ColumnSetClipSettingsArgs {
             slot_index: self.index,
             clip_index,
-            settings: clip.rt_settings().clone(),
+            settings: *clip.rt_settings(),
         };
         rt_command_sender.set_clip_settings(args);
         Ok(())

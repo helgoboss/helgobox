@@ -401,7 +401,7 @@ impl RtColumn {
             settings: Default::default(),
             slots: RtSlots::with_capacity_and_hasher(
                 MAX_SLOT_COUNT_WITHOUT_REALLOCATION,
-                hash_builder.clone(),
+                hash_builder,
             ),
             retired_slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
             project: permanent_project,

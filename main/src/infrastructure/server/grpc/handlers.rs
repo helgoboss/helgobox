@@ -735,14 +735,6 @@ fn handle_clip_command(
     Ok(Response::new(Empty {}))
 }
 
-fn handle_clip_query<R>(
-    full_clip_address: &Option<FullClipAddress>,
-    handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<R, &'static str>,
-) -> Result<Response<R>, Status> {
-    let r = handle_clip_internal(full_clip_address, handler)?;
-    Ok(Response::new(r))
-}
-
 fn handle_clip_internal<R>(
     full_clip_address: &Option<FullClipAddress>,
     handler: impl FnOnce(&mut RealearnClipMatrix, ClipAddress) -> Result<R, &'static str>,
@@ -779,7 +771,7 @@ fn get_all_tracks(project: Project) -> GetAllTracksReply {
     let mut level = 0i32;
     let tracks = project.tracks().map(|t| {
         let folder_depth_change = t.folder_depth_change();
-        let track = proto::TrackInList::from_engine(t, level.unsigned_abs() as u32);
+        let track = proto::TrackInList::from_engine(t, level.unsigned_abs());
         level += folder_depth_change;
         track
     });

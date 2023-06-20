@@ -207,6 +207,7 @@ struct RollbackData {
 
 impl RtClip {
     /// Must not call in real-time thread!
+    #[allow(clippy::too_many_arguments)]
     pub fn ready(
         id: RtClipId,
         pcm_source: RtClipSource,

@@ -47,3 +47,7 @@ pub use api::*;
 mod audio_util;
 
 mod log_util;
+
+mod time_series;
+
+mod midi_sequence;

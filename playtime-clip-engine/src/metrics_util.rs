@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crossbeam_channel::{Receiver, Sender};
 use once_cell::sync::Lazy;
 use std::thread;

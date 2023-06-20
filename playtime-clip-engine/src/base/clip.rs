@@ -85,7 +85,7 @@ impl Clip {
             color: self.color.clone(),
             source: self.source.clone(),
             frozen_source: self.frozen_source.clone(),
-            active_source: self.active_source.clone(),
+            active_source: self.active_source,
             rt_settings: self.rt_settings,
         }
     }
