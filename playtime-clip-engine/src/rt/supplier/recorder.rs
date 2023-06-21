@@ -8,7 +8,7 @@ use crate::rt::schedule_util::{calc_distance_from_pos, calc_distance_from_quanti
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    PositionTranslationSkill, ReaperClipSource, SectionBounds, SupplyAudioRequest,
+    PositionTranslationSkill, ReaperClipSource, RtClipSource, SectionBounds, SupplyAudioRequest,
     SupplyMidiRequest, SupplyResponse, WithCacheableSource, WithMaterialInfo, MIDI_BASE_BPM,
     MIDI_FRAME_RATE,
 };
@@ -69,17 +69,17 @@ impl ResponseChannel {
 #[derive(Debug)]
 pub enum RecorderRequest {
     RecordAudio(AudioRecordingTask),
-    DiscardSource(ReaperClipSource),
+    DiscardSource(RtClipSource),
     DiscardAudioRecordingFinishingData {
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<ReaperClipSource>,
+        old_source: Option<RtClipSource>,
     },
 }
 
 #[derive(Debug)]
 struct AudioRecordingFinishedResponse {
-    pub source: Result<ReaperClipSource, &'static str>,
+    pub source: Result<RtClipSource, &'static str>,
 }
 
 #[derive(Debug)]
@@ -102,7 +102,7 @@ enum State {
 
 #[derive(Debug)]
 struct ReadyState {
-    source: ReaperClipSource,
+    source: RtClipSource,
     /// This is updated with every overdub request and never cleared. So it can be `Some`
     /// even we are not currently overdubbing.   
     midi_overdub_settings: Option<MidiOverdubSettings>,
@@ -117,7 +117,7 @@ pub struct MidiOverdubSettings {
 #[derive(Debug)]
 struct RecordingState {
     kind_state: KindState,
-    old_source: Option<ReaperClipSource>,
+    old_source: Option<RtClipSource>,
     project: Option<Project>,
     detect_downbeat: bool,
     tempo: Bpm,
@@ -248,7 +248,7 @@ impl RecordingAudioFinishingState {
 
 #[derive(Debug)]
 struct RecordingMidiState {
-    new_source: ReaperClipSource,
+    new_source: RtClipSource,
     quantization_settings: Option<QuantizationSettings>,
 }
 
@@ -258,7 +258,7 @@ impl KindState {
         match equipment {
             Midi(equipment) => {
                 let recording_midi_state = RecordingMidiState {
-                    new_source: equipment.empty_midi_source,
+                    new_source: RtClipSource::Reaper(equipment.empty_midi_source),
                     quantization_settings: equipment.quantization_settings,
                 };
                 Self::Midi(recording_midi_state)
@@ -312,7 +312,7 @@ impl Drop for Recorder {
 
 impl Recorder {
     /// Okay to call in real-time thread.
-    pub fn ready(source: ReaperClipSource, request_sender: Sender<RecorderRequest>) -> Self {
+    pub fn ready(source: RtClipSource, request_sender: Sender<RecorderRequest>) -> Self {
         let ready_state = ReadyState {
             source,
             midi_overdub_settings: None,
@@ -406,7 +406,8 @@ impl Recorder {
                 if let Some(in_project_midi_source) = in_project_midi_source {
                     // We can only record with an in-project MIDI source, so before overdubbing
                     // we need to replace the current file-based one with the given in-project one.
-                    let obsolete_source = mem::replace(&mut s.source, in_project_midi_source);
+                    let obsolete_source =
+                        mem::replace(&mut s.source, RtClipSource::Reaper(in_project_midi_source));
                     self.request_sender.discard_source(obsolete_source);
                 }
                 s.midi_overdub_settings = Some(settings);
@@ -1277,7 +1278,9 @@ impl WithCacheableSource for Recorder {
 
     fn cacheable_source(&self) -> Option<&Self::Source> {
         match self.state.as_ref().unwrap() {
-            State::Ready(s) => s.source.cacheable_source(),
+            State::Ready(s) => match &s.source {
+                RtClipSource::Reaper(s) => s.cacheable_source(),
+            },
             State::Recording(_) => {
                 // The "current source" during recording state can change quickly. We don't want
                 // any caching be based on this.
@@ -1378,13 +1381,13 @@ impl RecordInteractionTiming {
 trait RecorderRequestSender {
     fn start_audio_recording(&self, task: AudioRecordingTask);
 
-    fn discard_source(&self, source: ReaperClipSource);
+    fn discard_source(&self, source: RtClipSource);
 
     fn discard_audio_recording_finishing_data(
         &self,
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<ReaperClipSource>,
+        old_source: Option<RtClipSource>,
     );
 
     fn send_request(&self, request: RecorderRequest);
@@ -1395,7 +1398,7 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
         let request = RecorderRequest::RecordAudio(task);
         self.send_request(request);
     }
-    fn discard_source(&self, source: ReaperClipSource) {
+    fn discard_source(&self, source: RtClipSource) {
         let request = RecorderRequest::DiscardSource(source);
         self.send_request(request);
     }
@@ -1404,7 +1407,7 @@ impl RecorderRequestSender for Sender<RecorderRequest> {
         &self,
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_source: Option<ReaperClipSource>,
+        old_source: Option<RtClipSource>,
     ) {
         let request = RecorderRequest::DiscardAudioRecordingFinishingData {
             temporary_audio_buffer,
@@ -1515,17 +1518,22 @@ fn finish_audio_recording(sink: OwnedPcmSink, file: &Path) -> AudioRecordingFini
     std::mem::drop(sink);
     let source = OwnedSource::from_file(file, MidiImportBehavior::ForceNoMidiImport);
     AudioRecordingFinishedResponse {
-        source: source.map(|s| ReaperClipSource::new(s.into_raw())),
+        source: source
+            .map(|s| ReaperClipSource::new(s.into_raw()))
+            .map(RtClipSource::Reaper),
     }
 }
 
 fn write_midi(
     request: WriteMidiRequest,
-    source: &mut ReaperClipSource,
+    source: &mut RtClipSource,
     block_pos_frame: usize,
     record_mode: MidiClipRecordMode,
     quantization_settings: Option<&QuantizationSettings>,
 ) {
+    let RtClipSource::Reaper(source) = source else {
+        return;
+    };
     let global_time = convert_duration_in_frames_to_seconds(block_pos_frame, MIDI_FRAME_RATE);
     let overwrite_mode = match record_mode {
         MidiClipRecordMode::Normal => -1,

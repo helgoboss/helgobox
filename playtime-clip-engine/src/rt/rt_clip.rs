@@ -9,10 +9,10 @@ use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
     KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
     PollRecordingOutcome, ReaperClipSource, RecordState, Recorder, RecorderRequest, RecordingArgs,
-    RecordingEquipment, RecordingOutcome, StopRecordingOutcome, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
-    MIDI_FRAME_RATE,
+    RecordingEquipment, RecordingOutcome, RtClipSource, StopRecordingOutcome, SupplierChain,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnEvent, RtColumnSettings};
@@ -210,7 +210,7 @@ impl RtClip {
     #[allow(clippy::too_many_arguments)]
     pub fn ready(
         id: RtClipId,
-        pcm_source: ReaperClipSource,
+        pcm_source: RtClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &RtColumnSettings,
         clip_settings: RtClipSettings,

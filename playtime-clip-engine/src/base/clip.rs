@@ -1,5 +1,5 @@
 use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, ReaperClipSource, RecorderRequest,
+    ChainEquipment, KindSpecificRecordingOutcome, ReaperClipSource, RecorderRequest, RtClipSource,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
@@ -261,7 +261,7 @@ impl Clip {
         };
         let rt_clip = rt::RtClip::ready(
             self.rt_id,
-            pcm_source,
+            RtClipSource::Reaper(pcm_source),
             matrix_settings,
             column_settings,
             self.rt_settings,

@@ -1,6 +1,9 @@
 mod reaper_clip_source;
 pub use reaper_clip_source::*;
 
+mod clip_source;
+pub use clip_source::*;
+
 mod cache;
 pub use cache::*;
 
