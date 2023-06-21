@@ -12,16 +12,16 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz,
-    OwnedPcmSource, PcmSourceTransfer,
+    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
+    PcmSourceTransfer,
 };
 
 #[derive(Clone, Debug)]
-pub struct RtClipSource {
+pub struct ReaperClipSource {
     source: OwnedPcmSource,
 }
 
-impl RtClipSource {
+impl ReaperClipSource {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
             source: reaper_source,
@@ -96,7 +96,7 @@ impl RtClipSource {
     }
 }
 
-impl AudioSupplier for RtClipSource {
+impl AudioSupplier for ReaperClipSource {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -109,7 +109,7 @@ impl AudioSupplier for RtClipSource {
     }
 }
 
-impl WithMaterialInfo for RtClipSource {
+impl WithMaterialInfo for ReaperClipSource {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let info = if pcm_source_is_midi(&self.source) {
             let info = MidiMaterialInfo {
@@ -129,7 +129,7 @@ impl WithMaterialInfo for RtClipSource {
     }
 }
 
-impl MidiSupplier for RtClipSource {
+impl MidiSupplier for ReaperClipSource {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -190,8 +190,8 @@ impl MidiSupplier for RtClipSource {
     }
 }
 
-impl WithSource for RtClipSource {
-    fn source(&self) -> Option<&RtClipSource> {
+impl WithSource for ReaperClipSource {
+    fn source(&self) -> Option<&ReaperClipSource> {
         Some(self)
     }
 }

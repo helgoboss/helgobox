@@ -1,6 +1,6 @@
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::source_util::{get_pcm_source_type, PcmSourceType};
-use crate::rt::supplier::{RtClipSource, MIDI_BASE_BPM};
+use crate::rt::supplier::{ReaperClipSource, MIDI_BASE_BPM};
 use crate::{rt, ClipEngineResult};
 use playtime_api::persistence as api;
 use playtime_api::persistence::{FileSource, MidiChunkSource};
@@ -100,7 +100,7 @@ fn create_midi_chunk_source(chunk: String) -> api::Source {
 pub fn create_pcm_source_from_api_source(
     api_source: &api::Source,
     project_for_relative_path: Option<Project>,
-) -> ClipEngineResult<RtClipSource> {
+) -> ClipEngineResult<ReaperClipSource> {
     use api::Source::*;
     let pcm_source = match api_source {
         File(s) => {
@@ -112,7 +112,7 @@ pub fn create_pcm_source_from_api_source(
         }
         MidiChunk(s) => create_pcm_source_from_midi_chunk_based_api_source(s.clone())?,
     };
-    Ok(RtClipSource::new(pcm_source.into_raw()))
+    Ok(ReaperClipSource::new(pcm_source.into_raw()))
 }
 
 fn create_pcm_source_from_midi_chunk_based_api_source(

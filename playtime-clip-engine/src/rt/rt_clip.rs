@@ -8,11 +8,11 @@ use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
     KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
-    PollRecordingOutcome, RecordState, Recorder, RecorderRequest, RecordingArgs,
-    RecordingEquipment, RecordingOutcome, RtClipSource, StopRecordingOutcome, SupplierChain,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    PollRecordingOutcome, ReaperClipSource, RecordState, Recorder, RecorderRequest, RecordingArgs,
+    RecordingEquipment, RecordingOutcome, StopRecordingOutcome, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnEvent, RtColumnSettings};
@@ -210,7 +210,7 @@ impl RtClip {
     #[allow(clippy::too_many_arguments)]
     pub fn ready(
         id: RtClipId,
-        pcm_source: RtClipSource,
+        pcm_source: ReaperClipSource,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &RtColumnSettings,
         clip_settings: RtClipSettings,
@@ -1666,7 +1666,7 @@ pub struct MidiOverdubInstruction {
     /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
     /// one, this field will contain an in-project MIDI source. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.
-    pub in_project_midi_source: Option<RtClipSource>,
+    pub in_project_midi_source: Option<ReaperClipSource>,
     pub settings: MidiOverdubSettings,
 }
 
@@ -1906,7 +1906,7 @@ struct FillSamplesOutcome {
 }
 
 pub trait HandleSlotEvent {
-    fn midi_overdub_finished(&self, mirror_source: RtClipSource);
+    fn midi_overdub_finished(&self, mirror_source: ReaperClipSource);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
     fn slot_cleared(&self, clips: RtClips);
 }

@@ -1,5 +1,5 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
-use crate::rt::supplier::{MaterialInfo, RtClipSource, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{MaterialInfo, ReaperClipSource, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
     NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClipSettings, RtClips, RtSlot,
@@ -271,7 +271,7 @@ pub trait RtColumnEventSender {
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     );
 
-    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: RtClipSource);
+    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: ReaperClipSource);
 
     fn normal_recording_finished(&self, slot_id: RtSlotId, outcome: NormalRecordingOutcome);
 
@@ -319,7 +319,7 @@ impl RtColumnEventSender for Sender<RtColumnEvent> {
         self.send_event(event);
     }
 
-    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: RtClipSource) {
+    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: ReaperClipSource) {
         let event = RtColumnEvent::MidiOverdubFinished {
             slot_id,
             mirror_source,
@@ -1242,7 +1242,7 @@ pub enum RtColumnEvent {
     },
     MidiOverdubFinished {
         slot_id: RtSlotId,
-        mirror_source: RtClipSource,
+        mirror_source: ReaperClipSource,
     },
     NormalRecordingFinished {
         slot_id: RtSlotId,
@@ -1285,7 +1285,7 @@ impl<'a> ClipEventHandler<'a> {
 struct NoopClipEventHandler;
 
 impl HandleSlotEvent for NoopClipEventHandler {
-    fn midi_overdub_finished(&self, _mirror_source: RtClipSource) {}
+    fn midi_overdub_finished(&self, _mirror_source: ReaperClipSource) {}
 
     fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
 
@@ -1293,7 +1293,7 @@ impl HandleSlotEvent for NoopClipEventHandler {
 }
 
 impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
-    fn midi_overdub_finished(&self, mirror_source: RtClipSource) {
+    fn midi_overdub_finished(&self, mirror_source: ReaperClipSource) {
         self.event_sender
             .midi_overdub_finished(self.slot_id, mirror_source);
     }

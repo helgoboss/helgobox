@@ -3,14 +3,15 @@ use crate::rt::supplier::{
     Amplifier, AutoDelegatingAudioSupplier, AutoDelegatingMidiSupplier,
     AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
     AutoDelegatingWithMaterialInfo, Cache, CacheRequest, CommandProcessor, Downbeat,
-    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
-    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
-    PreBufferSourceSkill, RecordState, Recorder, RecordingArgs, Resampler, RtClipSource, Section,
-    SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo, WithSupplier, WriteAudioRequest,
-    WriteMidiRequest,
+    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings,
+    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
+    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill,
+    ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler, Section, SectionBounds,
+    StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo, WithSupplier,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
-use crate::rt::{BasicAudioRequestProps};
+use crate::rt::BasicAudioRequestProps;
 use crate::{ClipEngineResult, HybridTimeline};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
@@ -297,7 +298,7 @@ impl SupplierChain {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<RtClipSource>,
+        in_project_midi_source: Option<ReaperClipSource>,
         settings: MidiOverdubSettings,
     ) {
         // With MIDI, there's no contention.

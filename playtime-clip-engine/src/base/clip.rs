@@ -1,5 +1,5 @@
 use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, RecorderRequest, RtClipSource,
+    ChainEquipment, KindSpecificRecordingOutcome, ReaperClipSource, RecorderRequest,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
@@ -51,7 +51,7 @@ impl Clip {
         kind_specific_outcome: KindSpecificRecordingOutcome,
         clip_settings: RtClipSettings,
         temporary_project: Option<Project>,
-        pooled_midi_source: Option<&RtClipSource>,
+        pooled_midi_source: Option<&ReaperClipSource>,
         recording_track: &Track,
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
@@ -116,7 +116,7 @@ impl Clip {
     /// have been made to the source via MIDI editor are correctly saved.
     pub fn save_flexible(
         &self,
-        midi_source: Option<&RtClipSource>,
+        midi_source: Option<&ReaperClipSource>,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
@@ -164,7 +164,7 @@ impl Clip {
 
     pub fn notify_midi_overdub_finished(
         &mut self,
-        mirror_source: &RtClipSource,
+        mirror_source: &ReaperClipSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
         let api_source =
@@ -231,7 +231,7 @@ impl Clip {
     pub fn create_pcm_source(
         &self,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<RtClipSource> {
+    ) -> ClipEngineResult<ReaperClipSource> {
         create_pcm_source_from_api_source(&self.source, temporary_project)
     }
 
@@ -243,7 +243,7 @@ impl Clip {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::RtColumnSettings,
-    ) -> ClipEngineResult<(rt::RtClip, Option<RtClipSource>)> {
+    ) -> ClipEngineResult<(rt::RtClip, Option<ReaperClipSource>)> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
             SourceOrigin::Frozen => self
@@ -327,7 +327,7 @@ impl Clip {
 }
 
 pub fn create_api_source_from_recorded_midi_source(
-    midi_source: &RtClipSource,
+    midi_source: &ReaperClipSource,
     temporary_project: Option<Project>,
 ) -> ClipEngineResult<api::Source> {
     let api_source = source_util::create_api_source_from_pcm_source(

@@ -1,7 +1,7 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{get_cycle_at_frame, RtClipSource, MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::supplier::{get_cycle_at_frame, ReaperClipSource, MIDI_BASE_BPM, MIDI_FRAME_RATE};
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
 use reaper_medium::{
@@ -132,7 +132,7 @@ where
 }
 
 pub trait WithSource {
-    fn source(&self) -> Option<&RtClipSource>;
+    fn source(&self) -> Option<&ReaperClipSource>;
 }
 
 pub trait SupplyRequest {

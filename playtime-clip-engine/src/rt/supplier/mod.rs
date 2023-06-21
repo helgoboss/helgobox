@@ -1,5 +1,5 @@
-mod source;
-pub use source::*;
+mod reaper_clip_source;
+pub use reaper_clip_source::*;
 
 mod cache;
 pub use cache::*;
