@@ -37,6 +37,9 @@ pub use section::*;
 mod downbeat;
 pub use downbeat::*;
 
+mod midi_note_tracker;
+pub use midi_note_tracker::*;
+
 mod fade_util;
 
 mod midi_util;
