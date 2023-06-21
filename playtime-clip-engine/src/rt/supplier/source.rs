@@ -12,7 +12,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiFrameOffset,
+    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz,
     OwnedPcmSource, PcmSourceTransfer,
 };
 

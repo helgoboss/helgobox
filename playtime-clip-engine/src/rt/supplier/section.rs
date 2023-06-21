@@ -12,7 +12,7 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::{MidiResetMessageRange, PositiveSecond};
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, MidiFrameOffset};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds};
 
 #[derive(Debug)]
 pub struct Section<S> {

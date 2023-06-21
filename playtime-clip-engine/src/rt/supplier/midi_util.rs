@@ -1,4 +1,4 @@
-use crate::rt::supplier::{MidiSilencer, MidiSupplier};
+use crate::rt::supplier::{MidiSilencer};
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use playtime_api::persistence::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};

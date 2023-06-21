@@ -1,18 +1,16 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, AutoDelegatingAudioSupplier, AutoDelegatingMidiSupplier,
+    Amplifier, AutoDelegatingAudioSupplier, AutoDelegatingMidiSupplier,
     AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
     AutoDelegatingWithMaterialInfo, Cache, CacheRequest, CommandProcessor, Downbeat,
-    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings,
-    MidiSupplier, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
+    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
     PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
     PreBufferSourceSkill, RecordState, Recorder, RecordingArgs, Resampler, RtClipSource, Section,
-    SectionBounds, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, TimeStretcher, WithMaterialInfo, WithSupplier, WriteAudioRequest,
+    SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo, WithSupplier, WriteAudioRequest,
     WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
-use crate::rt::{AudioBufMut, BasicAudioRequestProps};
+use crate::rt::{BasicAudioRequestProps};
 use crate::{ClipEngineResult, HybridTimeline};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
@@ -20,7 +18,7 @@ use playtime_api::persistence::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipTimeBase, Db, MidiResetMessageRange,
     PositiveBeat, PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{BorrowedMidiEventList, Bpm, MidiFrameOffset, PositionInSeconds};
+use reaper_medium::{Bpm, PositionInSeconds};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).

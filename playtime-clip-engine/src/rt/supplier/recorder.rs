@@ -7,7 +7,7 @@ use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::schedule_util::{calc_distance_from_pos, calc_distance_from_quantized_pos};
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer, MidiSupplier,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
     PositionTranslationSkill, RtClipSource, SectionBounds, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithMaterialInfo, WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
