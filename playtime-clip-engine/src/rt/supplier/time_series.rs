@@ -5,6 +5,12 @@ pub struct TimeSeries<T> {
     pub events: Vec<TimeSeriesEvent<T>>,
 }
 
+impl<T> Default for TimeSeries<T> {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
+}
+
 impl<T> TimeSeries<T> {
     pub fn new(events: Vec<TimeSeriesEvent<T>>) -> Self {
         Self { events }

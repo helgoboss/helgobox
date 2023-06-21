@@ -1,7 +1,7 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{get_cycle_at_frame, MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::supplier::get_cycle_at_frame;
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
 use reaper_medium::{
@@ -10,6 +10,19 @@ use reaper_medium::{
 use std::fmt::Debug;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+
+/// We could use just any unit to represent a position within a MIDI source, but we choose frames
+/// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
+/// audio, which results in fewer special cases. The frame rate of 169,344,000 is a multiple of
+/// all common sample rates and PPQs. This prevents rounding issues (advice from Justin).
+/// Initially I wanted to take 1,024,000 because it is the unit which is used in REAPER's MIDI
+/// events, but it's not a multiple of common sample rates and PPQs.
+pub const MIDI_FRAME_RATE: Hz = unsafe { Hz::new_unchecked(169_344_000.0) };
+
+/// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
+/// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
+/// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
+pub const MIDI_BASE_BPM: Bpm = unsafe { Bpm::new_unchecked(120.0) };
 
 // TODO-medium We can remove the WithMaterialInfo because we don't box anymore.
 pub trait AudioSupplier: Debug + WithMaterialInfo {
@@ -241,6 +254,11 @@ impl AudioMaterialInfo {
 
 #[derive(Clone, Debug)]
 pub struct MidiMaterialInfo {
+    // TODO-high I think we should use u64 instead in many places
+    /// This should be provided normalized to [`MIDI_FRAME_RATE`]!
+    ///
+    /// - **NOT** pulses (depends on MIDI clip resolution)!
+    /// - **NOT** normalized to 1/1_024_000 (as REAPER's [`MidiFrameOffset`])
     pub frame_count: usize,
 }
 

@@ -1,15 +1,16 @@
+use crate::rt::supplier::midi_sequence::MidiSequence;
 use crate::rt::supplier::{
-    AudioSupplier, CacheableSource, MaterialInfo, MidiSupplier, ReaperClipSource,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
+    AudioSupplier, MaterialInfo, MidiSupplier, ReaperClipSource, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
 };
 use crate::rt::AudioBufMut;
 use crate::ClipEngineResult;
 use reaper_medium::BorrowedMidiEventList;
-use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub enum RtClipSource {
     Reaper(ReaperClipSource),
+    MidiSequence(MidiSequence),
 }
 
 impl AudioSupplier for RtClipSource {
@@ -20,6 +21,7 @@ impl AudioSupplier for RtClipSource {
     ) -> SupplyResponse {
         match self {
             RtClipSource::Reaper(s) => s.supply_audio(request, dest_buffer),
+            RtClipSource::MidiSequence(_) => SupplyResponse::default(),
         }
     }
 }
@@ -32,6 +34,7 @@ impl MidiSupplier for RtClipSource {
     ) -> SupplyResponse {
         match self {
             RtClipSource::Reaper(s) => s.supply_midi(request, event_list),
+            RtClipSource::MidiSequence(s) => s.supply_midi(request, event_list),
         }
     }
 }
@@ -40,6 +43,7 @@ impl WithMaterialInfo for RtClipSource {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         match self {
             RtClipSource::Reaper(s) => s.material_info(),
+            RtClipSource::MidiSequence(s) => s.material_info(),
         }
     }
 }

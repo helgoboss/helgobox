@@ -1280,6 +1280,7 @@ impl WithCacheableSource for Recorder {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => match &s.source {
                 RtClipSource::Reaper(s) => s.cacheable_source(),
+                RtClipSource::MidiSequence(_) => None,
             },
             State::Recording(_) => {
                 // The "current source" during recording state can change quickly. We don't want

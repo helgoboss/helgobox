@@ -9,11 +9,11 @@ use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, CacheableSource, MaterialInfo, MidiMaterialInfo,
     MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithCacheableSource,
-    WithMaterialInfo,
+    WithMaterialInfo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
+    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer,
 };
 use std::path::{Path, PathBuf};
@@ -93,7 +93,7 @@ impl ReaperClipSource {
         } else {
             // If we don't get a length in beats, this either means we have set a preview tempo
             // on the source or the source has IGNTEMPO set to 1. Either way we will take the
-            // reported length.
+            // reported length. Usually we end up here because we set a preview tempo.
             self.source.get_length().unwrap()
         };
         convert_duration_in_seconds_to_frames(length_in_seconds, MIDI_FRAME_RATE)
@@ -142,7 +142,7 @@ impl MidiSupplier for ReaperClipSource {
         // This logic assumes that the destination frame rate is comparable to the source frame
         // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
         // frame rate changes for tempo changes. It's only equal if the clip is played in
-        // MIDI_BASE_BPM.
+        // MIDI_BASE_BPM. That's fine!
         let frame_rate = request.dest_sample_rate;
         let num_frames_to_be_consumed = request.dest_frame_count;
         if request.start_frame == 0 {
@@ -211,16 +211,3 @@ impl WithCacheableSource for ReaperClipSource {
         Some(self)
     }
 }
-
-/// We could use just any unit to represent a position within a MIDI source, but we choose frames
-/// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
-/// audio, which results in fewer special cases. The frame rate of 169,344,000 is a multiple of
-/// all common sample rates and PPQs. This prevents rounding issues (advice from Justin).
-/// Initially I wanted to take 1,024,000 because it is the unit which is used in REAPER's MIDI
-/// events, but it's not a multiple of common sample rates and PPQs.
-pub const MIDI_FRAME_RATE: Hz = unsafe { Hz::new_unchecked(169_344_000.0) };
-
-/// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
-/// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
-/// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-pub const MIDI_BASE_BPM: Bpm = unsafe { Bpm::new_unchecked(120.0) };
