@@ -15,6 +15,7 @@ use playtime_api::persistence::{Bpm, TimeSignature};
 use reaper_medium::{
     BorrowedMidiEventList, DurationInSeconds, Hz, MidiFrameOffset, PositionInSeconds,
 };
+use std::cmp;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Write};
 
@@ -119,6 +120,7 @@ impl MidiSequence {
     }
 
     pub fn pulse_count(&self) -> u64 {
+        // The last pulse frame index marks the *exclusive* end, so we don't need + 1 here I guess.
         self.time_series.events.last().map(|e| e.frame).unwrap_or(0)
     }
 
@@ -224,31 +226,45 @@ impl MidiSupplier for MidiSequence {
         // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
         // frame rate changes for tempo changes. It's only equal if the clip is played in
         // MIDI_BASE_BPM. That's fine!
+        let total_pulse_count = self.pulse_count();
+        if total_pulse_count == 0 {
+            return SupplyResponse::exceeded_end();
+        }
         let frame_rate = request.dest_sample_rate;
         let num_frames_to_be_consumed = request.dest_frame_count;
         let start_time = convert_position_in_frames_to_seconds(request.start_frame, frame_rate);
         let start_pulse = self.convert_position_in_seconds_to_pulse(start_time);
-        let length = convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
-        let pulse_count = self.convert_duration_in_seconds_to_pulse(length);
-        let start_pulse = if start_pulse >= 0 {
-            start_pulse as u64
-        } else {
+        let requested_length =
+            convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
+        if start_pulse < 0 {
             // TODO This can skip the beginning. Handle this like ReaperClipSource audio!
             return SupplyResponse::please_continue(num_frames_to_be_consumed);
         };
-        let mut reaper_evt = reaper_medium::MidiEvent::default();
+        let start_pulse = start_pulse as u64;
+        if start_pulse >= total_pulse_count {
+            return SupplyResponse::exceeded_end();
+        };
+        let requested_pulse_count = self.convert_duration_in_seconds_to_pulse(requested_length);
+        let remaining_pulse_count_till_end = total_pulse_count - start_pulse;
+        let actual_requested_pulse_count =
+            cmp::min(requested_pulse_count, remaining_pulse_count_till_end);
         let pulse_to_frame_factor = self.calculate_pulse_to_midi_frame_factor(frame_rate);
+        let mut reaper_evt = reaper_medium::MidiEvent::default();
         let relevant_events = self
             .time_series
-            .find_events_in_range(start_pulse, pulse_count);
+            .find_events_in_range(start_pulse, actual_requested_pulse_count);
         for evt in relevant_events {
             let pulse_offset = (evt.frame - start_pulse) as f64;
-            let frame_offset = (pulse_offset * pulse_to_frame_factor).round() as u32;
+            let frame_offset = (pulse_offset * pulse_to_frame_factor).floor() as u32;
             reaper_evt.set_frame_offset(MidiFrameOffset::new(frame_offset));
             reaper_evt.set_message(evt.payload.msg);
             event_list.add_item(&reaper_evt)
         }
-        let num_midi_frames_consumed = relevant_events.len();
+        let num_midi_frames_consumed =
+            (actual_requested_pulse_count as f64 * pulse_to_frame_factor).floor() as usize;
+        // TODO We don't include the last frame when it comes to reporting the pulse/frame count.
+        //  Should we manually add this notes-off event? Or is it already transmitted? Or should we
+        //  handle this via StartEndHandler?
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
         SupplyResponse::limited_by_total_frame_count(

@@ -10,7 +10,7 @@ use reaper_medium::BorrowedMidiEventList;
 #[derive(Clone, Debug)]
 pub enum RtClipSource {
     Reaper(ReaperClipSource),
-    MidiSequence(MidiSequence),
+    Midi(MidiSequence),
 }
 
 impl AudioSupplier for RtClipSource {
@@ -21,7 +21,7 @@ impl AudioSupplier for RtClipSource {
     ) -> SupplyResponse {
         match self {
             RtClipSource::Reaper(s) => s.supply_audio(request, dest_buffer),
-            RtClipSource::MidiSequence(_) => SupplyResponse::default(),
+            RtClipSource::Midi(_) => SupplyResponse::default(),
         }
     }
 }
@@ -34,7 +34,7 @@ impl MidiSupplier for RtClipSource {
     ) -> SupplyResponse {
         match self {
             RtClipSource::Reaper(s) => s.supply_midi(request, event_list),
-            RtClipSource::MidiSequence(s) => s.supply_midi(request, event_list),
+            RtClipSource::Midi(s) => s.supply_midi(request, event_list),
         }
     }
 }
@@ -43,7 +43,7 @@ impl WithMaterialInfo for RtClipSource {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         match self {
             RtClipSource::Reaper(s) => s.material_info(),
-            RtClipSource::MidiSequence(s) => s.material_info(),
+            RtClipSource::Midi(s) => s.material_info(),
         }
     }
 }

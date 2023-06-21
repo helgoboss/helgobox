@@ -57,3 +57,4 @@ mod log_util;
 mod time_series;
 
 mod midi_sequence;
+pub use midi_sequence::*;

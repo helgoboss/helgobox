@@ -1,5 +1,6 @@
 use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, ReaperClipSource, RecorderRequest, RtClipSource,
+    ChainEquipment, KindSpecificRecordingOutcome, MidiSequence, ReaperClipSource, RecorderRequest,
+    RtClipSource,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
@@ -10,9 +11,12 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
-use playtime_api::persistence::{ClipColor, ClipId, ClipTimeBase, Db, Section, SourceOrigin};
+use playtime_api::persistence::{
+    ClipColor, ClipId, ClipTimeBase, Db, Section, Source, SourceOrigin,
+};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::{Bpm, PeakFileMode};
+use std::error::Error;
 use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -243,7 +247,7 @@ impl Clip {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::RtColumnSettings,
-    ) -> ClipEngineResult<(rt::RtClip, Option<ReaperClipSource>)> {
+    ) -> Result<(rt::RtClip, Option<ReaperClipSource>), Box<dyn Error>> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
             SourceOrigin::Frozen => self
@@ -252,16 +256,18 @@ impl Clip {
                 .ok_or("no frozen source given")?,
         };
         let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
-        let pooled_copy = if matches!(self.source, api::Source::MidiChunk(_)) {
-            let clone =
-                Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
-            Some(clone)
+        let (clip_source, pooled_copy) = if let api::Source::MidiChunk(s) = &self.source {
+            // let clone =
+            //     Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
+            // Some(clone)
+            let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&s.chunk)?;
+            (RtClipSource::Midi(midi_sequence), Some(pcm_source))
         } else {
-            None
+            (RtClipSource::Reaper(pcm_source), None)
         };
         let rt_clip = rt::RtClip::ready(
             self.rt_id,
-            RtClipSource::Reaper(pcm_source),
+            clip_source,
             matrix_settings,
             column_settings,
             self.rt_settings,
