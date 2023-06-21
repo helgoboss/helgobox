@@ -1,6 +1,7 @@
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier,
+    AudioMaterialInfo, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingMidiSupplier,
+    AutoDelegatingPositionTranslationSkill, MaterialInfo, MidiSilencer, MidiSupplier,
     PositionTranslationSkill, PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest,
     SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
     WithSupplier,
@@ -463,17 +464,6 @@ where
     }
 }
 
-impl<S, F, C> PositionTranslationSkill for PreBuffer<S, F, C>
-where
-    S: PositionTranslationSkill,
-    F: Debug,
-    C: Debug,
-{
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
-
 impl<S, F, C> AudioSupplier for PreBuffer<S, F, C>
 where
     S: AudioSupplier + Clone + Send + 'static,
@@ -566,17 +556,6 @@ where
                 response
             }
         }
-    }
-}
-
-impl<S: MidiSupplier, F: Debug, C: Debug> MidiSupplier for PreBuffer<S, F, C> {
-    fn supply_midi(
-        &mut self,
-        request: &SupplyMidiRequest,
-        event_list: &mut BorrowedMidiEventList,
-    ) -> SupplyResponse {
-        // MIDI doesn't need pre-buffering.
-        self.supplier.supply_midi(request, event_list)
     }
 }
 
@@ -1054,12 +1033,6 @@ fn query_supplier_for_remaining_portion<S: AudioSupplier>(
     }
 }
 
-impl<S: MidiSilencer, F: Debug, C: Debug> MidiSilencer for PreBuffer<S, F, C> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
-}
+impl<S, F, C> AutoDelegatingMidiSupplier for PreBuffer<S, F, C> {}
+impl<S, F, C> AutoDelegatingPositionTranslationSkill for PreBuffer<S, F, C> {}
+impl<S, F, C> AutoDelegatingMidiSilencer for PreBuffer<S, F, C> {}

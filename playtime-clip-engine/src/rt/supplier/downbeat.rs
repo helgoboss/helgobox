@@ -1,9 +1,10 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
-    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequest, SupplyRequestInfo, SupplyResponse, WithMaterialInfo, WithSupplier,
+    AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingWithMaterialInfo, MaterialInfo,
+    MidiSilencer, MidiSupplier, PositionTranslationSkill, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
+    SupplyResponse, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::PositiveBeat;
@@ -156,23 +157,10 @@ impl<S: PositionTranslationSkill> PositionTranslationSkill for Downbeat<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for Downbeat<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
-impl<S: MidiSilencer> MidiSilencer for Downbeat<S> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
-}
-
 struct DownbeatRequestData {
     start_frame: isize,
     info: SupplyRequestInfo,
 }
+
+impl<S> AutoDelegatingWithMaterialInfo for Downbeat<S> {}
+impl<S> AutoDelegatingMidiSilencer for Downbeat<S> {}

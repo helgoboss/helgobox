@@ -21,6 +21,22 @@ pub trait AudioSupplier: Debug + WithMaterialInfo {
     ) -> SupplyResponse;
 }
 
+pub trait AutoDelegatingAudioSupplier {}
+
+impl<T, S> AudioSupplier for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingAudioSupplier + Debug + WithMaterialInfo,
+    S: AudioSupplier,
+{
+    fn supply_audio(
+        &mut self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyResponse {
+        self.supplier_mut().supply_audio(request, dest_buffer)
+    }
+}
+
 pub trait PreBufferSourceSkill: Debug {
     /// Does its best to make sure that the next source block is pre-buffered with the given
     /// criteria.
@@ -29,8 +45,32 @@ pub trait PreBufferSourceSkill: Debug {
     fn pre_buffer(&mut self, request: PreBufferFillRequest);
 }
 
+pub trait AutoDelegatingPreBufferSourceSkill {}
+
+impl<T, S> PreBufferSourceSkill for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingPreBufferSourceSkill + Debug,
+    S: PreBufferSourceSkill,
+{
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
+        self.supplier_mut().pre_buffer(request);
+    }
+}
+
 pub trait PositionTranslationSkill: Debug {
     fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize;
+}
+
+pub trait AutoDelegatingPositionTranslationSkill {}
+
+impl<T, S> PositionTranslationSkill for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingPositionTranslationSkill + Debug,
+    S: PositionTranslationSkill,
+{
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier().translate_play_pos_to_source_pos(play_pos)
+    }
 }
 
 pub trait MidiSupplier: Debug {
@@ -41,6 +81,22 @@ pub trait MidiSupplier: Debug {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse;
+}
+
+pub trait AutoDelegatingMidiSupplier {}
+
+impl<T, S> MidiSupplier for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingMidiSupplier + Debug,
+    S: MidiSupplier,
+{
+    fn supply_midi(
+        &mut self,
+        request: &SupplyMidiRequest,
+        event_list: &mut BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        self.supplier_mut().supply_midi(request, event_list)
+    }
 }
 
 pub trait MidiSilencer: Debug {
@@ -61,8 +117,10 @@ pub trait WithSupplier {
 
 pub trait AutoDelegatingMidiSilencer {}
 
-impl<T: WithSupplier<Supplier = S> + AutoDelegatingMidiSilencer + Debug, S: MidiSilencer>
-    MidiSilencer for T
+impl<T, S> MidiSilencer for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingMidiSilencer + Debug,
+    S: MidiSilencer,
 {
     fn release_notes(
         &mut self,
@@ -87,6 +145,18 @@ pub trait SupplyRequest {
 pub trait WithMaterialInfo {
     /// Returns an error if no material available.
     fn material_info(&self) -> ClipEngineResult<MaterialInfo>;
+}
+
+pub trait AutoDelegatingWithMaterialInfo {}
+
+impl<T, S> WithMaterialInfo for T
+where
+    T: WithSupplier<Supplier = S> + AutoDelegatingWithMaterialInfo,
+    S: WithMaterialInfo,
+{
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier().material_info()
+    }
 }
 
 /// Contains information about the material.

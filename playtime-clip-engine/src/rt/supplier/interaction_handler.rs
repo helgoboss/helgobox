@@ -4,14 +4,17 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
-    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
+    midi_util, AudioSupplier, AutoDelegatingPositionTranslationSkill,
+    AutoDelegatingPreBufferSourceSkill, AutoDelegatingWithMaterialInfo, MaterialInfo, MidiSilencer,
+    MidiSupplier, PositionTranslationSkill, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, MidiFrameOffset};
 use std::cmp;
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct InteractionHandler<S> {
@@ -394,20 +397,6 @@ impl<S: MidiSupplier + MidiSilencer> MidiSupplier for InteractionHandler<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for InteractionHandler<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for InteractionHandler<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.supplier.pre_buffer(request);
-    }
-}
-
-impl<S: PositionTranslationSkill> PositionTranslationSkill for InteractionHandler<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
+impl<S> AutoDelegatingWithMaterialInfo for InteractionHandler<S> {}
+impl<S> AutoDelegatingPreBufferSourceSkill for InteractionHandler<S> {}
+impl<S> AutoDelegatingPositionTranslationSkill for InteractionHandler<S> {}

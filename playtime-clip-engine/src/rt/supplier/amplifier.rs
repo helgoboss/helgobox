@@ -1,8 +1,9 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
-    WithSupplier,
+    AudioSupplier, AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
+    AutoDelegatingWithMaterialInfo, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -97,20 +98,6 @@ impl<S: MidiSupplier> MidiSupplier for Amplifier<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for Amplifier<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Amplifier<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.supplier.pre_buffer(request);
-    }
-}
-
-impl<S: PositionTranslationSkill> PositionTranslationSkill for Amplifier<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
+impl<S> AutoDelegatingWithMaterialInfo for Amplifier<S> {}
+impl<S> AutoDelegatingPreBufferSourceSkill for Amplifier<S> {}
+impl<S> AutoDelegatingPositionTranslationSkill for Amplifier<S> {}

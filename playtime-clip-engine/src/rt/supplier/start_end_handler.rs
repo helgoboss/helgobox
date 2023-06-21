@@ -4,7 +4,8 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, MaterialInfo, MidiSilencer, MidiSupplier,
+    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingPositionTranslationSkill,
+    AutoDelegatingWithMaterialInfo, MaterialInfo, MidiSilencer, MidiSupplier,
     PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithMaterialInfo, WithSupplier,
 };
@@ -120,16 +121,6 @@ impl<S: MidiSupplier + MidiSilencer> MidiSupplier for StartEndHandler<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for StartEndHandler<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
-impl<S: PositionTranslationSkill> PositionTranslationSkill for StartEndHandler<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
-
+impl<S> AutoDelegatingWithMaterialInfo for StartEndHandler<S> {}
+impl<S> AutoDelegatingPositionTranslationSkill for StartEndHandler<S> {}
 impl<S> AutoDelegatingMidiSilencer for StartEndHandler<S> {}

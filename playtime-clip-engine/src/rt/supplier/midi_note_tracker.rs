@@ -8,9 +8,10 @@ use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialReque
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::midi_sequence::MidiSequence;
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer, MidiSupplier,
-    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithMaterialInfo, WithSource, WithSupplier,
+    AudioMaterialInfo, AudioSupplier, AutoDelegatingAudioSupplier,
+    AutoDelegatingPositionTranslationSkill, AutoDelegatingWithMaterialInfo, MaterialInfo,
+    MidiMaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, WithSupplier,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -125,22 +126,6 @@ impl<S> WithSupplier for MidiNoteTracker<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for MidiNoteTracker<S> {
-    fn supply_audio(
-        &mut self,
-        request: &SupplyAudioRequest,
-        dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
-        self.supplier.supply_audio(request, dest_buffer)
-    }
-}
-
-impl<S: WithMaterialInfo> WithMaterialInfo for MidiNoteTracker<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
 impl<S: MidiSupplier> MidiSupplier for MidiNoteTracker<S> {
     fn supply_midi(
         &mut self,
@@ -173,11 +158,9 @@ impl<S: Debug> MidiSilencer for MidiNoteTracker<S> {
     }
 }
 
-impl<S: PositionTranslationSkill> PositionTranslationSkill for MidiNoteTracker<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
+impl<S> AutoDelegatingAudioSupplier for MidiNoteTracker<S> {}
+impl<S> AutoDelegatingWithMaterialInfo for MidiNoteTracker<S> {}
+impl<S> AutoDelegatingPositionTranslationSkill for MidiNoteTracker<S> {}
 
 #[cfg(test)]
 mod tests {

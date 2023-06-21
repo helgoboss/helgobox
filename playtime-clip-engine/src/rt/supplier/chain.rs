@@ -1,12 +1,15 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings, MidiSupplier,
-    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
-    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
-    Recorder, RecordingArgs, Resampler, RtClipSource, Section, SectionBounds, StartEndHandler,
-    StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo, WithSupplier, WriteAudioRequest, WriteMidiRequest,
+    Amplifier, AudioSupplier, AutoDelegatingAudioSupplier, AutoDelegatingMidiSupplier,
+    AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
+    AutoDelegatingWithMaterialInfo, Cache, CacheRequest, CommandProcessor, Downbeat,
+    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings,
+    MidiSupplier, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
+    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
+    PreBufferSourceSkill, RecordState, Recorder, RecordingArgs, Resampler, RtClipSource, Section,
+    SectionBounds, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, TimeStretcher, WithMaterialInfo, WithSupplier, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -558,43 +561,23 @@ impl<'a> Entrance for MutexGuard<'a, LooperTail> {
     }
 }
 
-impl AudioSupplier for SupplierChain {
-    fn supply_audio(
-        &mut self,
-        request: &SupplyAudioRequest,
-        dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
-        self.head.supply_audio(request, dest_buffer)
+impl WithSupplier for SupplierChain {
+    type Supplier = Head;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.head
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.head
     }
 }
 
-impl MidiSupplier for SupplierChain {
-    fn supply_midi(
-        &mut self,
-        request: &SupplyMidiRequest,
-        event_list: &mut BorrowedMidiEventList,
-    ) -> SupplyResponse {
-        self.head.supply_midi(request, event_list)
-    }
-}
-
-impl WithMaterialInfo for SupplierChain {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.head.material_info()
-    }
-}
-
-impl PreBufferSourceSkill for SupplierChain {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.head.pre_buffer(request)
-    }
-}
-
-impl PositionTranslationSkill for SupplierChain {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.head.translate_play_pos_to_source_pos(play_pos)
-    }
-}
+impl AutoDelegatingAudioSupplier for SupplierChain {}
+impl AutoDelegatingMidiSupplier for SupplierChain {}
+impl AutoDelegatingWithMaterialInfo for SupplierChain {}
+impl AutoDelegatingPreBufferSourceSkill for SupplierChain {}
+impl AutoDelegatingPositionTranslationSkill for SupplierChain {}
 
 pub type ChainPreBufferRequest = PreBufferRequest<SharedLooperTail, ChainPreBufferCommand>;
 

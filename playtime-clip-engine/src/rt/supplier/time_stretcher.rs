@@ -1,7 +1,9 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSilencer, PositionTranslationSkill, SupplyAudioRequest,
-    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
+    AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingMidiSupplier,
+    AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
+    AutoDelegatingWithMaterialInfo, MaterialInfo, MidiSilencer, PositionTranslationSkill,
+    SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -188,48 +190,16 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
-    fn supply_midi(
-        &mut self,
-        request: &SupplyMidiRequest,
-        event_list: &mut BorrowedMidiEventList,
-    ) -> SupplyResponse {
-        // With MIDI, the resampler takes care of adjusting the tempo (since it needs to adjust
-        // the frame rate anyway).
-        self.supplier.supply_midi(request, event_list)
-    }
-}
-
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for TimeStretcher<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.supplier.pre_buffer(request);
-    }
-}
-
-impl<S: PositionTranslationSkill> PositionTranslationSkill for TimeStretcher<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        // There's no translation because the time stretcher doesn't actually change the scale
-        // in which positions are measured. E.g. if the tempo is higher, the play position will
-        // just do larger steps forward.
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
-
-impl<S: WithMaterialInfo> WithMaterialInfo for TimeStretcher<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
-impl<S: MidiSilencer> MidiSilencer for TimeStretcher<S> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
-}
+// With MIDI, the resampler takes care of adjusting the tempo (since it needs to adjust
+// the frame rate anyway).
+impl<S> AutoDelegatingMidiSupplier for TimeStretcher<S> {}
+impl<S> AutoDelegatingPreBufferSourceSkill for TimeStretcher<S> {}
+// There's no translation because the time stretcher doesn't actually change the scale
+// in which positions are measured. E.g. if the tempo is higher, the play position will
+// just do larger steps forward.
+impl<S> AutoDelegatingPositionTranslationSkill for TimeStretcher<S> {}
+impl<S> AutoDelegatingWithMaterialInfo for TimeStretcher<S> {}
+impl<S> AutoDelegatingMidiSilencer for TimeStretcher<S> {}
 
 pub enum StretchWorkerRequest {
     Stretch,

@@ -1,9 +1,10 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WithSupplier,
+    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingWithMaterialInfo,
+    MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
@@ -223,12 +224,6 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Looper<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for Looper<S> {
-    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.supplier.material_info()
-    }
-}
-
 impl<S: MidiSupplier + WithMaterialInfo + MidiSilencer> MidiSupplier for Looper<S> {
     fn supply_midi(
         &mut self,
@@ -334,12 +329,5 @@ impl<S: PositionTranslationSkill + WithMaterialInfo> PositionTranslationSkill fo
     }
 }
 
-impl<S: MidiSilencer> MidiSilencer for Looper<S> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list)
-    }
-}
+impl<S> AutoDelegatingWithMaterialInfo for Looper<S> {}
+impl<S> AutoDelegatingMidiSilencer for Looper<S> {}

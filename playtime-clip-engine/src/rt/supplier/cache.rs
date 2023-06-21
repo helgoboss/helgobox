@@ -9,7 +9,8 @@ use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    AudioMaterialInfo, AudioSupplier, AutoDelegatingMidiSupplier,
+    AutoDelegatingPositionTranslationSkill, MaterialInfo, MidiSupplier, PositionTranslationSkill,
     RtClipSource, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
     WithMaterialInfo, WithSource, WithSupplier,
 };
@@ -255,17 +256,6 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for Cache<S> {
-    fn supply_midi(
-        &mut self,
-        request: &SupplyMidiRequest,
-        event_list: &mut BorrowedMidiEventList,
-    ) -> SupplyResponse {
-        // MIDI doesn't need caching.
-        self.supplier.supply_midi(request, event_list)
-    }
-}
-
 impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         if let Some(d) = &self.cached_data {
@@ -276,8 +266,5 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
     }
 }
 
-impl<S: PositionTranslationSkill> PositionTranslationSkill for Cache<S> {
-    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
-        self.supplier.translate_play_pos_to_source_pos(play_pos)
-    }
-}
+impl<S> AutoDelegatingMidiSupplier for Cache<S> {}
+impl<S> AutoDelegatingPositionTranslationSkill for Cache<S> {}

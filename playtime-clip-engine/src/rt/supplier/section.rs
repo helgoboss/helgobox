@@ -5,9 +5,10 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer,
-    MidiSupplier, PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
+    midi_util, AudioMaterialInfo, AudioSupplier, AutoDelegatingMidiSilencer, MaterialInfo,
+    MidiMaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::{MidiResetMessageRange, PositiveSecond};
@@ -389,12 +390,4 @@ impl<S: PositionTranslationSkill> PositionTranslationSkill for Section<S> {
     }
 }
 
-impl<S: MidiSilencer> MidiSilencer for Section<S> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list)
-    }
-}
+impl<S> AutoDelegatingMidiSilencer for Section<S> {}
