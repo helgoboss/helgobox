@@ -1,7 +1,7 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
     SupplyResponseStatus, WithMaterialInfo,
 };
@@ -225,7 +225,7 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Looper<S> {
     }
 }
 
-impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
+impl<S: MidiSupplier + WithMaterialInfo + MidiSilencer> MidiSupplier for Looper<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -310,14 +310,6 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
             }
         }
     }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
 }
 
 pub fn get_cycle_at_frame(frame: isize, frame_count: usize) -> usize {
@@ -335,5 +327,15 @@ impl<S: PositionTranslationSkill + WithMaterialInfo> PositionTranslationSkill fo
         };
         self.supplier
             .translate_play_pos_to_source_pos(effective_play_pos)
+    }
+}
+
+impl<S: MidiSilencer> MidiSilencer for Looper<S> {
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list)
     }
 }

@@ -90,14 +90,6 @@ impl<S: MidiSupplier> MidiSupplier for Amplifier<S> {
         }
         response
     }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
 }
 
 impl<S: WithMaterialInfo> WithMaterialInfo for Amplifier<S> {

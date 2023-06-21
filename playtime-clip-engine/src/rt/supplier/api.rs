@@ -41,7 +41,9 @@ pub trait MidiSupplier: Debug {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse;
+}
 
+pub trait MidiSilencer: Debug {
     /// Releases all currently playing notes.
     fn release_notes(
         &mut self,
@@ -372,7 +374,9 @@ impl<T: MidiSupplier> MidiSupplier for Arc<Mutex<T>> {
     ) -> SupplyResponse {
         non_blocking_lock(&*self, "supply MIDI").supply_midi(request, event_list)
     }
+}
 
+impl<T: MidiSilencer> MidiSilencer for Arc<Mutex<T>> {
     fn release_notes(
         &mut self,
         frame_offset: MidiFrameOffset,

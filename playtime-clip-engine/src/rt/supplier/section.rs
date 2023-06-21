@@ -5,8 +5,8 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
+    midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer,
+    MidiSupplier, PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
@@ -275,7 +275,7 @@ impl<S: AudioSupplier> AudioSupplier for Section<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for Section<S> {
+impl<S: MidiSupplier + MidiSilencer> MidiSupplier for Section<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -322,14 +322,6 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
             );
         }
         self.generate_outer_response(inner_response, data.phase_two)
-    }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 
@@ -390,5 +382,15 @@ impl<S: PositionTranslationSkill> PositionTranslationSkill for Section<S> {
         let effective_play_pos = self.bounds.start_frame as isize + play_pos;
         self.supplier
             .translate_play_pos_to_source_pos(effective_play_pos)
+    }
+}
+
+impl<S: MidiSilencer> MidiSilencer for Section<S> {
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list)
     }
 }

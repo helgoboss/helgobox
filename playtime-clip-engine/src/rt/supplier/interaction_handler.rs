@@ -4,7 +4,7 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
     PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
@@ -204,7 +204,7 @@ impl<S> InteractionHandler<S> {
 
     fn silence_midi_at_stop_interaction(&mut self, event_list: &mut BorrowedMidiEventList)
     where
-        S: MidiSupplier,
+        S: MidiSilencer,
     {
         debug!("Silence MIDI at stop interaction");
         midi_util::silence_midi(
@@ -303,7 +303,7 @@ impl<S: AudioSupplier> AudioSupplier for InteractionHandler<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
+impl<S: MidiSupplier + MidiSilencer> MidiSupplier for InteractionHandler<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -387,14 +387,6 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                 }
             }
         }
-    }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
-    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier,
+    PositionTranslationSkill, PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use core::cmp;
@@ -569,14 +569,6 @@ impl<S: MidiSupplier, F: Debug, C: Debug> MidiSupplier for PreBuffer<S, F, C> {
         // MIDI doesn't need pre-buffering.
         self.supplier.supply_midi(request, event_list)
     }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
 }
 
 impl<S: WithMaterialInfo, F, C> WithMaterialInfo for PreBuffer<S, F, C> {
@@ -1050,5 +1042,15 @@ fn query_supplier_for_remaining_portion<S: AudioSupplier>(
                 num_frames_written: num_frames_consumed,
             },
         },
+    }
+}
+
+impl<S: MidiSilencer, F: Debug, C: Debug> MidiSilencer for PreBuffer<S, F, C> {
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }

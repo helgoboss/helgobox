@@ -8,8 +8,9 @@ use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialReque
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::midi_sequence::MidiSequence;
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer, MidiSupplier,
+    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -20,6 +21,7 @@ use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiEvent,
     MidiFrameOffset, OwnedPcmSource, PcmSourceTransfer,
 };
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub struct MidiNoteTracker<S> {
@@ -109,6 +111,10 @@ impl<S> MidiNoteTracker<S> {
             midi_state: MidiState::default(),
         }
     }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
 }
 
 impl<S: AudioSupplier> AudioSupplier for MidiNoteTracker<S> {
@@ -140,7 +146,9 @@ impl<S: MidiSupplier> MidiSupplier for MidiNoteTracker<S> {
         }
         response
     }
+}
 
+impl<S: Debug> MidiSilencer for MidiNoteTracker<S> {
     fn release_notes(
         &mut self,
         frame_offset: MidiFrameOffset,
@@ -154,6 +162,12 @@ impl<S: MidiSupplier> MidiSupplier for MidiNoteTracker<S> {
             event_list.add_item(&event);
         }
         self.midi_state.reset();
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for MidiNoteTracker<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }
 

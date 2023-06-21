@@ -6,19 +6,14 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialRequest};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
-use crate::rt::supplier::midi_sequence::MidiSequence;
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
-use helgoboss_midi::{
-    Channel, KeyNumber, RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage,
-    U7,
-};
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiEvent,
-    MidiFrameOffset, OwnedPcmSource, PcmSourceTransfer,
+    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, MidiFrameOffset,
+    OwnedPcmSource, PcmSourceTransfer,
 };
 
 #[derive(Clone, Debug)]
@@ -192,13 +187,6 @@ impl MidiSupplier for RtClipSource {
             request.start_frame,
             self.calculate_midi_frame_count(),
         )
-    }
-
-    fn release_notes(
-        &mut self,
-        _frame_offset: MidiFrameOffset,
-        _event_list: &mut BorrowedMidiEventList,
-    ) {
     }
 }
 

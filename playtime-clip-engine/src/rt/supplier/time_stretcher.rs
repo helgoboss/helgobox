@@ -1,7 +1,7 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, PositionTranslationSkill, SupplyAudioRequest, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo,
+    AudioSupplier, MaterialInfo, MidiSilencer, PositionTranslationSkill, SupplyAudioRequest,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -194,14 +194,6 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
         // the frame rate anyway).
         self.supplier.supply_midi(request, event_list)
     }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list);
-    }
 }
 
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for TimeStretcher<S> {
@@ -222,6 +214,16 @@ impl<S: PositionTranslationSkill> PositionTranslationSkill for TimeStretcher<S> 
 impl<S: WithMaterialInfo> WithMaterialInfo for TimeStretcher<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         self.supplier.material_info()
+    }
+}
+
+impl<S: MidiSilencer> MidiSilencer for TimeStretcher<S> {
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier.release_notes(frame_offset, event_list);
     }
 }
 

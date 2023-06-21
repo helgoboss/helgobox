@@ -1,4 +1,4 @@
-use crate::rt::supplier::MidiSupplier;
+use crate::rt::supplier::{MidiSilencer, MidiSupplier};
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use playtime_api::persistence::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};
@@ -7,7 +7,7 @@ pub fn silence_midi(
     event_list: &mut BorrowedMidiEventList,
     reset_messages: MidiResetMessages,
     block_mode: SilenceMidiBlockMode,
-    supplier: &mut dyn MidiSupplier,
+    silencer: &mut dyn MidiSilencer,
 ) {
     if !reset_messages.at_least_one_enabled() {
         return;
@@ -34,7 +34,7 @@ pub fn silence_midi(
     // to-be-released notes are captured *before* filling the event list. But this function is
     // usually called *after* filling the event list.
     if reset_messages.on_notes_off && block_mode == Append {
-        supplier.release_notes(frame_offset, event_list);
+        silencer.release_notes(frame_offset, event_list);
     }
     for ch in 0..16 {
         let mut append_reset = |cc| {

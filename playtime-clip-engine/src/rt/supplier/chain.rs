@@ -1,12 +1,12 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiOverdubSettings, MidiSupplier, PollRecordingOutcome,
-    PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState, Recorder, RecordingArgs,
-    Resampler, RtClipSource, Section, SectionBounds, StartEndHandler, StopRecordingOutcome,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
-    WriteAudioRequest, WriteMidiRequest,
+    LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings, MidiSupplier,
+    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
+    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
+    Recorder, RecordingArgs, Resampler, RtClipSource, Section, SectionBounds, StartEndHandler,
+    StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -107,7 +107,10 @@ type SectionTail = Section<StartEndHandlerTail>;
 /// It sits on top of the recorder (representing the inner-most source) because it's
 /// optional and intended to really affect only the inner-most source, not the section or loop
 /// (which have their own start-end handling).
-type StartEndHandlerTail = StartEndHandler<CacheTail>;
+type StartEndHandlerTail = StartEndHandler<MidiNoteTrackerTail>;
+
+/// The MIDI note tracker provides a method for silencing currently playing MIDI.
+type MidiNoteTrackerTail = MidiNoteTracker<CacheTail>;
 
 /// Cache handler optionally caches the complete original source material in memory.
 ///
@@ -123,7 +126,7 @@ type CacheTail = Cache<RecorderTail>;
 /// When it comes to playing (not recording), it basically represents the source = the inner-most
 /// material.
 ///
-/// It's hard-coded to sit on top of `ClipSource` because it's responsible for swapping an old
+/// It's hard-coded to sit on top of clip source because it's responsible for swapping an old
 /// source with a newly recorded source.
 type RecorderTail = Recorder;
 
@@ -141,9 +144,8 @@ impl SupplierChain {
             cache_miss_behavior: PreBufferCacheMissBehavior::OutputSilence,
             recalibrate_on_cache_miss: false,
         };
-        let mut looper = Looper::new(Section::new(StartEndHandler::new(Cache::new(
-            recorder,
-            equipment.cache_request_sender,
+        let mut looper = Looper::new(Section::new(StartEndHandler::new(MidiNoteTracker::new(
+            Cache::new(recorder, equipment.cache_request_sender),
         ))));
         looper.set_enabled(true);
         let mut chain = Self {
@@ -523,6 +525,8 @@ trait Entrance {
 
     fn start_end_handler(&mut self) -> &mut StartEndHandlerTail;
 
+    fn midi_note_tracker(&mut self) -> &mut MidiNoteTrackerTail;
+
     fn cache(&mut self) -> &mut CacheTail;
 
     fn recorder(&mut self) -> &mut RecorderTail;
@@ -541,8 +545,12 @@ impl<'a> Entrance for MutexGuard<'a, LooperTail> {
         self.section().supplier_mut()
     }
 
-    fn cache(&mut self) -> &mut CacheTail {
+    fn midi_note_tracker(&mut self) -> &mut MidiNoteTrackerTail {
         self.start_end_handler().supplier_mut()
+    }
+
+    fn cache(&mut self) -> &mut CacheTail {
+        self.midi_note_tracker().supplier_mut()
     }
 
     fn recorder(&mut self) -> &mut RecorderTail {
@@ -567,14 +575,6 @@ impl MidiSupplier for SupplierChain {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         self.head.supply_midi(request, event_list)
-    }
-
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.head.release_notes(frame_offset, event_list);
     }
 }
 
