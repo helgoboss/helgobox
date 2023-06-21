@@ -2,6 +2,7 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
+    WithSupplier,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -27,14 +28,6 @@ impl<S> Amplifier<S> {
         }
     }
 
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
-    }
-
     pub fn volume(&self) -> Db {
         self.volume
     }
@@ -44,6 +37,18 @@ impl<S> Amplifier<S> {
         // TODO-medium Maybe improve the volume factor
         self.derived_volume_factor = Reaper::get().medium_reaper().db2slider(volume).get()
             / VolumeSliderValue::ZERO_DB.get();
+    }
+}
+
+impl<S> WithSupplier for Amplifier<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
     }
 }
 

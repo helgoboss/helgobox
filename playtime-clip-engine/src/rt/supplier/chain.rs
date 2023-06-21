@@ -6,7 +6,7 @@ use crate::rt::supplier::{
     PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordState,
     Recorder, RecordingArgs, Resampler, RtClipSource, Section, SectionBounds, StartEndHandler,
     StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    WithMaterialInfo, WithSupplier, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};

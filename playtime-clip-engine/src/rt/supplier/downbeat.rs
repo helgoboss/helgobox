@@ -3,7 +3,7 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
     PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequest, SupplyRequestInfo, SupplyResponse, WithMaterialInfo,
+    SupplyRequest, SupplyRequestInfo, SupplyResponse, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::PositiveBeat;
@@ -16,6 +16,18 @@ pub struct Downbeat<S> {
     downbeat_frame: usize,
 }
 
+impl<S> WithSupplier for Downbeat<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S> Downbeat<S> {
     pub fn new(supplier: S) -> Self {
         Self {
@@ -24,14 +36,6 @@ impl<S> Downbeat<S> {
             downbeat_frame: 0,
             // downbeat_frame: 1_024_000 / 2,
         }
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {

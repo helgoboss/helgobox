@@ -11,7 +11,7 @@ use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_fr
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
     RtClipSource, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
-    WithMaterialInfo, WithSource,
+    WithMaterialInfo, WithSource, WithSupplier,
 };
 use crate::ClipEngineResult;
 
@@ -75,6 +75,18 @@ impl CachedData {
     }
 }
 
+impl<S> WithSupplier for Cache<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S: WithSource> Cache<S> {
     pub fn new(supplier: S, request_sender: Sender<CacheRequest>) -> Self {
         Self {
@@ -83,14 +95,6 @@ impl<S: WithSource> Cache<S> {
             response_channel: CacheResponseChannel::new(),
             supplier,
         }
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {

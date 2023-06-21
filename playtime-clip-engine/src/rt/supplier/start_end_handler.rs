@@ -4,8 +4,9 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
+    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, MaterialInfo, MidiSilencer, MidiSupplier,
+    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
@@ -46,12 +47,16 @@ impl<S> StartEndHandler<S> {
     pub fn set_enabled_for_end(&mut self, enabled: bool) {
         self.enabled_for_end = enabled;
     }
+}
 
-    pub fn supplier(&self) -> &S {
+impl<S> WithSupplier for StartEndHandler<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
         &self.supplier
     }
 
-    pub fn supplier_mut(&mut self) -> &mut S {
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
         &mut self.supplier
     }
 }
@@ -127,12 +132,4 @@ impl<S: PositionTranslationSkill> PositionTranslationSkill for StartEndHandler<S
     }
 }
 
-impl<S: MidiSilencer> MidiSilencer for StartEndHandler<S> {
-    fn release_notes(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        event_list: &mut BorrowedMidiEventList,
-    ) {
-        self.supplier.release_notes(frame_offset, event_list)
-    }
-}
+impl<S> AutoDelegatingMidiSilencer for StartEndHandler<S> {}

@@ -7,7 +7,7 @@ use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer,
     MidiSupplier, PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::{MidiResetMessageRange, PositiveSecond};
@@ -55,6 +55,18 @@ impl SectionBounds {
     }
 }
 
+impl<S> WithSupplier for Section<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
@@ -79,14 +91,6 @@ impl<S> Section<S> {
 
     pub fn reset(&mut self) {
         self.bounds = Default::default();
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     pub fn set_bounds_in_seconds(

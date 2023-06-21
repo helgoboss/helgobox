@@ -3,6 +3,7 @@ use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier,
     PositionTranslationSkill, PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest,
     SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    WithSupplier,
 };
 use crate::ClipEngineResult;
 use core::cmp;
@@ -306,6 +307,18 @@ impl PreBufferInstanceId {
     }
 }
 
+impl<S, F, C> WithSupplier for PreBuffer<S, F, C> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S, F, C> PreBuffer<S, F, C>
 where
     S: AudioSupplier + Clone + Send + 'static,
@@ -327,10 +340,6 @@ where
             options,
             command_processor,
         }
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
     }
 
     pub fn send_command(&self, command: C) {

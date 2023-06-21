@@ -6,7 +6,7 @@ use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
     PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
@@ -73,6 +73,18 @@ enum InteractionKind {
     Stop,
 }
 
+impl<S> WithSupplier for InteractionHandler<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S> InteractionHandler<S> {
     pub fn new(supplier: S) -> Self {
         Self {
@@ -94,14 +106,6 @@ impl<S> InteractionHandler<S> {
 
     pub fn reset(&mut self) {
         self.interaction = None;
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     /// Invokes a start interaction.

@@ -52,6 +52,27 @@ pub trait MidiSilencer: Debug {
     );
 }
 
+pub trait WithSupplier {
+    type Supplier;
+
+    fn supplier(&self) -> &Self::Supplier;
+    fn supplier_mut(&mut self) -> &mut Self::Supplier;
+}
+
+pub trait AutoDelegatingMidiSilencer {}
+
+impl<T: WithSupplier<Supplier = S> + AutoDelegatingMidiSilencer + Debug, S: MidiSilencer>
+    MidiSilencer for T
+{
+    fn release_notes(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        event_list: &mut BorrowedMidiEventList,
+    ) {
+        self.supplier_mut().release_notes(frame_offset, event_list);
+    }
+}
+
 pub trait WithSource {
     fn source(&self) -> Option<&RtClipSource>;
 }

@@ -10,7 +10,7 @@ use crate::rt::supplier::midi_sequence::MidiSequence;
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSilencer, MidiSupplier,
     PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithMaterialInfo, WithSource,
+    WithMaterialInfo, WithSource, WithSupplier,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -111,8 +111,16 @@ impl<S> MidiNoteTracker<S> {
             midi_state: MidiState::default(),
         }
     }
+}
 
-    pub fn supplier_mut(&mut self) -> &mut S {
+impl<S> WithSupplier for MidiNoteTracker<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
         &mut self.supplier
     }
 }

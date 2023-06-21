@@ -1,7 +1,7 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, MidiSilencer, PositionTranslationSkill, SupplyAudioRequest,
-    SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WithSupplier,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -22,6 +22,18 @@ pub struct TimeStretcher<S> {
     tempo_factor: f64,
 }
 
+impl<S> WithSupplier for TimeStretcher<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S> TimeStretcher<S> {
     pub fn new(supplier: S) -> Self {
         let api = Reaper::get()
@@ -36,14 +48,6 @@ impl<S> TimeStretcher<S> {
             responsible_for_audio_time_stretching: false,
             tempo_factor: 1.0,
         }
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     /// Decides whether the time stretcher should take the tempo factor into account for audio.

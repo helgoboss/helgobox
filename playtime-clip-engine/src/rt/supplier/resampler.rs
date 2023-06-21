@@ -2,7 +2,7 @@ use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, PositionTranslationSkill, SupplyAudioRequest, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, MIDI_FRAME_RATE,
+    SupplyResponseStatus, WithMaterialInfo, WithSupplier, MIDI_FRAME_RATE,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -26,6 +26,18 @@ pub struct Resampler<S> {
     tempo_factor: f64,
 }
 
+impl<S> WithSupplier for Resampler<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S> Resampler<S> {
     pub fn new(supplier: S) -> Self {
         let api = Reaper::get().medium_reaper().resampler_create();
@@ -41,14 +53,6 @@ impl<S> Resampler<S> {
 
     pub fn reset_buffers_and_latency(&mut self) {
         self.api.as_mut().as_mut().Reset();
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {

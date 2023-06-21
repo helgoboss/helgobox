@@ -3,7 +3,7 @@ use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, MaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo,
+    SupplyResponseStatus, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
@@ -72,6 +72,18 @@ impl LoopBehavior {
     }
 }
 
+impl<S> WithSupplier for Looper<S> {
+    type Supplier = S;
+
+    fn supplier(&self) -> &Self::Supplier {
+        &self.supplier
+    }
+
+    fn supplier_mut(&mut self) -> &mut Self::Supplier {
+        &mut self.supplier
+    }
+}
+
 impl<S: WithMaterialInfo> Looper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
@@ -88,14 +100,6 @@ impl<S: WithMaterialInfo> Looper<S> {
 
     pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
         self.midi_reset_msg_range = range;
-    }
-
-    pub fn supplier(&self) -> &S {
-        &self.supplier
-    }
-
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
     }
 
     pub fn set_loop_behavior(&mut self, loop_behavior: LoopBehavior) {
