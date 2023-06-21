@@ -9,7 +9,7 @@ use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_fr
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
     PositionTranslationSkill, ReaperClipSource, SectionBounds, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, MIDI_BASE_BPM,
+    SupplyMidiRequest, SupplyResponse, WithCacheableSource, WithMaterialInfo, MIDI_BASE_BPM,
     MIDI_FRAME_RATE,
 };
 use crate::rt::{
@@ -1272,10 +1272,12 @@ impl CompleteRecordingData {
     }
 }
 
-impl WithSource for Recorder {
-    fn source(&self) -> Option<&ReaperClipSource> {
+impl WithCacheableSource for Recorder {
+    type Source = ReaperClipSource;
+
+    fn cacheable_source(&self) -> Option<&Self::Source> {
         match self.state.as_ref().unwrap() {
-            State::Ready(s) => Some(&s.source),
+            State::Ready(s) => s.source.cacheable_source(),
             State::Recording(_) => {
                 // The "current source" during recording state can change quickly. We don't want
                 // any caching be based on this.

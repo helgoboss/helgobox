@@ -7,23 +7,27 @@ use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialRequest};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
+    AudioMaterialInfo, AudioSupplier, CacheableSource, MaterialInfo, MidiMaterialInfo,
+    MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithCacheableSource,
+    WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer,
 };
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct ReaperClipSource {
+    source_file: Option<PathBuf>,
     source: OwnedPcmSource,
 }
 
 impl ReaperClipSource {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
+            source_file: reaper_source.get_file_name(|p| Some(p?.to_path_buf())),
             source: reaper_source,
         }
     }
@@ -190,8 +194,20 @@ impl MidiSupplier for ReaperClipSource {
     }
 }
 
-impl WithSource for ReaperClipSource {
-    fn source(&self) -> Option<&ReaperClipSource> {
+impl CacheableSource for ReaperClipSource {
+    fn file_name(&self) -> Option<&Path> {
+        self.source_file.as_deref()
+    }
+
+    fn duplicate(&self) -> Box<dyn CacheableSource> {
+        Box::new(self.clone())
+    }
+}
+
+impl WithCacheableSource for ReaperClipSource {
+    type Source = ReaperClipSource;
+
+    fn cacheable_source(&self) -> Option<&Self::Source> {
         Some(self)
     }
 }

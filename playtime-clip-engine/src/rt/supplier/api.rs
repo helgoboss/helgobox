@@ -1,13 +1,14 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{get_cycle_at_frame, ReaperClipSource, MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::supplier::{get_cycle_at_frame, MIDI_BASE_BPM, MIDI_FRAME_RATE};
 use crate::rt::tempo_util::calc_tempo_factor;
 use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiFrameOffset, PositionInSeconds,
 };
 use std::fmt::Debug;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 // TODO-medium We can remove the WithMaterialInfo because we don't box anymore.
@@ -131,8 +132,15 @@ where
     }
 }
 
-pub trait WithSource {
-    fn source(&self) -> Option<&ReaperClipSource>;
+pub trait CacheableSource: AudioSupplier + WithMaterialInfo + Send {
+    fn file_name(&self) -> Option<&Path>;
+    fn duplicate(&self) -> Box<dyn CacheableSource>;
+}
+
+pub trait WithCacheableSource {
+    type Source: CacheableSource;
+
+    fn cacheable_source(&self) -> Option<&Self::Source>;
 }
 
 pub trait SupplyRequest {

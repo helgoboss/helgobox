@@ -623,7 +623,7 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
                 entrance.start_end_handler().set_midi_reset_msg_range(range);
             }
             SetAudioCacheBehavior(behavior) => {
-                entrance.cache().set_audio_cache_behavior(behavior);
+                let _ = entrance.cache().set_audio_cache_behavior(behavior);
             }
             SetLooped(looped) => entrance
                 .looper()

@@ -1,16 +1,15 @@
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crossbeam_channel::{Receiver, Sender};
 use playtime_api::persistence::AudioCacheBehavior;
 
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, AutoDelegatingMidiSupplier,
-    AutoDelegatingPositionTranslationSkill, MaterialInfo, ReaperClipSource, SupplyAudioRequest,
-    SupplyRequestInfo, SupplyResponse, WithMaterialInfo, WithSource, WithSupplier,
+    AutoDelegatingPositionTranslationSkill, CacheableSource, MaterialInfo, SupplyAudioRequest,
+    SupplyRequestInfo, SupplyResponse, WithCacheableSource, WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 
@@ -43,11 +42,16 @@ impl CacheResponseChannel {
 
 #[derive(Debug)]
 pub enum CacheRequest {
-    CacheSource {
-        source: ReaperClipSource,
-        response_sender: Sender<CacheResponse>,
-    },
+    CacheSource(CacheSourceRequest),
     DiscardCachedData(CachedData),
+}
+
+#[derive(Debug)]
+pub struct CacheSourceRequest {
+    audio_material_info: AudioMaterialInfo,
+    source_file: PathBuf,
+    source: Box<dyn CacheableSource>,
+    response_sender: Sender<CacheResponse>,
 }
 
 #[derive(Debug)]
@@ -57,20 +61,14 @@ pub enum CacheResponse {
 
 #[derive(Debug)]
 pub struct CachedData {
-    material_info: AudioMaterialInfo,
-    file_path: PathBuf,
+    audio_material_info: AudioMaterialInfo,
+    source_file: PathBuf,
     content: OwnedAudioBuffer,
 }
 
 impl CachedData {
-    fn is_still_valid(&self, source: &ReaperClipSource) -> bool {
-        source.reaper_source().get_file_name(|path| {
-            if let Some(path) = path {
-                path == self.file_path
-            } else {
-                false
-            }
-        })
+    fn is_still_valid(&self, source_file: &Path) -> bool {
+        self.source_file == source_file
     }
 }
 
@@ -86,7 +84,7 @@ impl<S> WithSupplier for Cache<S> {
     }
 }
 
-impl<S: WithSource> Cache<S> {
+impl<S: WithCacheableSource + WithMaterialInfo> Cache<S> {
     pub fn new(supplier: S, request_sender: Sender<CacheRequest>) -> Self {
         Self {
             cached_data: None,
@@ -96,17 +94,21 @@ impl<S: WithSource> Cache<S> {
         }
     }
 
-    pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
+    pub fn set_audio_cache_behavior(
+        &mut self,
+        cache_behavior: AudioCacheBehavior,
+    ) -> ClipEngineResult<()> {
         use AudioCacheBehavior::*;
         let cache_enabled = match cache_behavior {
             DirectFromDisk => false,
             CacheInMemory => true,
         };
         if cache_enabled {
-            self.enable();
+            self.enable()?;
         } else {
             self.disable();
         }
+        Ok(())
     }
 
     /// If not cached already, triggers building the cache asynchronously, caching all supplied
@@ -114,23 +116,38 @@ impl<S: WithSource> Cache<S> {
     ///
     /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
     /// in advance.
-    fn enable(&mut self) {
-        let source = match self.supplier.source() {
-            None => return,
-            Some(s) => s,
+    fn enable(&mut self) -> ClipEngineResult<()> {
+        // A cacheable source might not be available at all times.
+        let source = self
+            .supplier
+            .cacheable_source()
+            .ok_or("no cacheable source available")?;
+        let material_info = source.material_info()?;
+        // Reject MIDI
+        let MaterialInfo::Audio(audio_material_info) = material_info else {
+            return Err("source can't be cached because it's MIDI");
         };
+        // If source has no file name, we can't check if the cache is still valid.
+        let source_file = source
+            .file_name()
+            .ok_or("source doesn't have any file name")?;
+        // Look at currently cached data
         if let Some(cached_data) = self.cached_data.take() {
-            if cached_data.is_still_valid(source) {
+            if cached_data.is_still_valid(source_file) {
                 self.cached_data = Some(cached_data);
-                return;
+                return Ok(());
             }
             self.request_sender.discard_cached_data(cached_data);
         }
-        if pcm_source_is_midi(source.reaper_source()) {
-            return;
-        }
-        self.request_sender
-            .cache_source(source.clone(), self.response_channel.sender.clone());
+        // Cache
+        let req = CacheSourceRequest {
+            audio_material_info,
+            source_file: source_file.to_path_buf(),
+            source: source.duplicate(),
+            response_sender: self.response_channel.sender.clone(),
+        };
+        self.request_sender.cache_source(req);
+        Ok(())
     }
 
     /// Disables the cache and clears it, releasing the consumed memory.
@@ -158,32 +175,18 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
     while let Ok(request) = receiver.recv() {
         use CacheRequest::*;
         match request {
-            CacheSource {
-                mut source,
-                response_sender,
-            } => {
-                let _ = cache_source(&mut source, response_sender);
+            CacheSource(req) => {
+                let _ = cache_source(req);
             }
             DiscardCachedData(_) => {}
         }
     }
 }
 
-fn cache_source(
-    source: &mut ReaperClipSource,
-    response_sender: Sender<CacheResponse>,
-) -> ClipEngineResult<()> {
-    let audio_material_info = match source.material_info() {
-        Ok(MaterialInfo::Audio(i)) => i,
-        _ => return Err("no audio source"),
-    };
-    let file_path = source
-        .reaper_source()
-        .get_file_name(|path| path.map(|p| p.to_path_buf()))
-        .ok_or("source without file name")?;
+fn cache_source(mut req: CacheSourceRequest) -> ClipEngineResult<()> {
     let mut content = OwnedAudioBuffer::new(
-        audio_material_info.channel_count,
-        audio_material_info.frame_count,
+        req.audio_material_info.channel_count,
+        req.audio_material_info.frame_count,
     );
     let request = SupplyAudioRequest {
         start_frame: 0,
@@ -197,20 +200,20 @@ fn cache_source(
         parent_request: None,
         general_info: &Default::default(),
     };
-    source.supply_audio(&request, &mut content.to_buf_mut());
+    req.source.supply_audio(&request, &mut content.to_buf_mut());
     let cached_data = CachedData {
-        material_info: audio_material_info,
-        file_path,
+        audio_material_info: req.audio_material_info,
+        source_file: req.source_file,
         content,
     };
-    response_sender
+    req.response_sender
         .try_send(CacheResponse::CachedSource(cached_data))
         .map_err(|_| "clip not interested in cached data anymore")?;
     Ok(())
 }
 
 trait CacheRequestSender {
-    fn cache_source(&self, source: ReaperClipSource, response_sender: Sender<CacheResponse>);
+    fn cache_source(&self, req: CacheSourceRequest);
 
     fn discard_cached_data(&self, data: CachedData);
 
@@ -218,11 +221,8 @@ trait CacheRequestSender {
 }
 
 impl CacheRequestSender for Sender<CacheRequest> {
-    fn cache_source(&self, source: ReaperClipSource, response_sender: Sender<CacheResponse>) {
-        let request = CacheRequest::CacheSource {
-            source,
-            response_sender,
-        };
+    fn cache_source(&self, req: CacheSourceRequest) {
+        let request = CacheRequest::CacheSource(req);
         self.send_request(request);
     }
 
@@ -236,7 +236,7 @@ impl CacheRequestSender for Sender<CacheRequest> {
     }
 }
 
-impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
+impl<S: AudioSupplier + WithCacheableSource> AudioSupplier for Cache<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -248,16 +248,19 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
             Some(d) => d,
         };
         let buf = d.content.to_buf();
-        supply_audio_material(request, dest_buffer, d.material_info.frame_rate, |input| {
-            transfer_samples_from_buffer(buf, input)
-        })
+        supply_audio_material(
+            request,
+            dest_buffer,
+            d.audio_material_info.frame_rate,
+            |input| transfer_samples_from_buffer(buf, input),
+        )
     }
 }
 
 impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         if let Some(d) = &self.cached_data {
-            Ok(MaterialInfo::Audio(d.material_info.clone()))
+            Ok(MaterialInfo::Audio(d.audio_material_info.clone()))
         } else {
             self.supplier.material_info()
         }
