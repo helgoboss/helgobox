@@ -17,6 +17,7 @@ use reaper_medium::{
     PcmSourceTransfer,
 };
 use std::path::{Path, PathBuf};
+use tracing::Level;
 
 #[derive(Clone, Debug)]
 pub struct ReaperClipSource {
@@ -145,20 +146,23 @@ impl MidiSupplier for ReaperClipSource {
         // MIDI_BASE_BPM. That's fine!
         let frame_rate = request.dest_sample_rate;
         let num_frames_to_be_consumed = request.dest_frame_count;
-        if request.start_frame == 0 {
-            print_distance_from_beat_start_at(request, 0, "(MIDI, start_frame = 0)");
-        } else if request.start_frame < 0
-            && (request.start_frame + num_frames_to_be_consumed as isize) >= 0
-        {
-            let distance_to_zero_in_midi_frames = (-request.start_frame) as usize;
-            let ratio = request.dest_frame_count as f64 / num_frames_to_be_consumed as f64;
-            let distance_to_zero_in_dest_frames =
-                adjust_proportionally_positive(distance_to_zero_in_midi_frames as f64, ratio);
-            print_distance_from_beat_start_at(
-                request,
-                distance_to_zero_in_dest_frames,
-                "(MIDI, start_frame < 0)",
-            );
+        // Do some logging
+        if tracing::enabled!(Level::DEBUG) {
+            if request.start_frame == 0 {
+                print_distance_from_beat_start_at(request, 0, "(MIDI, start_frame = 0)");
+            } else if request.start_frame < 0
+                && (request.start_frame + num_frames_to_be_consumed as isize) >= 0
+            {
+                let distance_to_zero_in_midi_frames = (-request.start_frame) as usize;
+                let ratio = request.dest_frame_count as f64 / num_frames_to_be_consumed as f64;
+                let distance_to_zero_in_dest_frames =
+                    adjust_proportionally_positive(distance_to_zero_in_midi_frames as f64, ratio);
+                print_distance_from_beat_start_at(
+                    request,
+                    distance_to_zero_in_dest_frames,
+                    "(MIDI, start_frame < 0)",
+                );
+            }
         }
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame

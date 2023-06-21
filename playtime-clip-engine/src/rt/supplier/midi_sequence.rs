@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use crate::conversion_util::convert_duration_in_seconds_to_frames;
+use crate::conversion_util::{
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    convert_position_in_frames_to_seconds,
+};
 use crate::rt::supplier::time_series::{TimeSeries, TimeSeriesEvent};
 use crate::rt::supplier::{
     MaterialInfo, MidiMaterialInfo, MidiSupplier, SupplyMidiRequest, SupplyResponse,
@@ -9,7 +12,9 @@ use crate::rt::supplier::{
 use crate::ClipEngineResult;
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageFactory};
 use playtime_api::persistence::{Bpm, TimeSignature};
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds};
+use reaper_medium::{
+    BorrowedMidiEventList, DurationInSeconds, Hz, MidiFrameOffset, PositionInSeconds,
+};
 use std::error::Error;
 use std::fmt::{Display, Formatter, Write};
 
@@ -17,13 +22,25 @@ use std::fmt::{Display, Formatter, Write};
 pub struct MidiSequence {
     ppq: u64,
     time_series: TimeSeries<MidiEventPayload>,
-    custom_time_info: Option<MidiTimeInfo>,
+    time_info: MidiTimeInfo,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MidiTimeInfo {
     tempo: Bpm,
     time_signature: TimeSignature,
+}
+
+impl Default for MidiTimeInfo {
+    fn default() -> Self {
+        Self {
+            tempo: Bpm::new(960.0).unwrap(),
+            time_signature: TimeSignature {
+                numerator: 4,
+                denominator: 4,
+            },
+        }
+    }
 }
 
 pub type MidiEvent = TimeSeriesEvent<MidiEventPayload>;
@@ -62,7 +79,7 @@ pub struct MidiEventPayload {
 enum ReaperMidiChunkEntry<'a> {
     HasData(HasDataEntry),
     Event(MidiEvent),
-    IgnTempo(Option<MidiTimeInfo>),
+    IgnTempo(MidiTimeInfo),
     Unhandled(&'a str),
 }
 
@@ -88,7 +105,7 @@ impl MidiSequence {
                     sequence.ppq = e.ppq;
                 }
                 ReaperMidiChunkEntry::IgnTempo(d) => {
-                    sequence.custom_time_info = d;
+                    sequence.time_info = d;
                 }
                 ReaperMidiChunkEntry::Unhandled(_) => {}
             }
@@ -105,24 +122,96 @@ impl MidiSequence {
         self.time_series.events.last().map(|e| e.frame).unwrap_or(0)
     }
 
-    pub fn predefined_length(&self) -> Option<DurationInSeconds> {
-        let time_data = self.custom_time_info.as_ref()?;
-        Some(self.length_at(time_data.tempo, time_data.time_signature.denominator))
+    pub fn predefined_length(&self) -> DurationInSeconds {
+        self.length_at(
+            self.time_info.tempo,
+            self.time_info.time_signature.denominator,
+        )
     }
 
-    pub fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
-        let bps = bpm.get() / 60.0;
-        let duration_of_one_beat = 1.0 / bps;
-        let pulse_count = self.pulse_count();
-        let quarter_note_count = pulse_count as f64 / self.ppq as f64;
-        // 1 quarter note = how many beats?
-        // - x/4 => 1 beat
-        // - x/8 => 2 beats
-        // - x/2 => 0.5 beats
-        let qn_to_beat_factor = time_sig_denominator as f64 / 4.0;
-        let beat_count = quarter_note_count * qn_to_beat_factor;
-        DurationInSeconds::new(beat_count * duration_of_one_beat)
+    fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
+        DurationInSeconds::new(self.convert_pulse_to_second_flexible(
+            self.pulse_count(),
+            bpm,
+            time_sig_denominator,
+        ))
     }
+
+    fn midi_frame_count(&self) -> usize {
+        let length = self.predefined_length();
+        convert_duration_in_seconds_to_frames(length, MIDI_FRAME_RATE)
+    }
+
+    fn convert_pulse_to_duration_in_seconds(&self, pulse: u64) -> DurationInSeconds {
+        let seconds = self.convert_pulse_to_second_flexible(
+            pulse,
+            self.time_info.tempo,
+            self.time_info.time_signature.denominator,
+        );
+        DurationInSeconds::new(seconds)
+    }
+
+    fn calculate_pulse_to_midi_frame_factor(&self, frame_rate: Hz) -> f64 {
+        let pulse_to_second_factor = self.convert_pulse_to_second_flexible(
+            1,
+            self.time_info.tempo,
+            self.time_info.time_signature.denominator,
+        );
+        pulse_to_second_factor * frame_rate.get()
+    }
+
+    fn convert_pulse_to_second_flexible(
+        &self,
+        pulse: u64,
+        bpm: Bpm,
+        time_sig_denominator: u32,
+    ) -> f64 {
+        let bps = bpm.get() / 60.0;
+        let duration_of_one_beat_in_secs = 1.0 / bps;
+        let quarter_notes = pulse as f64 / self.ppq as f64;
+        let beat = quarter_notes * get_qn_to_beat_factor(time_sig_denominator);
+        beat * duration_of_one_beat_in_secs
+    }
+
+    fn convert_duration_in_seconds_to_pulse(&self, duration: DurationInSeconds) -> u64 {
+        self.convert_second_to_pulse_flexible(
+            duration.get(),
+            self.time_info.tempo,
+            self.time_info.time_signature.denominator,
+        ) as u64
+    }
+
+    fn convert_position_in_seconds_to_pulse(&self, position: PositionInSeconds) -> i64 {
+        self.convert_second_to_pulse_flexible(
+            position.get(),
+            self.time_info.tempo,
+            self.time_info.time_signature.denominator,
+        )
+    }
+
+    fn convert_second_to_pulse_flexible(
+        &self,
+        second: f64,
+        bpm: Bpm,
+        time_sig_denominator: u32,
+    ) -> i64 {
+        let bps = bpm.get() / 60.0;
+        let duration_of_one_beat_in_secs = 1.0 / bps;
+        let beat = second / duration_of_one_beat_in_secs;
+        let quarter_notes = beat / get_qn_to_beat_factor(time_sig_denominator);
+        let pulse = quarter_notes * self.ppq as f64;
+        pulse.floor() as i64
+    }
+}
+
+/// Calculates the factor for converting from quarter notes to beats.
+///
+/// 1 quarter note = how many beats?
+/// - x/4 => 1 beat
+/// - x/8 => 2 beats
+/// - x/2 => 0.5 beats
+fn get_qn_to_beat_factor(time_sig_denominator: u32) -> f64 {
+    time_sig_denominator as f64 / 4.0
 }
 
 impl MidiSupplier for MidiSequence {
@@ -135,16 +224,47 @@ impl MidiSupplier for MidiSequence {
         // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
         // frame rate changes for tempo changes. It's only equal if the clip is played in
         // MIDI_BASE_BPM. That's fine!
+        let frame_rate = request.dest_sample_rate;
+        let num_frames_to_be_consumed = request.dest_frame_count;
+        let start_time = convert_position_in_frames_to_seconds(request.start_frame, frame_rate);
+        let start_pulse = self.convert_position_in_seconds_to_pulse(start_time);
+        let length = convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
+        let pulse_count = self.convert_duration_in_seconds_to_pulse(length);
+        let start_pulse = if start_pulse >= 0 {
+            start_pulse as u64
+        } else {
+            // TODO This can skip the beginning. Handle this like ReaperClipSource audio!
+            return SupplyResponse::please_continue(num_frames_to_be_consumed);
+        };
+        let mut reaper_evt = reaper_medium::MidiEvent::default();
+        let pulse_to_frame_factor = self.calculate_pulse_to_midi_frame_factor(frame_rate);
+        let relevant_events = self
+            .time_series
+            .find_events_in_range(start_pulse, pulse_count);
+        for evt in relevant_events {
+            let pulse_offset = (evt.frame - start_pulse) as f64;
+            let frame_offset = (pulse_offset * pulse_to_frame_factor).round() as u32;
+            reaper_evt.set_frame_offset(MidiFrameOffset::new(frame_offset));
+            reaper_evt.set_message(evt.payload.msg);
+            event_list.add_item(&reaper_evt)
+        }
+        let num_midi_frames_consumed = relevant_events.len();
+        // The lower the sample rate, the higher the tempo, the more inner source material we
+        // effectively grabbed.
+        SupplyResponse::limited_by_total_frame_count(
+            num_midi_frames_consumed,
+            num_midi_frames_consumed,
+            request.start_frame,
+            self.midi_frame_count(),
+        )
     }
 }
 
 impl WithMaterialInfo for MidiSequence {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        let length = self
-            .predefined_length()
-            .ok_or("MIDI sequences without predefined tempo not supported")?;
-        let frame_count = convert_duration_in_seconds_to_frames(length, MIDI_FRAME_RATE);
-        let info = MidiMaterialInfo { frame_count };
+        let info = MidiMaterialInfo {
+            frame_count: self.midi_frame_count(),
+        };
         Ok(MaterialInfo::Midi(info))
     }
 }
@@ -159,15 +279,14 @@ impl<'a> Display for MidiSequenceAsReaperChunk<'a> {
             e.format_for_reaper_chunk(f, &mut last_frame)?;
             f.write_char('\n')?;
         }
-        if let Some(data) = &self.0.custom_time_info {
-            writeln!(
-                f,
-                "IGNTEMPO 1 {} {} {}",
-                data.tempo.get(),
-                data.time_signature.numerator,
-                data.time_signature.denominator
-            )?;
-        }
+        let info = &self.0.time_info;
+        writeln!(
+            f,
+            "IGNTEMPO 1 {} {} {}",
+            info.tempo.get(),
+            info.time_signature.numerator,
+            info.time_signature.denominator
+        )?;
         Ok(())
     }
 }
@@ -223,23 +342,18 @@ fn parse_entry<'a>(
         }
         // Example: "IGNTEMPO 1 120 4 4"
         "IGNTEMPO" => {
-            let igntempo = iter.next().ok_or("no IGNTEMPO flag")? == "1";
-            let custom_time_data = if igntempo {
-                let tempo: f64 = iter.next().ok_or("no custom tempo")?.parse()?;
-                let numerator: u32 = iter.next().ok_or("no custom numerator")?.parse()?;
-                let denominator: u32 = iter.next().ok_or("no custom denominator")?.parse()?;
-                let data = MidiTimeInfo {
-                    tempo: Bpm::new(tempo)?,
-                    time_signature: TimeSignature {
-                        numerator,
-                        denominator,
-                    },
-                };
-                Some(data)
-            } else {
-                None
+            iter.next().ok_or("no IGNTEMPO flag")?;
+            let tempo: f64 = iter.next().ok_or("no custom tempo")?.parse()?;
+            let numerator: u32 = iter.next().ok_or("no custom numerator")?.parse()?;
+            let denominator: u32 = iter.next().ok_or("no custom denominator")?.parse()?;
+            let data = MidiTimeInfo {
+                tempo: Bpm::new(tempo)?,
+                time_signature: TimeSignature {
+                    numerator,
+                    denominator,
+                },
             };
-            Ok(ReaperMidiChunkEntry::IgnTempo(custom_time_data))
+            Ok(ReaperMidiChunkEntry::IgnTempo(data))
         }
         _ => Ok(ReaperMidiChunkEntry::Unhandled(line)),
     }
@@ -279,17 +393,17 @@ mod tests {
         let midi_sequence = MidiSequence {
             ppq: 960,
             time_series: TimeSeries::new(events),
-            custom_time_info: Some(MidiTimeInfo {
+            time_info: MidiTimeInfo {
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,
                     denominator: 4,
                 },
-            }),
+            },
         };
         // When
         assert_eq!(midi_sequence.pulse_count(), 960);
-        let predefined_length = midi_sequence.predefined_length().unwrap();
+        let predefined_length = midi_sequence.predefined_length();
         assert_eq!(predefined_length.get(), 0.5);
         let length_with_normal_tempo = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 4);
         assert_eq!(length_with_normal_tempo.get(), 0.5);
@@ -324,14 +438,14 @@ SRCCOLOR 8197
         // Then
         assert_eq!(sequence.ppq, 960);
         assert_eq!(
-            sequence.custom_time_info,
-            Some(MidiTimeInfo {
+            sequence.time_info,
+            MidiTimeInfo {
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,
-                    denominator: 4
+                    denominator: 4,
                 },
-            })
+            }
         );
         assert_eq!(
             sequence.time_series.events,
@@ -372,13 +486,13 @@ SRCCOLOR 8197
         let midi_sequence = MidiSequence {
             ppq: 960,
             time_series: TimeSeries::new(events),
-            custom_time_info: Some(MidiTimeInfo {
+            time_info: MidiTimeInfo {
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,
                     denominator: 4,
                 },
-            }),
+            },
         };
         // When
         let actual_chunk = midi_sequence.format_as_reaper_midi_chunk();
