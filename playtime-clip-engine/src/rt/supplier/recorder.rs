@@ -353,6 +353,24 @@ impl Recorder {
         }
     }
 
+    /// Swaps the old source with the given one.
+    pub fn swap_source(&mut self, source: &mut RtClipSource) -> ClipEngineResult<()> {
+        match self.state.as_mut().ok_or("state destroyed")? {
+            State::Ready(s) => {
+                mem::swap(&mut s.source, source);
+                Ok(())
+            }
+            State::Recording(_) => Err("recording"),
+        }
+    }
+
+    pub fn source_mut(&mut self) -> ClipEngineResult<&mut RtClipSource> {
+        match self.state.as_mut().ok_or("state destroyed")? {
+            State::Ready(s) => Ok(&mut s.source),
+            State::Recording(_) => Err("recording"),
+        }
+    }
+
     pub fn emit_audio_recording_task(&mut self) {
         if let State::Recording(RecordingState {
             kind_state:

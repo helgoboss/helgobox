@@ -284,6 +284,9 @@ impl RtClip {
         // UI will not display them anymore.
         self.shared_pos = args.other_clip.shared_pos.clone();
         self.shared_peak = args.other_clip.shared_peak.clone();
+        args.other_clip
+            .supplier_chain
+            .with_source_mut(|other_source| self.supplier_chain.swap_source(other_source))??;
         Ok(())
     }
 

@@ -7,8 +7,8 @@ use crate::rt::supplier::{
     MidiOverdubSettings, MidiSequence, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
     PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
     PreBufferSourceSkill, ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler,
-    Section, SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo,
-    WithSupplier, WriteAudioRequest, WriteMidiRequest,
+    RtClipSource, Section, SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher,
+    WithMaterialInfo, WithSupplier, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::BasicAudioRequestProps;
@@ -236,6 +236,19 @@ impl SupplierChain {
 
     fn clear_downbeat(&mut self) {
         self.downbeat_mut().set_downbeat_frame(0);
+    }
+
+    pub fn with_source_mut<R>(
+        &mut self,
+        f: impl FnOnce(&mut RtClipSource) -> R,
+    ) -> ClipEngineResult<R> {
+        let mut wormhole = self.pre_buffer_wormhole();
+        let source = wormhole.recorder().source_mut()?;
+        Ok(f(source))
+    }
+
+    pub fn swap_source(&mut self, source: &mut RtClipSource) -> ClipEngineResult<()> {
+        self.pre_buffer_wormhole().recorder().swap_source(source)
     }
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
