@@ -806,7 +806,6 @@ pub enum TriggerSlotAction {
     Play = 0,
     Stop = 1,
     Record = 2,
-    StartEditing = 3,
     Clear = 4,
     Copy = 5,
     Cut = 6,
@@ -824,7 +823,6 @@ impl TriggerSlotAction {
             TriggerSlotAction::Play => "TRIGGER_SLOT_ACTION_PLAY",
             TriggerSlotAction::Stop => "TRIGGER_SLOT_ACTION_STOP",
             TriggerSlotAction::Record => "TRIGGER_SLOT_ACTION_RECORD",
-            TriggerSlotAction::StartEditing => "TRIGGER_SLOT_ACTION_START_EDITING",
             TriggerSlotAction::Clear => "TRIGGER_SLOT_ACTION_CLEAR",
             TriggerSlotAction::Copy => "TRIGGER_SLOT_ACTION_COPY",
             TriggerSlotAction::Cut => "TRIGGER_SLOT_ACTION_CUT",
@@ -841,7 +839,6 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_PLAY" => Some(Self::Play),
             "TRIGGER_SLOT_ACTION_STOP" => Some(Self::Stop),
             "TRIGGER_SLOT_ACTION_RECORD" => Some(Self::Record),
-            "TRIGGER_SLOT_ACTION_START_EDITING" => Some(Self::StartEditing),
             "TRIGGER_SLOT_ACTION_CLEAR" => Some(Self::Clear),
             "TRIGGER_SLOT_ACTION_COPY" => Some(Self::Copy),
             "TRIGGER_SLOT_ACTION_CUT" => Some(Self::Cut),
@@ -858,6 +855,7 @@ impl TriggerSlotAction {
 #[repr(i32)]
 pub enum TriggerClipAction {
     MidiOverdub = 0,
+    Edit = 1,
 }
 impl TriggerClipAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -867,12 +865,14 @@ impl TriggerClipAction {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             TriggerClipAction::MidiOverdub => "TRIGGER_CLIP_ACTION_MIDI_OVERDUB",
+            TriggerClipAction::Edit => "TRIGGER_CLIP_ACTION_EDIT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "TRIGGER_CLIP_ACTION_MIDI_OVERDUB" => Some(Self::MidiOverdub),
+            "TRIGGER_CLIP_ACTION_EDIT" => Some(Self::Edit),
             _ => None,
         }
     }

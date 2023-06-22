@@ -864,24 +864,24 @@ impl Matrix {
         kit.slot.adjust_section_length(factor, kit.sender)
     }
 
-    /// Opens the editor for the given slot.
-    pub fn start_editing_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        self.get_slot(address)?
-            .start_editing(self.temporary_project())
+    /// Opens the editor for the given clip.
+    pub fn start_editing_clip(&mut self, address: ClipAddress) -> ClipEngineResult<()> {
+        self.get_column_mut(address.slot_address.column)?
+            .start_editing_clip(address.slot_address.row, address.clip_index)
     }
 
-    /// Closes the editor for the given slot.
-    pub fn stop_editing_slot(&self, address: ClipSlotAddress) -> ClipEngineResult<()> {
-        self.get_slot(address)?
-            .stop_editing(self.temporary_project())
+    /// Closes the editor for the given clip.
+    pub fn stop_editing_clip(&mut self, address: ClipAddress) -> ClipEngineResult<()> {
+        self.get_column_mut(address.slot_address.column)?
+            .stop_editing_clip(address.slot_address.row, address.clip_index)
     }
 
     /// Returns if the editor for the given slot is open.
-    pub fn is_editing_slot(&self, address: ClipSlotAddress) -> bool {
-        let Ok(slot) = self.get_slot(address) else {
+    pub fn is_editing_clip(&self, address: ClipAddress) -> bool {
+        let Ok(slot) = self.get_slot(address.slot_address) else {
             return false;
         };
-        slot.is_editing_clip(self.temporary_project())
+        slot.is_editing_clip(address.clip_index)
     }
 
     /// Replaces the given row with the given clips.
@@ -1666,6 +1666,13 @@ pub struct ClipAddress {
 }
 
 impl ClipAddress {
+    pub fn new(slot_address: ClipSlotAddress, clip_index: usize) -> Self {
+        Self {
+            slot_address,
+            clip_index,
+        }
+    }
+
     pub fn legacy(slot_address: ClipSlotAddress) -> Self {
         ClipAddress {
             slot_address,

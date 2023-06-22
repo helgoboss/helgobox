@@ -5,7 +5,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use playtime_clip_engine::base::ClipSlotAddress;
+use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
 use realearn_api::persistence::ClipManagementAction;
 
 #[derive(Debug)]
@@ -89,10 +89,11 @@ impl RealearnTarget for ClipManagementTarget {
                 })?
             }
             A::EditClip => self.with_matrix(context, |matrix| {
+                let clip_address = ClipAddress::new(self.slot_coordinates, 0);
                 if value.is_on() {
-                    matrix.start_editing_slot(self.slot_coordinates)?;
+                    matrix.start_editing_clip(clip_address)?;
                 } else {
-                    matrix.stop_editing_slot(self.slot_coordinates)?;
+                    matrix.stop_editing_clip(clip_address)?;
                 }
                 Ok(HitResponse::processed_with_effect())
             })?,
@@ -158,7 +159,8 @@ impl<'a> Target<'a> for ClipManagementTarget {
             | A::AdjustClipSectionLength(_) => Some(AbsoluteValue::default()),
             A::EditClip => BackboneState::get()
                 .with_clip_matrix(context.instance_state, |matrix| {
-                    let is_editing = matrix.is_editing_slot(self.slot_coordinates);
+                    let clip_address = ClipAddress::new(self.slot_coordinates, 0);
+                    let is_editing = matrix.is_editing_clip(clip_address);
                     let value = convert_bool_to_unit_value(is_editing);
                     Some(AbsoluteValue::Continuous(value))
                 })

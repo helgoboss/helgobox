@@ -1,4 +1,6 @@
 mod clip;
+mod clip_edit_session;
+mod clip_manifestation;
 mod column;
 mod history;
 mod matrix;

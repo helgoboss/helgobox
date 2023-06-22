@@ -126,6 +126,23 @@ impl Column {
         duplicate
     }
 
+    pub(crate) fn start_editing_clip(
+        &mut self,
+        slot_index: usize,
+        clip_index: usize,
+    ) -> ClipEngineResult<()> {
+        let playback_track = self.playback_track()?.clone();
+        get_slot_mut(&mut self.slots, slot_index)?.start_editing_clip(clip_index, &playback_track)
+    }
+
+    pub(crate) fn stop_editing_clip(
+        &mut self,
+        slot_index: usize,
+        clip_index: usize,
+    ) -> ClipEngineResult<()> {
+        get_slot_mut(&mut self.slots, slot_index)?.stop_editing_clip(clip_index)
+    }
+
     pub(crate) fn set_clip_data(
         &mut self,
         slot_index: usize,
@@ -503,7 +520,7 @@ impl Column {
                             seconds,
                             peak: online_data.peak(),
                         };
-                        content.notify_pos_changed(temp_project, timeline_tempo, seconds);
+                        let _ = content.notify_pos_changed(timeline_tempo, seconds);
                         Some((row, event))
                     });
                     Either::Left(iter)

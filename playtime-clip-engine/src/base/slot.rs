@@ -1,3 +1,5 @@
+use crate::base::clip_edit_session::{AudioClipEditSession, ClipEditSession, MidiClipEditSession};
+use crate::base::clip_manifestation::manifest_clip_on_track;
 use crate::base::{
     create_api_source_from_recorded_midi_sequence, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
@@ -30,7 +32,7 @@ use playtime_api::persistence::{
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
-    Bpm, CommandId, DurationInSeconds, PositionInSeconds, RecordingInput, RequiredViewMode,
+    Bpm, CommandId, DurationInSeconds, Hwnd, PositionInSeconds, RecordingInput, RequiredViewMode,
     TrackArea, UiRefreshBehavior,
 };
 use std::mem;
@@ -68,7 +70,8 @@ pub struct Content {
 #[derive(Clone, Debug)]
 pub struct OnlineData {
     /// The frame count in the material info is supposed to take the section bounds into account.
-    runtime_data: SlotRuntimeData,
+    pub runtime_data: SlotRuntimeData,
+    pub edit_session: Option<ClipEditSession>,
 }
 
 impl OnlineData {
@@ -80,6 +83,7 @@ impl OnlineData {
                 peak: rt_clip.shared_peak(),
                 material_info: rt_clip.material_info().unwrap(),
             },
+            edit_session: None,
         }
     }
 
@@ -155,7 +159,7 @@ impl Content {
         let project = playback_track.project();
         let online_data = self.online_data.as_ref().ok_or("clip not online")?;
         let clip = &self.clip;
-        let manifestation = manifest_clip_on_track(project, clip, online_data, playback_track)?;
+        let manifestation = manifest_clip_on_track(clip, online_data, playback_track)?;
         project.select_item_exclusively(manifestation.item);
         // Item: Apply track/take FX to items
         let apply_fx_id = CommandId::new(40209);
@@ -179,27 +183,26 @@ impl Content {
         Ok(())
     }
 
-    fn edited_clip_item(&self, temporary_project: Project) -> Option<Item> {
-        if let Some(editor_track) = find_editor_track(temporary_project) {
-            find_clip_item(self, &editor_track)
-        } else {
-            None
-        }
-    }
-
     /// Moves cursor in REAPER's MIDI editor.
     pub(crate) fn notify_pos_changed(
         &self,
-        temporary_project: Project,
         bpm: Bpm,
         seconds: PositionInSeconds,
-    ) {
-        let Some(source) = self.edited_clip_item(temporary_project).and_then(|i| i.active_take()).and_then(|t| t.source()) else {
-            return;
+    ) -> ClipEngineResult<()> {
+        let online_data = self.online_data.as_ref().ok_or("clip offline")?;
+        let edit_session = online_data.edit_session.as_ref().ok_or("no edit session")?;
+        let ClipEditSession::Midi(midi_edit_session) = edit_session else {
+            return Err("no MIDI edit session");
         };
+        let source = midi_edit_session
+            .clip_manifestation
+            .take
+            .source()
+            .ok_or("edited take has no source")?;
         let bps = bpm.get() / 60.0;
         let beats = seconds.get() * bps;
-        // TODO-medium Read PPQ from MIDI file (or settings?)
+        // TODO-medium Read PPQ from MIDI file. The best thing is if we use the MidiSequence as
+        //  source representation in the main thread and read from it.
         let ppq = 960.0;
         let ticks = beats * ppq;
         const PCM_SOURCE_EXT_SET_PREVIEW_POS_OVERRIDE: i32 = 0xC0101;
@@ -212,6 +215,7 @@ impl Content {
                 null_mut(),
             )
         };
+        Ok(())
     }
 }
 
@@ -682,66 +686,61 @@ impl Slot {
     }
 
     /// Starts editing of all online clips contained in this slot.
-    pub fn start_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
-        for content in self.get_contents()? {
-            let Some(online_data) = content.online_data.as_ref() else {
-                continue;
-            };
-            let is_midi = online_data.runtime_data.material_info.is_midi();
-            let editor_track = find_or_create_editor_track(temporary_project, !is_midi)?;
-            let manifestation = manifest_clip_on_track(
-                temporary_project,
-                &content.clip,
-                online_data,
-                &editor_track,
-            )?;
-            if is_midi {
-                // open_midi_editor_via_action(temporary_project, item);
-                open_midi_editor_directly(editor_track, manifestation.take);
-            } else {
-                open_audio_editor(temporary_project, manifestation.item)?;
-            }
-        }
+    pub fn start_editing_clip(
+        &mut self,
+        clip_index: usize,
+        playback_track: &Track,
+    ) -> ClipEngineResult<()> {
+        let content = get_content_mut(&mut self.contents, clip_index)?;
+        let online_data = content.online_data.as_mut().ok_or("clip not online")?;
+        let is_midi = online_data.runtime_data.material_info.is_midi();
+        let clip_manifestation =
+            manifest_clip_on_track(&content.clip, online_data, playback_track)?;
+        let edit_session = if is_midi {
+            // open_midi_editor_via_action(temporary_project, item);
+            let hwnd = open_midi_editor_directly(playback_track, clip_manifestation.take)?;
+            ClipEditSession::Midi(MidiClipEditSession {
+                midi_editor_window: hwnd,
+                clip_manifestation,
+            })
+        } else {
+            open_audio_editor(playback_track.project(), clip_manifestation.item)?;
+            ClipEditSession::Audio(AudioClipEditSession { clip_manifestation })
+        };
+        online_data.edit_session = Some(edit_session);
         Ok(())
     }
 
     /// Stops editing of all online clips contained in this slot.
-    pub fn stop_editing(&self, temporary_project: Project) -> ClipEngineResult<()> {
-        for content in self.get_contents()? {
-            let Some(online_data) = content.online_data.as_ref() else {
-                continue;
-            };
-            let editor_track =
-                find_editor_track(temporary_project).ok_or("editor track not found")?;
-            let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
-            let _ = unsafe {
-                Reaper::get()
-                    .medium_reaper()
-                    .delete_track_media_item(editor_track.raw(), clip_item.raw())
-            };
-            if editor_track.item_count() == 0 {
-                editor_track.project().remove_track(&editor_track);
-            }
-            if !online_data.runtime_data.material_info.is_midi() {
-                // Restore previous zoom/scroll
-                Reaper::get()
-                    .main_section()
-                    .action_by_command_id(CommandId::new(40848))
-                    .invoke_as_trigger(Some(temporary_project))?;
-            }
-        }
+    pub fn stop_editing_clip(&mut self, clip_index: usize) -> ClipEngineResult<()> {
+        // let content = get_content_mut(&mut self.contents, clip_index)?;
+        // let online_data = content.online_data.as_ref().ok_or("clip not online")?;
+        // let editor_track = find_editor_track(temporary_project).ok_or("editor track not found")?;
+        // let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
+        // let _ = unsafe {
+        //     Reaper::get()
+        //         .medium_reaper()
+        //         .delete_track_media_item(editor_track.raw(), clip_item.raw())
+        // };
+        // if editor_track.item_count() == 0 {
+        //     editor_track.project().remove_track(&editor_track);
+        // }
+        // if !online_data.runtime_data.material_info.is_midi() {
+        //     // Restore previous zoom/scroll
+        //     Reaper::get()
+        //         .main_section()
+        //         .action_by_command_id(CommandId::new(40848))
+        //         .invoke_as_trigger(Some(temporary_project))?;
+        // }
         Ok(())
     }
 
-    /// Returns true if any of the clips contained in this slot are currently open in the editor.
-    pub fn is_editing_clip(&self, temporary_project: Project) -> bool {
-        self.edited_clip_item(temporary_project).is_some()
-    }
-
-    fn edited_clip_item(&self, temporary_project: Project) -> Option<Item> {
-        self.contents
-            .values()
-            .find_map(|content| content.edited_clip_item(temporary_project))
+    pub fn is_editing_clip(&self, clip_index: usize) -> bool {
+        self.get_content(clip_index)
+            .ok()
+            .and_then(|c| c.online_data.as_ref())
+            .map(|d| d.edit_session.is_some())
+            .unwrap_or(false)
     }
 
     /// Returns all clips in this slot. Can be empty.
@@ -979,6 +978,7 @@ impl Slot {
                         clip,
                         online_data: Some(OnlineData {
                             runtime_data: s.runtime_data,
+                            edit_session: None,
                         }),
                     };
                     self.contents.clear();
@@ -1036,10 +1036,11 @@ fn get_contents_mut(contents: &mut Contents) -> ClipEngineResult<&mut Contents> 
 }
 
 fn get_content_mut(contents: &mut Contents, clip_index: usize) -> ClipEngineResult<&mut Content> {
-    Ok(contents
+    let content = contents
         .get_index_mut(clip_index)
         .ok_or(CLIP_DOESNT_EXIST)?
-        .1)
+        .1;
+    Ok(content)
 }
 
 fn get_content_mut_by_id(
@@ -1301,16 +1302,20 @@ fn item_is_open_in_midi_editor(item: Item) -> bool {
     open_take == item_take.raw()
 }
 
-fn open_midi_editor_directly(editor_track: Track, take: Take) {
-    if let Some(source) = take.source() {
-        unsafe {
-            source
-                .as_raw()
-                .ext_open_editor(Reaper::get().main_window(), editor_track.index().unwrap())
-                .unwrap();
-        }
-        configure_midi_editor();
+fn open_midi_editor_directly(editor_track: &Track, take: Take) -> ClipEngineResult<Hwnd> {
+    let source = take.source().ok_or("take has no source")?;
+    unsafe {
+        source
+            .as_raw()
+            .ext_open_editor(Reaper::get().main_window(), editor_track.index().unwrap())
+            .unwrap();
     }
+    configure_midi_editor();
+    let hwnd = Reaper::get()
+        .medium_reaper()
+        .midi_editor_get_active()
+        .ok_or("couldn't find focused MIDI editor")?;
+    Ok(hwnd)
 }
 
 #[allow(dead_code)]
@@ -1354,83 +1359,6 @@ fn configure_midi_editor() {
     // Zoom to content
     let zoom_command_id = CommandId::new(40466);
     let _ = reaper.midi_editor_last_focused_on_command(zoom_command_id, required_view_mode);
-}
-
-fn find_clip_item(content: &Content, editor_track: &Track) -> Option<Item> {
-    let online_data = content.online_data.as_ref()?;
-    let clip = &content.clip;
-    editor_track.items().find(|item| {
-        item_refers_to_clip_content(*item, clip, online_data) && item_is_open_in_midi_editor(*item)
-    })
-}
-
-fn manifest_clip_on_track(
-    temporary_project: Project,
-    clip: &Clip,
-    online_data: &OnlineData,
-    track: &Track,
-) -> ClipEngineResult<ClipOnTrackManifestation> {
-    // TODO-medium Make sure time-based MIDI clips are treated correctly (pretty rare).
-    let item = track.add_item().map_err(|e| e.message())?;
-    let timeline = clip_timeline(Some(temporary_project), true);
-    // We must put the item exactly how we would play it so the grid is correct (important
-    // for MIDI editor).
-    let item_length = online_data.effective_length_in_seconds(clip, &timeline)?;
-    let section_start_pos = DurationInSeconds::new(clip.section().start_pos.get());
-    let (item_pos, take_offset, tempo) = match clip.time_base() {
-        // Place section start exactly on start of project.
-        ClipTimeBase::Time => (
-            PositionInSeconds::ZERO,
-            PositionInSeconds::from(section_start_pos),
-            None,
-        ),
-        ClipTimeBase::Beat(t) => {
-            // Place downbeat exactly on start of 2nd bar of project.
-            let second_bar_pos = timeline.pos_of_quantized_pos(QuantizedPosition::bar(1));
-            let bpm = timeline.tempo_at(second_bar_pos);
-            let bps = bpm.get() / 60.0;
-            let downbeat_pos = t.downbeat.get() / bps;
-            (
-                second_bar_pos - downbeat_pos,
-                PositionInSeconds::from(section_start_pos),
-                Some(bpm),
-            )
-        }
-    };
-    // TODO-high Implement "Open in REAPER MIDI editor" again by creating a PCM source ad-hoc
-    // let source = if let Some(s) = online_data.pooled_midi_source.as_ref() {
-    //     Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
-    // } else
-    let source = clip.create_pcm_source(Some(temporary_project))?;
-    if online_data.runtime_data.material_info.is_midi() {
-        // Because we set a constant preview tempo for our MIDI sources (which is
-        // important for our internal processing), IGNTEMPO is set to 1, which means the source
-        // is considered as time-based by REAPER. That makes it appear incorrect in the MIDI
-        // editor because in reality they are beat-based. The following sets IGNTEMPO to 0
-        // for recent REAPER versions. Hopefully this is then only valid for this particular
-        // pooled copy.
-        // TODO-low This problem might disappear though as soon as we can use
-        //  "Source beats" MIDI editor time base (which we can't use at the moment because we rely
-        //  on sections).
-        let _ = source.reaper_source().ext_set_preview_tempo(None);
-    }
-    let take = item.add_take().map_err(|e| e.message())?;
-    let source = OwnedSource::new(source.into_reaper_source());
-    take.set_source(source);
-    take.set_start_offset(take_offset).unwrap();
-    item.set_position(item_pos, UiRefreshBehavior::NoRefresh)
-        .unwrap();
-    item.set_length(item_length, UiRefreshBehavior::NoRefresh)
-        .unwrap();
-    let manifestation = ClipOnTrackManifestation { item, take, tempo };
-    Ok(manifestation)
-}
-
-pub struct ClipOnTrackManifestation {
-    item: Item,
-    take: Take,
-    /// Always set if beat-based.
-    tempo: Option<Bpm>,
 }
 
 const CLIP_DOESNT_EXIST: &str = "clip doesn't exist";

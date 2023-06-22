@@ -267,7 +267,6 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             }
             TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
-            TriggerSlotAction::StartEditing => matrix.start_editing_slot(slot_address),
             TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
             TriggerSlotAction::Copy => matrix.copy_slot(slot_address),
             TriggerSlotAction::Cut => matrix.cut_slot(slot_address),
@@ -288,6 +287,7 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             .ok_or_else(|| Status::invalid_argument("unknown trigger clip action"))?;
         handle_clip_command(&req.clip_address, |matrix, clip_address| match action {
             TriggerClipAction::MidiOverdub => matrix.midi_overdub_clip(clip_address),
+            TriggerClipAction::Edit => matrix.start_editing_clip(clip_address),
         })
     }
 
