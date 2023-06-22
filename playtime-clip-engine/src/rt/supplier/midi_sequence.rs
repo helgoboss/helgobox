@@ -156,7 +156,7 @@ impl MidiSequence {
     }
 
     fn convert_duration_in_seconds_to_pulse_normalized(&self, duration: DurationInSeconds) -> u64 {
-        (duration.get() * self.normalized_second_to_pulse_factor).floor() as u64
+        (duration.get() * self.normalized_second_to_pulse_factor).round() as u64
     }
 
     /// Calculates the length of this sequence given a particular tempo and time signature.
@@ -256,7 +256,7 @@ impl MidiSupplier for MidiSequence {
             let pulse_to_frame_factor = frame_rate.get() / self.normalized_second_to_pulse_factor;
             for evt in relevant_events {
                 let pulse_offset = (evt.frame - start_pulse) as f64;
-                let frame_offset = (pulse_offset * pulse_to_frame_factor).floor() as u32;
+                let frame_offset = (pulse_offset * pulse_to_frame_factor).round() as u32;
                 reaper_evt.set_frame_offset(MidiFrameOffset::new(frame_offset));
                 reaper_evt.set_message(evt.payload.msg);
                 event_list.add_item(&reaper_evt)
