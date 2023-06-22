@@ -1,19 +1,20 @@
 use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::{AudioBuf, AudioBufMut};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
-use crate::rt::supplier::{SupplyAudioRequest, SupplyResponse, SupplyResponseStatus};
+use crate::rt::supplier::{
+    SupplyAudioRequest, SupplyRequest, SupplyResponse, SupplyResponseStatus,
+};
 use reaper_medium::Hz;
 use std::cmp;
 
-/// Helper function for suppliers that read from sources and don't want to deal with
+/// Helper function for audio suppliers that read from sources and don't want to deal with
 /// negative start frames themselves.
 pub fn supply_audio_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
     source_frame_rate: Hz,
-    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
+    supply_inner: impl FnOnce(AudioSourceMaterialRequest) -> SupplyResponse,
 ) -> SupplyResponse {
-    use SupplyResponseStatus::*;
     #[cfg(debug_assertions)]
     {
         request.assert_wants_source_frame_rate(source_frame_rate);
@@ -28,88 +29,86 @@ pub fn supply_audio_material(
         // );
         dest_buffer.clear();
         // We haven't reached the end of the source, so still tell the caller that we
-        // wrote all frames.
-        // And advance the count-in phase.
-        SupplyResponse::please_continue(ideal_num_consumed_frames)
-    } else {
-        // Requested portion contains playable material.
-        if request.start_frame < 0 {
-            // Portion overlaps start of material.
-            // rt_debug!(
-            //     "overlap: start_frame = {}, ideal_end_frame = {}",
-            //     request.start_frame, ideal_end_frame
-            // );
-            let num_skipped_frames_in_source = -request.start_frame as usize;
-            let proportion_skipped =
-                num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
-            let num_skipped_frames_in_dest = adjust_proportionally_positive(
-                dest_buffer.frame_count() as f64,
-                proportion_skipped,
-            );
-            // We need to zero the portion of the output buffer that precedes start of material.
-            dest_buffer.slice_mut(..num_skipped_frames_in_dest).clear();
-            if request.info.is_realtime {
-                print_distance_from_beat_start_at(
-                    request,
-                    num_skipped_frames_in_dest,
-                    "audio, start_frame < 0",
-                );
-            }
-            let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
-            let req = SourceMaterialRequest {
-                start_frame: 0,
-                dest_buffer: &mut shifted_dest_buffer,
-            };
-            // rt_debug!(
-            //     "Before source: start = {}, source sr = {}, dest sr = {}",
-            //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
-            // );
-            let res = supply_inner(req);
-            SupplyResponse {
-                num_frames_consumed: num_skipped_frames_in_source + res.num_frames_consumed,
-                status: match res.status {
-                    PleaseContinue => PleaseContinue,
-                    ReachedEnd { num_frames_written } => {
-                        // Oh, that's short material.
-                        shifted_dest_buffer.slice_mut(num_frames_written..).clear();
-                        ReachedEnd {
-                            num_frames_written: num_skipped_frames_in_dest + num_frames_written,
-                        }
-                    }
-                },
-            }
-        } else {
-            // Requested portion is located on or after start of the actual source material.
-            if request.start_frame == 0 && request.info.is_realtime {
-                print_distance_from_beat_start_at(request, 0, "audio, start_frame == 0");
-            }
-            let req = SourceMaterialRequest {
-                start_frame: request.start_frame as usize,
-                dest_buffer,
-            };
-            // rt_debug!(
-            //     "In source: start = {}, source sr = {}, dest sr = {}",
-            //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
-            // );
-            let inner_response = supply_inner(req);
-            // Because neither resampler nor time stretcher pre-zero buffers, we need to zero
-            // the unwritten part of the buffer ourselves, otherwise we get some nice saw-like
-            // tone at the end. This is particularly audible if we have a section that exceeds
-            // the source end. Then the last buffer content will get played repeatedly.
-            if let ReachedEnd { num_frames_written } = inner_response.status {
-                dest_buffer.slice_mut(num_frames_written..).clear();
-            }
-            inner_response
-        }
+        // wrote all frames. And advance the count-in phase.
+        return SupplyResponse::please_continue(ideal_num_consumed_frames);
     }
+    // Requested portion contains playable material.
+    if request.start_frame < 0 {
+        // Portion overlaps start of material.
+        // rt_debug!(
+        //     "overlap: start_frame = {}, ideal_end_frame = {}",
+        //     request.start_frame, ideal_end_frame
+        // );
+        let num_skipped_frames_in_source = -request.start_frame as usize;
+        let proportion_skipped =
+            num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
+        let num_skipped_frames_in_dest =
+            adjust_proportionally_positive(ideal_num_consumed_frames as f64, proportion_skipped);
+        // We need to zero the portion of the output buffer that precedes start of material.
+        dest_buffer.slice_mut(..num_skipped_frames_in_dest).clear();
+        if request.info.is_realtime {
+            print_distance_from_beat_start_at(
+                request,
+                num_skipped_frames_in_dest,
+                "audio, start_frame < 0",
+            );
+        }
+        let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
+        let req = AudioSourceMaterialRequest {
+            start_frame: 0,
+            dest_buffer: &mut shifted_dest_buffer,
+        };
+        // rt_debug!(
+        //     "Before source: start = {}, source sr = {}, dest sr = {}",
+        //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
+        // );
+        let res = supply_inner(req);
+        return SupplyResponse {
+            num_frames_consumed: num_skipped_frames_in_source + res.num_frames_consumed,
+            status: match res.status {
+                SupplyResponseStatus::PleaseContinue => SupplyResponseStatus::PleaseContinue,
+                SupplyResponseStatus::ReachedEnd { num_frames_written } => {
+                    // Oh, that's short material.
+                    shifted_dest_buffer.slice_mut(num_frames_written..).clear();
+                    SupplyResponseStatus::ReachedEnd {
+                        num_frames_written: num_skipped_frames_in_dest + num_frames_written,
+                    }
+                }
+            },
+        };
+    }
+    // Requested portion is located on or after start of the actual source material.
+    if request.start_frame == 0 && request.info.is_realtime {
+        print_distance_from_beat_start_at(request, 0, "audio, start_frame == 0");
+    }
+    let req = AudioSourceMaterialRequest {
+        start_frame: request.start_frame as usize,
+        dest_buffer,
+    };
+    // rt_debug!(
+    //     "In source: start = {}, source sr = {}, dest sr = {}",
+    //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
+    // );
+    let inner_response = supply_inner(req);
+    // Because neither resampler nor time stretcher pre-zero buffers, we need to zero
+    // the unwritten part of the buffer ourselves, otherwise we get some nice saw-like
+    // tone at the end. This is particularly audible if we have a section that exceeds
+    // the source end. Then the last buffer content will get played repeatedly.
+    if let SupplyResponseStatus::ReachedEnd { num_frames_written } = inner_response.status {
+        dest_buffer.slice_mut(num_frames_written..).clear();
+    }
+    inner_response
 }
 
-pub struct SourceMaterialRequest<'a, 'b> {
+pub struct AudioSourceMaterialRequest<'a, 'b> {
     pub start_frame: usize,
     pub dest_buffer: &'a mut AudioBufMut<'b>,
 }
 
-pub fn transfer_samples_from_buffer(buf: AudioBuf, req: SourceMaterialRequest) -> SupplyResponse {
+pub fn transfer_samples_from_buffer(
+    buf: AudioBuf,
+    req: AudioSourceMaterialRequest,
+) -> SupplyResponse {
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
         num_remaining_frames_in_source,

@@ -2,8 +2,8 @@
 
 use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds,
 };
+use crate::rt::supplier::midi_util::supply_midi_material;
 use crate::rt::supplier::time_series::{TimeSeries, TimeSeriesEvent};
 use crate::rt::supplier::{
     MaterialInfo, MidiMaterialInfo, MidiSupplier, SupplyMidiRequest, SupplyResponse,
@@ -12,9 +12,7 @@ use crate::rt::supplier::{
 use crate::ClipEngineResult;
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageFactory};
 use playtime_api::persistence::{Bpm, TimeSignature};
-use reaper_medium::{
-    BorrowedMidiEventList, DurationInSeconds, Hz, MidiFrameOffset, PositionInSeconds,
-};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, MidiFrameOffset};
 use std::cmp;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Write};
@@ -119,7 +117,7 @@ impl MidiSequence {
         MidiSequenceAsReaperChunk(self).to_string()
     }
 
-    pub fn pulse_count(&self) -> u64 {
+    pub fn total_pulse_count(&self) -> u64 {
         // The last pulse frame index marks the *exclusive* end, so we don't need + 1 here I guess.
         self.time_series.events.last().map(|e| e.frame).unwrap_or(0)
     }
@@ -133,7 +131,7 @@ impl MidiSequence {
 
     fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
         DurationInSeconds::new(self.convert_pulse_to_second_flexible(
-            self.pulse_count(),
+            self.total_pulse_count(),
             bpm,
             time_sig_denominator,
         ))
@@ -183,14 +181,6 @@ impl MidiSequence {
         ) as u64
     }
 
-    fn convert_position_in_seconds_to_pulse(&self, position: PositionInSeconds) -> i64 {
-        self.convert_second_to_pulse_flexible(
-            position.get(),
-            self.time_info.tempo,
-            self.time_info.time_signature.denominator,
-        )
-    }
-
     fn convert_second_to_pulse_flexible(
         &self,
         second: f64,
@@ -217,62 +207,60 @@ fn get_qn_to_beat_factor(time_sig_denominator: u32) -> f64 {
 }
 
 impl MidiSupplier for MidiSequence {
+    // Below logic assumes that the destination frame rate is comparable to the source frame
+    // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
+    // frame rate changes for tempo changes. It's only equal if the clip is played in
+    // MIDI_BASE_BPM. That's fine!
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        // This logic assumes that the destination frame rate is comparable to the source frame
-        // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
-        // frame rate changes for tempo changes. It's only equal if the clip is played in
-        // MIDI_BASE_BPM. That's fine!
-        let total_pulse_count = self.pulse_count();
-        if total_pulse_count == 0 {
-            return SupplyResponse::exceeded_end();
-        }
-        let frame_rate = request.dest_sample_rate;
-        let num_frames_to_be_consumed = request.dest_frame_count;
-        let start_time = convert_position_in_frames_to_seconds(request.start_frame, frame_rate);
-        let start_pulse = self.convert_position_in_seconds_to_pulse(start_time);
-        let requested_length =
-            convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
-        if start_pulse < 0 {
-            // TODO This can skip the beginning. Handle this like ReaperClipSource audio!
-            return SupplyResponse::please_continue(num_frames_to_be_consumed);
-        };
-        let start_pulse = start_pulse as u64;
-        if start_pulse >= total_pulse_count {
-            return SupplyResponse::exceeded_end();
-        };
-        let requested_pulse_count = self.convert_duration_in_seconds_to_pulse(requested_length);
-        let remaining_pulse_count_till_end = total_pulse_count - start_pulse;
-        let actual_requested_pulse_count =
-            cmp::min(requested_pulse_count, remaining_pulse_count_till_end);
-        let pulse_to_frame_factor = self.calculate_pulse_to_midi_frame_factor(frame_rate);
-        let mut reaper_evt = reaper_medium::MidiEvent::default();
-        let relevant_events = self
-            .time_series
-            .find_events_in_range(start_pulse, actual_requested_pulse_count);
-        for evt in relevant_events {
-            let pulse_offset = (evt.frame - start_pulse) as f64;
-            let frame_offset = (pulse_offset * pulse_to_frame_factor).floor() as u32;
-            reaper_evt.set_frame_offset(MidiFrameOffset::new(frame_offset));
-            reaper_evt.set_message(evt.payload.msg);
-            event_list.add_item(&reaper_evt)
-        }
-        let num_midi_frames_consumed =
-            (actual_requested_pulse_count as f64 * pulse_to_frame_factor).floor() as usize;
-        // TODO We don't include the last frame when it comes to reporting the pulse/frame count.
-        //  Should we manually add this notes-off event? Or is it already transmitted? Or should we
-        //  handle this via StartEndHandler?
-        // The lower the sample rate, the higher the tempo, the more inner source material we
-        // effectively grabbed.
-        SupplyResponse::limited_by_total_frame_count(
-            num_midi_frames_consumed,
-            num_midi_frames_consumed,
-            request.start_frame,
-            self.midi_frame_count(),
-        )
+        supply_midi_material(request, |request| {
+            // If sequence empty, stop right here.
+            let total_pulse_count = self.total_pulse_count();
+            if total_pulse_count == 0 {
+                return SupplyResponse::exceeded_end();
+            }
+            let frame_rate = request.dest_sample_rate;
+            let num_frames_to_be_consumed = request.dest_frame_count;
+            let start_time = convert_duration_in_frames_to_seconds(request.start_frame, frame_rate);
+            let start_pulse = self.convert_duration_in_seconds_to_pulse(start_time);
+            let requested_length =
+                convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
+            if start_pulse >= total_pulse_count {
+                return SupplyResponse::exceeded_end();
+            };
+            let requested_pulse_count = self.convert_duration_in_seconds_to_pulse(requested_length);
+            let remaining_pulse_count_till_end = total_pulse_count - start_pulse;
+            let actual_requested_pulse_count =
+                cmp::min(requested_pulse_count, remaining_pulse_count_till_end);
+            let pulse_to_frame_factor = self.calculate_pulse_to_midi_frame_factor(frame_rate);
+            let mut reaper_evt = reaper_medium::MidiEvent::default();
+            let relevant_events = self
+                .time_series
+                .find_events_in_range(start_pulse, actual_requested_pulse_count);
+            for evt in relevant_events {
+                let pulse_offset = (evt.frame - start_pulse) as f64;
+                let frame_offset = (pulse_offset * pulse_to_frame_factor).floor() as u32;
+                reaper_evt.set_frame_offset(MidiFrameOffset::new(frame_offset));
+                reaper_evt.set_message(evt.payload.msg);
+                event_list.add_item(&reaper_evt)
+            }
+            let num_midi_frames_consumed =
+                (actual_requested_pulse_count as f64 * pulse_to_frame_factor).floor() as usize;
+            // TODO We don't include the last frame when it comes to reporting the pulse/frame count.
+            //  Should we manually add this notes-off event? Or is it already transmitted? Or should we
+            //  handle this via StartEndHandler?
+            // The lower the sample rate, the higher the tempo, the more inner source material we
+            // effectively grabbed.
+            SupplyResponse::limited_by_total_frame_count(
+                num_midi_frames_consumed,
+                num_midi_frames_consumed,
+                request.start_frame as isize,
+                self.midi_frame_count(),
+            )
+        })
     }
 }
 
@@ -418,7 +406,7 @@ mod tests {
             },
         };
         // When
-        assert_eq!(midi_sequence.pulse_count(), 960);
+        assert_eq!(midi_sequence.total_pulse_count(), 960);
         let predefined_length = midi_sequence.predefined_length();
         assert_eq!(predefined_length.get(), 0.5);
         let length_with_normal_tempo = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 4);

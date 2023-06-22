@@ -4,7 +4,7 @@ use crate::conversion_util::{
 };
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::source_util::pcm_source_is_midi;
-use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialRequest};
+use crate::rt::supplier::audio_util::{supply_audio_material, AudioSourceMaterialRequest};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, CacheableSource, MaterialInfo, MidiMaterialInfo,
@@ -47,7 +47,7 @@ impl ReaperClipSource {
             .expect("audio source should expose frame rate")
     }
 
-    fn transfer_audio(&self, req: SourceMaterialRequest) -> SupplyResponse {
+    fn transfer_audio(&self, req: AudioSourceMaterialRequest) -> SupplyResponse {
         let source_sample_rate = self.source.get_sample_rate().unwrap();
         let time_s = convert_duration_in_frames_to_seconds(req.start_frame, source_sample_rate);
         let num_frames_written = unsafe {
@@ -108,8 +108,8 @@ impl AudioSupplier for ReaperClipSource {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         let source_frame_rate = self.get_audio_source_frame_rate();
-        supply_audio_material(request, dest_buffer, source_frame_rate, |input| {
-            self.transfer_audio(input)
+        supply_audio_material(request, dest_buffer, source_frame_rate, |req| {
+            self.transfer_audio(req)
         })
     }
 }
@@ -135,15 +135,15 @@ impl WithMaterialInfo for ReaperClipSource {
 }
 
 impl MidiSupplier for ReaperClipSource {
+    // Below logic assumes that the destination frame rate is comparable to the source frame
+    // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
+    // frame rate changes for tempo changes. It's only equal if the clip is played in
+    // MIDI_BASE_BPM. That's fine!
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        // This logic assumes that the destination frame rate is comparable to the source frame
-        // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
-        // frame rate changes for tempo changes. It's only equal if the clip is played in
-        // MIDI_BASE_BPM. That's fine!
         let frame_rate = request.dest_sample_rate;
         let num_frames_to_be_consumed = request.dest_frame_count;
         // Do some logging
