@@ -1,6 +1,6 @@
 use crate::rt::supplier::{
-    ChainEquipment, KindSpecificRecordingOutcome, MidiSequence, ReaperClipSource, RecorderRequest,
-    RtClipSource,
+    ChainEquipment, KindSpecificRecordingOutcome, MidiOverdubOutcome, MidiSequence,
+    ReaperClipSource, RecorderRequest, RtClipSource,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
@@ -59,9 +59,7 @@ impl Clip {
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
         let api_source = match kind_specific_outcome {
-            Midi { midi_sequence } => api::Source::MidiChunk(MidiChunkSource {
-                chunk: midi_sequence.format_as_reaper_midi_chunk(),
-            }),
+            Midi { midi_sequence } => create_api_source_from_recorded_midi_sequence(&midi_sequence),
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
@@ -139,15 +137,8 @@ impl Clip {
         }
     }
 
-    pub fn notify_midi_overdub_finished(
-        &mut self,
-        mirror_source: &ReaperClipSource,
-        temporary_project: Option<Project>,
-    ) -> ClipEngineResult<()> {
-        let api_source =
-            create_api_source_from_recorded_midi_source(mirror_source, temporary_project)?;
-        self.source = api_source;
-        Ok(())
+    pub fn notify_midi_overdub_finished(&mut self, outcome: MidiOverdubOutcome) {
+        self.source = create_api_source_from_recorded_midi_sequence(&outcome.midi_sequence);
     }
 
     pub fn api_source(&self) -> &api::Source {
@@ -301,16 +292,10 @@ impl Clip {
     }
 }
 
-pub fn create_api_source_from_recorded_midi_source(
-    midi_source: &ReaperClipSource,
-    temporary_project: Option<Project>,
-) -> ClipEngineResult<api::Source> {
-    let api_source = source_util::create_api_source_from_pcm_source(
-        midi_source.reaper_source(),
-        CreateApiSourceMode::AllowEmbeddedData,
-        temporary_project,
-    );
-    api_source.map_err(|_| "failed creating API source from mirror source")
+pub fn create_api_source_from_recorded_midi_sequence(midi_sequence: &MidiSequence) -> api::Source {
+    api::Source::MidiChunk(MidiChunkSource {
+        chunk: midi_sequence.format_as_reaper_midi_chunk(),
+    })
 }
 
 fn get_peak_file_path(media_file_path: &Path) -> PathBuf {

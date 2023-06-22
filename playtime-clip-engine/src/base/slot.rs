@@ -1,18 +1,19 @@
 use crate::base::{
-    create_api_source_from_recorded_midi_source, Clip, ClipMatrixHandler, ClipRecordDestination,
+    create_api_source_from_recorded_midi_sequence, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
     MatrixSettings, VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, MidiOverdubSettings, MidiSequence, QuantizationSettings,
-    ReaperClipSource, Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
+    ChainEquipment, MaterialInfo, MidiOverdubOutcome, MidiOverdubSettings, MidiSequence,
+    QuantizationSettings, ReaperClipSource, Recorder, RecorderRequest, RecordingArgs,
+    RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadSlotArgs,
     ColumnSetClipLoopedArgs, ColumnSetClipSettingsArgs, FillSlotMode, InternalClipPlayState,
     MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
-    RecordNewClipInstruction, RtClipId, RtSlot, RtSlotId, SharedRtColumn, SlotChangeEvent,
+    RecordNewClipInstruction, RtClip, RtClipId, RtSlot, RtSlotId, SharedRtColumn, SlotChangeEvent,
     SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
@@ -909,14 +910,14 @@ impl Slot {
 
     pub fn notify_midi_overdub_finished(
         &mut self,
-        mirror_source: ReaperClipSource,
-        temporary_project: Option<Project>,
-    ) -> ClipEngineResult<SlotChangeEvent> {
+        clip_id: RtClipId,
+        outcome: MidiOverdubOutcome,
+    ) -> ClipEngineResult<()> {
         self.remove_temporary_route();
-        self.get_content_mut(0)?
+        get_content_mut_by_id(&mut self.contents, clip_id)?
             .clip
-            .notify_midi_overdub_finished(&mirror_source, temporary_project)?;
-        Ok(SlotChangeEvent::Clips("MIDI overdub finished"))
+            .notify_midi_overdub_finished(outcome);
+        Ok(())
     }
 
     pub fn clear(&mut self) {
@@ -1018,6 +1019,13 @@ fn get_content_mut(contents: &mut Contents, clip_index: usize) -> ClipEngineResu
         .get_index_mut(clip_index)
         .ok_or(CLIP_DOESNT_EXIST)?
         .1)
+}
+
+fn get_content_mut_by_id(
+    contents: &mut Contents,
+    clip_id: RtClipId,
+) -> ClipEngineResult<&mut Content> {
+    contents.get_mut(&clip_id).ok_or(CLIP_DOESNT_EXIST)
 }
 
 struct CommonRecordStuff {
@@ -1190,6 +1198,8 @@ pub fn create_midi_overdub_instruction(
             (midi_sequence, None)
         }
     };
+    // TODO-high We need to enlarge capacity of the MidiSequences in the recorder in order to avoid
+    //  allocation. That also means we should probably ALWAYS send a source replacement!
     let instruction = MidiOverdubInstruction {
         source_replacement,
         settings: MidiOverdubSettings {

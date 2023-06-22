@@ -1,5 +1,7 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
-use crate::rt::supplier::{MaterialInfo, ReaperClipSource, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{
+    MaterialInfo, MidiOverdubOutcome, ReaperClipSource, WriteAudioRequest, WriteMidiRequest,
+};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
     NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClipSettings, RtClips, RtSlot,
@@ -271,7 +273,12 @@ pub trait RtColumnEventSender {
         result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     );
 
-    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: ReaperClipSource);
+    fn midi_overdub_finished(
+        &self,
+        slot_id: RtSlotId,
+        clip_id: RtClipId,
+        outcome: MidiOverdubOutcome,
+    );
 
     fn normal_recording_finished(&self, slot_id: RtSlotId, outcome: NormalRecordingOutcome);
 
@@ -319,10 +326,16 @@ impl RtColumnEventSender for Sender<RtColumnEvent> {
         self.send_event(event);
     }
 
-    fn midi_overdub_finished(&self, slot_id: RtSlotId, mirror_source: ReaperClipSource) {
+    fn midi_overdub_finished(
+        &self,
+        slot_id: RtSlotId,
+        clip_id: RtClipId,
+        outcome: MidiOverdubOutcome,
+    ) {
         let event = RtColumnEvent::MidiOverdubFinished {
             slot_id,
-            mirror_source,
+            clip_id,
+            outcome,
         };
         self.send_event(event);
     }
@@ -537,7 +550,7 @@ impl RtColumn {
                 column_settings: &self.settings,
                 audio_request_props,
             };
-            let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
+            let event_handler = SlotEventHandler::new(&self.event_sender, slot.id());
             let _ = slot.stop(stop_args, &event_handler);
         }
     }
@@ -560,7 +573,7 @@ impl RtColumn {
             audio_request_props,
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
-        let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
+        let event_handler = SlotEventHandler::new(&self.event_sender, slot.id());
         slot.stop(clip_args, &event_handler)
     }
 
@@ -625,7 +638,7 @@ impl RtColumn {
                     column_settings: &self.settings,
                     audio_request_props,
                 };
-                let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
+                let event_handler = SlotEventHandler::new(&self.event_sender, slot.id());
                 slot.recording_poll(args, &event_handler)
             }
             Err(_) => false,
@@ -705,7 +718,7 @@ impl RtColumn {
             column_settings: &self.settings,
         };
         for slot in self.slots.values_mut() {
-            let event_handler = ClipEventHandler::new(&self.event_sender, slot.id());
+            let event_handler = SlotEventHandler::new(&self.event_sender, slot.id());
             let _ = slot.process_transport_change(&args, &event_handler);
         }
     }
@@ -1242,7 +1255,8 @@ pub enum RtColumnEvent {
     },
     MidiOverdubFinished {
         slot_id: RtSlotId,
-        mirror_source: ReaperClipSource,
+        clip_id: RtClipId,
+        outcome: MidiOverdubOutcome,
     },
     NormalRecordingFinished {
         slot_id: RtSlotId,
@@ -1268,12 +1282,12 @@ pub enum RtColumnGarbage {
     Clips(RtClips),
 }
 
-struct ClipEventHandler<'a> {
+struct SlotEventHandler<'a> {
     event_sender: &'a Sender<RtColumnEvent>,
     slot_id: RtSlotId,
 }
 
-impl<'a> ClipEventHandler<'a> {
+impl<'a> SlotEventHandler<'a> {
     pub fn new(event_sender: &'a Sender<RtColumnEvent>, slot_id: RtSlotId) -> Self {
         Self {
             slot_id,
@@ -1282,20 +1296,10 @@ impl<'a> ClipEventHandler<'a> {
     }
 }
 
-struct NoopClipEventHandler;
-
-impl HandleSlotEvent for NoopClipEventHandler {
-    fn midi_overdub_finished(&self, _mirror_source: ReaperClipSource) {}
-
-    fn normal_recording_finished(&self, _outcome: NormalRecordingOutcome) {}
-
-    fn slot_cleared(&self, _clips: RtClips) {}
-}
-
-impl<'a> HandleSlotEvent for ClipEventHandler<'a> {
-    fn midi_overdub_finished(&self, mirror_source: ReaperClipSource) {
+impl<'a> HandleSlotEvent for SlotEventHandler<'a> {
+    fn midi_overdub_finished(&self, clip_id: RtClipId, outcome: MidiOverdubOutcome) {
         self.event_sender
-            .midi_overdub_finished(self.slot_id, mirror_source);
+            .midi_overdub_finished(self.slot_id, clip_id, outcome);
     }
 
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome) {

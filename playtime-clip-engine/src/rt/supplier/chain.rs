@@ -3,8 +3,8 @@ use crate::rt::supplier::{
     Amplifier, AutoDelegatingAudioSupplier, AutoDelegatingMidiSupplier,
     AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
     AutoDelegatingWithMaterialInfo, Cache, CacheRequest, CommandProcessor, Downbeat,
-    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings,
-    MidiSequence, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
+    InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubOutcome,
+    MidiOverdubSettings, MidiSequence, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
     PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
     PreBufferSourceSkill, ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler,
     Section, SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo,
@@ -349,6 +349,10 @@ impl SupplierChain {
         self.pre_buffer_wormhole()
             .recorder()
             .poll_recording(audio_request_props)
+    }
+
+    pub fn stop_midi_overdubbing(&mut self) -> ClipEngineResult<MidiOverdubOutcome> {
+        self.pre_buffer_wormhole().recorder().stop_midi_overdub()
     }
 
     pub fn stop_recording(

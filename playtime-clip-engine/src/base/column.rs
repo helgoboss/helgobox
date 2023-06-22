@@ -433,13 +433,18 @@ impl Column {
                 }
                 MidiOverdubFinished {
                     slot_id,
-                    mirror_source,
+                    clip_id,
+                    outcome,
                 } => {
                     if let Some(slot) = self.slots.get_mut(&slot_id) {
-                        let event = slot
-                            .notify_midi_overdub_finished(mirror_source, self.project)
-                            .unwrap();
-                        Some((slot.index(), event))
+                        if slot.notify_midi_overdub_finished(clip_id, outcome).is_ok() {
+                            Some((
+                                slot.index(),
+                                SlotChangeEvent::Clips("MIDI overdub finished"),
+                            ))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }

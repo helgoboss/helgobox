@@ -7,12 +7,12 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSequence, MidiSupplier,
-    PollRecordingOutcome, ReaperClipSource, RecordState, Recorder, RecorderRequest, RecordingArgs,
-    RecordingEquipment, RecordingOutcome, RtClipSource, StopRecordingOutcome, SupplierChain,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubOutcome, MidiOverdubSettings,
+    MidiSequence, MidiSupplier, PollRecordingOutcome, ReaperClipSource, RecordState, Recorder,
+    RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome, RtClipSource,
+    StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClips, RtColumnEvent, RtColumnSettings};
@@ -336,7 +336,9 @@ impl RtClip {
         use ClipState::*;
         let instruction = match &mut self.state {
             Ready(s) => {
-                s.stop(args, &mut self.supplier_chain);
+                if let Some(outcome) = s.stop(args, &mut self.supplier_chain) {
+                    event_handler.midi_overdub_finished(self.id, outcome);
+                }
                 None
             }
             Recording(s) => {
@@ -766,22 +768,30 @@ impl ReadyState {
     ///
     /// By default, if it's overdubbing, it just stops the overdubbing (a second call will make
     /// it stop playing).
-    pub fn stop(&mut self, args: SlotStopArgs, supplier_chain: &mut SupplierChain) {
+    pub fn stop(
+        &mut self,
+        args: SlotStopArgs,
+        supplier_chain: &mut SupplierChain,
+    ) -> Option<MidiOverdubOutcome> {
         use ReadySubState::*;
         match self.state {
-            Stopped => {}
+            Stopped => None,
             Playing(s) => {
-                if s.overdubbing {
+                let overdub_outcome = if s.overdubbing {
                     // Currently recording overdub. Stop recording.
                     self.state = Playing(PlayingState {
                         overdubbing: false,
                         ..s
                     });
+                    let outcome = supplier_chain.stop_midi_overdubbing().ok();
                     if !args.enforce_play_stop {
                         // Continue playing
-                        return;
+                        return outcome;
                     }
-                }
+                    outcome
+                } else {
+                    None
+                };
                 // Just playing, not recording.
                 if let Some(pos) = s.pos {
                     if s.stop_request.is_none() {
@@ -835,9 +845,11 @@ impl ReadyState {
                     // Not yet playing. Backpedal.
                     self.state = Stopped;
                 }
+                overdub_outcome
             }
             Paused(_) => {
                 self.state = Stopped;
+                None
             }
             Suspending(s) => {
                 let resolved_stop_timing = self.resolve_stop_timing(&args);
@@ -848,6 +860,7 @@ impl ReadyState {
                         ..s
                     });
                 }
+                None
             }
         }
     }
@@ -1906,7 +1919,7 @@ struct FillSamplesOutcome {
 }
 
 pub trait HandleSlotEvent {
-    fn midi_overdub_finished(&self, mirror_source: ReaperClipSource);
+    fn midi_overdub_finished(&self, clip_id: RtClipId, outcome: MidiOverdubOutcome);
     fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
     fn slot_cleared(&self, clips: RtClips);
 }

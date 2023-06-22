@@ -104,8 +104,6 @@ enum State {
 #[derive(Debug)]
 struct ReadyState {
     source: RtClipSource,
-    /// This is updated with every overdub request and never cleared. So it can be `Some`
-    /// even we are not currently overdubbing.   
     midi_overdub_settings: Option<MidiOverdubSettings>,
 }
 
@@ -449,6 +447,22 @@ impl Recorder {
         };
         self.state = Some(next_state);
         res
+    }
+
+    pub fn stop_midi_overdub(&mut self) -> ClipEngineResult<MidiOverdubOutcome> {
+        match self.state.as_mut().ok_or("state destroyed")? {
+            State::Ready(s) => {
+                let settings = s
+                    .midi_overdub_settings
+                    .take()
+                    .ok_or("not MIDI overdubbung")?;
+                let outcome = MidiOverdubOutcome {
+                    midi_sequence: settings.mirror_source,
+                };
+                Ok(outcome)
+            }
+            State::Recording(_) => Err("we are recording, not MIDI overdubbing"),
+        }
     }
 
     pub fn stop_recording(
@@ -1764,3 +1778,8 @@ const MAX_AUDIO_CHANNEL_COUNT: usize = 64;
 
 #[derive(Clone, Debug)]
 pub struct QuantizationSettings {}
+
+#[derive(Debug)]
+pub struct MidiOverdubOutcome {
+    pub midi_sequence: MidiSequence,
+}
