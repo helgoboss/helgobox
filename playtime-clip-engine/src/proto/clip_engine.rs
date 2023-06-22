@@ -175,6 +175,14 @@ pub struct TriggerSlotRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerClipRequest {
+    #[prost(message, optional, tag = "1")]
+    pub clip_address: ::core::option::Option<FullClipAddress>,
+    #[prost(enumeration = "TriggerClipAction", tag = "2")]
+    pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragSlotRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
@@ -848,6 +856,29 @@ impl TriggerSlotAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum TriggerClipAction {
+    MidiOverdub = 0,
+}
+impl TriggerClipAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            TriggerClipAction::MidiOverdub => "TRIGGER_CLIP_ACTION_MIDI_OVERDUB",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRIGGER_CLIP_ACTION_MIDI_OVERDUB" => Some(Self::MidiOverdub),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum DragSlotAction {
     Move = 0,
     Copy = 1,
@@ -1080,6 +1111,10 @@ pub mod clip_engine_server {
             request: tonic::Request<super::DragSlotRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Clip commands
+        async fn trigger_clip(
+            &self,
+            request: tonic::Request<super::TriggerClipRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_clip_name(
             &self,
             request: tonic::Request<super::SetClipNameRequest>,
@@ -1830,6 +1865,46 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DragSlotSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/TriggerClip" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerClipSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::TriggerClipRequest>
+                    for TriggerClipSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerClipRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).trigger_clip(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerClipSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

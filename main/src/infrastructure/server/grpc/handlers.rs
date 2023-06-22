@@ -22,9 +22,9 @@ use playtime_clip_engine::proto::{
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
     SetClipNameRequest, SetColumnNameRequest, SetColumnPanRequest, SetColumnTrackRequest,
     SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
-    SlotAddress, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
-    TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSlotAction,
-    TriggerSlotRequest,
+    SlotAddress, TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
+    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
+    TriggerSlotAction, TriggerSlotRequest,
 };
 use playtime_clip_engine::rt::ColumnPlaySlotOptions;
 use reaper_high::{
@@ -276,6 +276,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
                 matrix.replace_slot_clips_with_selected_item(slot_address)
             }
             TriggerSlotAction::Panic => matrix.panic_slot(slot_address),
+        })
+    }
+
+    async fn trigger_clip(
+        &self,
+        request: Request<TriggerClipRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let action = TriggerClipAction::from_i32(req.action)
+            .ok_or_else(|| Status::invalid_argument("unknown trigger clip action"))?;
+        handle_clip_command(&req.clip_address, |matrix, clip_address| match action {
+            TriggerClipAction::MidiOverdub => matrix.midi_overdub_clip(clip_address),
         })
     }
 
