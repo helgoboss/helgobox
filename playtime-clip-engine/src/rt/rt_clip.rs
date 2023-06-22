@@ -7,7 +7,7 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSupplier,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubSettings, MidiSequence, MidiSupplier,
     PollRecordingOutcome, ReaperClipSource, RecordState, Recorder, RecorderRequest, RecordingArgs,
     RecordingEquipment, RecordingOutcome, RtClipSource, StopRecordingOutcome, SupplierChain,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
@@ -1267,7 +1267,7 @@ impl ReadyState {
         use ReadySubState::*;
         // TODO-medium Maybe we should start to play if not yet playing
         if let Playing(s) = self.state {
-            supplier_chain.start_midi_overdub(args.in_project_midi_source, args.settings);
+            supplier_chain.start_midi_overdub(args.source_replacement, args.settings);
             self.state = Playing(PlayingState {
                 overdubbing: true,
                 ..s
@@ -1664,9 +1664,9 @@ pub struct RecordNewClipInstruction {
 #[derive(Debug)]
 pub struct MidiOverdubInstruction {
     /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
-    /// one, this field will contain an in-project MIDI source. The current real-time source needs
+    /// one, this field will contain a MidiSequence. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.
-    pub in_project_midi_source: Option<ReaperClipSource>,
+    pub source_replacement: Option<MidiSequence>,
     pub settings: MidiOverdubSettings,
 }
 

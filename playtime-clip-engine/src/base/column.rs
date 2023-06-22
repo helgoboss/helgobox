@@ -382,11 +382,7 @@ impl Column {
             },
             clip_record_settings: self.settings.clip_record_settings.clone(),
             slots: {
-                let slots = self
-                    .slots
-                    .values()
-                    .filter_map(|slot| slot.save(self.project))
-                    .collect();
+                let slots = self.slots.values().filter_map(|slot| slot.save()).collect();
                 Some(slots)
             },
         }

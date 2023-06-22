@@ -55,26 +55,13 @@ impl Clip {
         kind_specific_outcome: KindSpecificRecordingOutcome,
         clip_settings: RtClipSettings,
         temporary_project: Option<Project>,
-        pooled_midi_source: Option<&ReaperClipSource>,
         recording_track: &Track,
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
         let api_source = match kind_specific_outcome {
-            Midi { midi_sequence } => {
-                if let Some(midi_sequence) = midi_sequence {
-                    api::Source::MidiChunk(MidiChunkSource {
-                        chunk: midi_sequence.format_as_reaper_midi_chunk(),
-                    })
-                } else {
-                    let pooled_midi_source = pooled_midi_source.ok_or(
-                        "pooled MIDI source must be given for REAPER source MIDI recordings",
-                    )?;
-                    create_api_source_from_recorded_midi_source(
-                        pooled_midi_source,
-                        temporary_project,
-                    )?
-                }
-            }
+            Midi { midi_sequence } => api::Source::MidiChunk(MidiChunkSource {
+                chunk: midi_sequence.format_as_reaper_midi_chunk(),
+            }),
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
@@ -119,30 +106,15 @@ impl Clip {
     }
 
     /// Creates an API clip.
-    pub fn save(&self, temporary_project: Option<Project>) -> ClipEngineResult<api::Clip> {
-        self.save_flexible(None, temporary_project)
-    }
-
-    /// Creates an API clip.
     ///
     /// If the MIDI source is given, it will create the API source by inspecting the contents of
     /// this MIDI source (instead of just cloning the API source field). With this, changes that
     /// have been made to the source via MIDI editor are correctly saved.
-    pub fn save_flexible(
-        &self,
-        midi_source: Option<&ReaperClipSource>,
-        temporary_project: Option<Project>,
-    ) -> ClipEngineResult<api::Clip> {
+    pub fn save(&self) -> ClipEngineResult<api::Clip> {
         let clip = api::Clip {
             id: self.id.clone(),
             name: self.name.clone(),
-            source: {
-                if let Some(midi_source) = midi_source {
-                    create_api_source_from_recorded_midi_source(midi_source, temporary_project)?
-                } else {
-                    self.source.clone()
-                }
-            },
+            source: self.source.clone(),
             frozen_source: self.frozen_source.clone(),
             active_source: self.active_source,
             time_base: self.rt_settings.time_base,
@@ -165,15 +137,6 @@ impl Clip {
             let tempo = tempo.expect("tempo not given although beat time base");
             tb.audio_tempo = Some(api::Bpm::new(tempo.get()).unwrap())
         }
-    }
-
-    /// Update API source in case project needs to be saved during recording.
-    ///
-    /// (Before recording, we should serialize the latest MIDI editor changes to the source
-    /// because during recording we won't look into the source in order to not get in-flux
-    /// content or interfere with the recording process in negative ways.)
-    pub fn update_api_source_before_midi_overdubbing(&mut self, source: api::Source) {
-        self.source = source;
     }
 
     pub fn notify_midi_overdub_finished(
@@ -249,7 +212,6 @@ impl Clip {
         create_pcm_source_from_api_source(&self.source, temporary_project)
     }
 
-    /// Returns the clip and a pooled copy of the MIDI source (if MIDI).
     pub(crate) fn create_real_time_clip(
         &mut self,
         permanent_project: Option<Project>,
@@ -257,7 +219,7 @@ impl Clip {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::RtColumnSettings,
-    ) -> Result<(rt::RtClip, Option<ReaperClipSource>), Box<dyn Error>> {
+    ) -> Result<rt::RtClip, Box<dyn Error>> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
             SourceOrigin::Frozen => self
@@ -265,15 +227,12 @@ impl Clip {
                 .as_ref()
                 .ok_or("no frozen source given")?,
         };
-        let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
-        let (clip_source, pooled_copy) = if let api::Source::MidiChunk(s) = &self.source {
-            // let clone =
-            //     Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
-            // (RtClipSource::Reaper(pcm_source), Some(clone))
+        let clip_source = if let api::Source::MidiChunk(s) = &self.source {
             let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&s.chunk)?;
-            (RtClipSource::Midi(midi_sequence), Some(pcm_source))
+            RtClipSource::Midi(midi_sequence)
         } else {
-            (RtClipSource::Reaper(pcm_source), None)
+            let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
+            RtClipSource::Reaper(pcm_source)
         };
         let rt_clip = rt::RtClip::ready(
             self.rt_id,
@@ -285,7 +244,7 @@ impl Clip {
             chain_equipment,
             recorder_request_sender,
         )?;
-        Ok((rt_clip, pooled_copy))
+        Ok(rt_clip)
     }
 
     pub fn looped(&self) -> bool {

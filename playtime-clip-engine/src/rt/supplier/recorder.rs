@@ -113,6 +113,7 @@ struct ReadyState {
 pub struct MidiOverdubSettings {
     pub mode: MidiClipRecordMode,
     pub quantization_settings: Option<QuantizationSettings>,
+    pub mirror_source: MidiSequence,
 }
 
 #[derive(Debug)]
@@ -250,17 +251,15 @@ impl RecordingAudioFinishingState {
 
 #[derive(Debug)]
 struct RecordingMidiState {
-    new_source: RecordingSource,
-    quantization_settings: Option<QuantizationSettings>,
+    equipment: MidiRecordingEquipment,
 }
 
-#[derive(Debug)]
-enum RecordingSource {
+enum RecordingSource<'a> {
     Midi {
-        source: MidiSequence,
-        mirror_source: MidiSequence,
+        source: &'a mut MidiSequence,
+        mirror_source: &'a mut MidiSequence,
     },
-    Reaper(ReaperClipSource),
+    Reaper(&'a mut ReaperClipSource),
 }
 
 impl KindState {
@@ -268,16 +267,7 @@ impl KindState {
         use RecordingEquipment::*;
         match equipment {
             Midi(equipment) => {
-                let recording_midi_state = RecordingMidiState {
-                    new_source: match equipment.empty_midi_source {
-                        RtClipSource::Reaper(s) => RecordingSource::Reaper(s),
-                        RtClipSource::Midi(s) => RecordingSource::Midi {
-                            source: s.clone(),
-                            mirror_source: s,
-                        },
-                    },
-                    quantization_settings: equipment.quantization_settings,
-                };
+                let recording_midi_state = RecordingMidiState { equipment };
                 Self::Midi(recording_midi_state)
             }
             Audio(equipment) => {
@@ -415,16 +405,16 @@ impl Recorder {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<ReaperClipSource>,
+        source_replacement: Option<MidiSequence>,
         settings: MidiOverdubSettings,
     ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => {
-                if let Some(in_project_midi_source) = in_project_midi_source {
+                if let Some(source_replacement) = source_replacement {
                     // We can only record with an in-project MIDI source, so before overdubbing
                     // we need to replace the current file-based one with the given in-project one.
                     let obsolete_source =
-                        mem::replace(&mut s.source, RtClipSource::Reaper(in_project_midi_source));
+                        mem::replace(&mut s.source, RtClipSource::Midi(source_replacement));
                     self.request_sender.discard_source(obsolete_source);
                 }
                 s.midi_overdub_settings = Some(settings);
@@ -584,15 +574,19 @@ impl Recorder {
             State::Ready(s) => match s.midi_overdub_settings.as_mut() {
                 None => Err("neither recording nor overdubbing"),
                 Some(overdub_settings) => {
-                    // TODO-high
-                    todo!("When overdubbing via MidiSequence, we need a way to update the main thread source");
-                    // write_midi_to_source(
-                    //     request,
-                    //     &mut s.source,
-                    //     overdub_frame.expect("no MIDI overdub frame given"),
-                    //     overdub_settings.mode,
-                    //     overdub_settings.quantization_settings.as_ref(),
-                    // );
+                    let RtClipSource::Midi(midi_sequence) = &mut s.source else {
+                       return Err("source should have been replaced with MidiSequence but has not"); 
+                    };
+                    write_midi(
+                        request,
+                        RecordingSource::Midi {
+                            source: midi_sequence,
+                            mirror_source: &mut overdub_settings.mirror_source,
+                        },
+                        overdub_frame.expect("no MIDI overdub frame given"),
+                        overdub_settings.mode,
+                        overdub_settings.quantization_settings.as_ref(),
+                    );
                     Ok(())
                 }
             },
@@ -631,10 +625,13 @@ impl Recorder {
                         }
                         write_midi(
                             request,
-                            &mut midi_state.new_source,
+                            RecordingSource::Midi {
+                                source: &mut midi_state.equipment.new_midi_source,
+                                mirror_source: &mut midi_state.equipment.mirror_source,
+                            },
                             recording.total_frame_offset,
                             MidiClipRecordMode::Normal,
-                            midi_state.quantization_settings.as_ref(),
+                            midi_state.equipment.quantization_settings.as_ref(),
                         );
                         Ok(())
                     }
@@ -947,31 +944,16 @@ impl RecordingState {
                 };
                 (outcome, State::Recording(recording_state))
             }
-            KindState::Midi(midi_state) => match midi_state.new_source {
-                RecordingSource::Midi {
-                    source,
-                    mirror_source,
-                } => {
-                    let outcome = KindSpecificRecordingOutcome::Midi {
-                        midi_sequence: Some(mirror_source),
-                    };
-                    let ready_state = ReadyState {
-                        source: RtClipSource::Midi(source),
-                        midi_overdub_settings: None,
-                    };
-                    (outcome, State::Ready(ready_state))
-                }
-                RecordingSource::Reaper(s) => {
-                    let outcome = KindSpecificRecordingOutcome::Midi {
-                        midi_sequence: None,
-                    };
-                    let ready_state = ReadyState {
-                        source: RtClipSource::Reaper(s),
-                        midi_overdub_settings: None,
-                    };
-                    (outcome, State::Ready(ready_state))
-                }
-            },
+            KindState::Midi(midi_state) => {
+                let outcome = KindSpecificRecordingOutcome::Midi {
+                    midi_sequence: midi_state.equipment.mirror_source,
+                };
+                let ready_state = ReadyState {
+                    source: RtClipSource::Midi(midi_state.equipment.new_midi_source),
+                    midi_overdub_settings: None,
+                };
+                (outcome, State::Ready(ready_state))
+            }
         };
         let downbeat_frame = recording.calculate_downbeat_frame();
         let section_and_downbeat_data = SectionAndDownbeatData {
@@ -1040,7 +1022,8 @@ impl RecordingEquipment {
 
 #[derive(Clone, Debug)]
 pub struct MidiRecordingEquipment {
-    empty_midi_source: RtClipSource,
+    new_midi_source: MidiSequence,
+    mirror_source: MidiSequence,
     quantization_settings: Option<QuantizationSettings>,
 }
 
@@ -1055,28 +1038,21 @@ const DEFAULT_EVENT_LIST_CAPACITY: usize = 10_000;
 
 impl MidiRecordingEquipment {
     pub fn new(quantization_settings: Option<QuantizationSettings>) -> Self {
+        let new_midi_source = MidiSequence::empty(
+            DEFAULT_PPQ,
+            DEFAULT_EVENT_LIST_CAPACITY,
+            // TODO-high Although not relevant for playback and recording, this should be
+            //  set to the current project tempo in order to be able to check later in which
+            //  speed this was recorded. Might come in useful!
+            MidiTimeInfo::default(),
+        );
         Self {
             // empty_midi_source: RtClipSource::Reaper(ReaperClipSource::new(
             //     create_empty_reaper_midi_source().into_raw(),
             // )),
-            empty_midi_source: RtClipSource::Midi(MidiSequence::empty(
-                DEFAULT_PPQ,
-                DEFAULT_EVENT_LIST_CAPACITY,
-                // TODO-high Although not relevant for playback and recording, this should be
-                //  set to the current project tempo in order to be able to check later in which
-                //  speed this was recorded. Might come in useful!
-                MidiTimeInfo::default(),
-            )),
+            mirror_source: new_midi_source.clone(),
+            new_midi_source,
             quantization_settings,
-        }
-    }
-
-    pub fn create_pooled_copy_of_midi_source(&self) -> Option<ReaperClipSource> {
-        match &self.empty_midi_source {
-            RtClipSource::Reaper(s) => {
-                Some(Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone()))
-            }
-            RtClipSource::Midi(_) => None,
         }
     }
 }
@@ -1282,15 +1258,8 @@ impl RecordingOutcome {
 
 #[derive(Clone, Debug)]
 pub enum KindSpecificRecordingOutcome {
-    Midi {
-        // Must be set if the recording was done via MidiSequence (not via the pooled PCM source
-        // technique).
-        midi_sequence: Option<MidiSequence>,
-    },
-    Audio {
-        path: PathBuf,
-        channel_count: usize,
-    },
+    Midi { midi_sequence: MidiSequence },
+    Audio { path: PathBuf, channel_count: usize },
 }
 
 #[derive(Clone, Debug)]
@@ -1598,7 +1567,7 @@ fn finish_audio_recording(sink: OwnedPcmSink, file: &Path) -> AudioRecordingFini
 
 fn write_midi(
     request: WriteMidiRequest,
-    source: &mut RecordingSource,
+    source: RecordingSource,
     frame_offset_within_source: usize,
     record_mode: MidiClipRecordMode,
     quantization_settings: Option<&QuantizationSettings>,

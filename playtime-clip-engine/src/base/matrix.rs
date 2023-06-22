@@ -534,7 +534,7 @@ impl Matrix {
             .filter(|(_, c)| c.follows_scene())
             .filter_map(move |(i, c)| Some((i, c.get_slot(row_index).ok()?)))
             .map(move |(i, s)| {
-                let api_clips = s.clips().filter_map(move |clip| clip.save(project).ok());
+                let api_clips = s.clips().filter_map(move |clip| clip.save().ok());
                 SlotContentsWithColumn::new(i, api_clips.collect())
             })
     }
@@ -1305,7 +1305,7 @@ impl Matrix {
             .map(|(col_index, col)| {
                 let api_clips = col
                     .playing_clips()
-                    .filter_map(move |(_, clip)| clip.save(project).ok());
+                    .filter_map(move |(_, clip)| clip.save().ok());
                 SlotContentsWithColumn::new(col_index, api_clips.collect())
             })
             .collect()

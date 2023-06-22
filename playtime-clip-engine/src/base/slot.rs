@@ -5,8 +5,8 @@ use crate::base::{
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, MidiOverdubSettings, QuantizationSettings, ReaperClipSource,
-    Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
+    ChainEquipment, MaterialInfo, MidiOverdubSettings, MidiSequence, QuantizationSettings,
+    ReaperClipSource, Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain,
 };
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadSlotArgs,
@@ -67,18 +67,10 @@ pub struct Content {
 pub struct OnlineData {
     /// The frame count in the material info is supposed to take the section bounds into account.
     runtime_data: SlotRuntimeData,
-    /// A copy of the real-time MIDI source. Only set for in-project MIDI, not file MIDI.
-    ///
-    /// With this, in-project MIDI sources can be opened in the MIDI editor and editing there
-    /// has immediate effects. For this to work, the source must be a pooled copy!
-    ///
-    /// Now that we have pooled MIDI anyway, we don't need to send a finished MIDI recording back
-    /// to the main thread using the "mirror source" method (which we did before).
-    pooled_midi_source: Option<ReaperClipSource>,
 }
 
 impl OnlineData {
-    pub fn new(rt_clip: &rt::RtClip, pooled_midi_source: Option<ReaperClipSource>) -> Self {
+    pub fn new(rt_clip: &rt::RtClip) -> Self {
         Self {
             runtime_data: SlotRuntimeData {
                 play_state: Default::default(),
@@ -86,7 +78,6 @@ impl OnlineData {
                 peak: rt_clip.shared_peak(),
                 material_info: rt_clip.material_info().unwrap(),
             },
-            pooled_midi_source,
         }
     }
 
@@ -276,30 +267,11 @@ impl Slot {
     }
 
     /// Returns `None` if this slot doesn't need to be saved (because it's empty).
-    pub fn save(&self, temporary_project: Option<Project>) -> Option<api::Slot> {
-        let slot_is_pretty_much_recording = self.state.is_pretty_much_recording();
+    pub fn save(&self) -> Option<api::Slot> {
         let clips: Vec<_> = self
             .contents
             .values()
-            .filter_map(|content| {
-                let is_recording =
-                    slot_is_pretty_much_recording || self.play_state.is_somehow_recording();
-                let pooled_midi_source = if is_recording {
-                    // When recording, we don't want to interfere with the pooled MIDI that's being
-                    // changed at the very moment. Also, we don't want to save "uncommitted" data, so
-                    // we save the last known "stable" MIDI contents.
-                    None
-                } else if let Some(online_data) = &content.online_data {
-                    // When not recording, we inspect the pooled MIDI source.
-                    online_data.pooled_midi_source.as_ref()
-                } else {
-                    None
-                };
-                content
-                    .clip
-                    .save_flexible(pooled_midi_source, temporary_project)
-                    .ok()
-            })
+            .filter_map(|content| content.clip.save().ok())
             .collect();
         if clips.is_empty() {
             return None;
@@ -330,7 +302,7 @@ impl Slot {
         project: Option<Project>,
     ) -> RtSlot {
         let rt_clips = self.contents.values_mut().filter_map(|content| {
-            let (rt_clip, pooled_midi_source) = content
+            let rt_clip = content
                 .clip
                 .create_real_time_clip(
                     project,
@@ -340,7 +312,7 @@ impl Slot {
                     column_settings,
                 )
                 .ok()?;
-            let online_data = OnlineData::new(&rt_clip, pooled_midi_source);
+            let online_data = OnlineData::new(&rt_clip);
             content.online_data = Some(online_data);
             Some((rt_clip.id(), rt_clip))
         });
@@ -492,7 +464,6 @@ impl Slot {
                 .record_as_midi_overdub(
                     column_command_sender,
                     handler,
-                    project,
                     common_stuff,
                     midi_overdub_stuff,
                 ),
@@ -558,10 +529,7 @@ impl Slot {
                 SlotRecordInstruction::NewClip(new_clip_instruction),
             )
         };
-        let next_state = SlotState::RequestedRecording(RequestedRecordingState {
-            clip_id,
-            pooled_midi_source: specific_stuff.pooled_midi_source,
-        });
+        let next_state = SlotState::RequestedRecording(RequestedRecordingState { clip_id });
         // Above code was only for checking preconditions and preparing stuff.
         // Here we can't fail anymore, do the actual state changes and distribute tasks.
         self.initiate_recording(
@@ -579,43 +547,17 @@ impl Slot {
         &mut self,
         column_command_sender: &ColumnCommandSender,
         handler: &dyn ClipMatrixHandler,
-        project: Project,
         common_stuff: CommonRecordStuff,
         specific_stuff: MidiOverdubRecordStuff,
     ) -> ClipEngineResult<()> {
-        // If we had a file-based source before and now have an in-project source, make a pooled
-        // copy of the in-project source.
         let (_, content) = self
             .contents
             .first_mut()
-            .expect("content not set although overdubbing");
-        let online_data = content
-            .online_data
-            .as_mut()
-            .ok_or("clip to be overdubbed offline")?;
-        let new_pooled_midi_source =
-            if let Some(s) = &specific_stuff.instruction.in_project_midi_source {
-                let s = Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone());
-                Some(s)
-            } else {
-                None
-            };
-        let pooled_midi_source = new_pooled_midi_source.as_ref().unwrap_or_else(|| {
-            online_data
-                .pooled_midi_source
-                .as_ref()
-                .expect("pooled MIDI source not set although overdubbing")
-        });
-        let fresh_api_source =
-            create_api_source_from_recorded_midi_source(pooled_midi_source, Some(project))?;
-        // Above code was only for checking preconditions and preparing stuff.
-        // Here we can't fail anymore, do the actual state changes and distribute tasks.
-        if let Some(s) = new_pooled_midi_source {
-            online_data.pooled_midi_source = Some(s);
-        }
+            .ok_or("content not set although overdubbing")?;
         content
-            .clip
-            .update_api_source_before_midi_overdubbing(fresh_api_source);
+            .online_data
+            .as_ref()
+            .ok_or("clip to be overdubbed is offline")?;
         self.initiate_recording(
             column_command_sender,
             handler,
@@ -789,7 +731,7 @@ impl Slot {
     pub fn api_clips(&self, permanent_project: Option<Project>) -> Vec<api::Clip> {
         self.contents
             .values()
-            .filter_map(|c| c.clip.save(permanent_project).ok())
+            .filter_map(|c| c.clip.save().ok())
             .collect()
     }
 
@@ -955,7 +897,6 @@ impl Slot {
                     // This must be a real recording, not overdub.
                     let recording_state = RecordingState {
                         clip_id: s.clip_id,
-                        pooled_midi_source: s.pooled_midi_source,
                         runtime_data,
                     };
                     SlotState::Recording(recording_state)
@@ -1008,7 +949,6 @@ impl Slot {
                         recording.kind_specific,
                         recording.clip_settings,
                         temporary_project,
-                        s.pooled_midi_source.as_ref(),
                         recording_track,
                     )?;
                     s.runtime_data.material_info = recording.material_info;
@@ -1017,7 +957,6 @@ impl Slot {
                         clip,
                         online_data: Some(OnlineData {
                             runtime_data: s.runtime_data,
-                            pooled_midi_source: s.pooled_midi_source,
                         }),
                     };
                     self.contents.clear();
@@ -1053,14 +992,11 @@ enum SlotState {
 #[derive(Clone, Debug)]
 struct RequestedRecordingState {
     clip_id: ClipId,
-    pooled_midi_source: Option<ReaperClipSource>,
 }
 
 #[derive(Clone, Debug)]
 struct RecordingState {
     clip_id: ClipId,
-    /// This must be set for MIDI recordings.
-    pooled_midi_source: Option<ReaperClipSource>,
     runtime_data: SlotRuntimeData,
 }
 
@@ -1098,7 +1034,6 @@ enum ModeSpecificRecordStuff {
 
 struct FromScratchRecordStuff {
     recording_equipment: RecordingEquipment,
-    pooled_midi_source: Option<ReaperClipSource>,
 }
 
 struct MidiOverdubRecordStuff {
@@ -1182,13 +1117,8 @@ fn create_record_stuff(
     let mode_specific_stuff = if let Some(instruction) = final_midi_overdub_instruction {
         ModeSpecificRecordStuff::MidiOverdub(MidiOverdubRecordStuff { instruction })
     } else {
-        let pooled_midi_source = match &recording_equipment {
-            RecordingEquipment::Midi(e) => e.create_pooled_copy_of_midi_source(),
-            RecordingEquipment::Audio(_) => None,
-        };
         ModeSpecificRecordStuff::FromScratch(FromScratchRecordStuff {
             recording_equipment,
-            pooled_midi_source,
         })
     };
     let common_stuff = CommonRecordStuff {
@@ -1239,7 +1169,7 @@ pub fn create_midi_overdub_instruction(
     } else {
         None
     };
-    let in_project_midi_source = match api_source {
+    let (mirror_source, source_replacement) = match api_source {
         api::Source::File(file_based_api_source) => {
             // We have a file-based MIDI source only. In the real-time clip, we need to replace
             // it with an equivalent in-project MIDI source first. Create it!
@@ -1248,19 +1178,24 @@ pub fn create_midi_overdub_instruction(
                 file_based_api_source,
                 true,
             )?;
-            Some(ReaperClipSource::new(in_project_source.into_raw()))
+            let chunk = in_project_source.state_chunk();
+            let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&chunk)
+                .map_err(|_| "couldn't parse MidiSequence from API MIDI file")?;
+            (midi_sequence.clone(), Some(midi_sequence))
         }
-        api::Source::MidiChunk(_) => {
+        api::Source::MidiChunk(s) => {
             // We have an in-project MIDI source already. Great!
-            None
+            let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&s.chunk)
+                .map_err(|_| "couldn't parse MidiSequence from API chunk")?;
+            (midi_sequence, None)
         }
     };
-
     let instruction = MidiOverdubInstruction {
-        in_project_midi_source,
+        source_replacement,
         settings: MidiOverdubSettings {
             mode,
             quantization_settings,
+            mirror_source,
         },
     };
     Ok(instruction)
@@ -1300,11 +1235,13 @@ fn item_refers_to_clip_content(item: Item, clip: &Clip, online_data: &OnlineData
         None => return false,
         Some(s) => s,
     };
-    if let Some(clip_source) = &online_data.pooled_midi_source {
-        // TODO-medium Checks can be optimized (in terms of performance)
-        let clip_source = BorrowedSource::from_raw(clip_source.reaper_source());
-        clip_source.pooled_midi_id().map(|res| res.id) == source.pooled_midi_id().map(|res| res.id)
-    } else if let api::Source::File(s) = clip.api_source() {
+    // TODO-high Implement "Open in REAPER MIDI editor" again by creating a PCM source ad-hoc
+    // if let Some(clip_source) = &online_data.pooled_midi_source {
+    //     // // TODO-medium Checks can be optimized (in terms of performance)
+    //     let clip_source = BorrowedSource::from_raw(clip_source.reaper_source());
+    //     clip_source.pooled_midi_id().map(|res| res.id) == source.pooled_midi_id().map(|res| res.id)
+    // } else
+    if let api::Source::File(s) = clip.api_source() {
         source
             .as_ref()
             .as_raw()
@@ -1427,11 +1364,11 @@ fn manifest_clip_on_track(
             )
         }
     };
-    let source = if let Some(s) = online_data.pooled_midi_source.as_ref() {
-        Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
-    } else {
-        clip.create_pcm_source(Some(temporary_project))?
-    };
+    // TODO-high Implement "Open in REAPER MIDI editor" again by creating a PCM source ad-hoc
+    // let source = if let Some(s) = online_data.pooled_midi_source.as_ref() {
+    //     Reaper::get().with_pref_pool_midi_when_duplicating(true, || s.clone())
+    // } else
+    let source = clip.create_pcm_source(Some(temporary_project))?;
     if online_data.runtime_data.material_info.is_midi() {
         // Because we set a constant preview tempo for our MIDI sources (which is
         // important for our internal processing), IGNTEMPO is set to 1, which means the source

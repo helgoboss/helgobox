@@ -4,11 +4,11 @@ use crate::rt::supplier::{
     AutoDelegatingPositionTranslationSkill, AutoDelegatingPreBufferSourceSkill,
     AutoDelegatingWithMaterialInfo, Cache, CacheRequest, CommandProcessor, Downbeat,
     InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubSettings,
-    PollRecordingOutcome, PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior,
-    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill,
-    ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler, Section, SectionBounds,
-    StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo, WithSupplier,
-    WriteAudioRequest, WriteMidiRequest,
+    MidiSequence, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
+    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
+    PreBufferSourceSkill, ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler,
+    Section, SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher, WithMaterialInfo,
+    WithSupplier, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::BasicAudioRequestProps;
@@ -298,13 +298,13 @@ impl SupplierChain {
 
     pub fn start_midi_overdub(
         &mut self,
-        in_project_midi_source: Option<ReaperClipSource>,
+        source_replacment: Option<MidiSequence>,
         settings: MidiOverdubSettings,
     ) {
         // With MIDI, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .start_midi_overdub(in_project_midi_source, settings)
+            .start_midi_overdub(source_replacment, settings)
             .unwrap();
     }
 

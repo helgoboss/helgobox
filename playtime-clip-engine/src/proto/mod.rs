@@ -111,14 +111,12 @@ impl qualified_occasional_slot_update::Update {
     }
 
     pub fn complete_persistent_data(matrix: &Matrix, slot: &Slot) -> Self {
-        let api_slot =
-            slot.save(matrix.permanent_project())
-                .unwrap_or(playtime_api::persistence::Slot {
-                    id: slot.id().clone(),
-                    row: slot.index(),
-                    clip_old: None,
-                    clips: None,
-                });
+        let api_slot = slot.save().unwrap_or(playtime_api::persistence::Slot {
+            id: slot.id().clone(),
+            row: slot.index(),
+            clip_old: None,
+            clips: None,
+        });
         let json = serde_json::to_string(&api_slot).expect("couldn't represent slot as JSON");
         Self::CompletePersistentData(json)
     }
@@ -126,7 +124,7 @@ impl qualified_occasional_slot_update::Update {
 
 impl qualified_occasional_clip_update::Update {
     pub fn complete_persistent_data(matrix: &Matrix, clip: &Clip) -> ClipEngineResult<Self> {
-        let api_clip = clip.save(Some(matrix.temporary_project()))?;
+        let api_clip = clip.save()?;
         let json = serde_json::to_string(&api_clip).expect("couldn't represent clip as JSON");
         Ok(Self::CompletePersistentData(json))
     }
