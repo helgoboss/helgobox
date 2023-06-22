@@ -257,7 +257,7 @@ impl Clip {
         let (clip_source, pooled_copy) = if let api::Source::MidiChunk(s) = &self.source {
             // let clone =
             //     Reaper::get().with_pref_pool_midi_when_duplicating(true, || pcm_source.clone());
-            // Some(clone)
+            // (RtClipSource::Reaper(pcm_source), Some(clone))
             let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&s.chunk)?;
             (RtClipSource::Midi(midi_sequence), Some(pcm_source))
         } else {

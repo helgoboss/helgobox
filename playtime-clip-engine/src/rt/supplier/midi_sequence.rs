@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::conversion_util::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    adjust_proportionally_positive, convert_duration_in_frames_to_seconds,
 };
 use crate::rt::supplier::midi_util::supply_midi_material;
 use crate::rt::supplier::time_series::{TimeSeries, TimeSeriesEvent};
@@ -12,16 +12,17 @@ use crate::rt::supplier::{
 use crate::ClipEngineResult;
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageFactory};
 use playtime_api::persistence::{Bpm, TimeSignature};
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, MidiFrameOffset};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, MidiFrameOffset};
 use std::cmp;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Write};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct MidiSequence {
     ppq: u64,
     time_series: TimeSeries<MidiEventPayload>,
     time_info: MidiTimeInfo,
+    normalized_second_to_pulse_factor: f64,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -92,9 +93,23 @@ const CONSTANT_BPM: Bpm = unsafe { Bpm::new_unchecked(MIDI_BASE_BPM.get()) };
 const CONSTANT_DENOM: u32 = 4;
 
 impl MidiSequence {
+    pub fn new(
+        ppq: u64,
+        time_series: TimeSeries<MidiEventPayload>,
+        time_info: MidiTimeInfo,
+    ) -> Self {
+        Self {
+            ppq,
+            time_series,
+            time_info,
+            normalized_second_to_pulse_factor: calculate_normalized_second_to_pulse_factor(ppq),
+        }
+    }
+
     /// Parses a MIDI sequence from the given in-project MIDI REAPER chunk.
     pub fn parse_from_reaper_midi_chunk(chunk: &str) -> Result<Self, Box<dyn Error>> {
-        let mut sequence = Self::default();
+        let mut ppq = 960;
+        let mut time_info = MidiTimeInfo::default();
         let mut last_frame = 0;
         let mut events = Vec::new();
         for line in chunk.lines() {
@@ -107,15 +122,15 @@ impl MidiSequence {
                     events.push(e);
                 }
                 ReaperMidiChunkEntry::HasData(e) => {
-                    sequence.ppq = e.ppq;
+                    ppq = e.ppq;
                 }
                 ReaperMidiChunkEntry::IgnTempo(d) => {
-                    sequence.time_info = d;
+                    time_info = d;
                 }
                 ReaperMidiChunkEntry::Unhandled(_) => {}
             }
         }
-        sequence.time_series = TimeSeries::new(events);
+        let sequence = MidiSequence::new(ppq, TimeSeries::new(events), time_info);
         Ok(sequence)
     }
 
@@ -135,56 +150,56 @@ impl MidiSequence {
 
     /// Calculates the number of MIDI frames according to [`MIDI_FRAME_RATE`] using a normalized
     /// tempo and time signature.
-    pub fn normalized_midi_frame_count(&self) -> usize {
-        let length = self.length_at(CONSTANT_BPM, CONSTANT_DENOM);
-        convert_duration_in_seconds_to_frames(length, MIDI_FRAME_RATE)
-    }
-
-    /// Calculates the length of this sequence given a particular tempo and time signature.
-    pub fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
-        DurationInSeconds::new(self.convert_pulse_to_second_flexible(
-            self.total_pulse_count(),
-            bpm,
-            time_sig_denominator,
-        ))
-    }
-
-    fn calculate_pulse_to_midi_frame_factor_normalized(&self, frame_rate: Hz) -> f64 {
-        let pulse_to_second_factor =
-            self.convert_pulse_to_second_flexible(1, CONSTANT_BPM, CONSTANT_DENOM);
-        pulse_to_second_factor * frame_rate.get()
+    fn calculate_midi_frame_count_normalized(&self, pulse_count: u64) -> usize {
+        let seconds = pulse_count as f64 / self.normalized_second_to_pulse_factor;
+        adjust_proportionally_positive(seconds, MIDI_FRAME_RATE.get())
     }
 
     fn convert_duration_in_seconds_to_pulse_normalized(&self, duration: DurationInSeconds) -> u64 {
-        self.convert_second_to_pulse_flexible(duration.get(), CONSTANT_BPM, CONSTANT_DENOM) as u64
+        (duration.get() * self.normalized_second_to_pulse_factor).floor() as u64
     }
 
-    fn convert_pulse_to_second_flexible(
-        &self,
-        pulse: u64,
-        bpm: Bpm,
-        time_sig_denominator: u32,
-    ) -> f64 {
-        let bps = bpm.get() / 60.0;
-        let duration_of_one_beat_in_secs = 1.0 / bps;
-        let quarter_notes = pulse as f64 / self.ppq as f64;
-        let beat = quarter_notes * get_qn_to_beat_factor(time_sig_denominator);
-        beat * duration_of_one_beat_in_secs
+    /// Calculates the length of this sequence given a particular tempo and time signature.
+    pub fn calculate_length(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
+        let second_to_pulse_factor =
+            self.calculate_second_to_pulse_factor(bpm, time_sig_denominator);
+        let length = self.total_pulse_count() as f64 / second_to_pulse_factor;
+        DurationInSeconds::new(length)
     }
 
-    fn convert_second_to_pulse_flexible(
-        &self,
-        second: f64,
-        bpm: Bpm,
-        time_sig_denominator: u32,
-    ) -> i64 {
-        let bps = bpm.get() / 60.0;
-        let duration_of_one_beat_in_secs = 1.0 / bps;
-        let beat = second / duration_of_one_beat_in_secs;
-        let quarter_notes = beat / get_qn_to_beat_factor(time_sig_denominator);
-        let pulse = quarter_notes * self.ppq as f64;
-        pulse.floor() as i64
+    fn calculate_second_to_pulse_factor(&self, bpm: Bpm, time_sig_denominator: u32) -> f64 {
+        convert_second_to_pulse_flexible(1.0, bpm, time_sig_denominator, self.ppq)
     }
+}
+
+fn convert_pulse_to_second_flexible(
+    pulse: u64,
+    bpm: Bpm,
+    time_sig_denominator: u32,
+    ppq: u64,
+) -> f64 {
+    let bps = bpm.get() / 60.0;
+    let duration_of_one_beat_in_secs = 1.0 / bps;
+    let quarter_notes = pulse as f64 / ppq as f64;
+    let beat = quarter_notes * get_qn_to_beat_factor(time_sig_denominator);
+    beat * duration_of_one_beat_in_secs
+}
+
+fn calculate_normalized_second_to_pulse_factor(ppq: u64) -> f64 {
+    convert_second_to_pulse_flexible(1.0, CONSTANT_BPM, CONSTANT_DENOM, ppq)
+}
+
+fn convert_second_to_pulse_flexible(
+    second: f64,
+    bpm: Bpm,
+    time_sig_denominator: u32,
+    ppq: u64,
+) -> f64 {
+    let bps = bpm.get() / 60.0;
+    let duration_of_one_beat_in_secs = 1.0 / bps;
+    let beat = second / duration_of_one_beat_in_secs;
+    let quarter_notes = beat / get_qn_to_beat_factor(time_sig_denominator);
+    quarter_notes * ppq as f64
 }
 
 /// Calculates the factor for converting from quarter notes to beats.
@@ -208,31 +223,37 @@ impl MidiSupplier for MidiSequence {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         supply_midi_material(request, |request| {
-            // If sequence empty, stop right here.
-            let total_pulse_count = self.total_pulse_count();
-            if total_pulse_count == 0 {
+            // Create aliases for brevity
+            let frame_rate = request.dest_sample_rate;
+            let start_frame = request.start_frame;
+            let num_frames_to_be_consumed = request.dest_frame_count;
+            // If sequence empty, stop right here
+            let total_num_pulses = self.total_pulse_count();
+            if total_num_pulses == 0 {
                 return SupplyResponse::exceeded_end();
             }
-            let frame_rate = request.dest_sample_rate;
-            let num_frames_to_be_consumed = request.dest_frame_count;
-            let start_time = convert_duration_in_frames_to_seconds(request.start_frame, frame_rate);
-            let start_pulse = self.convert_duration_in_seconds_to_pulse_normalized(start_time);
-            let requested_length =
-                convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
-            if start_pulse >= total_pulse_count {
+            // If start frame behind end, stop right here
+            let total_num_frames = self.calculate_midi_frame_count_normalized(total_num_pulses);
+            if start_frame >= total_num_frames {
                 return SupplyResponse::exceeded_end();
             };
-            let requested_pulse_count =
-                self.convert_duration_in_seconds_to_pulse_normalized(requested_length);
-            let remaining_pulse_count_till_end = total_pulse_count - start_pulse;
-            let actual_requested_pulse_count =
-                cmp::min(requested_pulse_count, remaining_pulse_count_till_end);
-            let pulse_to_frame_factor =
-                self.calculate_pulse_to_midi_frame_factor_normalized(frame_rate);
+            // Reduce number of requested frames according to that's still available
+            let num_remaining_frames = total_num_frames - start_frame;
+            let actual_num_frames_to_be_consumed =
+                cmp::min(num_frames_to_be_consumed, num_remaining_frames);
+            // Convert to pulses
+            let start_time = convert_duration_in_frames_to_seconds(start_frame, frame_rate);
+            let start_pulse = self.convert_duration_in_seconds_to_pulse_normalized(start_time);
+            let actual_seconds_to_be_consumed =
+                convert_duration_in_frames_to_seconds(actual_num_frames_to_be_consumed, frame_rate);
+            let actual_num_pulses_to_be_consumed =
+                self.convert_duration_in_seconds_to_pulse_normalized(actual_seconds_to_be_consumed);
+            // Write events to event list
             let mut reaper_evt = reaper_medium::MidiEvent::default();
             let relevant_events = self
                 .time_series
-                .find_events_in_range(start_pulse, actual_requested_pulse_count);
+                .find_events_in_range(start_pulse, actual_num_pulses_to_be_consumed);
+            let pulse_to_frame_factor = frame_rate.get() / self.normalized_second_to_pulse_factor;
             for evt in relevant_events {
                 let pulse_offset = (evt.frame - start_pulse) as f64;
                 let frame_offset = (pulse_offset * pulse_to_frame_factor).floor() as u32;
@@ -240,18 +261,16 @@ impl MidiSupplier for MidiSequence {
                 reaper_evt.set_message(evt.payload.msg);
                 event_list.add_item(&reaper_evt)
             }
-            let num_midi_frames_consumed =
-                (actual_requested_pulse_count as f64 * pulse_to_frame_factor).floor() as usize;
             // TODO We don't include the last frame when it comes to reporting the pulse/frame count.
             //  Should we manually add this notes-off event? Or is it already transmitted? Or should we
             //  handle this via StartEndHandler?
             // The lower the sample rate, the higher the tempo, the more inner source material we
             // effectively grabbed.
             SupplyResponse::limited_by_total_frame_count(
-                num_midi_frames_consumed,
-                num_midi_frames_consumed,
-                request.start_frame as isize,
-                self.normalized_midi_frame_count(),
+                actual_num_frames_to_be_consumed,
+                actual_num_frames_to_be_consumed,
+                start_frame as isize,
+                total_num_frames,
             )
         })
     }
@@ -260,7 +279,7 @@ impl MidiSupplier for MidiSequence {
 impl WithMaterialInfo for MidiSequence {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let info = MidiMaterialInfo {
-            frame_count: self.normalized_midi_frame_count(),
+            frame_count: self.calculate_midi_frame_count_normalized(self.total_pulse_count()),
         };
         Ok(MaterialInfo::Midi(info))
     }
@@ -388,10 +407,10 @@ mod tests {
             // E 240 b0 7b 00
             e(960, false, false, (0xb0, 0x7b, 0x00), 0),
         ];
-        let midi_sequence = MidiSequence {
-            ppq: 960,
-            time_series: TimeSeries::new(events),
-            time_info: MidiTimeInfo {
+        let midi_sequence = MidiSequence::new(
+            960,
+            TimeSeries::new(events),
+            MidiTimeInfo {
                 igntempo: true,
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
@@ -399,16 +418,17 @@ mod tests {
                     denominator: 4,
                 },
             },
-        };
+        );
         // When
         assert_eq!(midi_sequence.total_pulse_count(), 960);
-        let length_with_normal_tempo = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 4);
+        let length_with_normal_tempo = midi_sequence.calculate_length(Bpm::new(120.0).unwrap(), 4);
         assert_eq!(length_with_normal_tempo.get(), 0.5);
-        let length_with_different_time_sig = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 8);
+        let length_with_different_time_sig =
+            midi_sequence.calculate_length(Bpm::new(120.0).unwrap(), 8);
         assert_eq!(length_with_different_time_sig.get(), 1.0);
-        let length_with_double_tempo = midi_sequence.length_at(Bpm::new(240.0).unwrap(), 4);
+        let length_with_double_tempo = midi_sequence.calculate_length(Bpm::new(240.0).unwrap(), 4);
         assert_eq!(length_with_double_tempo.get(), 0.25);
-        let length_with_half_tempo = midi_sequence.length_at(Bpm::new(60.0).unwrap(), 4);
+        let length_with_half_tempo = midi_sequence.calculate_length(Bpm::new(60.0).unwrap(), 4);
         assert_eq!(length_with_half_tempo.get(), 1.0);
     }
 
@@ -481,10 +501,10 @@ SRCCOLOR 8197
             // E 240 b0 7b 00
             e(960, false, false, (0xb0, 0x7b, 0x00), 0),
         ];
-        let midi_sequence = MidiSequence {
-            ppq: 960,
-            time_series: TimeSeries::new(events),
-            time_info: MidiTimeInfo {
+        let midi_sequence = MidiSequence::new(
+            960,
+            TimeSeries::new(events),
+            MidiTimeInfo {
                 igntempo: true,
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
@@ -492,7 +512,7 @@ SRCCOLOR 8197
                     denominator: 4,
                 },
             },
-        };
+        );
         // When
         let actual_chunk = midi_sequence.format_as_reaper_midi_chunk();
         // Then

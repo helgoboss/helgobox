@@ -1,19 +1,19 @@
 use reaper_medium::{DurationInSeconds, Hz, PositionInSeconds};
 
 pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_rate: Hz) -> usize {
-    (seconds.get() * sample_rate.get()).round() as usize
+    adjust_proportionally_positive(seconds.get(), sample_rate.get())
 }
 
 pub fn convert_position_in_seconds_to_frames(seconds: PositionInSeconds, sample_rate: Hz) -> isize {
-    (seconds.get() * sample_rate.get()).round() as isize
+    adjust_proportionally(seconds.get(), sample_rate.get())
 }
 
-pub fn adjust_proportionally_positive(frame_count: f64, factor: f64) -> usize {
-    adjust_proportionally(frame_count, factor) as usize
+pub fn adjust_proportionally_positive(value: f64, factor: f64) -> usize {
+    adjust_proportionally(value, factor) as usize
 }
 
-pub fn adjust_proportionally(frame_count: f64, factor: f64) -> isize {
-    (frame_count * factor).round() as isize
+pub fn adjust_proportionally(value: f64, factor: f64) -> isize {
+    (value * factor).round() as isize
 }
 
 pub fn adjust_pos_in_secs_anti_proportionally(
