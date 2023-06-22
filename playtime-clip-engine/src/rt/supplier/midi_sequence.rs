@@ -106,6 +106,14 @@ impl MidiSequence {
         }
     }
 
+    pub fn empty(ppq: u64, capacity: usize, time_info: MidiTimeInfo) -> Self {
+        Self::new(
+            ppq,
+            TimeSeries::new(Vec::with_capacity(capacity)),
+            time_info,
+        )
+    }
+
     /// Parses a MIDI sequence from the given in-project MIDI REAPER chunk.
     pub fn parse_from_reaper_midi_chunk(chunk: &str) -> Result<Self, Box<dyn Error>> {
         let mut ppq = 960;
@@ -132,6 +140,32 @@ impl MidiSequence {
         }
         let sequence = MidiSequence::new(ppq, TimeSeries::new(events), time_info);
         Ok(sequence)
+    }
+
+    pub fn ppq(&self) -> u64 {
+        self.ppq
+    }
+
+    pub fn time_series(&self) -> &TimeSeries<MidiEventPayload> {
+        &self.time_series
+    }
+
+    pub fn time_info(&self) -> &MidiTimeInfo {
+        &self.time_info
+    }
+
+    pub fn insert_event_at_normalized_midi_frame(
+        &mut self,
+        frame: usize,
+        payload: MidiEventPayload,
+    ) {
+        let second = convert_duration_in_frames_to_seconds(frame, MIDI_FRAME_RATE);
+        let pulse = self.convert_duration_in_seconds_to_pulse_normalized(second);
+        self.insert_event_at_pulse(pulse, payload);
+    }
+
+    pub fn insert_event_at_pulse(&mut self, pulse_index: u64, payload: MidiEventPayload) {
+        self.time_series.insert(pulse_index, payload);
     }
 
     /// Formats the sequence as REAPER in-project chunk.

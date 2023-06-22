@@ -11,7 +11,9 @@ use crate::source_util::{
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
-use playtime_api::persistence::{ClipColor, ClipId, ClipTimeBase, Db, Section, SourceOrigin};
+use playtime_api::persistence::{
+    ClipColor, ClipId, ClipTimeBase, Db, MidiChunkSource, Section, SourceOrigin,
+};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::{Bpm, PeakFileMode};
 use std::error::Error;
@@ -58,10 +60,20 @@ impl Clip {
     ) -> ClipEngineResult<Self> {
         use KindSpecificRecordingOutcome::*;
         let api_source = match kind_specific_outcome {
-            Midi {} => {
-                let pooled_midi_source =
-                    pooled_midi_source.expect("MIDI source must be given for MIDI recordings");
-                create_api_source_from_recorded_midi_source(pooled_midi_source, temporary_project)?
+            Midi { midi_sequence } => {
+                if let Some(midi_sequence) = midi_sequence {
+                    api::Source::MidiChunk(MidiChunkSource {
+                        chunk: midi_sequence.format_as_reaper_midi_chunk(),
+                    })
+                } else {
+                    let pooled_midi_source = pooled_midi_source.ok_or(
+                        "pooled MIDI source must be given for REAPER source MIDI recordings",
+                    )?;
+                    create_api_source_from_recorded_midi_source(
+                        pooled_midi_source,
+                        temporary_project,
+                    )?
+                }
             }
             Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };

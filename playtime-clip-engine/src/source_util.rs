@@ -174,7 +174,7 @@ pub fn create_pcm_source_from_media_file(
 }
 
 /// Returns an empty MIDI source prepared for recording.
-pub fn create_empty_midi_source() -> OwnedSource {
+pub fn create_empty_reaper_midi_source() -> OwnedSource {
     let mut source = OwnedSource::from_type("MIDI").unwrap();
     // The following seems to be the absolute minimum to create the shortest possible MIDI clip
     // (which still is longer than zero).

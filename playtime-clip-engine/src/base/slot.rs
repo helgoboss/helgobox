@@ -1183,7 +1183,7 @@ fn create_record_stuff(
         ModeSpecificRecordStuff::MidiOverdub(MidiOverdubRecordStuff { instruction })
     } else {
         let pooled_midi_source = match &recording_equipment {
-            RecordingEquipment::Midi(e) => Some(e.create_pooled_copy_of_midi_source()),
+            RecordingEquipment::Midi(e) => e.create_pooled_copy_of_midi_source(),
             RecordingEquipment::Audio(_) => None,
         };
         ModeSpecificRecordStuff::FromScratch(FromScratchRecordStuff {

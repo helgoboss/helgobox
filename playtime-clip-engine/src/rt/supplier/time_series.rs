@@ -30,6 +30,19 @@ impl<T> TimeSeriesEvent<T> {
 }
 
 impl<T> TimeSeries<T> {
+    pub fn insert(&mut self, frame: u64, payload: T) {
+        let event = TimeSeriesEvent::new(frame, payload);
+        // Optimization: If frame is larger or equal than last frame, just push.
+        let add = self.events.last().map(|l| frame >= l.frame).unwrap_or(true);
+        if add {
+            self.events.push(event);
+            return;
+        }
+        // In all other cases, insert at correct position in order to maintain sort order
+        let insertion_index = self.events.partition_point(|e| e.frame < frame);
+        self.events.insert(insertion_index, event);
+    }
+
     pub fn find_events_in_range(
         &self,
         start_frame: u64,
