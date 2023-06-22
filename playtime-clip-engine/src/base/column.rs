@@ -1,4 +1,7 @@
-use crate::base::{Clip, ClipMatrixHandler, IdMode, MatrixSettings, RelevantContent, Slot};
+use crate::base::{
+    Clip, ClipMatrixHandler, EssentialSlotRecordClipArgs, IdMode, MatrixSettings, RelevantContent,
+    Slot,
+};
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotContentsArgs,
@@ -784,33 +787,42 @@ impl Column {
         self.slots.values().any(|s| s.is_recording())
     }
 
-    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn midi_overdub_clip(
+        &mut self,
+        slot_index: usize,
+        clip_index: usize,
+        args: EssentialColumnRecordClipArgs,
+    ) -> ClipEngineResult<()> {
+        let recording_track = &self.effective_recording_track()?;
+        let slot = get_slot_mut(&mut self.slots, slot_index)?;
+        let args = EssentialSlotRecordClipArgs {
+            column_args: args,
+            column_record_settings: &self.settings.clip_record_settings,
+            rt_column_settings: &self.rt_settings,
+            recording_track,
+            rt_column: &self.rt_column,
+            column_command_sender: &self.rt_command_sender,
+        };
+        slot.midi_overdub_clip(clip_index, args)
+    }
+
     pub(crate) fn record_slot(
         &mut self,
         slot_index: usize,
-        matrix_record_settings: &MatrixClipRecordSettings,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        handler: &dyn ClipMatrixHandler,
-        containing_track: Option<&Track>,
-        overridable_matrix_settings: &OverridableMatrixSettings,
+        args: EssentialColumnRecordClipArgs,
     ) -> ClipEngineResult<()> {
         let recording_track = &self.effective_recording_track()?;
         // Insert slot if it doesn't exist already.
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        slot.record_clip(
-            matrix_record_settings,
-            &self.settings.clip_record_settings,
-            &self.rt_settings,
-            chain_equipment,
-            recorder_request_sender,
-            handler,
-            containing_track,
-            overridable_matrix_settings,
+        let args = EssentialSlotRecordClipArgs {
+            column_args: args,
+            column_record_settings: &self.settings.clip_record_settings,
+            rt_column_settings: &self.rt_settings,
             recording_track,
-            &self.rt_column,
-            &self.rt_command_sender,
-        )
+            rt_column: &self.rt_column,
+            column_command_sender: &self.rt_command_sender,
+        };
+        slot.record_clip(args)
     }
 }
 
@@ -911,4 +923,13 @@ pub struct ColumnRtEquipment<'a> {
     pub chain_equipment: &'a ChainEquipment,
     pub recorder_request_sender: &'a Sender<RecorderRequest>,
     pub matrix_settings: &'a MatrixSettings,
+}
+
+pub struct EssentialColumnRecordClipArgs<'a> {
+    pub matrix_record_settings: &'a MatrixClipRecordSettings,
+    pub chain_equipment: &'a ChainEquipment,
+    pub recorder_request_sender: &'a Sender<RecorderRequest>,
+    pub handler: &'a dyn ClipMatrixHandler,
+    pub containing_track: Option<&'a Track>,
+    pub overridable_matrix_settings: &'a OverridableMatrixSettings,
 }

@@ -1676,6 +1676,7 @@ pub struct RecordNewClipInstruction {
 
 #[derive(Debug)]
 pub struct MidiOverdubInstruction {
+    pub clip_index: usize,
     /// We can't overdub on a file-based MIDI source. If the current MIDI source is a file-based
     /// one, this field will contain a MidiSequence. The current real-time source needs
     /// to be replaced with this one before overdubbing can work.

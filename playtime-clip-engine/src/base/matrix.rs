@@ -1,9 +1,9 @@
 use crate::base::history::History;
 use crate::base::row::Row;
 use crate::base::{
-    reorder_tracks, BoxedReaperChange, Clip, Column, ColumnRtEquipment, IdMode, ReaperChange,
-    ReaperChangeContext, RestorationInstruction, Slot, SlotKit, TrackAdditionReaperChange,
-    TrackReorderingReaperChange,
+    reorder_tracks, BoxedReaperChange, Clip, Column, ColumnRtEquipment,
+    EssentialColumnRecordClipArgs, IdMode, ReaperChange, ReaperChangeContext,
+    RestorationInstruction, Slot, SlotKit, TrackAdditionReaperChange, TrackReorderingReaperChange,
 };
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
@@ -1489,20 +1489,38 @@ impl Matrix {
         self.content.rows.len()
     }
 
+    /// Starts MIDI overdubbing the given clip.
+    pub fn midi_overdub_clip(&mut self, address: ClipAddress) -> ClipEngineResult<()> {
+        let args = EssentialColumnRecordClipArgs {
+            matrix_record_settings: &self.content.settings.clip_record_settings,
+            chain_equipment: &self.content.chain_equipment,
+            recorder_request_sender: &self.content.recorder_request_sender,
+            handler: &*self.content.handler,
+            containing_track: self.content.containing_track.as_ref(),
+            overridable_matrix_settings: &self.content.settings.overridable,
+        };
+        get_column_mut(&mut self.content.columns, address.slot_address.column)?.midi_overdub_clip(
+            address.slot_address.row,
+            address.clip_index,
+            args,
+        )
+    }
+
     /// Starts recording in the given slot.
     pub fn record_slot(&mut self, address: ClipSlotAddress) -> ClipEngineResult<()> {
         if self.is_recording() {
             return Err("recording already");
         }
-        get_column_mut(&mut self.content.columns, address.column())?.record_slot(
-            address.row(),
-            &self.content.settings.clip_record_settings,
-            &self.content.chain_equipment,
-            &self.content.recorder_request_sender,
-            &*self.content.handler,
-            self.content.containing_track.as_ref(),
-            &self.content.settings.overridable,
-        )
+        let args = EssentialColumnRecordClipArgs {
+            matrix_record_settings: &self.content.settings.clip_record_settings,
+            chain_equipment: &self.content.chain_equipment,
+            recorder_request_sender: &self.content.recorder_request_sender,
+            handler: &*self.content.handler,
+            containing_track: self.content.containing_track.as_ref(),
+            overridable_matrix_settings: &self.content.settings.overridable,
+        };
+        get_column_mut(&mut self.content.columns, address.column())?
+            .record_slot(address.row(), args)
     }
 
     /// Returns whether any column in this matrix is recording.

@@ -1,7 +1,8 @@
 use crate::base::{
     create_api_source_from_recorded_midi_sequence, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
-    MatrixSettings, VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+    EssentialColumnRecordClipArgs, MatrixSettings, VirtualClipRecordAudioInput,
+    VirtualClipRecordHardwareMidiInput,
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
@@ -386,20 +387,82 @@ impl Slot {
         self.state.is_pretty_much_recording()
     }
 
-    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn midi_overdub_clip(
+        &mut self,
+        clip_index: usize,
+        args: EssentialSlotRecordClipArgs,
+    ) -> ClipEngineResult<()> {
+        let content = self.get_content(clip_index)?;
+        let overdub_instruction = self.create_midi_overdub_instruction_internal(
+            content,
+            args.column_args.matrix_record_settings,
+            args.recording_track.project(),
+        )?;
+        self.record_or_overdub_internal(args, Some(overdub_instruction))
+    }
+
+    /// Chooses dynamically whether to do normal recording or overdub.
     pub(crate) fn record_clip(
         &mut self,
+        args: EssentialSlotRecordClipArgs,
+    ) -> ClipEngineResult<()> {
+        let overdub_instruction = self.create_midi_overdub_instruction_if_applicable(
+            args.column_args.matrix_record_settings,
+            args.recording_track.project(),
+        );
+        self.record_or_overdub_internal(args, overdub_instruction)
+    }
+
+    /// Decides whether to use MIDI overdub recording and if yes, returns an instruction.
+    ///
+    /// Decides for MIDI overdub under the following conditions:
+    ///
+    /// - MIDI recording mode in matrix record settings is set to overdub/replace
+    /// - Slot has exactly one clip
+    fn create_midi_overdub_instruction_if_applicable(
+        &self,
         matrix_record_settings: &MatrixClipRecordSettings,
-        column_record_settings: &ColumnClipRecordSettings,
-        rt_column_settings: &rt::RtColumnSettings,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        handler: &dyn ClipMatrixHandler,
-        containing_track: Option<&Track>,
-        overridable_matrix_settings: &OverridableMatrixSettings,
-        recording_track: &Track,
-        rt_column: &SharedRtColumn,
-        column_command_sender: &ColumnCommandSender,
+        project: Project,
+    ) -> Option<MidiOverdubInstruction> {
+        if matrix_record_settings.midi_settings.record_mode == MidiClipRecordMode::Normal {
+            return None;
+        }
+        if self.contents.len() > 1 {
+            return None;
+        }
+        let (_, content) = self.contents.first()?;
+        self.create_midi_overdub_instruction_internal(content, matrix_record_settings, project)
+            .ok()
+    }
+
+    fn create_midi_overdub_instruction_internal(
+        &self,
+        content: &Content,
+        matrix_record_settings: &MatrixClipRecordSettings,
+        project: Project,
+    ) -> ClipEngineResult<MidiOverdubInstruction> {
+        use MidiClipRecordMode::*;
+        let Some(online_data) = &content.online_data else {
+            return Err("clip not online");
+        };
+        if !online_data.runtime_data.material_info.is_midi() {
+            return Err("not a MIDI clip");
+        }
+        let instruction = create_midi_overdub_instruction(
+            0,
+            matrix_record_settings.midi_settings.record_mode,
+            matrix_record_settings.midi_settings.auto_quantize,
+            content.clip.api_source(),
+            Some(project),
+        )?;
+        Ok(instruction)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn record_or_overdub_internal(
+        &mut self,
+        args: EssentialSlotRecordClipArgs,
+        desired_midi_overdub_instruction: Option<MidiOverdubInstruction>,
     ) -> ClipEngineResult<()> {
         if self.state.is_pretty_much_recording() {
             return Err("recording already");
@@ -408,94 +471,51 @@ impl Slot {
             return Err("recording on slots with multiple clips is not supported");
         }
         // Check preconditions and prepare stuff.
-        let project = recording_track.project();
+        let project = args.recording_track.project();
         if self.play_state.is_somehow_recording() {
             return Err("recording already according to play state");
         }
-        let desired_midi_overdub_instruction = if let Some((_, content)) = self.contents.first() {
-            use MidiClipRecordMode::*;
-            let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
-                Normal => false,
-                Overdub | Replace => {
-                    // Only allow MIDI overdub if existing clip is a MIDI clip already.
-                    if let Some(online_data) = &content.online_data {
-                        online_data.runtime_data.material_info.is_midi()
-                    } else {
-                        false
-                    }
-                }
-            };
-            if want_midi_overdub {
-                let instruction = create_midi_overdub_instruction(
-                    matrix_record_settings.midi_settings.record_mode,
-                    matrix_record_settings.midi_settings.auto_quantize,
-                    content.clip.api_source(),
-                    Some(project),
-                )?;
-                Some(instruction)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
         let (common_stuff, mode_specific_stuff) = create_record_stuff(
             self.index,
-            containing_track,
-            matrix_record_settings,
-            column_record_settings,
-            recording_track,
-            rt_column,
+            args.column_args.containing_track,
+            args.column_args.matrix_record_settings,
+            args.column_record_settings,
+            args.recording_track,
+            args.rt_column,
             desired_midi_overdub_instruction,
         )?;
         match mode_specific_stuff {
-            ModeSpecificRecordStuff::FromScratch(from_scratch_stuff) => self.record_from_scratch(
-                column_command_sender,
-                handler,
-                matrix_record_settings,
-                overridable_matrix_settings,
-                rt_column_settings,
-                recorder_request_sender,
-                chain_equipment,
-                project,
-                common_stuff,
-                from_scratch_stuff,
-            ),
+            ModeSpecificRecordStuff::FromScratch(from_scratch_stuff) => {
+                self.record_from_scratch(args, project, common_stuff, from_scratch_stuff)
+            }
             ModeSpecificRecordStuff::MidiOverdub(midi_overdub_stuff) => self
                 .record_as_midi_overdub(
-                    column_command_sender,
-                    handler,
+                    args.column_command_sender,
+                    args.column_args.handler,
                     common_stuff,
                     midi_overdub_stuff,
                 ),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn record_from_scratch(
         &mut self,
-        column_command_sender: &ColumnCommandSender,
-        handler: &dyn ClipMatrixHandler,
-        matrix_record_settings: &MatrixClipRecordSettings,
-        overridable_matrix_settings: &OverridableMatrixSettings,
-        rt_column_settings: &rt::RtColumnSettings,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        chain_equipment: &ChainEquipment,
+        args: EssentialSlotRecordClipArgs,
         project: Project,
         common_stuff: CommonRecordStuff,
         specific_stuff: FromScratchRecordStuff,
     ) -> ClipEngineResult<()> {
         // Build slot instruction
-        let args = ClipRecordArgs {
+        let clip_args = ClipRecordArgs {
             recording_equipment: specific_stuff.recording_equipment,
-            settings: *matrix_record_settings,
+            settings: *args.column_args.matrix_record_settings,
         };
         let (clip_id, instruction) = if let Some((_, content)) = self.contents.first() {
             // There's a clip already. That makes it easy because we have the clip struct
             // already, including the complete clip supplier chain, and can reuse it.
             (
                 content.clip.id().clone(),
-                SlotRecordInstruction::ExistingClip(args),
+                SlotRecordInstruction::ExistingClip(clip_args),
             )
         } else {
             // There's no clip yet so we need to create the clip including the complete supplier
@@ -505,15 +525,19 @@ impl Slot {
             // frame rate) available at this point to resolve the initial recording position.
             let recording_args = RecordingArgs::from_stuff(
                 Some(project),
-                rt_column_settings,
-                overridable_matrix_settings,
-                &args.settings,
-                args.recording_equipment,
+                args.rt_column_settings,
+                args.column_args.overridable_matrix_settings,
+                &clip_args.settings,
+                clip_args.recording_equipment,
             );
             let timeline = clip_timeline(Some(project), false);
             let timeline_cursor_pos = timeline.cursor_pos();
-            let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
-            let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
+            let recorder = Recorder::recording(
+                recording_args,
+                args.column_args.recorder_request_sender.clone(),
+            );
+            let supplier_chain =
+                SupplierChain::new(recorder, args.column_args.chain_equipment.clone())?;
             let clip_id = ClipId::random();
             let new_clip_instruction = RecordNewClipInstruction {
                 clip_id: RtClipId::from_clip_id(&clip_id),
@@ -523,7 +547,7 @@ impl Slot {
                 shared_peak: Default::default(),
                 timeline,
                 timeline_cursor_pos,
-                settings: *matrix_record_settings,
+                settings: *args.column_args.matrix_record_settings,
             };
             (
                 clip_id,
@@ -534,8 +558,8 @@ impl Slot {
         // Above code was only for checking preconditions and preparing stuff.
         // Here we can't fail anymore, do the actual state changes and distribute tasks.
         self.initiate_recording(
-            column_command_sender,
-            handler,
+            args.column_command_sender,
+            args.column_args.handler,
             next_state,
             instruction,
             common_stuff.temporary_route,
@@ -551,10 +575,7 @@ impl Slot {
         common_stuff: CommonRecordStuff,
         specific_stuff: MidiOverdubRecordStuff,
     ) -> ClipEngineResult<()> {
-        let (_, content) = self
-            .contents
-            .first_mut()
-            .ok_or("content not set although overdubbing")?;
+        let content = get_content_mut(&mut self.contents, specific_stuff.instruction.clip_index)?;
         content
             .online_data
             .as_ref()
@@ -1166,6 +1187,7 @@ fn translate_track_input_to_hw_input(
 }
 
 pub fn create_midi_overdub_instruction(
+    clip_index: usize,
     mode: MidiClipRecordMode,
     auto_quantize: bool,
     api_source: &api::Source,
@@ -1201,6 +1223,7 @@ pub fn create_midi_overdub_instruction(
     // TODO-high We need to enlarge capacity of the MidiSequences in the recorder in order to avoid
     //  allocation. That also means we should probably ALWAYS send a source replacement!
     let instruction = MidiOverdubInstruction {
+        clip_index,
         source_replacement,
         settings: MidiOverdubSettings {
             mode,
@@ -1488,4 +1511,13 @@ pub enum IdMode {
     /// IDs must be unique across the whole matrix. E.g. clip IDs should not just be unique within
     /// one slot but across all columns!
     AssignNewIds,
+}
+
+pub struct EssentialSlotRecordClipArgs<'a> {
+    pub column_args: EssentialColumnRecordClipArgs<'a>,
+    pub column_record_settings: &'a ColumnClipRecordSettings,
+    pub rt_column_settings: &'a rt::RtColumnSettings,
+    pub recording_track: &'a Track,
+    pub rt_column: &'a SharedRtColumn,
+    pub column_command_sender: &'a ColumnCommandSender,
 }

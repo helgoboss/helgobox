@@ -266,18 +266,12 @@ impl RtSlot {
             }
             MidiOverdub(instruction) => {
                 debug!("MIDI overdub");
-                let clip = match self.clips.first_mut() {
-                    None => {
-                        return Err(ErrorWithPayload::new(
-                            "slot empty",
-                            MidiOverdub(instruction),
-                        ));
-                    }
-                    Some(c) => c.1,
-                };
-                match clip.midi_overdub(instruction) {
-                    Ok(_) => Ok(None),
-                    Err(e) => Err(e.map_payload(MidiOverdub)),
+                match self.get_clip_mut(instruction.clip_index) {
+                    Ok(clip) => match clip.midi_overdub(instruction) {
+                        Ok(_) => Ok(None),
+                        Err(e) => Err(e.map_payload(MidiOverdub)),
+                    },
+                    Err(e) => Err(ErrorWithPayload::new(e, MidiOverdub(instruction))),
                 }
             }
         }
