@@ -1,7 +1,5 @@
 use crate::conversion_util::adjust_proportionally_positive;
-use crate::rt::supplier::{
-    MidiSilencer, SupplyMidiRequest, SupplyRequest, SupplyResponse, SupplyResponseStatus,
-};
+use crate::rt::supplier::{MidiSilencer, SupplyMidiRequest, SupplyResponse, SupplyResponseStatus};
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use playtime_api::persistence::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, Hz, MidiEvent, MidiFrameOffset};

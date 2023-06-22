@@ -7,7 +7,7 @@ use crate::rt::supplier::midi_util::supply_midi_material;
 use crate::rt::supplier::time_series::{TimeSeries, TimeSeriesEvent};
 use crate::rt::supplier::{
     MaterialInfo, MidiMaterialInfo, MidiSupplier, SupplyMidiRequest, SupplyResponse,
-    WithMaterialInfo, MIDI_FRAME_RATE,
+    WithMaterialInfo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageFactory};
@@ -26,6 +26,7 @@ pub struct MidiSequence {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MidiTimeInfo {
+    igntempo: bool,
     tempo: Bpm,
     time_signature: TimeSignature,
 }
@@ -33,6 +34,7 @@ pub struct MidiTimeInfo {
 impl Default for MidiTimeInfo {
     fn default() -> Self {
         Self {
+            igntempo: true,
             tempo: Bpm::new(960.0).unwrap(),
             time_signature: TimeSignature {
                 numerator: 4,
@@ -86,7 +88,11 @@ struct HasDataEntry {
     ppq: u64,
 }
 
+const CONSTANT_BPM: Bpm = unsafe { Bpm::new_unchecked(MIDI_BASE_BPM.get()) };
+const CONSTANT_DENOM: u32 = 4;
+
 impl MidiSequence {
+    /// Parses a MIDI sequence from the given in-project MIDI REAPER chunk.
     pub fn parse_from_reaper_midi_chunk(chunk: &str) -> Result<Self, Box<dyn Error>> {
         let mut sequence = Self::default();
         let mut last_frame = 0;
@@ -113,23 +119,29 @@ impl MidiSequence {
         Ok(sequence)
     }
 
+    /// Formats the sequence as REAPER in-project chunk.
     pub fn format_as_reaper_midi_chunk(&self) -> String {
         MidiSequenceAsReaperChunk(self).to_string()
     }
 
+    /// Returns the total number of pulses of this sequence, in other words, the tempo-independent
+    /// length of the sequence.
+    ///
+    /// This is not the number of events!
     pub fn total_pulse_count(&self) -> u64 {
         // The last pulse frame index marks the *exclusive* end, so we don't need + 1 here I guess.
         self.time_series.events.last().map(|e| e.frame).unwrap_or(0)
     }
 
-    pub fn predefined_length(&self) -> DurationInSeconds {
-        self.length_at(
-            self.time_info.tempo,
-            self.time_info.time_signature.denominator,
-        )
+    /// Calculates the number of MIDI frames according to [`MIDI_FRAME_RATE`] using a normalized
+    /// tempo and time signature.
+    pub fn normalized_midi_frame_count(&self) -> usize {
+        let length = self.length_at(CONSTANT_BPM, CONSTANT_DENOM);
+        convert_duration_in_seconds_to_frames(length, MIDI_FRAME_RATE)
     }
 
-    fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
+    /// Calculates the length of this sequence given a particular tempo and time signature.
+    pub fn length_at(&self, bpm: Bpm, time_sig_denominator: u32) -> DurationInSeconds {
         DurationInSeconds::new(self.convert_pulse_to_second_flexible(
             self.total_pulse_count(),
             bpm,
@@ -137,27 +149,14 @@ impl MidiSequence {
         ))
     }
 
-    fn midi_frame_count(&self) -> usize {
-        let length = self.predefined_length();
-        convert_duration_in_seconds_to_frames(length, MIDI_FRAME_RATE)
-    }
-
-    fn convert_pulse_to_duration_in_seconds(&self, pulse: u64) -> DurationInSeconds {
-        let seconds = self.convert_pulse_to_second_flexible(
-            pulse,
-            self.time_info.tempo,
-            self.time_info.time_signature.denominator,
-        );
-        DurationInSeconds::new(seconds)
-    }
-
-    fn calculate_pulse_to_midi_frame_factor(&self, frame_rate: Hz) -> f64 {
-        let pulse_to_second_factor = self.convert_pulse_to_second_flexible(
-            1,
-            self.time_info.tempo,
-            self.time_info.time_signature.denominator,
-        );
+    fn calculate_pulse_to_midi_frame_factor_normalized(&self, frame_rate: Hz) -> f64 {
+        let pulse_to_second_factor =
+            self.convert_pulse_to_second_flexible(1, CONSTANT_BPM, CONSTANT_DENOM);
         pulse_to_second_factor * frame_rate.get()
+    }
+
+    fn convert_duration_in_seconds_to_pulse_normalized(&self, duration: DurationInSeconds) -> u64 {
+        self.convert_second_to_pulse_flexible(duration.get(), CONSTANT_BPM, CONSTANT_DENOM) as u64
     }
 
     fn convert_pulse_to_second_flexible(
@@ -171,14 +170,6 @@ impl MidiSequence {
         let quarter_notes = pulse as f64 / self.ppq as f64;
         let beat = quarter_notes * get_qn_to_beat_factor(time_sig_denominator);
         beat * duration_of_one_beat_in_secs
-    }
-
-    fn convert_duration_in_seconds_to_pulse(&self, duration: DurationInSeconds) -> u64 {
-        self.convert_second_to_pulse_flexible(
-            duration.get(),
-            self.time_info.tempo,
-            self.time_info.time_signature.denominator,
-        ) as u64
     }
 
     fn convert_second_to_pulse_flexible(
@@ -225,17 +216,19 @@ impl MidiSupplier for MidiSequence {
             let frame_rate = request.dest_sample_rate;
             let num_frames_to_be_consumed = request.dest_frame_count;
             let start_time = convert_duration_in_frames_to_seconds(request.start_frame, frame_rate);
-            let start_pulse = self.convert_duration_in_seconds_to_pulse(start_time);
+            let start_pulse = self.convert_duration_in_seconds_to_pulse_normalized(start_time);
             let requested_length =
                 convert_duration_in_frames_to_seconds(num_frames_to_be_consumed, frame_rate);
             if start_pulse >= total_pulse_count {
                 return SupplyResponse::exceeded_end();
             };
-            let requested_pulse_count = self.convert_duration_in_seconds_to_pulse(requested_length);
+            let requested_pulse_count =
+                self.convert_duration_in_seconds_to_pulse_normalized(requested_length);
             let remaining_pulse_count_till_end = total_pulse_count - start_pulse;
             let actual_requested_pulse_count =
                 cmp::min(requested_pulse_count, remaining_pulse_count_till_end);
-            let pulse_to_frame_factor = self.calculate_pulse_to_midi_frame_factor(frame_rate);
+            let pulse_to_frame_factor =
+                self.calculate_pulse_to_midi_frame_factor_normalized(frame_rate);
             let mut reaper_evt = reaper_medium::MidiEvent::default();
             let relevant_events = self
                 .time_series
@@ -258,7 +251,7 @@ impl MidiSupplier for MidiSequence {
                 num_midi_frames_consumed,
                 num_midi_frames_consumed,
                 request.start_frame as isize,
-                self.midi_frame_count(),
+                self.normalized_midi_frame_count(),
             )
         })
     }
@@ -267,7 +260,7 @@ impl MidiSupplier for MidiSequence {
 impl WithMaterialInfo for MidiSequence {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let info = MidiMaterialInfo {
-            frame_count: self.midi_frame_count(),
+            frame_count: self.normalized_midi_frame_count(),
         };
         Ok(MaterialInfo::Midi(info))
     }
@@ -346,11 +339,12 @@ fn parse_entry<'a>(
         }
         // Example: "IGNTEMPO 1 120 4 4"
         "IGNTEMPO" => {
-            iter.next().ok_or("no IGNTEMPO flag")?;
+            let igntempo = iter.next().ok_or("no IGNTEMPO flag")? == "1";
             let tempo: f64 = iter.next().ok_or("no custom tempo")?.parse()?;
             let numerator: u32 = iter.next().ok_or("no custom numerator")?.parse()?;
             let denominator: u32 = iter.next().ok_or("no custom denominator")?.parse()?;
             let data = MidiTimeInfo {
+                igntempo,
                 tempo: Bpm::new(tempo)?,
                 time_signature: TimeSignature {
                     numerator,
@@ -398,6 +392,7 @@ mod tests {
             ppq: 960,
             time_series: TimeSeries::new(events),
             time_info: MidiTimeInfo {
+                igntempo: true,
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,
@@ -407,8 +402,6 @@ mod tests {
         };
         // When
         assert_eq!(midi_sequence.total_pulse_count(), 960);
-        let predefined_length = midi_sequence.predefined_length();
-        assert_eq!(predefined_length.get(), 0.5);
         let length_with_normal_tempo = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 4);
         assert_eq!(length_with_normal_tempo.get(), 0.5);
         let length_with_different_time_sig = midi_sequence.length_at(Bpm::new(120.0).unwrap(), 8);
@@ -444,6 +437,7 @@ SRCCOLOR 8197
         assert_eq!(
             sequence.time_info,
             MidiTimeInfo {
+                igntempo: true,
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,
@@ -491,6 +485,7 @@ SRCCOLOR 8197
             ppq: 960,
             time_series: TimeSeries::new(events),
             time_info: MidiTimeInfo {
+                igntempo: true,
                 tempo: Bpm::new(120.0).unwrap(),
                 time_signature: TimeSignature {
                     numerator: 4,

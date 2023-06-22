@@ -1193,6 +1193,10 @@ impl TrackId {
 pub struct Bpm(f64);
 
 impl Bpm {
+    pub const unsafe fn new_unchecked(value: f64) -> Self {
+        Self(value)
+    }
+
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value <= 0.0 {
             return Err("BPM value must be > 0.0");

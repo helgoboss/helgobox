@@ -124,9 +124,6 @@ fn create_pcm_source_from_midi_chunk_based_api_source(
     // Make sure we don't have any association to some item on the timeline (or in
     // another slot) because that could lead to unpleasant surprises.
     source.remove_from_midi_pool().map_err(|e| e.message())?;
-    source
-        .set_preview_tempo(Some(MIDI_BASE_BPM))
-        .map_err(|e| e.message())?;
     post_process_midi_source(&source);
     Ok(source)
 }
