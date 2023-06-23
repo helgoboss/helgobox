@@ -36,7 +36,7 @@ impl Default for MidiTimeInfo {
     fn default() -> Self {
         Self {
             igntempo: true,
-            tempo: Bpm::new(960.0).unwrap(),
+            tempo: Bpm::new(MIDI_BASE_BPM.get()).unwrap(),
             time_signature: TimeSignature {
                 numerator: 4,
                 denominator: 4,

@@ -20,7 +20,7 @@ use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, Laziness, QuantizedPosition};
 use base::{tracing_debug, tracing_error, tracing_warn};
 use crossbeam_channel::{Receiver, Sender};
-use helgoboss_midi::{Channel, ShortMessage};
+use helgoboss_midi::{Channel, RawShortMessage, ShortMessage, ShortMessageFactory, U7};
 use playtime_api::persistence::{
     ClipPlayStartTiming, ClipRecordStartTiming, ClipRecordStopTiming, EvenQuantization,
     MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
@@ -655,13 +655,23 @@ impl Recorder {
                                 recording.first_play_frame = Some(event_frame);
                             }
                         }
+                        let frame_offset_within_source = if let Some(f) = recording.first_play_frame
+                        {
+                            recording.total_frame_offset - f
+                        } else {
+                            let effective_pos = recording.effective_pos();
+                            if effective_pos < 0 {
+                                return Ok(());
+                            }
+                            effective_pos as usize
+                        };
                         write_midi(
                             request,
                             RecordingSource::Midi {
                                 source: &mut midi_state.equipment.new_midi_source,
                                 mirror_source: &mut midi_state.equipment.mirror_source,
                             },
-                            recording.total_frame_offset,
+                            frame_offset_within_source,
                             MidiClipRecordMode::Normal,
                             midi_state.equipment.quantization_settings.as_ref(),
                         );
@@ -941,7 +951,10 @@ impl RecordingState {
 
     fn commit_recording_internal(self, recording: Recording) -> (RecordingOutcome, State) {
         let is_midi = self.kind_state.is_midi();
-        let (kind_specific_outcome, new_state) = match self.kind_state {
+        let downbeat_frame = recording.calculate_downbeat_frame();
+        let (final_frame_count, section_bounds, kind_specific_outcome, new_state) = match self
+            .kind_state
+        {
             KindState::Audio(audio_state) => {
                 let active_state = match audio_state {
                     RecordingAudioState::Active(s) => s,
@@ -974,9 +987,43 @@ impl RecordingState {
                     committed: true,
                     ..self
                 };
-                (outcome, State::Recording(recording_state))
+                // We always use sections when doing scheduled audio recording because we
+                // record audio into the file before scheduled start.
+                let section_bounds = {
+                    let start = recording.num_count_in_frames - downbeat_frame;
+                    let length = recording.scheduled_end.map(|end| {
+                        assert!(recording.num_count_in_frames < end.complete_length);
+                        end.complete_length - recording.num_count_in_frames
+                    });
+                    SectionBounds::new(start + recording.latency, length)
+                };
+                (
+                    recording.total_frame_offset,
+                    section_bounds,
+                    outcome,
+                    State::Recording(recording_state),
+                )
             }
-            KindState::Midi(midi_state) => {
+            KindState::Midi(mut midi_state) => {
+                // Write end event
+                // Example: "E 240 b0 7b 00"
+                let final_frame_count = recording.effective_frame_count();
+                for source in [
+                    &mut midi_state.equipment.new_midi_source,
+                    &mut midi_state.equipment.mirror_source,
+                ] {
+                    source.insert_event_at_normalized_midi_frame(
+                        final_frame_count,
+                        MidiEventPayload {
+                            selected: false,
+                            mute: false,
+                            msg: RawShortMessage::from_bytes((0xb0, U7::new(0x7b), U7::new(0x00)))
+                                .unwrap(),
+                            quantization_shift: 0,
+                        },
+                    );
+                }
+                // Build outcome and next state
                 let outcome = KindSpecificRecordingOutcome::Midi {
                     midi_sequence: midi_state.equipment.mirror_source,
                 };
@@ -984,26 +1031,26 @@ impl RecordingState {
                     source: RtClipSource::Midi(midi_state.equipment.new_midi_source),
                     midi_overdub_settings: None,
                 };
-                (outcome, State::Ready(ready_state))
+                // Not section with MIDI. We want clean, pre-tailored MIDI sequences! That's no
+                // problem with MIDI.
+                let section_bounds = SectionBounds::default();
+                (
+                    final_frame_count,
+                    section_bounds,
+                    outcome,
+                    State::Ready(ready_state),
+                )
             }
         };
-        let downbeat_frame = recording.calculate_downbeat_frame();
         let section_and_downbeat_data = SectionAndDownbeatData {
-            section_bounds: {
-                let start = recording.num_count_in_frames - downbeat_frame;
-                let length = recording.scheduled_end.map(|end| {
-                    assert!(recording.num_count_in_frames < end.complete_length);
-                    end.complete_length - recording.num_count_in_frames
-                });
-                SectionBounds::new(start + recording.latency, length)
-            },
+            section_bounds,
             quantized_end_pos: recording.scheduled_end.map(|end| end.quantized_end_pos),
             downbeat_frame,
         };
         let recording_outcome = RecordingOutcome {
             data: CompleteRecordingData {
                 frame_rate: recording.frame_rate,
-                total_frame_count: recording.total_frame_offset,
+                total_frame_count: final_frame_count,
                 tempo: self.tempo,
                 time_signature: self.time_signature,
                 is_midi,

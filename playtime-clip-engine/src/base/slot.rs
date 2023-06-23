@@ -79,7 +79,7 @@ pub struct OnlineData {
 impl OnlineData {
     pub fn new(rt_clip: &rt::RtClip) -> ClipEngineResult<Self> {
         let data = Self {
-            runtime_data: SlotRuntimeData::new(rt_clip)?,
+            runtime_data: SlotRuntimeData::new(rt_clip, false)?,
             edit_session: None,
         };
         Ok(data)
@@ -329,7 +329,7 @@ impl Slot {
                 let Ok(rt_clip) = content.clip.create_real_time_clip(equipment) else {
                     continue;
                 };
-                let Ok(runtime_data) = SlotRuntimeData::new(&rt_clip) else {
+                let Ok(runtime_data) = SlotRuntimeData::new(&rt_clip, false) else {
                     continue;
                 };
                 online_data.runtime_data = runtime_data;

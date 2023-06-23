@@ -262,7 +262,7 @@ impl RtSlot {
                 }
                 let clip = RtClip::recording(instruction);
                 let runtime_data =
-                    SlotRuntimeData::new(&clip).expect("no material info in record_clip");
+                    SlotRuntimeData::new(&clip, true).expect("no material info in record_clip");
                 self.clips.insert(clip.id(), clip);
                 Ok(Some(runtime_data))
             }
@@ -276,8 +276,8 @@ impl RtSlot {
                 };
                 match clip.record(args, matrix_settings, column_settings) {
                     Ok(_) => {
-                        let runtime_data =
-                            SlotRuntimeData::new(clip).expect("no material info in record_clip");
+                        let runtime_data = SlotRuntimeData::new(clip, true)
+                            .expect("no material info in record_clip");
                         Ok(Some(runtime_data))
                     }
                     Err(e) => Err(e.map_payload(ExistingClip)),
@@ -578,12 +578,16 @@ pub struct SlotRuntimeData {
 }
 
 impl SlotRuntimeData {
-    pub fn new(clip: &RtClip) -> ClipEngineResult<Self> {
+    pub fn new(clip: &RtClip, use_recording_material_info: bool) -> ClipEngineResult<Self> {
         let data = Self {
             play_state: clip.play_state(),
             pos: clip.shared_pos(),
             peak: clip.shared_peak(),
-            material_info: clip.material_info()?,
+            material_info: if use_recording_material_info {
+                clip.recording_material_info()?
+            } else {
+                clip.material_info()?
+            },
         };
         Ok(data)
     }
