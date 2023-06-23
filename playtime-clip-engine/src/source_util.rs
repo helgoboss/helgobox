@@ -173,23 +173,6 @@ pub fn create_pcm_source_from_media_file(
     Ok(source)
 }
 
-/// Returns an empty MIDI source prepared for recording.
-pub fn create_empty_reaper_midi_source() -> OwnedSource {
-    let mut source = OwnedSource::from_type("MIDI").unwrap();
-    // The following seems to be the absolute minimum to create the shortest possible MIDI clip
-    // (which still is longer than zero).
-    let chunk = "\
-        HASDATA 1 960 QN\n\
-        E 1 b0 7b 00\n\
-    >\n\
-    ";
-    source
-        .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
-        .unwrap();
-    post_process_midi_source(&source);
-    source
-}
-
 fn post_process_midi_source(source: &BorrowedSource) {
     // Setting the source preview tempo is absolutely essential. It decouples the playing
     // of the source from REAPER's project position and tempo. We set it to a constant tempo

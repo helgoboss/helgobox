@@ -1,6 +1,6 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
 use crate::rt::supplier::{
-    MaterialInfo, MidiOverdubOutcome, ReaperClipSource, WriteAudioRequest, WriteMidiRequest,
+    MaterialInfo, MidiOverdubOutcome, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,

@@ -1,42 +1,37 @@
 use crate::base::clip_edit_session::{AudioClipEditSession, ClipEditSession, MidiClipEditSession};
 use crate::base::clip_manifestation::manifest_clip_on_track;
 use crate::base::{
-    create_api_source_from_recorded_midi_sequence, Clip, ClipMatrixHandler, ClipRecordDestination,
-    ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
-    CreateRtClipEquipment, EssentialColumnRecordClipArgs, MatrixSettings,
-    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+    Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordHardwareInput,
+    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, CreateRtClipEquipment,
+    EssentialColumnRecordClipArgs, VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
-    ChainEquipment, MaterialInfo, MidiOverdubOutcome, MidiOverdubSettings, MidiSequence,
-    QuantizationSettings, ReaperClipSource, Recorder, RecorderRequest, RecordingArgs,
-    RecordingEquipment, SupplierChain,
+    MaterialInfo, MidiOverdubOutcome, MidiOverdubSettings, MidiSequence, QuantizationSettings,
+    Recorder, RecordingArgs, RecordingEquipment, SupplierChain,
 };
-use crate::rt::RtColumnGarbage::LoadClipArgs;
+
 use crate::rt::{
     ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadClipArgs, ColumnLoadSlotArgs,
     ColumnSetClipLoopedArgs, ColumnSetClipSettingsArgs, FillSlotMode, InternalClipPlayState,
-    MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
-    RecordNewClipInstruction, RtClip, RtClipId, RtSlot, RtSlotId, SharedRtColumn, SlotChangeEvent,
-    SlotRecordInstruction, SlotRuntimeData,
+    MidiOverdubInstruction, NormalRecordingOutcome, RecordNewClipInstruction, RtClipId, RtSlot,
+    RtSlotId, SharedRtColumn, SlotChangeEvent, SlotRecordInstruction, SlotRuntimeData,
 };
 use crate::source_util::{create_file_api_source, create_pcm_source_from_file_based_api_source};
-use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
-use crossbeam_channel::Sender;
+use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
+
 use helgoboss_learn::UnitValue;
 use indexmap::IndexMap;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipId, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
-    MidiChunkSource, MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
+    ChannelRange, ClipId, ColumnClipRecordSettings, Db, MatrixClipRecordSettings, MidiChunkSource,
+    MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
 };
 use playtime_api::runtime::ClipPlayState;
-use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
+use reaper_high::{Item, Project, Reaper, Take, Track, TrackRoute};
 use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, Hwnd, PositionInSeconds, RecordingInput, RequiredViewMode,
-    TrackArea, UiRefreshBehavior,
 };
-use std::error::Error;
 use std::mem;
 use std::ptr::null_mut;
 use xxhash_rust::xxh3::Xxh3Builder;
@@ -453,7 +448,6 @@ impl Slot {
         matrix_record_settings: &MatrixClipRecordSettings,
         project: Project,
     ) -> ClipEngineResult<MidiOverdubInstruction> {
-        use MidiClipRecordMode::*;
         let Some(online_data) = &content.online_data else {
             return Err("clip not online");
         };
@@ -629,18 +623,6 @@ impl Slot {
         }
     }
 
-    /// Returns the contents of this slot.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if this slot doesn't contain any clip.
-    fn get_contents(&self) -> ClipEngineResult<impl Iterator<Item = &Content>> {
-        if self.contents.is_empty() {
-            return Err(SLOT_NOT_FILLED);
-        }
-        Ok(self.contents.values())
-    }
-
     /// Adjusts the section length of all contained clips that are online.
     ///
     /// # Errors
@@ -738,7 +720,7 @@ impl Slot {
     }
 
     /// Returns all clips in this slot, converted to standalone API clips. Can be empty.
-    pub fn api_clips(&self, permanent_project: Option<Project>) -> Vec<api::Clip> {
+    pub fn api_clips(&self, _permanent_project: Option<Project>) -> Vec<api::Clip> {
         self.contents
             .values()
             .filter_map(|c| c.clip.save().ok())
@@ -757,11 +739,6 @@ impl Slot {
     /// Returns the content at the given clip index.
     fn get_content(&self, index: usize) -> ClipEngineResult<&Content> {
         Ok(self.contents.get_index(index).ok_or(CLIP_DOESNT_EXIST)?.1)
-    }
-
-    /// Returns the content at the given clip index, mutable.
-    fn get_content_mut(&mut self, index: usize) -> ClipEngineResult<&mut Content> {
-        get_content_mut(&mut self.contents, index)
     }
 
     /// Returns the clip at the given index, mutable.
@@ -1222,73 +1199,6 @@ pub fn create_midi_overdub_instruction(
         },
     };
     Ok(instruction)
-}
-
-fn find_or_create_editor_track(project: Project, show_track: bool) -> ClipEngineResult<Track> {
-    let track = find_editor_track(project)
-        .or_else(|| {
-            let track = project.add_track().ok()?;
-            track.set_name(EDITOR_TRACK_NAME);
-            Some(track)
-        })
-        .ok_or("couldn't find or create editor track")?;
-    track.set_shown(TrackArea::Mcp, show_track);
-    track.set_shown(TrackArea::Tcp, show_track);
-    Ok(track)
-}
-
-fn find_editor_track(project: Project) -> Option<Track> {
-    project.tracks().find(|t| {
-        if let Some(name) = t.name() {
-            name.to_str() == EDITOR_TRACK_NAME
-        } else {
-            false
-        }
-    })
-}
-
-const EDITOR_TRACK_NAME: &str = "playtime-editor-track";
-
-fn item_refers_to_clip_content(item: Item, clip: &Clip, online_data: &OnlineData) -> bool {
-    let take = match item.active_take() {
-        None => return false,
-        Some(t) => t,
-    };
-    let source = match take.source() {
-        None => return false,
-        Some(s) => s,
-    };
-    // TODO-high Implement "Open in REAPER MIDI editor" again by creating a PCM source ad-hoc
-    // if let Some(clip_source) = &online_data.pooled_midi_source {
-    //     // // TODO-medium Checks can be optimized (in terms of performance)
-    //     let clip_source = BorrowedSource::from_raw(clip_source.reaper_source());
-    //     clip_source.pooled_midi_id().map(|res| res.id) == source.pooled_midi_id().map(|res| res.id)
-    // } else
-    if let api::Source::File(s) = clip.api_source() {
-        source
-            .as_ref()
-            .as_raw()
-            .get_file_name(|n| if let Some(n) = n { n == s.path } else { false })
-    } else {
-        false
-    }
-}
-
-fn item_is_open_in_midi_editor(item: Item) -> bool {
-    let item_take = match item.active_take() {
-        None => return false,
-        Some(t) => t,
-    };
-    let reaper = Reaper::get().medium_reaper();
-    let active_editor = match reaper.midi_editor_get_active() {
-        None => return false,
-        Some(e) => e,
-    };
-    let open_take = match unsafe { reaper.midi_editor_get_take(active_editor) } {
-        Err(_) => return false,
-        Ok(t) => t,
-    };
-    open_take == item_take.raw()
 }
 
 fn open_midi_editor_directly(editor_track: &Track, take: Take) -> ClipEngineResult<Hwnd> {

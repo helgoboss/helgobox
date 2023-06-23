@@ -6,7 +6,7 @@ use crate::rt::supplier::{
     InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiNoteTracker, MidiOverdubOutcome,
     MidiOverdubSettings, MidiSequence, PollRecordingOutcome, PositionTranslationSkill, PreBuffer,
     PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
-    PreBufferSourceSkill, ReaperClipSource, RecordState, Recorder, RecordingArgs, Resampler,
+    PreBufferSourceSkill, RecordState, Recorder, RecordingArgs, Resampler,
     RtClipSource, Section, SectionBounds, StartEndHandler, StopRecordingOutcome, TimeStretcher,
     WithMaterialInfo, WithSupplier, WriteAudioRequest, WriteMidiRequest,
 };

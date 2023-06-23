@@ -15,10 +15,10 @@ use crate::rt::supplier::{
 use crate::rt::{
     BasicAudioRequestProps, OverridableMatrixSettings, QuantizedPosCalcEquipment, RtColumnSettings,
 };
-use crate::source_util::create_empty_reaper_midi_source;
+
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, Laziness, QuantizedPosition};
-use base::{tracing_debug, tracing_error, tracing_warn};
+use base::tracing_error;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage, ShortMessageFactory, U7};
 use playtime_api::persistence::{
@@ -26,14 +26,12 @@ use playtime_api::persistence::{
     MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
 };
 use reaper_high::{OwnedSource, Project, Reaper};
-use reaper_low::raw;
 use reaper_low::raw::PCM_sink;
-use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiFrameOffset,
     MidiImportBehavior, OwnedPcmSink, PositionInSeconds, TimeSignature,
 };
-use std::ffi::{c_void, CString};
+use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 use std::time::Duration;
@@ -252,12 +250,9 @@ struct RecordingMidiState {
     equipment: MidiRecordingEquipment,
 }
 
-enum RecordingSource<'a> {
-    Midi {
-        source: &'a mut MidiSequence,
-        mirror_source: &'a mut MidiSequence,
-    },
-    Reaper(&'a mut ReaperClipSource),
+struct MidiRecordingSourcePair<'a> {
+    source: &'a mut MidiSequence,
+    mirror_source: &'a mut MidiSequence,
 }
 
 impl KindState {
@@ -611,7 +606,7 @@ impl Recorder {
                     };
                     write_midi(
                         request,
-                        RecordingSource::Midi {
+                        MidiRecordingSourcePair {
                             source: midi_sequence,
                             mirror_source: &mut overdub_settings.mirror_source,
                         },
@@ -667,7 +662,7 @@ impl Recorder {
                         };
                         write_midi(
                             request,
-                            RecordingSource::Midi {
+                            MidiRecordingSourcePair {
                                 source: &mut midi_state.equipment.new_midi_source,
                                 mirror_source: &mut midi_state.equipment.mirror_source,
                             },
@@ -1646,40 +1641,24 @@ fn finish_audio_recording(sink: OwnedPcmSink, file: &Path) -> AudioRecordingFini
 
 fn write_midi(
     request: WriteMidiRequest,
-    source: RecordingSource,
+    pair: MidiRecordingSourcePair,
     frame_offset_within_source: usize,
     record_mode: MidiClipRecordMode,
     quantization_settings: Option<&QuantizationSettings>,
 ) {
-    match source {
-        RecordingSource::Reaper(s) => {
-            write_midi_to_reaper_source(
-                request,
-                s,
-                frame_offset_within_source,
-                record_mode,
-                quantization_settings,
-            );
-        }
-        RecordingSource::Midi {
-            source,
-            mirror_source,
-        } => {
-            // Write same data into both sources so we can send the mirror source back to the
-            // main thread on commit.
-            // TODO-high Check if this is okay. Alternative: Arc<RwLock<MidiSequence>> ... but
-            //  then we must take great care to not block the audio thread accidentally from the
-            //  main thread (= never access from main thread during recording!).
-            for s in [source, mirror_source] {
-                write_midi_to_midi_sequence(
-                    request,
-                    s,
-                    frame_offset_within_source,
-                    record_mode,
-                    quantization_settings,
-                );
-            }
-        }
+    // Write same data into both sources so we can send the mirror source back to the
+    // main thread on commit.
+    // TODO-high Check if this is okay. Alternative: Arc<RwLock<MidiSequence>> ... but
+    //  then we must take great care to not block the audio thread accidentally from the
+    //  main thread (= never access from main thread during recording!).
+    for s in [pair.source, pair.mirror_source] {
+        write_midi_to_midi_sequence(
+            request,
+            s,
+            frame_offset_within_source,
+            record_mode,
+            quantization_settings,
+        );
     }
 }
 
@@ -1687,8 +1666,8 @@ fn write_midi_to_midi_sequence(
     request: WriteMidiRequest,
     sequence: &mut MidiSequence,
     frame_offset_within_source: usize,
-    record_mode: MidiClipRecordMode,
-    quantization_settings: Option<&QuantizationSettings>,
+    _record_mode: MidiClipRecordMode,
+    _quantization_settings: Option<&QuantizationSettings>,
 ) {
     // TODO-high Respect other parameters
     // TODO-high Insert multiple events as batch so MIDI sequence doesn't have to shift so often
@@ -1710,77 +1689,6 @@ fn write_midi_to_midi_sequence(
 
 const REAPER_MIDI_FRAME_OFFSET_NORMALIZATION_FACTOR: f64 =
     MIDI_FRAME_RATE.get() / MidiFrameOffset::REFERENCE_FRAME_RATE.get();
-
-fn write_midi_to_reaper_source(
-    request: WriteMidiRequest,
-    source: &mut ReaperClipSource,
-    frame_offset_within_source: usize,
-    record_mode: MidiClipRecordMode,
-    quantization_settings: Option<&QuantizationSettings>,
-) {
-    let global_time =
-        convert_duration_in_frames_to_seconds(frame_offset_within_source, MIDI_FRAME_RATE);
-    let overwrite_mode = match record_mode {
-        MidiClipRecordMode::Normal => -1,
-        MidiClipRecordMode::Overdub => 0,
-        MidiClipRecordMode::Replace => 1,
-    };
-    let mut write_struct = midi_realtime_write_struct_t {
-        // Time within the source.
-        global_time: global_time.get(),
-        srate: request.audio_request_props.frame_rate.get(),
-        item_playrate: 1.0,
-        // This is the item position minus project start offset (project time of the start of
-        // the MIDI source). The overdub mechanism would look at it in order to determine the
-        // tempo. However, we want to work independently from REAPER's main timeline:
-        // At source creation time, we set the source preview tempo to a constant value because
-        // we control the tempo by modifying the frame rate (which allows us to do it while
-        // playing). This in turn makes the overdub ignore project time, so the project tempo
-        // and thus global_item_time doesn't matter anymore.
-        global_item_time: 0.0,
-        length: request.audio_request_props.block_length as _,
-        // Overdub
-        overwritemode: overwrite_mode,
-        events: unsafe { request.events.as_ptr().as_mut() },
-        latency: 0.0,
-        // Not used
-        overwrite_actives: null_mut(),
-    };
-    let quantize_mode = quantization_settings.map(|_| raw::midi_quantize_mode_t {
-        doquant: true,
-        movemode: 0,
-        sizemode: 0,
-        quantstrength: 100,
-        // 1 quarter note
-        quantamt: 1.0,
-        swingamt: 1,
-        range_min: 0,
-        range_max: 100,
-    });
-    let quantize_mode_ptr = quantize_mode
-        .as_ref()
-        .map(|qm| qm as *const _ as *mut c_void)
-        .unwrap_or(null_mut());
-    debug!(
-        "Write MIDI: Pos = {}s (= {} frames), overwritemode = {}, quantize_mode = {:?}",
-        global_time.get(),
-        frame_offset_within_source,
-        overwrite_mode,
-        if quantize_mode_ptr.is_null() {
-            None
-        } else {
-            Some(unsafe { *(quantize_mode_ptr as *mut raw::midi_quantize_mode_t) })
-        }
-    );
-    unsafe {
-        source.reaper_source().extended(
-            PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
-            &mut write_struct as *mut _ as _,
-            quantize_mode_ptr,
-            null_mut(),
-        );
-    }
-}
 
 pub enum StopRecordingOutcome {
     Committed(RecordingOutcome),

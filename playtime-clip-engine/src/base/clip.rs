@@ -6,9 +6,9 @@ use crate::rt::tempo_util::{calc_tempo_factor, determine_tempo_from_time_base};
 use crate::rt::{OverridableMatrixSettings, RtClipId, RtClipSettings};
 use crate::source_util::{
     create_file_api_source, create_pcm_source_from_api_source, create_pcm_source_from_media_file,
-    make_media_file_path_absolute, CreateApiSourceMode,
+    make_media_file_path_absolute,
 };
-use crate::{rt, source_util, ClipEngineResult};
+use crate::{rt, ClipEngineResult};
 use crossbeam_channel::Sender;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{

@@ -1,7 +1,7 @@
 use crate::base::{Clip, OnlineData};
 use crate::{clip_timeline, ClipEngineResult, QuantizedPosition, Timeline};
 use playtime_api::persistence::ClipTimeBase;
-use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
+use reaper_high::{Item, OwnedSource, Reaper, ReaperSource, Take, Track};
 use reaper_medium::{Bpm, DurationInSeconds, PositionInSeconds, UiRefreshBehavior};
 
 pub fn manifest_clip_on_track(

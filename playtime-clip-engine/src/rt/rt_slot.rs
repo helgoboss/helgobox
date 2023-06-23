@@ -97,7 +97,7 @@ impl RtSlot {
     /// possible and fades out still playing old clips.
     ///
     /// Exploits the given clip and replaces it with trash! It should not be used anymore.
-    pub fn load_clip(&mut self, mut args: SlotLoadClipArgs) -> ClipEngineResult<()> {
+    pub fn load_clip(&mut self, args: SlotLoadClipArgs) -> ClipEngineResult<()> {
         let old_clip = self.get_clip_mut(args.clip_index)?;
         // Apply the new clip's settings to the old clip.
         let apply_args = ApplyClipArgs {

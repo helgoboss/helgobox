@@ -110,7 +110,7 @@ impl qualified_occasional_slot_update::Update {
         Self::PlayState(SlotPlayState::from_engine(play_state.get()).into())
     }
 
-    pub fn complete_persistent_data(matrix: &Matrix, slot: &Slot) -> Self {
+    pub fn complete_persistent_data(_matrix: &Matrix, slot: &Slot) -> Self {
         let api_slot = slot.save().unwrap_or(playtime_api::persistence::Slot {
             id: slot.id().clone(),
             row: slot.index(),
@@ -123,7 +123,7 @@ impl qualified_occasional_slot_update::Update {
 }
 
 impl qualified_occasional_clip_update::Update {
-    pub fn complete_persistent_data(matrix: &Matrix, clip: &Clip) -> ClipEngineResult<Self> {
+    pub fn complete_persistent_data(_matrix: &Matrix, clip: &Clip) -> ClipEngineResult<Self> {
         let api_clip = clip.save()?;
         let json = serde_json::to_string(&api_clip).expect("couldn't represent clip as JSON");
         Ok(Self::CompletePersistentData(json))

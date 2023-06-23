@@ -509,7 +509,7 @@ impl Column {
             if !slot.play_state().is_advancing() {
                 return Either::Right(iter::empty());
             }
-            let temp_project = self.project.or_current_project();
+            let _temp_project = self.project.or_current_project();
             let iter = match slot.relevant_contents() {
                 RelevantContent::Normal(contents) => {
                     let iter = contents.filter_map(move |content| {

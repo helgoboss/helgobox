@@ -8,7 +8,7 @@ use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
     KindSpecificRecordingOutcome, MaterialInfo, MidiOverdubOutcome, MidiOverdubSettings,
-    MidiSequence, MidiSupplier, PollRecordingOutcome, ReaperClipSource, RecordState, Recorder,
+    MidiSequence, MidiSupplier, PollRecordingOutcome, RecordState, Recorder,
     RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome, RtClipSource,
     StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,

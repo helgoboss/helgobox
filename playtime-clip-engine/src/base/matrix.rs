@@ -528,7 +528,7 @@ impl Matrix {
         &self,
         row_index: usize,
     ) -> impl Iterator<Item = SlotContentsWithColumn> + '_ {
-        let project = self.permanent_project();
+        let _project = self.permanent_project();
         self.content
             .columns
             .iter()
@@ -1299,7 +1299,7 @@ impl Matrix {
     }
 
     fn capture_playing_clips(&self) -> Vec<SlotContentsWithColumn> {
-        let project = self.permanent_project();
+        let _project = self.permanent_project();
         self.content
             .columns
             .iter()
