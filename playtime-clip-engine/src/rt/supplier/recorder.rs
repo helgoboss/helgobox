@@ -355,7 +355,7 @@ impl Recorder {
 
     /// Swaps the old source with the given one.
     pub fn swap_source(&mut self, source: &mut RtClipSource) -> ClipEngineResult<()> {
-        match self.state.as_mut().ok_or("state destroyed")? {
+        match get_state_mut(&mut self.state)? {
             State::Ready(s) => {
                 mem::swap(&mut s.source, source);
                 Ok(())
@@ -365,7 +365,7 @@ impl Recorder {
     }
 
     pub fn source_mut(&mut self) -> ClipEngineResult<&mut RtClipSource> {
-        match self.state.as_mut().ok_or("state destroyed")? {
+        match get_state_mut(&mut self.state)? {
             State::Ready(s) => Ok(&mut s.source),
             State::Recording(_) => Err("recording"),
         }
@@ -387,7 +387,7 @@ impl Recorder {
     }
 
     pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        match self.state.as_ref().unwrap() {
+        match get_state(&self.state)? {
             State::Ready(_) => Err("not recording"),
             State::Recording(s) => Ok(s.recording_material_info()),
         }
@@ -424,7 +424,7 @@ impl Recorder {
         source_replacement: Option<MidiSequence>,
         settings: MidiOverdubSettings,
     ) -> ClipEngineResult<()> {
-        match self.state.as_mut().unwrap() {
+        match get_state_mut(&mut self.state)? {
             State::Ready(s) => {
                 if let Some(source_replacement) = source_replacement {
                     // We can only record with an in-project MIDI source, so before overdubbing
@@ -443,7 +443,7 @@ impl Recorder {
     /// Can be called in a real-time thread (doesn't allocate).
     pub fn prepare_recording(&mut self, args: RecordingArgs) -> ClipEngineResult<()> {
         use State::*;
-        let (res, next_state) = match self.state.take().unwrap() {
+        let (res, next_state) = match take_state(&mut self.state)? {
             Ready(s) => {
                 let recording_state = RecordingState {
                     kind_state: KindState::new(args.equipment, &self.response_channel.sender),
@@ -468,7 +468,7 @@ impl Recorder {
     }
 
     pub fn stop_midi_overdub(&mut self) -> ClipEngineResult<MidiOverdubOutcome> {
-        match self.state.as_mut().ok_or("state destroyed")? {
+        match get_state_mut(&mut self.state)? {
             State::Ready(s) => {
                 let settings = s
                     .midi_overdub_settings
@@ -489,7 +489,7 @@ impl Recorder {
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<StopRecordingOutcome> {
-        let (res, next_state) = match self.state.take().unwrap() {
+        let (res, next_state) = match take_state(&mut self.state)? {
             State::Ready(s) => (Err("was not recording"), State::Ready(s)),
             State::Recording(s) => {
                 s.stop_recording(timeline, timeline_cursor_pos, audio_request_props)
@@ -1282,7 +1282,7 @@ impl MidiSupplier for Recorder {
 
 impl WithMaterialInfo for Recorder {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        match self.state.as_ref().unwrap() {
+        match get_state(&self.state)? {
             State::Ready(s) => s.source.material_info(),
             State::Recording(s) => match &s.kind_state {
                 KindState::Audio(RecordingAudioState::Finishing(finishing_state)) => {
@@ -1847,4 +1847,18 @@ pub struct QuantizationSettings {}
 #[derive(Debug)]
 pub struct MidiOverdubOutcome {
     pub midi_sequence: MidiSequence,
+}
+
+const STATE_DESTROYED: &str = "state destroyed";
+
+fn take_state(state: &mut Option<State>) -> ClipEngineResult<State> {
+    state.take().ok_or(STATE_DESTROYED)
+}
+
+fn get_state(state: &Option<State>) -> ClipEngineResult<&State> {
+    state.as_ref().ok_or(STATE_DESTROYED)
+}
+
+fn get_state_mut(state: &mut Option<State>) -> ClipEngineResult<&mut State> {
+    state.as_mut().ok_or(STATE_DESTROYED)
 }

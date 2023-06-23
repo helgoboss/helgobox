@@ -300,6 +300,9 @@ impl MidiSupplier for MidiSequence {
             //  handle this via StartEndHandler?
             // The lower the sample rate, the higher the tempo, the more inner source material we
             // effectively grabbed.
+            // TODO-high We sometimes have missing/hanging notes, probably because some events
+            //  are sometimes skipped, probably missing continuity. We should log whenever we
+            //  detect a missing continuity and work on it.
             SupplyResponse::limited_by_total_frame_count(
                 actual_num_frames_to_be_consumed,
                 actual_num_frames_to_be_consumed,
