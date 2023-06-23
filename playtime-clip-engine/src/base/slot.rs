@@ -36,6 +36,7 @@ use reaper_medium::{
     Bpm, CommandId, DurationInSeconds, Hwnd, PositionInSeconds, RecordingInput, RequiredViewMode,
     TrackArea, UiRefreshBehavior,
 };
+use std::error::Error;
 use std::mem;
 use std::ptr::null_mut;
 use xxhash_rust::xxh3::Xxh3Builder;
@@ -76,16 +77,12 @@ pub struct OnlineData {
 }
 
 impl OnlineData {
-    pub fn new(rt_clip: &rt::RtClip) -> Self {
-        Self {
-            runtime_data: SlotRuntimeData {
-                play_state: Default::default(),
-                pos: rt_clip.shared_pos(),
-                peak: rt_clip.shared_peak(),
-                material_info: rt_clip.material_info().unwrap(),
-            },
+    pub fn new(rt_clip: &rt::RtClip) -> ClipEngineResult<Self> {
+        let data = Self {
+            runtime_data: SlotRuntimeData::new(rt_clip)?,
             edit_session: None,
-        }
+        };
+        Ok(data)
     }
 
     pub fn midi_edit_session_mut(&mut self) -> ClipEngineResult<&mut MidiClipEditSession> {
@@ -156,27 +153,6 @@ impl Content {
         } else {
             false
         }
-    }
-
-    /// Returns `true` if the clip source has changed and needs to be synced to the real-time
-    /// column.
-    pub fn apply_edited_content_if_necessary(&mut self) -> ClipEngineResult<bool> {
-        // Check if content changed
-        let online_data = self.online_data.as_mut().ok_or("clip offline")?;
-        let midi_edit_session = online_data.midi_edit_session_mut()?;
-        let changed = if midi_edit_session.update_source_hash() {
-            let chunk = midi_edit_session.clip_manifestation().state_chunk()?;
-            let updated_source = api::Source::MidiChunk(MidiChunkSource { chunk });
-            self.clip.set_source(updated_source);
-            true
-        } else {
-            false
-        };
-        // Remove edit session if MIDI editor closed
-        if !midi_edit_session.midi_editor_window().is_open() {
-            online_data.edit_session = None;
-        }
-        Ok(changed)
     }
 
     fn midi_edit_session(&self) -> ClipEngineResult<&MidiClipEditSession> {
@@ -333,7 +309,7 @@ impl Slot {
     pub fn bring_online(&mut self, equipment: CreateRtClipEquipment) -> RtSlot {
         let rt_clips = self.contents.values_mut().filter_map(|content| {
             let rt_clip = content.clip.create_real_time_clip(equipment).ok()?;
-            let online_data = OnlineData::new(&rt_clip);
+            let online_data = OnlineData::new(&rt_clip).ok()?;
             content.online_data = Some(online_data);
             Some((rt_clip.id(), rt_clip))
         });
@@ -346,10 +322,17 @@ impl Slot {
         column_command_sender: &ColumnCommandSender,
     ) {
         for (i, content) in self.contents.values_mut().enumerate() {
-            if content.apply_edited_content_if_necessary() == Ok(true) {
+            let Some(online_data) = content.online_data.as_mut() else {
+                continue;
+            };
+            if apply_edited_content_if_necessary(online_data, &mut content.clip) == Ok(true) {
                 let Ok(rt_clip) = content.clip.create_real_time_clip(equipment) else {
                     continue;
                 };
+                let Ok(runtime_data) = SlotRuntimeData::new(&rt_clip) else {
+                    continue;
+                };
+                online_data.runtime_data = runtime_data;
                 let args = ColumnLoadClipArgs {
                     slot_index: self.index,
                     clip_index: i,
@@ -1454,4 +1437,27 @@ pub struct EssentialSlotRecordClipArgs<'a> {
     pub recording_track: &'a Track,
     pub rt_column: &'a SharedRtColumn,
     pub column_command_sender: &'a ColumnCommandSender,
+}
+
+/// Returns `true` if the clip source has changed and needs to be synced to the real-time
+/// column.
+pub fn apply_edited_content_if_necessary(
+    online_data: &mut OnlineData,
+    clip: &mut Clip,
+) -> ClipEngineResult<bool> {
+    // Check if content changed
+    let midi_edit_session = online_data.midi_edit_session_mut()?;
+    let changed = if midi_edit_session.update_source_hash() {
+        let chunk = midi_edit_session.clip_manifestation().state_chunk()?;
+        let updated_source = api::Source::MidiChunk(MidiChunkSource { chunk });
+        clip.set_source(updated_source);
+        true
+    } else {
+        false
+    };
+    // Remove edit session if MIDI editor closed
+    if !midi_edit_session.midi_editor_window().is_open() {
+        online_data.edit_session = None;
+    }
+    Ok(changed)
 }
