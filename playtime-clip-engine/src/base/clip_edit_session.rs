@@ -1,6 +1,8 @@
 use crate::base::clip_manifestation::ClipOnTrackManifestation;
 use reaper_high::Track;
+use reaper_low::Swell;
 use reaper_medium::Hwnd;
+use swell_ui::Window;
 
 #[derive(Clone, Debug)]
 pub enum ClipEditSession {

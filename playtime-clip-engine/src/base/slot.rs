@@ -713,25 +713,9 @@ impl Slot {
 
     /// Stops editing of all online clips contained in this slot.
     pub fn stop_editing_clip(&mut self, clip_index: usize) -> ClipEngineResult<()> {
-        // let content = get_content_mut(&mut self.contents, clip_index)?;
-        // let online_data = content.online_data.as_ref().ok_or("clip not online")?;
-        // let editor_track = find_editor_track(temporary_project).ok_or("editor track not found")?;
-        // let clip_item = find_clip_item(content, &editor_track).ok_or("clip item not found")?;
-        // let _ = unsafe {
-        //     Reaper::get()
-        //         .medium_reaper()
-        //         .delete_track_media_item(editor_track.raw(), clip_item.raw())
-        // };
-        // if editor_track.item_count() == 0 {
-        //     editor_track.project().remove_track(&editor_track);
-        // }
-        // if !online_data.runtime_data.material_info.is_midi() {
-        //     // Restore previous zoom/scroll
-        //     Reaper::get()
-        //         .main_section()
-        //         .action_by_command_id(CommandId::new(40848))
-        //         .invoke_as_trigger(Some(temporary_project))?;
-        // }
+        let content = get_content_mut(&mut self.contents, clip_index)?;
+        let online_data = content.online_data.as_mut().ok_or("clip not online")?;
+        online_data.edit_session = None;
         Ok(())
     }
 

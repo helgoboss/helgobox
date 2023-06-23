@@ -3661,6 +3661,7 @@ dependencies = [
  "serde_json",
  "slug",
  "static_assertions",
+ "swell-ui",
  "tonic",
  "tracing",
  "ulid",

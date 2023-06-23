@@ -1,7 +1,7 @@
 use crate::base::{Clip, OnlineData};
 use crate::{clip_timeline, ClipEngineResult, QuantizedPosition, Timeline};
 use playtime_api::persistence::ClipTimeBase;
-use reaper_high::{Item, OwnedSource, Project, ReaperSource, Take, Track};
+use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
 use reaper_medium::{Bpm, DurationInSeconds, PositionInSeconds, UiRefreshBehavior};
 
 pub fn manifest_clip_on_track(
@@ -78,4 +78,14 @@ pub struct ClipOnTrackManifestation {
     pub take: Take,
     /// Always set if beat-based.
     pub tempo: Option<Bpm>,
+}
+
+impl Drop for ClipOnTrackManifestation {
+    fn drop(&mut self) {
+        let _ = unsafe {
+            Reaper::get()
+                .medium_reaper()
+                .delete_track_media_item(self.track.raw(), self.item.raw())
+        };
+    }
 }
