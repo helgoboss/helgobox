@@ -66,6 +66,7 @@ pub(crate) struct MatrixContent {
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::RtMatrixCommand>,
     clipboard: MatrixClipboard,
+    poll_count: u64,
     // We use this just for RAII (joining worker threads when dropped)
     _worker_pool: WorkerPool,
 }
@@ -358,6 +359,7 @@ impl Matrix {
                 command_receiver: main_command_receiver,
                 rt_command_sender,
                 clipboard: Default::default(),
+                poll_count: 0,
                 _worker_pool: worker_pool,
             },
         }
@@ -1374,7 +1376,23 @@ impl Matrix {
             // TODO-high-clip-engine Not sure if we should also add this buffered?
             self.add_history_entry_immediately(l.into(), vec![]);
         }
+        // Do occasional checks (roughly two times a second)
+        if self.content.poll_count % 15 == 0 {
+            self.apply_edited_contents_if_necessary();
+        }
+        self.content.poll_count += 1;
+        // Return polled events
         events
+    }
+
+    fn apply_edited_contents_if_necessary(&mut self) {
+        for column in &mut self.content.columns {
+            column.apply_edited_contents_if_necessary(
+                &self.content.chain_equipment,
+                &self.content.recorder_request_sender,
+                &self.content.settings.overridable,
+            );
+        }
     }
 
     pub fn process_reaper_change_events(&mut self, events: &[ChangeEvent]) {

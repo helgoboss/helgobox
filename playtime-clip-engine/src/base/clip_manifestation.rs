@@ -80,6 +80,25 @@ pub struct ClipOnTrackManifestation {
     pub tempo: Option<Bpm>,
 }
 
+impl ClipOnTrackManifestation {
+    pub fn source(&self) -> ClipEngineResult<ReaperSource> {
+        if !self.item.is_available() {
+            return Err("item not available anymore");
+        }
+        self.take.source().ok_or("take lost source")
+    }
+
+    pub fn source_hash(&self) -> ClipEngineResult<u64> {
+        let source = self.source()?;
+        let hash = source.as_raw().ext_get_midi_data_hash()?;
+        Ok(hash)
+    }
+
+    pub fn state_chunk(&self) -> ClipEngineResult<String> {
+        Ok(self.source()?.state_chunk())
+    }
+}
+
 impl Drop for ClipOnTrackManifestation {
     fn drop(&mut self) {
         let _ = unsafe {
@@ -87,5 +106,6 @@ impl Drop for ClipOnTrackManifestation {
                 .medium_reaper()
                 .delete_track_media_item(self.track.raw(), self.item.raw())
         };
+        Reaper::get().medium_reaper().update_timeline();
     }
 }

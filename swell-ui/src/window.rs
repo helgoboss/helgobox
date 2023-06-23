@@ -599,6 +599,10 @@ impl Window {
         }
     }
 
+    pub fn is_open(self) -> bool {
+        unsafe { Swell::get().IsWindow(self.raw) }
+    }
+
     pub fn show(self) {
         self.set_visible(true);
     }

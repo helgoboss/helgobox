@@ -1,6 +1,6 @@
 use crate::base::{
-    Clip, ClipMatrixHandler, EssentialSlotRecordClipArgs, IdMode, MatrixSettings, RelevantContent,
-    Slot,
+    Clip, ClipMatrixHandler, CreateRtClipEquipment, EssentialSlotRecordClipArgs, IdMode,
+    MatrixSettings, RelevantContent, Slot,
 };
 use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
@@ -269,17 +269,18 @@ impl Column {
     /// command. It's a bit heavier on resources though, so it shouldn't be used for column changes
     /// that can happen very frequently.
     fn resync_slots_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
+        let create_rt_clip_equipment = CreateRtClipEquipment {
+            permanent_project: self.project,
+            chain_equipment: rt_equipment.chain_equipment,
+            recorder_request_sender: rt_equipment.recorder_request_sender,
+            matrix_settings: &rt_equipment.matrix_settings.overridable,
+            column_settings: &self.rt_settings,
+        };
         let rt_slots: RtSlots = self
             .slots
             .values_mut()
             .map(|slot| {
-                let rt_slot = slot.bring_online(
-                    rt_equipment.chain_equipment,
-                    rt_equipment.recorder_request_sender,
-                    rt_equipment.matrix_settings,
-                    &self.rt_settings,
-                    self.project,
-                );
+                let rt_slot = slot.bring_online(create_rt_clip_equipment);
                 (rt_slot.id(), rt_slot)
             })
             .collect();
@@ -561,6 +562,24 @@ impl Column {
         Ok(())
     }
 
+    pub fn apply_edited_contents_if_necessary(
+        &mut self,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
+        matrix_settings: &OverridableMatrixSettings,
+    ) {
+        for slot in self.slots.values_mut() {
+            let equipment = CreateRtClipEquipment {
+                permanent_project: self.project,
+                chain_equipment,
+                recorder_request_sender,
+                matrix_settings,
+                column_settings: &self.rt_settings,
+            };
+            slot.apply_edited_contents_if_necessary(equipment, &self.rt_command_sender)
+        }
+    }
+
     /// Adds the given clips to the slot or replaces all existing ones.
     ///
     /// Immediately syncs to real-time column.
@@ -576,14 +595,17 @@ impl Column {
         id_mode: IdMode,
     ) -> ClipEngineResult<()> {
         let slot = get_slot_mut(&mut self.slots, slot_index)?;
-        slot.fill(
-            api_clips,
+        let equipment = CreateRtClipEquipment {
+            permanent_project: self.project,
             chain_equipment,
             recorder_request_sender,
-            matrix_settings,
-            &self.rt_settings,
+            matrix_settings: &matrix_settings.overridable,
+            column_settings: &self.rt_settings,
+        };
+        slot.fill(
+            api_clips,
+            equipment,
             &self.rt_command_sender,
-            self.project,
             fill_mode,
             id_mode,
         );

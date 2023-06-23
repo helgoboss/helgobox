@@ -5,7 +5,7 @@ use crate::rt::supplier::{
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
     NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClipSettings, RtClips, RtSlot,
-    RtSlotId, SetClipSettingsArgs, SlotLoadArgs, SlotPlayArgs, SlotProcessArgs,
+    RtSlotId, SetClipSettingsArgs, SlotLoadArgs, SlotLoadClipArgs, SlotPlayArgs, SlotProcessArgs,
     SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData, SlotStopArgs,
     TransportChange,
 };
@@ -139,6 +139,10 @@ impl ColumnCommandSender {
         self.send_task(RtColumnCommand::LoadSlot(args));
     }
 
+    pub fn load_clip(&self, args: ColumnLoadClipArgs) {
+        self.send_task(RtColumnCommand::LoadClip(Box::new(args)));
+    }
+
     pub fn process_transport_change(&self, args: ColumnProcessTransportChangeArgs) {
         self.send_task(RtColumnCommand::ProcessTransportChange(args));
     }
@@ -241,6 +245,7 @@ pub enum RtColumnCommand {
     UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
     LoadSlot(Box<Option<ColumnLoadSlotArgs>>),
+    LoadClip(Box<ColumnLoadClipArgs>),
     ProcessTransportChange(ColumnProcessTransportChangeArgs),
     PlaySlot(ColumnPlaySlotArgs),
     PlayRow(ColumnPlayRowArgs),
@@ -437,6 +442,19 @@ impl RtColumn {
             column_settings: &self.settings,
         };
         slot.load(slot_args);
+        Ok(())
+    }
+
+    fn load_clip(&mut self, args: &mut ColumnLoadClipArgs) -> ClipEngineResult<()> {
+        let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
+        let slot_args = SlotLoadClipArgs {
+            clip_index: args.clip_index,
+            new_clip: &mut args.clip,
+            event_sender: &self.event_sender,
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
+        };
+        slot.load_clip(slot_args)?;
         Ok(())
     }
 
@@ -833,6 +851,11 @@ impl RtColumn {
                     self.event_sender
                         .dispose(RtColumnGarbage::LoadSlotArgs(boxed_args));
                 }
+                LoadClip(mut boxed_args) => {
+                    self.load_clip(&mut *boxed_args).unwrap();
+                    self.event_sender
+                        .dispose(RtColumnGarbage::LoadClipArgs(boxed_args));
+                }
                 PlaySlot(args) => {
                     let result = self.play_slot(args, audio_request_props);
                     self.notify_user_about_failed_interaction(result);
@@ -1113,6 +1136,13 @@ pub struct ColumnLoadSlotArgs {
     pub clips: RtClips,
 }
 
+#[derive(Debug)]
+pub struct ColumnLoadClipArgs {
+    pub slot_index: usize,
+    pub clip_index: usize,
+    pub clip: RtClip,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum FillSlotMode {
     Add,
@@ -1276,6 +1306,7 @@ pub struct InteractionFailure {
 pub enum RtColumnGarbage {
     Slot(RtSlot),
     LoadSlotArgs(Box<Option<ColumnLoadSlotArgs>>),
+    LoadClipArgs(Box<ColumnLoadClipArgs>),
     Clip(Option<RtClip>),
     RecordClipArgs(Box<Option<ColumnRecordClipArgs>>),
     Slots(RtSlots),

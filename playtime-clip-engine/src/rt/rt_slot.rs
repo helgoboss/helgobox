@@ -7,7 +7,7 @@ use crate::rt::{
     ColumnProcessTransportChangeArgs, FillSlotMode, HandleSlotEvent, InternalClipPlayState,
     OverridableMatrixSettings, RtClip, RtClipId, RtColumnEvent, RtColumnEventSender,
     RtColumnGarbage, RtColumnSettings, SharedPeak, SharedPos, SlotInstruction, SlotLoadArgs,
-    SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
+    SlotLoadClipArgs, SlotPlayArgs, SlotRecordInstruction, SlotStopArgs,
 };
 use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline};
 use crossbeam_channel::Sender;
@@ -91,6 +91,23 @@ impl RtSlot {
             .slot_play_state_changed(self.id, self.runtime_data.last_play_state);
         // Dispose old and now empty clip collection
         args.event_sender.dispose(RtColumnGarbage::Clips(old_clips));
+    }
+
+    /// Replaces the given clip in this slot with the given one but keeps the clip playing if
+    /// possible and fades out still playing old clips.
+    ///
+    /// Exploits the given clip and replaces it with trash! It should not be used anymore.
+    pub fn load_clip(&mut self, mut args: SlotLoadClipArgs) -> ClipEngineResult<()> {
+        let old_clip = self.get_clip_mut(args.clip_index)?;
+        // Apply the new clip's settings to the old clip.
+        let apply_args = ApplyClipArgs {
+            other_clip: args.new_clip,
+            matrix_settings: args.matrix_settings,
+            column_settings: args.column_settings,
+        };
+
+        old_clip.apply(apply_args)?;
+        Ok(())
     }
 
     pub fn id(&self) -> RtSlotId {

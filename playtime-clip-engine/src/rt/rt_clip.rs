@@ -1586,6 +1586,15 @@ pub struct SlotLoadArgs<'a> {
     pub column_settings: &'a RtColumnSettings,
 }
 
+#[derive(Debug)]
+pub struct SlotLoadClipArgs<'a> {
+    pub clip_index: usize,
+    pub new_clip: &'a mut RtClip,
+    pub event_sender: &'a Sender<RtColumnEvent>,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a RtColumnSettings,
+}
+
 impl<'a> SlotPlayArgs<'a> {
     pub fn resolve_start_timing(
         &self,

@@ -141,6 +141,10 @@ impl Clip {
         self.source = create_api_source_from_recorded_midi_sequence(&outcome.midi_sequence);
     }
 
+    pub fn set_source(&mut self, source: api::Source) {
+        self.source = source;
+    }
+
     pub fn api_source(&self) -> &api::Source {
         &self.source
     }
@@ -205,11 +209,7 @@ impl Clip {
 
     pub(crate) fn create_real_time_clip(
         &mut self,
-        permanent_project: Option<Project>,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &OverridableMatrixSettings,
-        column_settings: &rt::RtColumnSettings,
+        equipment: CreateRtClipEquipment,
     ) -> Result<rt::RtClip, Box<dyn Error>> {
         let api_source = match self.active_source {
             SourceOrigin::Normal => &self.source,
@@ -222,18 +222,19 @@ impl Clip {
             let midi_sequence = MidiSequence::parse_from_reaper_midi_chunk(&s.chunk)?;
             RtClipSource::Midi(midi_sequence)
         } else {
-            let pcm_source = create_pcm_source_from_api_source(api_source, permanent_project)?;
+            let pcm_source =
+                create_pcm_source_from_api_source(api_source, equipment.permanent_project)?;
             RtClipSource::Reaper(pcm_source)
         };
         let rt_clip = rt::RtClip::ready(
             self.rt_id,
             clip_source,
-            matrix_settings,
-            column_settings,
+            equipment.matrix_settings,
+            equipment.column_settings,
             self.rt_settings,
-            permanent_project,
-            chain_equipment,
-            recorder_request_sender,
+            equipment.permanent_project,
+            equipment.chain_equipment,
+            equipment.recorder_request_sender,
         )?;
         Ok(rt_clip)
     }
@@ -305,4 +306,13 @@ fn get_peak_file_path(media_file_path: &Path) -> PathBuf {
         PeakFileMode::Read,
         ".reapeaks",
     )
+}
+
+#[derive(Copy, Clone)]
+pub struct CreateRtClipEquipment<'a> {
+    pub chain_equipment: &'a ChainEquipment,
+    pub recorder_request_sender: &'a Sender<RecorderRequest>,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub permanent_project: Option<Project>,
+    pub column_settings: &'a rt::RtColumnSettings,
 }

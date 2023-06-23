@@ -3,8 +3,8 @@ use crate::base::clip_manifestation::manifest_clip_on_track;
 use crate::base::{
     create_api_source_from_recorded_midi_sequence, Clip, ClipMatrixHandler, ClipRecordDestination,
     ClipRecordHardwareInput, ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask,
-    EssentialColumnRecordClipArgs, MatrixSettings, VirtualClipRecordAudioInput,
-    VirtualClipRecordHardwareMidiInput,
+    CreateRtClipEquipment, EssentialColumnRecordClipArgs, MatrixSettings,
+    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::conversion_util::adjust_duration_in_secs_anti_proportionally;
 use crate::rt::supplier::{
@@ -12,8 +12,9 @@ use crate::rt::supplier::{
     QuantizationSettings, ReaperClipSource, Recorder, RecorderRequest, RecordingArgs,
     RecordingEquipment, SupplierChain,
 };
+use crate::rt::RtColumnGarbage::LoadClipArgs;
 use crate::rt::{
-    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadSlotArgs,
+    ClipChangeEvent, ClipRecordArgs, ColumnCommandSender, ColumnLoadClipArgs, ColumnLoadSlotArgs,
     ColumnSetClipLoopedArgs, ColumnSetClipSettingsArgs, FillSlotMode, InternalClipPlayState,
     MidiOverdubInstruction, NormalRecordingOutcome, OverridableMatrixSettings,
     RecordNewClipInstruction, RtClip, RtClipId, RtSlot, RtSlotId, SharedRtColumn, SlotChangeEvent,
@@ -27,7 +28,7 @@ use indexmap::IndexMap;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     ChannelRange, ClipId, ClipTimeBase, ColumnClipRecordSettings, Db, MatrixClipRecordSettings,
-    MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
+    MidiChunkSource, MidiClipRecordMode, PositiveSecond, RecordOrigin, SlotId,
 };
 use playtime_api::runtime::ClipPlayState;
 use reaper_high::{BorrowedSource, Item, OwnedSource, Project, Reaper, Take, Track, TrackRoute};
@@ -85,6 +86,14 @@ impl OnlineData {
             },
             edit_session: None,
         }
+    }
+
+    pub fn midi_edit_session_mut(&mut self) -> ClipEngineResult<&mut MidiClipEditSession> {
+        let edit_session = self.edit_session.as_mut().ok_or("no edit session")?;
+        let ClipEditSession::Midi(midi_edit_session) = edit_session else {
+            return Err("no MIDI edit session");
+        };
+        Ok(midi_edit_session)
     }
 
     /// Returns the effective length (tempo adjusted and taking the section into account).
@@ -149,6 +158,36 @@ impl Content {
         }
     }
 
+    /// Returns `true` if the clip source has changed and needs to be synced to the real-time
+    /// column.
+    pub fn apply_edited_content_if_necessary(&mut self) -> ClipEngineResult<bool> {
+        // Check if content changed
+        let online_data = self.online_data.as_mut().ok_or("clip offline")?;
+        let midi_edit_session = online_data.midi_edit_session_mut()?;
+        let changed = if midi_edit_session.update_source_hash() {
+            let chunk = midi_edit_session.clip_manifestation().state_chunk()?;
+            let updated_source = api::Source::MidiChunk(MidiChunkSource { chunk });
+            self.clip.set_source(updated_source);
+            true
+        } else {
+            false
+        };
+        // Remove edit session if MIDI editor closed
+        if !midi_edit_session.midi_editor_window().is_open() {
+            online_data.edit_session = None;
+        }
+        Ok(changed)
+    }
+
+    fn midi_edit_session(&self) -> ClipEngineResult<&MidiClipEditSession> {
+        let online_data = self.online_data.as_ref().ok_or("clip offline")?;
+        let edit_session = online_data.edit_session.as_ref().ok_or("no edit session")?;
+        let ClipEditSession::Midi(midi_edit_session) = edit_session else {
+            return Err("no MIDI edit session");
+        };
+        Ok(midi_edit_session)
+    }
+
     pub async fn freeze(&mut self, playback_track: &Track) -> ClipEngineResult<()> {
         // TODO-high-clip-engine CONTINUE Get the clip-to-item layout 100% right.
         // TODO-high-clip-engine CONTINUE Sync the frozen clips to the real-time thread when finished.
@@ -189,16 +228,8 @@ impl Content {
         bpm: Bpm,
         seconds: PositionInSeconds,
     ) -> ClipEngineResult<()> {
-        let online_data = self.online_data.as_ref().ok_or("clip offline")?;
-        let edit_session = online_data.edit_session.as_ref().ok_or("no edit session")?;
-        let ClipEditSession::Midi(midi_edit_session) = edit_session else {
-            return Err("no MIDI edit session");
-        };
-        let source = midi_edit_session
-            .clip_manifestation
-            .take
-            .source()
-            .ok_or("edited take has no source")?;
+        let midi_edit_session = self.midi_edit_session()?;
+        let source = midi_edit_session.clip_manifestation().source()?;
         let bps = bpm.get() / 60.0;
         let beats = seconds.get() * bps;
         // TODO-medium Read PPQ from MIDI file. The best thing is if we use the MidiSequence as
@@ -299,25 +330,9 @@ impl Slot {
     }
 
     /// Brings the previously loaded clips online.
-    pub fn bring_online(
-        &mut self,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
-        column_settings: &rt::RtColumnSettings,
-        project: Option<Project>,
-    ) -> RtSlot {
+    pub fn bring_online(&mut self, equipment: CreateRtClipEquipment) -> RtSlot {
         let rt_clips = self.contents.values_mut().filter_map(|content| {
-            let rt_clip = content
-                .clip
-                .create_real_time_clip(
-                    project,
-                    chain_equipment,
-                    recorder_request_sender,
-                    &matrix_settings.overridable,
-                    column_settings,
-                )
-                .ok()?;
+            let rt_clip = content.clip.create_real_time_clip(equipment).ok()?;
             let online_data = OnlineData::new(&rt_clip);
             content.online_data = Some(online_data);
             Some((rt_clip.id(), rt_clip))
@@ -325,17 +340,33 @@ impl Slot {
         RtSlot::new(self.rt_id, rt_clips.collect())
     }
 
+    pub fn apply_edited_contents_if_necessary(
+        &mut self,
+        equipment: CreateRtClipEquipment,
+        column_command_sender: &ColumnCommandSender,
+    ) {
+        for (i, content) in self.contents.values_mut().enumerate() {
+            if content.apply_edited_content_if_necessary() == Ok(true) {
+                let Ok(rt_clip) = content.clip.create_real_time_clip(equipment) else {
+                    continue;
+                };
+                let args = ColumnLoadClipArgs {
+                    slot_index: self.index,
+                    clip_index: i,
+                    clip: rt_clip,
+                };
+                column_command_sender.load_clip(args);
+            }
+        }
+    }
+
     /// Immediately syncs to real-time column.
     #[allow(clippy::too_many_arguments)]
     pub fn fill(
         &mut self,
         api_clips: Vec<api::Clip>,
-        chain_equipment: &ChainEquipment,
-        recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
-        column_settings: &rt::RtColumnSettings,
+        equipment: CreateRtClipEquipment,
         rt_command_sender: &ColumnCommandSender,
-        project: Option<Project>,
         fill_mode: FillSlotMode,
         id_mode: IdMode,
     ) {
@@ -350,13 +381,7 @@ impl Slot {
             }
         }
         // Bring slot online
-        let rt_slot = self.bring_online(
-            chain_equipment,
-            recorder_request_sender,
-            matrix_settings,
-            column_settings,
-            project,
-        );
+        let rt_slot = self.bring_online(equipment);
         // Send real-time slot to the real-time column
         let args = ColumnLoadSlotArgs {
             slot_index: self.index,
@@ -699,10 +724,7 @@ impl Slot {
         let edit_session = if is_midi {
             // open_midi_editor_via_action(temporary_project, item);
             let hwnd = open_midi_editor_directly(playback_track, clip_manifestation.take)?;
-            ClipEditSession::Midi(MidiClipEditSession {
-                midi_editor_window: hwnd,
-                clip_manifestation,
-            })
+            ClipEditSession::Midi(MidiClipEditSession::new(clip_manifestation, hwnd))
         } else {
             open_audio_editor(playback_track.project(), clip_manifestation.item)?;
             ClipEditSession::Audio(AudioClipEditSession { clip_manifestation })
