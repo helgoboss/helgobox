@@ -115,6 +115,15 @@ pub struct TriggerMatrixRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetMatrixSettingsRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+    /// Matrix settings as JSON
+    #[prost(string, tag = "2")]
+    pub settings: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAllTracksRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
@@ -135,11 +144,29 @@ pub struct TriggerColumnRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetColumnSettingsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub column_address: ::core::option::Option<FullColumnAddress>,
+    /// Column settings as JSON
+    #[prost(string, tag = "2")]
+    pub settings: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerRowRequest {
     #[prost(message, optional, tag = "1")]
     pub row_address: ::core::option::Option<FullRowAddress>,
     #[prost(enumeration = "TriggerRowAction", tag = "2")]
     pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetRowDataRequest {
+    #[prost(message, optional, tag = "1")]
+    pub row_address: ::core::option::Option<FullRowAddress>,
+    /// Row data as JSON
+    #[prost(string, tag = "2")]
+    pub data: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -254,6 +281,18 @@ pub struct GetContinuousMatrixUpdatesRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalColumnUpdatesRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalRowUpdatesRequest {
+    #[prost(string, tag = "1")]
+    pub matrix_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousColumnUpdatesRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
@@ -270,6 +309,42 @@ pub struct GetOccasionalMatrixUpdatesReply {
     /// For each updated matrix property
     #[prost(message, repeated, tag = "1")]
     pub matrix_updates: ::prost::alloc::vec::Vec<OccasionalMatrixUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QualifiedOccasionalColumnUpdate {
+    #[prost(uint32, tag = "1")]
+    pub column_index: u32,
+    #[prost(oneof = "qualified_occasional_column_update::Update", tags = "2")]
+    pub update: ::core::option::Option<qualified_occasional_column_update::Update>,
+}
+/// Nested message and enum types in `QualifiedOccasionalColumnUpdate`.
+pub mod qualified_occasional_column_update {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Update {
+        /// Column settings as JSON
+        #[prost(string, tag = "2")]
+        Settings(::prost::alloc::string::String),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QualifiedOccasionalRowUpdate {
+    #[prost(uint32, tag = "1")]
+    pub row_index: u32,
+    #[prost(oneof = "qualified_occasional_row_update::Update", tags = "2")]
+    pub update: ::core::option::Option<qualified_occasional_row_update::Update>,
+}
+/// Nested message and enum types in `QualifiedOccasionalRowUpdate`.
+pub mod qualified_occasional_row_update {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Update {
+        /// Row data as JSON
+        #[prost(string, tag = "2")]
+        Data(::prost::alloc::string::String),
+    }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -297,6 +372,20 @@ pub struct GetOccasionalClipUpdatesReply {
 pub struct GetContinuousMatrixUpdatesReply {
     #[prost(message, optional, tag = "1")]
     pub matrix_update: ::core::option::Option<ContinuousMatrixUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalColumnUpdatesReply {
+    /// For each updated column property
+    #[prost(message, repeated, tag = "1")]
+    pub column_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalColumnUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalRowUpdatesReply {
+    /// For each updated row property
+    #[prost(message, repeated, tag = "1")]
+    pub row_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalRowUpdate>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -352,7 +441,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -392,6 +481,9 @@ pub mod occasional_matrix_update {
         /// Time signature (= REAPER master time signature)
         #[prost(message, tag = "10")]
         TimeSignature(super::TimeSignature),
+        /// Settings data as JSON.
+        #[prost(string, tag = "11")]
+        Settings(::prost::alloc::string::String),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1055,6 +1147,10 @@ pub mod clip_engine_server {
             &self,
             request: tonic::Request<super::TriggerMatrixRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_matrix_settings(
+            &self,
+            request: tonic::Request<super::SetMatrixSettingsRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_tempo(
             &self,
             request: tonic::Request<super::SetMatrixTempoRequest>,
@@ -1071,6 +1167,10 @@ pub mod clip_engine_server {
         async fn trigger_column(
             &self,
             request: tonic::Request<super::TriggerColumnRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_column_settings(
+            &self,
+            request: tonic::Request<super::SetColumnSettingsRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_column_name(
             &self,
@@ -1096,6 +1196,10 @@ pub mod clip_engine_server {
         async fn trigger_row(
             &self,
             request: tonic::Request<super::TriggerRowRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_row_data(
+            &self,
+            request: tonic::Request<super::SetRowDataRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_row(
             &self,
@@ -1155,13 +1259,26 @@ pub mod clip_engine_server {
             tonic::Response<Self::GetContinuousMatrixUpdatesStream>,
             tonic::Status,
         >;
+        /// Server streaming response type for the GetOccasionalColumnUpdates method.
+        type GetOccasionalColumnUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetOccasionalColumnUpdatesReply, tonic::Status>,
+            >
+            + Send
+            + 'static;
+        /// Column events
+        async fn get_occasional_column_updates(
+            &self,
+            request: tonic::Request<super::GetOccasionalColumnUpdatesRequest>,
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalColumnUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetContinuousColumnUpdates method.
         type GetContinuousColumnUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetContinuousColumnUpdatesReply, tonic::Status>,
             >
             + Send
             + 'static;
-        /// Column events
         async fn get_continuous_column_updates(
             &self,
             request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
@@ -1169,6 +1286,17 @@ pub mod clip_engine_server {
             tonic::Response<Self::GetContinuousColumnUpdatesStream>,
             tonic::Status,
         >;
+        /// Server streaming response type for the GetOccasionalRowUpdates method.
+        type GetOccasionalRowUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetOccasionalRowUpdatesReply, tonic::Status>,
+            >
+            + Send
+            + 'static;
+        /// Row events
+        async fn get_occasional_row_updates(
+            &self,
+            request: tonic::Request<super::GetOccasionalRowUpdatesRequest>,
+        ) -> Result<tonic::Response<Self::GetOccasionalRowUpdatesStream>, tonic::Status>;
         /// Server streaming response type for the GetOccasionalSlotUpdates method.
         type GetOccasionalSlotUpdatesStream: futures_core::Stream<
                 Item = Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>,
@@ -1364,6 +1492,46 @@ pub mod clip_engine_server {
                     };
                     Box::pin(fut)
                 }
+                "/playtime.clip_engine.ClipEngine/SetMatrixSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetMatrixSettingsSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetMatrixSettingsRequest>
+                    for SetMatrixSettingsSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetMatrixSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_matrix_settings(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetMatrixSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/SetMatrixTempo" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTempoSvc<T: ClipEngine>(pub Arc<T>);
@@ -1513,6 +1681,46 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerColumnSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetColumnSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetColumnSettingsSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetColumnSettingsRequest>
+                    for SetColumnSettingsSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetColumnSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_column_settings(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetColumnSettingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1749,6 +1957,46 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerRowSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/SetRowData" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetRowDataSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::UnaryService<super::SetRowDataRequest>
+                    for SetRowDataSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetRowDataRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_row_data(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetRowDataSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -2124,6 +2372,50 @@ pub mod clip_engine_server {
                     };
                     Box::pin(fut)
                 }
+                "/playtime.clip_engine.ClipEngine/GetOccasionalColumnUpdates" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetOccasionalColumnUpdatesSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalColumnUpdatesRequest,
+                    > for GetOccasionalColumnUpdatesSvc<T> {
+                        type Response = super::GetOccasionalColumnUpdatesReply;
+                        type ResponseStream = T::GetOccasionalColumnUpdatesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetOccasionalColumnUpdatesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_occasional_column_updates(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetOccasionalColumnUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/playtime.clip_engine.ClipEngine/GetContinuousColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousColumnUpdatesSvc<T: ClipEngine>(pub Arc<T>);
@@ -2157,6 +2449,50 @@ pub mod clip_engine_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetContinuousColumnUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/playtime.clip_engine.ClipEngine/GetOccasionalRowUpdates" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetOccasionalRowUpdatesSvc<T: ClipEngine>(pub Arc<T>);
+                    impl<
+                        T: ClipEngine,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalRowUpdatesRequest,
+                    > for GetOccasionalRowUpdatesSvc<T> {
+                        type Response = super::GetOccasionalRowUpdatesReply;
+                        type ResponseStream = T::GetOccasionalRowUpdatesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetOccasionalRowUpdatesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_occasional_row_updates(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetOccasionalRowUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

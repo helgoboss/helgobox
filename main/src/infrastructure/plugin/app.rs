@@ -36,8 +36,8 @@ use enum_iterator::IntoEnumIterator;
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalClipUpdateBatch, OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch,
-    OccasionalTrackUpdateBatch,
+    OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch, OccasionalMatrixUpdateBatch,
+    OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
 };
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
@@ -108,6 +108,8 @@ pub struct App {
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     occasional_matrix_update_sender: tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch>,
     occasional_track_update_sender: tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch>,
+    occasional_column_update_sender: tokio::sync::broadcast::Sender<OccasionalColumnUpdateBatch>,
+    occasional_row_update_sender: tokio::sync::broadcast::Sender<OccasionalRowUpdateBatch>,
     occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
     occasional_clip_update_sender: tokio::sync::broadcast::Sender<OccasionalClipUpdateBatch>,
     continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
@@ -283,6 +285,8 @@ impl App {
             ))),
             occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_column_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_row_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_clip_update_sender: tokio::sync::broadcast::channel(100).0,
             continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
@@ -625,6 +629,18 @@ impl App {
         &self,
     ) -> &tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch> {
         &self.occasional_track_update_sender
+    }
+
+    pub fn occasional_column_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalColumnUpdateBatch> {
+        &self.occasional_column_update_sender
+    }
+
+    pub fn occasional_row_update_sender(
+        &self,
+    ) -> &tokio::sync::broadcast::Sender<OccasionalRowUpdateBatch> {
+        &self.occasional_row_update_sender
     }
 
     pub fn occasional_slot_update_sender(

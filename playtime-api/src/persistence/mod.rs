@@ -643,8 +643,6 @@ pub struct Column {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ColumnSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
     pub clip_play_settings: ColumnClipPlaySettings,
     pub clip_record_settings: ColumnClipRecordSettings,
 }

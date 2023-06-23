@@ -15,13 +15,15 @@ use playtime_clip_engine::proto::{
     GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
-    GetOccasionalClipUpdatesRequest, GetOccasionalMatrixUpdatesReply,
-    GetOccasionalMatrixUpdatesRequest, GetOccasionalSlotUpdatesReply,
-    GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
-    GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SetClipDataRequest,
-    SetClipNameRequest, SetColumnNameRequest, SetColumnPanRequest, SetColumnTrackRequest,
-    SetColumnVolumeRequest, SetMatrixPanRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest,
+    GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
+    GetOccasionalColumnUpdatesRequest, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
+    GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
+    GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, OccasionalMatrixUpdate,
+    OccasionalTrackUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    SetClipDataRequest, SetClipNameRequest, SetColumnNameRequest, SetColumnPanRequest,
+    SetColumnSettingsRequest, SetColumnTrackRequest, SetColumnVolumeRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixVolumeRequest, SetRowDataRequest,
     SlotAddress, TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
     TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
     TriggerSlotAction, TriggerSlotRequest,
@@ -74,6 +76,12 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         )
     }
 
+    type GetOccasionalColumnUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalColumnUpdatesReply, Status>>;
+
+    type GetOccasionalRowUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalRowUpdatesReply, Status>>;
+
     type GetOccasionalSlotUpdatesStream =
         SyncBoxStream<'static, Result<GetOccasionalSlotUpdatesReply, Status>>;
 
@@ -112,6 +120,34 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             receiver,
             |slot_updates| GetOccasionalSlotUpdatesReply { slot_updates },
             Some(initial_reply).into_iter(),
+        )
+    }
+
+    async fn get_occasional_column_updates(
+        &self,
+        request: Request<GetOccasionalColumnUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalColumnUpdatesStream>, Status> {
+        // On change
+        let receiver = App::get().occasional_column_update_sender().subscribe();
+        stream_by_session_id(
+            request.into_inner().matrix_id,
+            receiver,
+            |column_updates| GetOccasionalColumnUpdatesReply { column_updates },
+            iter::empty(),
+        )
+    }
+
+    async fn get_occasional_row_updates(
+        &self,
+        request: Request<GetOccasionalRowUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalRowUpdatesStream>, Status> {
+        // On change
+        let receiver = App::get().occasional_row_update_sender().subscribe();
+        stream_by_session_id(
+            request.into_inner().matrix_id,
+            receiver,
+            |row_updates| GetOccasionalRowUpdatesReply { row_updates },
+            iter::empty(),
         )
     }
 
@@ -415,6 +451,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         })
     }
 
+    async fn set_matrix_settings(
+        &self,
+        request: Request<SetMatrixSettingsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let matrix_settings = serde_json::from_str(&req.settings)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        handle_matrix_command(&req.matrix_id, |matrix| {
+            matrix.set_settings(matrix_settings)
+        })
+    }
+
     async fn trigger_column(
         &self,
         request: Request<TriggerColumnRequest>,
@@ -462,6 +510,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
         })
     }
 
+    async fn set_column_settings(
+        &self,
+        request: Request<SetColumnSettingsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let column_settings = serde_json::from_str(&req.settings)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        handle_column_command(&req.column_address, |matrix, column_index| {
+            matrix.set_column_settings(column_index, column_settings)
+        })
+    }
+
     async fn trigger_row(
         &self,
         request: Request<TriggerRowRequest>,
@@ -482,6 +542,18 @@ impl clip_engine_server::ClipEngine for RealearnClipEngine {
             TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
             TriggerRowAction::Insert => matrix.insert_row(row_index),
             TriggerRowAction::Panic => matrix.panic_row(row_index),
+        })
+    }
+
+    async fn set_row_data(
+        &self,
+        request: Request<SetRowDataRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        let req = request.into_inner();
+        let row_data =
+            serde_json::from_str(&req.data).map_err(|e| Status::invalid_argument(e.to_string()))?;
+        handle_row_command(&req.row_address, |matrix, row_index| {
+            matrix.set_row_data(row_index, row_data)
         })
     }
 

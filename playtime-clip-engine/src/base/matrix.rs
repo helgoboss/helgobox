@@ -88,7 +88,6 @@ impl MatrixContent {
         // Settings
         self.settings = MatrixSettings::from_api(&api_matrix);
         // Columns
-
         let mut old_columns: HashMap<_, _> = mem::take(&mut self.columns)
             .into_iter()
             .map(|c| (c.id().clone(), c))
@@ -201,13 +200,7 @@ impl MatrixSettings {
         Self {
             common_tempo_range: matrix.common_tempo_range,
             clip_record_settings: matrix.clip_record_settings,
-            overridable: OverridableMatrixSettings {
-                clip_play_start_timing: matrix.clip_play_settings.start_timing,
-                clip_play_stop_timing: matrix.clip_play_settings.stop_timing,
-                audio_time_stretch_mode: matrix.clip_play_settings.audio_settings.time_stretch_mode,
-                audio_resample_mode: matrix.clip_play_settings.audio_settings.resample_mode,
-                audio_cache_behavior: matrix.clip_play_settings.audio_settings.cache_behavior,
-            },
+            overridable: OverridableMatrixSettings::from_api(&matrix.clip_play_settings),
         }
     }
 }
@@ -281,17 +274,21 @@ impl Matrix {
                     .collect(),
             ),
             rows: Some(self.content.rows.iter().map(|row| row.save()).collect()),
-            clip_play_settings: MatrixClipPlaySettings {
-                start_timing: self.content.settings.overridable.clip_play_start_timing,
-                stop_timing: self.content.settings.overridable.clip_play_stop_timing,
-                audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.content.settings.overridable.audio_resample_mode,
-                    time_stretch_mode: self.content.settings.overridable.audio_time_stretch_mode,
-                    cache_behavior: self.content.settings.overridable.audio_cache_behavior,
-                },
-            },
+            clip_play_settings: self.save_play_settings(),
             clip_record_settings: self.content.settings.clip_record_settings,
             common_tempo_range: self.content.settings.common_tempo_range,
+        }
+    }
+
+    fn save_play_settings(&self) -> api::MatrixClipPlaySettings {
+        MatrixClipPlaySettings {
+            start_timing: self.content.settings.overridable.clip_play_start_timing,
+            stop_timing: self.content.settings.overridable.clip_play_stop_timing,
+            audio_settings: MatrixClipPlayAudioSettings {
+                resample_mode: self.content.settings.overridable.audio_resample_mode,
+                time_stretch_mode: self.content.settings.overridable.audio_time_stretch_mode,
+                cache_behavior: self.content.settings.overridable.audio_cache_behavior,
+            },
         }
     }
 
@@ -1187,9 +1184,17 @@ impl Matrix {
         }
     }
 
-    /// Returns the settings of this matrix.
+    /// Returns the basic settings of this matrix.
     pub fn settings(&self) -> &MatrixSettings {
         &self.content.settings
+    }
+
+    pub fn all_matrix_settings_combined(&self) -> api::MatrixSettings {
+        api::MatrixSettings {
+            clip_play_settings: self.save_play_settings(),
+            clip_record_settings: self.content.settings.clip_record_settings,
+            common_tempo_range: self.content.settings.common_tempo_range,
+        }
     }
 
     /// Sets the record duration for new clip recordings.
@@ -1589,6 +1594,42 @@ impl Matrix {
         })
     }
 
+    pub fn set_settings(&mut self, settings: api::MatrixSettings) -> ClipEngineResult<()> {
+        self.undoable("Change matrix settings", |matrix| {
+            matrix.content.settings.overridable =
+                OverridableMatrixSettings::from_api(&settings.clip_play_settings);
+            matrix.content.settings.clip_record_settings = settings.clip_record_settings;
+            matrix.content.settings.common_tempo_range = settings.common_tempo_range;
+            for column in &mut matrix.content.columns {
+                column.sync_matrix_settings_to_rt_column(&matrix.content.settings);
+            }
+            matrix.emit(ClipMatrixEvent::MatrixSettingsChanged);
+            Ok(vec![])
+        })
+    }
+
+    pub fn set_column_settings(
+        &mut self,
+        column_index: usize,
+        settings: api::ColumnSettings,
+    ) -> ClipEngineResult<()> {
+        self.undoable("Change column settings", |matrix| {
+            let column = matrix.get_column_mut(column_index)?;
+            column.set_settings(settings);
+            matrix.emit(ClipMatrixEvent::ColumnSettingsChanged(column_index));
+            Ok(vec![])
+        })
+    }
+
+    pub fn set_row_data(&mut self, row_index: usize, api_row: api::Row) -> ClipEngineResult<()> {
+        self.undoable("Change row data", |matrix| {
+            let row = matrix.get_row_mut(row_index)?;
+            *row = Row::from_api_row(api_row);
+            matrix.emit(ClipMatrixEvent::RowChanged(row_index));
+            Ok(vec![])
+        })
+    }
+
     /// Applies most properties of the given clip to the clip at the given address.
     ///
     /// The following clip properties will not be changed:
@@ -1637,6 +1678,15 @@ impl Matrix {
         get_column(&self.content.columns, index)
     }
 
+    /// Returns the row at the given index.
+    pub fn get_row(&self, index: usize) -> ClipEngineResult<&Row> {
+        get_row(&self.content.rows, index)
+    }
+
+    fn get_row_mut(&mut self, index: usize) -> ClipEngineResult<&mut Row> {
+        get_row_mut(&mut self.content.rows, index)
+    }
+
     fn get_column_mut(&mut self, index: usize) -> ClipEngineResult<&mut Column> {
         get_column_mut(&mut self.content.columns, index)
     }
@@ -1651,11 +1701,20 @@ fn get_column(columns: &[Column], index: usize) -> ClipEngineResult<&Column> {
     columns.get(index).ok_or(NO_SUCH_COLUMN)
 }
 
+fn get_row(rows: &[Row], index: usize) -> ClipEngineResult<&Row> {
+    rows.get(index).ok_or(NO_SUCH_ROW)
+}
+
+fn get_row_mut(rows: &mut [Row], index: usize) -> ClipEngineResult<&mut Row> {
+    rows.get_mut(index).ok_or(NO_SUCH_ROW)
+}
+
 fn get_column_mut(columns: &mut [Column], index: usize) -> ClipEngineResult<&mut Column> {
     columns.get_mut(index).ok_or(NO_SUCH_COLUMN)
 }
 
 const NO_SUCH_COLUMN: &str = "no such column";
+const NO_SUCH_ROW: &str = "no such row";
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct ClipSlotAddress {
@@ -1799,6 +1858,9 @@ pub trait ClipMatrixHandler {
 
 #[derive(Debug)]
 pub enum ClipMatrixEvent {
+    MatrixSettingsChanged,
+    ColumnSettingsChanged(usize),
+    RowChanged(usize),
     EverythingChanged,
     RecordDurationChanged,
     HistoryChanged,

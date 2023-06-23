@@ -33,6 +33,12 @@ impl occasional_matrix_update::Update {
         Self::CompletePersistentData(matrix_json)
     }
 
+    pub fn settings(matrix: &Matrix) -> Self {
+        let settings_json = serde_json::to_string(&matrix.all_matrix_settings_combined())
+            .expect("couldn't represent matrix settings as JSON");
+        Self::Settings(settings_json)
+    }
+
     pub fn history_state(matrix: &Matrix) -> Self {
         Self::HistoryState(HistoryState::from_engine(matrix.history()))
     }
@@ -119,6 +125,23 @@ impl qualified_occasional_slot_update::Update {
         });
         let json = serde_json::to_string(&api_slot).expect("couldn't represent slot as JSON");
         Self::CompletePersistentData(json)
+    }
+}
+
+impl qualified_occasional_column_update::Update {
+    pub fn settings(matrix: &Matrix, column_index: usize) -> ClipEngineResult<Self> {
+        let column = matrix.get_column(column_index)?;
+        let json = serde_json::to_string(&column.all_column_settings_combined())
+            .expect("couldn't represent slot as JSON");
+        Ok(Self::Settings(json))
+    }
+}
+
+impl qualified_occasional_row_update::Update {
+    pub fn data(matrix: &Matrix, row_index: usize) -> ClipEngineResult<Self> {
+        let row = matrix.get_row(row_index)?;
+        let json = serde_json::to_string(&row.save()).expect("couldn't represent row as JSON");
+        Ok(Self::Data(json))
     }
 }
 

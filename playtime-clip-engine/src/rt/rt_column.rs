@@ -1,7 +1,5 @@
 use crate::mutex_util::{blocking_lock, non_blocking_lock};
-use crate::rt::supplier::{
-    MaterialInfo, MidiOverdubOutcome, WriteAudioRequest, WriteMidiRequest,
-};
+use crate::rt::supplier::{MaterialInfo, MidiOverdubOutcome, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     BasicAudioRequestProps, ClipRecordingPollArgs, HandleSlotEvent, InternalClipPlayState,
     NormalRecordingOutcome, OwnedAudioBuffer, RtClip, RtClipId, RtClipSettings, RtClips, RtSlot,
@@ -18,7 +16,7 @@ use indexmap::IndexMap;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming,
-    ColumnPlayMode, Db, VirtualResampleMode,
+    ColumnClipPlaySettings, ColumnPlayMode, Db, MatrixClipPlaySettings, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -374,17 +372,14 @@ pub struct RtColumnSettings {
 }
 
 impl RtColumnSettings {
-    pub fn from_api(api_column: &api::Column) -> Self {
+    pub fn from_api(settings: &ColumnClipPlaySettings) -> Self {
         Self {
-            clip_play_start_timing: api_column.clip_play_settings.start_timing,
-            clip_play_stop_timing: api_column.clip_play_settings.stop_timing,
-            audio_time_stretch_mode: api_column
-                .clip_play_settings
-                .audio_settings
-                .time_stretch_mode,
-            audio_resample_mode: api_column.clip_play_settings.audio_settings.resample_mode,
-            audio_cache_behavior: api_column.clip_play_settings.audio_settings.cache_behavior,
-            play_mode: api_column.clip_play_settings.mode.unwrap_or_default(),
+            clip_play_start_timing: settings.start_timing,
+            clip_play_stop_timing: settings.stop_timing,
+            audio_time_stretch_mode: settings.audio_settings.time_stretch_mode,
+            audio_resample_mode: settings.audio_settings.resample_mode,
+            audio_cache_behavior: settings.audio_settings.cache_behavior,
+            play_mode: settings.mode.unwrap_or_default(),
         }
     }
 }
@@ -396,6 +391,18 @@ pub struct OverridableMatrixSettings {
     pub audio_time_stretch_mode: AudioTimeStretchMode,
     pub audio_resample_mode: VirtualResampleMode,
     pub audio_cache_behavior: AudioCacheBehavior,
+}
+
+impl OverridableMatrixSettings {
+    pub fn from_api(clip_play_settings: &MatrixClipPlaySettings) -> Self {
+        OverridableMatrixSettings {
+            clip_play_start_timing: clip_play_settings.start_timing,
+            clip_play_stop_timing: clip_play_settings.stop_timing,
+            audio_time_stretch_mode: clip_play_settings.audio_settings.time_stretch_mode,
+            audio_resample_mode: clip_play_settings.audio_settings.resample_mode,
+            audio_cache_behavior: clip_play_settings.audio_settings.cache_behavior,
+        }
+    }
 }
 
 const MAX_AUDIO_CHANNEL_COUNT: usize = 64;

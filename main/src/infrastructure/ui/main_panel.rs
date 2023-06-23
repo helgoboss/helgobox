@@ -22,8 +22,8 @@ use crate::domain::{
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::grpc::{
     ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalClipUpdateBatch, OccasionalMatrixUpdateBatch, OccasionalSlotUpdateBatch,
-    OccasionalTrackUpdateBatch,
+    OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch, OccasionalMatrixUpdateBatch,
+    OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
 };
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
@@ -34,10 +34,12 @@ use playtime_api::persistence::EvenQuantization;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
+    qualified_occasional_column_update, qualified_occasional_row_update,
     qualified_occasional_slot_update, ContinuousClipUpdate, ContinuousColumnUpdate,
     ContinuousMatrixUpdate, ContinuousSlotUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, SlotAddress,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    SlotAddress,
 };
 use playtime_clip_engine::rt::{
     ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
@@ -529,6 +531,8 @@ impl SessionUi for Weak<MainPanel> {
         is_poll: bool,
     ) {
         send_occasional_matrix_updates_caused_by_matrix(session, matrix, events);
+        send_occasional_column_updates(session, matrix, events);
+        send_occasional_row_updates(session, matrix, events);
         send_occasional_slot_updates(session, matrix, events);
         send_occasional_clip_updates(session, matrix, events);
         send_continuous_slot_updates(session, events);
@@ -595,6 +599,9 @@ fn send_occasional_matrix_updates_caused_by_matrix(
                     matrix,
                 )),
             }),
+            ClipMatrixEvent::MatrixSettingsChanged => Some(OccasionalMatrixUpdate {
+                update: Some(occasional_matrix_update::Update::settings(matrix)),
+            }),
             ClipMatrixEvent::HistoryChanged => Some(OccasionalMatrixUpdate {
                 update: Some(occasional_matrix_update::Update::history_state(matrix)),
             }),
@@ -603,6 +610,71 @@ fn send_occasional_matrix_updates_caused_by_matrix(
         .collect();
     if !updates.is_empty() {
         let batch_event = OccasionalMatrixUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_occasional_column_updates(
+    session: &Session,
+    matrix: &RealearnClipMatrix,
+    events: &[ClipMatrixEvent],
+) {
+    let sender = App::get().occasional_column_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            ClipMatrixEvent::ColumnSettingsChanged(column_index) => {
+                let update =
+                    qualified_occasional_column_update::Update::settings(matrix, *column_index)
+                        .ok()?;
+                Some(QualifiedOccasionalColumnUpdate {
+                    column_index: *column_index as _,
+                    update: Some(update),
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = OccasionalColumnUpdateBatch {
+            session_id: session.id().to_owned(),
+            value: updates,
+        };
+        let _ = sender.send(batch_event);
+    }
+}
+
+fn send_occasional_row_updates(
+    session: &Session,
+    matrix: &RealearnClipMatrix,
+    events: &[ClipMatrixEvent],
+) {
+    let sender = App::get().occasional_row_update_sender();
+    if sender.receiver_count() == 0 {
+        return;
+    }
+    let updates: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            ClipMatrixEvent::RowChanged(row_index) => {
+                let update =
+                    qualified_occasional_row_update::Update::data(matrix, *row_index).ok()?;
+                Some(QualifiedOccasionalRowUpdate {
+                    row_index: *row_index as _,
+                    update: Some(update),
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    if !updates.is_empty() {
+        let batch_event = OccasionalRowUpdateBatch {
             session_id: session.id().to_owned(),
             value: updates,
         };

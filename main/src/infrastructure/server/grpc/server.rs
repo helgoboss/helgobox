@@ -3,8 +3,8 @@ use crate::infrastructure::server::layers::MainThreadLayer;
 use playtime_clip_engine::proto::clip_engine_server::ClipEngineServer;
 use playtime_clip_engine::proto::{
     ContinuousColumnUpdate, ContinuousMatrixUpdate, OccasionalMatrixUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
 };
 use std::net::SocketAddr;
 use tonic::transport::Server;
@@ -26,6 +26,8 @@ pub struct WithSessionId<T> {
 
 pub type OccasionalMatrixUpdateBatch = WithSessionId<Vec<OccasionalMatrixUpdate>>;
 pub type OccasionalTrackUpdateBatch = WithSessionId<Vec<QualifiedOccasionalTrackUpdate>>;
+pub type OccasionalColumnUpdateBatch = WithSessionId<Vec<QualifiedOccasionalColumnUpdate>>;
+pub type OccasionalRowUpdateBatch = WithSessionId<Vec<QualifiedOccasionalRowUpdate>>;
 pub type OccasionalSlotUpdateBatch = WithSessionId<Vec<QualifiedOccasionalSlotUpdate>>;
 pub type OccasionalClipUpdateBatch = WithSessionId<Vec<QualifiedOccasionalClipUpdate>>;
 pub type ContinuousMatrixUpdateBatch = WithSessionId<ContinuousMatrixUpdate>;

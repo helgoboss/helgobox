@@ -6,8 +6,8 @@ use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangeEvent, ColumnCommandSender, ColumnHandle, ColumnLoadArgs, ColumnMoveSlotContentsArgs,
     ColumnPlayRowArgs, ColumnPlaySlotArgs, ColumnReorderSlotsArgs, ColumnStopArgs,
-    ColumnStopSlotArgs, FillSlotMode, OverridableMatrixSettings, RtColumnEvent, RtSlotId, RtSlots,
-    SharedRtColumn, SlotChangeEvent,
+    ColumnStopSlotArgs, FillSlotMode, OverridableMatrixSettings, RtColumnEvent, RtColumnSettings,
+    RtSlotId, RtSlots, SharedRtColumn, SlotChangeEvent,
 };
 use crate::{rt, source_util, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -106,6 +106,19 @@ impl Column {
 
     pub fn id(&self) -> &ColumnId {
         &self.id
+    }
+
+    pub fn all_column_settings_combined(&self) -> api::ColumnSettings {
+        api::ColumnSettings {
+            clip_play_settings: self.save_play_settings(),
+            clip_record_settings: self.settings.clip_record_settings.clone(),
+        }
+    }
+
+    pub fn set_settings(&mut self, settings: api::ColumnSettings) {
+        self.settings.clip_record_settings = settings.clip_record_settings;
+        self.rt_settings = RtColumnSettings::from_api(&settings.clip_play_settings);
+        self.sync_column_settings_to_rt_column();
     }
 
     pub fn duplicate(&self, rt_equipment: ColumnRtEquipment) -> Column {
@@ -233,7 +246,7 @@ impl Column {
         self.set_playback_track_internal(track);
         // Settings
         self.settings = ColumnSettings::from_api(&api_column);
-        self.rt_settings = rt::RtColumnSettings::from_api(&api_column);
+        self.rt_settings = rt::RtColumnSettings::from_api(&api_column.clip_play_settings);
         self.name = api_column.name;
         // Create slots for all rows
         let api_slots = api_column.slots.unwrap_or_default();
@@ -268,7 +281,7 @@ impl Column {
     /// So this can also be used for small changed when too lazy to create a real-time column
     /// command. It's a bit heavier on resources though, so it shouldn't be used for column changes
     /// that can happen very frequently.
-    fn resync_slots_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
+    fn sync_slots_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
         let create_rt_clip_equipment = CreateRtClipEquipment {
             permanent_project: self.project,
             chain_equipment: rt_equipment.chain_equipment,
@@ -327,13 +340,17 @@ impl Column {
     }
 
     fn sync_everything_to_rt_column(&mut self, rt_equipment: ColumnRtEquipment) {
-        self.sync_matrix_and_column_settings_to_rt_column(rt_equipment.matrix_settings);
-        self.resync_slots_to_rt_column(rt_equipment);
+        self.sync_matrix_settings_to_rt_column(rt_equipment.matrix_settings);
+        self.sync_column_settings_to_rt_column();
+        self.sync_slots_to_rt_column(rt_equipment);
     }
 
-    fn sync_matrix_and_column_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
+    fn sync_column_settings_to_rt_column(&self) {
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
+    }
+
+    pub fn sync_matrix_settings_to_rt_column(&self, matrix_settings: &MatrixSettings) {
         self.rt_command_sender
             .update_matrix_settings(matrix_settings.overridable.clone());
     }
@@ -383,28 +400,32 @@ impl Column {
     }
 
     pub fn save(&self) -> api::Column {
-        let track_id = self
-            .playback_track()
-            .ok()
-            .map(|t| TrackId::new(t.guid().to_string_without_braces()));
         api::Column {
             id: self.id.clone(),
             name: self.name.clone(),
-            clip_play_settings: ColumnClipPlaySettings {
-                mode: Some(self.rt_settings.play_mode),
-                track: track_id,
-                start_timing: self.rt_settings.clip_play_start_timing,
-                stop_timing: self.rt_settings.clip_play_stop_timing,
-                audio_settings: ColumnClipPlayAudioSettings {
-                    resample_mode: self.rt_settings.audio_resample_mode,
-                    time_stretch_mode: self.rt_settings.audio_time_stretch_mode,
-                    cache_behavior: self.rt_settings.audio_cache_behavior,
-                },
-            },
+            clip_play_settings: self.save_play_settings(),
             clip_record_settings: self.settings.clip_record_settings.clone(),
             slots: {
                 let slots = self.slots.values().filter_map(|slot| slot.save()).collect();
                 Some(slots)
+            },
+        }
+    }
+
+    fn save_play_settings(&self) -> api::ColumnClipPlaySettings {
+        let track_id = self
+            .playback_track()
+            .ok()
+            .map(|t| TrackId::new(t.guid().to_string_without_braces()));
+        ColumnClipPlaySettings {
+            mode: Some(self.rt_settings.play_mode),
+            track: track_id,
+            start_timing: self.rt_settings.clip_play_start_timing,
+            stop_timing: self.rt_settings.clip_play_stop_timing,
+            audio_settings: ColumnClipPlayAudioSettings {
+                resample_mode: self.rt_settings.audio_resample_mode,
+                time_stretch_mode: self.rt_settings.audio_time_stretch_mode,
+                cache_behavior: self.rt_settings.audio_cache_behavior,
             },
         }
     }
@@ -704,7 +725,7 @@ impl Column {
         self.slots.insert(duplicate_slot.rt_id(), duplicate_slot);
         self.slots.move_index(self.slots.len() - 1, new_index);
         self.reindex_slots();
-        self.resync_slots_to_rt_column(rt_equipment);
+        self.sync_slots_to_rt_column(rt_equipment);
         Ok(())
     }
 
@@ -720,7 +741,7 @@ impl Column {
         self.slots.insert(new_slot.rt_id(), new_slot);
         self.slots.move_index(self.slots.len() - 1, slot_index);
         self.reindex_slots();
-        self.resync_slots_to_rt_column(rt_equipment);
+        self.sync_slots_to_rt_column(rt_equipment);
         Ok(())
     }
 
