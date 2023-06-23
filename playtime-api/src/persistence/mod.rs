@@ -11,7 +11,8 @@
 //! - For the same reasons, boolean data types are allowed and not in general substituted by On/Off
 //!   enums.
 //! - Only a subset of the possible Rust data structuring possibilities are used. The ones that
-//!   work well with ReaLearn Script (`lua_serializer.rs`).
+//!   work well with ReaLearn Script (`lua_serializer.rs`) **and** our Rust-to-Dart converter.
+//!   For the latter, we need to avoid things like `#[serde(flatten)]`!
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -36,6 +37,13 @@ pub struct Matrix {
     /// All rows from top to bottom.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rows: Option<Vec<Row>>,
+    pub clip_play_settings: MatrixClipPlaySettings,
+    pub clip_record_settings: MatrixClipRecordSettings,
+    pub common_tempo_range: TempoRange,
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
@@ -631,6 +639,14 @@ pub struct Column {
     /// Only filled slots need to be mentioned here.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slots: Option<Vec<Slot>>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ColumnSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub clip_play_settings: ColumnClipPlaySettings,
+    pub clip_record_settings: ColumnClipRecordSettings,
 }
 
 impl Column {
