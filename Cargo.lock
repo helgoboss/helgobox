@@ -4220,6 +4220,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "lazycell",
+ "libloading 0.8.0",
  "lru",
  "maplit",
  "metrics",
@@ -5202,7 +5203,7 @@ name = "swell-ui"
 version = "0.1.0"
 dependencies = [
  "bindgen",
- "libloading 0.7.3",
+ "libloading 0.8.0",
  "objc2",
  "palette",
  "raw-window-handle 0.4.3",

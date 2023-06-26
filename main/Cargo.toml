@@ -176,6 +176,8 @@ pulldown-cmark = "0.9.2"
 raw-window-handle.workspace = true
 rfd = "0.11.3"
 dirs = "5.0.1"
+# For loading Playtime App
+libloading.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

@@ -40,6 +40,9 @@ pub use simple_script_editor_panel::*;
 mod advanced_script_editor_panel;
 pub use advanced_script_editor_panel::*;
 
+mod app_panel;
+pub use app_panel::*;
+
 #[allow(dead_code)]
 mod target_filter_panel;
 pub use target_filter_panel::*;

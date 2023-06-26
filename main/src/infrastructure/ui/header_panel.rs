@@ -50,10 +50,10 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
-    serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, PlainTextEngine, PotBrowserPanel, ScriptEditorInput, SearchExpression,
-    SerializationFormat, SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel,
-    SourceFilter, UntaggedDataObject,
+    serialize_data_object_to_lua, AppPanel, DataObject, GroupFilter, GroupPanel,
+    IndependentPanelManager, MappingRowsPanel, PlainTextEngine, PotBrowserPanel, ScriptEditorInput,
+    SearchExpression, SerializationFormat, SharedIndependentPanelManager, SharedMainState,
+    SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -80,6 +80,7 @@ pub struct HeaderPanel {
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
     pot_browser_panel: RefCell<Option<SharedView<dyn View>>>,
+    app_panel: RefCell<Option<SharedView<dyn View>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -100,6 +101,7 @@ impl HeaderPanel {
             group_panel: Default::default(),
             extra_panel: Default::default(),
             pot_browser_panel: Default::default(),
+            app_panel: Default::default(),
             is_invoked_programmatically: false.into(),
         }
     }
@@ -2253,6 +2255,23 @@ impl HeaderPanel {
         Ok(())
     }
 
+    pub fn show_app(&self) {
+        let result = self.show_app_internal();
+        // Important to not use the header window to show the error because the pot browser
+        // might be opened without any ReaLearn window being open!
+        notification::notify_user_on_error(result);
+    }
+
+    fn show_app_internal(&self) -> Result<(), Box<dyn Error>> {
+        let panel = AppPanel::new()?;
+        open_child_panel_dyn(
+            &self.app_panel,
+            panel,
+            Window::from_non_null(Reaper::get().main_window()),
+        );
+        Ok(())
+    }
+
     fn open_preset_folder(&self) {
         let path = App::realearn_preset_dir_path();
         let result = open_in_file_manager(&path).map_err(|e| e.into());
@@ -2602,6 +2621,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             root::ID_PROJECTION_BUTTON => {
+                // self.show_app();
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
