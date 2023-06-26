@@ -148,10 +148,9 @@ pub fn create_pcm_source_from_file_based_api_source(
     import_midi_as_in_project_midi: bool,
 ) -> ClipEngineResult<OwnedSource> {
     let absolute_file = make_media_file_path_absolute(project_for_relative_path, &source.path)?;
-    // TODO-high-clip-engine This seems to return a source even if the file doesn't exist ...
-    //  which is good in a way because we don't want matrix loading to fail just because one
-    //  media file is not available currently. We need to support the concept of a source being
-    //  offline.
+    if !absolute_file.exists() {
+        return Err("clip file doesn't exist");
+    }
     create_pcm_source_from_media_file(&absolute_file, import_midi_as_in_project_midi)
 }
 
