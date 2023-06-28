@@ -74,7 +74,7 @@ const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/bui
 
 #[cfg(target_os = "windows")]
 const APP_BASE_DIR: &str =
-    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug";
+    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
 
 impl PlaytimeApp {
     pub fn load() -> Result<Self, libloading::Error> {
@@ -82,7 +82,13 @@ impl PlaytimeApp {
         let library = unsafe {
             #[cfg(target_os = "windows")]
             {
-                Library::new(app_base_dir.join("playtime.dll"))
+                let lib1 = app_base_dir.join("flutter_windows.dll");
+                let lib2 = app_base_dir.join("url_launcher_windows_plugin.dll");
+                let lib3 = app_base_dir.join("playtime.dll");
+                let libs = vec![Library::new(lib1).unwrap(), Library::new(lib2).unwrap()];
+                let main_lib = Library::new(lib3);
+                dbg!(&libs);
+                main_lib
             }
             #[cfg(target_os = "macos")]
             {
