@@ -12,7 +12,9 @@ use reaper_low::raw;
 use reaper_low::raw::HWND;
 use semver::Version;
 use std::cell::RefCell;
+use std::env;
 use std::error::Error;
+use std::path::Path;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
@@ -68,13 +70,30 @@ pub struct PlaytimeApp {
 impl PlaytimeApp {
     pub fn load() -> Result<Self, libloading::Error> {
         let library = unsafe {
-            Library::new("C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug\\playtime.dll")
+            #[cfg(target_os = "windows")]
+            {
+                Library::new("C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug\\playtime.dll")
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let dir = Path::new("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app");
+                let lib1 = dir.join("Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS");
+                let lib2 =
+                    dir.join("Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos");
+                let lib3 = dir.join("Contents/MacOS/playtime");
+                let libs = vec![Library::new(lib1).unwrap(), Library::new(lib2).unwrap()];
+                let main_lib = Library::new(lib3);
+                dbg!(&libs);
+                main_lib
+            }
         }?;
+        dbg!(&library);
         let playtime = Self { library };
         Ok(playtime)
     }
 
     pub fn run(&self, parent_window: Window) -> Result<(), &'static str> {
+        env::set_current_dir("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app").unwrap();
         unsafe {
             let symbol: Symbol<Run> = self
                 .library
