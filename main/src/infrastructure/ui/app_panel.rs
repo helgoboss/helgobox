@@ -67,6 +67,8 @@ pub struct PlaytimeApp {
     library: Library,
 }
 
+const MAC_OS_BUNDLE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
+
 impl PlaytimeApp {
     pub fn load() -> Result<Self, libloading::Error> {
         let library = unsafe {
@@ -76,7 +78,8 @@ impl PlaytimeApp {
             }
             #[cfg(target_os = "macos")]
             {
-                let dir = Path::new("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app");
+                // let dir = Path::new("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app");
+                let dir = Path::new(MAC_OS_BUNDLE_DIR);
                 let lib1 = dir.join("Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS");
                 let lib2 =
                     dir.join("Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos");
@@ -93,7 +96,10 @@ impl PlaytimeApp {
     }
 
     pub fn run(&self, parent_window: Window) -> Result<(), &'static str> {
-        env::set_current_dir("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app").unwrap();
+        #[cfg(target_os = "macos")]
+        {
+            env::set_current_dir(MAC_OS_BUNDLE_DIR).unwrap();
+        }
         unsafe {
             let symbol: Symbol<Run> = self
                 .library
