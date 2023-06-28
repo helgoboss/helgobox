@@ -2621,7 +2621,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             root::ID_PROJECTION_BUTTON => {
-                // self.show_app();
+                self.show_app();
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {

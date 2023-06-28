@@ -67,23 +67,30 @@ pub struct PlaytimeApp {
     library: Library,
 }
 
-const MAC_OS_BUNDLE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
+// TODO-high-playtime Adjust
+
+#[cfg(target_os = "macos")]
+const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
+
+#[cfg(target_os = "windows")]
+const APP_BASE_DIR: &str =
+    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug";
 
 impl PlaytimeApp {
     pub fn load() -> Result<Self, libloading::Error> {
+        let app_base_dir = Path::new(APP_BASE_DIR);
         let library = unsafe {
             #[cfg(target_os = "windows")]
             {
-                Library::new("C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug\\playtime.dll")
+                Library::new(app_base_dir.join("playtime.dll"))
             }
             #[cfg(target_os = "macos")]
             {
-                // let dir = Path::new("/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app");
-                let dir = Path::new(MAC_OS_BUNDLE_DIR);
-                let lib1 = dir.join("Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS");
-                let lib2 =
-                    dir.join("Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos");
-                let lib3 = dir.join("Contents/MacOS/playtime");
+                let lib1 =
+                    app_base_dir.join("Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS");
+                let lib2 = app_base_dir
+                    .join("Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos");
+                let lib3 = app_base_dir.join("Contents/MacOS/playtime");
                 let libs = vec![Library::new(lib1).unwrap(), Library::new(lib2).unwrap()];
                 let main_lib = Library::new(lib3);
                 dbg!(&libs);
@@ -96,10 +103,8 @@ impl PlaytimeApp {
     }
 
     pub fn run(&self, parent_window: Window) -> Result<(), &'static str> {
-        #[cfg(target_os = "macos")]
-        {
-            env::set_current_dir(MAC_OS_BUNDLE_DIR).unwrap();
-        }
+        // TODO-high-playtime Safely revert current working directory after that!
+        env::set_current_dir(APP_BASE_DIR).unwrap();
         unsafe {
             let symbol: Symbol<Run> = self
                 .library
