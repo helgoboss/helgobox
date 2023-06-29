@@ -14,6 +14,7 @@ use semver::Version;
 use std::cell::RefCell;
 use std::env;
 use std::error::Error;
+use std::ffi::{c_char, CString};
 use std::path::Path;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
@@ -75,7 +76,7 @@ const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/bui
 
 #[cfg(target_os = "windows")]
 const APP_BASE_DIR: &str =
-    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Debug";
+    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
 
 impl LoadedApp {
     pub fn load() -> Result<Self, libloading::Error> {
@@ -112,14 +113,16 @@ impl LoadedApp {
     }
 
     pub fn run_in_parent(&self, parent_window: Window) -> Result<(), &'static str> {
+        let app_base_dir_c_string =
+            CString::new(APP_BASE_DIR).map_err(|_| "app base dir is not valid UTF-8")?;
         with_temporarily_changed_working_directory(APP_BASE_DIR, || {
             prepare_app_launch();
             let successful = unsafe {
                 let symbol: Symbol<RunInParent> = self
                     .main_library
-                    .get(b"runAppInParent\0")
-                    .map_err(|_| "failed to load runAppInParent function")?;
-                symbol(parent_window.raw())
+                    .get(b"run_app_in_parent\0")
+                    .map_err(|_| "failed to load run_app_in_parent function")?;
+                symbol(parent_window.raw(), app_base_dir_c_string.as_ptr())
             };
             if !successful {
                 return Err("couldn't launch app");
@@ -129,7 +132,8 @@ impl LoadedApp {
     }
 }
 
-type RunInParent = unsafe extern "stdcall" fn(hwnd: HWND) -> bool;
+type RunInParent =
+    unsafe extern "stdcall" fn(parent_window: HWND, app_base_dir_utf8_c_str: *const c_char) -> bool;
 
 fn prepare_app_launch() {
     #[cfg(target_os = "macos")]
