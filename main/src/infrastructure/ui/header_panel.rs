@@ -141,6 +141,7 @@ impl HeaderPanel {
         close_child_panel_if_open(&self.group_panel);
         close_child_panel_if_open(&self.extra_panel);
         close_child_panel_if_open(&self.pot_browser_panel);
+        close_child_panel_if_open(&self.app_panel);
     }
 
     pub fn handle_changed_midi_devices(&self) {
