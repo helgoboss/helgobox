@@ -586,6 +586,7 @@ impl HeaderPanel {
                     MainMenuAction::ReloadAllPresets
                 }),
                 item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
+                item("Open App", || MainMenuAction::OpenApp),
                 separator(),
                 menu(
                     "Logging",
@@ -748,6 +749,9 @@ impl HeaderPanel {
             MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
+            }
+            MainMenuAction::OpenApp => {
+                self.show_app();
             }
             MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
             MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
@@ -2256,10 +2260,10 @@ impl HeaderPanel {
     }
 
     pub fn show_app(&self) {
-        let result = self.show_app_internal().unwrap();
+        let result = self.show_app_internal();
         // Important to not use the header window to show the error because the pot browser
         // might be opened without any ReaLearn window being open!
-        // notification::notify_user_on_error(result);
+        notification::notify_user_on_error(result);
     }
 
     fn show_app_internal(&self) -> Result<(), Box<dyn Error>> {
@@ -2621,7 +2625,6 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             root::ID_PROJECTION_BUTTON => {
-                self.show_app();
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
@@ -2981,6 +2984,7 @@ enum MainMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
     OpenPotBrowser,
+    OpenApp,
     OpenPresetFolder,
     EditNewOscDevice,
     EditExistingOscDevice(OscDeviceId),
