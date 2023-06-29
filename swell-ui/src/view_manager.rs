@@ -197,6 +197,7 @@ unsafe extern "C" fn view_dialog_proc(
                 // (check the SWELL code).
                 KEYBOARD_MSG_FOR_X_BRIDGE => 0,
                 raw::WM_SIZE => view.resized().into(),
+                raw::WM_SETFOCUS => view.focused().into(),
                 raw::WM_COMMAND => {
                     let resource_id = loword(wparam);
                     match hiword(wparam) as u32 {

@@ -111,6 +111,11 @@ pub trait View: Debug {
         false
     }
 
+    /// Should return `true` if processed.
+    fn focused(self: SharedView<Self>) -> bool {
+        false
+    }
+
     /// WM_MOUSEWHEEL, HIWORD(wparam).
     ///
     /// Should return `true` if processed.
