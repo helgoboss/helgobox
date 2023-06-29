@@ -539,6 +539,16 @@ impl Window {
         text.into_string().map_err(|_| "non UTF-8")
     }
 
+    pub fn class_name(self, max_size: u32) -> Result<String, &'static str> {
+        let (text, result) = with_string_buffer(max_size, |buffer, max_size| unsafe {
+            Swell::get().GetClassName(self.raw, buffer, max_size)
+        });
+        if result == 0 {
+            return Err("handle not found or doesn't support class name");
+        }
+        text.into_string().map_err(|_| "non UTF-8")
+    }
+
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
     }
