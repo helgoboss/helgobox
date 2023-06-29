@@ -217,6 +217,12 @@ impl Window {
         }
     }
 
+    pub fn first_child(&self) -> Option<Window> {
+        let swell = Swell::get();
+        let ptr = unsafe { swell.GetWindow(self.raw, raw::GW_CHILD as _) };
+        Window::new(ptr)
+    }
+
     #[cfg(target_os = "linux")]
     pub fn process_raw_message(self, msg: raw::MSG) {
         unsafe {
