@@ -1,6 +1,6 @@
 use crate::base::{
     ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
-    VirtualClipRecordHardwareMidiInput,
+    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{AudioBuf, BasicAudioRequestProps, RtColumn};
@@ -26,6 +26,12 @@ impl ClipEngineAudioHook {
 #[derive(Debug)]
 pub struct HardwareInputClipRecordTask {
     pub input: ClipRecordHardwareInput,
+    pub destination: ClipRecordDestination,
+}
+
+#[derive(Debug)]
+pub struct FxInputClipRecordTask {
+    pub input: VirtualClipRecordAudioInput,
     pub destination: ClipRecordDestination,
 }
 

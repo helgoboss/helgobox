@@ -26,7 +26,7 @@ use base::{
     tracing_debug, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::base::{ClipRecordDestination, VirtualClipRecordAudioInput};
+use playtime_clip_engine::rt::audio_hook::FxInputClipRecordTask;
 use playtime_clip_engine::rt::supplier::WriteAudioRequest;
 use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakRtMatrix};
 use std::convert::TryInto;
@@ -74,12 +74,6 @@ pub struct RealTimeProcessor {
     clip_matrix: Option<WeakRtMatrix>,
     clip_matrix_is_owned: bool,
     clip_record_task: Option<FxInputClipRecordTask>,
-}
-
-#[derive(Debug)]
-pub struct FxInputClipRecordTask {
-    pub input: VirtualClipRecordAudioInput,
-    pub destination: ClipRecordDestination,
 }
 
 impl RealTimeProcessor {

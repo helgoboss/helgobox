@@ -9,17 +9,16 @@ use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
+    AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor,
     GlobalControlAndFeedbackState, GroupId, InstanceId, MappingId, MappingSnapshotContainer,
     NormalAudioHookTask, NormalRealTimeTask, ProcessorContext, QualifiedMappingId, Tag, TagScope,
     TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::{
-    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
+    ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix, SpecificClipRecordTask,
 };
-use playtime_clip_engine::rt;
-use playtime_clip_engine::rt::audio_hook::HardwareInputClipRecordTask;
+use playtime_clip_engine::rt::WeakRtMatrix;
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
@@ -169,22 +168,14 @@ impl RealearnClipMatrixHandler {
 
 impl ClipMatrixHandler for RealearnClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask) {
-        match task.input {
-            ClipRecordInput::HardwareInput(input) => {
-                let hw_task = HardwareInputClipRecordTask {
-                    input,
-                    destination: task.destination,
-                };
+        match task.create_specific_task() {
+            SpecificClipRecordTask::HardwareInput(t) => {
                 self.audio_hook_task_sender
-                    .send_complaining(NormalAudioHookTask::StartClipRecording(hw_task));
+                    .send_complaining(NormalAudioHookTask::StartClipRecording(t));
             }
-            ClipRecordInput::FxInput(input) => {
-                let fx_task = FxInputClipRecordTask {
-                    input,
-                    destination: task.destination,
-                };
+            SpecificClipRecordTask::FxInput(t) => {
                 self.real_time_processor_sender
-                    .send_complaining(NormalRealTimeTask::StartClipRecording(fx_task));
+                    .send_complaining(NormalRealTimeTask::StartClipRecording(t));
             }
         }
     }
@@ -434,7 +425,7 @@ impl InstanceState {
 
     pub(super) fn update_real_time_clip_matrix(
         &self,
-        real_time_matrix: Option<rt::WeakRtMatrix>,
+        real_time_matrix: Option<WeakRtMatrix>,
         is_owned: bool,
     ) {
         let rt_task = NormalRealTimeTask::SetClipMatrix {

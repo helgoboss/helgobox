@@ -5,6 +5,7 @@ use crate::base::{
     EssentialColumnRecordClipArgs, IdMode, ReaperChange, ReaperChangeContext,
     RestorationInstruction, Slot, SlotKit, TrackAdditionReaperChange, TrackReorderingReaperChange,
 };
+use crate::rt::audio_hook::{FxInputClipRecordTask, HardwareInputClipRecordTask};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, AudioRecordingEquipment, ChainEquipment,
@@ -1761,6 +1762,33 @@ impl ClipAddress {
 pub struct ClipRecordTask {
     pub input: ClipRecordInput,
     pub destination: ClipRecordDestination,
+}
+
+#[derive(Debug)]
+pub enum SpecificClipRecordTask {
+    HardwareInput(HardwareInputClipRecordTask),
+    FxInput(FxInputClipRecordTask),
+}
+
+impl ClipRecordTask {
+    pub fn create_specific_task(self) -> SpecificClipRecordTask {
+        match self.input {
+            ClipRecordInput::HardwareInput(input) => {
+                let hw_task = HardwareInputClipRecordTask {
+                    input,
+                    destination: self.destination,
+                };
+                SpecificClipRecordTask::HardwareInput(hw_task)
+            }
+            ClipRecordInput::FxInput(input) => {
+                let fx_task = FxInputClipRecordTask {
+                    input,
+                    destination: self.destination,
+                };
+                SpecificClipRecordTask::FxInput(fx_task)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
