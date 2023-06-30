@@ -59,3 +59,9 @@ serde_json.workspace = true
 indexmap.workspace = true
 # For joining undo history labels
 itertools.workspace = true
+# For gRPC stream implementation
+tokio-stream.workspace = true
+# For gRPC implementation
+futures.workspace = true
+# For gRPC implementation
+tokio.workspace = true

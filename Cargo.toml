@@ -78,6 +78,7 @@ mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"
 chrono = "0.4.11"
 dirs = "5.0.1"
 libloading = "0.8"
+tokio-stream = { version = "0.1.8", features = ["sync"] }
 
 [profile.release]
 # This is important for having line numbers in bug reports.
@@ -120,12 +121,12 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
-#[patch.'https://github.com/helgoboss/reaper-rs.git']
-#reaper-high = { path = "../reaper-rs/main/high" }
-#reaper-medium = { path = "../reaper-rs/main/medium" }
-#reaper-low = { path = "../reaper-rs/main/low" }
-#reaper-rx = { path = "../reaper-rs/main/rx" }
-#rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
+[patch.'https://github.com/helgoboss/reaper-rs.git']
+reaper-high = { path = "../reaper-rs/main/high" }
+reaper-medium = { path = "../reaper-rs/main/medium" }
+reaper-low = { path = "../reaper-rs/main/low" }
+reaper-rx = { path = "../reaper-rs/main/rx" }
+rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

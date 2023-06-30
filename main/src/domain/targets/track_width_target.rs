@@ -4,14 +4,14 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     get_effective_tracks, width_unit_value, with_gang_behavior, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, PanExt,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
+use reaper_high::{AvailablePanValue, ChangeEvent, PanExt, Project, Track, Width};
 use std::borrow::Cow;
 
 #[derive(Debug)]

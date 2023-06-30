@@ -9,9 +9,9 @@ use crate::proto::track_input::Input;
 use crate::proto::{
     clip_engine, occasional_matrix_update, occasional_track_update,
     qualified_occasional_clip_update, qualified_occasional_column_update,
-    qualified_occasional_row_update, qualified_occasional_slot_update, track_input,
-    ArrangementPlayState, ClipAddress, HistoryState, SlotAddress, SlotPlayState, TimeSignature,
-    TrackColor, TrackInput, TrackInputMonitoring, TrackMidiInput,
+    qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
+    ClipAddress, HistoryState, SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput,
+    TrackInputMonitoring, TrackMidiInput,
 };
 use crate::rt::InternalClipPlayState;
 use crate::{base, clip_timeline, ClipEngineResult, Timeline};

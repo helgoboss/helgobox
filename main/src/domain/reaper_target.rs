@@ -8,11 +8,11 @@ use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
-    GroupingBehavior, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
+    GroupingBehavior, Pan, PanExt, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
     AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
-    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue, SectionContext,
+    PlaybackSpeedFactor, PositionInSeconds, SectionContext,
 };
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1063,34 +1063,6 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
             project,
             track: None,
         }),
-    }
-}
-
-pub trait PanExt {
-    /// Returns the pan value. In case of dual-pan, returns the left pan value.
-    fn main_pan(self) -> ReaperPanValue;
-    fn width(self) -> Option<ReaperWidthValue>;
-}
-
-impl PanExt for reaper_medium::Pan {
-    /// Returns the pan value. In case of dual-pan, returns the left pan value.
-    fn main_pan(self) -> ReaperPanValue {
-        use reaper_medium::Pan::*;
-        match self {
-            BalanceV1(p) => p,
-            BalanceV4(p) => p,
-            StereoPan { pan, .. } => pan,
-            DualPan { left, .. } => left,
-            Unknown(_) => ReaperPanValue::CENTER,
-        }
-    }
-
-    fn width(self) -> Option<ReaperWidthValue> {
-        if let reaper_medium::Pan::StereoPan { width, .. } = self {
-            Some(width)
-        } else {
-            None
-        }
     }
 }
 

@@ -72,7 +72,7 @@ nanoid.workspace = true
 # For ReaLearn's servers
 futures.workspace = true
 tokio.workspace = true
-tokio-stream = { version = "0.1.8", features = ["sync"] }
+tokio-stream.workspace = true
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
 axum = { version = "0.3", features = ["ws", "headers"] }

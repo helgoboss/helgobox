@@ -34,12 +34,10 @@ use base::{
 use enum_iterator::IntoEnumIterator;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
-use crate::infrastructure::server::grpc::{
-    ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
-    OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch, OccasionalMatrixUpdateBatch,
-    OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch,
-};
 use once_cell::sync::Lazy;
+use playtime_clip_engine::base::Matrix;
+use playtime_clip_engine::proto::clip_engine_server::ClipEngine;
+use playtime_clip_engine::proto::{ClipEngineHub, MatrixProvider};
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -106,15 +104,7 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    occasional_matrix_update_sender: tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch>,
-    occasional_track_update_sender: tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch>,
-    occasional_column_update_sender: tokio::sync::broadcast::Sender<OccasionalColumnUpdateBatch>,
-    occasional_row_update_sender: tokio::sync::broadcast::Sender<OccasionalRowUpdateBatch>,
-    occasional_slot_update_sender: tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch>,
-    occasional_clip_update_sender: tokio::sync::broadcast::Sender<OccasionalClipUpdateBatch>,
-    continuous_matrix_update_sender: tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch>,
-    continuous_column_update_sender: tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch>,
-    continuous_slot_update_sender: tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch>,
+    clip_engine_hub: ClipEngineHub,
 }
 
 #[derive(Debug)]
@@ -283,15 +273,7 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
-            occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
-            occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
-            occasional_column_update_sender: tokio::sync::broadcast::channel(100).0,
-            occasional_row_update_sender: tokio::sync::broadcast::channel(100).0,
-            occasional_slot_update_sender: tokio::sync::broadcast::channel(100).0,
-            occasional_clip_update_sender: tokio::sync::broadcast::channel(100).0,
-            continuous_slot_update_sender: tokio::sync::broadcast::channel(1000).0,
-            continuous_column_update_sender: tokio::sync::broadcast::channel(500).0,
-            continuous_matrix_update_sender: tokio::sync::broadcast::channel(500).0,
+            clip_engine_hub: ClipEngineHub::new(),
         }
     }
 
@@ -384,6 +366,10 @@ impl App {
         });
     }
 
+    fn create_clip_engine_service(&self) -> impl ClipEngine {
+        self.clip_engine_hub.create_service(AppMatrixProvider)
+    }
+
     // Executed whenever the first ReaLearn instance is loaded.
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
@@ -395,7 +381,7 @@ impl App {
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
-                .start()
+                .start(self.create_clip_engine_service())
                 .unwrap_or_else(warn_about_failed_server_start);
         }
         let mut session = Reaper::get().medium_session();
@@ -619,58 +605,8 @@ impl App {
         &self.control_surface_main_task_sender
     }
 
-    pub fn occasional_matrix_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalMatrixUpdateBatch> {
-        &self.occasional_matrix_update_sender
-    }
-
-    pub fn occasional_track_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalTrackUpdateBatch> {
-        &self.occasional_track_update_sender
-    }
-
-    pub fn occasional_column_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalColumnUpdateBatch> {
-        &self.occasional_column_update_sender
-    }
-
-    pub fn occasional_row_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalRowUpdateBatch> {
-        &self.occasional_row_update_sender
-    }
-
-    pub fn occasional_slot_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalSlotUpdateBatch> {
-        &self.occasional_slot_update_sender
-    }
-
-    pub fn occasional_clip_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<OccasionalClipUpdateBatch> {
-        &self.occasional_clip_update_sender
-    }
-
-    pub fn continuous_slot_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<ContinuousSlotUpdateBatch> {
-        &self.continuous_slot_update_sender
-    }
-
-    pub fn continuous_column_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<ContinuousColumnUpdateBatch> {
-        &self.continuous_column_update_sender
-    }
-
-    pub fn continuous_matrix_update_sender(
-        &self,
-    ) -> &tokio::sync::broadcast::Sender<ContinuousMatrixUpdateBatch> {
-        &self.continuous_matrix_update_sender
+    pub fn clip_engine_hub(&self) -> &ClipEngineHub {
+        &self.clip_engine_hub
     }
 
     fn temporarily_reclaim_control_surface_ownership(
@@ -757,7 +693,9 @@ impl App {
     }
 
     pub fn start_server_persistently(&self) -> Result<(), String> {
-        self.server.borrow_mut().start()?;
+        self.server
+            .borrow_mut()
+            .start(self.create_clip_engine_service())?;
         self.change_config(AppConfig::enable_server);
         Ok(())
     }
@@ -1907,5 +1845,25 @@ impl RealearnWindowSnitch for RealearnSnitch {
             current_window = w.parent();
         }
         None
+    }
+}
+
+struct AppMatrixProvider;
+
+impl MatrixProvider for AppMatrixProvider {
+    fn with_matrix<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&Matrix) -> R,
+    ) -> Result<R, &'static str> {
+        App::get().with_clip_matrix(clip_matrix_id, f)
+    }
+
+    fn with_matrix_mut<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&mut Matrix) -> R,
+    ) -> Result<R, &'static str> {
+        App::get().with_clip_matrix_mut(clip_matrix_id, f)
     }
 }

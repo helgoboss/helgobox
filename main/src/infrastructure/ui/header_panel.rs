@@ -2256,11 +2256,11 @@ impl HeaderPanel {
         Ok(())
     }
 
-    pub fn show_app(&self) {
-        let result = self.show_app_internal().unwrap();
+    fn show_app(&self) {
+        let result = self.show_app_internal();
         // Important to not use the header window to show the error because the pot browser
         // might be opened without any ReaLearn window being open!
-        // notification::notify_user_on_error(result);
+        notification::notify_user_on_error(result);
     }
 
     fn show_app_internal(&self) -> Result<(), Box<dyn Error>> {

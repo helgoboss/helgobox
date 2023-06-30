@@ -20,6 +20,7 @@ use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
 use derivative::Derivative;
+use playtime_clip_engine::proto::clip_engine_server::ClipEngine;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -133,7 +134,7 @@ impl RealearnServer {
     }
 
     /// Idempotent
-    pub fn start(&mut self) -> Result<(), String> {
+    pub fn start(&mut self, clip_engine_service: impl ClipEngine) -> Result<(), String> {
         if self.state.is_starting_or_running() {
             return Ok(());
         }
@@ -163,6 +164,7 @@ impl RealearnServer {
                     key_and_cert,
                     shutdown_receiver,
                     metrics_reporter,
+                    clip_engine_service,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })
@@ -314,6 +316,7 @@ async fn start_servers(
     (key, cert): (String, String),
     mut shutdown_receiver: broadcast::Receiver<()>,
     metrics_reporter: MetricsReporter,
+    clip_engine_service: impl ClipEngine,
 ) {
     let http_server_future = start_http_server(
         http_port,
@@ -322,7 +325,10 @@ async fn start_servers(
         (key, cert),
         metrics_reporter,
     );
-    let grpc_server_future = start_grpc_server(SocketAddr::from(([127, 0, 0, 1], grpc_port)));
+    let grpc_server_future = start_grpc_server(
+        SocketAddr::from(([127, 0, 0, 1], grpc_port)),
+        clip_engine_service,
+    );
     let joined_future = futures::future::join(http_server_future, grpc_server_future);
     tokio::select! {
         _ = shutdown_receiver.recv() => {
