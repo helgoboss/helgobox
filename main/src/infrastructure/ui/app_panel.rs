@@ -72,7 +72,7 @@ pub struct LoadedApp {
 // TODO-high-playtime Adjust
 
 #[cfg(target_os = "macos")]
-const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app";
+const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
 
 #[cfg(target_os = "windows")]
 const APP_BASE_DIR: &str =
