@@ -22,13 +22,11 @@ use reaper_medium::{
 use slog::{debug, trace};
 
 use assert_no_alloc::permit_alloc;
-use base::{
-    tracing_debug, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
-};
+use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::rt::audio_hook::FxInputClipRecordTask;
-use playtime_clip_engine::rt::supplier::WriteAudioRequest;
-use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, WeakRtMatrix};
+use playtime_clip_engine::rt::fx_hook::{ChannelInputs, ClipEngineFxHook};
+use playtime_clip_engine::rt::WeakRtMatrix;
 use std::convert::TryInto;
 use std::mem;
 use std::ptr::null_mut;
@@ -73,7 +71,7 @@ pub struct RealTimeProcessor {
     sample_rate: Hz,
     clip_matrix: Option<WeakRtMatrix>,
     clip_matrix_is_owned: bool,
-    clip_record_task: Option<FxInputClipRecordTask>,
+    clip_engine_fx_hook: ClipEngineFxHook,
 }
 
 impl RealTimeProcessor {
@@ -113,7 +111,7 @@ impl RealTimeProcessor {
             sample_rate: Hz::new(1.0),
             clip_matrix: None,
             clip_matrix_is_owned: false,
-            clip_record_task: None,
+            clip_engine_fx_hook: ClipEngineFxHook::new(),
         }
     }
 
@@ -152,7 +150,9 @@ impl RealTimeProcessor {
         block_props: AudioBlockProps,
         host: &HostCallback,
     ) {
-        self.process_clip_record_task(buffer.split().0, block_props);
+        let inputs = VstChannelInputs(buffer.split().0);
+        self.clip_engine_fx_hook
+            .process_clip_record_task(&inputs, block_props.to_playtime());
         self.process_feedback_tasks(Caller::Vst(host));
     }
 
@@ -476,22 +476,8 @@ impl RealTimeProcessor {
                     }
                 }
                 StartClipRecording(task) => {
-                    tracing_debug!("Real-time processor received clip record task");
-                    self.clip_record_task = Some(task);
+                    self.clip_engine_fx_hook.start_clip_recording(task);
                 }
-            }
-        }
-    }
-
-    fn process_clip_record_task(
-        &mut self,
-        inputs: vst::buffer::Inputs<f64>,
-        block_props: AudioBlockProps,
-    ) {
-        if let Some(t) = &mut self.clip_record_task {
-            if !process_clip_record_task(t, inputs, block_props.to_playtime()) {
-                tracing_debug!("Clearing clip record task from real-time processor");
-                self.clip_record_task = None;
             }
         }
     }
@@ -1856,64 +1842,6 @@ impl AudioBlockProps {
     }
 }
 
-/// Returns whether task still relevant.
-fn process_clip_record_task(
-    record_task: &mut FxInputClipRecordTask,
-    inputs: vst::buffer::Inputs<f64>,
-    block_props: BasicAudioRequestProps,
-) -> bool {
-    let column_source = match record_task.destination.column_source.upgrade() {
-        None => return false,
-        Some(s) => s,
-    };
-    let mut src = column_source.lock();
-    if !src.recording_poll(record_task.destination.slot_index, block_props) {
-        return false;
-    }
-    let channel_offset = record_task.input.channel_offset().unwrap();
-    let write_audio_request =
-        RealTimeProcessorWriteAudioRequest::new(inputs, block_props, channel_offset as _);
-    src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
-        .unwrap();
-    true
-}
-
-#[derive(Copy, Clone)]
-struct RealTimeProcessorWriteAudioRequest<'a> {
-    channel_offset: usize,
-    inputs: vst::buffer::Inputs<'a, f64>,
-    block_props: BasicAudioRequestProps,
-}
-
-impl<'a> RealTimeProcessorWriteAudioRequest<'a> {
-    pub fn new(
-        inputs: vst::buffer::Inputs<'a, f64>,
-        block_props: BasicAudioRequestProps,
-        channel_offset: usize,
-    ) -> Self {
-        Self {
-            channel_offset,
-            inputs,
-            block_props,
-        }
-    }
-}
-
-impl<'a> WriteAudioRequest for RealTimeProcessorWriteAudioRequest<'a> {
-    fn audio_request_props(&self) -> BasicAudioRequestProps {
-        self.block_props
-    }
-
-    fn get_channel_buffer(&self, channel_index: usize) -> Option<AudioBuf> {
-        let effective_channel_index = self.channel_offset + channel_index;
-        if effective_channel_index >= self.inputs.len() {
-            return None;
-        }
-        let slice = self.inputs.get(effective_channel_index);
-        AudioBuf::from_slice(slice, 1, self.block_props.block_length).ok()
-    }
-}
-
 fn log_virtual_control_input(
     sender: &SenderToNormalThread<ControlMainTask>,
     value: ControlEvent<VirtualSourceValue>,
@@ -1955,4 +1883,16 @@ fn is_rendering() -> bool {
         .medium_reaper()
         .enum_projects(ProjectRef::CurrentlyRendering, 0)
         .is_some()
+}
+
+struct VstChannelInputs<'a>(vst::buffer::Inputs<'a, f64>);
+
+impl<'a> ChannelInputs for VstChannelInputs<'a> {
+    fn channel_count(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get_channel_data(&self, channel_index: usize) -> &[f64] {
+        self.0.get(channel_index)
+    }
 }

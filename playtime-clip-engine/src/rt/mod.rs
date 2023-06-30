@@ -1,5 +1,6 @@
 pub mod audio_hook;
 mod buffer;
+pub mod fx_hook;
 mod rt_clip;
 mod rt_column;
 mod rt_matrix;
