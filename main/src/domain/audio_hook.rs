@@ -4,20 +4,13 @@ use crate::domain::{
     MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
-use base::{non_blocking_lock, tracing_debug};
+use base::non_blocking_lock;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
-use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::base::{
-    ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
-    VirtualClipRecordHardwareMidiInput,
-};
-use playtime_clip_engine::global_steady_timeline_state;
-use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, RtColumn};
+use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
+use playtime_clip_engine::rt::audio_hook::{ClipEngineAudioHook, HardwareInputClipRecordTask};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    AudioHookRegister, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
-    SendMidiTime,
+    MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -50,12 +43,6 @@ pub enum NormalAudioHookTask {
     StartClipRecording(HardwareInputClipRecordTask),
 }
 
-#[derive(Debug)]
-pub struct HardwareInputClipRecordTask {
-    pub input: ClipRecordHardwareInput,
-    pub destination: ClipRecordDestination,
-}
-
 /// A global feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackAudioHookTask {
@@ -74,8 +61,8 @@ pub struct RealearnAudioHook {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
     garbage_bin: GarbageBin,
-    clip_record_task: Option<HardwareInputClipRecordTask>,
     initialized: bool,
+    clip_engine_audio_hook: ClipEngineAudioHook,
 }
 
 #[derive(Debug)]
@@ -102,8 +89,8 @@ impl RealearnAudioHook {
             feedback_task_receiver,
             time_of_last_run: None,
             garbage_bin,
-            clip_record_task: None,
             initialized: false,
+            clip_engine_audio_hook: ClipEngineAudioHook::new(),
         }
     }
 
@@ -236,17 +223,6 @@ impl RealearnAudioHook {
         }
     }
 
-    fn process_clip_record_task(&mut self, args: &OnAudioBufferArgs) {
-        if let Some(t) = &mut self.clip_record_task {
-            let its_our_turn = (t.destination.is_midi_overdub && args.is_post)
-                || (!t.destination.is_midi_overdub && !args.is_post);
-            if its_our_turn && !process_clip_record_task(args, t) {
-                tracing_debug!("Clearing clip record task from audio hook");
-                self.clip_record_task = None;
-            }
-        }
-    }
-
     fn distribute_midi_events_to_processors(
         &mut self,
         block_props: AudioBlockProps,
@@ -323,8 +299,7 @@ impl RealearnAudioHook {
                     }
                 }
                 StartClipRecording(task) => {
-                    tracing_debug!("Audio hook received clip record task");
-                    self.clip_record_task = Some(task);
+                    self.clip_engine_audio_hook.start_clip_recording(task);
                 }
             }
         }
@@ -354,9 +329,10 @@ impl OnAudioBuffer for RealearnAudioHook {
             self.initialized = true;
         }
         assert_no_alloc(|| {
+            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             if !args.is_post {
-                let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-                global_steady_timeline_state().on_audio_buffer(block_props.to_playtime());
+                self.clip_engine_audio_hook
+                    .poll_advance_timeline(block_props.to_playtime());
                 let current_time = Instant::now();
                 let time_of_last_run = self.time_of_last_run.replace(current_time);
                 let might_be_rebirth = if let Some(time) = time_of_last_run {
@@ -367,7 +343,11 @@ impl OnAudioBuffer for RealearnAudioHook {
                 self.process_feedback_tasks();
                 self.call_real_time_processors(block_props, might_be_rebirth);
             }
-            self.process_clip_record_task(&args);
+            self.clip_engine_audio_hook.poll_process_clip_record_tasks(
+                args.is_post,
+                block_props.to_playtime(),
+                args.reg,
+            );
             // Process normal tasks after processing the clip record task so that clip recording
             // starts in next cycle, not in this one (in this one, the clip is not yet prepared
             // for recording if this is a is_post = false record task).
@@ -409,161 +389,5 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
     /// recovery mechanism.
     fn lock_recover(&self) -> MutexGuard<RealTimeProcessor> {
         non_blocking_lock(self, "RealTimeProcessor")
-    }
-}
-
-/// Returns whether task still relevant.
-fn process_clip_record_task(
-    args: &OnAudioBufferArgs,
-    record_task: &mut HardwareInputClipRecordTask,
-) -> bool {
-    let column_source = match record_task.destination.column_source.upgrade() {
-        None => return false,
-        Some(s) => s,
-    };
-    let mut src = column_source.lock();
-    let block_props = BasicAudioRequestProps::from_on_audio_buffer_args(args);
-    if !src.recording_poll(record_task.destination.slot_index, block_props) {
-        return false;
-    }
-    match &mut record_task.input {
-        ClipRecordHardwareInput::Midi(input) => {
-            use VirtualClipRecordHardwareMidiInput::*;
-            let specific_input = match input {
-                Specific(s) => *s,
-                Detect => {
-                    // Detect
-                    match find_first_dev_with_play_msg() {
-                        None => {
-                            // No play message detected so far in any input device.
-                            return true;
-                        }
-                        Some(dev_id) => {
-                            // Found first play message in this device. Leave "Detect" mode and
-                            // capture from this specific device from now on.
-                            let specific_input = ClipRecordHardwareMidiInput {
-                                device_id: Some(dev_id),
-                                channel: None,
-                            };
-                            *input = Specific(specific_input);
-                            specific_input
-                        }
-                    }
-                }
-            };
-            if let Some(dev_id) = specific_input.device_id {
-                // Read from specific MIDI input device
-                let dev = Reaper::get().midi_input_device_by_id(dev_id);
-                write_midi_to_clip_slot(
-                    block_props,
-                    &mut src,
-                    record_task.destination.slot_index,
-                    dev,
-                    specific_input.channel,
-                );
-            } else {
-                // Read from all open MIDI input devices
-                for dev in Reaper::get().midi_input_devices() {
-                    write_midi_to_clip_slot(
-                        block_props,
-                        &mut src,
-                        record_task.destination.slot_index,
-                        dev,
-                        specific_input.channel,
-                    );
-                }
-            }
-        }
-        ClipRecordHardwareInput::Audio(input) => {
-            let channel_offset = input.channel_offset().unwrap();
-            let write_audio_request =
-                AudioHookWriteAudioRequest::new(args.reg, block_props, channel_offset as _);
-            src.write_clip_audio(record_task.destination.slot_index, write_audio_request)
-                .unwrap();
-        }
-    }
-    true
-}
-
-fn find_first_dev_with_play_msg() -> Option<MidiInputDeviceId> {
-    for dev in Reaper::get().midi_input_devices() {
-        let contains_play_msg = dev.with_midi_input(|mi| match mi {
-            None => false,
-            Some(mi) => mi
-                .get_read_buf()
-                .into_iter()
-                .any(|e| playtime_clip_engine::midi_util::is_play_message(e.message())),
-        });
-        if contains_play_msg {
-            return Some(dev.id());
-        }
-    }
-    None
-}
-
-fn write_midi_to_clip_slot(
-    block_props: BasicAudioRequestProps,
-    src: &mut MutexGuard<RtColumn>,
-    slot_index: usize,
-    dev: MidiInputDevice,
-    channel_filter: Option<Channel>,
-) {
-    dev.with_midi_input(|mi| {
-        let mi = match mi {
-            None => return,
-            Some(m) => m,
-        };
-        let events = mi.get_read_buf();
-        if events.get_size() == 0 {
-            return;
-        }
-        let req = WriteMidiRequest {
-            audio_request_props: block_props,
-            events,
-            channel_filter,
-        };
-        src.write_clip_midi(slot_index, req).unwrap();
-    });
-}
-
-#[derive(Copy, Clone)]
-struct AudioHookWriteAudioRequest<'a> {
-    channel_offset: usize,
-    register: &'a AudioHookRegister,
-    block_props: BasicAudioRequestProps,
-}
-
-impl<'a> AudioHookWriteAudioRequest<'a> {
-    pub fn new(
-        register: &'a AudioHookRegister,
-        block_props: BasicAudioRequestProps,
-        channel_offset: usize,
-    ) -> Self {
-        Self {
-            channel_offset,
-            register,
-            block_props,
-        }
-    }
-}
-
-impl<'a> WriteAudioRequest for AudioHookWriteAudioRequest<'a> {
-    fn audio_request_props(&self) -> BasicAudioRequestProps {
-        self.block_props
-    }
-
-    fn get_channel_buffer(&self, channel_index: usize) -> Option<AudioBuf> {
-        let reg = unsafe { self.register.get().as_ref() };
-        let get_buffer = match reg.GetBuffer {
-            None => return None,
-            Some(f) => f,
-        };
-        let effective_channel_index = self.channel_offset + channel_index;
-        let buf = unsafe { (get_buffer)(false, effective_channel_index as _) };
-        if buf.is_null() {
-            return None;
-        }
-        let buf = unsafe { AudioBuf::from_raw(buf, 1, self.block_props.block_length) };
-        Some(buf)
     }
 }

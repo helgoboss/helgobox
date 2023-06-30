@@ -10,15 +10,16 @@ use rxrust::prelude::*;
 use crate::base::Prop;
 use crate::domain::{
     AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor, FxInputClipRecordTask,
-    GlobalControlAndFeedbackState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingId,
-    MappingSnapshotContainer, NormalAudioHookTask, NormalRealTimeTask, ProcessorContext,
-    QualifiedMappingId, Tag, TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
+    GlobalControlAndFeedbackState, GroupId, InstanceId, MappingId, MappingSnapshotContainer,
+    NormalAudioHookTask, NormalRealTimeTask, ProcessorContext, QualifiedMappingId, Tag, TagScope,
+    TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::{
     ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
 };
 use playtime_clip_engine::rt;
+use playtime_clip_engine::rt::audio_hook::HardwareInputClipRecordTask;
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;

@@ -1,3 +1,4 @@
+pub mod audio_hook;
 mod buffer;
 mod rt_clip;
 mod rt_column;
