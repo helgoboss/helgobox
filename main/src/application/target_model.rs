@@ -20,13 +20,14 @@ use crate::application::{
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
-    Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, MappingId,
-    MappingKey, MappingRef, MappingSnapshotId, MouseActionType, OscDeviceId,
-    PotFilterItemsTargetSettings, ProcessorContext, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
-    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    ClipTransportOptions, Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator,
+    ExtendedProcessorContext, FeedbackResolution, FxDescriptor, FxDisplayType,
+    FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef, MappingSnapshotId,
+    MouseActionType, OscDeviceId, PotFilterItemsTargetSettings, ProcessorContext,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
@@ -61,7 +62,6 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-use playtime_clip_engine::base::ClipTransportOptions;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
     ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,

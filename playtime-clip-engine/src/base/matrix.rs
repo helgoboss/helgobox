@@ -26,9 +26,8 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api::persistence as api;
 use playtime_api::persistence::{
-    ChannelRange, ClipPlayStartTiming, ClipPlayStopTiming, ColumnId, Db,
-    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength,
-    RowId, TempoRange, TrackId,
+    ChannelRange, ClipPlayStopTiming, ColumnId, Db, MatrixClipPlayAudioSettings,
+    MatrixClipPlaySettings, MatrixClipRecordSettings, RecordLength, RowId, TempoRange, TrackId,
 };
 use reaper_high::{ChangeEvent, OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId};
@@ -1899,16 +1898,6 @@ pub enum ClipRecordTiming {
     StartImmediatelyStopOnDemand,
     StartOnBarStopOnDemand { start_bar: i32 },
     StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
-pub struct ClipTransportOptions {
-    /// If this is on and one of the record actions is triggered, it will only have an effect if
-    /// the record track of the clip column is armed.
-    pub record_only_if_track_armed: bool,
-    pub stop_column_if_slot_empty: bool,
-    pub play_start_timing: Option<ClipPlayStartTiming>,
-    pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 #[derive(Copy, Clone)]
