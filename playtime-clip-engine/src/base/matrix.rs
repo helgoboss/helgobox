@@ -1355,7 +1355,14 @@ impl Matrix {
     /// Polls this matrix and returns a list of gathered events.
     ///
     /// Polling is absolutely essential, e.g. to detect changes or finish recordings.
-    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
+    pub fn poll(&mut self, project: Option<Project>) -> Vec<ClipMatrixEvent> {
+        let timeline = clip_timeline(project, false);
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+        self.poll_internal(timeline_tempo)
+    }
+
+    fn poll_internal(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
         self.poll_history();
         self.remove_obsolete_retired_columns();
         self.process_commands();

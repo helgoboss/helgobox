@@ -44,7 +44,6 @@ use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShort
 use indexmap::IndexSet;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
@@ -776,10 +775,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             Some(m) => m,
             _ => return vec![],
         };
-        let timeline = clip_timeline(self.basics.context.project(), false);
-        let timeline_cursor_pos = timeline.cursor_pos();
-        let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        matrix.poll(timeline_tempo)
+        matrix.poll(self.basics.context.project())
     }
 
     /// Processes the given clip matrix events if they are relevant to this instance.
