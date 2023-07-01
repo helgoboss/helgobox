@@ -770,51 +770,53 @@ impl SessionData {
             let instance_state = session.instance_state().clone();
             let mut instance_state = instance_state.borrow_mut();
             #[cfg(feature = "playtime")]
-            if let Some(matrix_ref) = &self.clip_matrix {
+            {
                 use crate::domain::BackboneState;
-                use ClipMatrixRefData::*;
-                match matrix_ref {
-                    Own(m) => {
-                        BackboneState::get()
-                            .get_or_insert_owned_clip_matrix_from_instance_state(
-                                &mut instance_state,
-                            )
-                            .load(m.clone())?;
-                    }
-                    Foreign(session_id) => {
-                        // Check if a session with that ID already exists.
-                        let foreign_instance_id = App::get()
-                            .find_session_by_id_ignoring_borrowed_ones(session_id)
-                            .and_then(|session| {
-                                session.try_borrow().map(|s| *s.instance_id()).ok()
-                            });
-                        if let Some(id) = foreign_instance_id {
-                            // Referenced ReaLearn instance exists already.
-                            BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
-                                &mut instance_state,
-                                id,
-                            );
-                        } else {
-                            // Referenced ReaLearn instance doesn't exist yet.
-                            session.memorize_unresolved_foreign_clip_matrix_session_id(
-                                session_id.clone(),
-                            );
+                if let Some(matrix_ref) = &self.clip_matrix {
+                    use ClipMatrixRefData::*;
+                    match matrix_ref {
+                        Own(m) => {
+                            BackboneState::get()
+                                .get_or_insert_owned_clip_matrix_from_instance_state(
+                                    &mut instance_state,
+                                )
+                                .load(m.clone())?;
                         }
-                    }
-                };
-            } else if !self.clip_slots.is_empty() {
-                let matrix =
-                    crate::infrastructure::data::clip_legacy::create_clip_matrix_from_legacy_slots(
-                        &self.clip_slots,
-                        &self.mappings,
-                        &self.controller_mappings,
-                        session.processor_context().track(),
-                    )?;
-                BackboneState::get()
-                    .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                    .load(matrix)?;
-            } else {
-                BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                        Foreign(session_id) => {
+                            // Check if a session with that ID already exists.
+                            let foreign_instance_id = App::get()
+                                .find_session_by_id_ignoring_borrowed_ones(session_id)
+                                .and_then(|session| {
+                                    session.try_borrow().map(|s| *s.instance_id()).ok()
+                                });
+                            if let Some(id) = foreign_instance_id {
+                                // Referenced ReaLearn instance exists already.
+                                BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                                    &mut instance_state,
+                                    id,
+                                );
+                            } else {
+                                // Referenced ReaLearn instance doesn't exist yet.
+                                session.memorize_unresolved_foreign_clip_matrix_session_id(
+                                    session_id.clone(),
+                                );
+                            }
+                        }
+                    };
+                } else if !self.clip_slots.is_empty() {
+                    let matrix =
+                        crate::infrastructure::data::clip_legacy::create_clip_matrix_from_legacy_slots(
+                            &self.clip_slots,
+                            &self.mappings,
+                            &self.controller_mappings,
+                            session.processor_context().track(),
+                        )?;
+                    BackboneState::get()
+                        .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
+                        .load(matrix)?;
+                } else {
+                    BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                }
             }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
