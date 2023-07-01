@@ -313,7 +313,7 @@ impl Plugin for RealearnPlugin {
                 #[cfg(feature = "playtime")]
                 buffer,
                 #[cfg(feature = "playtime")]
-                AudioBlockProps::from_vst(buffer, self.sample_rate),
+                crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
                 &self.host,
             );
         });

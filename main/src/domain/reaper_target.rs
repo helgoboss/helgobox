@@ -737,10 +737,11 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
 // Panics if called with repeat or record.
 #[cfg(feature = "playtime")]
 pub(crate) fn clip_play_state_unit_value(
-    action: ClipTransportAction,
+    action: realearn_api::persistence::ClipTransportAction,
     play_state: playtime_clip_engine::rt::InternalClipPlayState,
 ) -> UnitValue {
-    use ClipTransportAction::*;
+    use playtime_api::runtime::ClipPlayState;
+    use realearn_api::persistence::ClipTransportAction::*;
     match action {
         PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
         Stop => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Stopped),

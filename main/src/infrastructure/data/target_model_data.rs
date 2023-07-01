@@ -545,8 +545,8 @@ impl TargetModelData {
         model: &TargetModel,
         conversion_context: &impl ModelToDataConversionContext,
     ) -> Self {
-        let outcome = serialize_track(model.track());
-        let track_data = outcome.track_data;
+        let output = serialize_track(model.track());
+        let track_data = output.track_data;
         let (session_id, mapping_key) = match model.mapping_ref() {
             MappingRefModel::OwnMapping { mapping_id } => {
                 let mapping_key =
@@ -642,7 +642,9 @@ impl TargetModelData {
                 None
             },
             #[cfg(feature = "playtime")]
-            clip_column: track_selector_clip_column.unwrap_or_else(|| model.clip_column().clone()),
+            clip_column: output
+                .clip_column
+                .unwrap_or_else(|| model.clip_column().clone()),
             #[cfg(feature = "playtime")]
             clip_row: model.clip_row().clone(),
             #[cfg(feature = "playtime")]
@@ -1044,7 +1046,7 @@ impl TargetModelData {
 pub struct TrackSerializationOutput {
     pub track_data: TrackData,
     #[cfg(feature = "playtime")]
-    pub clip_column_descriptor: Option<realearn_api::persistence::ClipColumnDescriptor>,
+    pub clip_column: Option<realearn_api::persistence::ClipColumnDescriptor>,
 }
 
 /// This function is so annoying because of backward compatibility. Once made the bad decision
@@ -1052,7 +1054,7 @@ pub struct TrackSerializationOutput {
 pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
     use VirtualTrackType::*;
     #[cfg(feature = "playtime")]
-    let mut clip_column_descriptor = None;
+    let mut clip_column = None;
     let track_data = match track.r#type {
         This => TrackData::default(),
         Selected => TrackData {
@@ -1119,7 +1121,7 @@ pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
         },
         #[cfg(feature = "playtime")]
         FromClipColumn => {
-            clip_column_descriptor = Some(track.clip_column);
+            clip_column = Some(track.clip_column);
             TrackData {
                 guid: Some("from-clip-column".to_string()),
                 expression: Some(track.expression),
@@ -1131,7 +1133,7 @@ pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
     TrackSerializationOutput {
         track_data,
         #[cfg(feature = "playtime")]
-        clip_column_descriptor,
+        clip_column,
     }
 }
 

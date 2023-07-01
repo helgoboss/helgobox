@@ -7,8 +7,8 @@ pub async fn start_grpc_server(
 ) -> Result<(), tonic::transport::Error> {
     #[cfg(feature = "playtime")]
     {
-        Server::builder()
-            .layer(MainThreadLayer)
+        tonic::transport::Server::builder()
+            .layer(crate::infrastructure::server::layers::MainThreadLayer)
             .add_service(services.playtime_service)
             .serve(address)
             .await

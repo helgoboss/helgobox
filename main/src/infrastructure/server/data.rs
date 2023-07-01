@@ -25,8 +25,6 @@ pub enum DataError {
     OnlyPatchReplaceIsSupported,
     OnlyCustomDataKeyIsSupportedAsPatchPath,
     ControllerUpdateFailed,
-    #[cfg(feature = "playtime")]
-    ClipMatrixNotFound,
 }
 
 pub enum DataErrorCategory {
@@ -48,8 +46,6 @@ impl DataError {
                 "only '/customData/{key}' is supported as path"
             }
             ControllerUpdateFailed => "couldn't update controller",
-            #[cfg(feature = "playtime")]
-            ClipMatrixNotFound => "clip matrix not found",
         }
     }
 
@@ -59,8 +55,6 @@ impl DataError {
             SessionNotFound | SessionHasNoActiveController | ControllerNotFound => {
                 DataErrorCategory::NotFound
             }
-            #[cfg(feature = "playtime")]
-            ClipMatrixNotFound => DataErrorCategory::NotFound,
             OnlyPatchReplaceIsSupported => DataErrorCategory::MethodNotAllowed,
             OnlyCustomDataKeyIsSupportedAsPatchPath => DataErrorCategory::BadRequest,
             ControllerUpdateFailed => DataErrorCategory::InternalServerError,
@@ -106,19 +100,6 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
-}
-
-#[cfg(feature = "playtime")]
-pub fn get_clip_matrix_data(
-    session_id: &str,
-) -> Result<playtime_api::persistence::Matrix, DataError> {
-    let session = App::get()
-        .find_session_by_id(session_id)
-        .ok_or(DataError::SessionNotFound)?;
-    let session = session.borrow();
-    BackboneState::get()
-        .with_clip_matrix(session.instance_state(), |matrix| matrix.save())
-        .map_err(|_| DataError::ClipMatrixNotFound)
 }
 
 pub fn get_controller_routing_by_session_id(

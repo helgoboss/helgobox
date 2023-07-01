@@ -425,7 +425,7 @@ pub struct RealTimeControlContext<'a> {
 
 impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
-    pub fn clip_matrix(&self) -> Result<rt::SharedRtMatrix, &'static str> {
+    pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
         let weak_matrix = self
             .clip_matrix
             .ok_or("real-time clip matrix not yet initialized")?;

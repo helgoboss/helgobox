@@ -59,7 +59,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             }
         }
         Target::ReaperAction(d) => {
-            let track_desc = if let Some(td) = d.track {
+            let mut track_desc = if let Some(td) = d.track {
                 Some(convert_track_desc(td)?)
             } else {
                 None
@@ -1185,12 +1185,12 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
     };
-    let outcome = serialize_track(props);
+    let output = serialize_track(props);
     let desc = TrackDesc {
-        track_data: outcome.track_data,
+        track_data: output.track_data,
         track_must_be_selected,
         #[cfg(feature = "playtime")]
-        clip_column,
+        clip_column: output.clip_column,
     };
     Ok(desc)
 }

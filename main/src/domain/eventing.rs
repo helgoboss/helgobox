@@ -37,7 +37,10 @@ pub enum DomainEvent<'a> {
         is_poll: bool,
     },
     #[cfg(feature = "playtime")]
-    ControlSurfaceChangeEventForClipEngine(&'a playtime_clip_engine::base::Matrix, &'a ChangeEvent),
+    ControlSurfaceChangeEventForClipEngine(
+        &'a playtime_clip_engine::base::Matrix,
+        &'a reaper_high::ChangeEvent,
+    ),
     TimeForCelebratingSuccess,
     ConditionsChanged,
 }

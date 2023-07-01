@@ -1179,7 +1179,7 @@ impl HeaderPanel {
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         let weak_session = self.session.clone();
-        Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+        base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
             let shared_session = weak_session.upgrade().expect("session gone");
             let shared_instance_state = { shared_session.borrow().instance_state().clone() };
             shared_instance_state

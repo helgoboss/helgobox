@@ -45,9 +45,9 @@ pub struct InstanceState {
     #[cfg(feature = "playtime")]
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
     #[cfg(feature = "playtime")]
-    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     #[cfg(feature = "playtime")]
-    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
     /// Which mappings are in which group.
     ///
     /// - Not persistent
@@ -139,9 +139,9 @@ pub enum ClipMatrixRef {
 #[derive(Debug)]
 pub struct MatrixHandler {
     instance_id: InstanceId,
-    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-    event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
+    real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
+    event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
 }
 
 #[cfg(feature = "playtime")]
@@ -155,9 +155,9 @@ pub struct QualifiedClipMatrixEvent {
 impl MatrixHandler {
     fn new(
         instance_id: InstanceId,
-        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-        event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
+        real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
+        event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
     ) -> Self {
         Self {
             instance_id,
@@ -174,11 +174,11 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         match task.create_specific_task() {
             playtime_clip_engine::base::SpecificClipRecordTask::HardwareInput(t) => {
                 self.audio_hook_task_sender
-                    .send_complaining(NormalAudioHookTask::StartClipRecording(t));
+                    .send_complaining(crate::domain::NormalAudioHookTask::StartClipRecording(t));
             }
             playtime_clip_engine::base::SpecificClipRecordTask::FxInput(t) => {
                 self.real_time_processor_sender
-                    .send_complaining(NormalRealTimeTask::StartClipRecording(t));
+                    .send_complaining(crate::domain::NormalRealTimeTask::StartClipRecording(t));
             }
         }
     }
@@ -205,11 +205,11 @@ impl InstanceState {
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             QualifiedClipMatrixEvent,
         >,
-        #[cfg(feature = "playtime")] audio_hook_task_sender: SenderToRealTimeThread<
-            NormalAudioHookTask,
+        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalAudioHookTask,
         >,
-        #[cfg(feature = "playtime")] real_time_processor_sender: SenderToRealTimeThread<
-            NormalRealTimeTask,
+        #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalRealTimeTask,
         >,
     ) -> Self {
         Self {
@@ -438,7 +438,7 @@ impl InstanceState {
     #[cfg(feature = "playtime")]
     pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
         if self.clip_matrix_ref.is_some() {
-            tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
+            base::tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
             self.update_real_time_clip_matrix(None, false);
         }
         self.clip_matrix_ref = matrix_ref;
@@ -450,7 +450,7 @@ impl InstanceState {
         real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
         is_owned: bool,
     ) {
-        let rt_task = NormalRealTimeTask::SetClipMatrix {
+        let rt_task = crate::domain::NormalRealTimeTask::SetClipMatrix {
             is_owned,
             matrix: real_time_matrix,
         };

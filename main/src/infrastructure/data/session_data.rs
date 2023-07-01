@@ -195,7 +195,7 @@ pub struct SessionData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    clip_slots: Vec<QualifiedSlotDescriptor>,
+    clip_slots: Vec<crate::infrastructure::data::clip_legacy::QualifiedSlotDescriptor>,
     // New since 2.12.0-pre.5
     #[cfg(feature = "playtime")]
     #[serde(
@@ -282,7 +282,7 @@ fn focused_fx_descriptor() -> FxDescriptor {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ClipMatrixRefData {
-    Own(playtime_clip_engine::base::Matrix),
+    Own(playtime_api::persistence::Matrix),
     Foreign(String),
 }
 
@@ -767,6 +767,7 @@ impl SessionData {
         session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
+            use crate::domain::BackboneState;
             let instance_state = session.instance_state().clone();
             let mut instance_state = instance_state.borrow_mut();
             #[cfg(feature = "playtime")]
@@ -802,12 +803,13 @@ impl SessionData {
                     }
                 };
             } else if !self.clip_slots.is_empty() {
-                let matrix = create_clip_matrix_from_legacy_slots(
-                    &self.clip_slots,
-                    &self.mappings,
-                    &self.controller_mappings,
-                    session.processor_context().track(),
-                )?;
+                let matrix =
+                    crate::infrastructure::data::clip_legacy::create_clip_matrix_from_legacy_slots(
+                        &self.clip_slots,
+                        &self.mappings,
+                        &self.controller_mappings,
+                        session.processor_context().track(),
+                    )?;
                 BackboneState::get()
                     .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
                     .load(matrix)?;
@@ -847,6 +849,7 @@ impl SessionData {
         // (important to do after instance state released).
         #[cfg(feature = "playtime")]
         App::get().with_weak_sessions(|sessions| {
+            use crate::domain::BackboneState;
             // Gather other sessions that have a foreign clip matrix ID set.
             let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
                 let other_session = other_session.upgrade()?;

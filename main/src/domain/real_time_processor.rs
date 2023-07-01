@@ -480,7 +480,7 @@ impl RealTimeProcessor {
                 #[cfg(feature = "playtime")]
                 SetClipMatrix { is_owned, matrix } => {
                     self.clip_matrix_is_owned = is_owned;
-                    if let Some(matrix) = mem::replace(&mut self.clip_matrix, matrix) {
+                    if let Some(matrix) = std::mem::replace(&mut self.clip_matrix, matrix) {
                         self.garbage_bin.dispose(Garbage::ClipMatrix(matrix));
                     }
                 }

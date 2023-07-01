@@ -523,7 +523,7 @@ impl SessionUi for Weak<MainPanel> {
         &self,
         session: &Session,
         matrix: &playtime_clip_engine::base::Matrix,
-        event: &ChangeEvent,
+        event: &reaper_high::ChangeEvent,
     ) {
         App::get()
             .clip_engine_hub()

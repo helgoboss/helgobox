@@ -254,11 +254,11 @@ impl BackboneState {
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             crate::domain::QualifiedClipMatrixEvent,
         >,
-        #[cfg(feature = "playtime")] audio_hook_task_sender: SenderToRealTimeThread<
-            NormalAudioHookTask,
+        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalAudioHookTask,
         >,
-        #[cfg(feature = "playtime")] real_time_processor_sender: SenderToRealTimeThread<
-            NormalRealTimeTask,
+        #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalRealTimeTask,
         >,
     ) -> SharedInstanceState {
         let instance_state = InstanceState::new(
@@ -374,7 +374,7 @@ impl BackboneState {
             instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
         });
         if let Err(e) = result {
-            tracing_debug!("waiting for foreign clip matrix instance ({e})");
+            base::tracing_debug!("waiting for foreign clip matrix instance ({e})");
         }
     }
 

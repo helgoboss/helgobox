@@ -2685,32 +2685,32 @@ impl TargetModel {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_slot(&self) -> &ClipSlotDescriptor {
+    pub fn clip_slot(&self) -> &realearn_api::persistence::ClipSlotDescriptor {
         &self.clip_slot
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_column(&self) -> &ClipColumnDescriptor {
+    pub fn clip_column(&self) -> &realearn_api::persistence::ClipColumnDescriptor {
         &self.clip_column
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_row(&self) -> &ClipRowDescriptor {
+    pub fn clip_row(&self) -> &realearn_api::persistence::ClipRowDescriptor {
         &self.clip_row
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_transport_action(&self) -> ClipTransportAction {
+    pub fn clip_transport_action(&self) -> realearn_api::persistence::ClipTransportAction {
         self.clip_transport_action
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_matrix_action(&self) -> ClipMatrixAction {
+    pub fn clip_matrix_action(&self) -> realearn_api::persistence::ClipMatrixAction {
         self.clip_matrix_action
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_column_action(&self) -> ClipColumnAction {
+    pub fn clip_column_action(&self) -> realearn_api::persistence::ClipColumnAction {
         self.clip_column_action
     }
 
@@ -2721,7 +2721,7 @@ impl TargetModel {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_row_action(&self) -> ClipRowAction {
+    pub fn clip_row_action(&self) -> realearn_api::persistence::ClipRowAction {
         self.clip_row_action
     }
 
@@ -2736,12 +2736,12 @@ impl TargetModel {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+    pub fn clip_play_start_timing(&self) -> Option<playtime_api::persistence::ClipPlayStartTiming> {
         self.clip_play_start_timing
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+    pub fn clip_play_stop_timing(&self) -> Option<playtime_api::persistence::ClipPlayStopTiming> {
         self.clip_play_stop_timing
     }
 
@@ -4169,9 +4169,9 @@ pub struct TrackPropValues {
     pub expression: String,
     pub index: u32,
     #[cfg(feature = "playtime")]
-    pub clip_column: ClipColumnDescriptor,
+    pub clip_column: realearn_api::persistence::ClipColumnDescriptor,
     #[cfg(feature = "playtime")]
-    pub clip_column_track_context: ClipColumnTrackContext,
+    pub clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
 }
 
 impl TrackPropValues {

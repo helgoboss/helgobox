@@ -787,7 +787,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let Some(relevance) = instance_state.clip_matrix_relevance(instance_id) else {
             return;
         };
-        if let ClipMatrixRelevance::Owns(matrix) = relevance {
+        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
             self.basics
                 .event_handler
                 .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
@@ -811,12 +811,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let Some(relevance) = instance_state.clip_matrix_relevance(event.instance_id) else {
             return;
         };
-        if let ClipMatrixRelevance::Owns(matrix) = relevance {
+        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
             self.basics
                 .event_handler
                 .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
                     matrix,
-                    events: slice::from_ref(&event.event),
+                    events: std::slice::from_ref(&event.event),
                     is_poll: false,
                 });
         }
@@ -830,10 +830,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         let is_position_change = matches!(
             event,
-            ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
-                event: SlotChangeEvent::Continuous { .. },
-                ..
-            })
+            playtime_clip_engine::base::ClipMatrixEvent::SlotChanged(
+                playtime_clip_engine::rt::QualifiedSlotChangeEvent {
+                    event: playtime_clip_engine::rt::SlotChangeEvent::Continuous { .. },
+                    ..
+                }
+            )
         );
         if is_position_change {
             // Position changed. This happens very frequently when a clip is playing.

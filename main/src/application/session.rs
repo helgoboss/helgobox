@@ -67,7 +67,7 @@ pub trait SessionUi {
         &self,
         session: &Session,
         matrix: &playtime_clip_engine::base::Matrix,
-        event: &ChangeEvent,
+        event: &reaper_high::ChangeEvent,
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn target_controlled(&self, event: TargetControlEvent);
