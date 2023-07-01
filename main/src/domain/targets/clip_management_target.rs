@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnClipMatrix, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_clip_engine::base::{ClipAddress, ClipSlotAddress};
@@ -42,7 +42,7 @@ impl ClipManagementTarget {
     fn with_matrix<R>(
         &self,
         context: MappingControlContext,
-        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
         BackboneState::get().with_clip_matrix_mut(context.control_context.instance_state, f)
     }

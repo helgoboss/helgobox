@@ -5,7 +5,8 @@ use schemars::JsonSchema;
 #[derive(JsonSchema)]
 pub struct Session {
     _main_compartment: Option<Compartment>,
-    _clip_matrix: Option<Matrix>,
+    #[cfg(feature = "playtime")]
+    _clip_matrix: Option<playtime_api::Matrix>,
     _mapping_snapshots: Vec<MappingSnapshot>,
 }
 

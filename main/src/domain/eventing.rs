@@ -1,12 +1,10 @@
 use crate::domain::{
     Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, MappingId,
     MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue, RealearnClipMatrix,
+    QualifiedMappingId, RawParamValue,
 };
 use helgoboss_learn::{AbsoluteValue, ControlValue};
-use playtime_clip_engine::base::ClipMatrixEvent;
 use realearn_api::persistence::MappingModification;
-use reaper_high::ChangeEvent;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Debug;
@@ -32,12 +30,14 @@ pub enum DomainEvent<'a> {
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     MappingModificationRequested(MappingModificationRequestedEvent),
     /// Only emitted for the instance owning the matrix.
+    #[cfg(feature = "playtime")]
     ClipMatrixChanged {
-        matrix: &'a RealearnClipMatrix,
-        events: &'a [ClipMatrixEvent],
+        matrix: &'a playtime_clip_engine::base::Matrix,
+        events: &'a [playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
     },
-    ControlSurfaceChangeEventForClipEngine(&'a RealearnClipMatrix, &'a ChangeEvent),
+    #[cfg(feature = "playtime")]
+    ControlSurfaceChangeEventForClipEngine(&'a playtime_clip_engine::base::Matrix, &'a ChangeEvent),
     TimeForCelebratingSuccess,
     ConditionsChanged,
 }

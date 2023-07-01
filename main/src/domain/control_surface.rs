@@ -4,9 +4,9 @@ use crate::domain::{
     EelTransformation, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, InstanceId,
     InstanceStateChanged, LifecycleMidiData, LuaFeedbackScript, MainProcessor, MidiCaptureSender,
     MidiDeviceChangePayload, MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId,
-    OscInputDevice, OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector,
-    ReaperMessage, ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TargetTouchEvent,
+    OscInputDevice, OscScanResult, RealTimeCompoundMappingTarget, RealTimeMapping,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector, ReaperMessage,
+    ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TargetTouchEvent,
     TouchedTrackParameterType,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
@@ -22,7 +22,6 @@ use std::cell::RefCell;
 
 use base::metrics_util::measure_time;
 use itertools::{EitherOrBoth, Itertools};
-use playtime_clip_engine::rt::WeakRtMatrix;
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
     MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ReaProject,
@@ -39,6 +38,7 @@ type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
+#[cfg(feature = "playtime")]
 const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
@@ -53,7 +53,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     rx_middleware: ControlSurfaceRxMiddleware,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
-    clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
+    #[cfg(feature = "playtime")]
+    clip_matrix_event_receiver: Receiver<crate::domain::QualifiedClipMatrixEvent>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
     main_task_middleware: MainTaskMiddleware,
@@ -85,7 +86,8 @@ pub enum Garbage {
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
     MidiCaptureSender(MidiCaptureSender),
-    ClipMatrix(WeakRtMatrix),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(playtime_clip_engine::rt::WeakRtMatrix),
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -199,7 +201,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     pub fn new(
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
-        clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
+        #[cfg(feature = "playtime")] clip_matrix_event_receiver: Receiver<
+            crate::domain::QualifiedClipMatrixEvent,
+        >,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         garbage_receiver: crossbeam_channel::Receiver<Garbage>,
@@ -220,6 +224,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             main_processors,
             main_task_receiver,
+            #[cfg(feature = "playtime")]
             clip_matrix_event_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
@@ -279,8 +284,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_device_changes_as_reaper_source_messages(timestamp);
         self.process_incoming_osc_messages(timestamp);
         // Drive clip matrix
-        self.poll_clip_matrixes();
-        self.process_incoming_clip_matrix_events();
+        #[cfg(feature = "playtime")]
+        {
+            self.poll_clip_matrixes();
+            self.process_incoming_clip_matrix_events();
+        }
         // Finally let the ReaLearn main processors do their regular job (the instances)
         self.run_main_processors(timestamp);
         // Free memory that has been used in real-time thread
@@ -432,6 +440,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn poll_clip_matrixes(&mut self) {
         for processor in &*self.main_processors.borrow() {
             let events = processor.poll_owned_clip_matrix();
@@ -473,6 +482,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn process_incoming_clip_matrix_events(&mut self) {
         for event in self
             .clip_matrix_event_receiver

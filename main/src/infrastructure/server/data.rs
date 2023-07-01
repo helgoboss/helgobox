@@ -3,7 +3,7 @@
 use crate::application::{
     ControllerPreset, Preset, PresetManager, Session, SourceCategory, TargetCategory,
 };
-use crate::domain::{BackboneState, Compartment, MappingKey, ProjectionFeedbackValue};
+use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::UnitValue;
@@ -25,6 +25,7 @@ pub enum DataError {
     OnlyPatchReplaceIsSupported,
     OnlyCustomDataKeyIsSupportedAsPatchPath,
     ControllerUpdateFailed,
+    #[cfg(feature = "playtime")]
     ClipMatrixNotFound,
 }
 
@@ -47,6 +48,7 @@ impl DataError {
                 "only '/customData/{key}' is supported as path"
             }
             ControllerUpdateFailed => "couldn't update controller",
+            #[cfg(feature = "playtime")]
             ClipMatrixNotFound => "clip matrix not found",
         }
     }
@@ -54,10 +56,11 @@ impl DataError {
     pub fn category(&self) -> DataErrorCategory {
         use DataError::*;
         match self {
-            SessionNotFound
-            | SessionHasNoActiveController
-            | ControllerNotFound
-            | ClipMatrixNotFound => DataErrorCategory::NotFound,
+            SessionNotFound | SessionHasNoActiveController | ControllerNotFound => {
+                DataErrorCategory::NotFound
+            }
+            #[cfg(feature = "playtime")]
+            ClipMatrixNotFound => DataErrorCategory::NotFound,
             OnlyPatchReplaceIsSupported => DataErrorCategory::MethodNotAllowed,
             OnlyCustomDataKeyIsSupportedAsPatchPath => DataErrorCategory::BadRequest,
             ControllerUpdateFailed => DataErrorCategory::InternalServerError,
@@ -105,6 +108,7 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
     Ok(SessionResponseData {})
 }
 
+#[cfg(feature = "playtime")]
 pub fn get_clip_matrix_data(
     session_id: &str,
 ) -> Result<playtime_api::persistence::Matrix, DataError> {

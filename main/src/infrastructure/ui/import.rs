@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
 
-use playtime_api::persistence::Matrix;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::SafeLua;
@@ -43,7 +42,8 @@ impl UntaggedDataObject {
 #[serde(tag = "kind")]
 pub enum DataObject {
     Session(Envelope<Box<SessionData>>),
-    ClipMatrix(Envelope<Box<Option<Matrix>>>),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::Matrix>>>),
     MainCompartment(Envelope<Box<CompartmentModelData>>),
     ControllerCompartment(Envelope<Box<CompartmentModelData>>),
     Mappings(Envelope<Vec<MappingModelData>>),
@@ -74,6 +74,7 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let data_object = match api_object {
+            #[cfg(feature = "playtime")]
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
@@ -117,6 +118,7 @@ impl DataObject {
     ) -> Result<ApiObject, Box<dyn Error>> {
         let api_object = match self {
             DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+            #[cfg(feature = "playtime")]
             DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
             DataObject::MainCompartment(Envelope { value: c, version }) => {
                 let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
@@ -154,6 +156,7 @@ impl DataObject {
         use DataObject::*;
         match self {
             Session(v) => v.version.as_ref(),
+            #[cfg(feature = "playtime")]
             ClipMatrix(v) => v.version.as_ref(),
             MainCompartment(v) => v.version.as_ref(),
             ControllerCompartment(v) => v.version.as_ref(),

@@ -1,8 +1,8 @@
 use crate::domain::{
     BackboneState, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnClipMatrix,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
+    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::ClipRowAction;
@@ -42,7 +42,7 @@ impl ClipRowTarget {
     fn with_matrix<R>(
         &self,
         context: ControlContext,
-        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
         BackboneState::get().with_clip_matrix_mut(context.instance_state, f)
     }

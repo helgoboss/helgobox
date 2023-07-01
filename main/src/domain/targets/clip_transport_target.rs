@@ -2,9 +2,8 @@ use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
     transport_is_enabled_unit_value, BackboneState, Compartment, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnClipMatrix, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
-    DEFAULT_TARGET,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
@@ -64,7 +63,10 @@ pub struct ClipTransportTarget {
 }
 
 impl ClipTransportTarget {
-    pub fn clip_play_state(&self, matrix: &RealearnClipMatrix) -> Option<InternalClipPlayState> {
+    pub fn clip_play_state(
+        &self,
+        matrix: &playtime_clip_engine::base::Matrix,
+    ) -> Option<InternalClipPlayState> {
         let play_state = matrix.find_slot(self.basics.slot_coordinates)?.play_state();
         Some(play_state)
     }

@@ -28,13 +28,16 @@ use base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
 };
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
-use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::{
-    BrowseTracksMode, ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext,
-    ClipManagementAction, ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor,
-    ClipTransportAction, FxToolAction, LearnableTargetKind, MappingModificationKind,
+    BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
     PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
+};
+
+#[cfg(feature = "playtime")]
+use realearn_api::persistence::{
+    ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
+    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -373,6 +376,7 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub slot_index: usize,
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -394,6 +398,7 @@ pub struct TargetModelData {
     )]
     pub buffered: bool,
     /// New since ReaLearn v2.12.0-pre.5
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -407,6 +412,7 @@ pub struct TargetModelData {
     /// For clip column targets, this contains the clip column to which we want to refer.
     ///
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -414,6 +420,7 @@ pub struct TargetModelData {
     )]
     pub clip_column: ClipColumnDescriptor,
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -423,6 +430,7 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4.
     ///
     /// Migrated from `transport_action` if not given.
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -430,6 +438,7 @@ pub struct TargetModelData {
     )]
     pub clip_transport_action: Option<ClipTransportAction>,
     /// New since ReaLearn v2.13.0-pre.4.
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -437,6 +446,7 @@ pub struct TargetModelData {
     )]
     pub clip_column_action: ClipColumnAction,
     /// New since ReaLearn v2.13.0-pre.4.
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -444,6 +454,7 @@ pub struct TargetModelData {
     )]
     pub clip_row_action: ClipRowAction,
     /// New since ReaLearn v2.13.0-pre.4.
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -451,6 +462,7 @@ pub struct TargetModelData {
     )]
     pub clip_matrix_action: ClipMatrixAction,
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -458,6 +470,7 @@ pub struct TargetModelData {
     )]
     pub record_only_if_track_armed: bool,
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -465,19 +478,21 @@ pub struct TargetModelData {
     )]
     pub stop_column_if_slot_empty: bool,
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_play_start_timing: Option<ClipPlayStartTiming>,
+    pub clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
     /// New since ReaLearn v2.13.0-pre.4
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
+    pub clip_play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(
         default,
@@ -530,7 +545,8 @@ impl TargetModelData {
         model: &TargetModel,
         conversion_context: &impl ModelToDataConversionContext,
     ) -> Self {
-        let (track_data, track_selector_clip_column) = serialize_track(model.track());
+        let outcome = serialize_track(model.track());
+        let track_data = outcome.track_data;
         let (session_id, mapping_key) = match model.mapping_ref() {
             MappingRefModel::OwnMapping { mapping_id } => {
                 let mapping_key =
@@ -602,6 +618,7 @@ impl TargetModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
+            #[cfg(feature = "playtime")]
             clip_management_action: model.clip_management_action().clone(),
             next_bar: false,
             buffered: false,
@@ -618,24 +635,35 @@ impl TargetModelData {
                 .group_key_by_id(model.group_id())
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
+            #[cfg(feature = "playtime")]
             clip_slot: if model.target_type().supports_clip_slot() {
                 Some(model.clip_slot().clone())
             } else {
                 None
             },
+            #[cfg(feature = "playtime")]
             clip_column: track_selector_clip_column.unwrap_or_else(|| model.clip_column().clone()),
+            #[cfg(feature = "playtime")]
             clip_row: model.clip_row().clone(),
+            #[cfg(feature = "playtime")]
             clip_transport_action: if model.target_type() == ReaperTargetType::ClipTransport {
                 Some(model.clip_transport_action())
             } else {
                 None
             },
+            #[cfg(feature = "playtime")]
             clip_column_action: model.clip_column_action(),
+            #[cfg(feature = "playtime")]
             clip_row_action: model.clip_row_action(),
+            #[cfg(feature = "playtime")]
             clip_matrix_action: model.clip_matrix_action(),
+            #[cfg(feature = "playtime")]
             record_only_if_track_armed: model.record_only_if_track_armed(),
+            #[cfg(feature = "playtime")]
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
+            #[cfg(feature = "playtime")]
             clip_play_start_timing: model.clip_play_start_timing(),
+            #[cfg(feature = "playtime")]
             clip_play_stop_timing: model.clip_play_stop_timing(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
@@ -727,7 +755,12 @@ impl TargetModelData {
             self.invocation_type
         };
         model.change(C::SetActionInvocationType(invocation_type));
-        let track_prop_values = deserialize_track(&self.track_data, &self.clip_column);
+        let track_des_input = TrackDeserializationInput {
+            track_data: &self.track_data,
+            #[cfg(feature = "playtime")]
+            clip_column: &self.clip_column,
+        };
+        let track_prop_values = deserialize_track(track_des_input);
         let _ = model.set_track_from_prop_values(
             track_prop_values,
             false,
@@ -873,41 +906,44 @@ impl TargetModelData {
             .unwrap_or_default();
         model.change(C::SetGroupId(group_id));
         model.change(C::SetActiveMappingsOnly(self.active_mappings_only));
-        let slot_descriptor = self
-            .clip_slot
-            .clone()
-            .unwrap_or(ClipSlotDescriptor::ByIndex {
-                column_index: self.slot_index,
-                row_index: 0,
+        #[cfg(feature = "playtime")]
+        {
+            let slot_descriptor = self
+                .clip_slot
+                .clone()
+                .unwrap_or(ClipSlotDescriptor::ByIndex {
+                    column_index: self.slot_index,
+                    row_index: 0,
+                });
+            model.change(C::SetClipSlot(slot_descriptor));
+            model.change(C::SetClipColumn(self.clip_column.clone()));
+            model.change(C::SetClipRow(self.clip_row.clone()));
+            model.change(C::SetClipManagementAction(
+                self.clip_management_action.clone(),
+            ));
+            let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
+                use ClipTransportAction as T;
+                use TransportAction::*;
+                match self.transport_action {
+                    PlayStop => T::PlayStop,
+                    PlayPause => T::PlayPause,
+                    Stop => T::Stop,
+                    Pause => T::Pause,
+                    RecordStop => T::RecordStop,
+                    Repeat => T::Looped,
+                }
             });
-        model.change(C::SetClipSlot(slot_descriptor));
-        model.change(C::SetClipColumn(self.clip_column.clone()));
-        model.change(C::SetClipRow(self.clip_row.clone()));
-        model.change(C::SetClipManagementAction(
-            self.clip_management_action.clone(),
-        ));
-        let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
-            use ClipTransportAction as T;
-            use TransportAction::*;
-            match self.transport_action {
-                PlayStop => T::PlayStop,
-                PlayPause => T::PlayPause,
-                Stop => T::Stop,
-                Pause => T::Pause,
-                RecordStop => T::RecordStop,
-                Repeat => T::Looped,
-            }
-        });
-        model.change(C::SetClipTransportAction(clip_transport_action));
-        model.change(C::SetClipColumnAction(self.clip_column_action));
-        model.change(C::SetClipRowAction(self.clip_row_action));
-        model.change(C::SetClipMatrixAction(self.clip_matrix_action));
-        model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
-        model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
-        model.change(C::SetRecordOnlyIfTrackArmed(
-            self.record_only_if_track_armed,
-        ));
-        model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
+            model.change(C::SetClipTransportAction(clip_transport_action));
+            model.change(C::SetClipColumnAction(self.clip_column_action));
+            model.change(C::SetClipRowAction(self.clip_row_action));
+            model.change(C::SetClipMatrixAction(self.clip_matrix_action));
+            model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
+            model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
+            model.change(C::SetRecordOnlyIfTrackArmed(
+                self.record_only_if_track_armed,
+            ));
+            model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
+        }
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
         // "Load mapping snapshot" stuff
@@ -1005,125 +1041,97 @@ impl TargetModelData {
     }
 }
 
+pub struct TrackSerializationOutput {
+    pub track_data: TrackData,
+    #[cfg(feature = "playtime")]
+    pub clip_column_descriptor: Option<realearn_api::persistence::ClipColumnDescriptor>,
+}
+
 /// This function is so annoying because of backward compatibility. Once made the bad decision
 /// to not introduce an explicit track type.
-pub fn serialize_track(track: TrackPropValues) -> (TrackData, Option<ClipColumnDescriptor>) {
+pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
     use VirtualTrackType::*;
-    match track.r#type {
-        This => (TrackData::default(), None),
-        Selected => (
-            TrackData {
-                guid: Some("selected".to_string()),
-                ..Default::default()
-            },
-            None,
-        ),
-        AllSelected => (
-            TrackData {
-                guid: Some("selected*".to_string()),
-                ..Default::default()
-            },
-            None,
-        ),
-        Master => (
-            TrackData {
-                guid: Some("master".to_string()),
-                ..Default::default()
-            },
-            None,
-        ),
-        Instance => (
-            TrackData {
-                guid: Some("instance".to_string()),
-                ..Default::default()
-            },
-            None,
-        ),
-        ByIdOrName => (
-            TrackData {
-                guid: track.id.map(|id| id.to_string_without_braces()),
-                name: Some(track.name),
-                ..Default::default()
-            },
-            None,
-        ),
-        ById => (
-            TrackData {
-                guid: track.id.map(|id| id.to_string_without_braces()),
-                ..Default::default()
-            },
-            None,
-        ),
-        ByName => (
-            TrackData {
-                name: Some(track.name),
-                ..Default::default()
-            },
-            None,
-        ),
-        AllByName => (
-            TrackData {
-                guid: Some("name*".to_string()),
-                name: Some(track.name),
-                ..Default::default()
-            },
-            None,
-        ),
-        ByIndex => (
-            TrackData {
-                index: Some(track.index),
-                ..Default::default()
-            },
-            None,
-        ),
-        ByIndexTcp => (
-            TrackData {
-                guid: Some("index_tcp".to_string()),
-                index: Some(track.index),
-                ..Default::default()
-            },
-            None,
-        ),
-        ByIndexMcp => (
-            TrackData {
-                guid: Some("index_mcp".to_string()),
-                index: Some(track.index),
-                ..Default::default()
-            },
-            None,
-        ),
-        Dynamic => (
-            TrackData {
-                expression: Some(track.expression),
-                ..Default::default()
-            },
-            None,
-        ),
-        DynamicTcp => (
-            TrackData {
-                guid: Some("dynamic_tcp".to_string()),
-                expression: Some(track.expression),
-                ..Default::default()
-            },
-            None,
-        ),
-        DynamicMcp => (
-            TrackData {
-                guid: Some("dynamic_mcp".to_string()),
-                expression: Some(track.expression),
-                ..Default::default()
-            },
-            None,
-        ),
-        FromClipColumn => (
+    #[cfg(feature = "playtime")]
+    let mut clip_column_descriptor = None;
+    let track_data = match track.r#type {
+        This => TrackData::default(),
+        Selected => TrackData {
+            guid: Some("selected".to_string()),
+            ..Default::default()
+        },
+        AllSelected => TrackData {
+            guid: Some("selected*".to_string()),
+            ..Default::default()
+        },
+        Master => TrackData {
+            guid: Some("master".to_string()),
+            ..Default::default()
+        },
+        Instance => TrackData {
+            guid: Some("instance".to_string()),
+            ..Default::default()
+        },
+        ByIdOrName => TrackData {
+            guid: track.id.map(|id| id.to_string_without_braces()),
+            name: Some(track.name),
+            ..Default::default()
+        },
+        ById => TrackData {
+            guid: track.id.map(|id| id.to_string_without_braces()),
+            ..Default::default()
+        },
+        ByName => TrackData {
+            name: Some(track.name),
+            ..Default::default()
+        },
+        AllByName => TrackData {
+            guid: Some("name*".to_string()),
+            name: Some(track.name),
+            ..Default::default()
+        },
+        ByIndex => TrackData {
+            index: Some(track.index),
+            ..Default::default()
+        },
+        ByIndexTcp => TrackData {
+            guid: Some("index_tcp".to_string()),
+            index: Some(track.index),
+            ..Default::default()
+        },
+        ByIndexMcp => TrackData {
+            guid: Some("index_mcp".to_string()),
+            index: Some(track.index),
+            ..Default::default()
+        },
+        Dynamic => TrackData {
+            expression: Some(track.expression),
+            ..Default::default()
+        },
+        DynamicTcp => TrackData {
+            guid: Some("dynamic_tcp".to_string()),
+            expression: Some(track.expression),
+            ..Default::default()
+        },
+        DynamicMcp => TrackData {
+            guid: Some("dynamic_mcp".to_string()),
+            expression: Some(track.expression),
+            ..Default::default()
+        },
+        #[cfg(feature = "playtime")]
+        FromClipColumn => {
+            clip_column_descriptor = Some(track.clip_column);
             TrackData {
                 guid: Some("from-clip-column".to_string()),
                 expression: Some(track.expression),
                 clip_column_track_context: track.clip_column_track_context,
                 ..Default::default()
-            },
-            Some(track.clip_column),
-        ),
+            }
+        }
+    };
+    TrackSerializationOutput {
+        track_data,
+        #[cfg(feature = "playtime")]
+        clip_column_descriptor,
     }
 }
 
@@ -1448,6 +1456,7 @@ pub struct TrackData {
         skip_serializing_if = "is_default"
     )]
     pub expression: Option<String>,
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -1456,13 +1465,16 @@ pub struct TrackData {
     pub clip_column_track_context: ClipColumnTrackContext,
 }
 
+pub struct TrackDeserializationInput<'a> {
+    pub track_data: &'a TrackData,
+    #[cfg(feature = "playtime")]
+    pub clip_column: &'a ClipColumnDescriptor,
+}
+
 /// This function is so annoying because of backward compatibility. Once made the bad decision
 /// to not introduce an explicit track type.
-pub fn deserialize_track(
-    track_data: &TrackData,
-    clip_column: &ClipColumnDescriptor,
-) -> TrackPropValues {
-    match track_data {
+pub fn deserialize_track(input: TrackDeserializationInput) -> TrackPropValues {
+    match input.track_data {
         TrackData {
             guid: None,
             name: None,
@@ -1520,13 +1532,14 @@ pub fn deserialize_track(
             expression: e.clone(),
             ..Default::default()
         },
+        #[cfg(feature = "playtime")]
         TrackData {
             guid: Some(g),
             clip_column_track_context,
             ..
         } if g == "from-clip-column" => TrackPropValues {
             r#type: VirtualTrackType::FromClipColumn,
-            clip_column: clip_column.clone(),
+            clip_column: input.clip_column.clone(),
             clip_column_track_context: *clip_column_track_context,
             ..Default::default()
         },

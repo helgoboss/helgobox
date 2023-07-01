@@ -59,7 +59,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             }
         }
         Target::ReaperAction(d) => {
-            let mut track_desc = if let Some(td) = d.track {
+            let track_desc = if let Some(td) = d.track {
                 Some(convert_track_desc(td)?)
             } else {
                 None
@@ -86,6 +86,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                     .as_ref()
                     .map(|d| d.track_must_be_selected)
                     .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc
                     .as_mut()
                     .and_then(|d| d.clip_column.take())
@@ -192,6 +193,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackArm,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 use_track_grouping: Some(
@@ -212,6 +214,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackParentSend,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 ..init(d.commons)
@@ -224,6 +227,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::AllTrackFxEnable,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 poll_for_feedback: d
@@ -239,6 +243,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackMute,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 use_track_grouping: Some(
@@ -259,6 +264,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackPeak,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 ..init(d.commons)
             }
@@ -270,6 +276,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackPhase,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 use_track_grouping: Some(
@@ -293,6 +300,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackSelection,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 scroll_arrange_view: d
@@ -311,6 +319,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackAutomationMode,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 track_automation_mode: convert_automation_mode(d.mode),
@@ -324,6 +333,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackMonitoringMode,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 track_monitoring_mode: d.mode,
@@ -341,6 +351,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackTouchState,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 touched_parameter_type: {
@@ -362,6 +373,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackPan,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 use_track_grouping: Some(
                     d.use_track_grouping
@@ -381,6 +393,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackWidth,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 use_track_grouping: Some(
                     d.use_track_grouping
@@ -400,6 +413,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackVolume,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 use_track_grouping: Some(
                     d.use_track_grouping
@@ -419,6 +433,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackTool,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_tool_action: d.action.unwrap_or_default(),
                 tags: convert_tags(d.instance_tags.unwrap_or_default())?,
@@ -432,6 +447,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackShow,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 track_area: {
@@ -450,6 +466,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::TrackSolo,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 solo_behavior: {
@@ -482,6 +499,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 fx_display_type: convert_fx_display_kind(d.display_kind.unwrap_or_default()),
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: FxData {
                     is_input_fx: chain_desc.is_input_fx,
@@ -498,6 +516,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxTool,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -514,6 +533,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxEnable,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -528,6 +548,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxOnline,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -542,6 +563,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::LoadFxSnapshot,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -564,6 +586,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxPreset,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -578,6 +601,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxOpen,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -594,6 +618,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxParameterValue,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -614,6 +639,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::FxParameterTouchState,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -629,6 +655,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RouteAutomationMode,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d
@@ -646,6 +673,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RouteMono,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d
@@ -662,6 +690,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RouteMute,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d
@@ -678,6 +707,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RoutePhase,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d
@@ -694,6 +724,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RoutePan,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 ..init(d.commons)
@@ -707,6 +738,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RouteVolume,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 ..init(d.commons)
@@ -720,6 +752,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::RouteTouchState,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 track_route_data: route_desc.track_route_data,
                 touched_route_parameter_type: match d.touched_parameter {
@@ -729,6 +762,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        #[cfg(feature = "playtime")]
         Target::ClipTransportAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipTransport,
@@ -744,6 +778,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_play_stop_timing: d.play_stop_timing,
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipColumnAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipColumn,
@@ -751,6 +786,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_column_action: d.action,
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipRowAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipRow,
@@ -758,6 +794,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_row_action: d.action,
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipSeek(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipSeek,
@@ -770,12 +807,14 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             },
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipVolume(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipVolume,
             clip_slot: Some(d.slot),
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipManagement(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipManagement,
@@ -783,6 +822,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             clip_management_action: d.action,
             ..init(d.commons)
         },
+        #[cfg(feature = "playtime")]
         Target::ClipMatrixAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ClipMatrix,
@@ -941,6 +981,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 r#type: ReaperTargetType::LoadPotPreset,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
+                #[cfg(feature = "playtime")]
                 clip_column: track_desc.clip_column.unwrap_or_default(),
                 fx_data: fx_desc.fx_data,
                 enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
@@ -988,6 +1029,7 @@ fn convert_automation_mode(mode: AutomationMode) -> RealearnAutomationMode {
 struct TrackDesc {
     track_data: TrackData,
     track_must_be_selected: bool,
+    #[cfg(feature = "playtime")]
     clip_column: Option<ClipColumnDescriptor>,
 }
 
@@ -1126,6 +1168,7 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 .track_must_be_selected
                 .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
+        #[cfg(feature = "playtime")]
         FromClipColumn {
             commons,
             column,
@@ -1142,10 +1185,11 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
     };
-    let (track_data, clip_column) = serialize_track(props);
+    let outcome = serialize_track(props);
     let desc = TrackDesc {
-        track_data,
+        track_data: outcome.track_data,
         track_must_be_selected,
+        #[cfg(feature = "playtime")]
         clip_column,
     };
     Ok(desc)

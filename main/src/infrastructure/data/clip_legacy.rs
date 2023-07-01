@@ -1,7 +1,7 @@
 use crate::application::{TargetCategory, VirtualTrackType};
 use crate::base::notification;
 use crate::domain::{ReaperTargetType, TransportAction};
-use crate::infrastructure::data::{deserialize_track, MappingModelData};
+use crate::infrastructure::data::{deserialize_track, MappingModelData, TrackDeserializationInput};
 use base::default_util::is_default;
 use playtime_api::persistence::SourceOrigin;
 use reaper_high::{Guid, Track};
@@ -94,7 +94,11 @@ fn determine_legacy_clip_track(
                 && matches!(m.target.transport_action, TransportAction::PlayPause | TransportAction::PlayStop)
                 && m.target.slot_index == slot_index
             {
-                let prop_values = deserialize_track(&m.target.track_data, &m.target.clip_column);
+                let input = TrackDeserializationInput {
+                    track_data: &m.target.track_data,
+                    clip_column: &m.target.clip_column,
+                };
+                let prop_values = deserialize_track(input);
                 use VirtualTrackType::*;
                 let t = match prop_values.r#type {
                     This => LegacyClipOutput::ThisTrack,

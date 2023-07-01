@@ -1,4 +1,5 @@
 use crate::base::{ClipMatrixEvent, Matrix};
+use crate::proto::clip_engine_server::ClipEngineServer;
 use crate::proto::senders::{
     ClipEngineSenders, ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch,
     ContinuousSlotUpdateBatch, OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch,
@@ -37,8 +38,14 @@ impl ClipEngineHub {
         }
     }
 
-    pub fn create_service<P: MatrixProvider>(&self, matrix_provider: P) -> ClipEngineService<P> {
-        ClipEngineService::new(matrix_provider, self.senders.clone())
+    pub fn create_service<P: MatrixProvider>(
+        &self,
+        matrix_provider: P,
+    ) -> ClipEngineServer<ClipEngineService<P>> {
+        ClipEngineServer::new(ClipEngineService::new(
+            matrix_provider,
+            self.senders.clone(),
+        ))
     }
 
     pub fn clip_matrix_changed(

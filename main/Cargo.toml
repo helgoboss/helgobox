@@ -9,6 +9,7 @@ rust-version = "1.68.2"
 
 [features]
 default = []
+playtime = ["playtime-clip-engine", "playtime-api", "realearn-api/playtime"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
@@ -22,14 +23,14 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 swell-ui.workspace = true
 rx-util.workspace = true
-playtime-clip-engine.workspace = true
 pot.workspace = true
 realearn-api.workspace = true
-playtime-api.workspace = true
 realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
+playtime-api = { workspace = true, optional = true }
+playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
 # For being able to (de)serialize using FromStr and Display

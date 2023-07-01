@@ -12,21 +12,19 @@ use crate::domain::{
     ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity,
     ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
     BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET,
-    BROWSE_POT_PRESETS_TARGET, CLIP_COLUMN_TARGET, CLIP_MANAGEMENT_TARGET, CLIP_MATRIX_TARGET,
-    CLIP_ROW_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, DUMMY_TARGET,
-    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET,
-    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET,
-    FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET,
-    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET,
-    MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET,
-    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
-    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
-    SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
-    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
-    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
-    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
-    TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
-    TRANSPORT_TARGET,
+    BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
+    FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
+    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
+    LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET,
+    LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
+    OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
+    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
+    ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET,
+    SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
+    TRACK_MONITORING_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET,
+    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
+    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
+    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
 use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
@@ -36,9 +34,6 @@ use helgoboss_learn::{
     SourceContext, TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt;
-use playtime_clip_engine::rt::WeakRtMatrix;
 use realearn_api::persistence::{LearnableTargetKind, TrackScope};
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
@@ -335,7 +330,8 @@ pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
-    ClipMatrix(&'a ClipMatrixEvent),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(&'a playtime_clip_engine::base::ClipMatrixEvent),
 }
 
 pub fn get_track_name(t: &Track, scope: TrackScope) -> String {
@@ -422,10 +418,13 @@ pub struct ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct RealTimeControlContext<'a> {
-    pub clip_matrix: Option<&'a WeakRtMatrix>,
+    #[cfg(feature = "playtime")]
+    pub clip_matrix: Option<&'a playtime_clip_engine::rt::WeakRtMatrix>,
+    pub _p: &'a (),
 }
 
 impl<'a> RealTimeControlContext<'a> {
+    #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<rt::SharedRtMatrix, &'static str> {
         let weak_matrix = self
             .clip_matrix
@@ -662,18 +661,25 @@ pub enum ReaperTargetType {
     RouteVolume = 3,
 
     // Clip targets
+    #[cfg(feature = "playtime")]
     ClipManagement = 46,
+    #[cfg(feature = "playtime")]
     ClipTransport = 31,
+    #[cfg(feature = "playtime")]
     ClipSeek = 32,
+    #[cfg(feature = "playtime")]
     ClipVolume = 33,
 
     // Clip column targets
+    #[cfg(feature = "playtime")]
     ClipColumn = 50,
 
     // Clip row targets
+    #[cfg(feature = "playtime")]
     ClipRow = 52,
 
     // Clip matrix
+    #[cfg(feature = "playtime")]
     ClipMatrix = 51,
 
     // Misc
@@ -742,7 +748,12 @@ impl ReaperTargetType {
 
     pub fn supports_feedback_resolution(self) -> bool {
         use ReaperTargetType::*;
-        matches!(self, Seek | ClipSeek)
+        match self {
+            #[cfg(feature = "playtime")]
+            ClipSeek => true,
+            Seek => true,
+            _ => false,
+        }
     }
 
     pub fn supports_poll_for_feedback(self) -> bool {
@@ -795,13 +806,20 @@ impl ReaperTargetType {
             RoutePan => &ROUTE_PAN_TARGET,
             RouteVolume => &ROUTE_VOLUME_TARGET,
             RouteTouchState => &ROUTE_TOUCH_STATE_TARGET,
-            ClipTransport => &CLIP_TRANSPORT_TARGET,
-            ClipColumn => &CLIP_COLUMN_TARGET,
-            ClipRow => &CLIP_ROW_TARGET,
-            ClipSeek => &CLIP_SEEK_TARGET,
-            ClipVolume => &CLIP_VOLUME_TARGET,
-            ClipManagement => &CLIP_MANAGEMENT_TARGET,
-            ClipMatrix => &CLIP_MATRIX_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipTransport => &crate::domain::CLIP_TRANSPORT_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipColumn => &crate::domain::CLIP_COLUMN_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipRow => &crate::domain::CLIP_ROW_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipSeek => &crate::domain::CLIP_SEEK_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipVolume => &crate::domain::CLIP_VOLUME_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipManagement => &crate::domain::CLIP_MANAGEMENT_TARGET,
+            #[cfg(feature = "playtime")]
+            ClipMatrix => &crate::domain::CLIP_MATRIX_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,
             Dummy => &DUMMY_TARGET,

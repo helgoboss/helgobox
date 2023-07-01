@@ -1,20 +1,19 @@
 use crate::domain::{
     aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, BackboneState,
-    ClipMatrixRelevance, Compartment, CompoundChangeEvent, CompoundFeedbackValue,
-    CompoundMappingSource, CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext,
-    ControlEvent, ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry,
-    ControlLogEntryKind, ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector,
-    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
-    GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
-    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
-    KeyMessage, MainMapping, MainSourceMessage, MappingActivationEffect, MappingControlResult,
-    MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult, MidiControlInput,
-    MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap,
-    OscDeviceId, OscFeedbackTask, PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions,
-    ProjectionFeedbackValue, QualifiedClipMatrixEvent, QualifiedMappingId, QualifiedSource,
-    RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
+    ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
+    ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
+    FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
+    HitInstructionContext, HitInstructionResponse, InstanceContainer, InstanceOrchestrationEvent,
+    InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
+    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
+    QualifiedSource, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
     ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
     SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
@@ -42,18 +41,16 @@ use base::{
 };
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use indexmap::IndexSet;
-use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::{fmt, slice};
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -769,7 +766,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
     /// (not borrowed from another instance).
-    pub fn poll_owned_clip_matrix(&self) -> Vec<ClipMatrixEvent> {
+    #[cfg(feature = "playtime")]
+    pub fn poll_owned_clip_matrix(&self) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         let matrix = match instance_state.owned_clip_matrix_mut() {
             Some(m) => m,
@@ -779,10 +777,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Processes the given clip matrix events if they are relevant to this instance.
+    #[cfg(feature = "playtime")]
     pub fn process_polled_clip_matrix_events(
         &self,
         instance_id: InstanceId,
-        events: &[ClipMatrixEvent],
+        events: &[playtime_clip_engine::base::ClipMatrixEvent],
     ) {
         let instance_state = self.basics.instance_state.borrow();
         let Some(relevance) = instance_state.clip_matrix_relevance(instance_id) else {
@@ -803,7 +802,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Processes the given clip matrix event if it's relevant to this instance.
-    pub fn process_non_polled_clip_matrix_event(&self, event: &QualifiedClipMatrixEvent) {
+    #[cfg(feature = "playtime")]
+    pub fn process_non_polled_clip_matrix_event(
+        &self,
+        event: &crate::domain::QualifiedClipMatrixEvent,
+    ) {
         let instance_state = self.basics.instance_state.borrow();
         let Some(relevance) = instance_state.clip_matrix_relevance(event.instance_id) else {
             return;
@@ -820,7 +823,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_clip_matrix_event_for_feedback(&event.event)
     }
 
-    fn process_clip_matrix_event_for_feedback(&self, event: &ClipMatrixEvent) {
+    #[cfg(feature = "playtime")]
+    fn process_clip_matrix_event_for_feedback(
+        &self,
+        event: &playtime_clip_engine::base::ClipMatrixEvent,
+    ) {
         let is_position_change = matches!(
             event,
             ClipMatrixEvent::SlotChanged(QualifiedSlotChangeEvent {
@@ -1724,15 +1731,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             });
         }
         // Process for clip engine
-        let mut instance_state = self.basics.instance_state.borrow_mut();
-        if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
-            // Let matrix react to track changes etc.
-            matrix.process_reaper_change_events(events);
-            // Process for GUI
-            for event in events {
-                self.basics.event_handler.handle_event_ignoring_error(
-                    DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
-                );
+        #[cfg(feature = "playtime")]
+        {
+            let mut instance_state = self.basics.instance_state.borrow_mut();
+            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
+                // Let matrix react to track changes etc.
+                matrix.process_reaper_change_events(events);
+                // Process for GUI
+                for event in events {
+                    self.basics.event_handler.handle_event_ignoring_error(
+                        DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
+                    );
+                }
             }
         }
     }

@@ -10,10 +10,10 @@ use crate::domain::{
     InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
     LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent, MessageCaptureResult,
     MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
-    OscScanResult, QualifiedClipMatrixEvent, QualifiedMappingId, RealearnAccelerator,
-    RealearnAudioHook, RealearnClipMatrix, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
-    ReaperTarget, ReaperTargetType, SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    OscScanResult, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
+    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, ReaperTargetType,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -34,10 +34,8 @@ use base::{
 use enum_iterator::IntoEnumIterator;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crate::infrastructure::server::services::RealearnServices;
 use once_cell::sync::Lazy;
-use playtime_clip_engine::base::Matrix;
-use playtime_clip_engine::proto::clip_engine_server::ClipEngine;
-use playtime_clip_engine::proto::{ClipEngineHub, MatrixProvider};
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -94,7 +92,8 @@ pub struct App {
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
-    clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    #[cfg(feature = "playtime")]
+    clip_matrix_event_sender: SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
@@ -104,7 +103,8 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    clip_engine_hub: ClipEngineHub,
+    #[cfg(feature = "playtime")]
+    clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
 }
 
 #[derive(Debug)]
@@ -137,7 +137,9 @@ enum AppState {
 struct UninitializedState {
     control_surface_main_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
-    clip_matrix_event_receiver: crossbeam_channel::Receiver<QualifiedClipMatrixEvent>,
+    #[cfg(feature = "playtime")]
+    clip_matrix_event_receiver:
+        crossbeam_channel::Receiver<crate::domain::QualifiedClipMatrixEvent>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: crossbeam_channel::Receiver<InstanceOrchestrationEvent>,
     normal_audio_hook_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
@@ -208,6 +210,7 @@ impl App {
     fn new(config: AppConfig) -> App {
         let (main_sender, main_receiver) =
             SenderToNormalThread::new_unbounded_channel("control surface main tasks");
+        #[cfg(feature = "playtime")]
         let (clip_matrix_event_sender, clip_matrix_event_receiver) =
             SenderToNormalThread::new_unbounded_channel("clip matrix events");
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
@@ -228,6 +231,7 @@ impl App {
             );
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
+            #[cfg(feature = "playtime")]
             clip_matrix_event_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
@@ -261,6 +265,7 @@ impl App {
             changed_subject: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender(main_sender),
+            #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
@@ -273,7 +278,8 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
-            clip_engine_hub: ClipEngineHub::new(),
+            #[cfg(feature = "playtime")]
+            clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
         }
     }
 
@@ -304,6 +310,7 @@ impl App {
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
         metrics_util::init_metrics();
+        #[cfg(feature = "playtime")]
         playtime_clip_engine::init();
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {
@@ -328,6 +335,7 @@ impl App {
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
+            #[cfg(feature = "playtime")]
             uninit_state.clip_matrix_event_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
@@ -366,8 +374,13 @@ impl App {
         });
     }
 
-    fn create_clip_engine_service(&self) -> impl ClipEngine {
-        self.clip_engine_hub.create_service(AppMatrixProvider)
+    fn create_services(&self) -> RealearnServices {
+        RealearnServices {
+            #[cfg(feature = "playtime")]
+            playtime_service: server::services::playtime_service::create_playtime_service(
+                &self.clip_engine_hub,
+            ),
+        }
     }
 
     // Executed whenever the first ReaLearn instance is loaded.
@@ -381,7 +394,7 @@ impl App {
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
-                .start(self.create_clip_engine_service())
+                .start(self.create_services())
                 .unwrap_or_else(warn_about_failed_server_start);
         }
         let mut session = Reaper::get().medium_session();
@@ -577,10 +590,14 @@ impl App {
         &self.feedback_audio_hook_task_sender
     }
 
-    pub fn clip_matrix_event_sender(&self) -> &SenderToNormalThread<QualifiedClipMatrixEvent> {
+    #[cfg(feature = "playtime")]
+    pub fn clip_matrix_event_sender(
+        &self,
+    ) -> &SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent> {
         &self.clip_matrix_event_sender
     }
 
+    #[cfg(feature = "playtime")]
     pub fn normal_audio_hook_task_sender(&self) -> &SenderToRealTimeThread<NormalAudioHookTask> {
         &self.audio_hook_task_sender
     }
@@ -605,7 +622,8 @@ impl App {
         &self.control_surface_main_task_sender
     }
 
-    pub fn clip_engine_hub(&self) -> &ClipEngineHub {
+    #[cfg(feature = "playtime")]
+    pub fn clip_engine_hub(&self) -> &playtime_clip_engine::proto::ClipEngineHub {
         &self.clip_engine_hub
     }
 
@@ -693,9 +711,7 @@ impl App {
     }
 
     pub fn start_server_persistently(&self) -> Result<(), String> {
-        self.server
-            .borrow_mut()
-            .start(self.create_clip_engine_service())?;
+        self.server.borrow_mut().start(self.create_services())?;
         self.change_config(AppConfig::enable_server);
         Ok(())
     }
@@ -838,10 +854,11 @@ impl App {
         })
     }
 
+    #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
         clip_matrix_id: &str,
-        f: impl FnOnce(&RealearnClipMatrix) -> R,
+        f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
         let session = self
             .find_session_by_id(clip_matrix_id)
@@ -851,10 +868,11 @@ impl App {
         BackboneState::get().with_clip_matrix(instance_state, f)
     }
 
+    #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(
         &self,
         clip_matrix_id: &str,
-        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
         let session = self
             .find_session_by_id(clip_matrix_id)
@@ -1845,25 +1863,5 @@ impl RealearnWindowSnitch for RealearnSnitch {
             current_window = w.parent();
         }
         None
-    }
-}
-
-struct AppMatrixProvider;
-
-impl MatrixProvider for AppMatrixProvider {
-    fn with_matrix<R>(
-        &self,
-        clip_matrix_id: &str,
-        f: impl FnOnce(&Matrix) -> R,
-    ) -> Result<R, &'static str> {
-        App::get().with_clip_matrix(clip_matrix_id, f)
-    }
-
-    fn with_matrix_mut<R>(
-        &self,
-        clip_matrix_id: &str,
-        f: impl FnOnce(&mut Matrix) -> R,
-    ) -> Result<R, &'static str> {
-        App::get().with_clip_matrix_mut(clip_matrix_id, f)
     }
 }
