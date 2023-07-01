@@ -58,6 +58,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        #[allow(unused_mut)]
         Target::ReaperAction(d) => {
             let mut track_desc = if let Some(td) = d.track {
                 Some(convert_track_desc(td)?)

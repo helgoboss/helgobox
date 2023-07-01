@@ -767,11 +767,11 @@ impl SessionData {
         session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
-            use crate::domain::BackboneState;
             let instance_state = session.instance_state().clone();
             let mut instance_state = instance_state.borrow_mut();
             #[cfg(feature = "playtime")]
             if let Some(matrix_ref) = &self.clip_matrix {
+                use crate::domain::BackboneState;
                 use ClipMatrixRefData::*;
                 match matrix_ref {
                     Own(m) => {
