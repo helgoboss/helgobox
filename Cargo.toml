@@ -14,6 +14,7 @@ members = [
     # Will probably be excluded from the workspace in future
     "main/lib/helgoboss-learn"
 ]
+publish = false
 
 [workspace.dependencies]
 # Own
