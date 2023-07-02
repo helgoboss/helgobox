@@ -1,23 +1,14 @@
-
-
-
-
-
-
 use crate::rt::supplier::{
-    AutoDelegatingAudioSupplier,
-    AutoDelegatingPositionTranslationSkill, AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier,
-    SupplyMidiRequest, SupplyResponse, WithSupplier,
+    AutoDelegatingAudioSupplier, AutoDelegatingPositionTranslationSkill,
+    AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier, SupplyMidiRequest, SupplyResponse,
+    WithSupplier,
 };
 
 use helgoboss_midi::{
     Channel, KeyNumber, RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage,
     U7,
 };
-use reaper_medium::{
-    BorrowedMidiEventList, MidiEvent,
-    MidiFrameOffset,
-};
+use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]

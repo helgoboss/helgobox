@@ -2,16 +2,14 @@ use crate::rt::audio_hook::FxInputClipRecordTask;
 use crate::rt::supplier::WriteAudioRequest;
 use crate::rt::{AudioBuf, BasicAudioRequestProps};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ClipEngineFxHook {
     clip_record_task: Option<FxInputClipRecordTask>,
 }
 
 impl ClipEngineFxHook {
     pub fn new() -> Self {
-        Self {
-            clip_record_task: None,
-        }
+        Self::default()
     }
 
     pub fn start_clip_recording(&mut self, task: FxInputClipRecordTask) {

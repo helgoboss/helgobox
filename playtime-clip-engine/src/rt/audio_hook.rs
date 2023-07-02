@@ -10,16 +10,14 @@ use reaper_high::{MidiInputDevice, Reaper};
 use reaper_medium::{AudioHookRegister, MidiInputDeviceId};
 use std::sync::MutexGuard;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ClipEngineAudioHook {
     clip_record_task: Option<HardwareInputClipRecordTask>,
 }
 
 impl ClipEngineAudioHook {
     pub fn new() -> Self {
-        Self {
-            clip_record_task: None,
-        }
+        Self::default()
     }
 }
 

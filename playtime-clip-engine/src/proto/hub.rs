@@ -31,6 +31,12 @@ pub struct ClipEngineHub {
     senders: ClipEngineSenders,
 }
 
+impl Default for ClipEngineHub {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClipEngineHub {
     pub fn new() -> Self {
         Self {

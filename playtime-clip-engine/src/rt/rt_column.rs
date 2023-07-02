@@ -859,7 +859,7 @@ impl RtColumn {
                         .dispose(RtColumnGarbage::LoadSlotArgs(boxed_args));
                 }
                 LoadClip(mut boxed_args) => {
-                    self.load_clip(&mut *boxed_args).unwrap();
+                    self.load_clip(&mut boxed_args).unwrap();
                     self.event_sender
                         .dispose(RtColumnGarbage::LoadClipArgs(boxed_args));
                 }

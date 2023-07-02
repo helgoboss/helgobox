@@ -5,12 +5,12 @@ use crate::rt::supplier::fade_util::{
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingPositionTranslationSkill,
-    AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithMaterialInfo, WithSupplier,
+    AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSupplier,
 };
 
 use playtime_api::persistence::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList};
+use reaper_medium::BorrowedMidiEventList;
 
 #[derive(Debug)]
 pub struct StartEndHandler<S> {

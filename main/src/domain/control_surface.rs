@@ -72,6 +72,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Garbage {
     RawMidiEvents(RawMidiEvents),
     RealTimeProcessor(SharedRealTimeProcessor),

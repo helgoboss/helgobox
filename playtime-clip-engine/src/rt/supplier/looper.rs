@@ -1,13 +1,14 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier, PositionTranslationSkill, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo, WithSupplier,
+    midi_util, AudioSupplier, AutoDelegatingMidiSilencer, AutoDelegatingWithMaterialInfo,
+    MidiSilencer, MidiSupplier, PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList};
+use reaper_medium::BorrowedMidiEventList;
 
 #[derive(Debug)]
 pub struct Looper<S> {
