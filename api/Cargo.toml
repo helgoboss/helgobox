@@ -7,7 +7,7 @@ publish = false
 
 [features]
 default = []
-playtime = ["playtime-api"]
+playtime = ["dep:playtime-api"]
 
 [dependencies]
 serde.workspace = true

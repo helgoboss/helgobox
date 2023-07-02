@@ -10,7 +10,7 @@ publish = false
 
 [features]
 default = []
-playtime = ["playtime-clip-engine", "playtime-api", "realearn-api/playtime"]
+playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
