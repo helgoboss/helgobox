@@ -7,7 +7,6 @@ use assert_no_alloc::*;
 use base::non_blocking_lock;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::rt::audio_hook::{ClipEngineAudioHook, HardwareInputClipRecordTask};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
@@ -40,7 +39,8 @@ pub enum NormalAudioHookTask {
     RemoveRealTimeProcessor(InstanceId),
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
-    StartClipRecording(HardwareInputClipRecordTask),
+    #[cfg(feature = "playtime")]
+    StartClipRecording(playtime_clip_engine::rt::audio_hook::HardwareInputClipRecordTask),
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -62,7 +62,8 @@ pub struct RealearnAudioHook {
     time_of_last_run: Option<Instant>,
     garbage_bin: GarbageBin,
     initialized: bool,
-    clip_engine_audio_hook: ClipEngineAudioHook,
+    #[cfg(feature = "playtime")]
+    clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook,
 }
 
 #[derive(Debug)]
@@ -90,7 +91,9 @@ impl RealearnAudioHook {
             time_of_last_run: None,
             garbage_bin,
             initialized: false,
-            clip_engine_audio_hook: ClipEngineAudioHook::new(),
+            #[cfg(feature = "playtime")]
+            clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook::new(
+            ),
         }
     }
 
@@ -298,6 +301,7 @@ impl RealearnAudioHook {
                         self.garbage_bin.dispose(Garbage::MidiCaptureSender(sender));
                     }
                 }
+                #[cfg(feature = "playtime")]
                 StartClipRecording(task) => {
                     self.clip_engine_audio_hook.start_clip_recording(task);
                 }
@@ -331,6 +335,7 @@ impl OnAudioBuffer for RealearnAudioHook {
         assert_no_alloc(|| {
             let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             if !args.is_post {
+                #[cfg(feature = "playtime")]
                 self.clip_engine_audio_hook
                     .poll_advance_timeline(block_props.to_playtime());
                 let current_time = Instant::now();
@@ -343,6 +348,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                 self.process_feedback_tasks();
                 self.call_real_time_processors(block_props, might_be_rebirth);
             }
+            #[cfg(feature = "playtime")]
             self.clip_engine_audio_hook.poll_process_clip_record_tasks(
                 args.is_post,
                 block_props.to_playtime(),

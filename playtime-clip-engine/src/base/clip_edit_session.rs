@@ -1,7 +1,6 @@
 use crate::base::clip_manifestation::ClipOnTrackManifestation;
 
-
-use reaper_medium::{Hwnd};
+use reaper_medium::Hwnd;
 
 use swell_ui::Window;
 

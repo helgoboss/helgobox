@@ -24,11 +24,7 @@ use slog::{debug, trace};
 use assert_no_alloc::permit_alloc;
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::rt::audio_hook::FxInputClipRecordTask;
-use playtime_clip_engine::rt::fx_hook::{ChannelInputs, ClipEngineFxHook};
-use playtime_clip_engine::rt::WeakRtMatrix;
 use std::convert::TryInto;
-use std::mem;
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, SysExEvent};
@@ -69,9 +65,12 @@ pub struct RealTimeProcessor {
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
     sample_rate: Hz,
-    clip_matrix: Option<WeakRtMatrix>,
+    #[cfg(feature = "playtime")]
+    clip_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
+    #[cfg(feature = "playtime")]
     clip_matrix_is_owned: bool,
-    clip_engine_fx_hook: ClipEngineFxHook,
+    #[cfg(feature = "playtime")]
+    clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook,
 }
 
 impl RealTimeProcessor {
@@ -109,9 +108,12 @@ impl RealTimeProcessor {
             feedback_is_globally_enabled: false,
             garbage_bin,
             sample_rate: Hz::new(1.0),
+            #[cfg(feature = "playtime")]
             clip_matrix: None,
+            #[cfg(feature = "playtime")]
             clip_matrix_is_owned: false,
-            clip_engine_fx_hook: ClipEngineFxHook::new(),
+            #[cfg(feature = "playtime")]
+            clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook::new(),
         }
     }
 
@@ -146,13 +148,16 @@ impl RealTimeProcessor {
 
     pub fn run_from_vst(
         &mut self,
-        buffer: &mut vst::buffer::AudioBuffer<f64>,
-        block_props: AudioBlockProps,
+        #[cfg(feature = "playtime")] buffer: &mut vst::buffer::AudioBuffer<f64>,
+        #[cfg(feature = "playtime")] block_props: AudioBlockProps,
         host: &HostCallback,
     ) {
-        let inputs = VstChannelInputs(buffer.split().0);
-        self.clip_engine_fx_hook
-            .process_clip_record_task(&inputs, block_props.to_playtime());
+        #[cfg(feature = "playtime")]
+        {
+            let inputs = VstChannelInputs(buffer.split().0);
+            self.clip_engine_fx_hook
+                .process_clip_record_task(&inputs, block_props.to_playtime());
+        }
         self.process_feedback_tasks(Caller::Vst(host));
     }
 
@@ -234,11 +239,14 @@ impl RealTimeProcessor {
         block_props: AudioBlockProps,
         might_be_rebirth: bool,
     ) {
-        // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
-        // clip matrix as well, it would be polled more than once, which is unnecessary.
-        if self.clip_matrix_is_owned {
-            if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
-                clip_matrix.lock().poll(block_props.to_playtime());
+        #[cfg(feature = "playtime")]
+        {
+            // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
+            // clip matrix as well, it would be polled more than once, which is unnecessary.
+            if self.clip_matrix_is_owned {
+                if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
+                    clip_matrix.lock().poll(block_props.to_playtime());
+                }
             }
         }
         // Increase MIDI clock calculator's sample counter
@@ -469,12 +477,14 @@ impl RealTimeProcessor {
                     self.garbage_bin
                         .dispose(Garbage::MappingUpdates(mapping_updates));
                 }
+                #[cfg(feature = "playtime")]
                 SetClipMatrix { is_owned, matrix } => {
                     self.clip_matrix_is_owned = is_owned;
-                    if let Some(matrix) = mem::replace(&mut self.clip_matrix, matrix) {
+                    if let Some(matrix) = std::mem::replace(&mut self.clip_matrix, matrix) {
                         self.garbage_bin.dispose(Garbage::ClipMatrix(matrix));
                     }
                 }
+                #[cfg(feature = "playtime")]
                 StartClipRecording(task) => {
                     self.clip_engine_fx_hook.start_clip_recording(task);
                 }
@@ -965,6 +975,7 @@ impl RealTimeProcessor {
                 caller,
                 self.settings.midi_destination(),
                 LogOptions::from_basic_settings(&self.settings),
+                #[cfg(feature = "playtime")]
                 self.clip_matrix.as_ref(),
                 is_rendering,
             )
@@ -1006,6 +1017,7 @@ impl RealTimeProcessor {
                         caller,
                         self.settings.midi_destination(),
                         LogOptions::from_basic_settings(&self.settings),
+                        #[cfg(feature = "playtime")]
                         self.clip_matrix.as_ref(),
                         is_rendering,
                     );
@@ -1234,9 +1246,10 @@ impl<'a> Caller<'a> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
+    #[cfg(feature = "playtime")]
     SetClipMatrix {
         is_owned: bool,
-        matrix: Option<WeakRtMatrix>,
+        matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     },
     UpdateAllMappings(Compartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(Compartment, Box<Option<RealTimeMapping>>),
@@ -1263,7 +1276,8 @@ pub enum NormalRealTimeTask {
     ReturnToControlMode,
     UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
-    StartClipRecording(FxInputClipRecordTask),
+    #[cfg(feature = "playtime")]
+    StartClipRecording(playtime_clip_engine::rt::audio_hook::FxInputClipRecordTask),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1371,7 +1385,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    matrix: Option<&WeakRtMatrix>,
+    #[cfg(feature = "playtime")] matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
     is_rendering: bool,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
@@ -1411,6 +1425,7 @@ fn control_controller_mappings_midi(
                         caller,
                         midi_feedback_output,
                         log_options,
+                        #[cfg(feature = "playtime")]
                         matrix,
                         is_rendering,
                     );
@@ -1440,6 +1455,7 @@ fn control_controller_mappings_midi(
                         caller,
                         midi_feedback_output,
                         log_options,
+                        #[cfg(feature = "playtime")]
                         matrix,
                         is_rendering,
                     );
@@ -1465,7 +1481,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    clip_matrix: Option<&WeakRtMatrix>,
+    #[cfg(feature = "playtime")] clip_matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
     is_rendering: bool,
 ) {
     let pure_control_event = flatten_control_midi_event(value_event);
@@ -1476,7 +1492,11 @@ fn process_real_mapping(
         if reaper_target.wants_real_time_control(caller, is_rendering) {
             // Try to process directly here in real-time.
             mapping.core.increase_invocation_count();
-            let control_context = RealTimeControlContext { clip_matrix };
+            let control_context = RealTimeControlContext {
+                #[cfg(feature = "playtime")]
+                clip_matrix,
+                _p: &(),
+            };
             let mode_control_result = mapping.core.mode.control_with_options(
                 pure_control_event,
                 reaper_target,
@@ -1504,13 +1524,17 @@ fn process_real_mapping(
                             rt_feedback_sender,
                             value_event.payload(),
                         ),
+                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipTransport(t) => {
                             t.hit(control_value, control_context)
                         }
+                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipColumn(t) => {
                             t.hit(control_value, control_context)
                         }
+                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
+                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipMatrix(t) => {
                             t.hit(control_value, control_context)
                         }
@@ -1669,7 +1693,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    matrix: Option<&WeakRtMatrix>,
+    #[cfg(feature = "playtime")] matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
     is_rendering: bool,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
@@ -1695,6 +1719,7 @@ fn control_main_mappings_virtual(
                     caller,
                     midi_feedback_output,
                     log_options,
+                    #[cfg(feature = "playtime")]
                     matrix,
                     is_rendering,
                 );
@@ -1820,6 +1845,7 @@ pub struct AudioBlockProps {
 }
 
 impl AudioBlockProps {
+    #[cfg(feature = "playtime")]
     pub fn from_vst(buffer: &vst::buffer::AudioBuffer<f64>, sample_rate: Hz) -> Self {
         Self {
             block_length: buffer.samples(),
@@ -1834,6 +1860,7 @@ impl AudioBlockProps {
         }
     }
 
+    #[cfg(feature = "playtime")]
     pub fn to_playtime(self) -> playtime_clip_engine::rt::BasicAudioRequestProps {
         playtime_clip_engine::rt::BasicAudioRequestProps {
             block_length: self.block_length,
@@ -1885,9 +1912,11 @@ fn is_rendering() -> bool {
         .is_some()
 }
 
+#[cfg(feature = "playtime")]
 struct VstChannelInputs<'a>(vst::buffer::Inputs<'a, f64>);
 
-impl<'a> ChannelInputs for VstChannelInputs<'a> {
+#[cfg(feature = "playtime")]
+impl<'a> playtime_clip_engine::rt::fx_hook::ChannelInputs for VstChannelInputs<'a> {
     fn channel_count(&self) -> usize {
         self.0.len()
     }

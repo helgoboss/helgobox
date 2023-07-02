@@ -16,16 +16,16 @@ use crate::domain::{
     LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
     MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
     ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnClipMatrix, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
-    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId,
-    VirtualFx, VirtualSource, VirtualSourceValue,
+    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType,
+    SharedInstanceState, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
+    TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
+    VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::{ChangeEvent, Reaper};
+use reaper_high::Reaper;
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -54,18 +54,20 @@ pub trait SessionUi {
     fn celebrate_success(&self);
     fn conditions_changed(&self);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
         &self,
         session: &Session,
-        matrix: &RealearnClipMatrix,
+        matrix: &playtime_clip_engine::base::Matrix,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
     );
+    #[cfg(feature = "playtime")]
     fn process_control_surface_change_event_for_clip_engine(
         &self,
         session: &Session,
-        matrix: &RealearnClipMatrix,
-        event: &ChangeEvent,
+        matrix: &playtime_clip_engine::base::Matrix,
+        event: &reaper_high::ChangeEvent,
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn target_controlled(&self, event: TargetControlEvent);
@@ -2618,6 +2620,7 @@ impl DomainEventHandler for WeakSession {
                 let s = session.try_borrow()?;
                 s.ui.send_projection_feedback(&s, value);
             }
+            #[cfg(feature = "playtime")]
             ClipMatrixChanged {
                 matrix,
                 events,
@@ -2626,6 +2629,7 @@ impl DomainEventHandler for WeakSession {
                 let s = session.try_borrow()?;
                 s.ui.clip_matrix_changed(&s, matrix, events, is_poll);
             }
+            #[cfg(feature = "playtime")]
             ControlSurfaceChangeEventForClipEngine(matrix, event) => {
                 let s = session.try_borrow()?;
                 s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);

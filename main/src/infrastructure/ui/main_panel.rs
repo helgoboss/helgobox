@@ -4,7 +4,7 @@ use crate::infrastructure::ui::{
 };
 
 use lazycell::LazyCell;
-use reaper_high::{ChangeEvent, Reaper};
+use reaper_high::Reaper;
 
 use slog::debug;
 use std::cell::{Cell, RefCell};
@@ -17,7 +17,7 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnClipMatrix, TargetControlEvent, TargetValueChangedEvent,
+    TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::http::{
@@ -25,7 +25,6 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use base::SoundPlayer;
-use playtime_clip_engine::base::ClipMatrixEvent;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -502,11 +501,12 @@ impl SessionUi for Weak<MainPanel> {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 
+    #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
         &self,
         session: &Session,
-        matrix: &RealearnClipMatrix,
-        events: &[ClipMatrixEvent],
+        matrix: &playtime_clip_engine::base::Matrix,
+        events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
     ) {
         App::get().clip_engine_hub().clip_matrix_changed(
@@ -518,11 +518,12 @@ impl SessionUi for Weak<MainPanel> {
         );
     }
 
+    #[cfg(feature = "playtime")]
     fn process_control_surface_change_event_for_clip_engine(
         &self,
         session: &Session,
-        matrix: &RealearnClipMatrix,
-        event: &ChangeEvent,
+        matrix: &playtime_clip_engine::base::Matrix,
+        event: &reaper_high::ChangeEvent,
     ) {
         App::get()
             .clip_engine_hub()

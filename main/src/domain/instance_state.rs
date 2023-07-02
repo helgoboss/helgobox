@@ -11,22 +11,16 @@ use crate::base::Prop;
 use crate::domain::{
     AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor,
     GlobalControlAndFeedbackState, GroupId, InstanceId, MappingId, MappingSnapshotContainer,
-    NormalAudioHookTask, NormalRealTimeTask, ProcessorContext, QualifiedMappingId, Tag, TagScope,
-    TrackDescriptor, VirtualMappingSnapshotIdForLoad,
+    ProcessorContext, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
+    VirtualMappingSnapshotIdForLoad,
 };
-use base::{tracing_debug, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use playtime_clip_engine::base::{
-    ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix, SpecificClipRecordTask,
-};
-use playtime_clip_engine::rt::WeakRtMatrix;
+use base::{NamedChannelSender, SenderToNormalThread};
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
-
-pub type RealearnClipMatrix = Matrix;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
@@ -45,11 +39,15 @@ pub struct InstanceState {
     /// Owned clip matrix or reference to a clip matrix owned by another instance.
     ///
     /// Persistent.
+    #[cfg(feature = "playtime")]
     clip_matrix_ref: Option<ClipMatrixRef>,
     instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+    #[cfg(feature = "playtime")]
     clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
-    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+    #[cfg(feature = "playtime")]
+    audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
+    #[cfg(feature = "playtime")]
+    real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
     /// Which mappings are in which group.
     ///
     /// - Not persistent
@@ -130,32 +128,36 @@ pub struct InstanceState {
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum ClipMatrixRef {
-    Own(Box<RealearnClipMatrix>),
+    Own(Box<playtime_clip_engine::base::Matrix>),
     Foreign(InstanceId),
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
-pub struct RealearnClipMatrixHandler {
+pub struct MatrixHandler {
     instance_id: InstanceId,
-    audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-    real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-    event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+    audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
+    real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
+    event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub struct QualifiedClipMatrixEvent {
     pub instance_id: InstanceId,
-    pub event: ClipMatrixEvent,
+    pub event: playtime_clip_engine::base::ClipMatrixEvent,
 }
 
-impl RealearnClipMatrixHandler {
+#[cfg(feature = "playtime")]
+impl MatrixHandler {
     fn new(
         instance_id: InstanceId,
-        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-        event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
+        real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
+        event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
     ) -> Self {
         Self {
             instance_id,
@@ -166,21 +168,22 @@ impl RealearnClipMatrixHandler {
     }
 }
 
-impl ClipMatrixHandler for RealearnClipMatrixHandler {
-    fn request_recording_input(&self, task: ClipRecordTask) {
+#[cfg(feature = "playtime")]
+impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
+    fn request_recording_input(&self, task: playtime_clip_engine::base::ClipRecordTask) {
         match task.create_specific_task() {
-            SpecificClipRecordTask::HardwareInput(t) => {
+            playtime_clip_engine::base::SpecificClipRecordTask::HardwareInput(t) => {
                 self.audio_hook_task_sender
-                    .send_complaining(NormalAudioHookTask::StartClipRecording(t));
+                    .send_complaining(crate::domain::NormalAudioHookTask::StartClipRecording(t));
             }
-            SpecificClipRecordTask::FxInput(t) => {
+            playtime_clip_engine::base::SpecificClipRecordTask::FxInput(t) => {
                 self.real_time_processor_sender
-                    .send_complaining(NormalRealTimeTask::StartClipRecording(t));
+                    .send_complaining(crate::domain::NormalRealTimeTask::StartClipRecording(t));
             }
         }
     }
 
-    fn emit_event(&self, event: ClipMatrixEvent) {
+    fn emit_event(&self, event: playtime_clip_engine::base::ClipMatrixEvent) {
         let event = QualifiedClipMatrixEvent {
             instance_id: self.instance_id,
             event,
@@ -199,17 +202,27 @@ impl InstanceState {
         instance_id: InstanceId,
         processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
-        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
-        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
+            QualifiedClipMatrixEvent,
+        >,
+        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalAudioHookTask,
+        >,
+        #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalRealTimeTask,
+        >,
     ) -> Self {
         Self {
             instance_id,
             processor_context,
+            #[cfg(feature = "playtime")]
             clip_matrix_ref: None,
             instance_feedback_event_sender,
+            #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
+            #[cfg(feature = "playtime")]
             audio_hook_task_sender,
+            #[cfg(feature = "playtime")]
             real_time_processor_sender,
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
@@ -357,6 +370,7 @@ impl InstanceState {
         self.instance_id
     }
 
+    #[cfg(feature = "playtime")]
     pub fn clip_matrix_relevance(&self, instance_id: InstanceId) -> Option<ClipMatrixRelevance> {
         match self.clip_matrix_ref.as_ref()? {
             ClipMatrixRef::Own(m) if instance_id == self.instance_id => {
@@ -367,31 +381,36 @@ impl InstanceState {
         }
     }
 
-    pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
-        use ClipMatrixRef::*;
+    #[cfg(feature = "playtime")]
+    pub fn owned_clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
+        use crate::domain::ClipMatrixRef::*;
         match self.clip_matrix_ref.as_ref()? {
             Own(m) => Some(m),
             Foreign(_) => None,
         }
     }
 
-    pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut RealearnClipMatrix> {
-        use ClipMatrixRef::*;
+    #[cfg(feature = "playtime")]
+    pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
+        use crate::domain::ClipMatrixRef::*;
         match self.clip_matrix_ref.as_mut()? {
             Own(m) => Some(m),
             Foreign(_) => None,
         }
     }
 
+    #[cfg(feature = "playtime")]
     pub fn clip_matrix_ref(&self) -> Option<&ClipMatrixRef> {
         self.clip_matrix_ref.as_ref()
     }
 
+    #[cfg(feature = "playtime")]
     pub fn clip_matrix_ref_mut(&mut self) -> Option<&mut ClipMatrixRef> {
         self.clip_matrix_ref.as_mut()
     }
 
     /// Returns `true` if it installed a clip matrix.
+    #[cfg(feature = "playtime")]
     pub(super) fn create_and_install_owned_clip_matrix_if_necessary(&mut self) -> bool {
         if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Own(_))) {
             return false;
@@ -402,33 +421,36 @@ impl InstanceState {
         true
     }
 
-    fn create_owned_clip_matrix(&self) -> RealearnClipMatrix {
-        let clip_matrix_handler = RealearnClipMatrixHandler::new(
+    #[cfg(feature = "playtime")]
+    fn create_owned_clip_matrix(&self) -> playtime_clip_engine::base::Matrix {
+        let clip_matrix_handler = MatrixHandler::new(
             self.instance_id,
             self.audio_hook_task_sender.clone(),
             self.real_time_processor_sender.clone(),
             self.clip_matrix_event_sender.clone(),
         );
-        Matrix::new(
+        playtime_clip_engine::base::Matrix::new(
             Box::new(clip_matrix_handler),
             self.processor_context.track().cloned(),
         )
     }
 
+    #[cfg(feature = "playtime")]
     pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
         if self.clip_matrix_ref.is_some() {
-            tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
+            base::tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
             self.update_real_time_clip_matrix(None, false);
         }
         self.clip_matrix_ref = matrix_ref;
     }
 
+    #[cfg(feature = "playtime")]
     pub(super) fn update_real_time_clip_matrix(
         &self,
-        real_time_matrix: Option<WeakRtMatrix>,
+        real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
         is_owned: bool,
     ) {
-        let rt_task = NormalRealTimeTask::SetClipMatrix {
+        let rt_task = crate::domain::NormalRealTimeTask::SetClipMatrix {
             is_owned,
             matrix: real_time_matrix,
         };
@@ -698,9 +720,10 @@ pub enum PotStateChangedEvent {
     PresetLoaded,
 }
 
+#[cfg(feature = "playtime")]
 pub enum ClipMatrixRelevance<'a> {
     /// This instance owns the clip matrix with the given ID.
-    Owns(&'a RealearnClipMatrix),
+    Owns(&'a playtime_clip_engine::base::Matrix),
     /// This instance borrows the clip matrix with the given ID.
     Borrows,
 }

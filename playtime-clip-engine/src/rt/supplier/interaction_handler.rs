@@ -5,14 +5,13 @@ use crate::rt::supplier::fade_util::{
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, AutoDelegatingPositionTranslationSkill,
-    AutoDelegatingPreBufferSourceSkill, AutoDelegatingWithMaterialInfo, MidiSilencer,
-    MidiSupplier,
+    AutoDelegatingPreBufferSourceSkill, AutoDelegatingWithMaterialInfo, MidiSilencer, MidiSupplier,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
     WithMaterialInfo, WithSupplier,
 };
 use crate::ClipEngineResult;
 use playtime_api::persistence::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList};
+use reaper_medium::BorrowedMidiEventList;
 use std::cmp;
 use std::fmt::Debug;
 

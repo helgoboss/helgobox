@@ -1,12 +1,10 @@
 use base::{
-    make_available_globally_in_main_thread_on_demand, tracing_debug, NamedChannelSender,
-    SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, NamedChannelSender, SenderToNormalThread,
 };
 
 use crate::domain::{
-    AdditionalFeedbackEvent, ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask,
-    NormalRealTimeTask, ProcessorContext, QualifiedClipMatrixEvent, RealearnClipMatrix,
+    AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
+    FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, ProcessorContext,
     RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua,
     SharedInstanceState, WeakInstanceState,
 };
@@ -14,7 +12,6 @@ use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
 
 use once_cell::sync::Lazy;
-use playtime_clip_engine::rt::WeakRtMatrix;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Fx, Reaper};
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -254,16 +251,25 @@ impl BackboneState {
         id: InstanceId,
         processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
-        clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
-        audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-        real_time_processor_sender: SenderToRealTimeThread<NormalRealTimeTask>,
+        #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
+            crate::domain::QualifiedClipMatrixEvent,
+        >,
+        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalAudioHookTask,
+        >,
+        #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
+            crate::domain::NormalRealTimeTask,
+        >,
     ) -> SharedInstanceState {
         let instance_state = InstanceState::new(
             id,
             processor_context,
             instance_feedback_event_sender,
+            #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
+            #[cfg(feature = "playtime")]
             audio_hook_task_sender,
+            #[cfg(feature = "playtime")]
             real_time_processor_sender,
         );
         let shared_instance_state = Rc::new(RefCell::new(instance_state));
@@ -277,7 +283,7 @@ impl BackboneState {
     // ///
     // /// If this instance already contains an owned clip matrix, returns it. If not, creates
     // /// and installs one, removing a possibly existing foreign matrix reference.
-    // pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut RealearnClipMatrix {
+    // pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut playtime_clip_engine::base::Matrix {
     //     self.create_and_install_owned_clip_matrix_if_necessary();
     //     self.owned_clip_matrix_mut().unwrap()
     // }
@@ -289,6 +295,7 @@ impl BackboneState {
     ///
     /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
     /// to this one.
+    #[cfg(feature = "playtime")]
     pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut InstanceState) {
         instance_state.set_clip_matrix_ref(None);
         self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
@@ -301,10 +308,11 @@ impl BackboneState {
     ///
     /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
     /// to this one.
+    #[cfg(feature = "playtime")]
     pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
         &self,
         instance_state: &'a mut InstanceState,
-    ) -> &'a mut RealearnClipMatrix {
+    ) -> &'a mut playtime_clip_engine::base::Matrix {
         let instance_id = instance_state.instance_id();
         let created = instance_state.create_and_install_owned_clip_matrix_if_necessary();
         let matrix = instance_state.owned_clip_matrix_mut().unwrap();
@@ -317,10 +325,11 @@ impl BackboneState {
         matrix
     }
 
+    #[cfg(feature = "playtime")]
     fn update_rt_clip_matrix_of_referencing_instances(
         &self,
         this_instance_id: InstanceId,
-        real_time_matrix: Option<WeakRtMatrix>,
+        real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     ) {
         for (id, is) in self.instance_states.borrow().iter() {
             if *id == this_instance_id {
@@ -332,7 +341,9 @@ impl BackboneState {
             };
             let is = is.borrow();
             match is.clip_matrix_ref() {
-                Some(ClipMatrixRef::Foreign(foreign_id)) if *foreign_id == this_instance_id => {
+                Some(crate::domain::ClipMatrixRef::Foreign(foreign_id))
+                    if *foreign_id == this_instance_id =>
+                {
                     is.update_real_time_clip_matrix(real_time_matrix.clone(), false);
                 }
                 _ => continue,
@@ -348,13 +359,14 @@ impl BackboneState {
     /// # Panics
     ///
     /// Panics if the foreign instance's instance state is currently mutably borrowed.
+    #[cfg(feature = "playtime")]
     pub fn set_instance_clip_matrix_to_foreign_matrix(
         &self,
         instance_state: &mut InstanceState,
         foreign_instance_id: InstanceId,
     ) {
         // Set the reference
-        let matrix_ref = ClipMatrixRef::Foreign(foreign_instance_id);
+        let matrix_ref = crate::domain::ClipMatrixRef::Foreign(foreign_instance_id);
         instance_state.set_clip_matrix_ref(Some(matrix_ref));
         // Get a real-time matrix from the foreign instance and send it to the real-time processor
         // of *this* instance.
@@ -362,7 +374,7 @@ impl BackboneState {
             instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
         });
         if let Err(e) = result {
-            tracing_debug!("waiting for foreign clip matrix instance ({e})");
+            base::tracing_debug!("waiting for foreign clip matrix instance ({e})");
         }
     }
 
@@ -377,12 +389,13 @@ impl BackboneState {
     /// - The given instance doesn't have any clip matrix defined.
     /// - The referenced instance doesn't exist.
     /// - The referenced instance exists but has no clip matrix defined.   
+    #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
         instance_state: &SharedInstanceState,
-        f: impl FnOnce(&RealearnClipMatrix) -> R,
+        f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
-        use ClipMatrixRef::*;
+        use crate::domain::ClipMatrixRef::*;
         let other_instance_id = match instance_state
             .borrow()
             .clip_matrix_ref()
@@ -394,12 +407,13 @@ impl BackboneState {
         self.with_owned_clip_matrix_from_instance(&other_instance_id, f)
     }
 
+    #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance<R>(
         &self,
         foreign_instance_id: &InstanceId,
-        f: impl FnOnce(&RealearnClipMatrix) -> R,
+        f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
-        use ClipMatrixRef::*;
+        use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
@@ -419,12 +433,13 @@ impl BackboneState {
 
     /// Grants mutable access to the clip matrix defined for the given ReaLearn instance,
     /// if one is defined.
+    #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(
         &self,
         instance_state: &SharedInstanceState,
-        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
-        use ClipMatrixRef::*;
+        use crate::domain::ClipMatrixRef::*;
         let other_instance_id = match instance_state
             .borrow_mut()
             .clip_matrix_ref_mut()
@@ -436,12 +451,13 @@ impl BackboneState {
         self.with_owned_clip_matrix_from_instance_mut(&other_instance_id, f)
     }
 
+    #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance_mut<R>(
         &self,
         instance_id: &InstanceId,
-        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> Result<R, &'static str> {
-        use ClipMatrixRef::*;
+        use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
@@ -597,9 +613,13 @@ fn update_io_usage<D: Eq + Hash + Copy>(
     device != previously_used_device
 }
 
+#[cfg(feature = "playtime")]
 const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
+#[cfg(feature = "playtime")]
 const REFERENCED_INSTANCE_NOT_AVAILABLE: &str = "other instance not available";
+#[cfg(feature = "playtime")]
 const REFERENCED_CLIP_MATRIX_NOT_AVAILABLE: &str = "clip matrix of other instance not available";
+#[cfg(feature = "playtime")]
 const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance also borrows";
 
 #[derive(Clone, Debug)]
