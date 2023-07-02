@@ -17,39 +17,53 @@ jobs:
     name: Check
     runs-on: windows-latest
     steps:
+      # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
-        with:
-          submodules: recursive
+      - name: Update submodules
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}"
+          git submodule update --init
+      # Remainder
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: 1.68.2
           override: true
-      - run: rustup component add rustfmt
       - name: cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --all-features
 
   test:
     name: Test
     runs-on: windows-latest
     steps:
+      # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
-        with:
-          submodules: recursive
+      - name: Update submodules
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}"
+          git submodule update --init
+      # Remainder
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: 1.68.2
           override: true
-      - run: rustup component add rustfmt
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --all-features
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -- --nocapture
+          args: --all-features -- --nocapture
