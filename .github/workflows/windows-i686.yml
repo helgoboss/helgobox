@@ -19,12 +19,11 @@ jobs:
     steps:
       # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
+      - uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
       - name: Update submodules
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
-          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-          ssh-add - <<< "${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}"
           git submodule update --init
       # Remainder
       - uses: actions-rs/toolchain@v1
