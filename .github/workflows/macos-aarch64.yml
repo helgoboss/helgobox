@@ -17,9 +17,16 @@ jobs:
     name: Build
     runs-on: macos-latest
     steps:
+      # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
-        with:
-          submodules: recursive
+      - name: Update submodules
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}"
+          git submodule update --init
+      # Remainder
       - run: brew install php
       - uses: actions-rs/toolchain@v1
         with:
