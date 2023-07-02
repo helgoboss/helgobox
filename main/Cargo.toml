@@ -8,7 +8,7 @@ license = "GPL-3.0"
 rust-version = "1.68.2"
 
 [features]
-default = ["playtime"]
+default = []
 playtime = ["playtime-clip-engine", "playtime-api", "realearn-api/playtime"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)

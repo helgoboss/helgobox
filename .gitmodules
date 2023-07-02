@@ -5,3 +5,6 @@
 [submodule "helgoboss-learn"]
 	path = main/lib/helgoboss-learn
 	url = https://github.com/helgoboss/helgoboss-learn.git
+[submodule "playtime-clip-engine"]
+	path = playtime-clip-engine
+	url = git@github.com:helgoboss/playtime-clip-engine-placeholder.git
