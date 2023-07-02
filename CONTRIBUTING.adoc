@@ -77,14 +77,23 @@ rustup default 1.68.2-x86_64-pc-windows-msvc
 +
 [source,shell]
 ----
-git clone --recurse-submodules https://github.com/helgoboss/realearn.git`
+git clone https://github.com/helgoboss/realearn.git`
 cd realearn
+
+# ONLY For users who DON'T HAVE access to the private submodules
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
 ----
 . Build ReaLearn (after that you should have a `realearn.dll` in `target\debug`)
-
-`batch
-   cargo build
-`
++
+[source,shell]
+----
+cargo build
+----
 
 === Linux
 
@@ -108,8 +117,14 @@ rustup default 1.68.2-x86_64-unknown-linux-gnu
 # Clone ReaLearn repository
 git clone https://github.com/helgoboss/realearn.git
 cd realearn
+
+# ONLY For users who DON'T HAVE access to the private submodules
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
 mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
 
 # Build (after that you should have a "librealearn.so" in "target/debug")
 cargo build
@@ -148,8 +163,16 @@ rustup default 1.68.2-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads
-git clone --recurse-submodules https://github.com/helgoboss/realearn.git
+git clone https://github.com/helgoboss/realearn.git
 cd realearn
+
+# ONLY For users who DON'T HAVE access to the private submodules
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
 
 # Install build dependencies
 brew install php
