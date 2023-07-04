@@ -1,5 +1,4 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::egui_views;
 use libloading::{Library, Symbol};
 use reaper_low::raw;
 use reaper_low::raw::HWND;
@@ -50,24 +49,30 @@ impl View for AppPanel {
 
     /// On Windows, this is necessary to resize contained app.
     ///
-    /// On macOS, this has no effect because the app window is not a child view (NSView), but a
+    /// On macOS, this has no effect because the app window is not a child view (NSView) but a
     /// child window (NSWindow). Resizing according to the parent window (the SWELL window) is done
     /// on app side.
     #[cfg(target_os = "windows")]
     fn resized(self: SharedView<Self>) -> bool {
-        egui_views::on_parent_window_resize(self.view.require_window())
+        crate::infrastructure::ui::egui_views::on_parent_window_resize(self.view.require_window())
     }
 
     /// On Windows, this is necessary to make keyboard input work for the contained app. We
     /// basically forward all keyboard messages (which come from the RealearnAccelerator) to the
     /// first child of the first child, which is the Flutter window.
-    ///
-    /// On macOS, this has no effect because the app window is not a child view (NSView), but a
-    /// child window (NSWindow). Keyboard input is made possible there by allowing the child window
-    /// to become a key window (= get real focus). This is done on app side.
     #[cfg(target_os = "windows")]
     fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
         self.view.window()?.first_child()?.first_child()
+    }
+
+    /// On macOS, the app window is a child *window* of this window, not a child *view*. In general,
+    /// keyboard input is made possible there by allowing the child window to become a key window
+    /// (= get real focus). This is done on app side. However, one corner case is that the user
+    /// clicks the title bar of this window (= the parent window). In this case, the parent window
+    /// becomes the key window and we need to forward keyboard events to the child window.
+    #[cfg(target_os = "macos")]
+    fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
+        self.view.window()?.first_child_window()
     }
 }
 

@@ -187,6 +187,17 @@ impl Window {
         }
     }
 
+    /// This return the first child *window* (not subview) on macOS.
+    #[cfg(target_os = "macos")]
+    pub fn first_child_window(&self) -> Option<Window> {
+        unsafe {
+            let view = &*(self.raw as *const crate::macos::NSView);
+            let view_window = view.window()?;
+            let child_content_view = view_window.child_windows().first_object()?.content_view()?;
+            Window::new(child_content_view.as_ref() as *const _ as raw::HWND)
+        }
+    }
+
     /// Lets this window process the current app event if this is not a text field.
     ///
     /// Returns whether it was a text field or not.
@@ -235,6 +246,7 @@ impl Window {
         unsafe { Swell::get().SendMessage(self.raw, msg, wparam, lparam) }
     }
 
+    /// Attention: On macOS, this returns the first subview, not the first child window.
     pub fn first_child(&self) -> Option<Window> {
         let swell = Swell::get();
         let ptr = unsafe { swell.GetWindow(self.raw, raw::GW_CHILD as _) };

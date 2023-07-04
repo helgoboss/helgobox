@@ -66,6 +66,14 @@ extern_methods!(
     unsafe impl NSWindow {
         #[sel(sendEvent:)]
         pub unsafe fn send_event(&self, event: &NSEvent);
+
+        pub fn content_view(&self) -> Option<Id<NSView, Shared>> {
+            unsafe { msg_send_id![self, contentView] }
+        }
+
+        pub fn child_windows(&self) -> Id<NSArrayOfWindows, Shared> {
+            unsafe { msg_send_id![self, childWindows] }
+        }
     }
 );
 
@@ -87,6 +95,24 @@ extern_methods!(
 
         pub fn window(&self) -> Option<Id<NSWindow, Shared>> {
             unsafe { msg_send_id![self, window] }
+        }
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct NSArrayOfWindows;
+
+    unsafe impl ClassType for NSArrayOfWindows {
+        #[inherits(NSObject)]
+        type Super = NSResponder;
+    }
+);
+
+extern_methods!(
+    unsafe impl NSArrayOfWindows {
+        pub fn first_object(&self) -> Option<Id<NSWindow, Shared>> {
+            unsafe { msg_send_id![self, firstObject] }
         }
     }
 );
