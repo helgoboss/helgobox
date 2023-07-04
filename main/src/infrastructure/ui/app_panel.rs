@@ -68,6 +68,9 @@ const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/bui
 const APP_BASE_DIR: &str =
     "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
 
+#[cfg(target_os = "linux")]
+const APP_BASE_DIR: &str = "TODO";
+
 impl LoadedApp {
     pub fn load() -> Result<Self, libloading::Error> {
         let app_base_dir = Path::new(APP_BASE_DIR);
@@ -87,6 +90,13 @@ impl LoadedApp {
                         "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
                         "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                     ],
+                )
+            }
+            #[cfg(target_os = "linux")]
+            {
+                (
+                    "playtime.so",
+                    ["flutter_linux.so", "url_launcher_linux_plugin.so"],
                 )
             }
         };
