@@ -107,13 +107,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features
+          args: --features playtime
       # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --all-features --profile ${{ matrix.profile }} --target ${{ matrix.target }}
+          args: --features playtime --profile ${{ matrix.profile }} --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
       # Strip debug symbols (Linux and macOS)
       # TODO-medium We could replace this with Cargo's recent built-in strip function

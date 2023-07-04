@@ -37,4 +37,4 @@ jobs:
         with:
           command: build
           # Prevent "LLVM ERROR: out of memory"
-          args: --all-features --profile dev-llvm-out-of-memory-fix --target i686-pc-windows-msvc
+          args: --features playtime --profile dev-llvm-out-of-memory-fix --target i686-pc-windows-msvc

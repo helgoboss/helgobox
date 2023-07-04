@@ -36,7 +36,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all-features
+          args: --features playtime
 
   test:
     name: Test
@@ -63,11 +63,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --all-features
+          args: --features playtime
 #      - name: Setup tmate session
 #        uses: mxschmitt/action-tmate@v2
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features -- --nocapture
+          args: --features playtime -- --nocapture

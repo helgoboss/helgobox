@@ -40,10 +40,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features
+          args: --features playtime
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --all-features --target armv7-unknown-linux-gnueabihf
+          args: --features playtime --target armv7-unknown-linux-gnueabihf

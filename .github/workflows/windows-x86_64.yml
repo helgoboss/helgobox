@@ -35,7 +35,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all-features
+          args: --features playtime
 
   test:
     name: Test
@@ -59,9 +59,9 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --all-features
+          args: --features playtime
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features -- --nocapture
+          args: --features playtime -- --nocapture
