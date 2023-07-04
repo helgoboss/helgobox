@@ -23,7 +23,7 @@ use crate::application::{
 };
 use crate::base::{notification, when};
 use crate::domain::{
-    convert_compartment_param_index_range_to_iter, BackboneState, ClipMatrixRef, Compartment,
+    convert_compartment_param_index_range_to_iter, BackboneState, Compartment,
     CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
     ParamSetting, ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
 };
@@ -35,7 +35,6 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
-use base::Global;
 
 use crate::infrastructure::ui::bindings::root;
 
@@ -141,6 +140,7 @@ impl HeaderPanel {
         close_child_panel_if_open(&self.group_panel);
         close_child_panel_if_open(&self.extra_panel);
         close_child_panel_if_open(&self.pot_browser_panel);
+        close_child_panel_if_open(&self.app_panel);
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -292,6 +292,7 @@ impl HeaderPanel {
                 !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
+            #[cfg(feature = "playtime")]
             let has_clip_matrix = session
                 .instance_state()
                 .borrow()
@@ -385,6 +386,7 @@ impl HeaderPanel {
                             },
                             move || MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
+                        #[cfg(feature = "playtime")]
                         item_with_opts(
                             "Freeze clip matrix",
                             ItemOpts {
@@ -690,6 +692,7 @@ impl HeaderPanel {
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
+            #[cfg(feature = "playtime")]
             MainMenuAction::FreezeClipMatrix => {
                 self.freeze_clip_matrix();
             }
@@ -1175,11 +1178,12 @@ impl HeaderPanel {
             );
     }
 
+    #[cfg(feature = "playtime")]
     // TODO-high-clip-matrix As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         let weak_session = self.session.clone();
-        Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+        base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
             let shared_session = weak_session.upgrade().expect("session gone");
             let shared_instance_state = { shared_session.borrow().instance_state().clone() };
             shared_instance_state
@@ -2017,14 +2021,15 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&d);
                 }
             }
+            #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
-                        ClipMatrixRef::Own(m) => {
+                        crate::domain::ClipMatrixRef::Own(m) => {
                             get_clip_matrix_label(m.column_count())
                         }
-                        ClipMatrixRef::Foreign(instance_id) => {
+                        crate::domain::ClipMatrixRef::Foreign(instance_id) => {
                             format!("clip matrix reference (to instance {instance_id})")
                         }
                     },
@@ -2105,6 +2110,7 @@ impl HeaderPanel {
         enum MenuAction {
             None,
             ExportSession(SerializationFormat),
+            #[cfg(feature = "playtime")]
             ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
         }
@@ -2120,9 +2126,11 @@ impl HeaderPanel {
                 item("Export session as JSON", || {
                     MenuAction::ExportSession(SerializationFormat::JsonDataObject)
                 }),
+                #[cfg(feature = "playtime")]
                 item("Export clip matrix as JSON", || {
                     MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
                 }),
+                #[cfg(feature = "playtime")]
                 item("Export clip matrix as Lua", || {
                     MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
@@ -2168,6 +2176,7 @@ impl HeaderPanel {
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
+            #[cfg(feature = "playtime")]
             MenuAction::ExportClipMatrix(format) => {
                 let matrix = self
                     .session()
@@ -2259,7 +2268,7 @@ impl HeaderPanel {
         Ok(())
     }
 
-    pub fn show_app(&self) {
+    fn show_app(&self) {
         let result = self.show_app_internal();
         // Important to not use the header window to show the error because the pot browser
         // might be opened without any ReaLearn window being open!
@@ -2946,8 +2955,10 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
 
 const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";
 
+#[cfg(feature = "playtime")]
 const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
 
+#[cfg(feature = "playtime")]
 fn get_clip_matrix_label(column_count: usize) -> String {
     format!("clip matrix with {column_count} columns")
 }
@@ -2964,6 +2975,7 @@ enum MainMenuAction {
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
+    #[cfg(feature = "playtime")]
     FreezeClipMatrix,
     ToggleAutoCorrectSettings,
     ToggleRealInputLogging,

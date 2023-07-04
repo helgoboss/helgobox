@@ -1207,6 +1207,9 @@ impl TrackId {
 pub struct Bpm(f64);
 
 impl Bpm {
+    /// # Safety
+    ///
+    /// If you pass a value <= 0.0, you get an invalid Bpm value.
     pub const unsafe fn new_unchecked(value: f64) -> Self {
         Self(value)
     }

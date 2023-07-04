@@ -71,8 +71,13 @@ jobs:
       # Prepare (all)
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          submodules: recursive
+      - name: Update submodules
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          ssh-add - <<< "${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}"
+          git submodule update --init
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -80,7 +85,6 @@ jobs:
           toolchain: 1.68.2-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
-      - run: rustup component add rustfmt
       # Install OS dependencies (Linux/macOS only)
       - name: Install native Linux dependencies
         if: startsWith(matrix.os, 'ubuntu-')
@@ -103,12 +107,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --all-features
       # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --profile ${{ matrix.profile }} --target ${{ matrix.target }}
+          args: --all-features --profile ${{ matrix.profile }} --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
       # Strip debug symbols (Linux and macOS)
       # TODO-medium We could replace this with Cargo's recent built-in strip function

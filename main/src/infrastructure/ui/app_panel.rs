@@ -1,22 +1,12 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::egui_views::advanced_script_editor;
-use crate::infrastructure::ui::egui_views::advanced_script_editor::{
-    SharedValue, State, Toolbox, Value,
-};
-use crate::infrastructure::ui::{egui_views, ScriptEditorInput};
-use base::{blocking_lock, SenderToNormalThread};
-use crossbeam_channel::Receiver;
-use derivative::Derivative;
+use crate::infrastructure::ui::egui_views;
 use libloading::{Library, Symbol};
 use reaper_low::raw;
 use reaper_low::raw::HWND;
-use semver::Version;
-use std::cell::RefCell;
 use std::env;
 use std::error::Error;
 use std::ffi::{c_char, CString};
 use std::path::Path;
-use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -66,17 +56,20 @@ impl View for AppPanel {
 #[derive(Debug)]
 pub struct LoadedApp {
     main_library: Library,
-    dependencies: Vec<Library>,
+    _dependencies: Vec<Library>,
 }
 
 // TODO-high-playtime Adjust
 
 #[cfg(target_os = "macos")]
-const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Debug/playtime.app";
+const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
 
 #[cfg(target_os = "windows")]
 const APP_BASE_DIR: &str =
     "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
+
+#[cfg(target_os = "linux")]
+const APP_BASE_DIR: &str = "TODO";
 
 impl LoadedApp {
     pub fn load() -> Result<Self, libloading::Error> {
@@ -99,10 +92,17 @@ impl LoadedApp {
                     ],
                 )
             }
+            #[cfg(target_os = "linux")]
+            {
+                (
+                    "playtime.so",
+                    ["flutter_linux.so", "url_launcher_linux_plugin.so"],
+                )
+            }
         };
         let app = unsafe {
             LoadedApp {
-                dependencies: dependencies
+                _dependencies: dependencies
                     .into_iter()
                     .filter_map(|dep| Library::new(app_base_dir.join(dep)).ok())
                     .collect(),

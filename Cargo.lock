@@ -345,12 +345,9 @@ dependencies = [
 
 [[package]]
 name = "atomic"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b88d82667eca772c4aa12f0f1348b3ae643424c8876448f3f7bd5787032e234c"
-dependencies = [
- "autocfg 1.0.1",
-]
+checksum = "c59bdb34bc650a32731b31bd8f0829cc15d24a708ee31559e0bb34f2bc320cba"
 
 [[package]]
 name = "atomic-shim"
@@ -3643,6 +3640,7 @@ dependencies = [
  "derive_more",
  "either",
  "enumflags2",
+ "futures",
  "helgoboss-learn",
  "helgoboss-midi",
  "indexmap",
@@ -3662,6 +3660,8 @@ dependencies = [
  "slug",
  "static_assertions",
  "swell-ui",
+ "tokio",
+ "tokio-stream",
  "tonic",
  "tracing",
  "ulid",
@@ -4334,7 +4334,7 @@ version = "0.1.0"
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -4364,7 +4364,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "c_str_macro",
  "cc 1.0.79",
@@ -4378,7 +4378,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.28",
@@ -4388,7 +4388,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -4406,7 +4406,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -4579,16 +4579,16 @@ dependencies = [
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#64d8a172eee343fa8bf310aac79bc25d4e9d0793"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2f2dc42336040843edc91dba6148575b454b47cf"
 dependencies = [
  "splitty",
 ]
 
 [[package]]
 name = "rtrb"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "041ed130bf0bc1ef82c1b0e326d23c4b799876968e3483421c8b9e59f55f3308"
+checksum = "99e704dd104faf2326a320140f70f0b736d607c1caa1b1748a6c568a79819109"
 dependencies = [
  "cache-padded",
 ]

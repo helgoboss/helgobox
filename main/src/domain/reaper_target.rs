@@ -8,11 +8,11 @@ use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
-    GroupingBehavior, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
+    GroupingBehavior, Pan, PanExt, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
     AutomationMode, Bpm, GangBehavior, GlobalAutomationModeOverride, NormalizedPlayRate, ParamId,
-    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue, SectionContext,
+    PlaybackSpeedFactor, PositionInSeconds, SectionContext,
 };
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -21,28 +21,23 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use playtime_api::runtime::ClipPlayState;
-use playtime_clip_engine::rt::InternalClipPlayState;
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackScope};
+use realearn_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
     AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
-    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller,
-    ClipColumnTarget, ClipManagementTarget, ClipMatrixTarget, ClipRowTarget, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, ControlContext, DummyTarget, EnigoMouseTarget,
-    FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget,
-    FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
-    LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext, MidiSendTarget,
-    ModifyMappingTarget, OscSendTarget, PlayrateTarget, PreviewPotPresetTarget,
-    RealTimeClipColumnTarget, RealTimeClipMatrixTarget, RealTimeClipRowTarget,
-    RealTimeClipTransportTarget, RealTimeControlContext, RealTimeFxParameterTarget,
-    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller, ControlContext,
+    DummyTarget, EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
+    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
+    HierarchyEntryProvider, LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext,
+    MidiSendTarget, ModifyMappingTarget, OscSendTarget, PlayrateTarget, PreviewPotPresetTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -143,13 +138,20 @@ pub enum ReaperTarget {
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
     Dummy(DummyTarget),
-    ClipMatrix(ClipMatrixTarget),
-    ClipTransport(ClipTransportTarget),
-    ClipColumn(ClipColumnTarget),
-    ClipRow(ClipRowTarget),
-    ClipSeek(ClipSeekTarget),
-    ClipVolume(ClipVolumeTarget),
-    ClipManagement(ClipManagementTarget),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(crate::domain::ClipMatrixTarget),
+    #[cfg(feature = "playtime")]
+    ClipTransport(crate::domain::ClipTransportTarget),
+    #[cfg(feature = "playtime")]
+    ClipColumn(crate::domain::ClipColumnTarget),
+    #[cfg(feature = "playtime")]
+    ClipRow(crate::domain::ClipRowTarget),
+    #[cfg(feature = "playtime")]
+    ClipSeek(crate::domain::ClipSeekTarget),
+    #[cfg(feature = "playtime")]
+    ClipVolume(crate::domain::ClipVolumeTarget),
+    #[cfg(feature = "playtime")]
+    ClipManagement(crate::domain::ClipManagementTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
@@ -315,7 +317,9 @@ impl ReaperTarget {
                     | MappedFxParametersChanged
                 )
             }
-            CompoundChangeEvent::Instance(_) | CompoundChangeEvent::ClipMatrix(_) => false,
+            CompoundChangeEvent::Instance(_) => false,
+            #[cfg(feature = "playtime")]
+            CompoundChangeEvent::ClipMatrix(_) => false,
         }
     }
 
@@ -655,12 +659,19 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackAutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipRow(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipSeek(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipVolume(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipManagement(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             TakeMappingSnapshot(t) => t.current_value(context),
@@ -693,9 +704,13 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // need to support that one day, we can alternatively use senders. The downside is that
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
+            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.current_value(ctx),
+            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.current_value(ctx),
+            #[cfg(feature = "playtime")]
             ClipRow(t) => t.current_value(ctx),
+            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
@@ -705,9 +720,13 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
+            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.control_type(ctx),
+            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.control_type(ctx),
+            #[cfg(feature = "playtime")]
             ClipRow(t) => t.control_type(ctx),
+            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
             Dummy(t) => t.control_type(()),
@@ -716,11 +735,13 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
 }
 
 // Panics if called with repeat or record.
+#[cfg(feature = "playtime")]
 pub(crate) fn clip_play_state_unit_value(
-    action: ClipTransportAction,
-    play_state: InternalClipPlayState,
+    action: realearn_api::persistence::ClipTransportAction,
+    play_state: playtime_clip_engine::rt::InternalClipPlayState,
 ) -> UnitValue {
-    use ClipTransportAction::*;
+    use playtime_api::runtime::ClipPlayState;
+    use realearn_api::persistence::ClipTransportAction::*;
     match action {
         PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
         Stop => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Stopped),
@@ -1063,34 +1084,6 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
             project,
             track: None,
         }),
-    }
-}
-
-pub trait PanExt {
-    /// Returns the pan value. In case of dual-pan, returns the left pan value.
-    fn main_pan(self) -> ReaperPanValue;
-    fn width(self) -> Option<ReaperWidthValue>;
-}
-
-impl PanExt for reaper_medium::Pan {
-    /// Returns the pan value. In case of dual-pan, returns the left pan value.
-    fn main_pan(self) -> ReaperPanValue {
-        use reaper_medium::Pan::*;
-        match self {
-            BalanceV1(p) => p,
-            BalanceV4(p) => p,
-            StereoPan { pan, .. } => pan,
-            DualPan { left, .. } => left,
-            Unknown(_) => ReaperPanValue::CENTER,
-        }
-    }
-
-    fn width(self) -> Option<ReaperWidthValue> {
-        if let reaper_medium::Pan::StereoPan { width, .. } = self {
-            Some(width)
-        } else {
-            None
-        }
     }
 }
 
@@ -1461,10 +1454,14 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
-    ClipTransport(RealTimeClipTransportTarget),
-    ClipColumn(RealTimeClipColumnTarget),
-    ClipRow(RealTimeClipRowTarget),
-    ClipMatrix(RealTimeClipMatrixTarget),
+    #[cfg(feature = "playtime")]
+    ClipTransport(crate::domain::RealTimeClipTransportTarget),
+    #[cfg(feature = "playtime")]
+    ClipColumn(crate::domain::RealTimeClipColumnTarget),
+    #[cfg(feature = "playtime")]
+    ClipRow(crate::domain::RealTimeClipRowTarget),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(crate::domain::RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
     Dummy(DummyTarget),
 }

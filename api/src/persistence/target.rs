@@ -5,7 +5,6 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -143,12 +142,19 @@ pub enum Target {
     RoutePan(RoutePanTarget),
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
+    #[cfg(feature = "playtime")]
     ClipTransportAction(ClipTransportActionTarget),
+    #[cfg(feature = "playtime")]
     ClipColumnAction(ClipColumnTarget),
+    #[cfg(feature = "playtime")]
     ClipRowAction(ClipRowTarget),
+    #[cfg(feature = "playtime")]
     ClipMatrixAction(ClipMatrixTarget),
+    #[cfg(feature = "playtime")]
     ClipSeek(ClipSeekTarget),
+    #[cfg(feature = "playtime")]
     ClipVolume(ClipVolumeTarget),
+    #[cfg(feature = "playtime")]
     ClipManagement(ClipManagementTarget),
     SendMidi(SendMidiTarget),
     SendOsc(SendOscTarget),
@@ -832,6 +838,7 @@ pub struct RouteTouchStateTarget {
     pub touched_parameter: TouchedRouteParameter,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
@@ -843,11 +850,12 @@ pub struct ClipTransportActionTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_column_if_slot_empty: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub play_start_timing: Option<ClipPlayStartTiming>,
+    pub play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub play_stop_timing: Option<ClipPlayStopTiming>,
+    pub play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipColumnTarget {
     #[serde(flatten)]
@@ -856,6 +864,7 @@ pub struct ClipColumnTarget {
     pub action: ClipColumnAction,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipRowTarget {
     #[serde(flatten)]
@@ -864,6 +873,7 @@ pub struct ClipRowTarget {
     pub action: ClipRowAction,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipMatrixTarget {
     #[serde(flatten)]
@@ -871,6 +881,7 @@ pub struct ClipMatrixTarget {
     pub action: ClipMatrixAction,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipSeekTarget {
     #[serde(flatten)]
@@ -880,6 +891,7 @@ pub struct ClipSeekTarget {
     pub feedback_resolution: Option<FeedbackResolution>,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
@@ -887,6 +899,7 @@ pub struct ClipVolumeTarget {
     pub slot: ClipSlotDescriptor,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ClipManagementTarget {
     #[serde(flatten)]
@@ -895,6 +908,7 @@ pub struct ClipManagementTarget {
     pub action: ClipManagementAction,
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipManagementAction {
@@ -905,12 +919,14 @@ pub enum ClipManagementAction {
     AdjustClipSectionLength(AdjustClipSectionLengthAction),
 }
 
+#[cfg(feature = "playtime")]
 impl Default for ClipManagementAction {
     fn default() -> Self {
         Self::ClearSlot
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct AdjustClipSectionLengthAction {
     pub factor: f64,
@@ -1606,6 +1622,7 @@ pub enum TrackDescriptor {
         #[serde(skip_serializing_if = "Option::is_none")]
         allow_multiple: Option<bool>,
     },
+    #[cfg(feature = "playtime")]
     FromClipColumn {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
@@ -1614,12 +1631,14 @@ pub enum TrackDescriptor {
     },
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum ClipColumnTrackContext {
     Playback,
     Recording,
 }
 
+#[cfg(feature = "playtime")]
 impl Default for ClipColumnTrackContext {
     fn default() -> Self {
         Self::Playback
@@ -1932,6 +1951,7 @@ impl Default for TrackRouteKind {
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
@@ -1946,12 +1966,14 @@ pub enum ClipSlotDescriptor {
     },
 }
 
+#[cfg(feature = "playtime")]
 impl Default for ClipSlotDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
@@ -1960,12 +1982,14 @@ pub enum ClipColumnDescriptor {
     Dynamic { expression: String },
 }
 
+#[cfg(feature = "playtime")]
 impl Default for ClipColumnDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
@@ -1974,6 +1998,7 @@ pub enum ClipRowDescriptor {
     Dynamic { expression: String },
 }
 
+#[cfg(feature = "playtime")]
 impl Default for ClipRowDescriptor {
     fn default() -> Self {
         Self::Selected

@@ -67,30 +67,40 @@ architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
 * https://www.rust-lang.org/tools/install[Download] and execute `rustup-init.exe`
 * Accept the defaults
 * Set the correct toolchain default :star:
-
-`batch
- rustup default 1.68.2-x86_64-pc-windows-msvc
-`
-
++
+[source,shell]
+----
+rustup default 1.68.2-x86_64-pc-windows-msvc
+----
 . Download and install https://git-scm.com/download/win[Git for Windows]
 . Clone the ReaLearn Git repository
++
+[source,shell]
+----
+git clone https://github.com/helgoboss/realearn.git`
+cd realearn
 
-`batch
-   git clone --recurse-submodules https://github.com/helgoboss/realearn.git`
-   cd realearn
-`
-5. Build ReaLearn (after that you should have a `realearn.dll` in `target\debug`)
+# ONLY For users who DON'T HAVE access to the private submodules
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
 
-`batch
-   cargo build
-`
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
+----
+. Build ReaLearn (after that you should have a `realearn.dll` in `target\debug`)
++
+[source,shell]
+----
+cargo build
+----
 
 === Linux
 
 Complete instructions to build ReaLearn from a _fresh_ Ubuntu 18.04.3 LTS installation,
 including Rust setup:
 
-[source,sh]
+[source,shell]
 ----
 # Install native dependencies
 sudo apt update
@@ -104,9 +114,17 @@ source $HOME/.cargo/env
 # Set the correct toolchain default
 rustup default 1.68.2-x86_64-unknown-linux-gnu
 
-# Clone ReaLearn repository (the "--recurse-submodules" is important!)
-git clone --recurse-submodules https://github.com/helgoboss/realearn.git
+# Clone ReaLearn repository
+git clone https://github.com/helgoboss/realearn.git
 cd realearn
+
+# ONLY For users who DON'T HAVE access to the private submodules
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
 
 # Build (after that you should have a "librealearn.so" in "target/debug")
 cargo build
@@ -136,7 +154,7 @@ The following instructions include Rust setup. However, it's very well possible 
 instructions are missing, because I don't have a bare macOS installation at my disposal. The Rust installation script
 should provide you with the necessary instructions if something is missing.
 
-[source,sh]
+[source,shell]
 ----
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
@@ -145,8 +163,16 @@ rustup default 1.68.2-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads
-git clone --recurse-submodules https://github.com/helgoboss/realearn.git
+git clone https://github.com/helgoboss/realearn.git
 cd realearn
+
+# ONLY For users who DON'T HAVE access to the private submodules
+git submodule update --init main/lib/WDL main/lib/helgoboss-learn
+rmdir playtime-clip-engine
+mv playtime-clip-engine-placeholder playtime-clip-engine
+
+# ONLY For users who HAVE access to the private submodules
+git submodule update --init
 
 # Install build dependencies
 brew install php
@@ -159,7 +185,7 @@ cargo build
 
 If you update Cockos WDL, you should also regenerate Rust bindings (we use WDL's EEL):
 
-[source,sh]
+[source,shell]
 ----
 cargo build --features generate
 cargo fmt

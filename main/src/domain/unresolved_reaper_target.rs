@@ -6,13 +6,11 @@ use crate::domain::{
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
-    UnresolvedBrowseTracksTarget, UnresolvedClipColumnTarget, UnresolvedClipManagementTarget,
-    UnresolvedClipMatrixTarget, UnresolvedClipRowTarget, UnresolvedClipSeekTarget,
-    UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget, UnresolvedDummyTarget,
-    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedBrowseTracksTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
+    UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
@@ -31,11 +29,9 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::base::ClipSlotAddress;
 
 use realearn_api::persistence::{
-    ClipColumnDescriptor, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
-    TrackDescriptorCommons, TrackScope,
+    FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
@@ -99,13 +95,20 @@ pub enum UnresolvedReaperTarget {
     SendMidi(UnresolvedMidiSendTarget),
     SendOsc(UnresolvedOscSendTarget),
     Dummy(UnresolvedDummyTarget),
-    ClipTransport(UnresolvedClipTransportTarget),
-    ClipColumn(UnresolvedClipColumnTarget),
-    ClipRow(UnresolvedClipRowTarget),
-    ClipSeek(UnresolvedClipSeekTarget),
-    ClipVolume(UnresolvedClipVolumeTarget),
-    ClipManagement(UnresolvedClipManagementTarget),
-    ClipMatrix(UnresolvedClipMatrixTarget),
+    #[cfg(feature = "playtime")]
+    ClipTransport(crate::domain::UnresolvedClipTransportTarget),
+    #[cfg(feature = "playtime")]
+    ClipColumn(crate::domain::UnresolvedClipColumnTarget),
+    #[cfg(feature = "playtime")]
+    ClipRow(crate::domain::UnresolvedClipRowTarget),
+    #[cfg(feature = "playtime")]
+    ClipSeek(crate::domain::UnresolvedClipSeekTarget),
+    #[cfg(feature = "playtime")]
+    ClipVolume(crate::domain::UnresolvedClipVolumeTarget),
+    #[cfg(feature = "playtime")]
+    ClipManagement(crate::domain::UnresolvedClipManagementTarget),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(crate::domain::UnresolvedClipMatrixTarget),
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
     TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
     EnableMappings(UnresolvedEnableMappingsTarget),
@@ -175,16 +178,19 @@ impl UnresolvedReaperTarget {
                 return true;
             }
         }
+        #[cfg(feature = "playtime")]
         if let Some(slot) = descriptors.clip_slot {
             if slot.can_be_affected_by_parameters() {
                 return true;
             }
         }
+        #[cfg(feature = "playtime")]
         if let Some(col) = descriptors.clip_column {
             if col.can_be_affected_by_parameters() {
                 return true;
             }
         }
+        #[cfg(feature = "playtime")]
         if let Some(row) = descriptors.clip_row {
             if row.can_be_affected_by_parameters() {
                 return true;
@@ -222,18 +228,21 @@ impl UnresolvedReaperTarget {
                 ..Default::default()
             };
         }
+        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_slot_descriptor() {
             return Descriptors {
                 clip_slot: Some(d),
                 ..Default::default()
             };
         }
+        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_column_descriptor() {
             return Descriptors {
                 clip_column: Some(d),
                 ..Default::default()
             };
         }
+        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_row_descriptor() {
             return Descriptors {
                 clip_row: Some(d),
@@ -337,6 +346,7 @@ impl TrackDescriptor {
                 },
                 TrackDescriptorCommons::default(),
             ),
+            #[cfg(feature = "playtime")]
             FromClipColumn {
                 column,
                 context,
@@ -743,6 +753,7 @@ impl Default for TrackRouteType {
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualClipSlot {
     Selected,
@@ -756,19 +767,20 @@ pub enum VirtualClipSlot {
     },
 }
 
+#[cfg(feature = "playtime")]
 impl VirtualClipSlot {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
-    ) -> Result<ClipSlotAddress, &'static str> {
+    ) -> Result<playtime_clip_engine::base::ClipSlotAddress, &'static str> {
         use VirtualClipSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),
             ByIndex {
                 column_index,
                 row_index,
-            } => ClipSlotAddress::new(*column_index, *row_index),
+            } => playtime_clip_engine::base::ClipSlotAddress::new(*column_index, *row_index),
             Dynamic {
                 column_evaluator,
                 row_evaluator,
@@ -778,7 +790,7 @@ impl VirtualClipSlot {
                     to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
                 let row_index =
                     to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
-                ClipSlotAddress::new(column_index, row_index)
+                playtime_clip_engine::base::ClipSlotAddress::new(column_index, row_index)
             }
         };
         // let slot_exists = BackboneState::get()
@@ -796,6 +808,7 @@ impl VirtualClipSlot {
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualClipColumn {
     Selected,
@@ -803,17 +816,19 @@ pub enum VirtualClipColumn {
     Dynamic(Box<ExpressionEvaluator>),
 }
 
+#[cfg(feature = "playtime")]
 impl Default for VirtualClipColumn {
     fn default() -> Self {
         Self::Selected
     }
 }
 
+#[cfg(feature = "playtime")]
 impl VirtualClipColumn {
     pub fn from_descriptor(
-        descriptor: &ClipColumnDescriptor,
+        descriptor: &realearn_api::persistence::ClipColumnDescriptor,
     ) -> Result<VirtualClipColumn, &'static str> {
-        use ClipColumnDescriptor::*;
+        use realearn_api::persistence::ClipColumnDescriptor::*;
         let column = match descriptor {
             Selected => VirtualClipColumn::Selected,
             ByIndex { index } => VirtualClipColumn::ByIndex(*index),
@@ -857,6 +872,7 @@ impl VirtualClipColumn {
     }
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualClipRow {
     Selected,
@@ -864,12 +880,14 @@ pub enum VirtualClipRow {
     Dynamic(Box<ExpressionEvaluator>),
 }
 
+#[cfg(feature = "playtime")]
 impl Default for VirtualClipRow {
     fn default() -> Self {
         Self::Selected
     }
 }
 
+#[cfg(feature = "playtime")]
 impl VirtualClipRow {
     pub fn resolve(
         &self,
@@ -905,10 +923,12 @@ impl VirtualClipRow {
 /// have a clip, which is a valid state and should return *something*. The contract of the target
 /// `current_value()` is that if it returns `None`, it means it can't get a value at the moment,
 /// probably just temporarily. In that case, the feedback is simply not updated.
+#[cfg(feature = "playtime")]
 pub fn interpret_current_clip_slot_value<T: Default>(value: Option<T>) -> Option<T> {
     Some(value.unwrap_or_default())
 }
 
+#[cfg(feature = "playtime")]
 fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {
     let res = eval_result.map_err(|_| "couldn't evaluate clip slot coordinate")?;
     if res < 0.0 {
@@ -943,9 +963,10 @@ pub enum VirtualTrack {
     /// compatibility.
     ByIdOrName(Guid, WildMatch),
     /// Uses the track from the given clip column.
+    #[cfg(feature = "playtime")]
     FromClipColumn {
         column: VirtualClipColumn,
-        context: ClipColumnTrackContext,
+        context: realearn_api::persistence::ClipColumnTrackContext,
     },
     /// Instance track
     Instance,
@@ -1223,6 +1244,7 @@ impl fmt::Display for VirtualTrack {
                 };
                 write!(f, "#{}{}", index + 1, suffix)
             }
+            #[cfg(feature = "playtime")]
             FromClipColumn { .. } => f.write_str("From a clip column"),
         }
     }
@@ -1405,6 +1427,7 @@ impl VirtualTrack {
                 let single = resolve_track_by_index(project, *index as i32, *scope)?;
                 vec![single]
             }
+            #[cfg(feature = "playtime")]
             FromClipColumn {
                 column,
                 context: track_context,
@@ -1422,8 +1445,12 @@ impl VirtualTrack {
                     .with_clip_matrix(context.control_context.instance_state, |matrix| {
                         let column = matrix.get_column(clip_column_index)?;
                         match track_context {
-                            ClipColumnTrackContext::Playback => column.playback_track().cloned(),
-                            ClipColumnTrackContext::Recording => column.effective_recording_track(),
+                            realearn_api::persistence::ClipColumnTrackContext::Playback => {
+                                column.playback_track().cloned()
+                            }
+                            realearn_api::persistence::ClipColumnTrackContext::Recording => {
+                                column.effective_recording_track()
+                            }
                         }
                     })
                     .map_err(|_| generic_error())?
@@ -1438,6 +1465,7 @@ impl VirtualTrack {
     pub fn can_be_affected_by_parameters(&self) -> bool {
         match self {
             VirtualTrack::Dynamic { .. } => true,
+            #[cfg(feature = "playtime")]
             VirtualTrack::FromClipColumn {
                 column: VirtualClipColumn::Dynamic(_),
                 ..
@@ -1578,6 +1606,7 @@ impl VirtualTrack {
         }
     }
 
+    #[cfg(feature = "playtime")]
     pub fn clip_column(&self) -> Option<&VirtualClipColumn> {
         if let VirtualTrack::FromClipColumn { column, .. } = self {
             Some(column)
@@ -1586,7 +1615,10 @@ impl VirtualTrack {
         }
     }
 
-    pub fn clip_column_track_context(&self) -> Option<ClipColumnTrackContext> {
+    #[cfg(feature = "playtime")]
+    pub fn clip_column_track_context(
+        &self,
+    ) -> Option<realearn_api::persistence::ClipColumnTrackContext> {
         if let VirtualTrack::FromClipColumn { context, .. } = self {
             Some(*context)
         } else {
@@ -2113,8 +2145,11 @@ struct Descriptors<'a> {
     fx: Option<&'a FxDescriptor>,
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
+    #[cfg(feature = "playtime")]
     clip_slot: Option<&'a VirtualClipSlot>,
+    #[cfg(feature = "playtime")]
     clip_column: Option<&'a VirtualClipColumn>,
+    #[cfg(feature = "playtime")]
     clip_row: Option<&'a VirtualClipRow>,
 }
 
@@ -2163,14 +2198,17 @@ pub trait UnresolvedReaperTargetDef {
         None
     }
 
+    #[cfg(feature = "playtime")]
     fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
         None
     }
 
+    #[cfg(feature = "playtime")]
     fn clip_column_descriptor(&self) -> Option<&VirtualClipColumn> {
         None
     }
 
+    #[cfg(feature = "playtime")]
     fn clip_row_descriptor(&self) -> Option<&VirtualClipRow> {
         None
     }

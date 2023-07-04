@@ -18,7 +18,6 @@ pub use session::*;
 pub use source::*;
 pub use target::*;
 
-use playtime_api::persistence::Matrix;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +37,8 @@ impl<T> Envelope<T> {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
-    ClipMatrix(Envelope<Box<Option<Matrix>>>),
+    #[cfg(feature = "playtime")]
+    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::Matrix>>>),
     MainCompartment(Envelope<Box<Compartment>>),
     ControllerCompartment(Envelope<Box<Compartment>>),
     Mappings(Envelope<Vec<Mapping>>),

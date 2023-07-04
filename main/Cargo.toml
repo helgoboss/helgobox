@@ -6,9 +6,11 @@ edition = "2021"
 build = "build.rs"
 license = "GPL-3.0"
 rust-version = "1.68.2"
+publish = false
 
 [features]
 default = []
+playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
@@ -22,14 +24,14 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 swell-ui.workspace = true
 rx-util.workspace = true
-playtime-clip-engine.workspace = true
 pot.workspace = true
 realearn-api.workspace = true
-playtime-api.workspace = true
 realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
+playtime-api = { workspace = true, optional = true }
+playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
 # For being able to (de)serialize using FromStr and Display
@@ -72,7 +74,7 @@ nanoid.workspace = true
 # For ReaLearn's servers
 futures.workspace = true
 tokio.workspace = true
-tokio-stream = { version = "0.1.8", features = ["sync"] }
+tokio-stream.workspace = true
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
 axum = { version = "0.3", features = ["ws", "headers"] }

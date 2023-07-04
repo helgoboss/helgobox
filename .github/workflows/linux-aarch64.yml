@@ -17,9 +17,15 @@ jobs:
     name: Build
     runs-on: ubuntu-22.04
     steps:
+      # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
+      - uses: webfactory/ssh-agent@v0.8.0
         with:
-          submodules: recursive
+          ssh-private-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+      - name: Update submodules
+        run: |
+          git submodule update --init
+      # Remainder
       - name: Set up dependencies
         run: |
           sudo apt-get update
@@ -30,14 +36,14 @@ jobs:
           toolchain: 1.68.2
           target: aarch64-unknown-linux-gnu
           override: true
-      - run: rustup component add rustfmt
       - name: cargo test (for generating dialogs with php)
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --all-features
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --target aarch64-unknown-linux-gnu
+          args: --all-features --target aarch64-unknown-linux-gnu

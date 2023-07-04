@@ -17,9 +17,15 @@ jobs:
     name: Build
     runs-on: macos-latest
     steps:
+      # Checkout with Playtime Clip Engine
       - uses: actions/checkout@v2
+      - uses: webfactory/ssh-agent@v0.8.0
         with:
-          submodules: recursive
+          ssh-private-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+      - name: Update submodules
+        run: |
+          git submodule update --init
+      # Remainder
       - run: brew install php
       - uses: actions-rs/toolchain@v1
         with:
@@ -27,7 +33,6 @@ jobs:
           toolchain: 1.68.2
           target: aarch64-apple-darwin
           override: true
-      - run: rustup component add rustfmt
       - name: Set SDKROOT
         run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
       - name: Set MACOSX_DEPLOYMENT_TARGET
@@ -38,4 +43,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target aarch64-apple-darwin
+          args: --all-features --target aarch64-apple-darwin

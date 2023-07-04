@@ -76,10 +76,6 @@ fn create_router(
             get(controller_routing_handler.layer(MainThreadLayer)),
         )
         .route(
-            "/realearn/session/:id/clip-matrix",
-            get(clip_matrix_handler.layer(MainThreadLayer)),
-        )
-        .route(
             "/realearn/controller/:id",
             patch(patch_controller_handler.layer(MainThreadLayer)),
         )

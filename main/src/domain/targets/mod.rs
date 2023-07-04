@@ -10,25 +10,39 @@ pub use dummy_target::*;
 mod mouse_target;
 pub use mouse_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_transport_target;
+#[cfg(feature = "playtime")]
 pub use clip_transport_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_column_target;
+#[cfg(feature = "playtime")]
 pub use clip_column_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_row_target;
+#[cfg(feature = "playtime")]
 pub use clip_row_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_matrix_target;
+#[cfg(feature = "playtime")]
 pub use clip_matrix_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_seek_target;
+#[cfg(feature = "playtime")]
 pub use clip_seek_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_volume_target;
+#[cfg(feature = "playtime")]
 pub use clip_volume_target::*;
 
+#[cfg(feature = "playtime")]
 mod clip_management_target;
+#[cfg(feature = "playtime")]
 pub use clip_management_target::*;
 
 mod track_peak_target;

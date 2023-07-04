@@ -7,10 +7,10 @@ use vst::plugin::{
 
 use super::RealearnEditor;
 use crate::domain::{
-    AudioBlockProps, BackboneState, ControlEvent, ControlEventTimestamp, ControlMainTask,
-    FeedbackRealTimeTask, InstanceId, MainProcessor, MidiEvent, NormalMainTask,
-    NormalRealTimeToMainThreadTask, ParameterMainTask, PluginParamIndex, ProcessorContext,
-    RealTimeProcessorLocker, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    BackboneState, ControlEvent, ControlEventTimestamp, ControlMainTask, FeedbackRealTimeTask,
+    InstanceId, MainProcessor, MidiEvent, NormalMainTask, NormalRealTimeToMainThreadTask,
+    ParameterMainTask, PluginParamIndex, ProcessorContext, RealTimeProcessorLocker,
+    SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -303,14 +303,19 @@ impl Plugin for RealearnPlugin {
     }
 
     fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
+        #[cfg(not(feature = "playtime"))]
+        let _ = buffer;
         assert_no_alloc(|| {
             // Get current time information so we can detect changes in play state reliably
             // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
             self.was_playing_in_last_cycle = self.is_now_playing();
-            let block_props = AudioBlockProps::from_vst(buffer, self.sample_rate);
-            self.real_time_processor
-                .lock_recover()
-                .run_from_vst(buffer, block_props, &self.host);
+            self.real_time_processor.lock_recover().run_from_vst(
+                #[cfg(feature = "playtime")]
+                buffer,
+                #[cfg(feature = "playtime")]
+                crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
+                &self.host,
+            );
         });
     }
 
@@ -418,8 +423,11 @@ impl RealearnPlugin {
                     instance_id,
                     processor_context.clone(),
                     instance_feedback_event_sender,
+                    #[cfg(feature = "playtime")]
                     App::get().clip_matrix_event_sender().clone(),
+                    #[cfg(feature = "playtime")]
                     App::get().normal_audio_hook_task_sender().clone(),
+                    #[cfg(feature = "playtime")]
                     normal_real_time_task_sender.clone(),
                 );
                 // Session (application - shared)

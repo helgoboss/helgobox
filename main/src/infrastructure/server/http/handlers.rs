@@ -1,8 +1,7 @@
 use crate::infrastructure::data::ControllerPresetData;
 use crate::infrastructure::server::data::{
-    get_clip_matrix_data, get_controller_preset_data, get_controller_routing_by_session_id,
-    patch_controller, ControllerRouting, DataError, DataErrorCategory, PatchRequest,
-    SessionResponseData, Topics,
+    get_controller_preset_data, get_controller_routing_by_session_id, patch_controller,
+    ControllerRouting, DataError, DataErrorCategory, PatchRequest, SessionResponseData, Topics,
 };
 use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
 use crate::infrastructure::server::MetricsReporter;
@@ -30,14 +29,6 @@ pub async fn session_handler(
     let session_data = crate::infrastructure::server::data::get_session_data(session_id)
         .map_err(translate_data_error)?;
     Ok(Json(session_data))
-}
-
-/// Needs to be executed in the main thread!
-pub async fn clip_matrix_handler(
-    Path(session_id): Path<String>,
-) -> Result<Json<playtime_api::persistence::Matrix>, SimpleResponse> {
-    let clip_matrix_data = get_clip_matrix_data(&session_id).map_err(translate_data_error)?;
-    Ok(Json(clip_matrix_data))
 }
 
 /// Needs to be executed in the main thread!

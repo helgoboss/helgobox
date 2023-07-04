@@ -3,10 +3,10 @@ use crate::application::{
     FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand,
 };
 use crate::domain::{
-    compartment_param_index_iter, BackboneState, ClipMatrixRef, Compartment, CompartmentParamIndex,
-    CompartmentParams, ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceId, InstanceState,
-    MappingId, MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput,
-    MidiDestination, OscDeviceId, Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
+    compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceId, InstanceState, MappingId,
+    MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination,
+    OscDeviceId, Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -17,10 +17,6 @@ use crate::infrastructure::plugin::App;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use crate::infrastructure::data::clip_legacy::{
-    create_clip_matrix_from_legacy_slots, QualifiedSlotDescriptor,
-};
-use playtime_api::persistence::Matrix;
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
@@ -193,13 +189,15 @@ pub struct SessionData {
     )]
     controller_parameters: HashMap<String, ParameterData>,
     // Legacy (ReaLearn <= 2.12.0-pre.4)
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    clip_slots: Vec<QualifiedSlotDescriptor>,
+    clip_slots: Vec<crate::infrastructure::data::clip_legacy::QualifiedSlotDescriptor>,
     // New since 2.12.0-pre.5
+    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -280,10 +278,11 @@ fn focused_fx_descriptor() -> FxDescriptor {
     FxDescriptor::Focused
 }
 
+#[cfg(feature = "playtime")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ClipMatrixRefData {
-    Own(Matrix),
+    Own(playtime_api::persistence::Matrix),
     Foreign(String),
 }
 
@@ -376,7 +375,9 @@ impl Default for SessionData {
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
             parameters: Default::default(),
             controller_parameters: Default::default(),
+            #[cfg(feature = "playtime")]
             clip_slots: vec![],
+            #[cfg(feature = "playtime")]
             clip_matrix: None,
             tags: vec![],
             controller: Default::default(),
@@ -482,13 +483,17 @@ impl SessionData {
             main_preset_auto_load_mode,
             parameters: get_parameter_data_map(plugin_params, Compartment::Main),
             controller_parameters: get_parameter_data_map(plugin_params, Compartment::Controller),
+            #[cfg(feature = "playtime")]
             clip_slots: vec![],
+            #[cfg(feature = "playtime")]
             clip_matrix: {
                 instance_state
                     .clip_matrix_ref()
                     .and_then(|matrix_ref| match matrix_ref {
-                        ClipMatrixRef::Own(m) => Some(ClipMatrixRefData::Own(m.save())),
-                        ClipMatrixRef::Foreign(instance_id) => {
+                        crate::domain::ClipMatrixRef::Own(m) => {
+                            Some(ClipMatrixRefData::Own(m.save()))
+                        }
+                        crate::domain::ClipMatrixRef::Foreign(instance_id) => {
                             let foreign_session = App::get()
                                 .find_session_by_instance_id_ignoring_borrowed_ones(*instance_id)?;
                             let foreign_id = foreign_session.borrow().id().to_owned();
@@ -764,49 +769,54 @@ impl SessionData {
         {
             let instance_state = session.instance_state().clone();
             let mut instance_state = instance_state.borrow_mut();
-            if let Some(matrix_ref) = &self.clip_matrix {
-                use ClipMatrixRefData::*;
-                match matrix_ref {
-                    Own(m) => {
-                        BackboneState::get()
-                            .get_or_insert_owned_clip_matrix_from_instance_state(
-                                &mut instance_state,
-                            )
-                            .load(m.clone())?;
-                    }
-                    Foreign(session_id) => {
-                        // Check if a session with that ID already exists.
-                        let foreign_instance_id = App::get()
-                            .find_session_by_id_ignoring_borrowed_ones(session_id)
-                            .and_then(|session| {
-                                session.try_borrow().map(|s| *s.instance_id()).ok()
-                            });
-                        if let Some(id) = foreign_instance_id {
-                            // Referenced ReaLearn instance exists already.
-                            BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
-                                &mut instance_state,
-                                id,
-                            );
-                        } else {
-                            // Referenced ReaLearn instance doesn't exist yet.
-                            session.memorize_unresolved_foreign_clip_matrix_session_id(
-                                session_id.clone(),
-                            );
+            #[cfg(feature = "playtime")]
+            {
+                use crate::domain::BackboneState;
+                if let Some(matrix_ref) = &self.clip_matrix {
+                    use ClipMatrixRefData::*;
+                    match matrix_ref {
+                        Own(m) => {
+                            BackboneState::get()
+                                .get_or_insert_owned_clip_matrix_from_instance_state(
+                                    &mut instance_state,
+                                )
+                                .load(m.clone())?;
                         }
-                    }
-                };
-            } else if !self.clip_slots.is_empty() {
-                let matrix = create_clip_matrix_from_legacy_slots(
-                    &self.clip_slots,
-                    &self.mappings,
-                    &self.controller_mappings,
-                    session.processor_context().track(),
-                )?;
-                BackboneState::get()
-                    .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                    .load(matrix)?;
-            } else {
-                BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                        Foreign(session_id) => {
+                            // Check if a session with that ID already exists.
+                            let foreign_instance_id = App::get()
+                                .find_session_by_id_ignoring_borrowed_ones(session_id)
+                                .and_then(|session| {
+                                    session.try_borrow().map(|s| *s.instance_id()).ok()
+                                });
+                            if let Some(id) = foreign_instance_id {
+                                // Referenced ReaLearn instance exists already.
+                                BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                                    &mut instance_state,
+                                    id,
+                                );
+                            } else {
+                                // Referenced ReaLearn instance doesn't exist yet.
+                                session.memorize_unresolved_foreign_clip_matrix_session_id(
+                                    session_id.clone(),
+                                );
+                            }
+                        }
+                    };
+                } else if !self.clip_slots.is_empty() {
+                    let matrix =
+                        crate::infrastructure::data::clip_legacy::create_clip_matrix_from_legacy_slots(
+                            &self.clip_slots,
+                            &self.mappings,
+                            &self.controller_mappings,
+                            session.processor_context().track(),
+                        )?;
+                    BackboneState::get()
+                        .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
+                        .load(matrix)?;
+                } else {
+                    BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                }
             }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
@@ -839,7 +849,9 @@ impl SessionData {
         }
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).
+        #[cfg(feature = "playtime")]
         App::get().with_weak_sessions(|sessions| {
+            use crate::domain::BackboneState;
             // Gather other sessions that have a foreign clip matrix ID set.
             let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
                 let other_session = other_session.upgrade()?;
