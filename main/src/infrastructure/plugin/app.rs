@@ -1852,13 +1852,13 @@ fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDes
 pub struct RealearnSnitch;
 
 impl RealearnWindowSnitch for RealearnSnitch {
-    fn focused_realearn_window(&self) -> Option<Window> {
+    fn find_closest_realearn_view(&self, window: Window) -> Option<SharedView<dyn View>> {
         let view_manager = ViewManager::get().borrow();
-        let focused_window = Window::focused();
-        let mut current_window = focused_window;
+        let mut current_window = Some(window);
         while let Some(w) = current_window {
-            if view_manager.is_our_window(w) {
-                return focused_window;
+            if let Some(v) = view_manager.get_associated_view(w) {
+                // It's one of our views!
+                return Some(v);
             }
             current_window = w.parent();
         }

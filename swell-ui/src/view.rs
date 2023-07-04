@@ -233,6 +233,10 @@ pub trait View: Debug {
         None
     }
 
+    fn get_keyboard_event_receiver(&self, focused_window: Window) -> Option<Window> {
+        Some(focused_window)
+    }
+
     // Public methods (intended to be used by consumers)
     // =================================================
 

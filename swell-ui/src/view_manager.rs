@@ -50,9 +50,11 @@ pub struct ViewManager {
 }
 
 impl ViewManager {
-    /// Returns whether the given window is one of ours.
-    pub fn is_our_window(&self, window: Window) -> bool {
-        self.view_map.contains_key(&window.raw())
+    /// If the given window is one of ours (one that drives our views) and the associated view
+    /// still exists, it returns that associated view.
+    pub fn get_associated_view(&self, window: Window) -> Option<SharedView<dyn View>> {
+        let view = self.view_map.get(&window.raw())?;
+        view.upgrade()
     }
 
     /// Returns the global window manager instance

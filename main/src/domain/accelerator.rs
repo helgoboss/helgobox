@@ -8,10 +8,12 @@ use reaper_medium::{
     AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
     TranslateAccelResult,
 };
-use swell_ui::Window;
+use swell_ui::{SharedView, View, Window};
 
 pub trait RealearnWindowSnitch {
-    fn focused_realearn_window(&self) -> Option<Window>;
+    /// Goes up the window hierarchy trying to find an associated ReaLearn view, starting with
+    /// the given window.
+    fn find_closest_realearn_view(&self, window: Window) -> Option<SharedView<dyn View>>;
 }
 
 #[derive(Debug)]
@@ -72,35 +74,43 @@ where
             // Don't process escape in special ways. We want the normal close behavior. Especially
             // important for the floating ReaLearn FX window where closing the main panel would not
             // close the surrounding floating window.
-            TranslateAccelResult::NotOurWindow
-        } else if let Some(w) = self.snitch.focused_realearn_window() {
-            // A ReaLearn window is focused. We want to get almost all keyboard input! We don't want
-            // REAPER to execute actions or the system to execute menu commands. This is achieved
-            // in different ways depending on the OS.
-            #[cfg(target_os = "macos")]
-            {
-                // On macOS, we must explicitly send the message to the focused view. If we
-                // let the system take care of it (e.g. via NotOurWindow, PassOnToWindow or
-                // ProcessEventRaw), REAPER's main menu shortcuts have priority, which we don't
-                // want! Especially important for egui text edit because Cmd+C and Cmd+X would not
-                // work in there.
-                if w.process_current_app_event_if_no_text_field() {
-                    TranslateAccelResult::Eat
-                } else {
-                    // However, if the focused view is a text field, this would break copy & paste
-                    // in that text field ;) So in this special case, we need the system to do its
-                    // job.
-                    TranslateAccelResult::NotOurWindow
-                }
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                w.process_raw_message(msg.raw());
+            return TranslateAccelResult::NotOurWindow;
+        }
+        let Some(focused_window) = Window::focused() else {
+            // No window focused
+            return TranslateAccelResult::NotOurWindow;
+        };
+        let Some(view) = self.snitch.find_closest_realearn_view(focused_window) else {
+            // Not our window which is focused. Act normally.
+            return TranslateAccelResult::NotOurWindow;
+        };
+        let Some(w) = view.get_keyboard_event_receiver(focused_window) else {
+            // No window is interested.
+            return TranslateAccelResult::Eat;
+        };
+        // A ReaLearn window is focused. We want to get almost all keyboard input! We don't want
+        // REAPER to execute actions or the system to execute menu commands. This is achieved
+        // in different ways depending on the OS.
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, we must explicitly send the message to the focused view. If we
+            // let the system take care of it (e.g. via NotOurWindow, PassOnToWindow or
+            // ProcessEventRaw), REAPER's main menu shortcuts have priority, which we don't
+            // want! Especially important for egui text edit because Cmd+C and Cmd+X would not
+            // work in there.
+            if w.process_current_app_event_if_no_text_field() {
                 TranslateAccelResult::Eat
+            } else {
+                // However, if the focused view is a text field, this would break copy & paste
+                // in that text field ;) So in this special case, we need the system to do its
+                // job.
+                TranslateAccelResult::NotOurWindow
             }
-        } else {
-            // A non-ReaLearn window is focused. Act normally.
-            TranslateAccelResult::NotOurWindow
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            w.process_raw_message(msg.raw());
+            TranslateAccelResult::Eat
         }
     }
 }
