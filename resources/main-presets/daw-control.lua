@@ -1222,6 +1222,9 @@ for ch = 0, channel_count - 1 do
         glue = {
             feedback = {
                 kind = "Text",
+                color = {
+                    prop = "target.track.color",
+                },
                 text_expression = "{{ target.track.name }}",
             },
         },

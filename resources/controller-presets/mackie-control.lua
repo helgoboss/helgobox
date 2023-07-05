@@ -1,5 +1,8 @@
 local channel_count = 8;
 
+-- Replace with "XTouchMackieLcd" in order to be able to benefit from colors when using X-Touch.
+local lcd_kind = "MackieLcd";
+
 local binary_eight = {
     [0] = "000",
     [1] = "001",
@@ -737,7 +740,7 @@ for ch = 0, channel_count - 1 do
         group = "lcd",
         control_enabled = false,
         source = {
-            kind = "MackieLcd",
+            kind = lcd_kind,
             channel = ch,
             line = 0,
         },
@@ -751,7 +754,7 @@ for ch = 0, channel_count - 1 do
         group = "lcd",
         control_enabled = false,
         source = {
-            kind = "MackieLcd",
+            kind = lcd_kind,
             channel = ch,
             line = 1,
         },
