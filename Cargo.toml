@@ -6,6 +6,7 @@ members = [
     "playtime-clip-engine",
     "playtime-api",
     "pot",
+    "pot-browser",
     "csi",
     "main",
     "rx-util",
@@ -19,6 +20,7 @@ members = [
 # Own
 base = { path = "base" }
 pot = { path = "pot" }
+pot-browser = { path = "pot-browser" }
 reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
@@ -79,6 +81,10 @@ chrono = "0.4.11"
 dirs = "5.0.1"
 libloading = "0.8"
 tokio-stream = { version = "0.1.8", features = ["sync"] }
+egui = "0.21.0"
+egui_extras = "0.21.0"
+egui-toast = "0.6.0"
+bytesize = "1.0.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

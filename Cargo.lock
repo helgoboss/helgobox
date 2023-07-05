@@ -3748,6 +3748,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pot-browser"
+version = "0.1.0"
+dependencies = [
+ "base",
+ "bytesize",
+ "chrono",
+ "crossbeam-channel",
+ "dirs",
+ "egui",
+ "egui-toast",
+ "egui_extras",
+ "lru",
+ "opener",
+ "pot",
+ "pulldown-cmark",
+ "realearn-api",
+ "reaper-high",
+ "reaper-medium",
+ "rfd",
+ "strum",
+ "swell-ui",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4196,12 +4220,10 @@ dependencies = [
  "crossbeam-channel",
  "derivative",
  "derive_more",
- "dirs",
  "dns-lookup",
  "edit",
  "egui",
  "egui-baseview",
- "egui-toast",
  "egui_extras",
  "either",
  "embed-resource",
@@ -4221,7 +4243,6 @@ dependencies = [
  "itertools",
  "lazycell",
  "libloading 0.8.0",
- "lru",
  "maplit",
  "metrics",
  "metrics-exporter-prometheus",
@@ -4231,13 +4252,12 @@ dependencies = [
  "num_enum 0.5.4",
  "once_cell",
  "open",
- "opener",
  "percent-encoding",
  "playtime-api",
  "playtime-clip-engine",
  "pot",
+ "pot-browser",
  "prost",
- "pulldown-cmark",
  "qrcode",
  "raw-window-handle 0.4.3",
  "rcgen",
@@ -4249,7 +4269,6 @@ dependencies = [
  "reaper-medium",
  "reaper-rx",
  "regex",
- "rfd",
  "rosc",
  "runas",
  "rx-util",

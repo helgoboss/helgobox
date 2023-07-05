@@ -1,0 +1,31 @@
+[package]
+name = "pot-browser"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2021"
+publish = false
+
+[dependencies]
+# Own
+pot.workspace = true
+reaper-high.workspace = true
+reaper-medium.workspace = true
+base.workspace = true
+realearn-api.workspace = true
+
+# 3rd-party
+egui.workspace = true
+egui_extras.workspace = true
+egui-toast.workspace = true
+chrono.workspace = true
+lru = "0.10.0"
+pulldown-cmark = "0.9.2"
+rfd = "0.11.3"
+dirs = "5.0.1"
+crossbeam-channel.workspace = true
+strum.workspace = true
+swell-ui.workspace = true
+bytesize.workspace = true
+
+[target.'cfg(any(all(target_os = "windows", target_arch = "x86_64"), target_os = "macos"))'.dependencies]
+opener = { version = "0.6.1", features = ["reveal"] }

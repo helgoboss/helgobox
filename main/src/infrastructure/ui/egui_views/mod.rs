@@ -3,7 +3,6 @@ use reaper_low::firewall;
 use swell_ui::{SwellWindow, Window};
 
 pub mod advanced_script_editor;
-pub mod pot_browser_panel;
 pub mod target_filter_panel;
 
 pub fn open<S: Send + 'static>(

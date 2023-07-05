@@ -9,8 +9,14 @@ rust-version = "1.68.2"
 publish = false
 
 [features]
-default = []
+default = ["egui"]
+
+# Builds ReaLearn together with the Playtime Clip Engine. This must only be enabled if you have access to the
+# private playtime-clip-engine repository, otherwise the build will fail.
 playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
+
+# Enables a bunch of features that need egui to work.
+egui = ["dep:baseview", "dep:egui-baseview", "dep:egui", "dep:egui_extras", "pot-browser"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
@@ -119,7 +125,7 @@ semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
 async-channel = "1.5.1"
 # For displaying snapshot sizes
-bytesize = "1.0.1"
+bytesize.workspace = true
 # For OSC
 rosc = "0.5.1"
 # For letting the user edit advanced mapping settings
@@ -165,28 +171,19 @@ either.workspace = true
 # For reading preset directories recursively
 walkdir.workspace = true
 # For egui graphics
-egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn" }
-baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn" }
-egui = "0.21.0"
-egui_extras = "0.21.0"
-egui-toast = "0.6.0"
-# For Pot target
-lru = "0.10.0"
-# For Pot target
-pulldown-cmark = "0.9.2"
-# For interfacing with egui
+egui-baseview = { git = "https://github.com/helgoboss/egui-baseview.git", branch = "realearn", optional = true }
+baseview = { git = "https://github.com/helgoboss/baseview.git", branch = "realearn", optional = true }
+egui = { workspace = true, optional = true }
+egui_extras = { workspace = true, optional = true }
 raw-window-handle.workspace = true
-rfd = "0.11.3"
-dirs = "5.0.1"
+# Pot Browser
+pot-browser = { workspace = true, optional = true }
 # For loading Playtime App
 libloading.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
 tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
-
-[target.'cfg(any(all(target_os = "windows", target_arch = "x86_64"), target_os = "macos"))'.dependencies]
-opener = { version = "0.6.1", features = ["reveal"] }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

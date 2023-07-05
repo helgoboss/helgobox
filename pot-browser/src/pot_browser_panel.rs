@@ -1,6 +1,3 @@
-use crate::application::get_track_label;
-use crate::domain::{AnyThreadBackboneState, BackboneState};
-use crate::infrastructure::plugin::App;
 use base::enigo::EnigoMouse;
 use base::{
     blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
@@ -32,12 +29,12 @@ use pot::{
     CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPresetKind, Filters,
     LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
     MacroParam, MainThreadDispatcher, MainThreadSpawner, OptFilter, PersistentDatabaseId,
-    PotFxParamId, PotWorkerDispatcher, PotWorkerSpawner, Preset, PresetKind, PresetWithId,
-    RuntimePotUnit, SearchField, SharedRuntimePotUnit, WorkerDispatcher,
+    PotFavorites, PotFilterExcludes, PotFxParamId, PotWorkerDispatcher, PotWorkerSpawner, Preset,
+    PresetKind, PresetWithId, RuntimePotUnit, SearchField, SharedRuntimePotUnit, WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::{Fx, FxParameter, Reaper, Volume};
+use reaper_high::{Fx, FxParameter, Reaper, Track, Volume};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
@@ -49,6 +46,14 @@ use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use strum::IntoEnumIterator;
 use swell_ui::Window;
+
+pub trait PotBrowserIntegration {
+    fn get_track_label(&self, track: &Track) -> String;
+    fn pot_preview_template_path(&self) -> Option<&'static Path>;
+    fn pot_favorites(&self) -> &'static RwLock<PotFavorites>;
+    fn with_current_fx_preset(&self, fx: &Fx, f: impl FnOnce(Option<&pot::CurrentPreset>));
+    fn with_pot_filter_exclude_list(&self, f: impl FnOnce(&PotFilterExcludes));
+}
 
 #[derive(Debug)]
 pub struct State {
@@ -294,12 +299,12 @@ struct PresetData {
     preview_file: Option<PathBuf>,
 }
 
-pub fn run_ui(ctx: &Context, state: &mut State) {
+pub fn run_ui<I: PotBrowserIntegration>(ctx: &Context, state: &mut State, integration: &I) {
     match state.page {
         Page::Warning => {
             run_warning_ui(ctx, state);
         }
-        Page::Main => run_main_ui(ctx, &mut state.main_state),
+        Page::Main => run_main_ui(ctx, &mut state.main_state, integration),
     }
 }
 
@@ -350,7 +355,11 @@ const PRESET_CRAWLER_TITLE: &str = "Preset Crawler";
 const PREVIEW_RECORDER_TITLE: &str = "Preview Recorder";
 const PRESET_CRAWLER_COUNTDOWN_DURATION: Duration = Duration::from_secs(10);
 
-fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
+fn run_main_ui<I: PotBrowserIntegration>(
+    ctx: &Context,
+    state: &mut TopLevelMainState,
+    integration: &I,
+) {
     // Poll background task results
     state.pot_worker_dispatcher.poll(&mut state.main_state);
     state.main_thread_dispatcher.poll(&mut state.main_state);
@@ -393,6 +402,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
             change_dialog: &mut change_dialog,
             pot_worker_dispatcher: &mut state.pot_worker_dispatcher,
             main_thread_dispatcher: &mut state.main_thread_dispatcher,
+            integration,
         };
         process_dialogs(input, ctx);
     }
@@ -419,21 +429,22 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
     let panel_frame = Frame::central_panel(&ctx.style());
     // Upper panel (currently loaded preset with macro controls)
     if let Some(fx) = &current_fx {
-        let target_state = BackboneState::target_state().borrow();
-        if let Some(current_preset) = target_state.current_fx_preset(fx) {
-            // Macro params
-            TopBottomPanel::top("top-bottom-panel")
-                .frame(panel_frame)
-                .min_height(50.0)
-                .show(ctx, |ui| {
-                    show_current_preset_panel(
-                        &mut state.main_state.bank_index,
-                        fx,
-                        current_preset,
-                        ui,
-                    );
-                });
-        }
+        integration.with_current_fx_preset(fx, |current_preset| {
+            if let Some(current_preset) = current_preset {
+                // Macro params
+                TopBottomPanel::top("top-bottom-panel")
+                    .frame(panel_frame)
+                    .min_height(50.0)
+                    .show(ctx, |ui| {
+                        show_current_preset_panel(
+                            &mut state.main_state.bank_index,
+                            fx,
+                            current_preset,
+                            ui,
+                        );
+                    });
+            }
+        });
     }
     // Main panel
     CentralPanel::default()
@@ -511,7 +522,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                     });
                     // Filter panels
                     add_filter_panels(&state.main_state.pot_unit, pot_unit, state.main_state.auto_hide_sub_filters, ui,
-                                      &state.main_state.last_filters, &mut state.main_state.dialog);
+                                      &state.main_state.last_filters, &mut state.main_state.dialog, integration);
                 });
             // Right pane
             CentralPanel::default()
@@ -616,7 +627,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                                         return;
                                     };
                                     // Favorite button
-                                    let favorites = &AnyThreadBackboneState::get().pot_favorites;
+                                    let favorites = integration.pot_favorites();
                                     let toggle = if let Ok(favorites) = favorites.try_read() {
                                         let mut is_favorite = favorites.is_favorite(preset_id);
                                         let icon = if is_favorite { "★" } else { "☆" };
@@ -688,7 +699,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
                             75.0,
                             // Left side of destination info
                             |ui, pot_unit| {
-                                add_destination_info_panel(ui, pot_unit);
+                                add_destination_info_panel(ui, pot_unit, integration);
                             },
                             // Right side of destination info
                             |ui, _| {
@@ -735,7 +746,7 @@ fn run_main_ui(ctx: &Context, state: &mut TopLevelMainState) {
     state.main_state.last_filters = *pot_unit.filters();
 }
 
-struct ProcessDialogsInput<'a> {
+struct ProcessDialogsInput<'a, I: PotBrowserIntegration> {
     shared_pot_unit: &'a SharedRuntimePotUnit,
     pot_unit: &'a mut RuntimePotUnit,
     dialog: &'a mut Dialog,
@@ -744,9 +755,10 @@ struct ProcessDialogsInput<'a> {
     change_dialog: &'a mut Option<Option<Dialog>>,
     pot_worker_dispatcher: &'a mut CustomPotWorkerDispatcher,
     main_thread_dispatcher: &'a mut CustomMainThreadDispatcher,
+    integration: &'a I,
 }
 
-fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
+fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx: &Context) {
     match input.dialog {
         Dialog::GeneralError { title, msg } => show_dialog(
             ctx,
@@ -1202,6 +1214,11 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
+                    let Some(preview_rpp) = input.integration
+                        .pot_preview_template_path().map(|p| p.to_path_buf()) else {
+                        **change_dialog = Some(Some(Dialog::general_error(PREVIEW_RECORDER_TITLE, "Pot preview template doesn't exist")));
+                        return;
+                    };
                     let presets = mem::take(*presets);
                     let state = PreviewRecorderState::new(presets);
                     let state = Arc::new(RwLock::new(state));
@@ -1210,9 +1227,12 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
                     let shared_pot_unit = input.shared_pot_unit.clone();
                     main_thread_dispatcher.do_in_background_and_then(
                         async move {
-                            record_previews_with_default_template(shared_pot_unit, state).await
+                            record_previews(shared_pot_unit, state, &preview_rpp)
+                                .await
+                                .map_err(|e| e.to_string())?;
+                            Ok(())
                         },
-                        |context, _| {
+                        |context, _: Result<(), String>| {
                             let cloned_pot_unit = context.pot_unit.clone();
                             let mut pot_unit = blocking_lock(
                                 &*context.pot_unit,
@@ -1259,18 +1279,6 @@ fn process_dialogs(input: ProcessDialogsInput, ctx: &Context) {
             },
         ),
     }
-}
-
-async fn record_previews_with_default_template(
-    shared_pot_unit: SharedRuntimePotUnit,
-    state: SharedPreviewRecorderState,
-) -> Result<(), String> {
-    let preview_rpp =
-        App::realearn_pot_preview_template_path().ok_or("pot preview template doesn't exist")?;
-    record_previews(shared_pot_unit, state, preview_rpp)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 fn add_crawl_presets_stopped_dialog_contents(
@@ -1719,7 +1727,11 @@ fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, u
     });
 }
 
-fn add_destination_info_panel(ui: &mut Ui, pot_unit: &mut RuntimePotUnit) {
+fn add_destination_info_panel<I: PotBrowserIntegration>(
+    ui: &mut Ui,
+    pot_unit: &mut RuntimePotUnit,
+    integration: &I,
+) {
     // Track descriptor
     let current_project = Reaper::get().current_project();
     {
@@ -1748,7 +1760,7 @@ fn add_destination_info_panel(ui: &mut Ui, pot_unit: &mut RuntimePotUnit) {
                     if let Some(track) =
                         current_project.track_by_index(code as u32 - SPECIAL_TRACK_COUNT as u32)
                     {
-                        get_track_label(&track)
+                        integration.get_track_label(&track)
                     } else {
                         "<New track>".to_string()
                     }
@@ -1773,7 +1785,7 @@ fn add_destination_info_panel(ui: &mut Ui, pot_unit: &mut RuntimePotUnit) {
         ui.label("=");
         let caption = match resolved_track.as_ref() {
             Ok(t) => {
-                format!("\"{}\"", get_track_label(t))
+                format!("\"{}\"", integration.get_track_label(t))
             }
             Err(_) => "None (add new)".to_string(),
         };
@@ -1939,13 +1951,14 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
     });
 }
 
-fn add_filter_panels(
+fn add_filter_panels<I: PotBrowserIntegration>(
     shared_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
     auto_hide_sub_filters: bool,
     ui: &mut Ui,
     last_filters: &Filters,
     dialog: &mut Option<Dialog>,
+    integration: &I,
 ) {
     let heading_height = ui.text_style_height(&TextStyle::Heading);
     // Database
@@ -1985,6 +1998,7 @@ fn add_filter_panels(
         ui,
         true,
         last_filters.get(PotFilterKind::Database),
+        integration,
     );
     // Product type
     ui.separator();
@@ -1996,6 +2010,7 @@ fn add_filter_panels(
         ui,
         false,
         None,
+        integration,
     );
     // Add dependent filter views
     ui.separator();
@@ -2057,6 +2072,7 @@ fn add_filter_panels(
                 needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Project),
+                integration,
             );
         }
         if show_banks {
@@ -2069,6 +2085,7 @@ fn add_filter_panels(
                 needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Bank),
+                integration,
             );
         }
         if show_sub_banks {
@@ -2081,6 +2098,7 @@ fn add_filter_panels(
                 needs_separator(),
                 true,
                 last_filters.get(PotFilterKind::SubBank),
+                integration,
             );
         }
         if show_categories {
@@ -2093,6 +2111,7 @@ fn add_filter_panels(
                 needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Category),
+                integration,
             );
         }
         if show_sub_categories {
@@ -2105,6 +2124,7 @@ fn add_filter_panels(
                 needs_separator(),
                 true,
                 last_filters.get(PotFilterKind::SubCategory),
+                integration,
             );
         }
         if show_modes {
@@ -2117,6 +2137,7 @@ fn add_filter_panels(
                 needs_separator(),
                 false,
                 last_filters.get(PotFilterKind::Mode),
+                integration,
             );
         }
     }
@@ -2546,7 +2567,7 @@ impl PresetCache {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn add_filter_view(
+fn add_filter_view<I: PotBrowserIntegration>(
     ui: &mut Ui,
     max_height: f32,
     shared_pot_unit: &SharedRuntimePotUnit,
@@ -2555,6 +2576,7 @@ fn add_filter_view(
     add_separator: bool,
     indent: bool,
     last_filter: OptFilter,
+    integration: &I,
 ) {
     let separator_height = if add_separator {
         if indent {
@@ -2592,7 +2614,15 @@ fn add_filter_view(
             .max_height(max_height - heading_height - separator_height)
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                add_filter_view_content(shared_pot_unit, pot_unit, kind, ui, true, last_filter);
+                add_filter_view_content(
+                    shared_pot_unit,
+                    pot_unit,
+                    kind,
+                    ui,
+                    true,
+                    last_filter,
+                    integration,
+                );
             });
         // });
     };
@@ -2609,13 +2639,14 @@ fn add_filter_view(
     }
 }
 
-fn add_filter_view_content(
+fn add_filter_view_content<I: PotBrowserIntegration>(
     shared_pot_unit: &SharedRuntimePotUnit,
     pot_unit: &mut RuntimePotUnit,
     kind: PotFilterKind,
     ui: &mut Ui,
     wrapped: bool,
     last_filter: OptFilter,
+    integration: &I,
 ) {
     enum UiAction {
         InOrExcludeFilter(PotFilterKind, FilterItemId, bool),
@@ -2624,60 +2655,64 @@ fn add_filter_view_content(
     let old_filter_item_id = pot_unit.get_filter(kind);
     let mut new_filter_item_id = old_filter_item_id;
     let render = |ui: &mut Ui| {
-        let exclude_list = BackboneState::get().pot_filter_exclude_list();
-        ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
-        for filter_item in pot_unit.filter_item_collections.get(kind) {
-            let mut text = RichText::new(filter_item.effective_leaf_name());
-            if exclude_list.contains(kind, filter_item.id) {
-                text = text.weak();
-            };
-            let mut resp = ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
-            // Scroll to current if wrapped and changed from outside
-            if wrapped {
-                let is_currently_selected_item = || new_filter_item_id == Some(filter_item.id);
-                let changed_from_outside = || {
-                    old_filter_item_id == new_filter_item_id && Some(filter_item.id) != last_filter
+        integration.with_pot_filter_exclude_list(|exclude_list| {
+            ui.selectable_value(&mut new_filter_item_id, None, "<Any>");
+            for filter_item in pot_unit.filter_item_collections.get(kind) {
+                let mut text = RichText::new(filter_item.effective_leaf_name());
+                if exclude_list.contains(kind, filter_item.id) {
+                    text = text.weak();
                 };
-                if is_currently_selected_item() && changed_from_outside() {
-                    resp.scroll_to_me(None);
-                }
-            }
-            // Hover text
-            if let Some(more_info) = filter_item.more_info.as_ref() {
-                resp = resp.on_hover_text(more_info);
-            } else if let Some(parent_kind) = kind.parent() {
-                if let Some(parent_name) = filter_item.parent_name.as_ref() {
-                    if !parent_name.is_empty() {
-                        resp = resp.on_hover_ui(|ui| {
-                            let tooltip = match &filter_item.name {
-                                None => {
-                                    format!(
-                                        "{parent_name} (directly associated with {parent_kind})"
-                                    )
-                                }
-                                Some(n) => format!("{parent_name} / {n}"),
-                            };
-                            ui.label(tooltip);
-                        });
-                    }
-                }
-            }
-            // Context menu
-            if kind.allows_excludes() {
-                resp.context_menu(|ui| {
-                    let is_excluded = exclude_list.contains(kind, filter_item.id);
-                    let (text, include) = if is_excluded {
-                        ("Include again (globally)", true)
-                    } else {
-                        ("Exclude (globally)", false)
+                let mut resp =
+                    ui.selectable_value(&mut new_filter_item_id, Some(filter_item.id), text);
+                // Scroll to current if wrapped and changed from outside
+                if wrapped {
+                    let is_currently_selected_item = || new_filter_item_id == Some(filter_item.id);
+                    let changed_from_outside = || {
+                        old_filter_item_id == new_filter_item_id
+                            && Some(filter_item.id) != last_filter
                     };
-                    if ui.button(text).clicked() {
-                        action = Some(UiAction::InOrExcludeFilter(kind, filter_item.id, include));
-                        ui.close_menu();
+                    if is_currently_selected_item() && changed_from_outside() {
+                        resp.scroll_to_me(None);
                     }
-                });
+                }
+                // Hover text
+                if let Some(more_info) = filter_item.more_info.as_ref() {
+                    resp = resp.on_hover_text(more_info);
+                } else if let Some(parent_kind) = kind.parent() {
+                    if let Some(parent_name) = filter_item.parent_name.as_ref() {
+                        if !parent_name.is_empty() {
+                            resp = resp.on_hover_ui(|ui| {
+                                let tooltip = match &filter_item.name {
+                                    None => {
+                                        format!(
+                                            "{parent_name} (directly associated with {parent_kind})"
+                                        )
+                                    }
+                                    Some(n) => format!("{parent_name} / {n}"),
+                                };
+                                ui.label(tooltip);
+                            });
+                        }
+                    }
+                }
+                // Context menu
+                if kind.allows_excludes() {
+                    resp.context_menu(|ui| {
+                        let is_excluded = exclude_list.contains(kind, filter_item.id);
+                        let (text, include) = if is_excluded {
+                            ("Include again (globally)", true)
+                        } else {
+                            ("Exclude (globally)", false)
+                        };
+                        if ui.button(text).clicked() {
+                            action =
+                                Some(UiAction::InOrExcludeFilter(kind, filter_item.id, include));
+                            ui.close_menu();
+                        }
+                    });
+                }
             }
-        }
+        });
     };
     if wrapped {
         ui.horizontal_wrapped(render);
