@@ -20,6 +20,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             use-cross: false
             profile: release
+            features: "playtime,egui"
           - artifact: windows-i686
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
@@ -27,6 +28,7 @@ jobs:
             target: i686-pc-windows-msvc
             use-cross: false
             profile: release-llvm-out-of-memory-fix
+            features: "playtime,egui"
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
@@ -34,6 +36,7 @@ jobs:
             target: x86_64-apple-darwin
             use-cross: false
             profile: release
+            features: "playtime,egui"
           - artifact: macos-aarch64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
@@ -41,6 +44,7 @@ jobs:
             target: aarch64-apple-darwin
             use-cross: false
             profile: release
+            features: "playtime,egui"
           - artifact: linux-x86_64
             os: ubuntu-20.04
             toolchain-suffix: x86_64-unknown-linux-gnu
@@ -49,6 +53,7 @@ jobs:
             use-cross: false
             strip-cmd: strip
             profile: release
+            features: ""
 #          - artifact: linux-aarch64
 #            os: ubuntu-22.04
 #            toolchain-suffix: x86_64-unknown-linux-gnu
@@ -57,6 +62,7 @@ jobs:
 #            use-cross: true
 #            strip-cmd: aarch64-linux-gnu-strip
 #            profile: release
+#            features: ""
 #          - artifact: linux-armv7
 #            os: ubuntu-22.04
 #            toolchain-suffix: x86_64-unknown-linux-gnu
@@ -65,6 +71,7 @@ jobs:
 #            use-cross: true
 #            strip-cmd: arm-linux-gnueabihf-strip
 #            profile: release
+#            features: ""
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only (and only if not overridden).
     steps:
@@ -106,13 +113,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features playtime,egui
+          args: --features "${{ matrix.features }}"
       # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --features playtime,egui --profile ${{ matrix.profile }} --target ${{ matrix.target }}
+          args: --features "${{ matrix.features }}" --profile ${{ matrix.profile }} --target ${{ matrix.target }}
           use-cross: ${{ matrix.use-cross }}
       # Strip debug symbols (Linux and macOS)
       # TODO-medium We could replace this with Cargo's recent built-in strip function
