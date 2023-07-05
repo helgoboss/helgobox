@@ -1970,7 +1970,7 @@ fn add_filter_panels<I: PotBrowserIntegration>(
                 ui.close_menu();
                 let folder = {
                     // On macOS, the blocking file dialog works nicely.
-                    #[cfg(target_family = "unix")]
+                    #[cfg(target_os = "macos")]
                     {
                         rfd::FileDialog::new().pick_folder()
                     }
@@ -1978,7 +1978,9 @@ fn add_filter_panels<I: PotBrowserIntegration>(
                     // with reentrancy in baseview. Tried async dialog as well with main thread
                     // dispatcher but that closes Pot Browser after choosing file. So we fall back to
                     // manual entry of project path.
-                    #[cfg(target_family = "windows")]
+                    // On some Linux distributions (especially those used in cross 2.5) we don't
+                    // have an up-to-date glib but rfd uses glib-sys and this one needs a new glib.
+                    #[cfg(any(target_os = "windows", target_os = "linux"))]
                     {
                         Some(dirs::document_dir().unwrap_or_else(|| Reaper::get().resource_path()))
                     }
