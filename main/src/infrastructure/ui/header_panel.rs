@@ -50,7 +50,7 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, AppPanel, DataObject, GroupFilter, GroupPanel,
-    IndependentPanelManager, MappingRowsPanel, PlainTextEngine, PotBrowserPanel, ScriptEditorInput,
+    IndependentPanelManager, MappingRowsPanel, PlainTextEngine, ScriptEditorInput,
     SearchExpression, SerializationFormat, SharedIndependentPanelManager, SharedMainState,
     SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
 };
@@ -2250,16 +2250,24 @@ impl HeaderPanel {
     }
 
     pub fn show_pot_browser(&self) {
-        let result = self.show_pot_browser_internal();
-        // Important to not use the header window to show the error because the pot browser
-        // might be opened without any ReaLearn window being open!
-        notification::notify_user_on_error(result);
+        #[cfg(not(feature = "egui"))]
+        {
+            crate::infrastructure::ui::util::alert_feature_not_available();
+        }
+        #[cfg(feature = "egui")]
+        {
+            let result = self.show_pot_browser_internal();
+            // Important to not use the header window to show the error because the pot browser
+            // might be opened without any ReaLearn window being open!
+            notification::notify_user_on_error(result);
+        }
     }
 
+    #[cfg(feature = "egui")]
     fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
         let session = self.session();
         let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
-        let panel = PotBrowserPanel::new(pot_unit);
+        let panel = crate::infrastructure::ui::PotBrowserPanel::new(pot_unit);
         open_child_panel_dyn(
             &self.pot_browser_panel,
             panel,

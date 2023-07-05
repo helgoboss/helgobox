@@ -784,6 +784,7 @@ impl App {
         PATH.as_ref().map(|p| p.as_path())
     }
 
+    #[cfg(feature = "egui")]
     pub fn realearn_pot_preview_template_path() -> Option<&'static Path> {
         static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
             let bytes = include_bytes!(

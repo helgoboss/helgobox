@@ -92,7 +92,7 @@ git submodule update --init
 +
 [source,shell]
 ----
-cargo build
+cargo build --features egui
 ----
 
 === Linux
@@ -127,7 +127,7 @@ mv playtime-clip-engine-placeholder playtime-clip-engine
 git submodule update --init
 
 # Build (after that you should have a "librealearn.so" in "target/debug")
-cargo build
+cargo build --features egui
 
 ----
 
@@ -178,7 +178,7 @@ git submodule update --init
 brew install php
 
 # Build ReaLearn
-cargo build
+cargo build --features egui
 ----
 
 === All operating systems
@@ -308,7 +308,7 @@ This serves mainly as checklist for ReaLearn's author.
 . Bump up the version number in link:main/Cargo.toml[main/Cargo.toml].
 ** Either to a prerelease (e.g. `2.0.0-pre1`) or a final release (e.g. `2.0.0`).
 ** This is important for having the correct version number displayed in ReaLearn UI.
-. Build at least once via `cargo build`.
+. Build at least once via `cargo build --features playtime,egui`.
 ** This updates `Cargo.lock` and is important for not having the `-dirty` display in ReaLearn UI.
 . Update the user guide if not done already.
 . Create a version tag via `git tag v2.0.0-pre1`.

@@ -318,3 +318,17 @@ pub fn close_child_panel_if_open(panel: &RefCell<Option<SharedView<impl View + ?
         existing_panel.close();
     }
 }
+
+#[allow(dead_code)]
+pub fn alert_feature_not_available() {
+    // Made some progress with egui on Linux, but it's wonky. Flickering. Keyboard input
+    // needs window to be refocused to work at all. And the worst: baseview makes the
+    // window code run in a new thread. On macOS and Windows, the run_ui code all runs
+    // in the main thread. Which is very convenient because it allows us to call REAPER
+    // functions. I think we need to bypass baseview on Linux and write our own little
+    // egui integration.
+    crate::base::notification::alert(
+        "This feature is not available in this installation of ReaLearn, most likely because it's \
+        not yet supported on this operating system.",
+    );
+}

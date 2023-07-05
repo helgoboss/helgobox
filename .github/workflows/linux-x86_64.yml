@@ -39,7 +39,6 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --features playtime
 
   test:
     name: Test
@@ -67,12 +66,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --features playtime
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features playtime -- --nocapture
+          args: -- --nocapture
 
   fmt:
     name: Rustfmt

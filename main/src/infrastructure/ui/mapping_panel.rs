@@ -67,18 +67,15 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::egui_views::target_filter_panel;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
     parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    menus, AdvancedScriptEditorPanel, EelControlTransformationEngine,
-    EelFeedbackTransformationEngine, EelMidiScriptEngine, ItemProp, LuaFeedbackScriptEngine,
-    LuaMidiScriptEngine, MainPanel, MappingHeaderPanel, MappingRowsPanel,
-    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
-    SimpleScriptEditorPanel, TargetFilterPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
-    CONTROL_TRANSFORMATION_TEMPLATES,
+    menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
+    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
+    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
+    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
 };
 use base::Global;
 
@@ -662,32 +659,40 @@ impl MappingPanel {
     }
 
     fn open_learnable_targets_picker(self: SharedView<Self>, mapping: SharedMapping) {
-        let value = {
-            let mapping = mapping.borrow();
-            target_filter_panel::Value {
-                included_targets: mapping.target_model.included_targets().clone(),
-                touch_cause: mapping.target_model.touch_cause(),
-            }
-        };
-        let session = self.session.clone();
-        let panel = TargetFilterPanel::new(value, move |value| {
-            let mut mapping = mapping.borrow_mut();
-            Session::change_mapping_from_ui_simple(
-                session.clone(),
-                &mut mapping,
-                MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
-                    value.included_targets,
-                )),
-                None,
-            );
-            Session::change_mapping_from_ui_simple(
-                session.clone(),
-                &mut mapping,
-                MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
-                None,
-            );
-        });
-        self.open_extra_panel(panel);
+        #[cfg(not(feature = "egui"))]
+        {
+            let _ = mapping;
+            crate::infrastructure::ui::util::alert_feature_not_available();
+        }
+        #[cfg(feature = "egui")]
+        {
+            let value = {
+                let mapping = mapping.borrow();
+                crate::infrastructure::ui::egui_views::target_filter_panel::Value {
+                    included_targets: mapping.target_model.included_targets().clone(),
+                    touch_cause: mapping.target_model.touch_cause(),
+                }
+            };
+            let session = self.session.clone();
+            let panel = crate::infrastructure::ui::TargetFilterPanel::new(value, move |value| {
+                let mut mapping = mapping.borrow_mut();
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    &mut mapping,
+                    MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
+                        value.included_targets,
+                    )),
+                    None,
+                );
+                Session::change_mapping_from_ui_simple(
+                    session.clone(),
+                    &mut mapping,
+                    MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
+                    None,
+                );
+            });
+            self.open_extra_panel(panel);
+        }
     }
 
     #[allow(clippy::single_match)]
@@ -1069,9 +1074,9 @@ impl MappingPanel {
                 None,
             );
         };
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        #[cfg(feature = "egui")]
         self.edit_script_in_advanced_editor(engine, help_url, get_value, set_value);
-        #[cfg(target_os = "linux")]
+        #[cfg(not(feature = "egui"))]
         self.edit_script_in_simple_editor(engine, help_url, get_value, set_value);
     }
 
@@ -1188,7 +1193,7 @@ impl MappingPanel {
         self.open_extra_panel(editor);
     }
 
-    #[allow(dead_code)]
+    #[cfg(feature = "egui")]
     fn edit_script_in_advanced_editor(
         &self,
         engine: Box<dyn ScriptEngine>,
@@ -1211,7 +1216,10 @@ impl MappingPanel {
                 apply(&mut m.borrow_mut(), edited_script);
             },
         };
-        let editor = AdvancedScriptEditorPanel::new(input, CONTROL_TRANSFORMATION_TEMPLATES);
+        let editor = crate::infrastructure::ui::AdvancedScriptEditorPanel::new(
+            input,
+            crate::infrastructure::ui::CONTROL_TRANSFORMATION_TEMPLATES,
+        );
         self.open_extra_panel(editor);
     }
 

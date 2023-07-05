@@ -9,13 +9,13 @@ rust-version = "1.68.2"
 publish = false
 
 [features]
-default = ["egui"]
+default = []
 
-# Builds ReaLearn together with the Playtime Clip Engine. This must only be enabled if you have access to the
+# Builds ReaLearn together with the Playtime Clip Engine. This should only be enabled if you have access to the
 # private playtime-clip-engine repository, otherwise the build will fail.
 playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
 
-# Enables a bunch of features that need egui to work.
+# Enables a bunch of features that need the egui user interface framework to work.
 egui = ["dep:baseview", "dep:egui-baseview", "dep:egui", "dep:egui_extras", "pot-browser"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)

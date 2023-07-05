@@ -43,4 +43,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --features playtime --target aarch64-apple-darwin
+          args: --features playtime,egui --target aarch64-apple-darwin
