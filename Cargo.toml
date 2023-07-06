@@ -85,6 +85,7 @@ egui = "0.21.0"
 egui_extras = "0.21.0"
 egui-toast = "0.6.0"
 bytesize = "1.0.1"
+slog = "2.5.2"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

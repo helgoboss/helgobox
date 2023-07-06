@@ -27,3 +27,4 @@ ascii.workspace = true
 enigo = "0.0.14"
 device_query = "1.1.1"
 derive_more.workspace = true
+slog.workspace = true

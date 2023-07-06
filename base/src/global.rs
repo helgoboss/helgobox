@@ -1,11 +1,11 @@
 use crossbeam_channel::{Receiver, Sender};
 use reaper_high::{
-    FutureSupport, MainThreadTask, Reaper, TaskSupport, DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
-    DEFAULT_MAIN_THREAD_TASK_CHANNEL_CAPACITY,
+    FutureMiddleware, FutureSupport, MainTaskMiddleware, MainThreadTask, Reaper, TaskSupport,
+    DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
 };
 use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
 
-make_available_globally_in_any_thread!(Global);
+make_available_globally_in_any_non_rt_thread!(Global);
 
 pub struct Global {
     main_rx: MainRx,
@@ -13,31 +13,35 @@ pub struct Global {
     future_support: FutureSupport,
     task_sender: Sender<MainThreadTask>,
     task_receiver: Receiver<MainThreadTask>,
-    executor: reaper_high::run_loop_executor::RunLoopExecutor,
-    local_executor: reaper_high::local_run_loop_executor::RunLoopExecutor,
+    send_future_executor: reaper_high::run_loop_executor::RunLoopExecutor,
+    non_send_future_executor: reaper_high::local_run_loop_executor::RunLoopExecutor,
 }
 
 impl Default for Global {
     fn default() -> Self {
-        let (sender, receiver) =
-            crossbeam_channel::bounded(DEFAULT_MAIN_THREAD_TASK_CHANNEL_CAPACITY);
-        let (spawner, executor) = reaper_high::run_loop_executor::new_spawner_and_executor(
-            DEFAULT_MAIN_THREAD_TASK_CHANNEL_CAPACITY,
-            DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
-        );
-        let (local_spawner, local_executor) =
+        // It's important that all of the below channels are unbounded. It's not just that they
+        // can run full and then panic, it's worse. If sending and receiving happens on the same
+        // thread (which we use quite often in order to schedule/spawn something on the main
+        // thread) and the channel is full, we will get a deadlock! It's okay that they allocate
+        // on sending because `Global` can't be used from a real-time thread.
+        // See https://github.com/helgoboss/realearn/issues/875.
+        let (task_sender, task_receiver) = crossbeam_channel::unbounded();
+        let (send_future_spawner, send_future_executor) =
+            reaper_high::run_loop_executor::new_spawner_and_executor(
+                DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
+            );
+        let (non_send_future_spawner, non_send_future_executor) =
             reaper_high::local_run_loop_executor::new_spawner_and_executor(
-                DEFAULT_MAIN_THREAD_TASK_CHANNEL_CAPACITY,
                 DEFAULT_MAIN_THREAD_TASK_BULK_SIZE,
             );
         Self {
             main_rx: Default::default(),
-            task_support: TaskSupport::new(sender.clone()),
-            future_support: FutureSupport::new(spawner, local_spawner),
-            task_sender: sender,
-            task_receiver: receiver,
-            executor,
-            local_executor,
+            task_support: TaskSupport::new(task_sender.clone()),
+            future_support: FutureSupport::new(send_future_spawner, non_send_future_spawner),
+            task_sender,
+            task_receiver,
+            send_future_executor,
+            non_send_future_executor,
         }
     }
 }
@@ -45,6 +49,8 @@ impl Default for Global {
 impl Global {
     // This is kept static just for allowing easy observable subscription from everywhere. For
     // pushing to the subjects, static access is not necessary.
+
+    // Don't use from real-time thread!
     pub fn control_surface_rx() -> &'static ControlSurfaceRx {
         Reaper::get().require_main_thread();
         Global::get().main_rx.control_surface()
@@ -52,34 +58,43 @@ impl Global {
 
     // This really needs to be kept static for pushing to the subjects because hook commands can't
     // take user data.
+    //
+    // Don't use from real-time thread!
     pub fn action_rx() -> &'static ActionRx {
         Reaper::get().require_main_thread();
         Global::get().main_rx.action()
     }
 
+    /// Allows you to schedule tasks for execution on the main thread from anywhere.
+    ///
+    /// Important: Don't use this to schedule tasks from a real-time thread! This is backed by an
+    /// unbounded channel now because of https://github.com/helgoboss/realearn/issues/875, so
+    /// sending can allocate!
     pub fn task_support() -> &'static TaskSupport {
         &Global::get().task_support
     }
 
+    /// Allows you to spawn futures from anywhere.
+    ///
+    /// Important: Don't use this to spawn futures from a real-time thread! This is backed by an
+    /// unbounded channel now because of https://github.com/helgoboss/realearn/issues/875, so
+    /// sending can allocate!
     pub fn future_support() -> &'static FutureSupport {
         &Global::get().future_support
     }
 
-    pub fn task_sender(&self) -> Sender<MainThreadTask> {
-        Reaper::get().require_main_thread();
-        self.task_sender.clone()
+    /// Creates the middleware that drives the task support.
+    pub fn create_task_support_middleware(&self, logger: slog::Logger) -> MainTaskMiddleware {
+        MainTaskMiddleware::new(logger, self.task_sender.clone(), self.task_receiver.clone())
     }
 
-    pub fn task_receiver(&self) -> Receiver<MainThreadTask> {
-        Reaper::get().require_main_thread();
-        self.task_receiver.clone()
-    }
-
-    pub fn executor(&self) -> reaper_high::run_loop_executor::RunLoopExecutor {
-        self.executor.clone()
-    }
-    pub fn local_executor(&self) -> reaper_high::local_run_loop_executor::RunLoopExecutor {
-        self.local_executor.clone()
+    /// Creates the middleware that drives the future support.
+    pub fn create_future_support_middleware(&self, logger: slog::Logger) -> FutureMiddleware {
+        FutureMiddleware::new(
+            logger,
+            self.send_future_executor.clone(),
+            self.non_send_future_executor.clone(),
+        )
     }
 }
 

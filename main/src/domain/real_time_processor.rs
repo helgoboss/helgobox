@@ -622,11 +622,8 @@ impl RealTimeProcessor {
                 task_count,
                 self.feedback_task_receiver.len(),
             );
-            Global::task_support()
-                .do_in_main_thread_asap(move || {
-                    Reaper::get().show_console_msg(msg);
-                })
-                .unwrap();
+            self.normal_main_task_sender
+                .send_complaining(NormalRealTimeToMainThreadTask::LogToConsole(msg));
             // Detailled
             trace!(
                 self.logger,
@@ -651,11 +648,8 @@ impl RealTimeProcessor {
             {mapping:#?}
             "
             );
-            Global::task_support()
-                .do_in_main_thread_asap(move || {
-                    Reaper::get().show_console_msg(msg);
-                })
-                .unwrap();
+            self.normal_main_task_sender
+                .send_complaining(NormalRealTimeToMainThreadTask::LogToConsole(msg));
         });
     }
 

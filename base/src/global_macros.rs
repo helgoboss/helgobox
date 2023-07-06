@@ -55,10 +55,16 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
 /// The given struct must be thread-safe. If not, all of its public methods should first check if
 /// the thread is correct.
 #[macro_export]
-macro_rules! make_available_globally_in_any_thread {
+macro_rules! make_available_globally_in_any_non_rt_thread {
     ($instance_struct:path) => {
         impl $instance_struct {
             pub fn get() -> &'static $instance_struct {
+                assert!(
+                    !reaper_high::Reaper::get()
+                        .medium_reaper()
+                        .is_in_real_time_audio(),
+                    "this function must not be called in a real-time thread"
+                );
                 // This is safe (see https://doc.rust-lang.org/std/sync/struct.Once.html#examples-1).
                 static mut INSTANCE: Option<$instance_struct> = None;
                 static INIT_INSTANCE: std::sync::Once = std::sync::Once::new();

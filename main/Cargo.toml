@@ -58,7 +58,7 @@ crossbeam-channel.workspace = true
 scopeguard.workspace = true
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 # Old logging
-slog = "2.5.2"
+slog.workspace = true
 slog-async = "2.5.2"
 # New logging (for clip matrix)
 tracing.workspace = true

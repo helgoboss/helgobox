@@ -1544,6 +1544,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         format_midi_source_value(&value),
                     );
                 }
+                LogToConsole(msg) => {
+                    Reaper::get().show_console_msg(msg);
+                }
             }
         }
     }
@@ -2889,6 +2892,7 @@ pub enum NormalRealTimeToMainThreadTask {
     LogLifecycleOutput {
         value: MidiSourceValue<'static, RawShortMessage>,
     },
+    LogToConsole(String),
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

@@ -229,16 +229,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             clip_matrix_event_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            main_task_middleware: MainTaskMiddleware::new(
-                logger.clone(),
-                Global::get().task_sender(),
-                Global::get().task_receiver(),
-            ),
-            future_middleware: FutureMiddleware::new(
-                logger.clone(),
-                Global::get().executor(),
-                Global::get().local_executor(),
-            ),
+            main_task_middleware: Global::get().create_task_support_middleware(logger.clone()),
+            future_middleware: Global::get().create_future_support_middleware(logger.clone()),
             counter: 0,
             full_beats: Default::default(),
             fx_focus_state: Default::default(),
