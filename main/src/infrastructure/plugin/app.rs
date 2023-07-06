@@ -17,8 +17,9 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
-    SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
+    FileBasedPresetLinkManager, LicenseManager, OscDevice, OscDeviceManager,
+    SharedControllerPresetManager, SharedLicenseManager, SharedMainPresetManager,
+    SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
@@ -83,6 +84,7 @@ pub type RealearnControlSurface =
 #[derive(Debug)]
 pub struct App {
     state: RefCell<AppState>,
+    license_manager: SharedLicenseManager,
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
@@ -240,6 +242,9 @@ impl App {
         };
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
+            license_manager: Rc::new(RefCell::new(LicenseManager::new(
+                App::helgoboss_resource_dir_path().join("licensing.json"),
+            ))),
             controller_preset_manager: Rc::new(RefCell::new(
                 FileBasedControllerPresetManager::new(
                     App::realearn_preset_dir_path().join("controller"),
@@ -311,7 +316,7 @@ impl App {
     pub fn init(&self) {
         metrics_util::init_metrics();
         #[cfg(feature = "playtime")]
-        playtime_clip_engine::init(None);
+        self.init_clip_engine();
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {
             s
@@ -354,6 +359,11 @@ impl App {
             accelerator: Box::new(accelerator),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+    }
+    #[cfg(feature = "playtime")]
+    fn init_clip_engine(&self) {
+        let manager = self.license_manager.borrow();
+        playtime_clip_engine::ClipEngine::get().init(manager.licenses());
     }
 
     fn reconnect_osc_devices(&self) {

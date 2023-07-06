@@ -52,6 +52,9 @@ pub use osc_device_management::*;
 mod virtual_control;
 pub use virtual_control::*;
 
+mod license_management;
+pub use license_management::*;
+
 #[cfg(feature = "playtime")]
 mod clip_legacy;
 

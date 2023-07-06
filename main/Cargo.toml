@@ -36,10 +36,13 @@ realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
+helgoboss-license-api.workspace = true
 playtime-api = { workspace = true, optional = true }
 playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
+# For easier error handling
+anyhow = "1.0.71"
 # For being able to (de)serialize using FromStr and Display
 serde_with = "2.0.1"
 c_str_macro = "1.0.2"
@@ -133,7 +136,7 @@ edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 # For parsing/formatting advanced mapping settings
 serde_yaml = "0.8.17"
 # For parsing hexadecimal data notation to byte vector (for system-exclusive lifecycle MIDI messages)
-hex = "0.4.2"
+hex.workspace = true
 # For evaluation of <Dynamic> formulas
 fasteval = { version = "0.2.4", default-features = false }
 # For wildcard support when using "By name" selector

@@ -96,9 +96,9 @@ checksum = "70033777eb8b5124a81a1889416543dddef2de240019b674c81285a2635a7e1e"
 
 [[package]]
 name = "anyhow"
-version = "1.0.52"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84450d0b4a8bd1ba4144ce8ce718fbc5d071358b1e5384bace6536b3d1f2d5b3"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
 name = "approx"
@@ -2265,7 +2265,9 @@ dependencies = [
 name = "helgoboss-license-api"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "serde",
+ "serde_json",
  "validator 0.16.1",
 ]
 
@@ -4307,6 +4309,7 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 name = "realearn"
 version = "2.16.0-pre.2"
 dependencies = [
+ "anyhow",
  "approx",
  "arboard",
  "ascii",
@@ -4342,6 +4345,7 @@ dependencies = [
  "fasteval",
  "futures",
  "helgoboss-learn",
+ "helgoboss-license-api",
  "helgoboss-midi",
  "hex",
  "hostname",
