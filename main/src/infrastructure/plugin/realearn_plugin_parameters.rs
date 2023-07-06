@@ -3,7 +3,6 @@ use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderTo
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;
-use slog::debug;
 
 use crate::application::{ParamContainer, SharedSession, WeakSession};
 use crate::domain::{

@@ -90,6 +90,7 @@ pub trait View: Debug {
     ///
     /// Should return `true` if processed.
     fn shown_or_hidden(self: SharedView<Self>, shown: bool) -> bool {
+        let _ = shown;
         false
     }
 

@@ -1,12 +1,11 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, AppCallback, AppPanel, HeaderPanel, IndependentPanelManager,
-    MappingRowsPanel, SharedIndependentPanelManager, SharedMainState,
+    bindings::root, util, AppPanel, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
 use reaper_high::Reaper;
 
-use slog::debug;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{
@@ -26,7 +25,6 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use anyhow::anyhow;
 use base::SoundPlayer;
-use playtime_clip_engine::proto::{EventReply, Reply};
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;

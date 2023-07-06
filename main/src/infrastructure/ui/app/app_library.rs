@@ -1,17 +1,15 @@
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
-use crate::infrastructure::ui::{AppCallback, AppPanel, MainPanel};
+use crate::infrastructure::ui::{AppCallback, AppPanel};
 use anyhow::{anyhow, bail, Context, Result};
-use base::{tracing_error, Global};
-use egui::Key::V;
+use base::Global;
 use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
-    event_reply, query_result, reply, request, ClipEngineRequestHandler, CommandRequest,
-    EventReply, MatrixProvider, Notification, NotificationKind, QueryReply, QueryResult, Reply,
-    Request,
+    event_reply, query_result, reply, request, ClipEngineRequestHandler, EventReply,
+    MatrixProvider, Notification, NotificationKind, QueryReply, QueryResult, Reply, Request,
 };
 use prost::Message;
 use reaper_low::raw::HWND;
@@ -19,7 +17,7 @@ use std::env;
 use std::ffi::{c_char, c_void, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::{null, NonNull};
+use std::ptr::NonNull;
 use swell_ui::{SharedView, Window};
 use tonic::Status;
 
@@ -103,7 +101,7 @@ impl AppLibrary {
                 )
             };
             let Some(app_handle) = app_handle else {
-                return bail!("couldn't launch app");
+                bail!("couldn't launch app");
             };
             Ok(app_handle)
         })

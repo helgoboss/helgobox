@@ -248,6 +248,7 @@ impl MatrixClipRecordSettings {
             Beat => true,
         };
         if beat_based {
+            #[allow(deprecated)]
             let beat_time_base = BeatTimeBase {
                 audio_tempo: None,
                 time_signature,

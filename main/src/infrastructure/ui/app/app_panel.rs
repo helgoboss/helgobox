@@ -3,18 +3,12 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, Context, Result};
-use base::Global;
-use c_str_macro::c_str;
-use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
-    event_reply, occasional_matrix_update, reply, ClipEngineReceivers, Empty, EventReply,
-    GetOccasionalMatrixUpdatesReply, OccasionalMatrixUpdate, Reply,
+    event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
 };
 use prost::Message;
-use reaper_low::{raw, Swell};
+use reaper_low::raw;
 use std::cell::RefCell;
-use std::ffi::c_void;
-use std::ptr::{null_mut, NonNull};
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use validator::HasLen;

@@ -179,7 +179,7 @@ impl<I, D> HelgobossAllocator<I, D> {
     }
 
     #[cfg(debug_assertions)]
-    fn check(&self, layout: Layout) {
+    fn check(&self, _layout: Layout) {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {

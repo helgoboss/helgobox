@@ -12,10 +12,8 @@ use crate::domain::{
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
 use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
 use playtime_clip_engine::rt::{
-    ClipPlayState, ContinuousClipChangeEvent, InternalClipPlayState, QualifiedSlotChangeEvent,
-    SlotChangeEvent,
+    ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent,
 };
-use playtime_clip_engine::Timeline;
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {

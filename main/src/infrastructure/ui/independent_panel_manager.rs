@@ -1,11 +1,6 @@
-use crate::infrastructure::ui::{
-    AppCallback, AppPanel, MainPanel, MappingPanel, SessionMessagePanel,
-};
-use anyhow::anyhow;
-use playtime_clip_engine::proto::{EventReply, Reply};
+use crate::infrastructure::ui::{AppPanel, MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
-use std::rc::Rc;
 
 use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
 use crate::base::notification;

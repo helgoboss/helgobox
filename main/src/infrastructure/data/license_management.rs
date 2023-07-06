@@ -47,6 +47,7 @@ impl LicenseManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn save(&mut self) -> anyhow::Result<()> {
         let data: LicensingData = self.licensing.clone().into();
         let json = serde_json::to_string_pretty(&data)

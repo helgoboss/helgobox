@@ -3,7 +3,7 @@ use crate::domain::{
     IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
     MidiScanResult, MidiScanner, RealTimeProcessor,
 };
-use base::metrics_util::{measure_time, record_duration};
+use base::metrics_util::record_duration;
 use base::non_blocking_lock;
 use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
