@@ -22,7 +22,7 @@ use reaper_medium::{
 use slog::{debug, trace};
 
 use assert_no_alloc::permit_alloc;
-use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use enum_map::{enum_map, EnumMap};
 use std::convert::TryInto;
 use std::ptr::null_mut;

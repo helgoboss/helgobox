@@ -804,6 +804,7 @@ impl SessionData {
                         }
                     };
                 } else if !self.clip_slots.is_empty() {
+                    // Legacy
                     let matrix =
                         crate::infrastructure::data::clip_legacy::create_clip_matrix_from_legacy_slots(
                             &self.clip_slots,

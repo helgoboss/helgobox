@@ -311,7 +311,7 @@ impl App {
     pub fn init(&self) {
         metrics_util::init_metrics();
         #[cfg(feature = "playtime")]
-        playtime_clip_engine::init();
+        playtime_clip_engine::init(None);
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {
             s
