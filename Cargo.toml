@@ -8,7 +8,6 @@ members = [
     "pot",
     "pot-browser",
     "csi",
-    "license-api",
     "main",
     "rx-util",
     "swell-ui",
@@ -36,7 +35,7 @@ playtime-api = { path = "playtime-api" }
 realearn-csi = { path = "csi" }
 helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["reaper-low"] }
 helgoboss-midi = { version = "0.4", features = ["serde", "serde_repr"] }
-helgoboss-license-api = { path = "license-api" }
+helgoboss-license-api = { git = "https://github.com/helgoboss/helgoboss-license-api" }
 
 # 3rd-party
 scopeguard = "1.1.0"

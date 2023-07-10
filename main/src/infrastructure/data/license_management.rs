@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use helgoboss_license_api::persistence::LicenseData;
+use helgoboss_license_api::persistence::{LicenseData, LicenseKey};
 use helgoboss_license_api::runtime::License;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -17,7 +17,7 @@ pub struct LicenseManager {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct LicensingData {
-    licenses: Vec<LicenseData>,
+    license_keys: Vec<LicenseKey>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -71,9 +71,9 @@ impl From<LicensingData> for Licensing {
     fn from(value: LicensingData) -> Self {
         Self {
             licenses: value
-                .licenses
+                .license_keys
                 .into_iter()
-                .filter_map(|data| data.try_into().ok())
+                .filter_map(|key| License::try_from(LicenseData::try_from_key(&key).ok()?).ok())
                 .collect(),
         }
     }
@@ -82,7 +82,11 @@ impl From<LicensingData> for Licensing {
 impl From<Licensing> for LicensingData {
     fn from(value: Licensing) -> Self {
         Self {
-            licenses: value.licenses.into_iter().map(|l| l.into()).collect(),
+            license_keys: value
+                .licenses
+                .into_iter()
+                .map(|l| LicenseData::from(l).to_key())
+                .collect(),
         }
     }
 }
