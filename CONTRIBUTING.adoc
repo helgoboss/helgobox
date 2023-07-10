@@ -51,6 +51,25 @@ ReaLearn without feature `playtime`.
 
 == Build
 
+=== All operating systems
+
+If you have access to the private repositories, you need to add this to `$HOME/.cargo/config` (otherwise Cargo will have issues fetching them):
+
+[source,ini]
+----
+[net]
+git-fetch-with-cli = true
+----
+
+If you update Cockos WDL, you should also regenerate Rust bindings (we use WDL's EEL):
+
+[source,shell]
+----
+cargo build --features generate
+cargo fmt
+----
+
+
 === Windows
 
 In the following you will find the complete instructions for Windows 10, including Rust setup. Points where you have to consider the target
@@ -184,16 +203,6 @@ brew install php
 
 # Build ReaLearn
 cargo build --features egui
-----
-
-=== All operating systems
-
-If you update Cockos WDL, you should also regenerate Rust bindings (we use WDL's EEL):
-
-[source,shell]
-----
-cargo build --features generate
-cargo fmt
 ----
 
 == GUI
