@@ -2437,7 +2437,7 @@ dependencies = [
 [[package]]
 name = "helgoboss-license-processor"
 version = "0.1.0"
-source = "git+ssh://git@github.com/helgoboss/helgoboss-license-processor.git#541e2fc40f38e0ceafaacb0dc24e89ddc5dade7b"
+source = "git+ssh://git@github.com/helgoboss/helgoboss-license-processor.git#1984221fea357c23a3e238a7389769ce2d7a97cb"
 dependencies = [
  "anyhow",
  "base64 0.21.2",
