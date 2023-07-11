@@ -37,6 +37,7 @@ use enum_iterator::IntoEnumIterator;
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
 use once_cell::sync::Lazy;
+use playtime_clip_engine::ClipEngineInitArgs;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -360,10 +361,14 @@ impl App {
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
+
     #[cfg(feature = "playtime")]
     fn init_clip_engine(&self) {
         let manager = self.license_manager.borrow();
-        playtime_clip_engine::ClipEngine::get().init(manager.licenses());
+        let args = ClipEngineInitArgs {
+            available_licenses: manager.licenses(),
+        };
+        playtime_clip_engine::ClipEngine::get().init(args);
     }
 
     fn reconnect_osc_devices(&self) {

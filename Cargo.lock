@@ -2437,7 +2437,7 @@ dependencies = [
 [[package]]
 name = "helgoboss-license-processor"
 version = "0.1.0"
-source = "git+ssh://git@github.com/helgoboss/helgoboss-license-processor.git#1984221fea357c23a3e238a7389769ce2d7a97cb"
+source = "git+ssh://git@github.com/helgoboss/helgoboss-license-processor.git#d2c1236ae049e8ee391aa4a354e5681dd0ee5f99"
 dependencies = [
  "anyhow",
  "base64 0.21.2",
@@ -3897,9 +3897,11 @@ checksum = "e3d7ddaed09e0eb771a79ab0fd64609ba0afb0a8366421957936ad14cbd13630"
 name = "playtime-api"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.2",
  "derive_more",
  "nanoid",
  "realearn-macros",
+ "rmp-serde",
  "schemars",
  "serde",
 ]
@@ -3908,6 +3910,7 @@ dependencies = [
 name = "playtime-clip-engine"
 version = "2.0.0"
 dependencies = [
+ "anyhow",
  "assert_no_alloc",
  "atomic",
  "base",

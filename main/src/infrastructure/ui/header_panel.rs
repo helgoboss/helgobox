@@ -56,6 +56,7 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
+use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::Envelope;
 use semver::Version;
 use std::cell::{Cell, RefCell};
@@ -2036,7 +2037,15 @@ impl HeaderPanel {
                 };
                 let new_matrix_label = match &*value {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(m) => get_clip_matrix_label(m.columns.as_ref().map(|c|c.len()).unwrap_or(0))
+                    Some(m) => {
+                        let column_count = match m {
+                            FlexibleMatrix::Unsigned(m) => m.column_count(),
+                            FlexibleMatrix::Signed(m) => {
+                                m.decode_value()?.column_count()
+                            }
+                        };
+                        get_clip_matrix_label(column_count)
+                    }
                 };
                 if self.view.require_window().confirm(
                     "ReaLearn",

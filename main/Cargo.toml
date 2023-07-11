@@ -42,7 +42,7 @@ playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
 # For easier error handling
-anyhow = "1.0.71"
+anyhow.workspace = true
 # For being able to (de)serialize using FromStr and Display
 serde_with = "2.0.1"
 c_str_macro = "1.0.2"

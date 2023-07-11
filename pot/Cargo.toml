@@ -33,7 +33,7 @@ either.workspace = true
 fallible-iterator = "0.2"
 riff-io = "0.1.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
-rmp-serde = "1.1.1"
+rmp-serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
 futures.workspace = true

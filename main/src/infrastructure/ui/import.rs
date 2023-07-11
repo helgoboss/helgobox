@@ -43,7 +43,7 @@ impl UntaggedDataObject {
 pub enum DataObject {
     Session(Envelope<Box<SessionData>>),
     #[cfg(feature = "playtime")]
-    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::Matrix>>>),
+    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     MainCompartment(Envelope<Box<CompartmentModelData>>),
     ControllerCompartment(Envelope<Box<CompartmentModelData>>),
     Mappings(Envelope<Vec<MappingModelData>>),

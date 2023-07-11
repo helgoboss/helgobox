@@ -14,9 +14,12 @@
 //!   work well with ReaLearn Script (`lua_serializer.rs`) **and** our Rust-to-Dart converter.
 //!   For the latter, we need to avoid things like `#[serde(flatten)]`!
 
+use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
+use base64::Engine;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp;
+use std::error::Error;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection
@@ -42,6 +45,37 @@ pub struct Matrix {
     pub common_tempo_range: TempoRange,
 }
 
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum FlexibleMatrix {
+    Unsigned(Matrix),
+    Signed(SignedMatrix),
+}
+
+impl Default for FlexibleMatrix {
+    fn default() -> Self {
+        Self::Unsigned(Default::default())
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct SignedMatrix {
+    pub matrix: String,
+    pub signature: String,
+}
+
+impl SignedMatrix {
+    pub fn encode_value(matrix: &Matrix) -> Result<String, Box<dyn Error>> {
+        let bytes = rmp_serde::to_vec_named(matrix)?;
+        Ok(BASE64_ENGINE.encode(bytes))
+    }
+
+    pub fn decode_value(&self) -> Result<Matrix, Box<dyn Error>> {
+        let bytes = BASE64_ENGINE.decode(self.matrix.as_bytes())?;
+        Ok(rmp_serde::from_slice(&bytes)?)
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
@@ -50,6 +84,13 @@ pub struct MatrixSettings {
 }
 
 impl Matrix {
+    pub fn column_count(&self) -> usize {
+        let Some(columns) = &self.columns else {
+            return 0;
+        };
+        columns.len()
+    }
+
     /// Calculates the effective number of rows, taking the rows vector *and* the slots in each
     /// column into account.
     pub fn necessary_row_count(&self) -> usize {

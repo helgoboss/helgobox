@@ -15,3 +15,7 @@ realearn-macros.workspace = true
 nanoid.workspace = true
 # For easier Display impl
 derive_more.workspace = true
+# For encoding/decoding a signed matrix value
+rmp-serde.workspace = true
+# For encoding/decoding a signed matrix value
+base64 = "0.21.2"

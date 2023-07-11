@@ -38,7 +38,7 @@ impl<T> Envelope<T> {
 #[serde(tag = "kind")]
 pub enum ApiObject {
     #[cfg(feature = "playtime")]
-    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::Matrix>>>),
+    ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     MainCompartment(Envelope<Box<Compartment>>),
     ControllerCompartment(Envelope<Box<Compartment>>),
     Mappings(Envelope<Vec<Mapping>>),

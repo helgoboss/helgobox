@@ -17,6 +17,7 @@ use crate::infrastructure::plugin::App;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
@@ -282,7 +283,7 @@ fn focused_fx_descriptor() -> FxDescriptor {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ClipMatrixRefData {
-    Own(playtime_api::persistence::Matrix),
+    Own(playtime_api::persistence::FlexibleMatrix),
     Foreign(String),
 }
 
@@ -814,7 +815,7 @@ impl SessionData {
                         )?;
                     BackboneState::get()
                         .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                        .load(matrix)?;
+                        .load(FlexibleMatrix::Unsigned(matrix))?;
                 } else {
                     BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                 }
