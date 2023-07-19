@@ -2475,7 +2475,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .normal_real_time_task_sender
             .send_complaining(NormalRealTimeTask::UpdateSingleMapping(
                 compartment,
-                Box::new(Some(mapping.splinter_real_time_mapping())),
+                Box::new(mapping.splinter_real_time_mapping()),
             ));
         // Update and feedback
         let id = QualifiedMappingId::new(compartment, mapping.id());

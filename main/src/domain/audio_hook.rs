@@ -1,7 +1,7 @@
 use crate::domain::{
-    classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp, Garbage,
-    GarbageBin, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
+    classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
+    IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, RealTimeProcessor,
 };
 use base::non_blocking_lock;
 use helgoboss_allocator::*;
@@ -60,7 +60,6 @@ pub struct RealearnAudioHook {
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
-    garbage_bin: GarbageBin,
     initialized: bool,
     #[cfg(feature = "playtime")]
     clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook,
@@ -81,7 +80,6 @@ impl RealearnAudioHook {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
-        garbage_bin: GarbageBin,
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
@@ -89,7 +87,6 @@ impl RealearnAudioHook {
             normal_task_receiver,
             feedback_task_receiver,
             time_of_last_run: None,
-            garbage_bin,
             initialized: false,
             #[cfg(feature = "playtime")]
             clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook::new(
@@ -130,9 +127,6 @@ impl RealearnAudioHook {
                             }
                         });
                     }
-                    if let Some(garbage) = value.into_garbage() {
-                        self.garbage_bin.dispose(Garbage::RawMidiEvents(garbage));
-                    }
                 }
                 SendMidi(dev_id, raw_midi_events) => {
                     MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
@@ -142,8 +136,6 @@ impl RealearnAudioHook {
                             }
                         }
                     });
-                    self.garbage_bin
-                        .dispose(Garbage::RawMidiEvents(raw_midi_events));
                 }
             }
         }
@@ -285,8 +277,7 @@ impl RealearnAudioHook {
                 RemoveRealTimeProcessor(id) => {
                     if let Some(pos) = self.real_time_processors.iter().position(|(i, _)| i == &id)
                     {
-                        let (_, proc) = self.real_time_processors.swap_remove(pos);
-                        self.garbage_bin.dispose(Garbage::RealTimeProcessor(proc));
+                        self.real_time_processors.swap_remove(pos);
                     }
                 }
                 StartCapturingMidi(sender) => {
@@ -296,10 +287,7 @@ impl RealearnAudioHook {
                     }
                 }
                 StopCapturingMidi => {
-                    let last_state = std::mem::replace(&mut self.state, AudioHookState::Normal);
-                    if let AudioHookState::LearningSource { sender, .. } = last_state {
-                        self.garbage_bin.dispose(Garbage::MidiCaptureSender(sender));
-                    }
+                    self.state = AudioHookState::Normal;
                 }
                 #[cfg(feature = "playtime")]
                 StartClipRecording(task) => {

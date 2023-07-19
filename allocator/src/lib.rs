@@ -6,14 +6,13 @@
 //! - Assertions are active in debug builds only
 //! - When assertion violated, it always panics instead of aborting or printing an error (mainly for
 //!   good testability but also nice otherwise as long as set_alloc_error_hook() is still unstable)
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::marker::PhantomData;
 use std::sync::mpsc;
-use std::sync::mpsc::{Sender, SyncSender, TrySendError};
+use std::sync::mpsc::{SyncSender, TrySendError};
 use std::thread;
-use std::thread::{JoinHandle, Thread};
+use std::thread::JoinHandle;
 
 #[cfg(debug_assertions)]
 thread_local! {
@@ -130,9 +129,7 @@ impl<I> AsyncDeallocationMachine<I> {
             .name("Helgoboss deallocator".to_string())
             .spawn(move || {
                 while let Ok(task) = receiver.recv() {
-                    unsafe {
-                        deallocator.deallocate(task.ptr, task.layout);
-                    }
+                    deallocator.deallocate(task.ptr, task.layout);
                 }
             })
             .unwrap();

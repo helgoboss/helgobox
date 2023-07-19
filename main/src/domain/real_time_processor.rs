@@ -1,13 +1,12 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, Compartment, CompoundMappingSource, ControlEvent,
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
-    ControlOptions, FeedbackSendBehavior, Garbage, GarbageBin, InstanceId, LifecycleMidiMessage,
-    LifecyclePhase, MappingId, MatchOutcome, MidiClockCalculator, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
-    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
-    PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
-    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
-    SampleOffset, SendMidiDestination, VirtualSourceValue,
+    ControlOptions, FeedbackSendBehavior, InstanceId, LifecycleMidiMessage, LifecyclePhase,
+    MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
+    OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
+    QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
+    RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -53,7 +52,6 @@ pub struct RealTimeProcessor {
     feedback_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
     control_main_task_sender: SenderToNormalThread<ControlMainTask>,
-    garbage_bin: GarbageBin,
     // Scanners for more complex MIDI message types
     // TODO-low-multi-config Make fully qualified
     nrpn_scanner: PollingParameterNumberMessageScanner,
@@ -83,7 +81,6 @@ impl RealTimeProcessor {
         feedback_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
         control_main_task_sender: SenderToNormalThread<ControlMainTask>,
-        garbage_bin: GarbageBin,
     ) -> RealTimeProcessor {
         use Compartment::*;
         RealTimeProcessor {
@@ -106,7 +103,6 @@ impl RealTimeProcessor {
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: false,
             feedback_is_globally_enabled: false,
-            garbage_bin,
             sample_rate: Hz::new(1.0),
             #[cfg(feature = "playtime")]
             clip_matrix: None,
@@ -201,16 +197,8 @@ impl RealTimeProcessor {
             .try_to_send(NormalRealTimeToMainThreadTask::FullResyncToRealTimeProcessorPlease)
         {
             // Requesting a full resync was successful so we can safely discard accumulated tasks.
-            let discarded_normal_task_count = self
-                .normal_task_receiver
-                .try_iter()
-                .map(|t| self.garbage_bin.dispose(Garbage::NormalRealTimeTask(t)))
-                .count();
-            let discarded_feedback_task_count = self
-                .feedback_task_receiver
-                .try_iter()
-                .map(|t| self.garbage_bin.dispose(Garbage::FeedbackRealTimeTask(t)))
-                .count();
+            let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
+            let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
             permit_alloc(|| {
                 debug!(
                     self.logger,
@@ -273,7 +261,7 @@ impl RealTimeProcessor {
                     // Set
                     self.feedback_is_globally_enabled = is_enabled;
                 }
-                UpdateAllMappings(compartment, mut mappings) => {
+                UpdateAllMappings(compartment, mappings) => {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
@@ -290,14 +278,9 @@ impl RealTimeProcessor {
                         );
                     }
                     // Clear existing mappings (without deallocating)
-                    for (_, m) in self.mappings[compartment].drain(..) {
-                        self.garbage_bin.dispose_real_time_mapping(m);
-                    }
-                    // Set
-                    let drained_mappings = mappings.drain(..).map(|m| (m.id(), m));
-                    self.mappings[compartment].extend(drained_mappings);
-                    self.garbage_bin
-                        .dispose(Garbage::RealTimeMappings(mappings));
+                    self.mappings[compartment].clear();
+                    // Set new mappings
+                    self.mappings[compartment].extend(mappings.into_iter().map(|m| (m.id(), m)));
                     // Handle activation MIDI
                     if self.processor_feedback_is_effectively_on() {
                         self.send_lifecycle_midi_for_all_mappings_in(
@@ -306,11 +289,7 @@ impl RealTimeProcessor {
                         );
                     }
                 }
-                UpdateSingleMapping(compartment, mut mapping) => {
-                    let m = std::mem::replace(&mut *mapping, None)
-                        .expect("must send a mapping when updating single mapping");
-                    self.garbage_bin
-                        .dispose(Garbage::BoxedRealTimeMapping(mapping));
+                UpdateSingleMapping(compartment, m) => {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
@@ -328,10 +307,7 @@ impl RealTimeProcessor {
                         self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now)
                     }
                     // Update
-                    let old_mapping = self.mappings[compartment].insert(m.id(), m);
-                    if let Some(m) = old_mapping {
-                        self.garbage_bin.dispose_real_time_mapping(m);
-                    }
+                    self.mappings[compartment].insert(m.id(), *m);
                 }
                 UpdatePersistentMappingProcessingState { id, state } => {
                     permit_alloc(|| {
@@ -390,8 +366,6 @@ impl RealTimeProcessor {
                             }
                         }
                     }
-                    self.garbage_bin
-                        .dispose(Garbage::TargetUpdates(target_updates));
                 }
                 UpdateSettings(settings) => {
                     permit_alloc(|| {
@@ -474,15 +448,11 @@ impl RealTimeProcessor {
                             }
                         }
                     }
-                    self.garbage_bin
-                        .dispose(Garbage::MappingUpdates(mapping_updates));
                 }
                 #[cfg(feature = "playtime")]
                 SetClipMatrix { is_owned, matrix } => {
                     self.clip_matrix_is_owned = is_owned;
-                    if let Some(matrix) = std::mem::replace(&mut self.clip_matrix, matrix) {
-                        self.garbage_bin.dispose(Garbage::ClipMatrix(matrix));
-                    }
+                    self.clip_matrix = matrix;
                 }
                 #[cfg(feature = "playtime")]
                 StartClipRecording(task) => {
@@ -1069,9 +1039,6 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(MidiEvent::without_offset(*short), caller);
             }
         }
-        if let Some(garbage) = value.into_garbage() {
-            self.garbage_bin.dispose(Garbage::RawMidiEvents(garbage));
-        }
     }
 
     fn send_lifecycle_midi_to_feedback_output_from_audio_hook(
@@ -1246,7 +1213,7 @@ pub enum NormalRealTimeTask {
         matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     },
     UpdateAllMappings(Compartment, Vec<RealTimeMapping>),
-    UpdateSingleMapping(Compartment, Box<Option<RealTimeMapping>>),
+    UpdateSingleMapping(Compartment, Box<RealTimeMapping>),
     UpdatePersistentMappingProcessingState {
         id: QualifiedMappingId,
         state: PersistentMappingProcessingState,

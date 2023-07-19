@@ -1,17 +1,13 @@
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlEvent, ControlEventTimestamp,
-    DeviceChangeDetector, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
-    EelTransformation, FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, InstanceId,
-    InstanceStateChanged, LifecycleMidiData, LuaFeedbackScript, MainProcessor, MidiCaptureSender,
-    MidiDeviceChangePayload, MonitoringFxChainChangeDetector, NormalRealTimeTask, OscDeviceId,
-    OscInputDevice, OscScanResult, RealTimeCompoundMappingTarget, RealTimeMapping,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperConfigChangeDetector, ReaperMessage,
-    ReaperTarget, SharedMainProcessors, SharedRealTimeProcessor, TargetTouchEvent,
-    TouchedTrackParameterType,
+    BackboneState, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
+    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
+    InstanceStateChanged, MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
+    OscDeviceId, OscInputDevice, OscScanResult, ReaperConfigChangeDetector, ReaperMessage,
+    ReaperTarget, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{AbstractTimestamp, ModeGarbage, RawMidiEvents};
+use helgoboss_learn::AbstractTimestamp;
 use reaper_high::{
     ChangeDetectionMiddleware, ChangeEvent, ControlSurfaceEvent, ControlSurfaceMiddleware,
     FutureMiddleware, Fx, FxParameter, MainTaskMiddleware, Project, Reaper,
@@ -42,7 +38,6 @@ const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
-const GARBAGE_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -65,37 +60,16 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     target_capture_senders: HashMap<Option<InstanceId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
-    garbage_receiver: crossbeam_channel::Receiver<Garbage>,
     device_change_detector: DeviceChangeDetector,
     reaper_config_change_detector: ReaperConfigChangeDetector,
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
 }
 
-#[allow(clippy::large_enum_variant)]
-pub enum Garbage {
-    RawMidiEvents(RawMidiEvents),
-    RealTimeProcessor(SharedRealTimeProcessor),
-    LifecycleMidiData(LifecycleMidiData),
-    ResolvedTarget(Option<RealTimeCompoundMappingTarget>),
-    Mode(ModeGarbage<EelTransformation, LuaFeedbackScript<'static>>),
-    MappingSource(CompoundMappingSource),
-    RealTimeMappings(Vec<RealTimeMapping>),
-    BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
-    MappingUpdates(Vec<RealTimeMappingUpdate>),
-    TargetUpdates(Vec<RealTimeTargetUpdate>),
-    NormalRealTimeTask(NormalRealTimeTask),
-    FeedbackRealTimeTask(FeedbackRealTimeTask),
-    MidiCaptureSender(MidiCaptureSender),
-    #[cfg(feature = "playtime")]
-    ClipMatrix(playtime_clip_engine::rt::WeakRtMatrix),
-}
-
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     // Removing a main processor is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
-    LogDebugInfo,
     StartCapturingTargets(Option<InstanceId>, TargetCaptureSender),
     StopCapturingTargets(Option<InstanceId>),
     StartCapturingOsc(OscCaptureSender),
@@ -207,7 +181,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         >,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
-        garbage_receiver: crossbeam_channel::Receiver<Garbage>,
         main_processors: SharedMainProcessors<EH>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -237,7 +210,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             target_capture_senders: Default::default(),
             osc_capture_sender: None,
             osc_input_devices: vec![],
-            garbage_receiver,
             device_change_detector,
             reaper_config_change_detector: Default::default(),
             control_surface_event_sender,
@@ -284,8 +256,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
         // Finally let the ReaLearn main processors do their regular job (the instances)
         self.run_main_processors(timestamp);
-        // Free memory that has been used in real-time thread
-        self.drop_garbage();
         // Some control surface events might have been picked up during this call of run() while
         // the change event queue was borrowed. Process them now (most likely they are turned into
         // change events).
@@ -403,9 +373,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 AddMainProcessor(p) => {
                     self.main_processors.borrow_mut().push(p);
                 }
-                LogDebugInfo => {
-                    self.log_debug_info();
-                }
                 StartCapturingTargets(instance_id, sender) => {
                     self.target_capture_senders.insert(instance_id, sender);
                 }
@@ -424,12 +391,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     }
                 }
             }
-        }
-    }
-
-    fn drop_garbage(&mut self) {
-        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
-            let _ = garbage;
         }
     }
 
@@ -652,19 +613,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn log_debug_info(&self) {
-        // Summary
-        let msg = format!(
-            "\n\
-            # Backbone control surface\n\
-            \n\
-            - Garbage count: {} \n\
-            ",
-            self.garbage_receiver.len(),
-        );
-        Reaper::get().show_console_msg(msg);
-    }
-
     fn process_incoming_osc_messages(&mut self, timestamp: ControlEventTimestamp) {
         pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
         let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); OSC_INCOMING_BULK_SIZE]> = self
@@ -799,44 +747,6 @@ fn process_incoming_osc_message_for_learning(
         dev_id: Some(dev_id),
     };
     let _ = sender.try_send(scan_result);
-}
-
-impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
-    fn drop(&mut self) {
-        for garbage in self.garbage_receiver.try_iter() {
-            let _ = garbage;
-        }
-    }
-}
-
-/// For pushing deallocation to main thread (vs. doing it in the audio thread).
-#[derive(Clone, Debug)]
-pub struct GarbageBin {
-    sender: SenderToNormalThread<Garbage>,
-}
-impl GarbageBin {
-    pub fn new(sender: SenderToNormalThread<Garbage>) -> Self {
-        assert!(
-            sender.is_bounded(),
-            "garbage bin sender channel must be bounded!"
-        );
-        Self { sender }
-    }
-
-    /// Pushes deallocation to the main thread.
-    pub fn dispose(&self, garbage: Garbage) {
-        self.sender.send_complaining(garbage);
-    }
-
-    pub fn dispose_real_time_mapping(&self, m: RealTimeMapping) {
-        // Dispose bits that contain heap-allocated stuff. Do it separately to not let the garbage
-        // enum size get too large.
-        self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
-        self.dispose(Garbage::ResolvedTarget(m.resolved_target));
-        let mode_garbage = m.core.mode.recycle();
-        self.dispose(Garbage::Mode(mode_garbage));
-        self.dispose(Garbage::MappingSource(m.core.source));
-    }
 }
 
 fn reset_midi_devices(

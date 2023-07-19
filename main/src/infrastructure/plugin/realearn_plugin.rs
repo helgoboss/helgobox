@@ -148,7 +148,6 @@ impl Plugin for RealearnPlugin {
                 feedback_real_time_task_sender.clone(),
                 normal_rt_to_main_task_sender,
                 control_main_task_sender,
-                App::garbage_bin().clone(),
             );
             let real_time_processor = Arc::new(Mutex::new(real_time_processor));
             // This is necessary since Rust 1.62.0 (or 1.63.0, not sure). Since those versions,

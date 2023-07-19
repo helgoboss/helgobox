@@ -6,7 +6,7 @@ use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
-    Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
+    GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
     InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
     LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent, MessageCaptureResult,
     MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
@@ -69,11 +69,6 @@ use url::Url;
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
 // and yet it's only around 8 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
-// This needs around 12 MB of memory! However, globally only once. Plus, it's safer to have this
-// large. Otherwise we might run into deallocation in audio thread, which might lead to crackle.
-// Unless someone really needs ReaLearn on a very memory-constrained environment, we better leave it
-// that high. If one day this gets important, we need to measure.
-const GARBAGE_QUEUE_SIZE: usize = 50_000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 
 make_available_globally_in_main_thread!(App);
@@ -347,13 +342,11 @@ impl App {
             uninit_state.clip_matrix_event_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
-            Self::garbage_channel().1.clone(),
             shared_main_processors.clone(),
         ));
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
-            Self::garbage_bin().clone(),
         );
         let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
         let sleeping_state = SleepingState {
@@ -755,9 +748,6 @@ impl App {
         Reaper::get().show_console_msg(msg);
         self.server.borrow().log_debug_info(session_id);
         self.controller_preset_manager.borrow().log_debug_info();
-        self.control_surface_main_task_sender
-            .0
-            .send_complaining(RealearnControlSurfaceMainTask::LogDebugInfo);
     }
 
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -837,22 +827,6 @@ impl App {
             slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
         });
         &APP_LOGGER
-    }
-
-    // We need this to be static because we need it at plugin construction time, so we don't have
-    // REAPER API access yet.
-    pub fn garbage_bin() -> &'static GarbageBin {
-        &Self::garbage_channel().0
-    }
-
-    fn garbage_channel() -> &'static (GarbageBin, crossbeam_channel::Receiver<Garbage>) {
-        static CHANNEL: once_cell::sync::Lazy<(GarbageBin, crossbeam_channel::Receiver<Garbage>)> =
-            once_cell::sync::Lazy::new(|| {
-                let (sender, receiver) =
-                    SenderToNormalThread::new_bounded_channel("app garbage", GARBAGE_QUEUE_SIZE);
-                (GarbageBin::new(sender), receiver)
-            });
-        &CHANNEL
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
