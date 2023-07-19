@@ -246,11 +246,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert_no_alloc"
-version = "1.1.2"
-source = "git+https://github.com/Windfisch/rust-assert-no-alloc.git?branch=master#1beed0ea8762c0c36a70bf67e4601b9915f4d909"
-
-[[package]]
 name = "async-channel"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2463,6 +2458,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
+name = "helgoboss-allocator"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "helgoboss-learn"
 version = "0.1.0"
 dependencies = [
@@ -3988,7 +3990,6 @@ name = "playtime-clip-engine"
 version = "2.0.0"
 dependencies = [
  "anyhow",
- "assert_no_alloc",
  "atomic",
  "base",
  "crossbeam-channel",
@@ -3998,6 +3999,7 @@ dependencies = [
  "enumflags2",
  "envcrypt",
  "futures",
+ "helgoboss-allocator",
  "helgoboss-learn",
  "helgoboss-license-api",
  "helgoboss-license-processor",
@@ -4080,7 +4082,6 @@ dependencies = [
 name = "pot"
 version = "0.1.0"
 dependencies = [
- "assert_no_alloc",
  "base",
  "chrono",
  "derivative",
@@ -4092,6 +4093,7 @@ dependencies = [
  "enumset",
  "fallible-iterator",
  "futures",
+ "helgoboss-allocator",
  "indexmap",
  "itertools",
  "lexical-sort",
@@ -4610,7 +4612,6 @@ dependencies = [
  "arboard",
  "ascii",
  "askama",
- "assert_no_alloc",
  "async-channel",
  "axum 0.3.4",
  "axum-server",
@@ -4640,6 +4641,7 @@ dependencies = [
  "env_logger",
  "fasteval",
  "futures",
+ "helgoboss-allocator",
  "helgoboss-learn",
  "helgoboss-license-api",
  "helgoboss-midi",

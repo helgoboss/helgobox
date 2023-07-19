@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! tracing_debug {
     ($($tts:tt)*) => {
-        assert_no_alloc::permit_alloc(|| {
+        helgoboss_allocator::permit_alloc(|| {
             tracing::debug!($($tts)*);
         });
     }
@@ -10,7 +10,7 @@ macro_rules! tracing_debug {
 #[macro_export]
 macro_rules! tracing_warn {
     ($($tts:tt)*) => {
-        assert_no_alloc::permit_alloc(|| {
+        helgoboss_allocator::permit_alloc(|| {
             tracing::warn!($($tts)*);
         });
     }
@@ -19,7 +19,7 @@ macro_rules! tracing_warn {
 #[macro_export]
 macro_rules! tracing_error {
     ($($tts:tt)*) => {
-        assert_no_alloc::permit_alloc(|| {
+        helgoboss_allocator::permit_alloc(|| {
             tracing::error!($($tts)*);
         });
     }

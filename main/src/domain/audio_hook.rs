@@ -3,8 +3,8 @@ use crate::domain::{
     GarbageBin, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
     MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
 };
-use assert_no_alloc::*;
 use base::non_blocking_lock;
+use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};

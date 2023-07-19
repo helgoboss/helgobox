@@ -36,6 +36,7 @@ use enum_iterator::IntoEnumIterator;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
+use crate::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use once_cell::sync::Lazy;
 use playtime_clip_engine::ClipEngineInitArgs;
 use realearn_api::persistence::{
@@ -315,6 +316,7 @@ impl App {
 
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
+        GLOBAL_ALLOCATOR.init(1000, RealearnDeallocator, RealearnAllocatorIntegration);
         metrics_util::init_metrics();
         #[cfg(feature = "playtime")]
         self.init_clip_engine();

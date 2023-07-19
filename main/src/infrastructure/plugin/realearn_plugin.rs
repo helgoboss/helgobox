@@ -16,10 +16,10 @@ use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use crate::infrastructure::ui::MainPanel;
-use assert_no_alloc::*;
 use base::{
     tracing_debug, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
+use helgoboss_allocator::*;
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};

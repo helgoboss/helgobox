@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "allocator",
     "api",
     "dialogs",
     "macros",
@@ -31,6 +32,7 @@ rx-util = { path = "rx-util" }
 playtime-clip-engine = { path = "playtime-clip-engine" }
 realearn-api = { path = "api" }
 realearn-macros = { path = "macros" }
+helgoboss-allocator = { path = "allocator" }
 playtime-api = { path = "playtime-api" }
 realearn-csi = { path = "csi" }
 helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["reaper-low"] }
@@ -62,7 +64,6 @@ xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
 crossbeam-channel = "0.5"
 futures-timer = "3.0.2"
 metrics = "0.18.0"
-assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
 ascii = "1.0"
 raw-window-handle = "0.4.2"
 winapi = { version = "0.3", features = ["winuser", "uxtheme"] }
