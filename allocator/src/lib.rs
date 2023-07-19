@@ -168,6 +168,10 @@ pub trait Deallocate {
 }
 
 impl<I, D> HelgobossAllocator<I, D> {
+    /// Initializes the allocator.
+    ///
+    /// The deallocator that you pass here will only be used for synchronous deallocation.
+    ///
     /// This is just the first step! In order to offload deallocations, you need to call
     /// [`Self::init`]!
     pub const fn new(deallocator: D) -> Self {
@@ -177,9 +181,12 @@ impl<I, D> HelgobossAllocator<I, D> {
         }
     }
 
-    /// This call is necessary to initialize automatic deallocation offloading.
+    /// This call is necessary to initialize automatic deallocation offloading (asynchronous
+    /// deallocation).
     ///
-    /// As soon as the given capacity is reached, deallocation will be done asynchronously until
+    /// The deallocator that you pass here will only be used for asynchronous deallocation.
+    ///
+    /// As soon as the given capacity is reached, deallocation will be done synchronously until
     /// the deallocation thread has capacity again.
     pub fn init(
         &self,

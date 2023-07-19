@@ -252,9 +252,11 @@ scrape_configs:
 
 ** If you don't have any metrics enabled, this will show zeros only.
 
+Prometheus is usually available at http://localhost:9090/.
+
 === ReaLearn metrics
 
-- You can turn on ReaLearn metrics by setting the environment variable `ReaLearn_METRICS` (value doesn't matter).
+- You can turn on ReaLearn metrics by setting the environment variable `REALEARN_METRICS` (value doesn't matter).
 - If this environment variable is set (value doesn't matter), ReaLearn will record some metrics and expose them on the Prometheus endpoint mentioned above.
 
 === Clip engine metrics

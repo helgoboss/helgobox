@@ -48,7 +48,16 @@ pub fn init_metrics() {
         .unwrap();
 }
 
-/// Measures and records the time of the given operation and exposes it at the metrics endpoint.
+/// Synchronously records the occurrence of the given event.
+pub fn record_occurrence(id: &'static str) {
+    if !*METRICS_ENABLED {
+        return;
+    }
+    metrics::increment_counter!(id);
+}
+
+/// Asynchronously measures and records the time of the given operation and exposes it at the
+/// metrics endpoint.
 pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
     if !*METRICS_ENABLED {
         return f();

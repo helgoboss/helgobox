@@ -677,7 +677,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn poll_for_more_change_events(&mut self) {
         let mut change_event_queue = self.change_event_queue.borrow_mut();
-        measure_time("poll for more change events", || {
+        measure_time("poll_for_more_change_events", || {
             self.change_detection_middleware.run(&mut |change_event| {
                 change_event_queue.push(change_event);
             });

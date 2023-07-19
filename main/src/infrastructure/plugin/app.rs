@@ -34,9 +34,11 @@ use base::{
 };
 use enum_iterator::IntoEnumIterator;
 
+use crate::infrastructure::plugin::allocator::{
+    RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR,
+};
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
-use crate::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use once_cell::sync::Lazy;
 use playtime_clip_engine::ClipEngineInitArgs;
 use realearn_api::persistence::{
@@ -64,12 +66,25 @@ use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use url::Url;
 
-// If we have very many instances, this might not be enough. But the task size is so
-// small, so why not make it a great number? It's global, not per instance. For one
-// instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
-// and yet it's only around 8 MB memory usage (globally). We are on the safe side!
+/// Queue size for sending feedback tasks to audio hook.
+///
+/// If we have very many instances, this might not be enough. But the task size is so
+/// small, so why not make it a great number? It's global, not per instance. For one
+/// instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
+/// and yet it's only around 8 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
+/// Queue size for sending less frequent tasks to audio hook.
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
+/// Queue size for deferring deallocation in real-time threads to a dedicated deallocator thread.
+///
+/// - A capacity of 1 means 3 * usize, so 3 * 64 bit = 24 byte.
+/// - A capacity of 1000 means around 24 kb then.
+/// - So we can easily make this large without using much memory.
+/// - Although probably not necessary because deallocation in real-time threads doesn't happen
+///   often.
+/// - Still, we are on the safe side. Because if the channel is full, it will start deallocating in
+///   real-time thread until there's capacity again.
+const DEALLOCATOR_THREAD_CAPACITY: usize = 10000;
 
 make_available_globally_in_main_thread!(App);
 
@@ -311,7 +326,11 @@ impl App {
 
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
-        GLOBAL_ALLOCATOR.init(1000, RealearnDeallocator, RealearnAllocatorIntegration);
+        GLOBAL_ALLOCATOR.init(
+            DEALLOCATOR_THREAD_CAPACITY,
+            RealearnDeallocator::with_metrics("async_deallocation"),
+            RealearnAllocatorIntegration::new(Reaper::get()),
+        );
         metrics_util::init_metrics();
         #[cfg(feature = "playtime")]
         self.init_clip_engine();
