@@ -30,6 +30,7 @@ See link:ARCHITECTURE.adoc[here].
 |Directory entry |Content 
 
 |`/` |Workspace root 
+|`/allocator` |A custom global allocator for deferring deallocation in real-time threads
 |`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script)
 |`/base` |Very generic utility code used by many crates in the workspace
 |`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
