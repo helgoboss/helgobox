@@ -1213,13 +1213,9 @@ pub enum ClipTimeBase {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct BeatTimeBase {
-    /// See [`ClipAudioSettings.original_tempo`].
-    // #[deprecated(note = "moved to ClipAudioSettings.original_tempo")]
-    // #[serde(skip_serializing)]
-    // pub audio_tempo: Option<Bpm>,
     /// The time signature of this clip.
     ///
-    /// If provided, This information is used for certain aspects of the user interface.
+    /// If provided, this information is used for certain aspects of the user interface.
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
     pub downbeat: PositiveBeat,
