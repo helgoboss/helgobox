@@ -228,7 +228,6 @@ impl MatrixClipRecordSettings {
     pub fn effective_play_time_base(
         &self,
         initial_play_start_timing: ClipPlayStartTiming,
-        audio_tempo: Option<Bpm>,
         time_signature: TimeSignature,
         downbeat: PositiveBeat,
     ) -> ClipTimeBase {
@@ -247,7 +246,6 @@ impl MatrixClipRecordSettings {
         };
         if beat_based {
             let beat_time_base = BeatTimeBase {
-                audio_tempo,
                 time_signature,
                 downbeat,
             };
@@ -996,7 +994,7 @@ pub struct Clip {
     // canvas: Option<Canvas>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ClipAudioSettings {
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
     /// material.
@@ -1037,6 +1035,12 @@ pub struct ClipAudioSettings {
     /// `None` means it uses the column cache behavior.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_behavior: Option<AudioCacheBehavior>,
+    /// The clip's native tempo.
+    ///
+    /// This information is used by the clip engine to determine how much to speed up or
+    /// slow down the material depending on the current project tempo.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_tempo: Option<Bpm>,
 }
 
 impl Default for ClipAudioSettings {
@@ -1046,6 +1050,7 @@ impl Default for ClipAudioSettings {
             apply_source_fades: true,
             time_stretch_mode: None,
             resample_mode: None,
+            original_tempo: None,
         }
     }
 }
@@ -1208,15 +1213,10 @@ pub enum ClipTimeBase {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct BeatTimeBase {
-    /// The clip's native tempo.
-    ///
-    /// Must be set for audio. Is ignored for MIDI.
-    ///
-    /// This information is used by the clip engine to determine how much to speed up or
-    /// slow down the material depending on the current project tempo.
-    // TODO-high-clip-engine Feels strange here, maybe move to audio settings
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audio_tempo: Option<Bpm>,
+    /// See [`ClipAudioSettings.original_tempo`].
+    // #[deprecated(note = "moved to ClipAudioSettings.original_tempo")]
+    // #[serde(skip_serializing)]
+    // pub audio_tempo: Option<Bpm>,
     /// The time signature of this clip.
     ///
     /// If provided, This information is used for certain aspects of the user interface.
