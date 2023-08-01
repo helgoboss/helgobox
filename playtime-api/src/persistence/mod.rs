@@ -246,6 +246,7 @@ impl MatrixClipRecordSettings {
         };
         if beat_based {
             let beat_time_base = BeatTimeBase {
+                audio_tempo: None,
                 time_signature,
                 downbeat,
             };
@@ -1213,6 +1214,9 @@ pub enum ClipTimeBase {
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct BeatTimeBase {
+    #[deprecated(note = "moved to ClipAudioSettings#original_tempo")]
+    #[serde(skip_serializing)]
+    pub audio_tempo: Option<Bpm>,
     /// The time signature of this clip.
     ///
     /// If provided, this information is used for certain aspects of the user interface.

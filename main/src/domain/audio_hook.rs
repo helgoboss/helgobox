@@ -318,6 +318,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                 "Initializing real-time logging from preview register (thread {:?})",
                 thread_id
             );
+            self.clip_engine_audio_hook.init_from_rt_thread();
             self.initialized = true;
         }
         assert_no_alloc(|| {

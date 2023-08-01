@@ -18,7 +18,6 @@ use std::thread::JoinHandle;
 thread_local! {
     static ALLOC_FORBID_COUNT: Cell<u32> = Cell::new(0);
     static ALLOC_PERMIT_COUNT: Cell<u32> = Cell::new(0);
-    static ALLOC_VIOLATION_COUNT: Cell<u32> = Cell::new(0);
 }
 
 #[cfg(not(debug_assertions))]
@@ -56,16 +55,9 @@ pub fn assert_no_alloc<T, F: FnOnce() -> T>(func: F) -> T {
         }
     }
 
-    let old_violation_count = violation_count();
-
     let guard = Guard::new(); // increment the forbid counter
     let ret = func();
     std::mem::drop(guard); // decrement the forbid counter
-
-    if violation_count() > old_violation_count {
-        panic!("Tried to (de)allocate memory in a thread that forbids allocator calls!");
-    }
-
     return ret;
 }
 
@@ -92,18 +84,6 @@ pub fn permit_alloc<T, F: FnOnce() -> T>(func: F) -> T {
     std::mem::drop(guard); // decrement the forbid counter
 
     return ret;
-}
-
-/// Returns the count of allocation warnings emitted so far.
-#[cfg(debug_assertions)]
-pub fn violation_count() -> u32 {
-    ALLOC_VIOLATION_COUNT.with(|c| c.get())
-}
-
-/// Resets the count of allocation warnings to zero.
-#[cfg(debug_assertions)]
-pub fn reset_violation_count() {
-    ALLOC_VIOLATION_COUNT.with(|c| c.set(0));
 }
 
 /// The custom allocator that handles the checking.
@@ -199,12 +179,19 @@ impl<I, D> HelgobossAllocator<I, D> {
     }
 
     #[cfg(debug_assertions)]
-    fn check(&self, _layout: Layout) {
+    fn check(&self, layout: Layout) {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {
-            // we may not use println! here, as it will stall when unwinding from a panic.
-            ALLOC_VIOLATION_COUNT.with(|c| c.set(c.get() + 1));
+            permit_alloc(|| {
+                eprintln!(
+                    "Memory allocation of {} bytes failed from:\n{:?}",
+                    layout.size(),
+                    backtrace::Backtrace::new()
+                );
+            });
+            // Comment out if you don't want to abort
+            std::alloc::handle_alloc_error(layout);
         }
     }
 }

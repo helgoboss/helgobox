@@ -7,3 +7,4 @@ publish = false
 
 [dependencies]
 once_cell.workspace = true
+backtrace = "0.3.68"
