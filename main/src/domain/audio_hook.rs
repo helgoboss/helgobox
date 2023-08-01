@@ -3,6 +3,7 @@ use crate::domain::{
     IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
     MidiScanResult, MidiScanner, RealTimeProcessor,
 };
+use base::metrics_util::{measure_time, record_duration};
 use base::non_blocking_lock;
 use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
@@ -324,11 +325,11 @@ impl OnAudioBuffer for RealearnAudioHook {
         assert_no_alloc(|| {
             let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             if !args.is_post {
+                let current_time = Instant::now();
+                let time_of_last_run = self.time_of_last_run.replace(current_time);
                 #[cfg(feature = "playtime")]
                 self.clip_engine_audio_hook
                     .poll_advance_timeline(block_props.to_playtime());
-                let current_time = Instant::now();
-                let time_of_last_run = self.time_of_last_run.replace(current_time);
                 let might_be_rebirth = if let Some(time) = time_of_last_run {
                     current_time.duration_since(time) > Duration::from_secs(1)
                 } else {
@@ -348,6 +349,8 @@ impl OnAudioBuffer for RealearnAudioHook {
             // for recording if this is a is_post = false record task).
             if !args.is_post {
                 self.process_normal_tasks();
+            } else if let Some(time_of_last_run) = self.time_of_last_run {
+                record_duration("audio_callback_total", time_of_last_run.elapsed());
             }
         });
     }

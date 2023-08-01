@@ -4009,6 +4009,7 @@ dependencies = [
  "derivative",
  "derive_more",
  "either",
+ "enum_dispatch",
  "enumflags2",
  "envcrypt",
  "futures",

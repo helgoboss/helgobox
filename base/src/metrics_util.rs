@@ -64,14 +64,23 @@ pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
     }
     let start = Instant::now();
     let result = f();
-    let task = MetricsTask::Histogram {
-        id,
-        delta: start.elapsed(),
-    };
+    record_duration_internal(id, start.elapsed());
+    result
+}
+
+/// Records the given duration into a histogram.
+pub fn record_duration(id: &'static str, delta: Duration) {
+    if !*METRICS_ENABLED {
+        return;
+    }
+    record_duration_internal(id, delta);
+}
+
+fn record_duration_internal(id: &'static str, delta: Duration) {
+    let task = MetricsTask::Histogram { id, delta };
     if METRICS_CHANNEL.sender.try_send(task).is_err() {
         tracing::debug!("ReaLearn metrics channel is full");
     }
-    result
 }
 
 struct MetricsChannel {
