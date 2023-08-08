@@ -15,7 +15,7 @@ pub fn warn_if_takes_too_long<R>(label: &'static str, max: Duration, f: impl FnO
         let r = f();
         let elapsed = before.elapsed();
         if elapsed > max {
-            tracing::warn!(
+            tracing_warn!(
                 "Operation took too long: \"{label}\" ({})ms",
                 elapsed.as_millis()
             );

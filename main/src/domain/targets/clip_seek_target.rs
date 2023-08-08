@@ -11,6 +11,7 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
+use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
 use playtime_clip_engine::rt::{InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent};
 use playtime_clip_engine::Timeline;
 
@@ -138,7 +139,7 @@ impl ClipSeekTarget {
             .with_clip_matrix(context.instance_state, |matrix| {
                 let slot = matrix.find_slot(self.slot_coordinates)?;
                 let timeline = matrix.timeline();
-                let tempo = timeline.tempo_at(timeline.cursor_pos());
+                let tempo = timeline.next_block().props.tempo;
                 slot.relevant_contents()
                     .primary_position_in_seconds(tempo)
                     .ok()
@@ -154,7 +155,9 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let relevant_content = matrix.find_slot(self.slot_coordinates)?.relevant_contents();
-                let val = relevant_content.primary_proportional_position().ok()?;
+                let val = relevant_content
+                    .primary_logical_proportional_position()
+                    .ok()?;
                 Some(AbsoluteValue::Continuous(val))
             })
             .ok()?;

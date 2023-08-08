@@ -570,6 +570,7 @@ dependencies = [
  "device_query",
  "enigo",
  "futures-timer",
+ "helgoboss-allocator",
  "helgoboss-learn",
  "metrics",
  "once_cell",
@@ -3549,9 +3550,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.14"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
 dependencies = [
  "autocfg 1.0.1",
 ]
@@ -4777,7 +4778,6 @@ version = "0.1.0"
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -4807,7 +4807,6 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "c_str_macro",
  "cc 1.0.79",
@@ -4821,7 +4820,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.28",
@@ -4831,7 +4829,6 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -4849,7 +4846,6 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -5040,7 +5036,6 @@ dependencies = [
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d644c1affa243c2e3521a26dd1032f1ffcca13c7"
 dependencies = [
  "splitty",
 ]

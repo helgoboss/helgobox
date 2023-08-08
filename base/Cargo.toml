@@ -13,6 +13,7 @@ reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-rx.workspace = true
 realearn-api.workspace = true
+helgoboss-allocator.workspace = true
 
 # 3rd-party
 serde.workspace = true

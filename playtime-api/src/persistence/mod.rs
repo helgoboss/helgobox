@@ -1268,6 +1268,7 @@ impl Bpm {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(try_from = "f64")]
 pub struct PositiveSecond(f64);
 
 impl PositiveSecond {
@@ -1280,6 +1281,14 @@ impl PositiveSecond {
 
     pub const fn get(&self) -> f64 {
         self.0
+    }
+}
+
+impl TryFrom<f64> for PositiveSecond {
+    type Error = &'static str;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        Self::new(value)
     }
 }
 
