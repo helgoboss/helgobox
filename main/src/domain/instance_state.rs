@@ -170,15 +170,22 @@ impl MatrixHandler {
 
 #[cfg(feature = "playtime")]
 impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
-    fn request_recording_input(&self, task: playtime_clip_engine::base::ClipRecordTask) {
-        match task.create_specific_task() {
-            playtime_clip_engine::base::SpecificClipRecordTask::HardwareInput(t) => {
-                self.audio_hook_task_sender
-                    .send_complaining(crate::domain::NormalAudioHookTask::StartClipRecording(t));
+    fn init_recording(&self, command: playtime_clip_engine::base::HandlerInitRecordingCommand) {
+        use crate::domain::{NormalAudioHookTask, NormalRealTimeTask};
+        use playtime_clip_engine::rt::audio_hook::ClipEngineAudioHookCommand;
+        use playtime_clip_engine::rt::fx_hook::ClipEngineFxHookCommand;
+        match command.create_specific_command() {
+            playtime_clip_engine::base::SpecificInitRecordingCommand::HardwareInput(t) => {
+                let playtime_command = ClipEngineAudioHookCommand::InitRecording(t);
+                self.audio_hook_task_sender.send_complaining(
+                    NormalAudioHookTask::PlaytimeClipEngineCommand(playtime_command),
+                );
             }
-            playtime_clip_engine::base::SpecificClipRecordTask::FxInput(t) => {
-                self.real_time_processor_sender
-                    .send_complaining(crate::domain::NormalRealTimeTask::StartClipRecording(t));
+            playtime_clip_engine::base::SpecificInitRecordingCommand::FxInput(t) => {
+                let playtime_command = ClipEngineFxHookCommand::InitRecording(t);
+                self.real_time_processor_sender.send_complaining(
+                    NormalRealTimeTask::PlaytimeClipEngineCommand(playtime_command),
+                );
             }
         }
     }

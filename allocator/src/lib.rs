@@ -191,7 +191,7 @@ impl<I, D> HelgobossAllocator<I, D> {
                 );
             });
             // Comment out if you don't want to abort
-            std::alloc::handle_alloc_error(layout);
+            // std::alloc::handle_alloc_error(layout);
         }
     }
 }

@@ -41,7 +41,7 @@ pub enum NormalAudioHookTask {
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
     #[cfg(feature = "playtime")]
-    StartClipRecording(playtime_clip_engine::rt::audio_hook::HardwareInputClipRecordTask),
+    PlaytimeClipEngineCommand(playtime_clip_engine::rt::audio_hook::ClipEngineAudioHookCommand),
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -95,7 +95,75 @@ impl RealearnAudioHook {
         }
     }
 
-    fn process_feedback_tasks(&mut self) {
+    /// This should be called only once in the audio hardware thread, before everything else.
+    ///
+    /// It does some per-thread allocation.
+    fn init_from_rt_thread(&mut self) {
+        // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
+        // current thread. This operation needs an allocation at the first time it's executed
+        // on a specific thread. Let's do it here, globally exactly once. Then we can
+        // use assert_no_alloc() to detect real regular allocation issues.
+        // Please note that this doesn't have an effect if
+        // "Audio => Buffering => Allow live FX multiprocessing" is enabled in the REAPER prefs.
+        // Because then worker threads will drive ReaLearn plug-in and clips. That's not an
+        // issue for actual usage because the allocation is done only once per worker
+        // thread, right at the beginning. It's only a problem for testing with
+        // assert_no_alloc(). We introduced a similar thing in ColumnSource get_samples.
+        let thread_id = std::thread::current().id();
+        // The tracing library also does some allocation per thread (independent from the
+        // allocations that a subscriber does anyway).
+        tracing::info!(
+            "Initializing real-time logging from preview register (thread {:?})",
+            thread_id
+        );
+        self.clip_engine_audio_hook.init_from_rt_thread();
+    }
+
+    fn on_pre(&mut self, args: OnAudioBufferArgs) {
+        let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+        // Detect rebirth
+        let might_be_rebirth = {
+            let current_time = Instant::now();
+            let time_of_last_run = self.time_of_last_run.replace(current_time);
+            if let Some(time) = time_of_last_run {
+                current_time.duration_since(time) > Duration::from_secs(1)
+            } else {
+                false
+            }
+        };
+        // Poll Playtime step 1
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_engine_audio_hook
+                .on_pre_step_1_poll(block_props.to_playtime());
+        }
+        // Do some ReaLearn things. The order probably matters here!
+        self.process_feedback_commands();
+        self.call_real_time_processors(block_props, might_be_rebirth);
+        // Process incoming commands, including Playtime commands
+        self.process_normal_commands(block_props);
+        // Poll Playtime step 2
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_engine_audio_hook
+                .on_pre_step_3_poll(block_props.to_playtime(), args.reg);
+        }
+    }
+    fn on_post(&mut self, args: OnAudioBufferArgs) {
+        let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+        // Poll Playtime step 2
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_engine_audio_hook
+                .on_post(block_props.to_playtime(), args.reg);
+        }
+        // Record some metrics
+        if let Some(time_of_last_run) = self.time_of_last_run {
+            record_duration("audio_callback_total", time_of_last_run.elapsed());
+        }
+    }
+
+    fn process_feedback_commands(&mut self) {
         // Process global direct device feedback (since v2.8.0-pre6) - in order to
         // have deterministic feedback ordering, which is important for multi-instance
         // orchestration.
@@ -264,7 +332,7 @@ impl RealearnAudioHook {
         }
     }
 
-    fn process_normal_tasks(&mut self) {
+    fn process_normal_commands(&mut self, block_props: AudioBlockProps) {
         for task in self
             .normal_task_receiver
             .try_iter()
@@ -291,8 +359,10 @@ impl RealearnAudioHook {
                     self.state = AudioHookState::Normal;
                 }
                 #[cfg(feature = "playtime")]
-                StartClipRecording(task) => {
-                    self.clip_engine_audio_hook.start_clip_recording(task);
+                PlaytimeClipEngineCommand(command) => {
+                    let _ = self
+                        .clip_engine_audio_hook
+                        .on_pre_step_2_process_command(command, block_props.to_playtime());
                 }
             }
         }
@@ -302,55 +372,15 @@ impl RealearnAudioHook {
 impl OnAudioBuffer for RealearnAudioHook {
     fn call(&mut self, args: OnAudioBufferArgs) {
         if !self.initialized {
-            // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
-            // current thread. This operation needs an allocation at the first time it's executed
-            // on a specific thread. Let's do it here, globally exactly once. Then we can
-            // use assert_no_alloc() to detect real regular allocation issues.
-            // Please note that this doesn't have an effect if
-            // "Audio => Buffering => Allow live FX multiprocessing" is enabled in the REAPER prefs.
-            // Because then worker threads will drive ReaLearn plug-in and clips. That's not an
-            // issue for actual usage because the allocation is done only once per worker
-            // thread, right at the beginning. It's only a problem for testing with
-            // assert_no_alloc(). We introduced a similar thing in ColumnSource get_samples.
-            let thread_id = std::thread::current().id();
-            // The tracing library also does some allocation per thread (independent from the
-            // allocations that a subscriber does anyway).
-            tracing::info!(
-                "Initializing real-time logging from preview register (thread {:?})",
-                thread_id
-            );
-            self.clip_engine_audio_hook.init_from_rt_thread();
+            self.init_from_rt_thread();
             self.initialized = true;
         }
         assert_no_alloc(|| {
-            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-            if !args.is_post {
-                let current_time = Instant::now();
-                let time_of_last_run = self.time_of_last_run.replace(current_time);
-                #[cfg(feature = "playtime")]
-                self.clip_engine_audio_hook
-                    .poll_advance_timeline(block_props.to_playtime());
-                let might_be_rebirth = if let Some(time) = time_of_last_run {
-                    current_time.duration_since(time) > Duration::from_secs(1)
-                } else {
-                    false
-                };
-                self.process_feedback_tasks();
-                self.call_real_time_processors(block_props, might_be_rebirth);
-            }
-            #[cfg(feature = "playtime")]
-            self.clip_engine_audio_hook.poll_process_clip_record_tasks(
-                args.is_post,
-                block_props.to_playtime(),
-                args.reg,
-            );
-            // Process normal tasks after processing the clip record task so that clip recording
-            // starts in next cycle, not in this one (in this one, the clip is not yet prepared
-            // for recording if this is a is_post = false record task).
-            if !args.is_post {
-                self.process_normal_tasks();
-            } else if let Some(time_of_last_run) = self.time_of_last_run {
-                record_duration("audio_callback_total", time_of_last_run.elapsed());
+            let is_pre = !args.is_post;
+            if is_pre {
+                self.on_pre(args);
+            } else {
+                self.on_post(args);
             }
         });
     }

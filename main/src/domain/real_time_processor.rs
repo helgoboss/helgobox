@@ -152,7 +152,7 @@ impl RealTimeProcessor {
         {
             let inputs = VstChannelInputs(buffer.split().0);
             self.clip_engine_fx_hook
-                .process_clip_record_task(&inputs, block_props.to_playtime());
+                .poll(&inputs, block_props.to_playtime());
         }
         self.process_feedback_tasks(Caller::Vst(host));
     }
@@ -455,8 +455,10 @@ impl RealTimeProcessor {
                     self.clip_matrix = matrix;
                 }
                 #[cfg(feature = "playtime")]
-                StartClipRecording(task) => {
-                    self.clip_engine_fx_hook.start_clip_recording(task);
+                PlaytimeClipEngineCommand(command) => {
+                    let _ = self
+                        .clip_engine_fx_hook
+                        .process_command(command, block_props.to_playtime());
                 }
             }
         }
@@ -1238,7 +1240,7 @@ pub enum NormalRealTimeTask {
     UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
     #[cfg(feature = "playtime")]
-    StartClipRecording(playtime_clip_engine::rt::audio_hook::FxInputClipRecordTask),
+    PlaytimeClipEngineCommand(playtime_clip_engine::rt::fx_hook::ClipEngineFxHookCommand),
 }
 
 #[derive(Copy, Clone, Debug)]

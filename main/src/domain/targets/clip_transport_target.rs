@@ -428,7 +428,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         // in a way that the glue section doesn't need to know the current target value, leaving
         // the glue section powerless and making things such as "Toggle button" not work. This
         // would hurt the usual ReaLearn experience.
-        let column = column.lock_allow_blocking();
+        let column = column.blocking_lock();
         let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
         let Some(first_clip) = slot.first_clip() else {
             return Some(AbsoluteValue::Continuous(UnitValue::MIN));
