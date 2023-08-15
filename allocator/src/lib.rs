@@ -245,8 +245,8 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
 #[cfg(test)]
 mod tests {
     use super::*;
-    use once_cell::sync::Lazy;
-    use std::sync::Once;
+    
+    
 
     struct TestIntegration;
     impl AsyncDeallocationIntegration for TestIntegration {
