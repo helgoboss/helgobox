@@ -17,7 +17,6 @@ use crate::infrastructure::plugin::App;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
@@ -815,7 +814,7 @@ impl SessionData {
                         )?;
                     BackboneState::get()
                         .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                        .load(FlexibleMatrix::Unsigned(matrix))?;
+                        .load(playtime_api::persistence::FlexibleMatrix::Unsigned(matrix))?;
                 } else {
                     BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                 }

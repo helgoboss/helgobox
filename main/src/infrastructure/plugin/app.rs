@@ -40,7 +40,6 @@ use crate::infrastructure::plugin::allocator::{
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
 use once_cell::sync::Lazy;
-use playtime_clip_engine::ClipEngineInitArgs;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -379,7 +378,7 @@ impl App {
     #[cfg(feature = "playtime")]
     fn init_clip_engine(&self) {
         let manager = self.license_manager.borrow();
-        let args = ClipEngineInitArgs {
+        let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: manager.licenses(),
         };
         playtime_clip_engine::ClipEngine::get().init(args);

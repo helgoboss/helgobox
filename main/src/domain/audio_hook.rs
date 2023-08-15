@@ -116,7 +116,10 @@ impl RealearnAudioHook {
             "Initializing real-time logging from preview register (thread {:?})",
             thread_id
         );
-        self.clip_engine_audio_hook.init_from_rt_thread();
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_engine_audio_hook.init_from_rt_thread();
+        }
     }
 
     fn on_pre(&mut self, args: OnAudioBufferArgs) {

@@ -56,7 +56,6 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
-use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::Envelope;
 use semver::Version;
 use std::cell::{Cell, RefCell};
@@ -2024,6 +2023,7 @@ impl HeaderPanel {
             }
             #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
+                use playtime_api::persistence::FlexibleMatrix;
                 let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
