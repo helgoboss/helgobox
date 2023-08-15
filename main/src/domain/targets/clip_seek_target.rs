@@ -12,7 +12,9 @@ use crate::domain::{
 };
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
 use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
-use playtime_clip_engine::rt::{InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent};
+use playtime_clip_engine::rt::{
+    ContinuousSlotChangeEvent, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent,
+};
 use playtime_clip_engine::Timeline;
 
 #[derive(Debug)]
@@ -100,7 +102,7 @@ impl RealearnTarget for ClipSeekTarget {
             )) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
-                SlotChangeEvent::Continuous { proportional, .. }
+                SlotChangeEvent::Continuous(ContinuousSlotChangeEvent { proportional, .. })
                     if self.feedback_resolution == FeedbackResolution::High =>
                 {
                     (true, Some(AbsoluteValue::Continuous(*proportional)))
@@ -139,7 +141,7 @@ impl ClipSeekTarget {
             .with_clip_matrix(context.instance_state, |matrix| {
                 let slot = matrix.find_slot(self.slot_coordinates)?;
                 let timeline = matrix.timeline();
-                let tempo = timeline.next_block().props.tempo;
+                let tempo = timeline.next_block().tempo_entry.props.tempo;
                 slot.relevant_contents()
                     .primary_position_in_seconds(tempo)
                     .ok()

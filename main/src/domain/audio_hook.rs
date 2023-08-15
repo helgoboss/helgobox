@@ -124,6 +124,12 @@ impl RealearnAudioHook {
 
     fn on_pre(&mut self, args: OnAudioBufferArgs) {
         let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+        // Pre-poll Playtime
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_engine_audio_hook
+                .on_pre_poll_1(block_props.to_playtime());
+        }
         // Detect rebirth
         let might_be_rebirth = {
             let current_time = Instant::now();
@@ -134,29 +140,24 @@ impl RealearnAudioHook {
                 false
             }
         };
-        // Poll Playtime step 1
-        #[cfg(feature = "playtime")]
-        {
-            self.clip_engine_audio_hook
-                .on_pre_step_1_poll(block_props.to_playtime());
-        }
         // Do some ReaLearn things. The order probably matters here!
         self.process_feedback_commands();
         self.call_real_time_processors(block_props, might_be_rebirth);
         // Process incoming commands, including Playtime commands
         self.process_normal_commands(block_props);
-        // Poll Playtime step 2
+        // Pre-poll Playtime
         #[cfg(feature = "playtime")]
         {
             self.clip_engine_audio_hook
-                .on_pre_step_3_poll(block_props.to_playtime(), args.reg);
+                .on_pre_poll_2(block_props.to_playtime(), args.reg);
         }
     }
+
     fn on_post(&mut self, args: OnAudioBufferArgs) {
-        let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-        // Poll Playtime step 2
+        // Let Playtime do its processing
         #[cfg(feature = "playtime")]
         {
+            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             self.clip_engine_audio_hook
                 .on_post(block_props.to_playtime(), args.reg);
         }
@@ -365,7 +366,7 @@ impl RealearnAudioHook {
                 PlaytimeClipEngineCommand(command) => {
                     let _ = self
                         .clip_engine_audio_hook
-                        .on_pre_step_2_process_command(command, block_props.to_playtime());
+                        .on_pre_process_command(command, block_props.to_playtime());
                 }
             }
         }

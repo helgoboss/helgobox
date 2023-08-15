@@ -16,6 +16,10 @@ pub fn setup_tracing() {
         .spawn(move || keep_logging(receiver, std::io::stdout()))
         .unwrap();
     let subscriber = FmtSubscriber::builder()
+        .pretty()
+        // .with_thread_ids(true)
+        // .with_thread_names(true)
+        // .compact()
         .with_env_filter(EnvFilter::from_env("REALEARN_LOG"))
         .with_writer(move || AsyncWriter::new(std::io::stdout(), sender.clone()))
         .finish();

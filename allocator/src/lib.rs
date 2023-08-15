@@ -183,13 +183,14 @@ impl<I, D> HelgobossAllocator<I, D> {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {
-            permit_alloc(|| {
-                eprintln!(
-                    "Memory allocation of {} bytes failed from:\n{:?}",
-                    layout.size(),
-                    backtrace::Backtrace::new()
-                );
-            });
+            // Comment out if you want to ignore it TODO-high
+            // permit_alloc(|| {
+            //     eprintln!(
+            //         "Memory allocation of {} bytes failed from:\n{:?}",
+            //         layout.size(),
+            //         backtrace::Backtrace::new()
+            //     );
+            // });
             // Comment out if you don't want to abort
             // std::alloc::handle_alloc_error(layout);
         }

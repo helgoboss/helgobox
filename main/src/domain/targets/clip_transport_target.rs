@@ -163,7 +163,7 @@ impl RealearnTarget for ClipTransportTarget {
                             {
                                 return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
                             }
-                            matrix.record_slot(self.basics.slot_coordinates)?;
+                            matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
                         } else {
                             matrix.stop_slot(
                                 self.basics.slot_coordinates,
@@ -182,7 +182,8 @@ impl RealearnTarget for ClipTransportTarget {
                                         self.basics.slot_coordinates.column(),
                                     ) {
                                         // Is armed, so record.
-                                        matrix.record_slot(self.basics.slot_coordinates)?;
+                                        matrix
+                                            .record_or_overdub_slot(self.basics.slot_coordinates)?;
                                     } else if self.basics.options.stop_column_if_slot_empty {
                                         // Not armed but column stopping on empty slots enabled.
                                         // Since we already know that the slot is empty, we do
@@ -196,7 +197,7 @@ impl RealearnTarget for ClipTransportTarget {
                                     }
                                 } else {
                                     // Definitely record.
-                                    matrix.record_slot(self.basics.slot_coordinates)?;
+                                    matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
                                 }
                             } else {
                                 // Slot is filled.

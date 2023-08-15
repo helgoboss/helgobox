@@ -6,6 +6,14 @@ macro_rules! tracing_debug {
         });
     }
 }
+#[macro_export]
+macro_rules! tracing_trace {
+    ($($tts:tt)*) => {
+        helgoboss_allocator::permit_alloc(|| {
+            tracing::trace!($($tts)*);
+        });
+    }
+}
 
 #[macro_export]
 macro_rules! tracing_warn {

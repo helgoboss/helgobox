@@ -91,6 +91,7 @@ slog = "2.5.2"
 hex = "0.4.2"
 rmp-serde = "1.1.1"
 anyhow = "1.0.71"
+thiserror = "1.0.45"
 enum_dispatch = "0.3.6"
 
 [profile.release]
