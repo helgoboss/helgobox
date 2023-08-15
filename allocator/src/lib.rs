@@ -245,8 +245,6 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    
 
     struct TestIntegration;
     impl AsyncDeallocationIntegration for TestIntegration {
