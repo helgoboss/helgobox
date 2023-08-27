@@ -1563,7 +1563,7 @@ impl Session {
         key: &MappingKey,
     ) -> Option<MappingId> {
         self.mappings(compartment).find_map(|m| {
-            let m = m.borrow();
+            let m = m.try_borrow().ok()?;
             if m.key() == key {
                 Some(m.id())
             } else {
