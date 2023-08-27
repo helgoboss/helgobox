@@ -304,17 +304,19 @@ impl Plugin for RealearnPlugin {
     fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
         #[cfg(not(feature = "playtime"))]
         let _ = buffer;
-        assert_no_alloc(|| {
-            // Get current time information so we can detect changes in play state reliably
-            // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
-            self.was_playing_in_last_cycle = self.is_now_playing();
-            self.real_time_processor.lock_recover().run_from_vst(
-                #[cfg(feature = "playtime")]
-                buffer,
-                #[cfg(feature = "playtime")]
-                crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
-                &self.host,
-            );
+        firewall(|| {
+            assert_no_alloc(|| {
+                // Get current time information so we can detect changes in play state reliably
+                // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
+                self.was_playing_in_last_cycle = self.is_now_playing();
+                self.real_time_processor.lock_recover().run_from_vst(
+                    #[cfg(feature = "playtime")]
+                    buffer,
+                    #[cfg(feature = "playtime")]
+                    crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
+                    &self.host,
+                );
+            });
         });
     }
 
