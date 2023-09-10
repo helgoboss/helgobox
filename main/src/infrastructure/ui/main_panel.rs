@@ -523,11 +523,11 @@ impl SessionUi for Weak<MainPanel> {
         &self,
         session: &Session,
         matrix: &playtime_clip_engine::base::Matrix,
-        event: &reaper_high::ChangeEvent,
+        events: &[reaper_high::ChangeEvent],
     ) {
         App::get()
             .clip_engine_hub()
-            .send_occasional_matrix_updates_caused_by_reaper(session.id(), matrix, event);
+            .send_occasional_matrix_updates_caused_by_reaper(session.id(), matrix, events);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {

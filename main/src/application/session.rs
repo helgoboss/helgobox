@@ -67,7 +67,7 @@ pub trait SessionUi {
         &self,
         session: &Session,
         matrix: &playtime_clip_engine::base::Matrix,
-        event: &reaper_high::ChangeEvent,
+        events: &[reaper_high::ChangeEvent],
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn target_controlled(&self, event: TargetControlEvent);
@@ -2630,9 +2630,9 @@ impl DomainEventHandler for WeakSession {
                 s.ui.clip_matrix_changed(&s, matrix, events, is_poll);
             }
             #[cfg(feature = "playtime")]
-            ControlSurfaceChangeEventForClipEngine(matrix, event) => {
+            ControlSurfaceChangeEventsForClipEngine(matrix, events) => {
                 let s = session.try_borrow()?;
-                s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, event);
+                s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, events);
             }
             MappingMatched(event) => {
                 let s = session.try_borrow()?;

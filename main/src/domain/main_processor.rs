@@ -1743,11 +1743,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // Let matrix react to track changes etc.
                 matrix.process_reaper_change_events(events);
                 // Process for GUI
-                for event in events {
-                    self.basics.event_handler.handle_event_ignoring_error(
-                        DomainEvent::ControlSurfaceChangeEventForClipEngine(matrix, event),
-                    );
-                }
+                self.basics.event_handler.handle_event_ignoring_error(
+                    DomainEvent::ControlSurfaceChangeEventsForClipEngine(matrix, events),
+                );
             }
         }
     }
