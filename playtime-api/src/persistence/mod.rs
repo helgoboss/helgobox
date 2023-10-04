@@ -683,6 +683,8 @@ pub struct Column {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ColumnSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub clip_play_settings: ColumnClipPlaySettings,
     pub clip_record_settings: ColumnClipRecordSettings,
 }
@@ -1040,6 +1042,15 @@ pub struct ClipAudioSettings {
     ///
     /// This information is used by the clip engine to determine how much to speed up or
     /// slow down the material depending on the current project tempo.
+    ///
+    /// The tempo is not kept in the [`ClipTimeBase`] variant `Beat` anymore because then it would
+    /// be too easy to get lost when temporarily switching to variant `Time` for fun. It could be
+    /// hard figuring out the original tempo later after loading the project again. One could
+    /// argue that the same is true for time signature, but that's quite easy to figure out again,
+    /// plus, it's not an audio-only setting.
+    ///
+    /// The tempo is also not kept as part of [`Source`] because it's just additional meta
+    /// information that's not strictly to load the source.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_tempo: Option<Bpm>,
 }
