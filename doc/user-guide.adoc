@@ -4707,6 +4707,8 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 | licensing.json | Contains license keys
 
+| Helgoboss/App | Contains the uncompressed App, if installed
+
 | Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
 
 | Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<osc-devices>>

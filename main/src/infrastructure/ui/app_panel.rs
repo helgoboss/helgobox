@@ -1,3 +1,4 @@
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use anyhow::{anyhow, bail, Result};
 use libloading::{Library, Symbol};
@@ -6,7 +7,7 @@ use reaper_low::raw::HWND;
 use std::env;
 use std::error::Error;
 use std::ffi::{c_char, CString};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -19,7 +20,7 @@ impl AppPanel {
     pub fn new() -> Result<Self> {
         let panel = Self {
             view: Default::default(),
-            app: LoadedApp::load()?,
+            app: LoadedApp::load(App::app_dir_path())?,
         };
         Ok(panel)
     }
@@ -79,25 +80,23 @@ impl View for AppPanel {
 
 #[derive(Debug)]
 pub struct LoadedApp {
+    app_base_dir: PathBuf,
     main_library: Library,
     _dependencies: Vec<Library>,
 }
 
-// TODO-high-playtime Adjust
+// #[cfg(target_os = "macos")]
+// const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
+//
+// #[cfg(target_os = "windows")]
+// const APP_BASE_DIR: &str =
+//     "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
 
-#[cfg(target_os = "macos")]
-const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
-
-#[cfg(target_os = "windows")]
-const APP_BASE_DIR: &str =
-    "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
-
-#[cfg(target_os = "linux")]
-const APP_BASE_DIR: &str = "TODO";
+// #[cfg(target_os = "linux")]
+// const APP_BASE_DIR: &str = "TODO";
 
 impl LoadedApp {
-    pub fn load() -> Result<Self> {
-        let app_base_dir = Path::new(APP_BASE_DIR);
+    pub fn load(app_base_dir: PathBuf) -> Result<Self> {
         let (main_library, dependencies) = {
             #[cfg(target_os = "windows")]
             {
@@ -132,16 +131,21 @@ impl LoadedApp {
             .map(|dep| load_library(&app_base_dir.join(dep)))
             .collect();
         let app = LoadedApp {
-            _dependencies: loaded_dependencies?,
             main_library: load_library(&app_base_dir.join(main_library))?,
+            app_base_dir,
+            _dependencies: loaded_dependencies?,
         };
         Ok(app)
     }
 
     pub fn run_in_parent(&self, parent_window: Window) -> Result<()> {
-        let app_base_dir_c_string =
-            CString::new(APP_BASE_DIR).map_err(|_| anyhow!("app base dir is not valid UTF-8"))?;
-        with_temporarily_changed_working_directory(APP_BASE_DIR, || {
+        let app_base_dir_str = self
+            .app_base_dir
+            .to_str()
+            .ok_or(anyhow!("app base dir is not an UTF-8 string"))?;
+        let app_base_dir_c_string = CString::new(app_base_dir_str)
+            .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
+        with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_launch();
             let successful = unsafe {
                 let symbol: Symbol<RunInParent> = self
@@ -195,7 +199,7 @@ fn with_temporarily_changed_working_directory<R>(
 
 fn load_library(path: &Path) -> Result<Library> {
     match path.try_exists() {
-        Ok(false) => bail!("Library {path:?} not found"),
+        Ok(false) => bail!("Library {path:?} not found. Maybe you installed ReaLearn manually (without ReaPack) and forgot to install the app?"),
         Err(e) => bail!("Library {path:?} not accessible: {e}"),
         _ => {}
     }
