@@ -1,4 +1,5 @@
 use crate::infrastructure::ui::bindings::root;
+use anyhow::{anyhow, bail, Result};
 use libloading::{Library, Symbol};
 use reaper_low::raw;
 use reaper_low::raw::HWND;
@@ -15,7 +16,7 @@ pub struct AppPanel {
 }
 
 impl AppPanel {
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> Result<Self> {
         let panel = Self {
             view: Default::default(),
             app: LoadedApp::load()?,
@@ -95,7 +96,7 @@ const APP_BASE_DIR: &str =
 const APP_BASE_DIR: &str = "TODO";
 
 impl LoadedApp {
-    pub fn load() -> Result<Self, libloading::Error> {
+    pub fn load() -> Result<Self> {
         let app_base_dir = Path::new(APP_BASE_DIR);
         let (main_library, dependencies) = {
             #[cfg(target_os = "windows")]
@@ -111,6 +112,9 @@ impl LoadedApp {
                     "Contents/MacOS/playtime",
                     [
                         "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+                        "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
+                        "Contents/Frameworks/native_context_menu.framework/native_context_menu",
+                        "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
                         "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                     ],
                 )
@@ -123,32 +127,31 @@ impl LoadedApp {
                 )
             }
         };
-        let app = unsafe {
-            LoadedApp {
-                _dependencies: dependencies
-                    .into_iter()
-                    .filter_map(|dep| Library::new(app_base_dir.join(dep)).ok())
-                    .collect(),
-                main_library: Library::new(app_base_dir.join(main_library))?,
-            }
+        let loaded_dependencies: Result<Vec<Library>> = dependencies
+            .into_iter()
+            .map(|dep| load_library(&app_base_dir.join(dep)))
+            .collect();
+        let app = LoadedApp {
+            _dependencies: loaded_dependencies?,
+            main_library: load_library(&app_base_dir.join(main_library))?,
         };
         Ok(app)
     }
 
-    pub fn run_in_parent(&self, parent_window: Window) -> Result<(), &'static str> {
+    pub fn run_in_parent(&self, parent_window: Window) -> Result<()> {
         let app_base_dir_c_string =
-            CString::new(APP_BASE_DIR).map_err(|_| "app base dir is not valid UTF-8")?;
+            CString::new(APP_BASE_DIR).map_err(|_| anyhow!("app base dir is not valid UTF-8"))?;
         with_temporarily_changed_working_directory(APP_BASE_DIR, || {
             prepare_app_launch();
             let successful = unsafe {
                 let symbol: Symbol<RunInParent> = self
                     .main_library
                     .get(b"run_app_in_parent\0")
-                    .map_err(|_| "failed to load run_app_in_parent function")?;
+                    .map_err(|_| anyhow!("failed to load run_app_in_parent function"))?;
                 symbol(parent_window.raw(), app_base_dir_c_string.as_ptr())
             };
             if !successful {
-                return Err("couldn't launch app");
+                return bail!("couldn't launch app");
             }
             Ok(())
         })
@@ -188,4 +191,14 @@ fn with_temporarily_changed_working_directory<R>(
         }
     }
     r
+}
+
+fn load_library(path: &Path) -> Result<Library> {
+    match path.try_exists() {
+        Ok(false) => bail!("Library {path:?} not found"),
+        Err(e) => bail!("Library {path:?} not accessible: {e}"),
+        _ => {}
+    }
+    let lib = unsafe { Library::new(path) };
+    lib.map_err(|_| anyhow!("Failed to load library {path:?}"))
 }
