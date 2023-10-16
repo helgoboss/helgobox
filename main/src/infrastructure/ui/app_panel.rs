@@ -13,14 +13,14 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct AppPanel {
     view: ViewContext,
-    app: LoadedApp,
+    app: &'static LoadedApp,
 }
 
 impl AppPanel {
-    pub fn new(app_base_dir: PathBuf) -> Result<Self> {
+    pub fn new(app: &'static LoadedApp) -> Result<Self> {
         let panel = Self {
             view: Default::default(),
-            app: LoadedApp::load(app_base_dir)?,
+            app,
         };
         Ok(panel)
     }
@@ -38,6 +38,15 @@ impl View for AppPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.app.run_in_parent(window).unwrap();
         true
+    }
+
+    /// On macOS, the app window is a child *window* of this window, not a child *view*. We need
+    /// to close it explicitly when this window is closed.
+    #[cfg(target_os = "macos")]
+    fn closed(self: SharedView<Self>, _window: Window) {
+        if let Some(child_window) = self.view.window().and_then(|w| w.first_child_window()) {
+            child_window.close();
+        }
     }
 
     #[allow(clippy::single_match)]
@@ -205,15 +214,4 @@ fn load_library(path: &Path) -> Result<Library> {
     }
     let lib = unsafe { Library::new(path) };
     lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
-}
-
-pub fn decompress_app(archive_file: &Path, destination_dir: &Path) -> Result<()> {
-    let archive_file =
-        std::fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
-    let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
-    let mut archive = tar::Archive::new(tar);
-    archive
-        .unpack(destination_dir)
-        .context("Couldn't unpack app archive.")?;
-    Ok(())
 }

@@ -46,7 +46,7 @@ use crate::infrastructure::ui::util::{
     open_in_file_manager,
 };
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_text_to_clipboard, decompress_app, deserialize_api_object_from_lua,
+    add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, AppPanel, DataObject, GroupFilter, GroupPanel,
@@ -55,6 +55,7 @@ use crate::infrastructure::ui::{
     SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use anyhow::anyhow;
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
 use semver::Version;
@@ -2293,12 +2294,8 @@ impl HeaderPanel {
     }
 
     fn show_app_internal(&self) -> anyhow::Result<()> {
-        // TODO-high-performance Only delete/decompress if archive changed
-        let app_archive_file = App::app_archive_file_path();
-        let app_base_dir = App::app_base_dir_path();
-        // let _ = std::fs::remove_dir_all(&app_base_dir);
-        decompress_app(&app_archive_file, &app_base_dir)?;
-        let panel = AppPanel::new(app_base_dir)?;
+        let app = App::get_or_load_external_app().map_err(|e| anyhow!(e.to_string()))?;
+        let panel = AppPanel::new(app)?;
         open_child_panel_dyn(
             &self.app_panel,
             panel,

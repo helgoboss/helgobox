@@ -26,7 +26,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::MessagePanel;
+use crate::infrastructure::ui::{LoadedApp, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
@@ -39,6 +39,7 @@ use crate::infrastructure::plugin::allocator::{
 };
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
+use anyhow::Context;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -855,6 +856,11 @@ impl App {
             slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
         });
         &APP_LOGGER
+    }
+
+    pub fn get_or_load_external_app() -> Result<&'static LoadedApp, &'static anyhow::Error> {
+        static EXTERNAL_APP: Lazy<anyhow::Result<LoadedApp>> = Lazy::new(load_external_app);
+        EXTERNAL_APP.as_ref()
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -1884,4 +1890,23 @@ impl RealearnWindowSnitch for RealearnSnitch {
         }
         None
     }
+}
+
+fn load_external_app() -> anyhow::Result<LoadedApp> {
+    let app_archive_file = App::app_archive_file_path();
+    let app_base_dir = App::app_base_dir_path();
+    decompress_app(&app_archive_file, &app_base_dir)?;
+    LoadedApp::load(app_base_dir)
+}
+
+fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result<()> {
+    let archive_file =
+        fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
+    let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
+    let mut archive = tar::Archive::new(tar);
+    let _ = fs::remove_dir_all(&destination_dir);
+    archive
+        .unpack(destination_dir)
+        .context("Couldn't unpack app archive.")?;
+    Ok(())
 }
