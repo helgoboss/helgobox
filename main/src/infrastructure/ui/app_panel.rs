@@ -124,6 +124,8 @@ impl LoadedApp {
                         "Contents/Frameworks/native_context_menu.framework/native_context_menu",
                         "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
                         "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+                        "Contents/Frameworks/screen_retriever.framework/screen_retriever",
+                        "Contents/Frameworks/window_manager.framework/window_manager",
                     ],
                 )
             }
