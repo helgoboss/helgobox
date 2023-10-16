@@ -4697,6 +4697,8 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 | Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
 
+| Data/helgoboss/archives | Directory which contains archives e.g. the compressed app, distributed via ReaPack
+
 | Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
 
 | Data/helgoboss/presets/controller | Contains preset for the controller compartment

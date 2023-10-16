@@ -783,7 +783,7 @@ impl App {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
-    pub fn app_dir_path() -> PathBuf {
+    pub fn app_base_dir_path() -> PathBuf {
         App::helgoboss_resource_dir_path().join("App")
     }
 
@@ -795,6 +795,12 @@ impl App {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/realearn")
+    }
+
+    pub fn app_archive_file_path() -> PathBuf {
+        Reaper::get()
+            .resource_path()
+            .join("Data/helgoboss/archives/app.tar.zst")
     }
 
     pub fn realearn_high_click_sound_path() -> Option<&'static Path> {

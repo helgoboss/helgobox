@@ -46,7 +46,7 @@ use crate::infrastructure::ui::util::{
     open_in_file_manager,
 };
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
+    add_firewall_rule, copy_text_to_clipboard, decompress_app, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, AppPanel, DataObject, GroupFilter, GroupPanel,
@@ -2293,7 +2293,12 @@ impl HeaderPanel {
     }
 
     fn show_app_internal(&self) -> anyhow::Result<()> {
-        let panel = AppPanel::new()?;
+        // TODO-high-performance Only delete/decompress if archive changed
+        let app_archive_file = App::app_archive_file_path();
+        let app_base_dir = App::app_base_dir_path();
+        // let _ = std::fs::remove_dir_all(&app_base_dir);
+        decompress_app(&app_archive_file, &app_base_dir)?;
+        let panel = AppPanel::new(app_base_dir)?;
         open_child_panel_dyn(
             &self.app_panel,
             panel,

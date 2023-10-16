@@ -1,6 +1,6 @@
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use libloading::{Library, Symbol};
 use reaper_low::raw;
 use reaper_low::raw::HWND;
@@ -17,10 +17,10 @@ pub struct AppPanel {
 }
 
 impl AppPanel {
-    pub fn new() -> Result<Self> {
+    pub fn new(app_base_dir: PathBuf) -> Result<Self> {
         let panel = Self {
             view: Default::default(),
-            app: LoadedApp::load(App::app_dir_path())?,
+            app: LoadedApp::load(app_base_dir)?,
         };
         Ok(panel)
     }
@@ -199,10 +199,21 @@ fn with_temporarily_changed_working_directory<R>(
 
 fn load_library(path: &Path) -> Result<Library> {
     match path.try_exists() {
-        Ok(false) => bail!("Library {path:?} not found. Maybe you installed ReaLearn manually (without ReaPack) and forgot to install the app?"),
-        Err(e) => bail!("Library {path:?} not accessible: {e}"),
+        Ok(false) => bail!("App library {path:?} not found."),
+        Err(e) => bail!("App library {path:?} not accessible: {e}"),
         _ => {}
     }
     let lib = unsafe { Library::new(path) };
-    lib.map_err(|_| anyhow!("Failed to load library {path:?}"))
+    lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
+}
+
+pub fn decompress_app(archive_file: &Path, destination_dir: &Path) -> Result<()> {
+    let archive_file =
+        std::fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
+    let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
+    let mut archive = tar::Archive::new(tar);
+    archive
+        .unpack(destination_dir)
+        .context("Couldn't unpack app archive.")?;
+    Ok(())
 }
