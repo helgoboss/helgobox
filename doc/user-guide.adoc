@@ -4683,3 +4683,37 @@ ReaLearn will ignore any unknown properties.
 TIP: If you use input `<FX input>` and find that MIDI lifecycle messages aren't sent, no matter what, make sure "Send feedback only if track armed" is disabled (see <<options>>)!
 
 WARNING: Disabling the complete ReaLearn instance will cause all mappings to deactivate. However, sending MIDI messages on deactivation in this case will only work if the output is a device! If it is `<FX output>`, it will not send anything because REAPER will not give that ReaLearn instance any chance to output MIDI messages once it's disabled. Instead, the MIDI message will queue up and be sent once you enable that instance again ... which is probably not what you want.
+
+=== Configuration files
+
+ReaLearn creates and/or reads a few files in REAPER's resource directory.
+
+
+[cols="m,1"]
+|===
+| File | Description
+
+| Data/helgoboss | Directory which contains data such as presets or resources that need to be distributed via ReaPack
+
+| Data/helgoboss/auto-load-configs/fx.json | Contains global FX-to-preset links, see <<auto-load>>
+
+| Data/helgoboss/doc | Contains offline documentation, e.g. this guide as PDF
+
+| Data/helgoboss/presets/controller | Contains preset for the controller compartment
+
+| Data/helgoboss/presets/main | Contains preset for the main compartment
+
+| Helgoboss | Directory which contains rather personal or device-specific data, not touched via ReaPack
+
+| licensing.json | Contains license keys
+
+| Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
+
+| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<osc-devices>>
+
+| Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
+
+Currently supported properties (subject to change): `server_enabled`, `server_http_port`, `server_https_port`, `server_grpc_port`, `companion_web_app_url`
+
+| Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
+|===
