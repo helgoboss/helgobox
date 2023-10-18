@@ -2,12 +2,15 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use anyhow::{anyhow, bail, Context, Result};
 use libloading::{Library, Symbol};
+use playtime_clip_engine::proto::{command_request, CommandRequest};
+use prost::Message;
 use reaper_low::raw;
 use reaper_low::raw::HWND;
 use std::env;
 use std::error::Error;
 use std::ffi::{c_char, CString};
 use std::path::{Path, PathBuf};
+use std::ptr::null;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -159,11 +162,15 @@ impl LoadedApp {
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_launch();
             let successful = unsafe {
-                let symbol: Symbol<RunInParent> = self
+                let symbol: Symbol<RunAppInParent> = self
                     .main_library
                     .get(b"run_app_in_parent\0")
                     .map_err(|_| anyhow!("failed to load run_app_in_parent function"))?;
-                symbol(parent_window.raw(), app_base_dir_c_string.as_ptr())
+                symbol(
+                    parent_window.raw(),
+                    app_base_dir_c_string.as_ptr(),
+                    invoke_host,
+                )
             };
             if !successful {
                 return bail!("couldn't launch app");
@@ -173,8 +180,34 @@ impl LoadedApp {
     }
 }
 
-type RunInParent =
-    unsafe extern "stdcall" fn(parent_window: HWND, app_base_dir_utf8_c_str: *const c_char) -> bool;
+/// Function that's used from Dart in order to call the host.
+#[no_mangle]
+extern "C" fn invoke_host(data: *const u8, length: i32) {
+    let bytes = unsafe { std::slice::from_raw_parts(data, length as usize) };
+    let req = CommandRequest::decode(bytes).unwrap();
+    println!("{req:?}");
+    unsafe {
+        if let Some(command_request::Value::NotifyAppIsReady(req)) = req.value {
+            let ptr = req.app_callback_address as *const ();
+            let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
+            println!("{code:?}");
+            app_callback(null(), 0);
+        }
+    }
+}
+
+/// Signature of the function that's used from the app in order to call the host.
+type HostCallback = extern "C" fn(data: *const u8, length: i32);
+
+/// Signature of the function that's used from the host in order to call the app.
+type AppCallback = extern "C" fn(data: *const u8, length: i32);
+
+/// Signature of the function that we use to open a new App window.
+type RunAppInParent = unsafe extern "C" fn(
+    parent_window: HWND,
+    app_base_dir_utf8_c_str: *const c_char,
+    host_callback: HostCallback,
+) -> bool;
 
 fn prepare_app_launch() {
     #[cfg(target_os = "macos")]
