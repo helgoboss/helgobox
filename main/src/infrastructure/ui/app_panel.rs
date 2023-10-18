@@ -21,13 +21,15 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 pub struct AppPanel {
     view: ViewContext,
     app: &'static LoadedApp,
+    session_id: String,
 }
 
 impl AppPanel {
-    pub fn new(app: &'static LoadedApp) -> Result<Self> {
+    pub fn new(app: &'static LoadedApp, session_id: String) -> Result<Self> {
         let panel = Self {
             view: Default::default(),
             app,
+            session_id,
         };
         Ok(panel)
     }
@@ -43,7 +45,7 @@ impl View for AppPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        self.app.run_in_parent(window).unwrap();
+        self.app.run_in_parent(window, &self.session_id).unwrap();
         true
     }
 
@@ -156,13 +158,15 @@ impl LoadedApp {
         Ok(app)
     }
 
-    pub fn run_in_parent(&self, parent_window: Window) -> Result<()> {
+    pub fn run_in_parent(&self, parent_window: Window, session_id: &str) -> Result<()> {
         let app_base_dir_str = self
             .app_base_dir
             .to_str()
             .ok_or(anyhow!("app base dir is not an UTF-8 string"))?;
         let app_base_dir_c_string = CString::new(app_base_dir_str)
             .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
+        let session_id_c_string =
+            CString::new(session_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_launch();
             let successful = unsafe {
@@ -174,6 +178,7 @@ impl LoadedApp {
                     parent_window.raw(),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
+                    session_id_c_string.as_ptr(),
                 )
             };
             if !successful {
@@ -194,7 +199,7 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
     let Some(req) = req.value else {
         return;
     };
-    // We need to execute the commands on the main thread!
+    // We need to execute commands on the main thread!
     Global::task_support()
         .do_in_main_thread_asap(|| process_command(req).unwrap())
         .unwrap();
@@ -211,6 +216,7 @@ type RunAppInParent = unsafe extern "C" fn(
     parent_window: HWND,
     app_base_dir_utf8_c_str: *const c_char,
     host_callback: HostCallback,
+    session_id: *const c_char,
 ) -> bool;
 
 fn prepare_app_launch() {
@@ -263,11 +269,10 @@ fn process_command(req: command_request::Value) -> Result<(), tonic::Status> {
         NotifyAppIsReady(req) => {
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            // app_callback(null(), 0);
-            // TODO-high Save the callback somewhere
+            app_callback(null(), 0);
+            // TODO-high Save the callback in the app instance manager
         }
         ProveAuthenticity(req) => {}
-        // TODO-high CONTINUE Let Dart detect if embedded and in this case use the in-process command calls.
         TriggerMatrix(req) => {
             command_handler.trigger_matrix(req)?;
         }

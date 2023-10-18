@@ -2294,8 +2294,9 @@ impl HeaderPanel {
     }
 
     fn show_app_internal(&self) -> anyhow::Result<()> {
+        let session_id = self.session().borrow().id().to_string();
         let app = App::get_or_load_external_app().map_err(|e| anyhow!(e.to_string()))?;
-        let panel = AppPanel::new(app)?;
+        let panel = AppPanel::new(app, session_id)?;
         open_child_panel_dyn(
             &self.app_panel,
             panel,
