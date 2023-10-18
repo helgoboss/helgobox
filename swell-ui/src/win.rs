@@ -26,4 +26,4 @@ impl DynamicWinApi {
     }
 }
 
-type GetDpiForWindow = extern "stdcall" fn(hwnd: HWND) -> UINT;
+type GetDpiForWindow = extern "system" fn(hwnd: HWND) -> UINT;
