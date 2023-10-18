@@ -1,9 +1,13 @@
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
 use crate::infrastructure::ui::bindings::root;
 use anyhow::{anyhow, bail, Context, Result};
+use base::Global;
 use libloading::{Library, Symbol};
-use playtime_clip_engine::proto::{command_request, CommandRequest};
+use playtime_clip_engine::proto::command_request::Value;
+use playtime_clip_engine::proto::{command_request, ClipEngineCommandHandler, CommandRequest};
 use prost::Message;
+use reaper_high::{Reaper, TaskSupport};
 use reaper_low::raw;
 use reaper_low::raw::HWND;
 use std::env;
@@ -181,19 +185,19 @@ impl LoadedApp {
 }
 
 /// Function that's used from Dart in order to call the host.
+///
+/// Attention: This is *not* called from the main thread but from some special Flutter UI thread.
 #[no_mangle]
 extern "C" fn invoke_host(data: *const u8, length: i32) {
     let bytes = unsafe { std::slice::from_raw_parts(data, length as usize) };
     let req = CommandRequest::decode(bytes).unwrap();
-    println!("{req:?}");
-    unsafe {
-        if let Some(command_request::Value::NotifyAppIsReady(req)) = req.value {
-            let ptr = req.app_callback_address as *const ();
-            let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            println!("{code:?}");
-            app_callback(null(), 0);
-        }
-    }
+    let Some(req) = req.value else {
+        return;
+    };
+    // We need to execute the commands on the main thread!
+    Global::task_support()
+        .do_in_main_thread_asap(|| process_command(req).unwrap())
+        .unwrap();
 }
 
 /// Signature of the function that's used from the app in order to call the host.
@@ -249,4 +253,87 @@ fn load_library(path: &Path) -> Result<Library> {
     }
     let lib = unsafe { Library::new(path) };
     lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
+}
+
+fn process_command(req: command_request::Value) -> Result<(), tonic::Status> {
+    // TODO-low This should be a more generic command handler in future (not just clip engine)
+    let command_handler = ClipEngineCommandHandler::new(AppMatrixProvider);
+    use command_request::Value::*;
+    match req {
+        NotifyAppIsReady(req) => {
+            let ptr = req.app_callback_address as *const ();
+            let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
+            // app_callback(null(), 0);
+            // TODO-high Save the callback somewhere
+        }
+        ProveAuthenticity(req) => {}
+        // TODO-high CONTINUE Let Dart detect if embedded and in this case use the in-process command calls.
+        TriggerMatrix(req) => {
+            command_handler.trigger_matrix(req)?;
+        }
+        SetMatrixSettings(req) => {
+            command_handler.set_matrix_settings(req)?;
+        }
+        SetMatrixTempo(req) => {
+            command_handler.set_matrix_tempo(req)?;
+        }
+        SetMatrixVolume(req) => {
+            command_handler.set_matrix_volume(req)?;
+        }
+        SetMatrixPan(req) => {
+            command_handler.set_matrix_pan(req)?;
+        }
+        TriggerColumn(req) => {
+            command_handler.trigger_column(req)?;
+        }
+        SetColumnSettings(req) => {
+            command_handler.set_column_settings(req)?;
+        }
+        SetColumnVolume(req) => {
+            command_handler.set_column_volume(req)?;
+        }
+        SetColumnPan(req) => {
+            command_handler.set_column_pan(req)?;
+        }
+        SetColumnTrack(req) => {
+            command_handler.set_column_track(req)?;
+        }
+        DragColumn(req) => {
+            command_handler.drag_column(req)?;
+        }
+        SetTrackName(req) => {
+            command_handler.set_track_name(req)?;
+        }
+        SetTrackInput(req) => {
+            command_handler.set_track_input(req)?;
+        }
+        SetTrackInputMonitoring(req) => {
+            command_handler.set_track_input_monitoring(req)?;
+        }
+        TriggerRow(req) => {
+            command_handler.trigger_row(req)?;
+        }
+        SetRowData(req) => {
+            command_handler.set_row_data(req)?;
+        }
+        DragRow(req) => {
+            command_handler.drag_row(req)?;
+        }
+        TriggerSlot(req) => {
+            command_handler.trigger_slot(req)?;
+        }
+        DragSlot(req) => {
+            command_handler.drag_slot(req)?;
+        }
+        TriggerClip(req) => {
+            command_handler.trigger_clip(req)?;
+        }
+        SetClipName(req) => {
+            command_handler.set_clip_name(req)?;
+        }
+        SetClipData(req) => {
+            command_handler.set_clip_data(req)?;
+        }
+    }
+    Ok(())
 }
