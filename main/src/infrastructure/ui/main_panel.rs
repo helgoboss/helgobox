@@ -10,8 +10,8 @@ use slog::debug;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp,
-    SessionUi, VirtualFxType, WeakSession,
+    get_virtual_fx_label, get_virtual_track_label, Affected, AppCallback, CompartmentProp, Session,
+    SessionProp, SessionUi, VirtualFxType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -293,6 +293,12 @@ impl MainPanel {
         }
     }
 
+    fn notify_app_is_ready(&self, callback: AppCallback) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager.borrow().notify_app_is_ready(callback);
+        }
+    }
+
     fn handle_target_control_event(&self, event: TargetControlEvent) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
@@ -536,6 +542,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn target_controlled(&self, event: TargetControlEvent) {
         upgrade_panel(self).handle_target_control_event(event);
+    }
+
+    fn notify_app_is_ready(&self, callback: AppCallback) {
+        upgrade_panel(self).notify_app_is_ready(callback);
     }
 
     #[allow(clippy::single_match)]

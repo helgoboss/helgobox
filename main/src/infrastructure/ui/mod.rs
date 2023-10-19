@@ -41,11 +41,8 @@ mod advanced_script_editor_panel;
 #[cfg(feature = "egui")]
 pub use advanced_script_editor_panel::*;
 
-mod app_panel;
-pub use app_panel::*;
-
-mod app_instance_manager;
-pub use app_instance_manager::*;
+mod app;
+pub use app::*;
 
 #[cfg(feature = "egui")]
 mod target_filter_panel;

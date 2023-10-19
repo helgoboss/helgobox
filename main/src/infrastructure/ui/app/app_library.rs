@@ -1,119 +1,28 @@
+use crate::application::AppCallback;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
-use crate::infrastructure::ui::bindings::root;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use base::Global;
 use libloading::{Library, Symbol};
-use playtime_clip_engine::proto::command_request::Value;
-use playtime_clip_engine::proto::{command_request, ClipEngineCommandHandler, CommandRequest};
+use playtime_clip_engine::proto;
+use playtime_clip_engine::proto::{ClipEngineCommandHandler, CommandRequest};
 use prost::Message;
-use reaper_high::{Reaper, TaskSupport};
-use reaper_low::raw;
 use reaper_low::raw::HWND;
 use std::env;
-use std::error::Error;
 use std::ffi::{c_char, CString};
 use std::path::{Path, PathBuf};
 use std::ptr::null;
-use swell_ui::{SharedView, View, ViewContext, Window};
+use swell_ui::Window;
+use tonic::Status;
 
 #[derive(Debug)]
-pub struct AppPanel {
-    view: ViewContext,
-    app: &'static LoadedApp,
-    session_id: String,
-}
-
-impl AppPanel {
-    pub fn new(app: &'static LoadedApp, session_id: String) -> Result<Self> {
-        let panel = Self {
-            view: Default::default(),
-            app,
-            session_id,
-        };
-        Ok(panel)
-    }
-}
-
-impl View for AppPanel {
-    fn dialog_resource_id(&self) -> u32 {
-        root::ID_EMPTY_PANEL
-    }
-
-    fn view_context(&self) -> &ViewContext {
-        &self.view
-    }
-
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
-        self.app.run_in_parent(window, &self.session_id).unwrap();
-        true
-    }
-
-    /// On macOS, the app window is a child *window* of this window, not a child *view*. We need
-    /// to close it explicitly when this window is closed.
-    #[cfg(target_os = "macos")]
-    fn closed(self: SharedView<Self>, _window: Window) {
-        if let Some(child_window) = self.view.window().and_then(|w| w.first_child_window()) {
-            child_window.close();
-        }
-    }
-
-    #[allow(clippy::single_match)]
-    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        match resource_id {
-            // Escape key
-            raw::IDCANCEL => self.close(),
-            _ => {}
-        }
-    }
-
-    /// On Windows, this is necessary to resize contained app.
-    ///
-    /// On macOS, this has no effect because the app window is not a child view (NSView) but a
-    /// child window (NSWindow). Resizing according to the parent window (the SWELL window) is done
-    /// on app side.
-    #[cfg(target_os = "windows")]
-    fn resized(self: SharedView<Self>) -> bool {
-        crate::infrastructure::ui::egui_views::on_parent_window_resize(self.view.require_window())
-    }
-
-    /// On Windows, this is necessary to make keyboard input work for the contained app. We
-    /// basically forward all keyboard messages (which come from the RealearnAccelerator) to the
-    /// first child of the first child, which is the Flutter window.
-    #[cfg(target_os = "windows")]
-    fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
-        self.view.window()?.first_child()?.first_child()
-    }
-
-    /// On macOS, the app window is a child *window* of this window, not a child *view*. In general,
-    /// keyboard input is made possible there by allowing the child window to become a key window
-    /// (= get real focus). This is done on app side. However, one corner case is that the user
-    /// clicks the title bar of this window (= the parent window). In this case, the parent window
-    /// becomes the key window and we need to forward keyboard events to the child window.
-    #[cfg(target_os = "macos")]
-    fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
-        self.view.window()?.first_child_window()
-    }
-}
-
-#[derive(Debug)]
-pub struct LoadedApp {
+pub struct AppLibrary {
     app_base_dir: PathBuf,
     main_library: Library,
     _dependencies: Vec<Library>,
 }
 
-// #[cfg(target_os = "macos")]
-// const APP_BASE_DIR: &str = "/Users/helgoboss/Documents/projects/dev/playtime/build/macos/Build/Products/Release/playtime.app";
-//
-// #[cfg(target_os = "windows")]
-// const APP_BASE_DIR: &str =
-//     "C:\\Users\\benja\\Documents\\projects\\dev\\playtime\\build\\windows\\runner\\Release";
-
-// #[cfg(target_os = "linux")]
-// const APP_BASE_DIR: &str = "TODO";
-
-impl LoadedApp {
+impl AppLibrary {
     pub fn load(app_base_dir: PathBuf) -> Result<Self> {
         let (main_library, dependencies) = {
             #[cfg(target_os = "windows")]
@@ -150,15 +59,15 @@ impl LoadedApp {
             .into_iter()
             .map(|dep| load_library(&app_base_dir.join(dep)))
             .collect();
-        let app = LoadedApp {
+        let library = AppLibrary {
             main_library: load_library(&app_base_dir.join(main_library))?,
             app_base_dir,
             _dependencies: loaded_dependencies?,
         };
-        Ok(app)
+        Ok(library)
     }
 
-    pub fn run_in_parent(&self, parent_window: Window, session_id: &str) -> Result<()> {
+    pub fn run_in_parent(&self, parent_window: Window, session_id: String) -> Result<()> {
         let app_base_dir_str = self
             .app_base_dir
             .to_str()
@@ -205,12 +114,6 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
         .unwrap();
 }
 
-/// Signature of the function that's used from the app in order to call the host.
-type HostCallback = extern "C" fn(data: *const u8, length: i32);
-
-/// Signature of the function that's used from the host in order to call the app.
-type AppCallback = extern "C" fn(data: *const u8, length: i32);
-
 /// Signature of the function that we use to open a new App window.
 type RunAppInParent = unsafe extern "C" fn(
     parent_window: HWND,
@@ -218,6 +121,34 @@ type RunAppInParent = unsafe extern "C" fn(
     host_callback: HostCallback,
     session_id: *const c_char,
 ) -> bool;
+
+/// Signature of the function that's used from the app in order to call the host.
+type HostCallback = extern "C" fn(data: *const u8, length: i32);
+
+fn load_library(path: &Path) -> Result<Library> {
+    match path.try_exists() {
+        Ok(false) => bail!("App library {path:?} not found."),
+        Err(e) => bail!("App library {path:?} not accessible: {e}"),
+        _ => {}
+    }
+    let lib = unsafe { Library::new(path) };
+    lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
+}
+
+fn with_temporarily_changed_working_directory<R>(
+    new_dir: impl AsRef<Path>,
+    f: impl FnOnce() -> R,
+) -> R {
+    let previous_dir = env::current_dir();
+    let dir_change_was_successful = env::set_current_dir(new_dir).is_ok();
+    let r = f();
+    if dir_change_was_successful {
+        if let Ok(d) = previous_dir {
+            let _ = env::set_current_dir(d);
+        }
+    }
+    r
+}
 
 fn prepare_app_launch() {
     #[cfg(target_os = "macos")]
@@ -236,41 +167,19 @@ fn prepare_app_launch() {
     }
 }
 
-fn with_temporarily_changed_working_directory<R>(
-    new_dir: impl AsRef<Path>,
-    f: impl FnOnce() -> R,
-) -> R {
-    let previous_dir = env::current_dir();
-    let dir_change_was_successful = env::set_current_dir(new_dir).is_ok();
-    let r = f();
-    if dir_change_was_successful {
-        if let Ok(d) = previous_dir {
-            let _ = env::set_current_dir(d);
-        }
-    }
-    r
-}
-
-fn load_library(path: &Path) -> Result<Library> {
-    match path.try_exists() {
-        Ok(false) => bail!("App library {path:?} not found."),
-        Err(e) => bail!("App library {path:?} not accessible: {e}"),
-        _ => {}
-    }
-    let lib = unsafe { Library::new(path) };
-    lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
-}
-
-fn process_command(req: command_request::Value) -> Result<(), tonic::Status> {
+fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Status> {
     // TODO-low This should be a more generic command handler in future (not just clip engine)
     let command_handler = ClipEngineCommandHandler::new(AppMatrixProvider);
-    use command_request::Value::*;
+    use proto::command_request::Value::*;
     match req {
         NotifyAppIsReady(req) => {
+            // App instance is started. Put the app instance callback at the correct position.
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            app_callback(null(), 0);
-            // TODO-high Save the callback in the app instance manager
+            let session = App::get()
+                .find_session_by_id(&req.matrix_id)
+                .ok_or(Status::not_found("session not found"))?;
+            session.borrow().ui().notify_app_is_ready(app_callback);
         }
         ProveAuthenticity(req) => {}
         TriggerMatrix(req) => {

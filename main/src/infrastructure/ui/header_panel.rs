@@ -2287,22 +2287,7 @@ impl HeaderPanel {
     }
 
     fn show_app(&self) {
-        let result = self.show_app_internal();
-        // Important to not use the header window to show the error because the pot browser
-        // might be opened without any ReaLearn window being open!
-        notification::notify_user_on_anyhow_error(result);
-    }
-
-    fn show_app_internal(&self) -> anyhow::Result<()> {
-        let session_id = self.session().borrow().id().to_string();
-        let app = App::get_or_load_external_app().map_err(|e| anyhow!(e.to_string()))?;
-        let panel = AppPanel::new(app, session_id)?;
-        open_child_panel_dyn(
-            &self.app_panel,
-            panel,
-            Window::from_non_null(Reaper::get().main_window()),
-        );
-        Ok(())
+        self.panel_manager().borrow().open_app_panel();
     }
 
     fn open_preset_folder(&self) {

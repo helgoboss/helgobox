@@ -26,7 +26,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{LoadedApp, MessagePanel};
+use crate::infrastructure::ui::{AppLibrary, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
@@ -858,9 +858,9 @@ impl App {
         &APP_LOGGER
     }
 
-    pub fn get_or_load_external_app() -> Result<&'static LoadedApp, &'static anyhow::Error> {
-        static EXTERNAL_APP: Lazy<anyhow::Result<LoadedApp>> = Lazy::new(load_external_app);
-        EXTERNAL_APP.as_ref()
+    pub fn get_or_load_app_library() -> Result<&'static AppLibrary, &'static anyhow::Error> {
+        static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
+        APP_LIBRARY.as_ref()
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -1892,11 +1892,11 @@ impl RealearnWindowSnitch for RealearnSnitch {
     }
 }
 
-fn load_external_app() -> anyhow::Result<LoadedApp> {
+fn load_app_library() -> anyhow::Result<AppLibrary> {
     let app_archive_file = App::app_archive_file_path();
     let app_base_dir = App::app_base_dir_path();
     decompress_app(&app_archive_file, &app_base_dir)?;
-    LoadedApp::load(app_base_dir)
+    AppLibrary::load(app_base_dir)
 }
 
 fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result<()> {

@@ -1,11 +1,15 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{AppPanel, MainPanel, MappingPanel, SessionMessagePanel};
+use anyhow::anyhow;
 use reaper_high::Reaper;
 use slog::debug;
+use std::rc::Rc;
 
-use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
+use crate::application::{Affected, AppCallback, Session, SessionProp, SharedMapping, WeakSession};
+use crate::base::notification;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
 };
+use crate::infrastructure::plugin::App;
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -17,6 +21,8 @@ pub struct IndependentPanelManager {
     main_panel: WeakView<MainPanel>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
+    /// We have at most one app instance open per ReaLearn instance.
+    app_panel: SharedView<AppPanel>,
 }
 
 impl IndependentPanelManager {
@@ -25,7 +31,8 @@ impl IndependentPanelManager {
             session: session.clone(),
             main_panel,
             mapping_panels: Default::default(),
-            message_panel: SharedView::new(SessionMessagePanel::new(session)),
+            message_panel: SharedView::new(SessionMessagePanel::new(session.clone())),
+            app_panel: SharedView::new(AppPanel::new(session)),
         }
     }
 
@@ -39,6 +46,10 @@ impl IndependentPanelManager {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
             p.handle_matched_mapping();
         });
+    }
+
+    pub fn notify_app_is_ready(&self, callback: AppCallback) {
+        self.app_panel.notify_app_is_ready(callback);
     }
 
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
@@ -86,6 +97,17 @@ impl IndependentPanelManager {
 
     pub fn open_message_panel(&self) {
         self.message_panel.clone().open(reaper_main_window());
+    }
+
+    pub fn open_app_panel(&self) {
+        let result = self.open_app_panel_internal();
+        notification::notify_user_on_anyhow_error(result);
+    }
+
+    fn open_app_panel_internal(&self) -> anyhow::Result<()> {
+        App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
+        self.app_panel.clone().open(reaper_main_window());
+        Ok(())
     }
 
     pub fn close_message_panel(&self) {

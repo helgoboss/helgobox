@@ -53,6 +53,7 @@ pub trait SessionUi {
     fn midi_devices_changed(&self);
     fn celebrate_success(&self);
     fn conditions_changed(&self);
+    fn notify_app_is_ready(&self, callback: AppCallback);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
@@ -2872,3 +2873,6 @@ impl RealearnControlSurfaceMainTaskSender {
 }
 
 const SESSION_GONE: &str = "session gone";
+
+/// Signature of the function that's used from the host in order to call the external app.
+pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
