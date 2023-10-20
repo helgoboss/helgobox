@@ -1,4 +1,4 @@
-use crate::application::{AppCallback, WeakSession};
+use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use anyhow::{anyhow, Result};
@@ -115,6 +115,7 @@ impl View for AppPanel {
     #[cfg(target_os = "macos")]
     fn closed(self: SharedView<Self>, _window: Window) {
         if let Some(child_window) = self.view.window().and_then(|w| w.first_child_window()) {
+            // TODO-high This has not effect!?
             child_window.close();
         }
         *self.open_state.borrow_mut() = None;
@@ -188,3 +189,6 @@ fn send_to_app(app_callback: AppCallback, reply: &EventReply) {
         app_callback(raw_ptr as *const _, length as _);
     }
 }
+
+/// Signature of the function that's used from the host in order to call the external app.
+pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);

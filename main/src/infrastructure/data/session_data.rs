@@ -851,11 +851,11 @@ impl SessionData {
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).
         #[cfg(feature = "playtime")]
-        App::get().with_weak_sessions(|sessions| {
+        App::get().with_instances(|instances| {
             use crate::domain::BackboneState;
             // Gather other sessions that have a foreign clip matrix ID set.
-            let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
-                let other_session = other_session.upgrade()?;
+            let relevant_other_sessions = instances.iter().filter_map(|other_session| {
+                let other_session = other_session.session.upgrade()?;
                 let other_session_foreign_clip_matrix_id = other_session
                     .try_borrow()
                     .ok()?

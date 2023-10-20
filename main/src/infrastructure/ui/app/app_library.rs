@@ -1,11 +1,16 @@
-use crate::application::AppCallback;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
+use crate::infrastructure::ui::AppCallback;
 use anyhow::{anyhow, bail, Result};
 use base::Global;
 use libloading::{Library, Symbol};
+use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::{ClipEngineCommandHandler, CommandRequest};
+use playtime_clip_engine::proto::command_request::Value;
+use playtime_clip_engine::proto::{
+    create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
+    event_reply, ClipEngineCommandHandler, CommandRequest, EventReply, MatrixProvider,
+};
 use prost::Message;
 use reaper_low::raw::HWND;
 use std::env;
@@ -172,15 +177,27 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
     let command_handler = ClipEngineCommandHandler::new(AppMatrixProvider);
     use proto::command_request::Value::*;
     match req {
+        // Embedding
         NotifyAppIsReady(req) => {
             // App instance is started. Put the app instance callback at the correct position.
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            let session = App::get()
-                .find_session_by_id(&req.matrix_id)
-                .ok_or(Status::not_found("session not found"))?;
-            session.borrow().ui().notify_app_is_ready(app_callback);
+            let main_panel = App::get()
+                .find_main_panel_by_session_id(&req.matrix_id)
+                .ok_or(Status::not_found("instance not found"))?;
+            main_panel.notify_app_is_ready(app_callback);
         }
+        // Event subscription commands
+        GetOccasionalMatrixUpdates(req) => {
+            send_initial_events_to_app(&req.matrix_id, create_initial_matrix_updates)?;
+        }
+        GetOccasionalTrackUpdates(req) => {
+            send_initial_events_to_app(&req.matrix_id, create_initial_track_updates)?;
+        }
+        GetOccasionalSlotUpdates(req) => {
+            send_initial_events_to_app(&req.matrix_id, create_initial_slot_updates)?;
+        }
+        // Normal commands
         ProveAuthenticity(req) => {}
         TriggerMatrix(req) => {
             command_handler.trigger_matrix(req)?;
@@ -249,5 +266,23 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
             command_handler.set_clip_data(req)?;
         }
     }
+    Ok(())
+}
+
+fn send_initial_events_to_app<T: Into<event_reply::Value>>(
+    matrix_id: &str,
+    create_reply: impl FnOnce(&Matrix) -> T,
+) -> Result<(), tonic::Status> {
+    let reply_value = AppMatrixProvider
+        .with_matrix(matrix_id, |matrix| create_reply(matrix).into())
+        .map_err(Status::not_found)?;
+    let main_panel = App::get()
+        .find_main_panel_by_session_id(matrix_id)
+        .ok_or(Status::not_found("instance not found"))?;
+    main_panel
+        .send_to_app(&EventReply {
+            value: Some(reply_value),
+        })
+        .map_err(|e| Status::unknown(e.to_string()))?;
     Ok(())
 }

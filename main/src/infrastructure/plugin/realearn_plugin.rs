@@ -14,7 +14,7 @@ use crate::domain::{
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
-use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
+use crate::infrastructure::plugin::{PluginInstanceInfo, SET_STATE_PARAM_NAME};
 use crate::infrastructure::ui::MainPanel;
 use base::{
     tracing_debug, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
@@ -458,7 +458,11 @@ impl RealearnPlugin {
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
                 keep_informing_clients_about_session_events(&shared_session);
-                App::get().register_session(weak_session.clone());
+                let plugin_instance_info = PluginInstanceInfo {
+                    session: weak_session.clone(),
+                    ui: Rc::downgrade(&main_panel),
+                };
+                App::get().register_plugin_instance(plugin_instance_info);
                 // Main processor - (domain, owned by REAPER control surface)
                 // Register the main processor with the global ReaLearn control surface. We let it
                 // call by the control surface because it must be called regularly,

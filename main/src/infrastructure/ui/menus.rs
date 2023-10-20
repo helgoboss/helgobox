@@ -119,9 +119,9 @@ pub fn menu_containing_sessions(
         },
         || None,
     );
-    let items: Vec<_> = App::get().with_weak_sessions(|sessions| {
+    let items: Vec<_> = App::get().with_instances(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
-            let other_session = session.upgrade()?;
+            let other_session = session.session.upgrade()?;
             let other_session = other_session.try_borrow().ok()?;
             // Exclude certain sessions
             if other_session.instance_id() == this_session.instance_id() {

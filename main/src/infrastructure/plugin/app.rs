@@ -26,7 +26,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{AppLibrary, MessagePanel};
+use crate::infrastructure::ui::{AppLibrary, MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
@@ -61,7 +61,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use url::Url;
@@ -113,12 +113,18 @@ pub struct App {
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-    sessions: RefCell<Vec<WeakSession>>,
-    sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    instances: RefCell<Vec<PluginInstanceInfo>>,
+    instances_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
     clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
+}
+
+#[derive(Debug)]
+pub struct PluginInstanceInfo {
+    pub session: WeakSession,
+    pub ui: Weak<MainPanel>,
 }
 
 #[derive(Debug)]
@@ -289,8 +295,8 @@ impl App {
             feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
             audio_hook_task_sender,
-            sessions: Default::default(),
-            sessions_changed_subject: Default::default(),
+            instances: Default::default(),
+            instances_changed_subject: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
@@ -761,7 +767,7 @@ impl App {
         - Module base address: {:?}\n\
         ",
             self.state.borrow(),
-            self.sessions.borrow().len(),
+            self.instances.borrow().len(),
             determine_module_base_address().map(|addr| format!("0x{addr:x}")),
         );
         Reaper::get().show_console_msg(msg);
@@ -880,6 +886,16 @@ impl App {
         })
     }
 
+    pub fn find_main_panel_by_session_id(&self, session_id: &str) -> Option<SharedView<MainPanel>> {
+        self.instances.borrow().iter().find_map(|i| {
+            if i.session.upgrade()?.borrow().id() == session_id {
+                i.ui.upgrade()
+            } else {
+                None
+            }
+        })
+    }
+
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
@@ -965,15 +981,15 @@ impl App {
         &self,
         predicate: impl FnMut(&SharedSession) -> bool,
     ) -> Option<SharedSession> {
-        self.sessions
+        self.instances
             .borrow()
             .iter()
-            .filter_map(|s| s.upgrade())
+            .filter_map(|s| s.session.upgrade())
             .find(predicate)
     }
 
-    pub fn with_weak_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
-        f(&self.sessions.borrow())
+    pub fn with_instances<R>(&self, f: impl FnOnce(&[PluginInstanceInfo]) -> R) -> R {
+        f(&self.instances.borrow())
     }
 
     pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
@@ -983,23 +999,23 @@ impl App {
         })
     }
 
-    pub fn register_session(&self, session: WeakSession) {
-        let mut sessions = self.sessions.borrow_mut();
+    pub fn register_plugin_instance(&self, instance: PluginInstanceInfo) {
+        let mut instances = self.instances.borrow_mut();
         debug!(Reaper::get().logger(), "Registering new session...");
-        sessions.push(session);
+        instances.push(instance);
         debug!(
             Reaper::get().logger(),
             "Session registered. Session count: {}",
-            sessions.len()
+            instances.len()
         );
-        self.notify_sessions_changed();
+        self.notify_instances_changed();
     }
 
     pub fn unregister_session(&self, session: *const Session) {
-        let mut sessions = self.sessions.borrow_mut();
+        let mut instances = self.instances.borrow_mut();
         debug!(Reaper::get().logger(), "Unregistering session...");
-        sessions.retain(|s| {
-            match s.upgrade() {
+        instances.retain(|i| {
+            match i.session.upgrade() {
                 // Already gone, for whatever reason. Time to throw out!
                 None => false,
                 // Not gone yet.
@@ -1009,13 +1025,13 @@ impl App {
         debug!(
             Reaper::get().logger(),
             "Session unregistered. Remaining count of managed sessions: {}",
-            sessions.len()
+            instances.len()
         );
-        self.notify_sessions_changed();
+        self.notify_instances_changed();
     }
 
-    fn notify_sessions_changed(&self) {
-        self.sessions_changed_subject.borrow_mut().next(());
+    fn notify_instances_changed(&self) {
+        self.instances_changed_subject.borrow_mut().next(());
     }
 
     pub fn show_message_panel(
@@ -1402,8 +1418,8 @@ impl App {
         compartment: Compartment,
         target: &ReaperTarget,
     ) -> Option<(SharedSession, SharedMapping)> {
-        self.sessions.borrow().iter().find_map(|session| {
-            let session = session.upgrade()?;
+        self.instances.borrow().iter().find_map(|session| {
+            let session = session.session.upgrade()?;
             let mapping = {
                 let s = session.borrow();
                 if s.processor_context().project() != project {
@@ -1482,8 +1498,8 @@ impl App {
         compartment: Compartment,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
-        self.sessions.borrow().iter().find_map(|session| {
-            let session = session.upgrade()?;
+        self.instances.borrow().iter().find_map(|session| {
+            let session = session.session.upgrade()?;
             let mapping = {
                 let s = session.borrow();
                 if s.processor_context().project() != project {
@@ -1515,8 +1531,8 @@ impl App {
     ) -> Result<(), &'static str> {
         if common_args.scope.has_tags() {
             // Modify all sessions whose tags match.
-            for weak_session in self.sessions.borrow().iter() {
-                if let Some(session) = weak_session.upgrade() {
+            for instance in self.instances.borrow().iter() {
+                if let Some(session) = instance.session.upgrade() {
                     let mut session = session.borrow_mut();
                     // Don't leave the context (project if in project, FX chain if monitoring FX).
                     let context = session.processor_context();
@@ -1528,7 +1544,7 @@ impl App {
                     if !common_args.scope.any_tag_matches(session_tags) {
                         continue;
                     }
-                    f(&mut session, weak_session.clone())
+                    f(&mut session, instance.session.clone())
                 }
             }
         } else {
@@ -1752,8 +1768,8 @@ impl InstanceContainer for App {
 
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
         let mut activated_inverse_tags = HashSet::new();
-        for session in self.sessions.borrow().iter() {
-            if let Some(session) = session.upgrade() {
+        for session in self.instances.borrow().iter() {
+            if let Some(session) = session.session.upgrade() {
                 let session = session.borrow();
                 // Don't touch ourselves.
                 if *session.instance_id() == args.common.initiator_instance_id {

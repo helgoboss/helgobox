@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, util, AppCallback, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -10,8 +10,8 @@ use slog::debug;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, AppCallback, CompartmentProp, Session,
-    SessionProp, SessionUi, VirtualFxType, WeakSession,
+    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp,
+    SessionUi, VirtualFxType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -25,6 +25,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use base::SoundPlayer;
+use playtime_clip_engine::proto::EventReply;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -293,10 +294,19 @@ impl MainPanel {
         }
     }
 
-    fn notify_app_is_ready(&self, callback: AppCallback) {
+    pub fn notify_app_is_ready(&self, callback: AppCallback) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager.borrow().notify_app_is_ready(callback);
         }
+    }
+
+    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+        let data = self
+            .active_data
+            .borrow()
+            .ok_or("main panel not active yet")?;
+        data.panel_manager.borrow().send_to_app(reply)?;
+        Ok(())
     }
 
     fn handle_target_control_event(&self, event: TargetControlEvent) {
@@ -542,10 +552,6 @@ impl SessionUi for Weak<MainPanel> {
 
     fn target_controlled(&self, event: TargetControlEvent) {
         upgrade_panel(self).handle_target_control_event(event);
-    }
-
-    fn notify_app_is_ready(&self, callback: AppCallback) {
-        upgrade_panel(self).notify_app_is_ready(callback);
     }
 
     #[allow(clippy::single_match)]

@@ -1,10 +1,13 @@
-use crate::infrastructure::ui::{AppPanel, MainPanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{
+    AppCallback, AppPanel, MainPanel, MappingPanel, SessionMessagePanel,
+};
 use anyhow::anyhow;
+use playtime_clip_engine::proto::EventReply;
 use reaper_high::Reaper;
 use slog::debug;
 use std::rc::Rc;
 
-use crate::application::{Affected, AppCallback, Session, SessionProp, SharedMapping, WeakSession};
+use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
 use crate::base::notification;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
@@ -50,6 +53,10 @@ impl IndependentPanelManager {
 
     pub fn notify_app_is_ready(&self, callback: AppCallback) {
         self.app_panel.notify_app_is_ready(callback);
+    }
+
+    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+        self.app_panel.send_to_app(reply)
     }
 
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
