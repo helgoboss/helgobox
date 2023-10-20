@@ -4,7 +4,7 @@ use crate::infrastructure::ui::bindings::root;
 use anyhow::{anyhow, Result};
 use base::Global;
 use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::{ClipEngineReceivers, EventReply};
+use playtime_clip_engine::proto::{reply, ClipEngineReceivers, EventReply, Reply};
 use prost::Message;
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -39,7 +39,7 @@ impl AppPanel {
         self.open_state.borrow().is_some()
     }
 
-    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
         self.open_state
             .borrow()
             .as_ref()
@@ -80,7 +80,7 @@ impl AppPanel {
 }
 
 impl OpenState {
-    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
         let app_callback = self.app_callback.ok_or("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())
@@ -91,7 +91,10 @@ impl OpenState {
             return;
         };
         self.event_receivers
-            .process_pending_updates(session_id, &|reply| {
+            .process_pending_updates(session_id, &|event_reply| {
+                let reply = Reply {
+                    value: Some(reply::Value::EventReply(event_reply)),
+                };
                 let _ = send_to_app(app_callback, &reply);
             });
     }
@@ -176,7 +179,7 @@ impl View for AppPanel {
 
 const TIMER_ID: usize = 322;
 
-fn send_to_app(app_callback: AppCallback, reply: &EventReply) {
+fn send_to_app(app_callback: AppCallback, reply: &Reply) {
     let vec = reply.encode_to_vec();
     let length = vec.length();
     let boxed_slice = vec.into_boxed_slice();

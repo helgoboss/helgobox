@@ -3,18 +3,20 @@ use crate::infrastructure::server::services::playtime_service::AppMatrixProvider
 use crate::infrastructure::ui::AppCallback;
 use anyhow::{anyhow, bail, Result};
 use base::Global;
+use egui::Key::V;
 use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::command_request::Value;
 use playtime_clip_engine::proto::{
     create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
-    event_reply, ClipEngineCommandHandler, CommandRequest, EventReply, MatrixProvider,
+    event_reply, query_result, reply, ClipEngineRequestHandler, CommandRequest, EventReply,
+    MatrixProvider, QueryReply, QueryResult, Reply, Request,
 };
 use prost::Message;
 use reaper_low::raw::HWND;
 use std::env;
 use std::ffi::{c_char, CString};
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::null;
 use swell_ui::Window;
@@ -109,13 +111,13 @@ impl AppLibrary {
 #[no_mangle]
 extern "C" fn invoke_host(data: *const u8, length: i32) {
     let bytes = unsafe { std::slice::from_raw_parts(data, length as usize) };
-    let req = CommandRequest::decode(bytes).unwrap();
+    let req = Request::decode(bytes).unwrap();
     let Some(req) = req.value else {
         return;
     };
     // We need to execute commands on the main thread!
     Global::task_support()
-        .do_in_main_thread_asap(|| process_command(req).unwrap())
+        .do_in_main_thread_asap(|| process_request(req).unwrap())
         .unwrap();
 }
 
@@ -172,9 +174,47 @@ fn prepare_app_launch() {
     }
 }
 
+fn process_request(req: proto::request::Value) -> Result<(), tonic::Status> {
+    use proto::request::Value;
+    match req {
+        Value::CommandRequest(req) => process_command(
+            req.value
+                .ok_or(Status::invalid_argument("command value missing"))?,
+        ),
+        Value::QueryRequest(req) => process_query(
+            req.matrix_id,
+            req.id,
+            req.query.ok_or(Status::invalid_argument("query missing"))?,
+        ),
+    }
+}
+
+fn process_query(matrix_id: String, id: u32, query: proto::Query) -> Result<(), tonic::Status> {
+    use proto::query::Value::*;
+    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
+    match query
+        .value
+        .ok_or(Status::invalid_argument("query value missing"))?
+    {
+        ProveAuthenticity(req) => {
+            send_query_reply_to_app(matrix_id, id, async move {
+                let value = handler.prove_authenticity(req).await?.into_inner();
+                Ok(query_result::Value::ProveAuthenticityReply(value))
+            });
+        }
+        GetClipDetail(req) => {
+            send_query_reply_to_app(matrix_id, id, async move {
+                let value = handler.get_clip_detail(req).await?.into_inner();
+                Ok(query_result::Value::GetClipDetailReply(value))
+            });
+        }
+    }
+    Ok(())
+}
+
 fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Status> {
     // TODO-low This should be a more generic command handler in future (not just clip engine)
-    let command_handler = ClipEngineCommandHandler::new(AppMatrixProvider);
+    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
     use proto::command_request::Value::*;
     match req {
         // Embedding
@@ -198,72 +238,74 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
             send_initial_events_to_app(&req.matrix_id, create_initial_slot_updates)?;
         }
         // Normal commands
-        ProveAuthenticity(req) => {}
         TriggerMatrix(req) => {
-            command_handler.trigger_matrix(req)?;
+            handler.trigger_matrix(req)?;
         }
         SetMatrixSettings(req) => {
-            command_handler.set_matrix_settings(req)?;
+            handler.set_matrix_settings(req)?;
         }
         SetMatrixTempo(req) => {
-            command_handler.set_matrix_tempo(req)?;
+            handler.set_matrix_tempo(req)?;
         }
         SetMatrixVolume(req) => {
-            command_handler.set_matrix_volume(req)?;
+            handler.set_matrix_volume(req)?;
         }
         SetMatrixPan(req) => {
-            command_handler.set_matrix_pan(req)?;
+            handler.set_matrix_pan(req)?;
         }
         TriggerColumn(req) => {
-            command_handler.trigger_column(req)?;
+            handler.trigger_column(req)?;
         }
         SetColumnSettings(req) => {
-            command_handler.set_column_settings(req)?;
+            handler.set_column_settings(req)?;
         }
         SetColumnVolume(req) => {
-            command_handler.set_column_volume(req)?;
+            handler.set_column_volume(req)?;
         }
         SetColumnPan(req) => {
-            command_handler.set_column_pan(req)?;
+            handler.set_column_pan(req)?;
         }
         SetColumnTrack(req) => {
-            command_handler.set_column_track(req)?;
+            Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+                handler.set_column_track(req).await?;
+                Ok(())
+            });
         }
         DragColumn(req) => {
-            command_handler.drag_column(req)?;
+            handler.drag_column(req)?;
         }
         SetTrackName(req) => {
-            command_handler.set_track_name(req)?;
+            handler.set_track_name(req)?;
         }
         SetTrackInput(req) => {
-            command_handler.set_track_input(req)?;
+            handler.set_track_input(req)?;
         }
         SetTrackInputMonitoring(req) => {
-            command_handler.set_track_input_monitoring(req)?;
+            handler.set_track_input_monitoring(req)?;
         }
         TriggerRow(req) => {
-            command_handler.trigger_row(req)?;
+            handler.trigger_row(req)?;
         }
         SetRowData(req) => {
-            command_handler.set_row_data(req)?;
+            handler.set_row_data(req)?;
         }
         DragRow(req) => {
-            command_handler.drag_row(req)?;
+            handler.drag_row(req)?;
         }
         TriggerSlot(req) => {
-            command_handler.trigger_slot(req)?;
+            handler.trigger_slot(req)?;
         }
         DragSlot(req) => {
-            command_handler.drag_slot(req)?;
+            handler.drag_slot(req)?;
         }
         TriggerClip(req) => {
-            command_handler.trigger_clip(req)?;
+            handler.trigger_clip(req)?;
         }
         SetClipName(req) => {
-            command_handler.set_clip_name(req)?;
+            handler.set_clip_name(req)?;
         }
         SetClipData(req) => {
-            command_handler.set_clip_data(req)?;
+            handler.set_clip_data(req)?;
         }
     }
     Ok(())
@@ -273,16 +315,43 @@ fn send_initial_events_to_app<T: Into<event_reply::Value>>(
     matrix_id: &str,
     create_reply: impl FnOnce(&Matrix) -> T,
 ) -> Result<(), tonic::Status> {
-    let reply_value = AppMatrixProvider
+    let event_reply_value = AppMatrixProvider
         .with_matrix(matrix_id, |matrix| create_reply(matrix).into())
         .map_err(Status::not_found)?;
+    send_to_app(
+        matrix_id,
+        reply::Value::EventReply(EventReply {
+            value: Some(event_reply_value),
+        }),
+    )
+}
+
+fn send_query_reply_to_app(
+    matrix_id: String,
+    id: u32,
+    future: impl Future<Output = Result<query_result::Value, Status>> + 'static,
+) {
+    Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+        let value = reply::Value::QueryReply(QueryReply {
+            id,
+            result: Some(QueryResult {
+                value: Some(future.await?),
+            }),
+        });
+        send_to_app(&matrix_id, value)?;
+        Ok(())
+    });
+}
+
+fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<(), tonic::Status> {
     let main_panel = App::get()
-        .find_main_panel_by_session_id(matrix_id)
+        .find_main_panel_by_session_id(session_id)
         .ok_or(Status::not_found("instance not found"))?;
+    let reply = Reply {
+        value: Some(reply_value),
+    };
     main_panel
-        .send_to_app(&EventReply {
-            value: Some(reply_value),
-        })
+        .send_to_app(&reply)
         .map_err(|e| Status::unknown(e.to_string()))?;
     Ok(())
 }

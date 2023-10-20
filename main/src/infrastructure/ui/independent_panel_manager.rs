@@ -2,7 +2,7 @@ use crate::infrastructure::ui::{
     AppCallback, AppPanel, MainPanel, MappingPanel, SessionMessagePanel,
 };
 use anyhow::anyhow;
-use playtime_clip_engine::proto::EventReply;
+use playtime_clip_engine::proto::{EventReply, Reply};
 use reaper_high::Reaper;
 use slog::debug;
 use std::rc::Rc;
@@ -55,7 +55,7 @@ impl IndependentPanelManager {
         self.app_panel.notify_app_is_ready(callback);
     }
 
-    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
         self.app_panel.send_to_app(reply)
     }
 

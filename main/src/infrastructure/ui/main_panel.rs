@@ -25,7 +25,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use base::SoundPlayer;
-use playtime_clip_engine::proto::EventReply;
+use playtime_clip_engine::proto::{EventReply, Reply};
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -300,7 +300,7 @@ impl MainPanel {
         }
     }
 
-    pub fn send_to_app(&self, reply: &EventReply) -> Result<(), &'static str> {
+    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
         let data = self
             .active_data
             .borrow()
