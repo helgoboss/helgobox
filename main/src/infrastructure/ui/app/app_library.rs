@@ -15,10 +15,10 @@ use playtime_clip_engine::proto::{
 use prost::Message;
 use reaper_low::raw::HWND;
 use std::env;
-use std::ffi::{c_char, CString};
+use std::ffi::{c_char, c_void, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::null;
+use std::ptr::{null, NonNull};
 use swell_ui::Window;
 use tonic::Status;
 
@@ -74,7 +74,7 @@ impl AppLibrary {
         Ok(library)
     }
 
-    pub fn run_in_parent(&self, parent_window: Window, session_id: String) -> Result<()> {
+    pub fn run_in_parent(&self, parent_window: Window, session_id: String) -> Result<AppHandle> {
         let app_base_dir_str = self
             .app_base_dir
             .to_str()
@@ -85,7 +85,7 @@ impl AppLibrary {
             CString::new(session_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_launch();
-            let successful = unsafe {
+            let app_handle = unsafe {
                 let symbol: Symbol<RunAppInParent> = self
                     .main_library
                     .get(b"run_app_in_parent\0")
@@ -97,11 +97,22 @@ impl AppLibrary {
                     session_id_c_string.as_ptr(),
                 )
             };
-            if !successful {
+            let Some(app_handle) = app_handle else {
                 return bail!("couldn't launch app");
-            }
-            Ok(())
+            };
+            Ok(app_handle)
         })
+    }
+
+    pub fn close(&self, parent_window: Window, app_handle: AppHandle) -> Result<()> {
+        unsafe {
+            let symbol: Symbol<CloseApp> = self
+                .main_library
+                .get(b"close_app\0")
+                .map_err(|_| anyhow!("failed to load close_app function"))?;
+            symbol(parent_window.raw(), app_handle);
+        };
+        Ok(())
     }
 }
 
@@ -121,13 +132,18 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
         .unwrap();
 }
 
+pub type AppHandle = NonNull<c_void>;
+
 /// Signature of the function that we use to open a new App window.
 type RunAppInParent = unsafe extern "C" fn(
     parent_window: HWND,
     app_base_dir_utf8_c_str: *const c_char,
     host_callback: HostCallback,
     session_id: *const c_char,
-) -> bool;
+) -> Option<AppHandle>;
+
+/// Signature of the function that we use to close the App.
+type CloseApp = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
 
 /// Signature of the function that's used from the app in order to call the host.
 type HostCallback = extern "C" fn(data: *const u8, length: i32);

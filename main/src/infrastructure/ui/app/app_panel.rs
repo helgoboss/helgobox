@@ -1,6 +1,7 @@
 use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, Result};
 use base::Global;
 use playtime_clip_engine::proto;
@@ -8,6 +9,8 @@ use playtime_clip_engine::proto::{reply, ClipEngineReceivers, EventReply, Reply}
 use prost::Message;
 use reaper_low::raw;
 use std::cell::RefCell;
+use std::ffi::c_void;
+use std::ptr::NonNull;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use validator::HasLen;
@@ -21,6 +24,7 @@ pub struct AppPanel {
 
 #[derive(Debug)]
 struct OpenState {
+    app_handle: AppHandle,
     app_callback: Option<AppCallback>,
     // TODO-medium This is too specific.
     event_receivers: ClipEngineReceivers,
@@ -33,10 +37,6 @@ impl AppPanel {
             session,
             open_state: RefCell::new(None),
         }
-    }
-
-    pub fn is_open(&self) -> bool {
-        self.open_state.borrow().is_some()
     }
 
     pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
@@ -60,7 +60,7 @@ impl AppPanel {
             .set_timer(TIMER_ID, Duration::from_millis(30));
     }
 
-    fn open_internal(self: SharedView<Self>, window: Window) -> anyhow::Result<()> {
+    fn open_internal(&self, window: Window) -> anyhow::Result<()> {
         let app_library = App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
         let session_id = self
             .session
@@ -69,13 +69,23 @@ impl AppPanel {
             .borrow()
             .id()
             .to_string();
-        app_library.run_in_parent(window, session_id)?;
+        let app_handle = app_library.run_in_parent(window, session_id)?;
         let open_state = OpenState {
+            app_handle,
             app_callback: None,
             event_receivers: App::get().clip_engine_hub().senders().subscribe_to_all(),
         };
         *self.open_state.borrow_mut() = Some(open_state);
         Ok(())
+    }
+
+    fn close_internal(&self, window: Window) -> Result<()> {
+        let open_state = self
+            .open_state
+            .borrow_mut()
+            .take()
+            .ok_or(anyhow!("app was already closed"))?;
+        open_state.close_app(window)
     }
 }
 
@@ -98,6 +108,11 @@ impl OpenState {
                 let _ = send_to_app(app_callback, &reply);
             });
     }
+
+    pub fn close_app(&self, window: Window) -> Result<()> {
+        let app_library = App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
+        app_library.close(window, self.app_handle)
+    }
 }
 
 impl View for AppPanel {
@@ -113,15 +128,8 @@ impl View for AppPanel {
         self.open_internal(window).is_ok()
     }
 
-    /// On macOS, the app window is a child *window* of this window, not a child *view*. We need
-    /// to close it explicitly when this window is closed.
-    #[cfg(target_os = "macos")]
-    fn closed(self: SharedView<Self>, _window: Window) {
-        if let Some(child_window) = self.view.window().and_then(|w| w.first_child_window()) {
-            // TODO-high This has not effect!?
-            child_window.close();
-        }
-        *self.open_state.borrow_mut() = None;
+    fn closed(self: SharedView<Self>, window: Window) {
+        self.close_internal(window).unwrap();
     }
 
     #[allow(clippy::single_match)]
