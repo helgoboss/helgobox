@@ -924,6 +924,18 @@ impl App {
         BackboneState::get().with_clip_matrix_mut(instance_state, f)
     }
 
+    #[cfg(feature = "playtime")]
+    pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> Result<(), &'static str> {
+        let session = self
+            .find_session_by_id(clip_matrix_id)
+            .ok_or("session not found")?;
+        let session = session.borrow();
+        let instance_state = session.instance_state();
+        BackboneState::get()
+            .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state.borrow_mut());
+        Ok(())
+    }
+
     pub fn find_session_by_id_ignoring_borrowed_ones(
         &self,
         session_id: &str,

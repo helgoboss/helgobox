@@ -15,6 +15,7 @@ use crate::domain::{
     VirtualMappingSnapshotIdForLoad,
 };
 use base::{NamedChannelSender, SenderToNormalThread};
+use playtime_clip_engine::base::ClipMatrixEvent;
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
@@ -425,6 +426,11 @@ impl InstanceState {
         let matrix = self.create_owned_clip_matrix();
         self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), true);
         self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(Box::new(matrix))));
+        self.clip_matrix_event_sender
+            .send_complaining(QualifiedClipMatrixEvent {
+                instance_id: self.instance_id,
+                event: ClipMatrixEvent::EverythingChanged,
+            });
         true
     }
 

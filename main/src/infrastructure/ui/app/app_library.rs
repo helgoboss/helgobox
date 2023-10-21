@@ -329,11 +329,11 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
 
 fn send_initial_events_to_app<T: Into<event_reply::Value>>(
     matrix_id: &str,
-    create_reply: impl FnOnce(&Matrix) -> T,
+    create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
 ) -> Result<(), tonic::Status> {
     let event_reply_value = AppMatrixProvider
-        .with_matrix(matrix_id, |matrix| create_reply(matrix).into())
-        .map_err(Status::not_found)?;
+        .with_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
+        .unwrap_or_else(|_| create_reply(None).into());
     send_to_app(
         matrix_id,
         reply::Value::EventReply(EventReply {

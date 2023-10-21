@@ -28,4 +28,8 @@ impl MatrixProvider for AppMatrixProvider {
     ) -> Result<R, &'static str> {
         App::get().with_clip_matrix_mut(clip_matrix_id, f)
     }
+
+    fn create_matrix(&self, clip_matrix_id: &str) -> Result<(), &'static str> {
+        App::get().create_clip_matrix(clip_matrix_id)
+    }
 }
