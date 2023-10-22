@@ -2,7 +2,7 @@ use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
 use crate::infrastructure::ui::AppCallback;
 use anyhow::{anyhow, bail, Result};
-use base::Global;
+use base::{tracing_error, Global};
 use egui::Key::V;
 use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
@@ -128,7 +128,11 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
     };
     // We need to execute commands on the main thread!
     Global::task_support()
-        .do_in_main_thread_asap(|| process_request(req).unwrap())
+        .do_in_main_thread_asap(|| {
+            if let Err(error) = process_request(req) {
+                tracing::error!(msg = "Error processing app request", %error);
+            }
+        })
         .unwrap();
 }
 
