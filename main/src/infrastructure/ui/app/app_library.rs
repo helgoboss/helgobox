@@ -267,6 +267,9 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
         SetMatrixTempo(req) => {
             handler.set_matrix_tempo(req)?;
         }
+        SetMatrixTimeSignature(req) => {
+            handler.set_matrix_time_signature(req)?;
+        }
         SetMatrixVolume(req) => {
             handler.set_matrix_volume(req)?;
         }
