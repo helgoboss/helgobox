@@ -276,14 +276,17 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
         TriggerColumn(req) => {
             handler.trigger_column(req)?;
         }
+        TriggerTrack(req) => {
+            handler.trigger_track(req)?;
+        }
         SetColumnSettings(req) => {
             handler.set_column_settings(req)?;
         }
-        SetColumnVolume(req) => {
-            handler.set_column_volume(req)?;
+        SetTrackVolume(req) => {
+            handler.set_track_volume(req)?;
         }
-        SetColumnPan(req) => {
-            handler.set_column_pan(req)?;
+        SetTrackPan(req) => {
+            handler.set_track_pan(req)?;
         }
         SetColumnTrack(req) => {
             Global::future_support().spawn_in_main_thread_from_main_thread(async move {
