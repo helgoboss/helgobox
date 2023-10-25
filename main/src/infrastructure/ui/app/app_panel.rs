@@ -2,15 +2,16 @@ use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use base::Global;
+use c_str_macro::c_str;
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{reply, ClipEngineReceivers, EventReply, Reply};
 use prost::Message;
-use reaper_low::raw;
+use reaper_low::{raw, Swell};
 use std::cell::RefCell;
 use std::ffi::c_void;
-use std::ptr::NonNull;
+use std::ptr::{null_mut, NonNull};
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use validator::HasLen;
@@ -39,12 +40,21 @@ impl AppPanel {
         }
     }
 
-    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
+    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
         self.open_state
             .borrow()
             .as_ref()
-            .ok_or("app not open")?
+            .context("app not open")?
             .send_to_app(reply)
+    }
+
+    pub fn toggle_full_screen(&self) -> Result<()> {
+        // Because the full-screen windowing code is a mess and highly platform-specific, it's best
+        // to use a platform-specific language to do the job. In case of macOS, Swift is the best
+        // choice. The app itself has easy access to Swift, so let's just call into the app library
+        // so it takes care of handling its host window.
+        // TODO-low It's a bit weird to ask the app (a guest) to deal with a host window. Improve.
+        App::get_or_load_app_library()?.toggle_full_screen(self.view.require_window())
     }
 
     pub fn notify_app_is_ready(&self, callback: AppCallback) {
@@ -60,8 +70,8 @@ impl AppPanel {
             .set_timer(TIMER_ID, Duration::from_millis(30));
     }
 
-    fn open_internal(&self, window: Window) -> anyhow::Result<()> {
-        let app_library = App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
+    fn open_internal(&self, window: Window) -> Result<()> {
+        let app_library = App::get_or_load_app_library()?;
         let session_id = self
             .session
             .upgrade()
@@ -90,8 +100,8 @@ impl AppPanel {
 }
 
 impl OpenState {
-    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
-        let app_callback = self.app_callback.ok_or("app callback not known yet")?;
+    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
+        let app_callback = self.app_callback.context("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())
     }
@@ -110,8 +120,7 @@ impl OpenState {
     }
 
     pub fn close_app(&self, window: Window) -> Result<()> {
-        let app_library = App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
-        app_library.close(window, self.app_handle)
+        App::get_or_load_app_library()?.close(window, self.app_handle)
     }
 }
 

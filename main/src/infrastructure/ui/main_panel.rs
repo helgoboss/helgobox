@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, AppCallback, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    bindings::root, util, AppCallback, AppPanel, HeaderPanel, IndependentPanelManager,
+    MappingRowsPanel, SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
@@ -24,6 +24,7 @@ use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
+use anyhow::anyhow;
 use base::SoundPlayer;
 use playtime_clip_engine::proto::{EventReply, Reply};
 use rxrust::prelude::*;
@@ -294,19 +295,12 @@ impl MainPanel {
         }
     }
 
-    pub fn notify_app_is_ready(&self, callback: AppCallback) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager.borrow().notify_app_is_ready(callback);
-        }
-    }
-
-    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
-        let data = self
+    pub fn app_panel(&self) -> anyhow::Result<SharedView<AppPanel>> {
+        let activate_data = self
             .active_data
             .borrow()
-            .ok_or("main panel not active yet")?;
-        data.panel_manager.borrow().send_to_app(reply)?;
-        Ok(())
+            .ok_or_else(|| anyhow!("main panel not active yet"))?;
+        Ok(activate_data.panel_manager.borrow().app_panel().clone())
     }
 
     fn handle_target_control_event(&self, event: TargetControlEvent) {

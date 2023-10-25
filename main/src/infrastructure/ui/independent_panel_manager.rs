@@ -51,12 +51,8 @@ impl IndependentPanelManager {
         });
     }
 
-    pub fn notify_app_is_ready(&self, callback: AppCallback) {
-        self.app_panel.notify_app_is_ready(callback);
-    }
-
-    pub fn send_to_app(&self, reply: &Reply) -> Result<(), &'static str> {
-        self.app_panel.send_to_app(reply)
+    pub fn app_panel(&self) -> &SharedView<AppPanel> {
+        &self.app_panel
     }
 
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
@@ -112,7 +108,9 @@ impl IndependentPanelManager {
     }
 
     fn open_app_panel_internal(&self) -> anyhow::Result<()> {
-        App::get_or_load_app_library().map_err(|e| anyhow!(e.to_string()))?;
+        // Fail fast if library not available
+        let _ = App::get_or_load_app_library()?;
+        // Then open
         self.app_panel.clone().open(reaper_main_window());
         Ok(())
     }

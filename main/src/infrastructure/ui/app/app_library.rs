@@ -1,7 +1,7 @@
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
-use crate::infrastructure::ui::AppCallback;
-use anyhow::{anyhow, bail, Result};
+use crate::infrastructure::ui::{AppCallback, AppPanel, MainPanel};
+use anyhow::{anyhow, bail, Context, Result};
 use base::{tracing_error, Global};
 use egui::Key::V;
 use libloading::{Library, Symbol};
@@ -19,7 +19,7 @@ use std::ffi::{c_char, c_void, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, NonNull};
-use swell_ui::Window;
+use swell_ui::{SharedView, Window};
 use tonic::Status;
 
 #[derive(Debug)]
@@ -104,6 +104,17 @@ impl AppLibrary {
         })
     }
 
+    pub fn toggle_full_screen(&self, parent_window: Window) -> Result<()> {
+        unsafe {
+            let symbol: Symbol<ToggleFullScreen> =
+                self.main_library
+                    .get(b"toggle_full_screen\0")
+                    .map_err(|_| anyhow!("failed to load toggle_full_screen function"))?;
+            symbol(parent_window.raw());
+        };
+        Ok(())
+    }
+
     pub fn close(&self, parent_window: Window, app_handle: AppHandle) -> Result<()> {
         unsafe {
             let symbol: Symbol<CloseApp> = self
@@ -145,6 +156,9 @@ type RunAppInParent = unsafe extern "C" fn(
     host_callback: HostCallback,
     session_id: *const c_char,
 ) -> Option<AppHandle>;
+
+/// Signature of the function that we use to toggle full-screen.
+type ToggleFullScreen = unsafe extern "C" fn(parent_window: HWND);
 
 /// Signature of the function that we use to close the App.
 type CloseApp = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
@@ -194,7 +208,7 @@ fn prepare_app_launch() {
     }
 }
 
-fn process_request(req: proto::request::Value) -> Result<(), tonic::Status> {
+fn process_request(req: proto::request::Value) -> Result<()> {
     use proto::request::Value;
     match req {
         Value::CommandRequest(req) => process_command(
@@ -209,7 +223,7 @@ fn process_request(req: proto::request::Value) -> Result<(), tonic::Status> {
     }
 }
 
-fn process_query(matrix_id: String, id: u32, query: proto::Query) -> Result<(), tonic::Status> {
+fn process_query(matrix_id: String, id: u32, query: proto::Query) -> Result<()> {
     use proto::query::Value::*;
     let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
     match query
@@ -232,7 +246,7 @@ fn process_query(matrix_id: String, id: u32, query: proto::Query) -> Result<(), 
     Ok(())
 }
 
-fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Status> {
+fn process_command(req: proto::command_request::Value) -> Result<()> {
     // TODO-low This should be a more generic command handler in future (not just clip engine)
     let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
     use proto::command_request::Value::*;
@@ -242,10 +256,10 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
             // App instance is started. Put the app instance callback at the correct position.
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            let main_panel = App::get()
-                .find_main_panel_by_session_id(&req.matrix_id)
-                .ok_or(Status::not_found("instance not found"))?;
-            main_panel.notify_app_is_ready(app_callback);
+            find_app_panel(&req.matrix_id)?.notify_app_is_ready(app_callback);
+        }
+        TriggerApp(req) => {
+            find_app_panel(&req.session_id)?.toggle_full_screen()?;
         }
         // Event subscription commands
         GetOccasionalMatrixUpdates(req) => {
@@ -340,7 +354,7 @@ fn process_command(req: proto::command_request::Value) -> Result<(), tonic::Stat
 fn send_initial_events_to_app<T: Into<event_reply::Value>>(
     matrix_id: &str,
     create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
-) -> Result<(), tonic::Status> {
+) -> Result<()> {
     let event_reply_value = AppMatrixProvider
         .with_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
         .unwrap_or_else(|_| create_reply(None).into());
@@ -369,15 +383,18 @@ fn send_query_reply_to_app(
     });
 }
 
-fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<(), tonic::Status> {
-    let main_panel = App::get()
-        .find_main_panel_by_session_id(session_id)
-        .ok_or(Status::not_found("instance not found"))?;
+fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
+    let app_panel = find_app_panel(session_id)?;
     let reply = Reply {
         value: Some(reply_value),
     };
-    main_panel
-        .send_to_app(&reply)
-        .map_err(|e| Status::unknown(e.to_string()))?;
+    app_panel.send_to_app(&reply)?;
     Ok(())
+}
+
+fn find_app_panel(session_id: &str) -> Result<SharedView<AppPanel>> {
+    App::get()
+        .find_main_panel_by_session_id(session_id)
+        .context("instance not found")?
+        .app_panel()
 }

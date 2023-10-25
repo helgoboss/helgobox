@@ -39,7 +39,7 @@ use crate::infrastructure::plugin::allocator::{
 };
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -864,9 +864,9 @@ impl App {
         &APP_LOGGER
     }
 
-    pub fn get_or_load_app_library() -> Result<&'static AppLibrary, &'static anyhow::Error> {
+    pub fn get_or_load_app_library() -> anyhow::Result<&'static AppLibrary> {
         static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
-        APP_LIBRARY.as_ref()
+        Ok(APP_LIBRARY.as_ref().map_err(|e| anyhow!(e.to_string()))?)
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
