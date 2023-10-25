@@ -102,12 +102,25 @@ impl IndependentPanelManager {
         self.message_panel.clone().open(reaper_main_window());
     }
 
-    pub fn open_app_panel(&self) {
-        let result = self.open_app_panel_internal();
+    pub fn show_app_panel(&self) {
+        let result = self.show_app_panel_internal();
         notification::notify_user_on_anyhow_error(result);
     }
 
-    fn open_app_panel_internal(&self) -> anyhow::Result<()> {
+    pub fn close_app_panel(&self) {
+        self.app_panel.clone().close();
+    }
+
+    pub fn app_panel_is_open(&self) -> bool {
+        self.app_panel.is_open()
+    }
+
+    fn show_app_panel_internal(&self) -> anyhow::Result<()> {
+        if let Some(window) = self.app_panel.view_context().window() {
+            // If window already open (and maybe just hidden), simply show it.
+            window.show();
+            return Ok(());
+        }
         // Fail fast if library not available
         let _ = App::get_or_load_app_library()?;
         // Then open
@@ -154,6 +167,7 @@ impl IndependentPanelManager {
             p.close()
         }
         self.mapping_panels.clear();
+        self.app_panel.close();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {

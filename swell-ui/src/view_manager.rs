@@ -183,6 +183,7 @@ unsafe extern "C" fn view_dialog_proc(
                     // `SetWindowLong()` for return values with special meaning.
                     keyboard_focus_desired.into()
                 }
+                raw::WM_SHOWWINDOW => view.shown_or_hidden(wparam == 1).into(),
                 raw::WM_DESTROY => {
                     let view_context = view.view_context();
                     view_context.closed_subject.borrow_mut().next(());

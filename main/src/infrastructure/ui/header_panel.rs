@@ -80,7 +80,6 @@ pub struct HeaderPanel {
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
     pot_browser_panel: RefCell<Option<SharedView<dyn View>>>,
-    app_panel: RefCell<Option<SharedView<dyn View>>>,
     is_invoked_programmatically: Cell<bool>,
 }
 
@@ -101,7 +100,6 @@ impl HeaderPanel {
             group_panel: Default::default(),
             extra_panel: Default::default(),
             pot_browser_panel: Default::default(),
-            app_panel: Default::default(),
             is_invoked_programmatically: false.into(),
         }
     }
@@ -141,7 +139,6 @@ impl HeaderPanel {
         close_child_panel_if_open(&self.group_panel);
         close_child_panel_if_open(&self.extra_panel);
         close_child_panel_if_open(&self.pot_browser_panel);
-        close_child_panel_if_open(&self.app_panel);
     }
 
     pub fn handle_changed_midi_devices(&self) {
@@ -284,6 +281,7 @@ impl HeaderPanel {
             let main_preset_manager = main_preset_manager.borrow();
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
+            let app_is_open = self.panel_manager().borrow().app_panel_is_open();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
             } else {
@@ -589,7 +587,15 @@ impl HeaderPanel {
                     MainMenuAction::ReloadAllPresets
                 }),
                 item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
-                item("Open App", || MainMenuAction::OpenApp),
+                item("Show App", || MainMenuAction::ShowApp),
+                item_with_opts(
+                    "Close App",
+                    ItemOpts {
+                        enabled: app_is_open,
+                        checked: false,
+                    },
+                    || MainMenuAction::CloseApp,
+                ),
                 separator(),
                 menu(
                     "Logging",
@@ -754,8 +760,11 @@ impl HeaderPanel {
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
-            MainMenuAction::OpenApp => {
+            MainMenuAction::ShowApp => {
                 self.show_app();
+            }
+            MainMenuAction::CloseApp => {
+                self.close_app();
             }
             MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
             MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
@@ -2287,7 +2296,11 @@ impl HeaderPanel {
     }
 
     fn show_app(&self) {
-        self.panel_manager().borrow().open_app_panel();
+        self.panel_manager().borrow().show_app_panel();
+    }
+
+    fn close_app(&self) {
+        self.panel_manager().borrow().close_app_panel();
     }
 
     fn open_preset_folder(&self) {
@@ -3001,7 +3014,8 @@ enum MainMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
     OpenPotBrowser,
-    OpenApp,
+    ShowApp,
+    CloseApp,
     OpenPresetFolder,
     EditNewOscDevice,
     EditExistingOscDevice(OscDeviceId),

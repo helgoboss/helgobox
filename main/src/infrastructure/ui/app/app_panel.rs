@@ -6,7 +6,10 @@ use anyhow::{anyhow, Context, Result};
 use base::Global;
 use c_str_macro::c_str;
 use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::{reply, ClipEngineReceivers, EventReply, Reply};
+use playtime_clip_engine::proto::{
+    event_reply, occasional_matrix_update, reply, ClipEngineReceivers, Empty, EventReply,
+    GetOccasionalMatrixUpdatesReply, OccasionalMatrixUpdate, Reply,
+};
 use prost::Message;
 use reaper_low::{raw, Swell};
 use std::cell::RefCell;
@@ -28,7 +31,7 @@ struct OpenState {
     app_handle: AppHandle,
     app_callback: Option<AppCallback>,
     // TODO-medium This is too specific.
-    event_receivers: ClipEngineReceivers,
+    event_receivers: Option<ClipEngineReceivers>,
 }
 
 impl AppPanel {
@@ -65,9 +68,17 @@ impl AppPanel {
         // Handshake finished! The app has the host callback and we have the app callback.
         open_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
+        self.start_timer();
+    }
+
+    fn start_timer(&self) {
         self.view
             .require_window()
             .set_timer(TIMER_ID, Duration::from_millis(30));
+    }
+
+    fn stop_timer(&self) {
+        self.view.require_window().kill_timer(TIMER_ID);
     }
 
     fn open_internal(&self, window: Window) -> Result<()> {
@@ -83,7 +94,7 @@ impl AppPanel {
         let open_state = OpenState {
             app_handle,
             app_callback: None,
-            event_receivers: App::get().clip_engine_hub().senders().subscribe_to_all(),
+            event_receivers: Some(subscribe_to_events()),
         };
         *self.open_state.borrow_mut() = Some(open_state);
         Ok(())
@@ -107,16 +118,15 @@ impl OpenState {
     }
 
     pub fn send_pending_events(&mut self, session_id: &str) {
-        let Some(app_callback) = self.app_callback else {
+        let (Some(app_callback), Some(event_receivers)) = (self.app_callback, &mut self.event_receivers) else {
             return;
         };
-        self.event_receivers
-            .process_pending_updates(session_id, &|event_reply| {
-                let reply = Reply {
-                    value: Some(reply::Value::EventReply(event_reply)),
-                };
-                let _ = send_to_app(app_callback, &reply);
-            });
+        event_receivers.process_pending_updates(session_id, &|event_reply| {
+            let reply = Reply {
+                value: Some(reply::Value::EventReply(event_reply)),
+            };
+            let _ = send_to_app(app_callback, &reply);
+        });
     }
 
     pub fn close_app(&self, window: Window) -> Result<()> {
@@ -137,8 +147,47 @@ impl View for AppPanel {
         self.open_internal(window).is_ok()
     }
 
+    fn close_requested(self: SharedView<Self>) -> bool {
+        // Don't really close window (along with the app instance). Just hide it. It's a bit faster
+        // when next opening the window.
+        self.view.require_window().hide();
+        true
+    }
+
     fn closed(self: SharedView<Self>, window: Window) {
         self.close_internal(window).unwrap();
+    }
+
+    fn shown_or_hidden(self: SharedView<Self>, shown: bool) -> bool {
+        if shown {
+            // Send events to app again.
+            if let Some(open_state) = self.open_state.borrow_mut().as_mut() {
+                open_state.event_receivers = Some(subscribe_to_events());
+            } else {
+                // We also get called when the window is first opened, *before* `opened` is called!
+                // In that case, `open_state` is not set yet. That's how we know it's the first opening,
+                // not a subsequent show. We don't need to do anything in that case.
+                return false;
+            }
+            // Start processing events again when shown
+            self.start_timer();
+            // Send a reset event to the app. That's not necessary when the app is first
+            // shown because it resubscribes to everything on start anyway. But it's important for
+            // subsequent shows because the app was not aware that it was not fed with events while
+            // hidden.
+            let _ = self.send_to_app(&Reply {
+                value: Some(reply::Value::EventReply(EventReply {
+                    value: Some(event_reply::Value::Reset(Empty {})),
+                })),
+            });
+        } else {
+            // Don't process events while hidden
+            if let Some(open_state) = self.open_state.borrow_mut().as_mut() {
+                open_state.event_receivers = None;
+            }
+            self.stop_timer();
+        }
+        true
     }
 
     #[allow(clippy::single_match)]
@@ -212,3 +261,7 @@ fn send_to_app(app_callback: AppCallback, reply: &Reply) {
 
 /// Signature of the function that's used from the host in order to call the external app.
 pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
+
+fn subscribe_to_events() -> ClipEngineReceivers {
+    App::get().clip_engine_hub().senders().subscribe_to_all()
+}

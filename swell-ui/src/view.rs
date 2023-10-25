@@ -86,6 +86,13 @@ pub trait View: Debug {
     /// WM_DESTROY.
     fn closed(self: SharedView<Self>, _window: Window) {}
 
+    /// WM_SHOWWINDOW.
+    ///
+    /// Should return `true` if processed.
+    fn shown_or_hidden(self: SharedView<Self>, shown: bool) -> bool {
+        false
+    }
+
     /// WM_COMMAND, HIWORD(wparam) == 0.
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         let _ = resource_id;
