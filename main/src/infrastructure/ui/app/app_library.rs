@@ -317,6 +317,9 @@ fn process_command(req: proto::command_request::Value) -> Result<()> {
         SetTrackName(req) => {
             handler.set_track_name(req)?;
         }
+        SetTrackColor(req) => {
+            handler.set_track_color(req)?;
+        }
         SetTrackInput(req) => {
             handler.set_track_input(req)?;
         }
