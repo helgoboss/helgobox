@@ -43,6 +43,8 @@ pub struct Matrix {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color_palette: Option<ColorPalette>,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -81,6 +83,7 @@ pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
+    pub color_palette: ColorPalette,
 }
 
 impl Matrix {
@@ -1234,6 +1237,39 @@ pub struct BeatTimeBase {
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
     pub downbeat: PositiveBeat,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ColorPalette {
+    pub entries: Vec<ColorPaletteEntry>,
+}
+
+impl Default for ColorPalette {
+    fn default() -> Self {
+        Self {
+            entries: [
+                RgbColor(0x90, 0x6B, 0xFA),
+                RgbColor(0xD8, 0x6B, 0xFA),
+                RgbColor(0xEE, 0x65, 0xCB),
+                RgbColor(0xF3, 0x68, 0x89),
+                RgbColor(0xF3, 0x84, 0x5D),
+                RgbColor(0xF3, 0xD1, 0x61),
+                RgbColor(0x54, 0xD3, 0x62),
+                RgbColor(0x1E, 0xDF, 0xAD),
+                RgbColor(0x00, 0xB6, 0xF1),
+                RgbColor(0xAB, 0xCD, 0xFF),
+                RgbColor(0xD1, 0xE4, 0xFF),
+            ]
+            .into_iter()
+            .map(|color| ColorPaletteEntry { color })
+            .collect(),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ColorPaletteEntry {
+    pub color: RgbColor,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
