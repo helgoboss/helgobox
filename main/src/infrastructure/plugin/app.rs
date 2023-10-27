@@ -387,6 +387,7 @@ impl App {
         let manager = self.license_manager.borrow();
         let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: manager.licenses(),
+            tap_sound_file: Self::realearn_high_click_sound_path(),
         };
         playtime_clip_engine::ClipEngine::get().init(args);
     }
