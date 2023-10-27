@@ -218,6 +218,9 @@ impl Plugin for RealearnPlugin {
 
     fn init(&mut self) {
         firewall(|| {
+            if self.reaper_is_scanning_plugins() {
+                return;
+            }
             self._reaper_guard = Some(self.ensure_reaper_setup());
             self.schedule_session_creation();
         });
@@ -225,6 +228,9 @@ impl Plugin for RealearnPlugin {
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
         firewall(|| {
+            if self.reaper_is_scanning_plugins() {
+                return None;
+            }
             let boxed: Box<dyn Editor> = Box::new(RealearnEditor::new(self.main_panel.clone()));
             Some(boxed)
         })
@@ -355,6 +361,13 @@ impl Plugin for RealearnPlugin {
 }
 
 impl RealearnPlugin {
+    fn reaper_is_scanning_plugins(&self) -> bool {
+        // REAPER uses version "0" to indicate that this is only the plug-in scanning
+        // process.
+        let (version, _, _) = self.host.get_info();
+        version == 0
+    }
+
     /// Should be called in real-time thread only.
     fn is_now_playing(&self) -> bool {
         use vst::api::TimeInfoFlags;

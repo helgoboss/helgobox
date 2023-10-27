@@ -573,9 +573,3 @@ impl SessionUi for Weak<MainPanel> {
 fn upgrade_panel(panel: &Weak<MainPanel>) -> Rc<MainPanel> {
     panel.upgrade().expect("main panel not existing anymore")
 }
-
-impl Drop for MainPanel {
-    fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping main panel...");
-    }
-}

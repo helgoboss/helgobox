@@ -148,12 +148,6 @@ impl RealearnPluginParameters {
     }
 }
 
-impl Drop for RealearnPluginParameters {
-    fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping plug-in parameters...");
-    }
-}
-
 /// This will be returned if ReaLearn cannot return reasonable bank data yet.
 const NOT_READY_YET: &str = "not-ready-yet";
 
