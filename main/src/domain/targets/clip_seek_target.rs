@@ -114,9 +114,9 @@ impl RealearnTarget for ClipSeekTarget {
                         (false, None)
                     }
                 }
-                SlotChangeEvent::PlayState(InternalClipPlayState(ClipPlayState::Stopped)) => {
-                    (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
-                }
+                SlotChangeEvent::PlayState(InternalClipPlayState(
+                    ClipPlayState::Stopped | ClipPlayState::Ignited,
+                )) => (true, Some(AbsoluteValue::Continuous(UnitValue::MIN))),
                 _ => (false, None),
             },
             _ => (false, None),

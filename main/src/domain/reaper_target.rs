@@ -744,7 +744,10 @@ pub(crate) fn clip_play_state_unit_value(
     use realearn_api::persistence::ClipTransportAction::*;
     match action {
         PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
-        Stop => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Stopped),
+        Stop => transport_is_enabled_unit_value(matches!(
+            play_state.get(),
+            ClipPlayState::Stopped | ClipPlayState::Ignited
+        )),
         Pause => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Paused),
         RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
         _ => panic!("wrong argument"),

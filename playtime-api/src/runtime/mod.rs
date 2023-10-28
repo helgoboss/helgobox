@@ -16,6 +16,7 @@ pub struct PlaytimeRuntimeRoot(ClipPlayState);
 )]
 pub enum ClipPlayState {
     Stopped,
+    Ignited,
     Paused,
     ScheduledForPlayStart,
     ScheduledForPlayStop,
