@@ -56,7 +56,7 @@ impl RealearnTarget for ClipMatrixTarget {
                 }
                 match self.action {
                     ClipMatrixAction::Stop => {
-                        matrix.stop();
+                        matrix.stop_all_clips();
                     }
                     ClipMatrixAction::Undo => {
                         let _ = matrix.undo();
