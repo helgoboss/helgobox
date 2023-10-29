@@ -341,6 +341,9 @@ fn process_command(req: proto::command_request::Value) -> Result<()> {
         DragSlot(req) => {
             handler.drag_slot(req)?;
         }
+        DragClip(req) => {
+            handler.drag_clip(req)?;
+        }
         TriggerClip(req) => {
             handler.trigger_clip(req)?;
         }
