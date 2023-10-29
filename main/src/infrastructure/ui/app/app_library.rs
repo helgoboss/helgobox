@@ -246,6 +246,12 @@ fn process_query(matrix_id: String, id: u32, query: proto::Query) -> Result<()> 
                 Ok(query_result::Value::GetClipDetailReply(value))
             });
         }
+        GetProjectDir(req) => {
+            send_query_reply_to_app(matrix_id, id, async move {
+                let value = handler.get_project_dir(req).await?.into_inner();
+                Ok(query_result::Value::GetProjectDirReply(value))
+            });
+        }
     }
     Ok(())
 }

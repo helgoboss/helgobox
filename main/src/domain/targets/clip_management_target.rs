@@ -84,7 +84,7 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context, |matrix| {
-                    matrix.import_selected_item(self.slot_coordinates)?;
+                    matrix.import_selected_items(self.slot_coordinates)?;
                     Ok(HitResponse::processed_with_effect())
                 })?
             }
