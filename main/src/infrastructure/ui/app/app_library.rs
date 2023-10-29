@@ -44,12 +44,16 @@ impl AppLibrary {
                 (
                     "Contents/MacOS/playtime",
                     [
+                        // Important: This must be the first. Because below plug-in libraries
+                        // depend on it.
                         "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+                        // The rest can have an arbitrary order.
                         "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
+                        "Contents/Frameworks/desktop_drop.framework/desktop_drop",
                         "Contents/Frameworks/native_context_menu.framework/native_context_menu",
                         "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
-                        "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                         "Contents/Frameworks/screen_retriever.framework/screen_retriever",
+                        "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                         "Contents/Frameworks/window_manager.framework/window_manager",
                     ],
                 )
@@ -337,6 +341,9 @@ fn process_command(req: proto::command_request::Value) -> Result<()> {
         }
         TriggerSlot(req) => {
             handler.trigger_slot(req)?;
+        }
+        ImportFiles(req) => {
+            handler.import_files(req)?;
         }
         DragSlot(req) => {
             handler.drag_slot(req)?;
