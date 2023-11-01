@@ -1,3 +1,4 @@
+#![allow(clippy::single_match)]
 #![recursion_limit = "512"]
 extern crate vst;
 

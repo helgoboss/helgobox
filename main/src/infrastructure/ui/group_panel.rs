@@ -25,7 +25,6 @@ impl GroupPanel {
         }
     }
 
-    #[allow(clippy::single_match)]
     pub fn handle_affected(
         self: &SharedView<Self>,
         affected: &Affected<SessionProp>,

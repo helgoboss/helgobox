@@ -119,7 +119,7 @@ impl OpenState {
             let reply = Reply {
                 value: Some(reply::Value::EventReply(event_reply)),
             };
-            let _ = send_to_app(app_callback, &reply);
+            send_to_app(app_callback, &reply);
         });
     }
 
@@ -184,7 +184,6 @@ impl View for AppPanel {
         true
     }
 
-    #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key

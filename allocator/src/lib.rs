@@ -58,7 +58,7 @@ pub fn assert_no_alloc<T, F: FnOnce() -> T>(func: F) -> T {
     let guard = Guard::new(); // increment the forbid counter
     let ret = func();
     std::mem::drop(guard); // decrement the forbid counter
-    return ret;
+    ret
 }
 
 #[cfg(debug_assertions)]
@@ -82,8 +82,7 @@ pub fn permit_alloc<T, F: FnOnce() -> T>(func: F) -> T {
     let guard = Guard::new(); // increment the forbid counter
     let ret = func();
     std::mem::drop(guard); // decrement the forbid counter
-
-    return ret;
+    ret
 }
 
 /// The custom allocator that handles the checking.

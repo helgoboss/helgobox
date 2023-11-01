@@ -50,7 +50,6 @@ impl View for TargetFilterPanel {
         true
     }
 
-    #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key

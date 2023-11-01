@@ -1,3 +1,5 @@
+#![allow(clippy::single_match)]
+
 //! "Pot" is intended to be an abstraction over different preset databases. At the moment it only
 //! supports Komplete/NKS. As soon as other database backends are supported, we need to add a few
 //! abstractions. Care should be taken to not persist anything that's very specific to a particular

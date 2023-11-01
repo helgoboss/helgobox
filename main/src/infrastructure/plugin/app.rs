@@ -867,7 +867,7 @@ impl App {
 
     pub fn get_or_load_app_library() -> anyhow::Result<&'static AppLibrary> {
         static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
-        Ok(APP_LIBRARY.as_ref().map_err(|e| anyhow!(e.to_string()))?)
+        APP_LIBRARY.as_ref().map_err(|e| anyhow!(e.to_string()))
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -1933,7 +1933,7 @@ fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result
         fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
     let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
     let mut archive = tar::Archive::new(tar);
-    let _ = fs::remove_dir_all(&destination_dir);
+    let _ = fs::remove_dir_all(destination_dir);
     archive
         .unpack(destination_dir)
         .context("Couldn't unpack app archive.")?;

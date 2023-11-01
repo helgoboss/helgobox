@@ -270,7 +270,6 @@ fn create_persistent_inner_id(
     PersistentInnerPresetId::new(id)
 }
 
-#[allow(clippy::single_match)]
 fn extract_presets(
     rppxml: &str,
     plugin_db: &PluginDatabase,

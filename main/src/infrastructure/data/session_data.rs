@@ -282,7 +282,7 @@ fn focused_fx_descriptor() -> FxDescriptor {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ClipMatrixRefData {
-    Own(playtime_api::persistence::FlexibleMatrix),
+    Own(Box<playtime_api::persistence::FlexibleMatrix>),
     Foreign(String),
 }
 
@@ -491,7 +491,7 @@ impl SessionData {
                     .clip_matrix_ref()
                     .and_then(|matrix_ref| match matrix_ref {
                         crate::domain::ClipMatrixRef::Own(m) => {
-                            Some(ClipMatrixRefData::Own(m.save()))
+                            Some(ClipMatrixRefData::Own(Box::new(m.save())))
                         }
                         crate::domain::ClipMatrixRef::Foreign(instance_id) => {
                             let foreign_session = App::get()
@@ -780,7 +780,7 @@ impl SessionData {
                                 .get_or_insert_owned_clip_matrix_from_instance_state(
                                     &mut instance_state,
                                 )
-                                .load(m.clone())?;
+                                .load(*m.clone())?;
                         }
                         Foreign(session_id) => {
                             // Check if a session with that ID already exists.

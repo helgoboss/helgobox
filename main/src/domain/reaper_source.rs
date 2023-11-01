@@ -131,7 +131,6 @@ impl ReaperSource {
         }
     }
 
-    #[allow(clippy::single_match)]
     pub fn on_deactivate(&mut self) {
         match self {
             ReaperSource::Timer(s) => s.on_deactivate(),

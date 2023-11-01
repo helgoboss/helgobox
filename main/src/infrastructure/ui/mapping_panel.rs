@@ -695,7 +695,6 @@ impl MappingPanel {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
@@ -1694,7 +1693,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_line_2_button_press_internal(&mut self) {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -1833,7 +1831,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_3_combo_box_1_change(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
@@ -1872,7 +1869,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_4_combo_box_1_change(&mut self) {
         let combo = self
             .view
@@ -1889,7 +1885,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_4_combo_box_2_change(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
         use SourceCategory::*;
@@ -1938,7 +1933,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_5_combo_box_2_change(&mut self) {
         let b = self
             .view
@@ -2011,7 +2005,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_3_combo_box_2_change(&mut self) {
         let b = self
             .view
@@ -2065,7 +2058,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_5_edit_control_change(&mut self) {
         let edit_control_id = root::ID_SOURCE_LINE_5_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
@@ -2083,7 +2075,6 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_3_edit_control_change(&mut self) {
         let edit_control_id = root::ID_SOURCE_LINE_3_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
@@ -2111,7 +2102,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_source_line_7_edit_control_change(&mut self) {
         let edit_control_id = root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
@@ -2734,7 +2724,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_check_box_4_change(&mut self) {
         let is_checked = self
             .view
@@ -2758,7 +2747,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_check_box_5_change(&mut self) {
         let is_checked = self
             .view
@@ -2780,7 +2768,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_check_box_6_change(&mut self) {
         let is_checked = self
             .view
@@ -3530,7 +3517,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    #[allow(clippy::single_match)]
     fn handle_target_line_5_edit_control_change(&mut self) {
         let edit_control_id = root::ID_TARGET_LINE_5_EDIT_CONTROL;
         let control = self.view.require_control(edit_control_id);
@@ -3905,7 +3891,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_line_3_edit_control(initiator);
     }
 
-    #[allow(clippy::single_match)]
     fn invalidate_source_line_3_label_1(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
@@ -3928,7 +3913,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    #[allow(clippy::single_match)]
     fn invalidate_source_line_3_label_2(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
@@ -3944,7 +3928,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    #[allow(clippy::single_match)]
     fn invalidate_source_line_3_combo_box_1(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
@@ -4086,7 +4069,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    #[allow(clippy::single_match)]
     fn invalidate_source_line_4_combo_box_1(&self) {
         let b = self
             .view
@@ -4390,7 +4372,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
     }
 
-    #[allow(clippy::single_match)]
     fn invalidate_source_line_5_edit_control(&self, initiator: Option<u32>) {
         if initiator == Some(root::ID_SOURCE_LINE_5_EDIT_CONTROL) {
             return;
