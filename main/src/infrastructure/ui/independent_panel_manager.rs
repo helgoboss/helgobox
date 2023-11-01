@@ -101,7 +101,7 @@ impl IndependentPanelManager {
     #[cfg(feature = "playtime")]
     pub fn show_app_panel(&self) {
         let result = self.show_app_panel_internal();
-        notification::notify_user_on_anyhow_error(result);
+        crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
     #[cfg(feature = "playtime")]
@@ -122,7 +122,7 @@ impl IndependentPanelManager {
             return Ok(());
         }
         // Fail fast if library not available
-        let _ = App::get_or_load_app_library()?;
+        let _ = crate::infrastructure::plugin::App::get_or_load_app_library()?;
         // Then open
         self.app_panel.clone().open(reaper_main_window());
         Ok(())

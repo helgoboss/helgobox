@@ -297,7 +297,7 @@ impl MainPanel {
         let activate_data = self
             .active_data
             .borrow()
-            .ok_or_else(|| anyhow!("main panel not active yet"))?;
+            .ok_or_else(|| anyhow::anyhow!("main panel not active yet"))?;
         Ok(activate_data.panel_manager.borrow().app_panel().clone())
     }
 
