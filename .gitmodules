@@ -8,3 +8,6 @@
 [submodule "playtime-clip-engine"]
 	path = playtime-clip-engine
 	url = git@github.com:helgoboss/playtime-clip-engine.git
+[submodule "helgoboss-license-processor"]
+	path = helgoboss-license-processor
+	url = git@github.com:helgoboss/helgoboss-license-processor.git

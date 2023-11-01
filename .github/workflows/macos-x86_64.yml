@@ -21,7 +21,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: webfactory/ssh-agent@v0.7.0
         with:
-          ssh-private-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+          ssh-private-key: |
+            ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+            ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
       - name: Update submodules
         run: |
           git submodule update --init
@@ -48,7 +50,9 @@ jobs:
       - uses: actions/checkout@v2
       - uses: webfactory/ssh-agent@v0.7.0
         with:
-          ssh-private-key: ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+          ssh-private-key: |
+            ${{ secrets.PRIVATE_PLAYTIME_CLIP_ENGINE_DEPLOY_KEY }}
+            ${{ secrets.PRIVATE_HELGOBOSS_LICENSE_PROCESSOR_DEPLOY_KEY }}
       - name: Update submodules
         run: |
           git submodule update --init
