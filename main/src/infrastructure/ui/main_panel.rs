@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, AppPanel, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -23,7 +23,6 @@ use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
-use anyhow::anyhow;
 use base::SoundPlayer;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
@@ -293,7 +292,8 @@ impl MainPanel {
         }
     }
 
-    pub fn app_panel(&self) -> anyhow::Result<SharedView<AppPanel>> {
+    #[cfg(feature = "playtime")]
+    pub fn app_panel(&self) -> anyhow::Result<SharedView<crate::infrastructure::ui::AppPanel>> {
         let activate_data = self
             .active_data
             .borrow()

@@ -1,13 +1,11 @@
-use crate::infrastructure::ui::{AppPanel, MainPanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
-use crate::base::notification;
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::App;
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -20,7 +18,8 @@ pub struct IndependentPanelManager {
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
     /// We have at most one app instance open per ReaLearn instance.
-    app_panel: SharedView<AppPanel>,
+    #[cfg(feature = "playtime")]
+    app_panel: SharedView<crate::infrastructure::ui::AppPanel>,
 }
 
 impl IndependentPanelManager {
@@ -30,7 +29,8 @@ impl IndependentPanelManager {
             main_panel,
             mapping_panels: Default::default(),
             message_panel: SharedView::new(SessionMessagePanel::new(session.clone())),
-            app_panel: SharedView::new(AppPanel::new(session)),
+            #[cfg(feature = "playtime")]
+            app_panel: SharedView::new(crate::infrastructure::ui::AppPanel::new(session)),
         }
     }
 
@@ -46,7 +46,8 @@ impl IndependentPanelManager {
         });
     }
 
-    pub fn app_panel(&self) -> &SharedView<AppPanel> {
+    #[cfg(feature = "playtime")]
+    pub fn app_panel(&self) -> &SharedView<crate::infrastructure::ui::AppPanel> {
         &self.app_panel
     }
 
@@ -97,19 +98,23 @@ impl IndependentPanelManager {
         self.message_panel.clone().open(reaper_main_window());
     }
 
+    #[cfg(feature = "playtime")]
     pub fn show_app_panel(&self) {
         let result = self.show_app_panel_internal();
         notification::notify_user_on_anyhow_error(result);
     }
 
+    #[cfg(feature = "playtime")]
     pub fn close_app_panel(&self) {
         self.app_panel.clone().close();
     }
 
+    #[cfg(feature = "playtime")]
     pub fn app_panel_is_open(&self) -> bool {
         self.app_panel.is_open()
     }
 
+    #[cfg(feature = "playtime")]
     fn show_app_panel_internal(&self) -> anyhow::Result<()> {
         if let Some(window) = self.app_panel.view_context().window() {
             // If window already open (and maybe just hidden), simply show it.
@@ -162,6 +167,7 @@ impl IndependentPanelManager {
             p.close()
         }
         self.mapping_panels.clear();
+        #[cfg(feature = "playtime")]
         self.app_panel.close();
     }
 

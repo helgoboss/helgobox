@@ -17,16 +17,15 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, LicenseManager, OscDevice, OscDeviceManager,
-    SharedControllerPresetManager, SharedLicenseManager, SharedMainPresetManager,
-    SharedOscDeviceManager, SharedPresetLinkManager,
+    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
+    SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{AppLibrary, MainPanel, MessagePanel};
+use crate::infrastructure::ui::{MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
@@ -39,7 +38,6 @@ use crate::infrastructure::plugin::allocator::{
 };
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use crate::infrastructure::server::services::RealearnServices;
-use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -96,7 +94,8 @@ pub type RealearnControlSurface =
 #[derive(Debug)]
 pub struct App {
     state: RefCell<AppState>,
-    license_manager: SharedLicenseManager,
+    #[cfg(feature = "playtime")]
+    license_manager: crate::infrastructure::data::SharedLicenseManager,
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
@@ -260,9 +259,12 @@ impl App {
         };
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
-            license_manager: Rc::new(RefCell::new(LicenseManager::new(
-                App::helgoboss_resource_dir_path().join("licensing.json"),
-            ))),
+            #[cfg(feature = "playtime")]
+            license_manager: Rc::new(RefCell::new(
+                crate::infrastructure::data::LicenseManager::new(
+                    App::helgoboss_resource_dir_path().join("licensing.json"),
+                ),
+            )),
             controller_preset_manager: Rc::new(RefCell::new(
                 FileBasedControllerPresetManager::new(
                     App::realearn_preset_dir_path().join("controller"),
@@ -791,6 +793,7 @@ impl App {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
+    #[cfg(feature = "playtime")]
     pub fn app_base_dir_path() -> PathBuf {
         App::helgoboss_resource_dir_path().join("App")
     }
@@ -805,6 +808,7 @@ impl App {
             .join("Data/helgoboss/realearn")
     }
 
+    #[cfg(feature = "playtime")]
     pub fn app_archive_file_path() -> PathBuf {
         Reaper::get()
             .resource_path()
@@ -865,9 +869,20 @@ impl App {
         &APP_LOGGER
     }
 
-    pub fn get_or_load_app_library() -> anyhow::Result<&'static AppLibrary> {
+    #[cfg(feature = "playtime")]
+    pub fn get_or_load_app_library(
+    ) -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
+        use crate::infrastructure::ui::AppLibrary;
+        fn load_app_library() -> anyhow::Result<AppLibrary> {
+            let app_archive_file = App::app_archive_file_path();
+            let app_base_dir = App::app_base_dir_path();
+            decompress_app(&app_archive_file, &app_base_dir)?;
+            AppLibrary::load(app_base_dir)
+        }
         static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
-        APP_LIBRARY.as_ref().map_err(|e| anyhow!(e.to_string()))
+        APP_LIBRARY
+            .as_ref()
+            .map_err(|e| anyhow::anyhow!(e.to_string()))
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -887,6 +902,7 @@ impl App {
         })
     }
 
+    #[allow(dead_code)]
     pub fn find_main_panel_by_session_id(&self, session_id: &str) -> Option<SharedView<MainPanel>> {
         self.instances.borrow().iter().find_map(|i| {
             if i.session.upgrade()?.borrow().id() == session_id {
@@ -1921,14 +1937,9 @@ impl RealearnWindowSnitch for RealearnSnitch {
     }
 }
 
-fn load_app_library() -> anyhow::Result<AppLibrary> {
-    let app_archive_file = App::app_archive_file_path();
-    let app_base_dir = App::app_base_dir_path();
-    decompress_app(&app_archive_file, &app_base_dir)?;
-    AppLibrary::load(app_base_dir)
-}
-
+#[cfg(feature = "playtime")]
 fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result<()> {
+    use anyhow::Context;
     let archive_file =
         fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
     let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;

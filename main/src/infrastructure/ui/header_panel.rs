@@ -280,6 +280,7 @@ impl HeaderPanel {
             let main_preset_manager = main_preset_manager.borrow();
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
+            #[cfg(feature = "playtime")]
             let app_is_open = self.panel_manager().borrow().app_panel_is_open();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
@@ -586,7 +587,9 @@ impl HeaderPanel {
                     MainMenuAction::ReloadAllPresets
                 }),
                 item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
+                #[cfg(feature = "playtime")]
                 item("Show App", || MainMenuAction::ShowApp),
+                #[cfg(feature = "playtime")]
                 item_with_opts(
                     "Close App",
                     ItemOpts {
@@ -759,9 +762,11 @@ impl HeaderPanel {
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
+            #[cfg(feature = "playtime")]
             MainMenuAction::ShowApp => {
                 self.show_app();
             }
+            #[cfg(feature = "playtime")]
             MainMenuAction::CloseApp => {
                 self.close_app();
             }
@@ -2294,10 +2299,12 @@ impl HeaderPanel {
         Ok(())
     }
 
+    #[cfg(feature = "playtime")]
     fn show_app(&self) {
         self.panel_manager().borrow().show_app_panel();
     }
 
+    #[cfg(feature = "playtime")]
     fn close_app(&self) {
         self.panel_manager().borrow().close_app_panel();
     }
@@ -3013,7 +3020,9 @@ enum MainMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
     OpenPotBrowser,
+    #[cfg(feature = "playtime")]
     ShowApp,
+    #[cfg(feature = "playtime")]
     CloseApp,
     OpenPresetFolder,
     EditNewOscDevice,

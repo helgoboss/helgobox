@@ -41,7 +41,9 @@ mod advanced_script_editor_panel;
 #[cfg(feature = "egui")]
 pub use advanced_script_editor_panel::*;
 
+#[cfg(feature = "playtime")]
 mod app;
+#[cfg(feature = "playtime")]
 pub use app::*;
 
 #[cfg(feature = "egui")]

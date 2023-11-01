@@ -162,6 +162,7 @@ impl RealearnAudioHook {
                 .on_post(block_props.to_playtime(), args.reg);
         }
         // Record some metrics
+        let _ = args;
         if let Some(time_of_last_run) = self.time_of_last_run {
             record_duration("audio_callback_total", time_of_last_run.elapsed());
         }
@@ -370,6 +371,7 @@ impl RealearnAudioHook {
                 }
             }
         }
+        let _ = block_props;
     }
 }
 
