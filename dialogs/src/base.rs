@@ -12,6 +12,7 @@ pub type Caption = &'static str;
 pub struct ResourceInfo {
     global_scope: Scope,
     scopes: IndexMap<String, Scope>,
+    optional_dialog_ids: HashSet<Id>,
     conditional_control_ids: HashSet<Id>,
     named_ids: Vec<Id>,
 }
@@ -47,7 +48,9 @@ impl<'a> Display for ResourceInfoAsRustCode<'a> {
         }
         // Write resource IDs
         for id in &self.0.named_ids {
-            if self.0.conditional_control_ids.contains(id) {
+            if self.0.optional_dialog_ids.contains(id)
+                || self.0.conditional_control_ids.contains(id)
+            {
                 f.write_str("    #[allow(dead_code)]\n")?;
             }
             writeln!(f, "    pub const {}: u32 = {};", id.name, id.value)?;
@@ -68,6 +71,7 @@ impl Resource {
         ResourceInfo {
             global_scope: context.global_scope,
             scopes: context.scopes.clone(),
+            optional_dialog_ids: self.optional_dialog_ids().collect(),
             conditional_control_ids: self.conditional_control_ids().collect(),
             named_ids: self.named_ids().collect(),
         }
@@ -89,6 +93,10 @@ impl Resource {
                 .flat_map(|control| get_if_named(control.id));
             named_dialog_id.into_iter().chain(named_control_ids)
         })
+    }
+
+    fn optional_dialog_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        self.dialogs.iter().filter(|d| d.optional).map(|d| d.id)
     }
 
     fn conditional_control_ids(&self) -> impl Iterator<Item = Id> + '_ {
@@ -117,6 +125,7 @@ impl Display for Resource {
 #[derive(Clone, Default)]
 pub struct Dialog {
     pub id: Id,
+    pub optional: bool,
     pub rect: Rect,
     pub kind: DialogKind,
     pub styles: Styles,

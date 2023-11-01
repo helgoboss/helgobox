@@ -296,5 +296,6 @@ pub mod root {
     pub const ID_YAML_EDIT_CONTROL: u32 = 30238;
     pub const ID_YAML_HELP_BUTTON: u32 = 30239;
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30240;
+    #[allow(dead_code)]
     pub const ID_EMPTY_PANEL: u32 = 30242;
 }

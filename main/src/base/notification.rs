@@ -27,6 +27,7 @@ pub fn warn(msg: String) {
     }
 }
 
+#[allow(dead_code)]
 pub fn notify_user_on_error(result: Result<(), Box<dyn Error>>) {
     if let Err(e) = result {
         notify_user_about_error(e);
@@ -40,6 +41,7 @@ pub fn notify_user_on_anyhow_error(result: anyhow::Result<()>) {
     }
 }
 
+#[allow(dead_code)]
 pub fn notify_user_about_error(e: Box<dyn Error>) {
     alert(e.to_string());
 }

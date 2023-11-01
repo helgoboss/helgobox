@@ -4,6 +4,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;
     Dialog {
         id: ids.named_id("ID_EMPTY_PANEL"),
+        optional: true,
         caption: "Editor",
         rect: context.rect(0, 0, 600, 250),
         styles: Styles(vec![
