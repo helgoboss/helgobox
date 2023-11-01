@@ -28,9 +28,9 @@ impl IndependentPanelManager {
             session: session.clone(),
             main_panel,
             mapping_panels: Default::default(),
-            message_panel: SharedView::new(SessionMessagePanel::new(session.clone())),
             #[cfg(feature = "playtime")]
-            app_panel: SharedView::new(crate::infrastructure::ui::AppPanel::new(session)),
+            app_panel: SharedView::new(crate::infrastructure::ui::AppPanel::new(session.clone())),
+            message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
     }
 
