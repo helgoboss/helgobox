@@ -178,7 +178,7 @@ impl<I, D> HelgobossAllocator<I, D> {
     }
 
     #[cfg(debug_assertions)]
-    fn check(&self, _layout: Layout) {
+    fn check(&self, layout: Layout) {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {
@@ -191,7 +191,7 @@ impl<I, D> HelgobossAllocator<I, D> {
             //     );
             // });
             // Comment out if you don't want to abort
-            // std::alloc::handle_alloc_error(layout);
+            std::alloc::handle_alloc_error(layout);
         }
     }
 }

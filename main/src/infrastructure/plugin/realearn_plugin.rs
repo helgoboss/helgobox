@@ -363,9 +363,10 @@ impl Plugin for RealearnPlugin {
 impl RealearnPlugin {
     fn reaper_is_scanning_plugins(&self) -> bool {
         // REAPER uses version "0" to indicate that this is only the plug-in scanning
-        // process.
-        let (version, _, _) = self.host.get_info();
-        version == 0
+        // process. TODO-high Doesn't work that way.
+        // let (version, _, _) = self.host.get_info();
+        // version == 0
+        false
     }
 
     /// Should be called in real-time thread only.
