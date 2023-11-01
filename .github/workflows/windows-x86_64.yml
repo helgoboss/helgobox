@@ -35,7 +35,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --features egui
+          args: --features playtime,egui
 
   test:
     name: Test
@@ -59,9 +59,9 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --features egui
+          args: --features playtime,egui
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features egui -- --nocapture
+          args: --features playtime,egui -- --nocapture
