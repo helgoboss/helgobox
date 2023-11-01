@@ -588,10 +588,10 @@ impl HeaderPanel {
                 }),
                 item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
                 #[cfg(feature = "playtime")]
-                item("Show App", || MainMenuAction::ShowApp),
+                item("Show App (not usable yet)", || MainMenuAction::ShowApp),
                 #[cfg(feature = "playtime")]
                 item_with_opts(
-                    "Close App",
+                    "Close App (not usable yet)",
                     ItemOpts {
                         enabled: app_is_open,
                         checked: false,
