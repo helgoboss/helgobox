@@ -281,7 +281,9 @@ mod tests {
         });
     }
 
+    // Don't execute this in CI. It crashes the test process which counts as "not passed".
     #[test]
+    #[ignore]
     #[should_panic]
     fn abort_on_allocate() {
         init();
