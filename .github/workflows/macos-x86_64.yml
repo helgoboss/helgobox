@@ -36,7 +36,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --features playtime,egui
+          args: --features egui
 
   test:
     name: Test
@@ -63,11 +63,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --features playtime,egui
+          args: --features egui
 #      - name: Setup tmate session
 #        uses: mxschmitt/action-tmate@v2
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features playtime,egui -- --nocapture
+          args: --features egui -- --nocapture
