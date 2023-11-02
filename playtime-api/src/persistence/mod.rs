@@ -1252,7 +1252,17 @@ pub enum ClipTimeBase {
     Beat(BeatTimeBase),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+impl ClipTimeBase {
+    pub fn is_time_based(&self) -> bool {
+        matches!(self, Self::Time)
+    }
+
+    pub fn is_beat_based(&self) -> bool {
+        matches!(self, Self::Beat(_))
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct BeatTimeBase {
     #[deprecated(note = "moved to ClipAudioSettings#original_tempo")]
     #[serde(skip_serializing)]
@@ -1302,6 +1312,15 @@ pub struct ColorPaletteEntry {
 pub struct TimeSignature {
     pub numerator: u32,
     pub denominator: u32,
+}
+
+impl Default for TimeSignature {
+    fn default() -> Self {
+        Self {
+            numerator: 4,
+            denominator: 4,
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
