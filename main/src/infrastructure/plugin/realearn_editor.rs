@@ -47,9 +47,3 @@ impl Editor for RealearnEditor {
         firewall(|| self.main_panel.is_open()).unwrap_or(false)
     }
 }
-
-impl Drop for RealearnEditor {
-    fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping editor...");
-    }
-}

@@ -96,6 +96,9 @@ pub struct RealearnPlugin {
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
     sample_rate: Hz,
+    /// **After `init` has been called**, this should be `true` if the plug-in was loaded by the
+    /// REAPER VST scan (and is not going to be used "for real").
+    is_plugin_scan: bool,
 }
 
 impl Default for RealearnPlugin {
@@ -172,6 +175,7 @@ impl Plugin for RealearnPlugin {
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
                 sample_rate: Default::default(),
+                is_plugin_scan: false,
             }
         })
         .unwrap_or_default()
@@ -218,9 +222,13 @@ impl Plugin for RealearnPlugin {
 
     fn init(&mut self) {
         firewall(|| {
-            if self.reaper_is_scanning_plugins() {
+            // Trick to find out whether we are only being scanned.
+            self.is_plugin_scan = unsafe { (*self.host.raw_effect()).reserved1 == 0 };
+            if self.is_plugin_scan {
+                tracing_debug!("ReaLearn is being scanned by REAPER");
                 return;
             }
+            tracing_debug!("ReaLearn is being opened by REAPER");
             self._reaper_guard = Some(self.ensure_reaper_setup());
             self.schedule_session_creation();
         });
@@ -228,9 +236,9 @@ impl Plugin for RealearnPlugin {
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
         firewall(|| {
-            if self.reaper_is_scanning_plugins() {
-                return None;
-            }
+            // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
+            // host, e.g. in order to check if it should the hasEditor flag or not. That means
+            // we don't know yet if this is a plug-in scan or not. We have to create the editor.
             let boxed: Box<dyn Editor> = Box::new(RealearnEditor::new(self.main_panel.clone()));
             Some(boxed)
         })
@@ -361,14 +369,6 @@ impl Plugin for RealearnPlugin {
 }
 
 impl RealearnPlugin {
-    fn reaper_is_scanning_plugins(&self) -> bool {
-        // REAPER uses version "0" to indicate that this is only the plug-in scanning
-        // process. TODO-high Doesn't work that way.
-        // let (version, _, _) = self.host.get_info();
-        // version == 0
-        false
-    }
-
     /// Should be called in real-time thread only.
     fn is_now_playing(&self) -> bool {
         use vst::api::TimeInfoFlags;
