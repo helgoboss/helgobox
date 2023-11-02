@@ -20,6 +20,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::error::Error;
+use std::ops::Add;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection
@@ -985,8 +986,20 @@ pub struct Clip {
     /// Color of the clip.
     // TODO-clip-implement
     pub color: ClipColor,
+    /// A more variable kind of section within the main section.
+    ///
+    /// Intended for playing with section bounds as a part of the performance *without* destroying
+    /// the original section.
+    #[serde(default)]
+    pub dynamic_section: Section,
     /// Defines which portion of the original source should be played.
-    pub section: Section,
+    ///
+    /// This section is especially important for the way that Playtime records audio clips: It
+    /// records the count-in phase as well and more samples than actually necessary at the end.
+    /// It then sets this section to the portion that actually matters. Once set, this section
+    /// rarely changes.
+    #[serde(alias = "section")]
+    pub fixed_section: Section,
     pub audio_settings: ClipAudioSettings,
     pub midi_settings: ClipMidiSettings,
     // /// Defines the total amount of time this clip should consume and where within that range the
@@ -1152,6 +1165,18 @@ pub struct Section {
     ///   be used to avoid clicks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub length: Option<PositiveSecond>,
+}
+
+impl Section {
+    pub fn combine_with_inner(&self, inner: Section) -> Section {
+        Section {
+            start_pos: self.start_pos + inner.start_pos,
+            length: match (self.length, inner.length) {
+                (Some(l), None) => Some(l.saturating_sub(inner.start_pos)),
+                (_, l) => l,
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -1330,6 +1355,10 @@ impl PositiveSecond {
     pub const fn get(&self) -> f64 {
         self.0
     }
+
+    pub fn saturating_sub(&self, rhs: Self) -> Self {
+        Self(0.0f64.max(self.0 - rhs.0))
+    }
 }
 
 impl TryFrom<f64> for PositiveSecond {
@@ -1337,6 +1366,14 @@ impl TryFrom<f64> for PositiveSecond {
 
     fn try_from(value: f64) -> Result<Self, Self::Error> {
         Self::new(value)
+    }
+}
+
+impl Add for PositiveSecond {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
     }
 }
 

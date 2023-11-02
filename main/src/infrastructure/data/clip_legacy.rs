@@ -53,10 +53,8 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                                 looped: desc.descriptor.repeat,
                                 volume: api::Db::new(0.0).unwrap(),
                                 color: api::ClipColor::PlayTrackColor,
-                                section: api::Section {
-                                    start_pos: api::PositiveSecond::new(0.0).unwrap(),
-                                    length: None,
-                                },
+                                dynamic_section: Default::default(),
+                                fixed_section: Default::default(),
                                 audio_settings: Default::default(),
                                 midi_settings: Default::default(),
                             };

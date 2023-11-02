@@ -102,7 +102,7 @@ impl RealearnTarget for ClipManagementTarget {
                     return Ok(HitResponse::ignored());
                 }
                 self.with_matrix(context, |matrix| {
-                    matrix.adjust_slot_section_length(self.slot_coordinates, a.factor)?;
+                    matrix.adjust_slot_dynamic_section_length(self.slot_coordinates, a.factor)?;
                     Ok(HitResponse::processed_with_effect())
                 })?
             }
