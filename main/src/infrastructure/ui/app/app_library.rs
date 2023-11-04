@@ -35,7 +35,17 @@ impl AppLibrary {
             {
                 (
                     "playtime.dll",
-                    ["flutter_windows.dll", "url_launcher_windows_plugin.dll"],
+                    [
+                        // Important: This must be the first. Because below plug-in libraries
+                        // depend on it.
+                        "flutter_windows.dll",
+                        // The rest can have an arbitrary order.
+                        "desktop_drop_plugin.dll",
+                        "native_context_menu_plugin.dll",
+                        "screen_retriever_plugin.dll",
+                        "url_launcher_windows_plugin.dll",
+                        "window_manager_plugin.dll",
+                    ],
                 )
             }
             #[cfg(target_os = "macos")]

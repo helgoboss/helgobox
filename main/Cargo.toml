@@ -118,7 +118,7 @@ itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
 env_logger = "0.8.2"
 # We want to forward slog logging to standard logging
-slog-stdlog = "4.1.0"
+slog-stdlog = "4.1.1"
 # To open user guide in local PDF app
 open = "1"
 # In projection server, we must be able to handle controller IDs with special characters

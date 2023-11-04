@@ -882,7 +882,7 @@ impl App {
         static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
         APP_LIBRARY
             .as_ref()
-            .map_err(|e| anyhow::anyhow!(e.to_string()))
+            .map_err(|e| anyhow::anyhow!(format!("{e:?}")))
     }
 
     pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -1142,7 +1142,8 @@ impl App {
             "REALEARN_OPEN_FIRST_POT_BROWSER",
             "ReaLearn: Open first Pot Browser",
             move || {
-                let Some(session) = App::get().find_first_relevant_session_monitoring_first() else {
+                let Some(session) = App::get().find_first_relevant_session_monitoring_first()
+                else {
                     return;
                 };
                 session.borrow().ui().show_pot_browser();
