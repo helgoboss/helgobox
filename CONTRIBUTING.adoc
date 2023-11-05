@@ -356,3 +356,15 @@ This serves mainly as checklist for ReaLearn's author.
 . Push the https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index].
 . Submit the REAPER forum ReaLearn thread entry.
 . Check if synchronization of the ReaPack repository works.
+
+== Troubleshooting
+
+=== Windows: ReaLearn DLL doesn't unload
+
+In REAPER for Windows it's possible to enable complete unload of VST plug-ins (Preferences -> Plug-ins -> VST -> Allow complete unload of VST plug-ins). This also affects ReaLearn. Removing the last ReaLearn instance should work with and without this flag enabled, it's important to test this.
+
+I ran into a case in which Windows was *not* unloading ReaLearn even though that option was enabled. The reason turned out to be a registry entry that Windows must have created automatically at some point:
+
+`HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers` -> `C:\REAPER\reaper.exe` with value `$ IgnoreFreeLibrary<realearn.dll>`
+
+Removing this entry made unloading work again. What a nasty trap!
