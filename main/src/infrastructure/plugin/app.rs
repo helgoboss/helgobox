@@ -28,7 +28,7 @@ use crate::infrastructure::server::{
 use crate::infrastructure::ui::{MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread, metrics_util, Global, NamedChannelSender,
+    make_available_globally_in_main_thread_on_demand, metrics_util, Global, NamedChannelSender,
     SenderToNormalThread, SenderToRealTimeThread,
 };
 use enum_iterator::IntoEnumIterator;
@@ -36,14 +36,17 @@ use enum_iterator::IntoEnumIterator;
 use crate::infrastructure::plugin::allocator::{
     RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR,
 };
-use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
+use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
+use crate::infrastructure::test::run_test;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
 use reaper_high::{
-    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, RegisteredAction,
+    Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
@@ -62,6 +65,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
+use tracing_subscriber::{EnvFilter, Layer};
 use url::Url;
 
 /// Queue size for sending feedback tasks to audio hook.
@@ -84,7 +88,7 @@ const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 ///   real-time thread until there's capacity again.
 const DEALLOCATOR_THREAD_CAPACITY: usize = 10000;
 
-make_available_globally_in_main_thread!(App);
+make_available_globally_in_main_thread_on_demand!(App);
 
 pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession, RealearnSnitch>;
 
@@ -93,6 +97,7 @@ pub type RealearnControlSurface =
 
 #[derive(Debug)]
 pub struct App {
+    tracing_hook: Option<TracingHook>,
     state: RefCell<AppState>,
     #[cfg(feature = "playtime")]
     license_manager: crate::infrastructure::data::SharedLicenseManager,
@@ -102,7 +107,7 @@ pub struct App {
     osc_device_manager: SharedOscDeviceManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
-    changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     #[cfg(feature = "playtime")]
@@ -128,14 +133,6 @@ pub struct PluginInstanceInfo {
 
 #[derive(Debug)]
 enum AppState {
-    /// Start state.
-    ///
-    /// Entered only once at startup.
-    Uninitialized(UninitializedState),
-    /// During initialization as soon as we have access to REAPER.
-    ///
-    /// Entered only once at startup.
-    Initializing,
     /// As long as no ReaLearn instance is loaded.
     ///
     /// Happens once very shortly at startup and then whenever the last ReaLearn instance
@@ -179,19 +176,143 @@ struct AwakeState {
     accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        // TODO-low Not so super cool to load from a file in the default function. However,
-        //  that made it easier for our make_available_globally_in_main_thread!().
+impl App {
+    /// Executed globally just once when module loaded.
+    pub fn init(logger: Logger, context: PluginContext) -> Self {
+        // Make Swell and Reaper functions available globally
+        Swell::make_available_globally(Swell::load(context));
+        // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
+        //  so not a big deal. Still, maybe could be improved?
+        Reaper::setup_with_defaults(
+            context,
+            logger,
+            CrashInfo {
+                plugin_name: "ReaLearn".to_string(),
+                plugin_version: App::detailed_version_label().to_string(),
+                support_email_address: "info@helgoboss.org".to_string(),
+            },
+        );
+        // Load config
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()
         });
-        App::new(config)
+        // Create channels
+        let (control_surface_main_task_sender, control_surface_main_task_receiver) =
+            SenderToNormalThread::new_unbounded_channel("control surface main tasks");
+        let control_surface_main_task_sender =
+            RealearnControlSurfaceMainTaskSender(control_surface_main_task_sender);
+        #[cfg(feature = "playtime")]
+        let (clip_matrix_event_sender, clip_matrix_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("clip matrix events");
+        let (osc_feedback_task_sender, osc_feedback_task_receiver) =
+            SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
+        let (additional_feedback_event_sender, additional_feedback_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("additional feedback events");
+        let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("instance orchestration events");
+        let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
+            SenderToRealTimeThread::new_channel(
+                "feedback audio hook tasks",
+                FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE,
+            );
+        let (audio_hook_task_sender, normal_audio_hook_task_receiver) =
+            SenderToRealTimeThread::new_channel(
+                "normal audio hook tasks",
+                NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
+            );
+        // Initialize tracing/logging if enabled
+        let tracing_hook = TracingHook::init();
+        tracing::info!("Initialized tracing");
+        // Rest
+        GLOBAL_ALLOCATOR.init(
+            DEALLOCATOR_THREAD_CAPACITY,
+            RealearnDeallocator::with_metrics("async_deallocation"),
+            RealearnAllocatorIntegration::new(Reaper::get()),
+        );
+        metrics_util::init_metrics();
+        #[cfg(feature = "playtime")]
+        let license_manager = Self::init_clip_engine();
+        let backbone_state = BackboneState::new(
+            additional_feedback_event_sender.clone(),
+            RealearnTargetState::new(additional_feedback_event_sender.clone()),
+        );
+        BackboneState::make_available_globally(backbone_state);
+        let sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>> = Default::default();
+        server::http::keep_informing_clients_about_sessions(
+            sessions_changed_subject.borrow().clone(),
+        );
+        let controller_preset_manager = FileBasedControllerPresetManager::new(
+            App::realearn_preset_dir_path().join("controller"),
+        );
+        let main_preset_manager =
+            FileBasedMainPresetManager::new(App::realearn_preset_dir_path().join("main"));
+        let preset_link_manager =
+            FileBasedPresetLinkManager::new(App::realearn_auto_load_configs_dir_path());
+        let osc_device_manager = OscDeviceManager::new(App::realearn_osc_device_config_file_path());
+        let server = RealearnServer::new(
+            config.main.server_http_port,
+            config.main.server_https_port,
+            config.main.server_grpc_port,
+            App::server_resource_dir_path().join("certificates"),
+            MetricsReporter::new(),
+        );
+        let osc_feedback_processor = OscFeedbackProcessor::new(osc_feedback_task_receiver);
+        osc_device_manager
+            .changed()
+            .subscribe(|_| App::get().reconnect_osc_devices());
+        let shared_main_processors = SharedMainProcessors::default();
+        let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
+            App::logger(),
+            control_surface_main_task_receiver,
+            #[cfg(feature = "playtime")]
+            clip_matrix_event_receiver,
+            additional_feedback_event_receiver,
+            instance_orchestration_event_receiver,
+            shared_main_processors.clone(),
+        ));
+        let audio_hook = RealearnAudioHook::new(
+            normal_audio_hook_task_receiver,
+            feedback_audio_hook_task_receiver,
+        );
+        let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
+        // REAPER registers/unregisters actions automatically depending on presence of plug-in
+        Self::register_actions(&control_surface_main_task_sender);
+        let sleeping_state = SleepingState {
+            control_surface: Box::new(control_surface),
+            audio_hook: Box::new(audio_hook),
+            accelerator: Box::new(accelerator),
+        };
+        App {
+            tracing_hook,
+            state: RefCell::new(AppState::Sleeping(sleeping_state)),
+            #[cfg(feature = "playtime")]
+            license_manager: Rc::new(RefCell::new(license_manager)),
+            controller_preset_manager: Rc::new(RefCell::new(controller_preset_manager)),
+            main_preset_manager: Rc::new(RefCell::new(main_preset_manager)),
+            preset_link_manager: Rc::new(RefCell::new(preset_link_manager)),
+            osc_device_manager: Rc::new(RefCell::new(osc_device_manager)),
+            server: Rc::new(RefCell::new(server)),
+            config: RefCell::new(config),
+            sessions_changed_subject,
+            party_is_over_subject: Default::default(),
+            control_surface_main_task_sender,
+            #[cfg(feature = "playtime")]
+            clip_matrix_event_sender,
+            osc_feedback_task_sender,
+            additional_feedback_event_sender,
+            feedback_audio_hook_task_sender,
+            instance_orchestration_event_sender,
+            audio_hook_task_sender,
+            instances: Default::default(),
+            instances_changed_subject: Default::default(),
+            message_panel: Default::default(),
+            osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
+            #[cfg(feature = "playtime")]
+            clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
+        }
     }
-}
 
-impl App {
     pub fn detailed_version_label() -> &'static str {
         static VALUE: Lazy<String> = Lazy::new(build_detailed_version);
         &VALUE
@@ -226,172 +347,23 @@ impl App {
         }
     }
 
-    fn new(config: AppConfig) -> App {
-        let (main_sender, main_receiver) =
-            SenderToNormalThread::new_unbounded_channel("control surface main tasks");
-        #[cfg(feature = "playtime")]
-        let (clip_matrix_event_sender, clip_matrix_event_receiver) =
-            SenderToNormalThread::new_unbounded_channel("clip matrix events");
-        let (osc_feedback_task_sender, osc_feedback_task_receiver) =
-            SenderToNormalThread::new_unbounded_channel("osc feedback tasks");
-        let (additional_feedback_event_sender, additional_feedback_event_receiver) =
-            SenderToNormalThread::new_unbounded_channel("additional feedback events");
-        let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
-            SenderToNormalThread::new_unbounded_channel("instance orchestration events");
-        let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
-            SenderToRealTimeThread::new_channel(
-                "feedback audio hook tasks",
-                FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE,
-            );
-        let (audio_hook_task_sender, normal_audio_hook_task_receiver) =
-            SenderToRealTimeThread::new_channel(
-                "normal audio hook tasks",
-                NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
-            );
-        let uninitialized_state = UninitializedState {
-            control_surface_main_task_receiver: main_receiver,
-            #[cfg(feature = "playtime")]
-            clip_matrix_event_receiver,
-            additional_feedback_event_receiver,
-            instance_orchestration_event_receiver,
-            normal_audio_hook_task_receiver,
-            feedback_audio_hook_task_receiver,
-        };
-        App {
-            state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
-            #[cfg(feature = "playtime")]
-            license_manager: Rc::new(RefCell::new(
-                crate::infrastructure::data::LicenseManager::new(
-                    App::helgoboss_resource_dir_path().join("licensing.json"),
-                ),
-            )),
-            controller_preset_manager: Rc::new(RefCell::new(
-                FileBasedControllerPresetManager::new(
-                    App::realearn_preset_dir_path().join("controller"),
-                ),
-            )),
-            main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
-                App::realearn_preset_dir_path().join("main"),
-            ))),
-            preset_link_manager: Rc::new(RefCell::new(FileBasedPresetLinkManager::new(
-                App::realearn_auto_load_configs_dir_path(),
-            ))),
-            osc_device_manager: Rc::new(RefCell::new(OscDeviceManager::new(
-                App::realearn_osc_device_config_file_path(),
-            ))),
-            server: Rc::new(RefCell::new(RealearnServer::new(
-                config.main.server_http_port,
-                config.main.server_https_port,
-                config.main.server_grpc_port,
-                App::server_resource_dir_path().join("certificates"),
-                MetricsReporter::new(),
-            ))),
-            config: RefCell::new(config),
-            changed_subject: Default::default(),
-            party_is_over_subject: Default::default(),
-            control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender(main_sender),
-            #[cfg(feature = "playtime")]
-            clip_matrix_event_sender,
-            osc_feedback_task_sender,
-            additional_feedback_event_sender,
-            feedback_audio_hook_task_sender,
-            instance_orchestration_event_sender,
-            audio_hook_task_sender,
-            instances: Default::default(),
-            instances_changed_subject: Default::default(),
-            message_panel: Default::default(),
-            osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
-                osc_feedback_task_receiver,
-            ))),
-            #[cfg(feature = "playtime")]
-            clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
-        }
-    }
-
-    /// Executed globally just once when module loaded.
-    pub fn init_static(logger: Logger, context: PluginContext) {
-        setup_tracing();
-        Swell::make_available_globally(Swell::load(context));
-        // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
-        //  so not a big deal. Still, maybe could be improved?
-        Reaper::setup_with_defaults(
-            context,
-            logger,
-            CrashInfo {
-                plugin_name: "ReaLearn".to_string(),
-                plugin_version: App::detailed_version_label().to_string(),
-                support_email_address: "info@helgoboss.org".to_string(),
-            },
-        );
-        App::get().init();
-    }
-
     pub fn get_temp_dir() -> Option<&'static TempDir> {
         static TEMP_DIR: Lazy<Option<TempDir>> =
             Lazy::new(|| tempfile::Builder::new().prefix("realearn-").tempdir().ok());
         TEMP_DIR.as_ref()
     }
 
-    /// Executed globally just once as soon as we have access to global REAPER instance.
-    pub fn init(&self) {
-        GLOBAL_ALLOCATOR.init(
-            DEALLOCATOR_THREAD_CAPACITY,
-            RealearnDeallocator::with_metrics("async_deallocation"),
-            RealearnAllocatorIntegration::new(Reaper::get()),
-        );
-        metrics_util::init_metrics();
-        #[cfg(feature = "playtime")]
-        self.init_clip_engine();
-        let prev_state = self.state.replace(AppState::Initializing);
-        let uninit_state = if let AppState::Uninitialized(s) = prev_state {
-            s
-        } else {
-            panic!("App was not uninitialized anymore");
-        };
-        let backbone_state = BackboneState::new(
-            self.additional_feedback_event_sender.clone(),
-            RealearnTargetState::new(self.additional_feedback_event_sender.clone()),
-        );
-        BackboneState::make_available_globally(backbone_state);
-        App::get().register_actions();
-        server::http::keep_informing_clients_about_sessions();
-        debug_util::register_resolve_symbols_action();
-        crate::infrastructure::test::register_test_action();
-        self.osc_device_manager
-            .borrow()
-            .changed()
-            .subscribe(|_| App::get().reconnect_osc_devices());
-        let shared_main_processors = SharedMainProcessors::default();
-        let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            App::logger(),
-            uninit_state.control_surface_main_task_receiver,
-            #[cfg(feature = "playtime")]
-            uninit_state.clip_matrix_event_receiver,
-            uninit_state.additional_feedback_event_receiver,
-            uninit_state.instance_orchestration_event_receiver,
-            shared_main_processors.clone(),
-        ));
-        let audio_hook = RealearnAudioHook::new(
-            uninit_state.normal_audio_hook_task_receiver,
-            uninit_state.feedback_audio_hook_task_receiver,
-        );
-        let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
-        let sleeping_state = SleepingState {
-            control_surface: Box::new(control_surface),
-            audio_hook: Box::new(audio_hook),
-            accelerator: Box::new(accelerator),
-        };
-        self.state.replace(AppState::Sleeping(sleeping_state));
-    }
-
     #[cfg(feature = "playtime")]
-    fn init_clip_engine(&self) {
-        let manager = self.license_manager.borrow();
+    fn init_clip_engine() -> crate::infrastructure::data::LicenseManager {
+        let license_manager = crate::infrastructure::data::LicenseManager::new(
+            App::helgoboss_resource_dir_path().join("licensing.json"),
+        );
         let args = playtime_clip_engine::ClipEngineInitArgs {
-            available_licenses: manager.licenses(),
+            available_licenses: license_manager.licenses(),
             tap_sound_file: Self::realearn_high_click_sound_path(),
         };
         playtime_clip_engine::ClipEngine::get().init(args);
+        license_manager
     }
 
     fn reconnect_osc_devices(&self) {
@@ -424,11 +396,10 @@ impl App {
     // Executed whenever the first ReaLearn instance is loaded.
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
-        let mut sleeping_state = if let AppState::Sleeping(s) = prev_state {
-            s
-        } else {
+        let AppState::Sleeping(mut sleeping_state) = prev_state else {
             panic!("App was not sleeping");
         };
+        // Activate server
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
@@ -779,7 +750,7 @@ impl App {
     }
 
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.changed_subject.borrow().clone()
+        self.sessions_changed_subject.borrow().clone()
     }
 
     fn change_config(&self, op: impl FnOnce(&mut AppConfig)) {
@@ -883,10 +854,6 @@ impl App {
         APP_LIBRARY
             .as_ref()
             .map_err(|e| anyhow::anyhow!(format!("{e:?}")))
-    }
-
-    pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.changed_subject.borrow().clone()
     }
 
     pub fn has_session(&self, session_id: &str) -> bool {
@@ -1080,7 +1047,8 @@ impl App {
         self.message_panel.close();
     }
 
-    pub fn register_actions(&self) {
+    fn register_actions(control_surface_sender: &RealearnControlSurfaceMainTaskSender) {
+        let control_surface_sender = control_surface_sender.0.clone();
         Reaper::get().register_action(
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
@@ -1163,7 +1131,6 @@ impl App {
             },
             ActionKind::NotToggleable,
         );
-        let control_surface_sender = self.control_surface_main_task_sender.0.clone();
         Reaper::get().register_action(
             "REALEARN_SEND_ALL_FEEDBACK",
             "ReaLearn: Send feedback for all instances",
@@ -1171,6 +1138,22 @@ impl App {
                 control_surface_sender
                     .send_complaining(RealearnControlSurfaceMainTask::SendAllFeedback);
             },
+            ActionKind::NotToggleable,
+        );
+        Reaper::get().register_action(
+            "REALEARN_RESOLVE_SYMBOLS",
+            "[developer] ReaLearn: Resolve symbols from clipboard",
+            || {
+                if let Err(e) = resolve_symbols_from_clipboard() {
+                    Reaper::get().show_console_msg(format!("{e}\n"));
+                }
+            },
+            ActionKind::NotToggleable,
+        );
+        Reaper::get().register_action(
+            "REALEARN_INTEGRATION_TEST",
+            "[developer] ReaLearn: Run integration test",
+            run_test,
             ActionKind::NotToggleable,
         );
     }
@@ -1551,7 +1534,7 @@ impl App {
     }
 
     fn notify_changed(&self) {
-        self.changed_subject.borrow_mut().next(());
+        self.sessions_changed_subject.borrow_mut().next(());
     }
 
     fn do_with_initiator_session_or_sessions_matching_tags(

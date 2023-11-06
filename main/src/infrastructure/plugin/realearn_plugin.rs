@@ -390,7 +390,7 @@ impl RealearnPlugin {
                 let context =
                     PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context())
                         .unwrap();
-                App::init_static(self.logger.clone(), context);
+                App::make_available_globally(App::init(self.logger.clone(), context));
             },
             || {
                 App::get().wake_up();

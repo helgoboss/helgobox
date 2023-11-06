@@ -13,16 +13,7 @@ use std::future::Future;
 use FinalSourceFeedbackValue::Midi;
 use MidiSourceValue::{ParameterNumber, Plain};
 
-pub fn register_test_action() {
-    Reaper::get().register_action(
-        "REALEARN_INTEGRATION_TEST",
-        "[developer] ReaLearn: Run integration test",
-        run_test,
-        ActionKind::NotToggleable,
-    );
-}
-
-fn run_test() {
+pub fn run_test() {
     Global::future_support().spawn_in_main_thread_from_main_thread(async {
         Test::new().test().await;
         Ok(())

@@ -147,8 +147,10 @@ pub fn for_each_client<T: Serialize>(
     Ok(())
 }
 
-pub fn keep_informing_clients_about_sessions() {
-    App::get().sessions_changed().subscribe(|_| {
+pub fn keep_informing_clients_about_sessions(
+    sessions_changed: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
+) {
+    sessions_changed.subscribe(|_| {
         Global::task_support()
             .do_later_in_main_thread_asap(|| {
                 send_sessions_to_subscribed_clients();
