@@ -1,10 +1,61 @@
 use crossbeam_channel::{Receiver, Sender};
-use once_cell::sync::Lazy;
+use std::sync::OnceLock;
 use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-static METRICS_ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("REALEARN_METRICS").is_ok());
-static METRICS_CHANNEL: Lazy<MetricsChannel> = Lazy::new(Default::default);
+/// This will contain the metrics sender for async metrics recording if metrics are enabled.
+static METRICS_SENDER: OnceLock<Sender<MetricsRecorderCommand>> = OnceLock::new();
+
+#[derive(Debug)]
+pub struct MetricsHook {
+    sender: Sender<MetricsRecorderCommand>,
+    join_handle: Option<JoinHandle<()>>,
+}
+
+impl Drop for MetricsHook {
+    fn drop(&mut self) {
+        let _ = self.sender.try_send(MetricsRecorderCommand::Finish);
+        if let Some(join_handle) = self.join_handle.take() {
+            let _ = join_handle.join();
+        }
+    }
+}
+
+impl MetricsHook {
+    /// Initializes metrics recording if the env variable `REALEARN_METRICS` is set.
+    ///
+    /// This starts a dedicated metrics recording thread, which is responsible for actually
+    /// recording certain metrics (e.g. durations), which is especially important when measuring
+    /// stuff from real-time threads. It avoids allocation and doesn't slow down real-time
+    /// processing (with the exception of measuring the duration itself).
+    ///
+    /// This should be called only once within the lifetime of the loaded shared library! On Linux
+    /// and macOS, this means it must only be called once within the lifetime of REAPER because once
+    /// a shared library is loaded, it's not unloaded anymore. On Windows, it can be called again
+    /// after REAPER unloaded the library via `FreeLibrary` and reloaded it again.
+    ///
+    /// The returned metrics hook must be dropped before the library is unloaded, otherwise the
+    /// metrics thread sticks around and that can't be good.
+    pub fn init() -> Option<Self> {
+        std::env::var("REALEARN_METRICS").ok()?;
+        let (sender, receiver) = crossbeam_channel::bounded(5000);
+        let join_handle = thread::Builder::new()
+            .name(String::from("ReaLearn metrics"))
+            .spawn(move || {
+                keep_recording_metrics(receiver);
+            })
+            .expect("ReaLearn metrics thread couldn't be created");
+        METRICS_SENDER
+            .set(sender.clone())
+            .expect("attempting to initializing metrics hook more than once");
+        let hook = Self {
+            sender,
+            join_handle: Some(join_handle),
+        };
+        Some(hook)
+    }
+}
 
 /// A simple function that doesn't expose anything to the metrics endpoint but warns if a
 /// threshold is exceeded. Doesn't do anything in release builds (except executing the function).
@@ -29,28 +80,6 @@ pub fn warn_if_takes_too_long<R>(label: &'static str, max: Duration, f: impl FnO
     }
 }
 
-pub fn metrics_are_enabled() -> bool {
-    *METRICS_ENABLED
-}
-
-/// Initializes the metrics channel.  
-pub fn init_metrics() {
-    if !metrics_are_enabled() {
-        return;
-    }
-    let _ = *METRICS_CHANNEL;
-    // We record metrics async because we are mostly in real-time threads when recording metrics.
-    // The metrics and metrics-exporter-prometheus crates sometimes do allocations. If this would
-    // just provoke audio dropouts, then fine ... users shouldn't collect metrics anyway under
-    // normal circumstances, in live scenarios certainly never! But it could also distort results.
-    thread::Builder::new()
-        .name(String::from("ReaLearn metrics"))
-        .spawn(move || {
-            keep_recording_metrics(METRICS_CHANNEL.receiver.clone());
-        })
-        .unwrap();
-}
-
 /// Synchronously records the occurrence of the given event.
 pub fn record_occurrence(id: &'static str) {
     if !metrics_are_enabled() {
@@ -73,47 +102,35 @@ pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
 
 /// Records the given duration into a histogram.
 pub fn record_duration(id: &'static str, delta: Duration) {
-    if !metrics_are_enabled() {
-        return;
-    }
     record_duration_internal(id, delta);
 }
 
+pub fn metrics_are_enabled() -> bool {
+    METRICS_SENDER.get().is_some()
+}
+
 pub fn record_duration_internal(id: &'static str, delta: Duration) {
-    let task = MetricsTask::Histogram { id, delta };
-    if METRICS_CHANNEL.sender.try_send(task).is_err() {
-        tracing::debug!("ReaLearn metrics channel is full");
+    if let Some(sender) = METRICS_SENDER.get() {
+        let task = MetricsRecorderCommand::Histogram { id, delta };
+        if sender.try_send(task).is_err() {
+            tracing::debug!("ReaLearn metrics channel is full");
+        }
     }
 }
 
-struct MetricsChannel {
-    sender: Sender<MetricsTask>,
-    receiver: Receiver<MetricsTask>,
-}
-
-impl Drop for MetricsChannel {
-    fn drop(&mut self) {
-        println!("Dropping ReaLearn MetricsChannel...");
-    }
-}
-
-impl Default for MetricsChannel {
-    fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::bounded(5000);
-        Self { sender, receiver }
-    }
-}
-
-enum MetricsTask {
+enum MetricsRecorderCommand {
+    Finish,
     Histogram { id: &'static str, delta: Duration },
 }
 
-fn keep_recording_metrics(receiver: Receiver<MetricsTask>) {
+fn keep_recording_metrics(receiver: Receiver<MetricsRecorderCommand>) {
     while let Ok(task) = receiver.recv() {
         match task {
-            MetricsTask::Histogram { id, delta } => {
+            MetricsRecorderCommand::Finish => break,
+            MetricsRecorderCommand::Histogram { id, delta } => {
                 metrics::histogram!(id, delta);
             }
         }
     }
+    println!("Recording metrics finished");
 }

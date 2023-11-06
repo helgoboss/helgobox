@@ -40,7 +40,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
-use base::metrics_util::{metrics_are_enabled, record_duration_internal};
+use base::metrics_util::{metrics_are_enabled, record_duration_internal, MetricsHook};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -100,6 +100,7 @@ pub type RealearnControlSurface =
 #[derive(Debug)]
 pub struct App {
     tracing_hook: Option<TracingHook>,
+    metrics_hook: Option<MetricsHook>,
     state: RefCell<AppState>,
     #[cfg(feature = "playtime")]
     license_manager: crate::infrastructure::data::SharedLicenseManager,
@@ -220,14 +221,22 @@ impl App {
                 "normal audio hook tasks",
                 NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
             );
+        // We initialize tracing here already instead of activating/deactivating it when waking up
+        // or go to sleep. Reason: It doesn't matter that the async logger thread is lurking around
+        // even when no ReaLearn instance exists anymore, because the REALEARN_LOG env variable is
+        // opt-in and should only be used for debugging purposes anyway. Also,
+        // activating/deactivating would be more difficult because the global tracing subscriber can
+        // be set only once. There's no way to unset it.
         let tracing_hook = TracingHook::init();
         tracing::info!("Initialized tracing");
+        // We initialize metrics here already for the same reasons.
+        let metrics_hook = MetricsHook::init();
+        tracing::info!("Initialized metrics");
         GLOBAL_ALLOCATOR.init(
             DEALLOCATOR_THREAD_CAPACITY,
             RealearnDeallocator::with_metrics("async_deallocation"),
             RealearnAllocatorIntegration::new(Reaper::get()),
         );
-        metrics_util::init_metrics();
         #[cfg(feature = "playtime")]
         let license_manager = Self::init_clip_engine();
         let backbone_state = BackboneState::new(
@@ -282,6 +291,7 @@ impl App {
         };
         App {
             tracing_hook,
+            metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
             #[cfg(feature = "playtime")]
             license_manager: Rc::new(RefCell::new(license_manager)),

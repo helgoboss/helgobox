@@ -13,9 +13,9 @@ pub struct TracingHook {
 }
 
 impl TracingHook {
-    /// Initializes tracing/logging.
+    /// Initializes tracing/logging if the env variable `REALEARN_LOG` is set.
     ///
-    /// This doesn't just set the default tracing subscriber, it also starts an async logger
+    /// This doesn't just set the global tracing subscriber, it also starts an async logger
     /// thread, which is responsible for logging messages that come from real-time threads (reducing
     /// the amount of audio stuttering).
     ///
@@ -30,7 +30,7 @@ impl TracingHook {
         let env_var = std::env::var("REALEARN_LOG").ok()?;
         let env_filter = EnvFilter::new(env_var);
         let (sender, receiver) = crossbeam_channel::unbounded();
-        let async_logger_handle = thread::Builder::new()
+        let join_handle = thread::Builder::new()
             .name(String::from("ReaLearn async logger"))
             .spawn(move || keep_logging(receiver, std::io::stdout()))
             .expect("ReaLearn async logger thread couldn't be created");
@@ -54,7 +54,7 @@ impl TracingHook {
             .expect("setting default subscriber failed");
         let hook = Self {
             sender,
-            join_handle: Some(async_logger_handle),
+            join_handle: Some(join_handle),
         };
         Some(hook)
     }
@@ -106,7 +106,7 @@ fn keep_logging(receiver: Receiver<AsyncLoggerCommand>, mut inner: impl Write) {
             }
         }
     }
-    println!("Async logging ended");
+    println!("Async logging finished");
 }
 
 impl<W: Write> Write for AsyncWriter<W> {
