@@ -11,7 +11,10 @@ macro_rules! make_available_globally_in_main_thread {
                 static INIT_INSTANCE: std::sync::Once = std::sync::Once::new();
                 reaper_high::Reaper::get().require_main_thread();
                 unsafe {
-                    INIT_INSTANCE.call_once(|| INSTANCE = Some(Default::default()));
+                    INIT_INSTANCE.call_once(|| {
+                        INSTANCE = Some(Default::default());
+                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                    });
                     INSTANCE.as_ref().unwrap()
                 }
             }
@@ -69,7 +72,10 @@ macro_rules! make_available_globally_in_any_non_rt_thread {
                 static mut INSTANCE: Option<$instance_struct> = None;
                 static INIT_INSTANCE: std::sync::Once = std::sync::Once::new();
                 unsafe {
-                    INIT_INSTANCE.call_once(|| INSTANCE = Some(Default::default()));
+                    INIT_INSTANCE.call_once(|| {
+                        INSTANCE = Some(Default::default());
+                        reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
+                    });
                     INSTANCE.as_ref().unwrap()
                 }
             }
