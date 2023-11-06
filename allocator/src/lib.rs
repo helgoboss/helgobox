@@ -6,11 +6,10 @@
 //! - Assertions are active in debug builds only
 //! - When assertion violated, it always panics instead of aborting or printing an error (mainly for
 //!   good testability but also nice otherwise as long as set_alloc_error_hook() is still unstable)
-use once_cell::sync::OnceCell;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
-use std::sync::mpsc;
-use std::sync::mpsc::{SyncSender, TrySendError};
+use std::sync::mpsc::{Receiver, SyncSender, TrySendError};
+use std::sync::{mpsc, OnceLock};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -88,45 +87,12 @@ pub fn permit_alloc<T, F: FnOnce() -> T>(func: F) -> T {
 /// The custom allocator that handles the checking.
 pub struct HelgobossAllocator<I, D> {
     sync_deallocator: D,
-    async_deallocation_machine: OnceCell<AsyncDeallocationMachine<I>>,
+    async_deallocation_machine: OnceLock<AsyncDeallocationMachine<I>>,
 }
 
 struct AsyncDeallocationMachine<I> {
-    sender: SyncSender<DeallocationTask>,
-    worker_thread_handle: Option<JoinHandle<()>>,
+    sender: SyncSender<AsyncDeallocatorCommand>,
     integration: I,
-}
-
-impl<I> Drop for AsyncDeallocationMachine<I> {
-    fn drop(&mut self) {
-        println!("Dropping AsyncDeallocationMachine...");
-        if let Some(join_handle) = self.worker_thread_handle.take() {
-            let _ = join_handle.join();
-        }
-    }
-}
-
-impl<I> AsyncDeallocationMachine<I> {
-    pub fn new<D: Deallocate + Send + 'static>(
-        capacity: usize,
-        deallocator: D,
-        integration: I,
-    ) -> Self {
-        let (sender, receiver) = mpsc::sync_channel::<DeallocationTask>(capacity);
-        let worker_thread_handle = thread::Builder::new()
-            .name("Helgoboss deallocator".to_string())
-            .spawn(move || {
-                while let Ok(task) = receiver.recv() {
-                    deallocator.deallocate(task.ptr, task.layout);
-                }
-            })
-            .unwrap();
-        Self {
-            sender,
-            worker_thread_handle: Some(worker_thread_handle),
-            integration,
-        }
-    }
 }
 
 impl<I, D> Drop for HelgobossAllocator<I, D> {
@@ -135,12 +101,22 @@ impl<I, D> Drop for HelgobossAllocator<I, D> {
     }
 }
 
-struct DeallocationTask {
+#[derive(Debug)]
+pub struct AsyncDeallocatorCommandReceiver(Receiver<AsyncDeallocatorCommand>);
+
+#[derive(Debug)]
+enum AsyncDeallocatorCommand {
+    Stop,
+    Deallocate(DeallocateCommand),
+}
+
+#[derive(Debug)]
+struct DeallocateCommand {
     ptr: *mut u8,
     layout: Layout,
 }
 
-unsafe impl Send for DeallocationTask {}
+unsafe impl Send for DeallocateCommand {}
 
 pub trait AsyncDeallocationIntegration {
     /// Should return `true` if deallocation should be offloaded to the dedicated deallocation
@@ -153,17 +129,38 @@ pub trait Deallocate {
     fn deallocate(&self, ptr: *mut u8, layout: Layout);
 }
 
+pub fn start_async_deallocation_thread(
+    deallocator: impl Deallocate + Send + 'static,
+    receiver: AsyncDeallocatorCommandReceiver,
+) -> JoinHandle<AsyncDeallocatorCommandReceiver> {
+    thread::Builder::new()
+        .name("ReaLearn deallocator".to_string())
+        .spawn(move || {
+            while let Ok(cmd) = receiver.0.recv() {
+                match cmd {
+                    AsyncDeallocatorCommand::Stop => break,
+                    AsyncDeallocatorCommand::Deallocate(cmd) => {
+                        deallocator.deallocate(cmd.ptr, cmd.layout);
+                    }
+                }
+            }
+            println!("Async deallocation finished. Returning receiver.");
+            receiver
+        })
+        .unwrap()
+}
+
 impl<I, D> HelgobossAllocator<I, D> {
     /// Initializes the allocator.
     ///
     /// The deallocator that you pass here will only be used for synchronous deallocation.
     ///
     /// This is just the first step! In order to offload deallocations, you need to call
-    /// [`Self::init`]!
+    /// [`Self::init`]! It needs to be 2 steps
     pub const fn new(deallocator: D) -> Self {
         Self {
             sync_deallocator: deallocator,
-            async_deallocation_machine: OnceCell::new(),
+            async_deallocation_machine: OnceLock::new(),
         }
     }
 
@@ -174,14 +171,24 @@ impl<I, D> HelgobossAllocator<I, D> {
     ///
     /// As soon as the given capacity is reached, deallocation will be done synchronously until
     /// the deallocation thread has capacity again.
-    pub fn init(
-        &self,
-        capacity: usize,
-        deallocator: impl Deallocate + Send + 'static,
-        integration: I,
-    ) {
-        self.async_deallocation_machine
-            .get_or_init(|| AsyncDeallocationMachine::new(capacity, deallocator, integration));
+    pub fn init(&self, capacity: usize, integration: I) -> AsyncDeallocatorCommandReceiver {
+        let (sender, receiver) = mpsc::sync_channel::<AsyncDeallocatorCommand>(capacity);
+        let machine = AsyncDeallocationMachine {
+            sender,
+            integration,
+        };
+        if self.async_deallocation_machine.set(machine).is_err() {
+            panic!("attempted to initialize async deallocator more than once");
+        }
+        AsyncDeallocatorCommandReceiver(receiver)
+    }
+
+    /// Sends a stop signal to the receiver of asynchronous deallocation commands (usually a
+    /// dedicated thread).
+    pub fn stop_async_deallocation(&self) {
+        if let Some(machine) = self.async_deallocation_machine.get() {
+            let _ = machine.sender.try_send(AsyncDeallocatorCommand::Stop);
+        }
     }
 
     #[cfg(debug_assertions)]
@@ -222,11 +229,15 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
         };
         if deallocation_machine.integration.offload_deallocation() {
             // Deallocation shall be offloaded and we are already initialized.
-            let task = DeallocationTask { ptr, layout };
-            if let Err(e) = deallocation_machine.sender.try_send(task) {
+            let command = DeallocateCommand { ptr, layout };
+            if let Err(e) = deallocation_machine
+                .sender
+                .try_send(AsyncDeallocatorCommand::Deallocate(command))
+            {
                 match e {
                     TrySendError::Full(_) => {
-                        // This is possible if we have very many deallocations in a row. Then do
+                        // This is possible if we have very many deallocations in a row or if for
+                        // some reason the async deallocator thread is not running. Then do
                         // deallocation synchronously.
                         #[cfg(debug_assertions)]
                         self.check(layout);
@@ -275,7 +286,7 @@ mod tests {
         HelgobossAllocator::new(TestDeallocator("SYNC"));
 
     fn init() {
-        GLOBAL_ALLOCATOR.init(100, TestDeallocator("OFFLOADED"), TestIntegration);
+        GLOBAL_ALLOCATOR.init(100, TestIntegration);
     }
 
     #[test]

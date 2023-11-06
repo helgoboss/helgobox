@@ -41,6 +41,7 @@ use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
 use base::metrics_util::{metrics_are_enabled, record_duration_internal, MetricsHook};
+use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -64,6 +65,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
+use std::sync::mpsc;
+use std::thread::JoinHandle;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
@@ -170,6 +173,7 @@ struct SleepingState {
     control_surface: Box<RealearnControlSurface>,
     audio_hook: Box<RealearnAudioHook>,
     accelerator: Box<RealearnSessionAccelerator>,
+    async_deallocation_receiver: AsyncDeallocatorCommandReceiver,
 }
 
 #[derive(Debug)]
@@ -177,6 +181,7 @@ struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
     accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
+    async_deallocation_thread: JoinHandle<AsyncDeallocatorCommandReceiver>,
 }
 
 impl App {
@@ -228,13 +233,12 @@ impl App {
         // activating/deactivating would be more difficult because the global tracing subscriber can
         // be set only once. There's no way to unset it.
         let tracing_hook = TracingHook::init();
-        tracing::info!("Initialized tracing");
         // We initialize metrics here already for the same reasons.
         let metrics_hook = MetricsHook::init();
-        tracing::info!("Initialized metrics");
-        GLOBAL_ALLOCATOR.init(
+        // The global allocator uses a dedicated thread to offload deallocation from real-time
+        // threads. However, this thread will only exist in awaken state.
+        let async_deallocation_receiver = GLOBAL_ALLOCATOR.init(
             DEALLOCATOR_THREAD_CAPACITY,
-            RealearnDeallocator::with_metrics("async_deallocation"),
             RealearnAllocatorIntegration::new(
                 Reaper::get()
                     .medium_reaper()
@@ -262,7 +266,9 @@ impl App {
             FileBasedMainPresetManager::new(App::realearn_preset_dir_path().join("main"));
         let preset_link_manager =
             FileBasedPresetLinkManager::new(App::realearn_auto_load_configs_dir_path());
+        // This doesn't yet start listening for OSC messages (will happen on wake up)
         let osc_device_manager = OscDeviceManager::new(App::realearn_osc_device_config_file_path());
+        // This doesn't yet start the server (will happen on wake up)
         let server = RealearnServer::new(
             config.main.server_http_port,
             config.main.server_https_port,
@@ -275,6 +281,7 @@ impl App {
             .changed()
             .subscribe(|_| App::get().reconnect_osc_devices());
         let shared_main_processors = SharedMainProcessors::default();
+        // This doesn't yet activate the control surface (will happen on wake up)
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             control_surface_main_task_receiver,
@@ -284,10 +291,12 @@ impl App {
             instance_orchestration_event_receiver,
             shared_main_processors.clone(),
         ));
+        // This doesn't yet activate the audio hook (will happen on wake up)
         let audio_hook = RealearnAudioHook::new(
             normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
         );
+        // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
         // REAPER registers/unregisters actions automatically depending on presence of plug-in
         Self::register_actions(&control_surface_main_task_sender);
@@ -295,6 +304,7 @@ impl App {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
             accelerator: Box::new(accelerator),
+            async_deallocation_receiver,
         };
         App {
             tracing_hook,
@@ -427,6 +437,11 @@ impl App {
         let AppState::Sleeping(mut sleeping_state) = prev_state else {
             panic!("App was not sleeping");
         };
+        // Start thread for async deallocation
+        let async_deallocation_thread = start_async_deallocation_thread(
+            RealearnDeallocator::with_metrics("async_deallocation"),
+            sleeping_state.async_deallocation_receiver,
+        );
         // Activate server
         if self.config.borrow().server_is_enabled() {
             self.server()
@@ -482,6 +497,7 @@ impl App {
             control_surface_handle,
             audio_hook_handle,
             accelerator_handle,
+            async_deallocation_thread,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -522,10 +538,18 @@ impl App {
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
         // Server
         self.server().borrow_mut().stop();
+        // Stop async deallocation thread
+        GLOBAL_ALLOCATOR.stop_async_deallocation();
+        let async_deallocation_receiver = awake_state
+            .async_deallocation_thread
+            .join()
+            .expect("couldn't join deallocation thread");
+        // Finally go to sleep
         let sleeping_state = SleepingState {
             control_surface,
             audio_hook,
             accelerator,
+            async_deallocation_receiver,
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
@@ -691,6 +715,7 @@ impl App {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
             accelerator_handle: awake_state.accelerator_handle,
+            async_deallocation_thread: awake_state.async_deallocation_thread,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
