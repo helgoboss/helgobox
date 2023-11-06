@@ -123,6 +123,8 @@ pub struct App {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
+    app_library: std::cell::OnceCell<anyhow::Result<crate::infrastructure::ui::AppLibrary>>,
+    #[cfg(feature = "playtime")]
     clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
 }
 
@@ -312,6 +314,8 @@ impl App {
             instances_changed_subject: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
+            #[cfg(feature = "playtime")]
+            app_library: std::cell::OnceCell::new(),
             #[cfg(feature = "playtime")]
             clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
         }
@@ -882,8 +886,9 @@ impl App {
             decompress_app(&app_archive_file, &app_base_dir)?;
             AppLibrary::load(app_base_dir)
         }
-        static APP_LIBRARY: Lazy<anyhow::Result<AppLibrary>> = Lazy::new(load_app_library);
-        APP_LIBRARY
+        App::get()
+            .app_library
+            .get_or_init(load_app_library)
             .as_ref()
             .map_err(|e| anyhow::anyhow!(format!("{e:?}")))
     }
@@ -1961,7 +1966,13 @@ fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result
         fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
     let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
     let mut archive = tar::Archive::new(tar);
-    let _ = fs::remove_dir_all(destination_dir);
+    if destination_dir.exists() {
+        #[cfg(target_family = "windows")]
+        let context = "Couldn't clean up existing app directory. This can happen if you have \"Allow complete unload of VST plug-ins\" enabled in REAPER preferences => Plug-ins => VST. Turn this option off and restart REAPER before using the app.";
+        #[cfg(target_family = "unix")]
+        let context = "Couldn't remove existing app directory";
+        fs::remove_dir_all(destination_dir).context(context)?;
+    }
     archive
         .unpack(destination_dir)
         .context("Couldn't unpack app archive.")?;

@@ -28,6 +28,12 @@ pub struct AppLibrary {
     _dependencies: Vec<Library>,
 }
 
+impl Drop for AppLibrary {
+    fn drop(&mut self) {
+        println!("Dropping AppLibrary...");
+    }
+}
+
 impl AppLibrary {
     pub fn load(app_base_dir: PathBuf) -> Result<Self> {
         let (main_library, dependencies) = {
