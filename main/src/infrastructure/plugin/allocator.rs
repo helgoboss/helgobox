@@ -9,19 +9,23 @@ pub static GLOBAL_ALLOCATOR: HelgobossAllocator<RealearnAllocatorIntegration, Re
 
 /// Allocator integration which defers deallocation when in real-time thread.
 pub struct RealearnAllocatorIntegration {
-    reaper: &'static Reaper,
+    is_in_real_time_audio: IsInRealTimeAudio,
 }
 
+pub type IsInRealTimeAudio = extern "C" fn() -> ::std::os::raw::c_int;
+
 impl RealearnAllocatorIntegration {
-    pub fn new(reaper: &'static Reaper) -> Self {
-        Self { reaper }
+    pub fn new(is_in_real_time_audio: IsInRealTimeAudio) -> Self {
+        Self {
+            is_in_real_time_audio,
+        }
     }
 }
 
 impl AsyncDeallocationIntegration for RealearnAllocatorIntegration {
     fn offload_deallocation(&self) -> bool {
         // Defer deallocation whenever we are in a real-time audio thread.
-        self.reaper.medium_reaper().is_in_real_time_audio()
+        (self.is_in_real_time_audio)() != 0
     }
 }
 

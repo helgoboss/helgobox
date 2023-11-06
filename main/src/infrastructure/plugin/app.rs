@@ -235,7 +235,14 @@ impl App {
         GLOBAL_ALLOCATOR.init(
             DEALLOCATOR_THREAD_CAPACITY,
             RealearnDeallocator::with_metrics("async_deallocation"),
-            RealearnAllocatorIntegration::new(Reaper::get()),
+            RealearnAllocatorIntegration::new(
+                Reaper::get()
+                    .medium_reaper()
+                    .low()
+                    .pointers()
+                    .IsInRealTimeAudio
+                    .expect("couldn't get IsInRealTimeAudio function from REAPER"),
+            ),
         );
         #[cfg(feature = "playtime")]
         let license_manager = Self::init_clip_engine();
