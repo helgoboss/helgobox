@@ -93,8 +93,17 @@ pub struct HelgobossAllocator<I, D> {
 
 struct AsyncDeallocationMachine<I> {
     sender: SyncSender<DeallocationTask>,
-    worker_thread_handle: JoinHandle<()>,
+    worker_thread_handle: Option<JoinHandle<()>>,
     integration: I,
+}
+
+impl<I> Drop for AsyncDeallocationMachine<I> {
+    fn drop(&mut self) {
+        println!("Dropping AsyncDeallocationMachine...");
+        if let Some(join_handle) = self.worker_thread_handle.take() {
+            let _ = join_handle.join();
+        }
+    }
 }
 
 impl<I> AsyncDeallocationMachine<I> {
@@ -114,7 +123,7 @@ impl<I> AsyncDeallocationMachine<I> {
             .unwrap();
         Self {
             sender,
-            worker_thread_handle,
+            worker_thread_handle: Some(worker_thread_handle),
             integration,
         }
     }
@@ -122,9 +131,7 @@ impl<I> AsyncDeallocationMachine<I> {
 
 impl<I, D> Drop for HelgobossAllocator<I, D> {
     fn drop(&mut self) {
-        if let Some(machine) = self.async_deallocation_machine.take() {
-            let _ = machine.worker_thread_handle.join();
-        }
+        println!("Dropping HelgobossAllocator...");
     }
 }
 
