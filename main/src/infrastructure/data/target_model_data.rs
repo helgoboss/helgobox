@@ -1035,7 +1035,7 @@ impl TargetModelData {
                 TrackMonitoringMode,
                 AutomationModeOverride,
             ];
-            HashSet::from_iter(old_kinds.into_iter())
+            HashSet::from_iter(old_kinds)
         });
         model.change(C::SetLearnableTargetKinds(target_kinds));
         model.change(C::SetTouchCause(self.touch_cause));

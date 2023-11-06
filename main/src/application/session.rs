@@ -264,7 +264,7 @@ impl Session {
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
         control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
     ) -> Session {
-        let session = Self {
+        Self {
             // As long not changed (by loading a preset or manually changing session ID), the
             // session ID is equal to the instance ID.
             id: prop(instance_id.to_string()),
@@ -332,8 +332,7 @@ impl Session {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
-        };
-        session
+        }
     }
 
     pub fn instance_id(&self) -> &InstanceId {
@@ -2105,7 +2104,7 @@ impl Session {
                 Compartment::Controller => &mut self.default_controller_group,
             };
             default_group.replace(model.default_group);
-            self.set_groups_without_notification(compartment, model.groups.into_iter());
+            self.set_groups_without_notification(compartment, model.groups);
             self.set_mappings_without_notification(compartment, model.mappings);
             let compartment_params = self.params.compartment_params_mut(compartment);
             compartment_params.reset_all();
@@ -2676,9 +2675,8 @@ impl DomainEventHandler for WeakSession {
                             included_target_types: &included_targets,
                             touch_cause: m.touch_cause.unwrap_or_default(),
                         };
-                        let Some(target) =
-                            BackboneState::get().find_last_touched_target(filter) else
-                        {
+                        let Some(target) = BackboneState::get().find_last_touched_target(filter)
+                        else {
                             return Ok(());
                         };
                         let Some(m) = s.find_mapping_by_qualified_id(id).cloned() else {

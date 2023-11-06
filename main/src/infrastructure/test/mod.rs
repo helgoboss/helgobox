@@ -6,7 +6,7 @@ use base::{Global, SenderToNormalThread};
 use helgoboss_learn::{MidiSourceValue, BASE_EPSILON, FEEDBACK_EPSILON};
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::{DataEntryByteOrder, ParameterNumberMessage, RawShortMessage, ShortMessage};
-use reaper_high::{ActionKind, Fx, FxParameter, Reaper, Track};
+use reaper_high::{Fx, FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;

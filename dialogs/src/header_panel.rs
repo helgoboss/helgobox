@@ -225,9 +225,9 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         styles: Styles(vec![DS_SETFONT, DS_CONTROL, WS_CHILD, WS_VISIBLE]),
         controls: upper_part_controls
             .into_iter()
-            .chain(show_controls.into_iter())
-            .chain(lower_part_controls.into_iter())
-            .chain(divider_controls.into_iter())
+            .chain(show_controls)
+            .chain(lower_part_controls)
+            .chain(divider_controls)
             .collect(),
         ..context.default_dialog()
     }

@@ -2,9 +2,8 @@ use reaper_high::Reaper;
 use std::fmt::Arguments;
 use std::io::{IoSlice, Write};
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread::JoinHandle;
 use std::{mem, thread};
-use tracing_subscriber::{EnvFilter, FmtSubscriber, Layer};
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[derive(Debug)]
 pub struct TracingHook {

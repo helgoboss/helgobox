@@ -20,7 +20,6 @@ use crate::infrastructure::data::{
     FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
     SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
 };
-use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
@@ -28,7 +27,7 @@ use crate::infrastructure::server::{
 use crate::infrastructure::ui::{MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, metrics_util, Global, NamedChannelSender,
+    make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
     SenderToNormalThread, SenderToRealTimeThread,
 };
 use enum_iterator::IntoEnumIterator;
@@ -40,15 +39,14 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
-use base::metrics_util::{metrics_are_enabled, record_duration_internal, MetricsHook};
+use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
 use reaper_high::{
-    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, RegisteredAction,
-    Track,
+    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
@@ -65,12 +63,9 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
-use std::sync::mpsc;
 use std::thread::JoinHandle;
-use std::time::Duration;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
-use tracing_subscriber::{EnvFilter, Layer};
 use url::Url;
 
 /// Queue size for sending feedback tasks to audio hook.
@@ -102,11 +97,11 @@ pub type RealearnControlSurface =
 
 #[derive(Debug)]
 pub struct App {
-    tracing_hook: Option<TracingHook>,
-    metrics_hook: Option<MetricsHook>,
+    /// RAII
+    _tracing_hook: Option<TracingHook>,
+    /// RAII
+    _metrics_hook: Option<MetricsHook>,
     state: RefCell<AppState>,
-    #[cfg(feature = "playtime")]
-    license_manager: crate::infrastructure::data::SharedLicenseManager,
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
@@ -153,19 +148,6 @@ enum AppState {
     GoingToSleep,
     /// Whenever one (not necessarily the last) ReaLearn instance is unloading.
     Suspended,
-}
-
-#[derive(Debug)]
-struct UninitializedState {
-    control_surface_main_task_receiver:
-        crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
-    #[cfg(feature = "playtime")]
-    clip_matrix_event_receiver:
-        crossbeam_channel::Receiver<crate::domain::QualifiedClipMatrixEvent>,
-    additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
-    instance_orchestration_event_receiver: crossbeam_channel::Receiver<InstanceOrchestrationEvent>,
-    normal_audio_hook_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
-    feedback_audio_hook_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
 }
 
 #[derive(Debug)]
@@ -249,7 +231,7 @@ impl App {
             ),
         );
         #[cfg(feature = "playtime")]
-        let license_manager = Self::init_clip_engine();
+        Self::init_clip_engine();
         let backbone_state = BackboneState::new(
             additional_feedback_event_sender.clone(),
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
@@ -307,11 +289,9 @@ impl App {
             async_deallocation_receiver,
         };
         App {
-            tracing_hook,
-            metrics_hook,
+            _tracing_hook: tracing_hook,
+            _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
-            #[cfg(feature = "playtime")]
-            license_manager: Rc::new(RefCell::new(license_manager)),
             controller_preset_manager: Rc::new(RefCell::new(controller_preset_manager)),
             main_preset_manager: Rc::new(RefCell::new(main_preset_manager)),
             preset_link_manager: Rc::new(RefCell::new(preset_link_manager)),
@@ -378,19 +358,19 @@ impl App {
     }
 
     #[cfg(feature = "playtime")]
-    fn init_clip_engine() -> crate::infrastructure::data::LicenseManager {
+    fn init_clip_engine() {
         let license_manager = crate::infrastructure::data::LicenseManager::new(
             App::helgoboss_resource_dir_path().join("licensing.json"),
         );
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
-            fn record_duration(&self, id: &'static str, delta: Duration) {
-                record_duration_internal(id, delta);
+            fn record_duration(&self, id: &'static str, delta: std::time::Duration) {
+                base::metrics_util::record_duration_internal(id, delta);
             }
         }
         let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =
-            if metrics_are_enabled() {
+            if base::metrics_util::metrics_are_enabled() {
                 Some(&RealearnMetricsRecorder)
             } else {
                 None
@@ -401,7 +381,6 @@ impl App {
             metrics_recorder,
         };
         playtime_clip_engine::ClipEngine::get().init(args);
-        license_manager
     }
 
     fn reconnect_osc_devices(&self) {

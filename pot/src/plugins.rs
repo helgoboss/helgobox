@@ -83,7 +83,7 @@ impl PluginDatabase {
         let js_plugins = crawl_js_plugins(&mut product_accumulator, &js_root_dir);
         let plugin_map = shared_library_plugins
             .into_iter()
-            .chain(js_plugins.into_iter())
+            .chain(js_plugins)
             .map(|p| (p.common.core.id, p))
             .collect();
         Self {
@@ -465,9 +465,9 @@ struct ProductName<'a> {
 
 impl<'a> ProductName<'a> {
     pub fn parse(name_expression: &'a str) -> Option<Self> {
-        let four_part_regex = base::regex!(r#"(.*) \((.*)\) \((.*)\) \((.*)\)"#);
-        let three_part_regex = base::regex!(r#"(.*) \((.*)\) \((.*)\)"#);
-        let two_part_regex = base::regex!(r#"(.*) \((.*)\)"#);
+        let four_part_regex = base::regex!(r"(.*) \((.*)\) \((.*)\) \((.*)\)");
+        let three_part_regex = base::regex!(r"(.*) \((.*)\) \((.*)\)");
+        let two_part_regex = base::regex!(r"(.*) \((.*)\)");
 
         if let Some(captures) = four_part_regex.captures(name_expression) {
             return Some(ProductName {

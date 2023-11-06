@@ -112,7 +112,9 @@ impl OpenState {
     }
 
     pub fn send_pending_events(&mut self, session_id: &str) {
-        let (Some(app_callback), Some(event_receivers)) = (self.app_callback, &mut self.event_receivers) else {
+        let (Some(app_callback), Some(event_receivers)) =
+            (self.app_callback, &mut self.event_receivers)
+        else {
             return;
         };
         event_receivers.process_pending_updates(session_id, &|event_reply| {

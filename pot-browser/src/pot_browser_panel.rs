@@ -471,7 +471,9 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 // Main options
                                 let input = LeftOptionsDropdownInput {
                                     pot_unit,
-                                    auto_hide_sub_filters: &mut state.main_state.auto_hide_sub_filters,
+                                    auto_hide_sub_filters: &mut state
+                                        .main_state
+                                        .auto_hide_sub_filters,
                                     paint_continuously: &mut state.main_state.paint_continuously,
                                     shared_pot_unit: &state.main_state.pot_unit,
                                 };
@@ -521,8 +523,15 @@ fn run_main_ui<I: PotBrowserIntegration>(
                         );
                     });
                     // Filter panels
-                    add_filter_panels(&state.main_state.pot_unit, pot_unit, state.main_state.auto_hide_sub_filters, ui,
-                                      &state.main_state.last_filters, &mut state.main_state.dialog, integration);
+                    add_filter_panels(
+                        &state.main_state.pot_unit,
+                        pot_unit,
+                        state.main_state.auto_hide_sub_filters,
+                        ui,
+                        &state.main_state.last_filters,
+                        &mut state.main_state.dialog,
+                        integration,
+                    );
                 });
             // Right pane
             CentralPanel::default()
@@ -544,7 +553,8 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         ui.close_menu();
                                     }
                                     if ui.button(PREVIEW_RECORDER_TITLE).clicked() {
-                                        state.main_state.dialog = Some(Dialog::PreviewRecorderIntro);
+                                        state.main_state.dialog =
+                                            Some(Dialog::PreviewRecorderIntro);
                                         ui.close_menu();
                                     }
                                 });
@@ -557,13 +567,14 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 };
                                 add_right_options_dropdown(input, ui);
                                 // Search field
-                                let text_edit =
-                                    TextEdit::singleline(&mut pot_unit.runtime_state.search_expression)
-                                        // .min_size(vec2(0.0, TOOLBAR_SIZE))
-                                        .desired_width(140.0)
-                                        .clip_text(false)
-                                        .hint_text("Enter search text!")
-                                        .font(TextStyle::Monospace);
+                                let text_edit = TextEdit::singleline(
+                                    &mut pot_unit.runtime_state.search_expression,
+                                )
+                                // .min_size(vec2(0.0, TOOLBAR_SIZE))
+                                .desired_width(140.0)
+                                .clip_text(false)
+                                .hint_text("Enter search text!")
+                                .font(TextStyle::Monospace);
                                 ui.add_enabled(false, text_edit).on_disabled_hover_text(
                                     "Type anywhere to search!\nUse backspace to clear \
                         the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.",
@@ -574,8 +585,13 @@ fn run_main_ui<I: PotBrowserIntegration>(
                             },
                             // Right side: Mini filters
                             |ui, pot_unit| {
-                                add_filter_view_content_as_icons(&state.main_state.pot_unit, pot_unit, PotFilterKind::HasPreview, ui);
-                            }
+                                add_filter_view_content_as_icons(
+                                    &state.main_state.pot_unit,
+                                    pot_unit,
+                                    PotFilterKind::HasPreview,
+                                    ui,
+                                );
+                            },
                         );
                     });
                     // Stats
@@ -587,12 +603,13 @@ fn run_main_ui<I: PotBrowserIntegration>(
                     }
                     // Info about selected preset
                     let current_preset_id = pot_unit.preset_id();
-                    let current_preset_id_and_data =
-                        current_preset_id.and_then(|id| match state.main_state.preset_cache.find_preset(id) {
+                    let current_preset_id_and_data = current_preset_id.and_then(|id| {
+                        match state.main_state.preset_cache.find_preset(id) {
                             PresetCacheEntry::Requested => None,
                             PresetCacheEntry::NotFound => None,
                             PresetCacheEntry::Found(data) => Some((id, data)),
-                        });
+                        }
+                    });
                     ui.separator();
                     let widget_id = ui.make_persistent_id("selected-preset");
                     CollapsingState::load_with_default_open(ui.ctx(), widget_id, false)
@@ -605,7 +622,9 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 // Left side of preset info
                                 |ui, _| {
                                     ui.strong("Selected preset:");
-                                    if let Some((preset_id, preset_data)) = current_preset_id_and_data {
+                                    if let Some((preset_id, preset_data)) =
+                                        current_preset_id_and_data
+                                    {
                                         ui.label(preset_data.preset.name());
                                         let _ = pot_db().try_with_db(preset_id.database_id, |db| {
                                             ui.strong("from");
@@ -623,7 +642,8 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 },
                                 // Right side of preset info
                                 |ui, pot_unit| {
-                                    let Some((preset_id, preset_data)) = current_preset_id_and_data else {
+                                    let Some((preset_id, preset_data)) = current_preset_id_and_data
+                                    else {
                                         return;
                                     };
                                     // Favorite button
@@ -636,13 +656,18 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         false
                                     };
                                     if toggle {
-                                        show_info_toast("This feature is not available.", &mut toasts);
+                                        show_info_toast(
+                                            "This feature is not available.",
+                                            &mut toasts,
+                                        );
                                         // pot_unit.toggle_favorite(preset_id, state.main_state.pot_unit.clone());
                                     }
                                     // Preview button
                                     let preview_button = Button::new("🔊");
-                                    let preview_button_response =
-                                        ui.add_enabled(preset_data.preview_file.is_some(), preview_button);
+                                    let preview_button_response = ui.add_enabled(
+                                        preset_data.preview_file.is_some(),
+                                        preview_button,
+                                    );
                                     if preview_button_response
                                         .on_hover_text("Play preset preview")
                                         .on_disabled_hover_text("Preset preview not available")
@@ -664,11 +689,15 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                     ui.strong("Author:");
                                     ui.label(optional_string(metadata.author.as_deref()));
                                     ui.strong("Extension:");
-                                    ui.label(optional_string(preset_data.preset.kind.file_extension()));
+                                    ui.label(optional_string(
+                                        preset_data.preset.kind.file_extension(),
+                                    ));
                                 });
                                 ui.horizontal(|ui| {
                                     ui.strong("File size:");
-                                    let fmt_size = metadata.file_size_in_bytes.map(|s| bytesize::ByteSize(s).to_string());
+                                    let fmt_size = metadata
+                                        .file_size_in_bytes
+                                        .map(|s| bytesize::ByteSize(s).to_string());
                                     ui.label(optional_string(fmt_size.as_deref()));
                                     ui.strong("Date modified:");
                                     let fmt_date = metadata.modification_date.and_then(|s| {
@@ -682,9 +711,8 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                     ui.strong("Comment:");
                                     // This is a fix of invalid usage of line breaks in some preset
                                     // commons, e.g. in some u-he presets.
-                                    let text = metadata.comment
-                                        .as_ref()
-                                        .map(|c| c.replace("\\n", ""));
+                                    let text =
+                                        metadata.comment.as_ref().map(|c| c.replace("\\n", ""));
                                     ui.label(optional_string(text.as_deref()));
                                 });
                             }
@@ -1214,9 +1242,15 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                     **change_dialog = Some(None);
                 };
                 if ui.button("Continue").clicked() {
-                    let Some(preview_rpp) = input.integration
-                        .pot_preview_template_path().map(|p| p.to_path_buf()) else {
-                        **change_dialog = Some(Some(Dialog::general_error(PREVIEW_RECORDER_TITLE, "Pot preview template doesn't exist")));
+                    let Some(preview_rpp) = input
+                        .integration
+                        .pot_preview_template_path()
+                        .map(|p| p.to_path_buf())
+                    else {
+                        **change_dialog = Some(Some(Dialog::general_error(
+                            PREVIEW_RECORDER_TITLE,
+                            "Pot preview template doesn't exist",
+                        )));
                         return;
                     };
                     let presets = mem::take(*presets);

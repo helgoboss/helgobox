@@ -665,7 +665,7 @@ fn unescaped_char_pattern(needle: char) -> impl FnMut(char) -> bool {
 
 /// Converts "hello\|fellow" to "hello|fellow"
 pub fn unescape_pipes(escaped: &str) -> String {
-    escaped.replace(r#"\|"#, "|")
+    escaped.replace(r"\|", "|")
 }
 
 pub struct PipeEscaped<'a>(pub &'a str);
@@ -674,7 +674,7 @@ impl<'a> Display for PipeEscaped<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for c in self.0.chars() {
             if c == '|' {
-                f.write_str(r#"\|"#)?;
+                f.write_str(r"\|")?;
             } else {
                 f.write_char(c)?;
             }

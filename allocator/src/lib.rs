@@ -244,9 +244,8 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
                         self.sync_deallocator.deallocate(ptr, layout);
                     }
                     TrySendError::Disconnected(_) => {
-                        // Should never happen because the receiver is owned by the deallocation thread
-                        // and that thread should live at least as long as the sender
-                        panic!("deallocation thread is dead");
+                        // Could happen on shutdown
+                        self.sync_deallocator.deallocate(ptr, layout);
                     }
                 }
             }
@@ -285,18 +284,19 @@ mod tests {
     static GLOBAL_ALLOCATOR: HelgobossAllocator<TestIntegration, TestDeallocator> =
         HelgobossAllocator::new(TestDeallocator("SYNC"));
 
-    fn init() {
-        GLOBAL_ALLOCATOR.init(100, TestIntegration);
+    fn init() -> AsyncDeallocatorCommandReceiver {
+        GLOBAL_ALLOCATOR.init(100, TestIntegration)
     }
 
     #[test]
     fn offload_deallocate() {
-        init();
+        let _receiver = init();
         let mut bla = vec![];
         bla.push(2);
         assert_no_alloc(|| {
             drop(bla);
         });
+        drop(_receiver);
     }
 
     // Don't execute this in CI. It crashes the test process which counts as "not passed".
@@ -304,7 +304,7 @@ mod tests {
     #[ignore]
     #[should_panic]
     fn abort_on_allocate() {
-        init();
+        let _receiver = init();
         assert_no_alloc(|| {
             let mut bla: Vec<i32> = vec![];
             bla.push(2);

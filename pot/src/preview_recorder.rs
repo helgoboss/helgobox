@@ -78,7 +78,10 @@ pub async fn record_previews(
         }
         // Take new preset to be recorded
         moment().await;
-        let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state").todos.pop() else {
+        let Some(preset_with_id) = blocking_write_lock(&state, "record_previews state")
+            .todos
+            .pop()
+        else {
             // Done!
             break;
         };

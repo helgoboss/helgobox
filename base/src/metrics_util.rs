@@ -1,7 +1,6 @@
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::OnceLock;
 use std::thread;
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 /// This will contain the metrics sender for async metrics recording if metrics are enabled.

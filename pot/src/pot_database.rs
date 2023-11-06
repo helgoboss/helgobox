@@ -228,7 +228,9 @@ impl PotDatabase {
                 total_output.supported_filter_kinds |= db.supported_advanced_filter_kinds();
                 // Build and accumulate filters collections
                 let inner_input = InnerBuildInput::new(&input, &favorites, *db_id);
-                let Ok(filter_collections) = db.query_filter_collections(&provider_context, inner_input, affected_kinds) else {
+                let Ok(filter_collections) =
+                    db.query_filter_collections(&provider_context, inner_input, affected_kinds)
+                else {
                     continue;
                 };
                 // Add unique filter items directly to the list of filters. Gather shared filter

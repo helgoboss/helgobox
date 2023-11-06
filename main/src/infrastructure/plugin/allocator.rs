@@ -1,6 +1,5 @@
 use base::metrics_util::record_occurrence;
 use helgoboss_allocator::{AsyncDeallocationIntegration, Deallocate, HelgobossAllocator};
-use reaper_high::Reaper;
 use std::alloc::{GlobalAlloc, Layout, System};
 
 #[global_allocator]

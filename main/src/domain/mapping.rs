@@ -505,11 +505,7 @@ impl MainMapping {
         self.activation_condition_1
             .target_value_lead_mapping()
             .into_iter()
-            .chain(
-                self.activation_condition_2
-                    .target_value_lead_mapping()
-                    .into_iter(),
-            )
+            .chain(self.activation_condition_2.target_value_lead_mapping())
     }
 
     pub fn update_activation_from_effect(

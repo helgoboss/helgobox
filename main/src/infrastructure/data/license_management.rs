@@ -2,12 +2,8 @@ use anyhow::{anyhow, Context};
 use helgoboss_license_api::persistence::{LicenseData, LicenseKey};
 use helgoboss_license_api::runtime::License;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
-use std::rc::Rc;
-
-pub type SharedLicenseManager = Rc<RefCell<LicenseManager>>;
 
 #[derive(Debug)]
 pub struct LicenseManager {

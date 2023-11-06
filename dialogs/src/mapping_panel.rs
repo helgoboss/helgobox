@@ -708,10 +708,10 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ]),
         controls: mapping_controls
             .into_iter()
-            .chain(source_controls.into_iter())
-            .chain(target_controls.into_iter())
-            .chain(glue_controls.into_iter())
-            .chain(footer_controls.into_iter())
+            .chain(source_controls)
+            .chain(target_controls)
+            .chain(glue_controls)
+            .chain(footer_controls)
             .collect(),
         ..context.default_dialog()
     }

@@ -310,7 +310,7 @@ impl EelCondition {
 }
 
 fn extract_used_param_indexes(eel_script: &str) -> HashSet<u32> {
-    let param_regex = regex!(r#"\bp([0-9]+)\b"#);
+    let param_regex = regex!(r"\bp([0-9]+)\b");
     param_regex
         .captures_iter(eel_script)
         .flat_map(|m| m[1].parse())
