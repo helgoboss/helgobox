@@ -40,6 +40,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
+use base::metrics_util::{metrics_are_enabled, record_duration_internal};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
@@ -63,6 +64,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
+use std::time::Duration;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -179,7 +181,6 @@ struct AwakeState {
 impl App {
     /// Executed globally just once when module loaded.
     pub fn init(logger: Logger, context: PluginContext) -> Self {
-        // Make Swell and Reaper functions available globally
         Swell::make_available_globally(Swell::load(context));
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
@@ -192,12 +193,10 @@ impl App {
                 support_email_address: "info@helgoboss.org".to_string(),
             },
         );
-        // Load config
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()
         });
-        // Create channels
         let (control_surface_main_task_sender, control_surface_main_task_receiver) =
             SenderToNormalThread::new_unbounded_channel("control surface main tasks");
         let control_surface_main_task_sender =
@@ -221,10 +220,8 @@ impl App {
                 "normal audio hook tasks",
                 NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE,
             );
-        // Initialize tracing/logging if enabled
         let tracing_hook = TracingHook::init();
         tracing::info!("Initialized tracing");
-        // Rest
         GLOBAL_ALLOCATOR.init(
             DEALLOCATOR_THREAD_CAPACITY,
             RealearnDeallocator::with_metrics("async_deallocation"),
@@ -358,9 +355,23 @@ impl App {
         let license_manager = crate::infrastructure::data::LicenseManager::new(
             App::helgoboss_resource_dir_path().join("licensing.json"),
         );
+        #[derive(Debug)]
+        struct RealearnMetricsRecorder;
+        impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
+            fn record_duration(&self, id: &'static str, delta: Duration) {
+                record_duration_internal(id, delta);
+            }
+        }
+        let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =
+            if metrics_are_enabled() {
+                Some(&RealearnMetricsRecorder)
+            } else {
+                None
+            };
         let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: license_manager.licenses(),
             tap_sound_file: Self::realearn_high_click_sound_path(),
+            metrics_recorder,
         };
         playtime_clip_engine::ClipEngine::get().init(args);
         license_manager
@@ -1576,6 +1587,7 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
+        println!("Dropping App...");
         self.message_panel.close();
         self.party_is_over_subject.next(());
     }

@@ -64,7 +64,7 @@ impl Drop for TracingHook {
     fn drop(&mut self) {
         let _ = self.sender.try_send(AsyncLoggerCommand::Finish);
         if let Some(join_handle) = self.join_handle.take() {
-            join_handle.join();
+            let _ = join_handle.join();
         }
     }
 }

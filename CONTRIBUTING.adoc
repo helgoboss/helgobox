@@ -260,12 +260,7 @@ Prometheus is usually available at http://localhost:9090/.
 
 - You can turn on ReaLearn metrics by setting the environment variable `REALEARN_METRICS` (value doesn't matter).
 - If this environment variable is set (value doesn't matter), ReaLearn will record some metrics and expose them on the Prometheus endpoint mentioned above.
-
-=== Clip engine metrics
-
-- You can turn on clip engine metrics by setting the environment variable `CLIP_ENGINE_METRICS` (value doesn't matter).
-- If this environment variable is set (value doesn't matter), the clip engine will record some metrics and expose them on the Prometheus endpoint mentioned above.
-- Attention: This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.
+- If ReaLearn is built with the Playtime Clip Engine, this flag will also enable Clip Engine metrics. This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.
 
 == Debug
 

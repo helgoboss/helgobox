@@ -29,10 +29,13 @@ pub fn warn_if_takes_too_long<R>(label: &'static str, max: Duration, f: impl FnO
     }
 }
 
+pub fn metrics_are_enabled() -> bool {
+    *METRICS_ENABLED
+}
+
 /// Initializes the metrics channel.  
 pub fn init_metrics() {
-    let _ = *METRICS_ENABLED;
-    if !*METRICS_ENABLED {
+    if !metrics_are_enabled() {
         return;
     }
     let _ = *METRICS_CHANNEL;
@@ -50,7 +53,7 @@ pub fn init_metrics() {
 
 /// Synchronously records the occurrence of the given event.
 pub fn record_occurrence(id: &'static str) {
-    if !*METRICS_ENABLED {
+    if !metrics_are_enabled() {
         return;
     }
     metrics::increment_counter!(id);
@@ -59,7 +62,7 @@ pub fn record_occurrence(id: &'static str) {
 /// Asynchronously measures and records the time of the given operation and exposes it at the
 /// metrics endpoint.
 pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
-    if !*METRICS_ENABLED {
+    if !metrics_are_enabled() {
         return f();
     }
     let start = Instant::now();
@@ -70,13 +73,13 @@ pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
 
 /// Records the given duration into a histogram.
 pub fn record_duration(id: &'static str, delta: Duration) {
-    if !*METRICS_ENABLED {
+    if !metrics_are_enabled() {
         return;
     }
     record_duration_internal(id, delta);
 }
 
-fn record_duration_internal(id: &'static str, delta: Duration) {
+pub fn record_duration_internal(id: &'static str, delta: Duration) {
     let task = MetricsTask::Histogram { id, delta };
     if METRICS_CHANNEL.sender.try_send(task).is_err() {
         tracing::debug!("ReaLearn metrics channel is full");
@@ -86,6 +89,12 @@ fn record_duration_internal(id: &'static str, delta: Duration) {
 struct MetricsChannel {
     sender: Sender<MetricsTask>,
     receiver: Receiver<MetricsTask>,
+}
+
+impl Drop for MetricsChannel {
+    fn drop(&mut self) {
+        println!("Dropping ReaLearn MetricsChannel...");
+    }
 }
 
 impl Default for MetricsChannel {
