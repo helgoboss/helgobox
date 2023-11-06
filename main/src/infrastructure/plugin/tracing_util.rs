@@ -1,7 +1,7 @@
-use crossbeam_channel::{Receiver, Sender};
 use reaper_high::Reaper;
 use std::fmt::Arguments;
 use std::io::{IoSlice, Write};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;
 use std::{mem, thread};
 use tracing_subscriber::{EnvFilter, FmtSubscriber, Layer};
@@ -9,7 +9,6 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber, Layer};
 #[derive(Debug)]
 pub struct TracingHook {
     sender: Sender<AsyncLoggerCommand>,
-    join_handle: Option<JoinHandle<()>>,
 }
 
 impl TracingHook {
@@ -29,8 +28,8 @@ impl TracingHook {
     pub fn init() -> Option<Self> {
         let env_var = std::env::var("REALEARN_LOG").ok()?;
         let env_filter = EnvFilter::new(env_var);
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        let join_handle = thread::Builder::new()
+        let (sender, receiver) = std::sync::mpsc::channel();
+        thread::Builder::new()
             .name(String::from("ReaLearn async logger"))
             .spawn(move || keep_logging(receiver, std::io::stdout()))
             .expect("ReaLearn async logger thread couldn't be created");
@@ -52,20 +51,22 @@ impl TracingHook {
             .finish();
         tracing::subscriber::set_global_default(subscriber)
             .expect("setting default subscriber failed");
-        let hook = Self {
-            sender,
-            join_handle: Some(join_handle),
-        };
+        let hook = Self { sender };
         Some(hook)
     }
 }
 
 impl Drop for TracingHook {
     fn drop(&mut self) {
-        let _ = self.sender.try_send(AsyncLoggerCommand::Finish);
-        if let Some(join_handle) = self.join_handle.take() {
-            let _ = join_handle.join();
-        }
+        // This prevents the metrics recorder thread from lurking around after the library
+        // is unloaded (which is of importance if "Allow complete unload of VST plug-ins"
+        // is enabled in REAPER for Windows). Ideally, we would just destroy the sender to achieve
+        // the same effect. But the sender is buried within the tracing framework and probably
+        // cloned multiple times. Unloading the library will just free the memory without triggering
+        // the drop, so that wouldn't work either.
+        let _ = self.sender.send(AsyncLoggerCommand::Finish);
+        // Joining the thread here somehow leads to a deadlock. Not sure why. It doesn't
+        // seem to be necessary anyway. The thread will end no matter what.
     }
 }
 
@@ -126,7 +127,7 @@ impl<W: Write> Write for AsyncWriter<W> {
         if Reaper::get().medium_reaper().is_in_real_time_audio() {
             self.data.write_all(buf)?;
             let data = mem::take(&mut self.data);
-            let _ = self.sender.try_send(AsyncLoggerCommand::Log(data));
+            let _ = self.sender.send(AsyncLoggerCommand::Log(data));
             Ok(())
         } else {
             self.inner.write_all(buf)

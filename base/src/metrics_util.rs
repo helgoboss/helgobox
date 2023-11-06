@@ -1,24 +1,28 @@
-use crossbeam_channel::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::OnceLock;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 /// This will contain the metrics sender for async metrics recording if metrics are enabled.
-static METRICS_SENDER: OnceLock<Sender<MetricsRecorderCommand>> = OnceLock::new();
+static METRICS_SENDER: OnceLock<SyncSender<MetricsRecorderCommand>> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct MetricsHook {
-    sender: Sender<MetricsRecorderCommand>,
-    join_handle: Option<JoinHandle<()>>,
+    sender: SyncSender<MetricsRecorderCommand>,
 }
 
 impl Drop for MetricsHook {
     fn drop(&mut self) {
+        // This prevents the metrics recorder thread from lurking around after the library
+        // is unloaded (which is of importance if "Allow complete unload of VST plug-ins"
+        // is enabled in REAPER for Windows). Ideally, we would just destroy the sender to achieve
+        // the same effect. But the sender is in a static variable which already has been
+        // initialized once and therefore can't be set to `None`. Unloading the library will just
+        // free the memory without triggering the drop, so that wouldn't work either.
         let _ = self.sender.try_send(MetricsRecorderCommand::Finish);
-        if let Some(join_handle) = self.join_handle.take() {
-            let _ = join_handle.join();
-        }
+        // Joining the thread here somehow leads to a deadlock. Not sure why. It doesn't
+        // seem to be necessary anyway. The thread will end no matter what.
     }
 }
 
@@ -39,8 +43,8 @@ impl MetricsHook {
     /// metrics thread sticks around and that can't be good.
     pub fn init() -> Option<Self> {
         std::env::var("REALEARN_METRICS").ok()?;
-        let (sender, receiver) = crossbeam_channel::bounded(5000);
-        let join_handle = thread::Builder::new()
+        let (sender, receiver) = std::sync::mpsc::sync_channel(5000);
+        thread::Builder::new()
             .name(String::from("ReaLearn metrics"))
             .spawn(move || {
                 keep_recording_metrics(receiver);
@@ -49,10 +53,7 @@ impl MetricsHook {
         METRICS_SENDER
             .set(sender.clone())
             .expect("attempting to initializing metrics hook more than once");
-        let hook = Self {
-            sender,
-            join_handle: Some(join_handle),
-        };
+        let hook = Self { sender };
         Some(hook)
     }
 }
