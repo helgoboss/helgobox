@@ -9,7 +9,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         rect: context.rect(0, 0, 600, 250),
         styles: Styles(vec![
             DS_SETFONT,
-            DS_MODALFRAME,
+            // DS_MODALFRAME,
             DS_3DLOOK,
             DS_FIXEDSYS,
             DS_CENTER,
