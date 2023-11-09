@@ -76,6 +76,7 @@ impl AppPanel {
     }
 
     fn open_internal(&self, window: Window) -> Result<()> {
+        window.set_text("Playtime");
         let app_library = App::get_or_load_app_library()?;
         let session_id = self
             .session
