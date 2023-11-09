@@ -8,17 +8,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         caption: "Editor",
         rect: context.rect(0, 0, 600, 250),
         styles: Styles(vec![
-            DS_SETFONT,
-            // DS_MODALFRAME,
-            DS_3DLOOK,
-            DS_FIXEDSYS,
+            // Places the window into the center by default
             DS_CENTER,
-            WS_POPUP,
-            WS_VISIBLE,
-            WS_CAPTION,
+            // Displays a close button
             WS_SYSMENU,
+            // Displays a maximize button
+            WS_MAXIMIZEBOX,
+            // Allows user to change size of window
             WS_THICKFRAME,
-            WS_OVERLAPPEDWINDOW,
         ]),
         ..context.default_dialog()
     }

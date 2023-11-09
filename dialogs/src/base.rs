@@ -692,6 +692,8 @@ pub enum Style {
     WS_CAPTION,
     WS_SYSMENU,
     WS_THICKFRAME,
+    WS_MINIMIZEBOX,
+    WS_MAXIMIZEBOX,
     /// Necessary on Windows to make it a top-level window.
     WS_OVERLAPPEDWINDOW,
     DS_CONTROL,
