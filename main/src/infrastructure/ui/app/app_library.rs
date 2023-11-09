@@ -51,6 +51,7 @@ impl AppLibrary {
                         "screen_retriever_plugin.dll",
                         "url_launcher_windows_plugin.dll",
                         "window_manager_plugin.dll",
+                        "pointer_lock_plugin.dll",
                     ],
                 )
             }
@@ -70,6 +71,7 @@ impl AppLibrary {
                         "Contents/Frameworks/screen_retriever.framework/screen_retriever",
                         "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                         "Contents/Frameworks/window_manager.framework/window_manager",
+                        "Contents/Frameworks/pointer_lock.framework/pointer_lock",
                     ],
                 )
             }
