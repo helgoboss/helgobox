@@ -1,4 +1,6 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{
+    AppInstance, MainPanel, MappingPanel, SessionMessagePanel, SharedAppInstance,
+};
 use reaper_high::Reaper;
 use slog::debug;
 
@@ -19,7 +21,7 @@ pub struct IndependentPanelManager {
     message_panel: SharedView<SessionMessagePanel>,
     /// We have at most one app instance open per ReaLearn instance.
     #[cfg(feature = "playtime")]
-    app_panel: SharedView<crate::infrastructure::ui::AppPanel>,
+    app_instance: crate::infrastructure::ui::SharedAppInstance,
 }
 
 impl IndependentPanelManager {
@@ -29,7 +31,9 @@ impl IndependentPanelManager {
             main_panel,
             mapping_panels: Default::default(),
             #[cfg(feature = "playtime")]
-            app_panel: SharedView::new(crate::infrastructure::ui::AppPanel::new(session.clone())),
+            app_instance: std::rc::Rc::new(std::cell::RefCell::new(
+                crate::infrastructure::ui::AppInstance::new(session.clone()),
+            )),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
     }
@@ -47,8 +51,8 @@ impl IndependentPanelManager {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_panel(&self) -> &SharedView<crate::infrastructure::ui::AppPanel> {
-        &self.app_panel
+    pub fn app_instance(&self) -> &SharedAppInstance {
+        &self.app_instance
     }
 
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
@@ -100,32 +104,18 @@ impl IndependentPanelManager {
 
     #[cfg(feature = "playtime")]
     pub fn show_app_panel(&self) {
-        let result = self.show_app_panel_internal();
+        let result = self.app_instance.borrow_mut().open(reaper_main_window());
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
     #[cfg(feature = "playtime")]
     pub fn close_app_panel(&self) {
-        self.app_panel.clone().close();
+        self.app_instance.borrow_mut().close();
     }
 
     #[cfg(feature = "playtime")]
     pub fn app_panel_is_open(&self) -> bool {
-        self.app_panel.is_open()
-    }
-
-    #[cfg(feature = "playtime")]
-    fn show_app_panel_internal(&self) -> anyhow::Result<()> {
-        if let Some(window) = self.app_panel.view_context().window() {
-            // If window already open (and maybe just hidden), simply show it.
-            window.show();
-            return Ok(());
-        }
-        // Fail fast if library not available
-        let _ = crate::infrastructure::plugin::App::get_or_load_app_library()?;
-        // Then open
-        self.app_panel.clone().open(reaper_main_window());
-        Ok(())
+        self.app_instance.borrow().is_open()
     }
 
     pub fn close_message_panel(&self) {
@@ -168,7 +158,7 @@ impl IndependentPanelManager {
         }
         self.mapping_panels.clear();
         #[cfg(feature = "playtime")]
-        self.app_panel.close();
+        self.app_instance.borrow_mut().close();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {

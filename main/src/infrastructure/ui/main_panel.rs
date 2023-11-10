@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    bindings::root, util, AppInstance, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    SharedAppInstance, SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
@@ -293,12 +293,12 @@ impl MainPanel {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_panel(&self) -> anyhow::Result<SharedView<crate::infrastructure::ui::AppPanel>> {
+    pub fn app_instance(&self) -> anyhow::Result<SharedAppInstance> {
         let activate_data = self
             .active_data
             .borrow()
             .ok_or_else(|| anyhow::anyhow!("main panel not active yet"))?;
-        Ok(activate_data.panel_manager.borrow().app_panel().clone())
+        Ok(activate_data.panel_manager.borrow().app_instance().clone())
     }
 
     fn handle_target_control_event(&self, event: TargetControlEvent) {

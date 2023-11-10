@@ -1,6 +1,6 @@
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
-use crate::infrastructure::ui::{AppCallback, AppPanel};
+use crate::infrastructure::ui::{AppCallback, AppPanel, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
@@ -17,7 +17,7 @@ use std::env;
 use std::ffi::{c_char, c_void, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::NonNull;
+use std::ptr::{null_mut, NonNull};
 use swell_ui::{SharedView, Window};
 use tonic::Status;
 
@@ -95,7 +95,11 @@ impl AppLibrary {
         Ok(library)
     }
 
-    pub fn run_in_parent(&self, parent_window: Window, session_id: String) -> Result<AppHandle> {
+    pub fn run_in_parent(
+        &self,
+        parent_window: Option<Window>,
+        session_id: String,
+    ) -> Result<AppHandle> {
         let app_base_dir_str = self
             .app_base_dir
             .to_str()
@@ -112,7 +116,7 @@ impl AppLibrary {
                     .get(b"run_app_in_parent\0")
                     .map_err(|_| anyhow!("failed to load run_app_in_parent function"))?;
                 symbol(
-                    parent_window.raw(),
+                    parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
                     session_id_c_string.as_ptr(),
@@ -327,15 +331,13 @@ fn process_command(req: proto::command_request::Value) -> std::result::Result<()
             // App instance is started. Put the app instance callback at the correct position.
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            find_app_panel(&req.matrix_id)
+            find_app_instance(&req.matrix_id)
                 .map_err(to_status)?
+                .borrow_mut()
                 .notify_app_is_ready(app_callback);
         }
-        TriggerApp(req) => {
-            find_app_panel(&req.session_id)
-                .map_err(to_status)?
-                .toggle_full_screen()
-                .map_err(to_status)?;
+        TriggerApp(_) => {
+            unimplemented!()
         }
         // Event subscription commands
         GetOccasionalMatrixUpdates(req) => {
@@ -476,19 +478,19 @@ fn send_query_reply_to_app(
 }
 
 fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
-    let app_panel = find_app_panel(session_id)?;
+    let app_instance = find_app_instance(session_id)?;
     let reply = Reply {
         value: Some(reply_value),
     };
-    app_panel.send_to_app(&reply)?;
+    app_instance.borrow().send_to_app(&reply)?;
     Ok(())
 }
 
-fn find_app_panel(session_id: &str) -> Result<SharedView<AppPanel>> {
+fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
     App::get()
         .find_main_panel_by_session_id(session_id)
         .context("instance not found")?
-        .app_panel()
+        .app_instance()
 }
 
 fn to_status(err: anyhow::Error) -> Status {
