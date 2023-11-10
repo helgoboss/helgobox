@@ -482,7 +482,7 @@ fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
     let reply = Reply {
         value: Some(reply_value),
     };
-    app_instance.borrow().send_to_app(&reply)?;
+    app_instance.borrow().send(&reply)?;
     Ok(())
 }
 

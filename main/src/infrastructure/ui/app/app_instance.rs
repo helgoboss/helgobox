@@ -9,126 +9,107 @@ use playtime_clip_engine::proto::{
 use prost::Message;
 use reaper_low::raw;
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use validator::HasLen;
 
-pub type SharedAppInstance = Rc<RefCell<AppInstance>>;
+pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
 
-#[derive(Debug)]
-pub struct AppInstance {
-    integration: AppIntegration,
+pub trait AppInstance: Debug {
+    fn is_running(&self) -> bool;
+
+    fn start_or_show(&mut self, owning_window: Window) -> Result<()>;
+
+    fn stop(&mut self);
+
+    fn send(&self, reply: &Reply) -> Result<()>;
+
+    fn notify_app_is_ready(&mut self, callback: AppCallback);
 }
 
-#[derive(Debug)]
-enum AppIntegration {
-    /// App will run within a SWELL window that is provided by ReaLearn (`AppPanel`).
-    ///
-    /// This is currently only a good choice on Windows. On macOS, the app uses an NSViewController
-    /// that's supposed to be attached to the NSWindow in order to manage its content view (NSView).
-    /// But SWELL doesn't just provide the NSWindow, it also provides and manages the content view.
-    /// Letting the content view be managed by both the NSViewController and SWELL is not possible.
-    ///
-    /// There's the possibility to use child windows on macOS but this means that if the app itself
-    /// tries to access and control its containing window, it's going to affect the *child* window
-    /// and not the window provided ReaLearn. It also needs more attention when it comes to
-    /// keyboard shortcut forwarding and comes with probably a whole bunch of other corner cases.
-    /// It's still an interesting possibility, especially when it comes to implementing docking.
-    Parented(SharedView<AppPanel>),
-    /// App will run in its own window.
-    ///
-    /// This is possible on all OS.
-    Standalone(StandaloneApp),
-}
-
-impl AppInstance {
-    pub fn new(session: WeakSession) -> Self {
-        #[cfg(target_os = "windows")]
-        {
-            let app_panel = AppPanel::new(session);
-            Self {
-                integration: AppIntegration::Parented(SharedView::new(app_panel)),
-            }
-        }
-        #[cfg(target_os = "macos")]
-        {
-            let standalone_app = StandaloneApp::new(session);
-            Self {
-                integration: AppIntegration::Standalone(standalone_app),
-            }
+pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
+    #[cfg(target_os = "windows")]
+    {
+        let app_panel = AppPanel::new(session);
+        ParentedAppInstance {
+            panel: SharedView::new(app_panel),
         }
     }
-
-    pub fn is_open(&self) -> bool {
-        match &self.integration {
-            AppIntegration::Parented(p) => p.is_open(),
-            AppIntegration::Standalone(a) => a.is_open(),
-        }
-    }
-
-    pub fn open(&mut self, owning_window: Window) -> Result<()> {
-        match &mut self.integration {
-            AppIntegration::Parented(p) => {
-                if let Some(window) = p.view_context().window() {
-                    // If window already open (and maybe just hidden), simply show it.
-                    window.show();
-                    return Ok(());
-                }
-                // Fail fast if library not available
-                App::get_or_load_app_library()?;
-                // Then open. This actually only opens the SWELL window. The real stuff is done
-                // in the "opened" handler of the SWELL window.
-                p.clone().open(owning_window);
-                Ok(())
-            }
-            AppIntegration::Standalone(p) => p.open(),
-        }
-    }
-
-    pub fn close(&mut self) {
-        match &mut self.integration {
-            AppIntegration::Parented(p) => {
-                p.close();
-            }
-            AppIntegration::Standalone(p) => p.close(),
-        }
-    }
-
-    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
-        match &self.integration {
-            AppIntegration::Parented(p) => p.send_to_app(reply),
-            AppIntegration::Standalone(p) => p.send_to_app(reply),
-        }
-    }
-
-    pub fn notify_app_is_ready(&mut self, callback: AppCallback) {
-        match &mut self.integration {
-            AppIntegration::Parented(p) => p.notify_app_is_ready(callback),
-            AppIntegration::Standalone(p) => p.notify_app_is_ready(callback),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct StandaloneApp {
-    session: WeakSession,
-    open_state: Option<OpenState>,
-}
-
-impl StandaloneApp {
-    pub fn new(session: WeakSession) -> Self {
-        Self {
+    #[cfg(target_os = "macos")]
+    {
+        StandaloneAppInstance {
             session,
-            open_state: None,
+            running_state: None,
         }
     }
+}
 
-    pub fn is_open(&self) -> bool {
-        self.open_state.is_some()
+/// App will run within a SWELL window that is provided by ReaLearn (`AppPanel`).
+///
+/// This is currently only a good choice on Windows. On macOS, the app uses an NSViewController
+/// that's supposed to be attached to the NSWindow in order to manage its content view (NSView).
+/// But SWELL doesn't just provide the NSWindow, it also provides and manages the content view.
+/// Letting the content view be managed by both the NSViewController and SWELL is not possible.
+///
+/// There's the possibility to use child windows on macOS but this means that if the app itself
+/// tries to access and control its containing window, it's going to affect the *child* window
+/// and not the window provided ReaLearn. It also needs more attention when it comes to
+/// keyboard shortcut forwarding and comes with probably a whole bunch of other corner cases.
+/// It's still an interesting possibility, especially when it comes to implementing docking.
+#[derive(Debug)]
+pub struct ParentedAppInstance {
+    panel: SharedView<AppPanel>,
+}
+
+impl AppInstance for ParentedAppInstance {
+    fn is_running(&self) -> bool {
+        self.panel.is_open()
     }
 
-    pub fn open(&mut self) -> Result<()> {
+    fn start_or_show(&mut self, owning_window: Window) -> Result<()> {
+        if let Some(window) = self.panel.view_context().window() {
+            // If window already open (and maybe just hidden), simply show it.
+            window.show();
+            return Ok(());
+        }
+        // Fail fast if library not available
+        App::get_or_load_app_library()?;
+        // Then open. This actually only opens the SWELL window. The real stuff is done
+        // in the "opened" handler of the SWELL window.
+        self.panel.clone().open(owning_window);
+        Ok(())
+    }
+
+    fn stop(&mut self) {
+        self.panel.close()
+    }
+
+    fn send(&self, reply: &Reply) -> Result<()> {
+        self.panel.send_to_app(reply)
+    }
+
+    fn notify_app_is_ready(&mut self, callback: AppCallback) {
+        self.panel.notify_app_is_ready(callback);
+    }
+}
+
+/// App will run in its own window.
+///
+/// This is possible on all OS.
+#[derive(Debug)]
+struct StandaloneAppInstance {
+    session: WeakSession,
+    running_state: Option<RunningAppState>,
+}
+
+impl AppInstance for StandaloneAppInstance {
+    fn is_running(&self) -> bool {
+        self.running_state.is_some()
+    }
+
+    fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
         let app_library = App::get_or_load_app_library()?;
         let session_id = self
             .session
@@ -138,32 +119,32 @@ impl StandaloneApp {
             .id()
             .to_string();
         let app_handle = app_library.run_in_parent(None, session_id)?;
-        let open_state = OpenState {
+        let running_state = RunningAppState {
             app_handle,
             app_callback: None,
             event_receivers: Some(subscribe_to_events()),
         };
-        self.open_state = Some(open_state);
+        self.running_state = Some(running_state);
         Ok(())
     }
 
-    pub fn close(&mut self) {
+    fn stop(&mut self) {
         todo!()
     }
 
-    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
-        self.open_state
+    fn send(&self, reply: &Reply) -> Result<()> {
+        self.running_state
             .as_ref()
             .context("app not open")?
-            .send_to_app(reply)
+            .send(reply)
     }
 
-    pub fn notify_app_is_ready(&mut self, callback: AppCallback) {
-        let Some(open_state) = &mut self.open_state else {
+    fn notify_app_is_ready(&mut self, callback: AppCallback) {
+        let Some(running_state) = &mut self.running_state else {
             return;
         };
         // Handshake finished! The app has the host callback and we have the app callback.
-        open_state.app_callback = Some(callback);
+        running_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
         // self.start_timer();
     }
@@ -173,11 +154,11 @@ impl StandaloneApp {
 pub struct AppPanel {
     view: ViewContext,
     session: WeakSession,
-    open_state: RefCell<Option<OpenState>>,
+    open_state: RefCell<Option<RunningAppState>>,
 }
 
 #[derive(Debug)]
-struct OpenState {
+struct RunningAppState {
     app_handle: AppHandle,
     app_callback: Option<AppCallback>,
     // TODO-medium This is too specific.
@@ -198,7 +179,7 @@ impl AppPanel {
             .borrow()
             .as_ref()
             .context("app not open")?
-            .send_to_app(reply)
+            .send(reply)
     }
 
     pub fn toggle_full_screen(&self) -> Result<()> {
@@ -242,7 +223,7 @@ impl AppPanel {
             .id()
             .to_string();
         let app_handle = app_library.run_in_parent(Some(window), session_id)?;
-        let open_state = OpenState {
+        let open_state = RunningAppState {
             app_handle,
             app_callback: None,
             event_receivers: Some(subscribe_to_events()),
@@ -261,8 +242,8 @@ impl AppPanel {
     }
 }
 
-impl OpenState {
-    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
+impl RunningAppState {
+    pub fn send(&self, reply: &Reply) -> Result<()> {
         let app_callback = self.app_callback.context("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())

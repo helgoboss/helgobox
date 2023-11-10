@@ -32,7 +32,7 @@ impl IndependentPanelManager {
             mapping_panels: Default::default(),
             #[cfg(feature = "playtime")]
             app_instance: std::rc::Rc::new(std::cell::RefCell::new(
-                crate::infrastructure::ui::AppInstance::new(session.clone()),
+                crate::infrastructure::ui::create_app_instance(session.clone()),
             )),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
@@ -103,19 +103,22 @@ impl IndependentPanelManager {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn show_app_panel(&self) {
-        let result = self.app_instance.borrow_mut().open(reaper_main_window());
+    pub fn start_or_show_app_instance(&self) {
+        let result = self
+            .app_instance
+            .borrow_mut()
+            .start_or_show(reaper_main_window());
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
     #[cfg(feature = "playtime")]
-    pub fn close_app_panel(&self) {
-        self.app_instance.borrow_mut().close();
+    pub fn stop_app_instance(&self) {
+        self.app_instance.borrow_mut().stop();
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_panel_is_open(&self) -> bool {
-        self.app_instance.borrow().is_open()
+    pub fn app_instance_is_running(&self) -> bool {
+        self.app_instance.borrow().is_running()
     }
 
     pub fn close_message_panel(&self) {
@@ -158,7 +161,7 @@ impl IndependentPanelManager {
         }
         self.mapping_panels.clear();
         #[cfg(feature = "playtime")]
-        self.app_instance.borrow_mut().close();
+        self.app_instance.borrow_mut().stop();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {

@@ -281,7 +281,7 @@ impl HeaderPanel {
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
             #[cfg(feature = "playtime")]
-            let app_is_open = self.panel_manager().borrow().app_panel_is_open();
+            let app_is_open = self.panel_manager().borrow().app_instance_is_running();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
             } else {
@@ -2301,12 +2301,12 @@ impl HeaderPanel {
 
     #[cfg(feature = "playtime")]
     fn show_app(&self) {
-        self.panel_manager().borrow().show_app_panel();
+        self.panel_manager().borrow().start_or_show_app_instance();
     }
 
     #[cfg(feature = "playtime")]
     fn close_app(&self) {
-        self.panel_manager().borrow().close_app_panel();
+        self.panel_manager().borrow().stop_app_instance();
     }
 
     fn open_preset_folder(&self) {
