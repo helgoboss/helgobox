@@ -113,7 +113,7 @@ impl IndependentPanelManager {
 
     #[cfg(feature = "playtime")]
     pub fn stop_app_instance(&self) {
-        self.app_instance.borrow_mut().stop();
+        let _ = self.app_instance.borrow_mut().stop();
     }
 
     #[cfg(feature = "playtime")]
@@ -161,7 +161,7 @@ impl IndependentPanelManager {
         }
         self.mapping_panels.clear();
         #[cfg(feature = "playtime")]
-        self.app_instance.borrow_mut().stop();
+        let _ = self.app_instance.borrow_mut().stop();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {

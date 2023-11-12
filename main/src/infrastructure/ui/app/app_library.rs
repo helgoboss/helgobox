@@ -95,7 +95,7 @@ impl AppLibrary {
         Ok(library)
     }
 
-    pub fn run_in_parent(
+    pub fn start_app_instance(
         &self,
         parent_window: Option<Window>,
         session_id: String,
@@ -109,13 +109,13 @@ impl AppLibrary {
         let session_id_c_string =
             CString::new(session_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
-            prepare_app_launch();
+            prepare_app_start();
             let app_handle = unsafe {
-                let symbol: Symbol<RunAppInParent> = self
+                let start_app_instance: Symbol<StartAppInstance> = self
                     .main_library
-                    .get(b"run_app_in_parent\0")
-                    .map_err(|_| anyhow!("failed to load run_app_in_parent function"))?;
-                symbol(
+                    .get(b"start_app_instance\0")
+                    .map_err(|_| anyhow!("failed to load start_app_instance function"))?;
+                start_app_instance(
                     parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
@@ -123,30 +123,44 @@ impl AppLibrary {
                 )
             };
             let Some(app_handle) = app_handle else {
-                bail!("couldn't launch app");
+                bail!("couldn't start app");
             };
             Ok(app_handle)
         })
     }
 
-    pub fn toggle_full_screen(&self, parent_window: Window) -> Result<()> {
+    pub fn show_app_instance(
+        &self,
+        parent_window: Option<Window>,
+        app_handle: AppHandle,
+    ) -> Result<()> {
         unsafe {
-            let symbol: Symbol<ToggleFullScreen> =
-                self.main_library
-                    .get(b"toggle_full_screen\0")
-                    .map_err(|_| anyhow!("failed to load toggle_full_screen function"))?;
-            symbol(parent_window.raw());
+            let show_app_instance: Symbol<ShowAppInstance> = self
+                .main_library
+                .get(b"show_app_instance\0")
+                .map_err(|_| anyhow!("failed to load show_app_instance function"))?;
+            show_app_instance(
+                parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
+                app_handle,
+            );
         };
         Ok(())
     }
 
-    pub fn close(&self, parent_window: Window, app_handle: AppHandle) -> Result<()> {
+    pub fn stop_app_instance(
+        &self,
+        parent_window: Option<Window>,
+        app_handle: AppHandle,
+    ) -> Result<()> {
         unsafe {
-            let symbol: Symbol<CloseApp> = self
+            let stop_app_instance: Symbol<StopAppInstance> = self
                 .main_library
-                .get(b"close_app\0")
-                .map_err(|_| anyhow!("failed to load close_app function"))?;
-            symbol(parent_window.raw(), app_handle);
+                .get(b"stop_app_instance\0")
+                .map_err(|_| anyhow!("failed to load stop_app_instance function"))?;
+            stop_app_instance(
+                parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
+                app_handle,
+            );
         };
         Ok(())
     }
@@ -207,19 +221,19 @@ fn process_request(matrix_id: String, request_value: request::Value) -> Result<(
 
 pub type AppHandle = NonNull<c_void>;
 
-/// Signature of the function that we use to open a new App window.
-type RunAppInParent = unsafe extern "C" fn(
+/// Signature of the function that we use to start an app instance.
+type StartAppInstance = unsafe extern "C" fn(
     parent_window: HWND,
     app_base_dir_utf8_c_str: *const c_char,
     host_callback: HostCallback,
     session_id: *const c_char,
 ) -> Option<AppHandle>;
 
-/// Signature of the function that we use to toggle full-screen.
-type ToggleFullScreen = unsafe extern "C" fn(parent_window: HWND);
+/// Signature of the function that we use to show an app instance.
+type ShowAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
 
-/// Signature of the function that we use to close the App.
-type CloseApp = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
+/// Signature of the function that we use to stop an app instance.
+type StopAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
 
 /// Signature of the function that's used from the app in order to call the host.
 type HostCallback = extern "C" fn(data: *const u8, length: i32);
@@ -249,7 +263,7 @@ fn with_temporarily_changed_working_directory<R>(
     r
 }
 
-fn prepare_app_launch() {
+fn prepare_app_start() {
     #[cfg(target_os = "macos")]
     {
         // This is only necessary and only considered by Flutter Engine when Flutter is compiled in

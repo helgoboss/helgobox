@@ -2,6 +2,7 @@ use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
+use crate::infrastructure::worker::spawn_in_main_worker;
 use anyhow::{anyhow, Context, Result};
 use playtime_clip_engine::proto::{
     event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
@@ -13,6 +14,7 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
+use tokio::task::JoinHandle;
 use validator::HasLen;
 
 pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
@@ -22,7 +24,7 @@ pub trait AppInstance: Debug {
 
     fn start_or_show(&mut self, owning_window: Window) -> Result<()>;
 
-    fn stop(&mut self);
+    fn stop(&mut self) -> Result<()>;
 
     fn send(&self, reply: &Reply) -> Result<()>;
 
@@ -82,8 +84,9 @@ impl AppInstance for ParentedAppInstance {
         Ok(())
     }
 
-    fn stop(&mut self) {
-        self.panel.close()
+    fn stop(&mut self) -> Result<()> {
+        self.panel.close();
+        Ok(())
     }
 
     fn send(&self, reply: &Reply) -> Result<()> {
@@ -101,7 +104,21 @@ impl AppInstance for ParentedAppInstance {
 #[derive(Debug)]
 struct StandaloneAppInstance {
     session: WeakSession,
-    running_state: Option<RunningAppState>,
+    running_state: Option<StandaloneAppRunningState>,
+}
+
+#[derive(Debug)]
+struct StandaloneAppRunningState {
+    common_state: CommonAppRunningState,
+    event_subscription_join_handle: Option<JoinHandle<()>>,
+}
+
+impl Drop for StandaloneAppRunningState {
+    fn drop(&mut self) {
+        if let Some(join_handle) = self.event_subscription_join_handle.take() {
+            join_handle.abort();
+        }
+    }
 }
 
 impl AppInstance for StandaloneAppInstance {
@@ -111,31 +128,37 @@ impl AppInstance for StandaloneAppInstance {
 
     fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
         let app_library = App::get_or_load_app_library()?;
-        let session_id = self
-            .session
-            .upgrade()
-            .ok_or_else(|| anyhow!("session gone"))?
-            .borrow()
-            .id()
-            .to_string();
-        let app_handle = app_library.run_in_parent(None, session_id)?;
-        let running_state = RunningAppState {
-            app_handle,
-            app_callback: None,
-            event_receivers: Some(subscribe_to_events()),
+        if let Some(running_state) = &self.running_state {
+            app_library.show_app_instance(None, running_state.common_state.app_handle)?;
+            return Ok(());
+        }
+        let session_id = extract_session_id(&self.session)?;
+        let app_handle = app_library.start_app_instance(None, session_id)?;
+        app_library.show_app_instance(None, app_handle)?;
+        let running_state = StandaloneAppRunningState {
+            common_state: CommonAppRunningState {
+                app_handle,
+                app_callback: None,
+            },
+            event_subscription_join_handle: None,
         };
         self.running_state = Some(running_state);
         Ok(())
     }
 
-    fn stop(&mut self) {
-        todo!()
+    fn stop(&mut self) -> Result<()> {
+        self.running_state
+            .take()
+            .ok_or(anyhow!("app was already stopped"))?
+            .common_state
+            .stop(None)
     }
 
     fn send(&self, reply: &Reply) -> Result<()> {
         self.running_state
             .as_ref()
             .context("app not open")?
+            .common_state
             .send(reply)
     }
 
@@ -143,10 +166,24 @@ impl AppInstance for StandaloneAppInstance {
         let Some(running_state) = &mut self.running_state else {
             return;
         };
+        let Ok(session_id) = extract_session_id(&self.session) else {
+            return;
+        };
         // Handshake finished! The app has the host callback and we have the app callback.
-        running_state.app_callback = Some(callback);
+        running_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
-        // self.start_timer();
+        let mut receivers = subscribe_to_events();
+        let join_handle = spawn_in_main_worker(async move {
+            receivers
+                .keep_processing_updates(&session_id, &|event_reply| {
+                    let reply = Reply {
+                        value: Some(reply::Value::EventReply(event_reply)),
+                    };
+                    send_to_app(callback, &reply);
+                })
+                .await;
+        });
+        running_state.event_subscription_join_handle = Some(join_handle);
     }
 }
 
@@ -154,15 +191,35 @@ impl AppInstance for StandaloneAppInstance {
 pub struct AppPanel {
     view: ViewContext,
     session: WeakSession,
-    open_state: RefCell<Option<RunningAppState>>,
+    running_state: RefCell<Option<ParentedAppRunningState>>,
 }
 
 #[derive(Debug)]
-struct RunningAppState {
+struct ParentedAppRunningState {
+    common_state: CommonAppRunningState,
+    event_receivers: Option<ClipEngineReceivers>,
+}
+
+impl ParentedAppRunningState {
+    pub fn send_pending_events(&mut self, session_id: &str) {
+        let (Some(app_callback), Some(event_receivers)) =
+            (self.common_state.app_callback, &mut self.event_receivers)
+        else {
+            return;
+        };
+        event_receivers.process_pending_updates(session_id, &|event_reply| {
+            let reply = Reply {
+                value: Some(reply::Value::EventReply(event_reply)),
+            };
+            send_to_app(app_callback, &reply);
+        });
+    }
+}
+
+#[derive(Debug)]
+struct CommonAppRunningState {
     app_handle: AppHandle,
     app_callback: Option<AppCallback>,
-    // TODO-medium This is too specific.
-    event_receivers: Option<ClipEngineReceivers>,
 }
 
 impl AppPanel {
@@ -170,34 +227,26 @@ impl AppPanel {
         Self {
             view: Default::default(),
             session,
-            open_state: RefCell::new(None),
+            running_state: RefCell::new(None),
         }
     }
 
     pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
-        self.open_state
+        self.running_state
             .borrow()
             .as_ref()
             .context("app not open")?
+            .common_state
             .send(reply)
     }
 
-    pub fn toggle_full_screen(&self) -> Result<()> {
-        // Because the full-screen windowing code is a mess and highly platform-specific, it's best
-        // to use a platform-specific language to do the job. In case of macOS, Swift is the best
-        // choice. The app itself has easy access to Swift, so let's just call into the app library
-        // so it takes care of handling its host window.
-        // TODO-low It's a bit weird to ask the app (a guest) to deal with a host window. Improve.
-        App::get_or_load_app_library()?.toggle_full_screen(self.view.require_window())
-    }
-
     pub fn notify_app_is_ready(&self, callback: AppCallback) {
-        let mut open_state = self.open_state.borrow_mut();
+        let mut open_state = self.running_state.borrow_mut();
         let Some(open_state) = open_state.as_mut() else {
             return;
         };
         // Handshake finished! The app has the host callback and we have the app callback.
-        open_state.app_callback = Some(callback);
+        open_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
         self.start_timer();
     }
@@ -215,56 +264,38 @@ impl AppPanel {
     fn open_internal(&self, window: Window) -> Result<()> {
         window.set_text("Playtime");
         let app_library = App::get_or_load_app_library()?;
-        let session_id = self
-            .session
-            .upgrade()
-            .ok_or_else(|| anyhow!("session gone"))?
-            .borrow()
-            .id()
-            .to_string();
-        let app_handle = app_library.run_in_parent(Some(window), session_id)?;
-        let open_state = RunningAppState {
-            app_handle,
-            app_callback: None,
+        let session_id = extract_session_id(&self.session)?;
+        let app_handle = app_library.start_app_instance(Some(window), session_id)?;
+        let running_state = ParentedAppRunningState {
+            common_state: CommonAppRunningState {
+                app_handle,
+                app_callback: None,
+            },
             event_receivers: Some(subscribe_to_events()),
         };
-        *self.open_state.borrow_mut() = Some(open_state);
+        *self.running_state.borrow_mut() = Some(running_state);
         Ok(())
     }
 
-    fn close_internal(&self, window: Window) -> Result<()> {
-        let open_state = self
-            .open_state
+    fn stop(&self, window: Window) -> Result<()> {
+        self.running_state
             .borrow_mut()
             .take()
-            .ok_or(anyhow!("app was already closed"))?;
-        open_state.close_app(window)
+            .ok_or(anyhow!("app was already stopped"))?
+            .common_state
+            .stop(Some(window))
     }
 }
 
-impl RunningAppState {
+impl CommonAppRunningState {
     pub fn send(&self, reply: &Reply) -> Result<()> {
         let app_callback = self.app_callback.context("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())
     }
 
-    pub fn send_pending_events(&mut self, session_id: &str) {
-        let (Some(app_callback), Some(event_receivers)) =
-            (self.app_callback, &mut self.event_receivers)
-        else {
-            return;
-        };
-        event_receivers.process_pending_updates(session_id, &|event_reply| {
-            let reply = Reply {
-                value: Some(reply::Value::EventReply(event_reply)),
-            };
-            send_to_app(app_callback, &reply);
-        });
-    }
-
-    pub fn close_app(&self, window: Window) -> Result<()> {
-        App::get_or_load_app_library()?.close(window, self.app_handle)
+    pub fn stop(&self, window: Option<Window>) -> Result<()> {
+        App::get_or_load_app_library()?.stop_app_instance(window, self.app_handle)
     }
 }
 
@@ -289,13 +320,13 @@ impl View for AppPanel {
     }
 
     fn closed(self: SharedView<Self>, window: Window) {
-        self.close_internal(window).unwrap();
+        self.stop(window).unwrap();
     }
 
     fn shown_or_hidden(self: SharedView<Self>, shown: bool) -> bool {
         if shown {
             // Send events to app again.
-            if let Some(open_state) = self.open_state.borrow_mut().as_mut() {
+            if let Some(open_state) = self.running_state.borrow_mut().as_mut() {
                 open_state.event_receivers = Some(subscribe_to_events());
             } else {
                 // We also get called when the window is first opened, *before* `opened` is called!
@@ -316,7 +347,7 @@ impl View for AppPanel {
             });
         } else {
             // Don't process events while hidden
-            if let Some(open_state) = self.open_state.borrow_mut().as_mut() {
+            if let Some(open_state) = self.running_state.borrow_mut().as_mut() {
                 open_state.event_receivers = None;
             }
             self.stop_timer();
@@ -346,7 +377,7 @@ impl View for AppPanel {
         if id != TIMER_ID {
             return false;
         }
-        let mut open_state = self.open_state.borrow_mut();
+        let mut open_state = self.running_state.borrow_mut();
         let Some(open_state) = open_state.as_mut() else {
             return false;
         };
@@ -397,4 +428,20 @@ pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
 
 fn subscribe_to_events() -> ClipEngineReceivers {
     App::get().clip_engine_hub().senders().subscribe_to_all()
+}
+
+// TODO-high-ms4 We extract the session ID manually whenever we start the app instead of assigning
+//  it to the AppInstance right at the start. Reason: The session ID can be changed by the user.
+//  This is not ideal. It won't event prevent that the user changes the session ID during app
+//  lifetime ... it just won't work anymore if that happens. I think we need to use the InstanceId
+//  and hold a global mapping from session ID to instance ID in the app. Or maybe better: We use
+//  the instance ID whenever we are embedded, not the session ID! Then the "matrix ID" refers
+//  to the instance ID when embedded and to the session ID when remote.
+fn extract_session_id(session: &WeakSession) -> Result<String> {
+    Ok(session
+        .upgrade()
+        .ok_or_else(|| anyhow!("session gone"))?
+        .borrow()
+        .id()
+        .to_string())
 }

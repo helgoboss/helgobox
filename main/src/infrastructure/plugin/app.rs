@@ -363,6 +363,7 @@ impl App {
 
     #[cfg(feature = "playtime")]
     fn init_clip_engine() {
+        use playtime_clip_engine::ClipEngine;
         let license_manager = crate::infrastructure::data::LicenseManager::new(
             App::helgoboss_resource_dir_path().join("licensing.json"),
         );
@@ -384,7 +385,7 @@ impl App {
             tap_sound_file: Self::realearn_high_click_sound_path(),
             metrics_recorder,
         };
-        playtime_clip_engine::ClipEngine::get().init(args);
+        ClipEngine::make_available_globally(ClipEngine::new(args));
     }
 
     fn reconnect_osc_devices(&self) {
