@@ -32,8 +32,24 @@ pub trait AppInstance: Debug {
 }
 
 pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
+    // I was experimenting with 2 different ways of embedding the app GUI into REAPER:
+    //
+    // - Parented mode: We create a new SWELL window on ReaLearn side (HWND on Windows, NSView on
+    //   macOS) and the app renders its GUI *within* it.
+    // - Standalone mode: The app fires up its own window.
+    //
+    // Embedding the app in "parented" mode is in theory preferable because:
+    //
+    // 1. Only "parented" mode makes it possible to dock the app GUI (in case we want to do that
+    //    one day).
+    // 2. ReaLearn has full control over the window and can listen to its events.
+    // 3. We stop sending events when the app window is hidden, not wasting resources when the
+    //    app is not shown anyway. (However, with just a bit more effort, we could implement this
+    //    for standalone mode as well.)
     #[cfg(target_os = "windows")]
     {
+        // On Windows, parented mode works wonderfully. It needs some tricks (see View
+        // implementation) but it's worth it. That's why we use parented mode on Windows.
         let app_panel = AppPanel::new(session);
         ParentedAppInstance {
             panel: SharedView::new(app_panel),
@@ -41,6 +57,15 @@ pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
     }
     #[cfg(target_os = "macos")]
     {
+        // On macOS, parented mode is possible only by using Cocoa child windows (see app side
+        // embedding docs). This means that the app doesn't really render itself in the NSView
+        // provided by ReaLearn but places an NSWindow on top of the NSWindow provided by ReaLearn.
+        // It works but it needs a few keyboard tricks and - most importantly - it doesn't work
+        // well if the app itself wants to control its window (e.g. going full screen or changing
+        // the window opacity). It will try to control the child window, not the outer window.
+        // This could be solved on app side by navigating up the child/parent window chain, but
+        // it's not something I want to do now as long as we don't support docking anyway.
+        // Therefore: Standalone mode on macOS!
         StandaloneAppInstance {
             session,
             running_state: None,
@@ -355,19 +380,11 @@ impl View for AppPanel {
         true
     }
 
-    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        match resource_id {
-            // Escape key
-            raw::IDCANCEL => self.close(),
-            _ => {}
-        }
-    }
-
     /// On Windows, this is necessary to resize contained app.
     ///
-    /// On macOS, this has no effect because the app window is not a child view (NSView) but a
-    /// child window (NSWindow). Resizing according to the parent window (the SWELL window) is done
-    /// on app side.
+    /// On macOS, this would have no effect because the app window is not a child view (NSView) but
+    /// a child window (NSWindow). Resizing according to the parent window (the SWELL window) is
+    /// done on app side.
     #[cfg(target_os = "windows")]
     fn resized(self: SharedView<Self>) -> bool {
         crate::infrastructure::ui::egui_views::on_parent_window_resize(self.view.require_window())

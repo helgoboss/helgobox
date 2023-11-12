@@ -12,6 +12,7 @@ use playtime_clip_engine::proto::{
     MatrixProvider, Notification, NotificationKind, QueryReply, QueryResult, Reply, Request,
 };
 use prost::Message;
+use reaper_high::Reaper;
 use reaper_low::raw::HWND;
 use std::env;
 use std::ffi::{c_char, c_void, CString};
@@ -120,6 +121,7 @@ impl AppLibrary {
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
                     session_id_c_string.as_ptr(),
+                    Reaper::get().main_window().as_ptr(),
                 )
             };
             let Some(app_handle) = app_handle else {
@@ -222,11 +224,21 @@ fn process_request(matrix_id: String, request_value: request::Value) -> Result<(
 pub type AppHandle = NonNull<c_void>;
 
 /// Signature of the function that we use to start an app instance.
+///
+/// # Arguments
+///
+/// * `parent_window` - Optional parent window handle. If you pass this, the app (if supported for
+///   the OS) will render itself *within* that parent window. On macOS, this is should be an NSView.
+/// * `app_base_dir_utf8_c_str`- Directory where the app is located
+/// * `host_callback` - Pointer to host callback function
+/// * `session_id` - Session ID of the ReaLearn instance associated with this new app instance.
+/// * `main_window` - Handle to REAPER's main window
 type StartAppInstance = unsafe extern "C" fn(
     parent_window: HWND,
     app_base_dir_utf8_c_str: *const c_char,
     host_callback: HostCallback,
     session_id: *const c_char,
+    main_window: HWND,
 ) -> Option<AppHandle>;
 
 /// Signature of the function that we use to show an app instance.
