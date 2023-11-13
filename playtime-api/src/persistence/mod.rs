@@ -46,6 +46,24 @@ pub struct Matrix {
     pub common_tempo_range: TempoRange,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
+    #[serde(default)]
+    pub content_quantization_settings: ContentQuantizationSettings,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ContentQuantizationSettings {
+    pub quantization: EvenQuantization,
+}
+
+impl Default for ContentQuantizationSettings {
+    fn default() -> Self {
+        Self {
+            quantization: EvenQuantization {
+                numerator: 1,
+                denominator: 16,
+            },
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -1221,7 +1239,7 @@ pub struct PaletteClipColor {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Source {
-    /// Takes content from a media file on the file system (audio or MIDI).
+    /// Takes content from a media file on the file system (audio).
     File(FileSource),
     /// Embedded MIDI data.
     MidiChunk(MidiChunkSource),

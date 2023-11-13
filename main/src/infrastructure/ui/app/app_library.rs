@@ -7,9 +7,10 @@ use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
-    create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
-    event_reply, query_result, reply, request, ClipEngineRequestHandler, EventReply,
-    MatrixProvider, Notification, NotificationKind, QueryReply, QueryResult, Reply, Request,
+    create_initial_clip_updates, create_initial_matrix_updates, create_initial_slot_updates,
+    create_initial_track_updates, event_reply, query_result, reply, request,
+    ClipEngineRequestHandler, EventReply, MatrixProvider, Notification, NotificationKind,
+    QueryReply, QueryResult, Reply, Request,
 };
 use prost::Message;
 use reaper_high::Reaper;
@@ -376,6 +377,10 @@ fn process_command(req: proto::command_request::Value) -> std::result::Result<()
         }
         GetOccasionalSlotUpdates(req) => {
             send_initial_events_to_app(&req.matrix_id, create_initial_slot_updates)
+                .map_err(to_status)?;
+        }
+        GetOccasionalClipUpdates(req) => {
+            send_initial_events_to_app(&req.matrix_id, create_initial_clip_updates)
                 .map_err(to_status)?;
         }
         // Normal commands
