@@ -103,6 +103,7 @@ pub struct MatrixSettings {
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
     pub color_palette: ColorPalette,
+    pub content_quantization_settings: ContentQuantizationSettings,
 }
 
 impl Matrix {
