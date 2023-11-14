@@ -24,7 +24,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{MainPanel, MessagePanel};
+use crate::infrastructure::ui::{copy_text_to_clipboard, lua_serializer, MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
@@ -42,6 +42,7 @@ use crate::infrastructure::test::run_test;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
+use playtime_clip_engine::PlaytimeItem;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -380,10 +381,20 @@ impl App {
             } else {
                 None
             };
+        #[derive(Debug)]
+        struct RealearnClipEngineIntegration;
+        impl playtime_clip_engine::ClipEngineIntegration for RealearnClipEngineIntegration {
+            fn export_to_clipboard(&self, item: &dyn PlaytimeItem) -> anyhow::Result<()> {
+                let text = lua_serializer::to_string(item)?;
+                copy_text_to_clipboard(text);
+                Ok(())
+            }
+        }
         let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: license_manager.licenses(),
             tap_sound_file: Self::realearn_high_click_sound_path(),
             metrics_recorder,
+            integration: Box::new(RealearnClipEngineIntegration),
         };
         ClipEngine::make_available_globally(ClipEngine::new(args));
     }

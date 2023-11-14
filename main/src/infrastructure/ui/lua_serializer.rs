@@ -40,7 +40,7 @@ pub struct Serializer {
 
 pub fn to_string<T>(value: &T) -> Result<String>
 where
-    T: Serialize,
+    T: Serialize + ?Sized,
 {
     let mut serializer = Serializer {
         output: String::new(),

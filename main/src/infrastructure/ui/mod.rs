@@ -77,7 +77,7 @@ pub use clipboard::*;
 mod import;
 pub use import::*;
 
-mod lua_serializer;
+pub mod lua_serializer;
 
 #[cfg(feature = "egui")]
 mod egui_views;
