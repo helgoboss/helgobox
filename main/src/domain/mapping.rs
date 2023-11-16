@@ -359,16 +359,6 @@ impl MainMapping {
         self.tags.iter().any(|t| tags.contains(t))
     }
 
-    // TODO-high-ms2 The source clone here will not be a complete clone since commit b0074b26!
-    //  Don't clone the source!
-    pub fn qualified_source(&self) -> QualifiedSource {
-        QualifiedSource {
-            compartment: self.core.compartment,
-            mapping_key: self.key.clone(),
-            source: self.source().clone(),
-        }
-    }
-
     pub fn compartment(&self) -> Compartment {
         self.core.compartment
     }
@@ -1577,30 +1567,6 @@ pub enum ReaperSourceAddress {
     /// Our TTS logic is also built in a way that we have only one static TTS instance and saying
     /// something interrupts whatever is currently said.
     GlobalSpeech,
-}
-
-#[derive(Clone, Debug)]
-pub struct QualifiedSource {
-    pub compartment: Compartment,
-    pub mapping_key: Rc<str>,
-    pub source: CompoundMappingSource,
-}
-
-impl QualifiedSource {
-    pub fn off_feedback(self, source_context: &SourceContext) -> Option<CompoundFeedbackValue> {
-        SpecificCompoundFeedbackValue::from_mode_value(
-            self.compartment,
-            self.mapping_key,
-            &self.source,
-            Cow::Owned(FeedbackValue::Off),
-            FeedbackDestinations {
-                with_projection_feedback: true,
-                with_source_feedback: true,
-            },
-            source_context,
-        )
-        .map(CompoundFeedbackValue::normal)
-    }
 }
 
 impl CompoundMappingSource {

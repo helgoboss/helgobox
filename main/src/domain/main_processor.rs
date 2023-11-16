@@ -2330,8 +2330,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.qualified_source()
-                            .off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(&self.basics.source_context)?,
                     ))
                 })
                 .collect()
@@ -2342,8 +2341,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.qualified_source()
-                            .off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(&self.basics.source_context)?,
                     ))
                 })
                 .collect()
