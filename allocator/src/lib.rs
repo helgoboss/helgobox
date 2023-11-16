@@ -8,6 +8,7 @@
 //!   good testability but also nice otherwise as long as set_alloc_error_hook() is still unstable)
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
+use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TrySendError};
 use std::sync::{mpsc, OnceLock};
@@ -114,16 +115,17 @@ pub struct AsyncDeallocatorCommandReceiver(Receiver<AsyncDeallocatorCommand>);
 #[derive(Debug)]
 enum AsyncDeallocatorCommand {
     Stop,
-    Deallocate(DeallocateCommand),
+    Deallocate {
+        ptr: *mut u8,
+        layout: Layout,
+    },
+    DeallocateForeign {
+        value: *mut c_void,
+        deallocate: unsafe extern "C" fn(value: *mut c_void),
+    },
 }
 
-#[derive(Debug)]
-struct DeallocateCommand {
-    ptr: *mut u8,
-    layout: Layout,
-}
-
-unsafe impl Send for DeallocateCommand {}
+unsafe impl Send for AsyncDeallocatorCommand {}
 
 pub trait AsyncDeallocationIntegration {
     /// Should return `true` if deallocation should be offloaded to the dedicated deallocation
@@ -146,8 +148,12 @@ pub fn start_async_deallocation_thread(
             while let Ok(cmd) = receiver.0.recv() {
                 match cmd {
                     AsyncDeallocatorCommand::Stop => break,
-                    AsyncDeallocatorCommand::Deallocate(cmd) => {
-                        deallocator.deallocate(cmd.ptr, cmd.layout);
+                    AsyncDeallocatorCommand::Deallocate { ptr, layout } => {
+                        deallocator.deallocate(ptr, layout);
+                    }
+                    AsyncDeallocatorCommand::DeallocateForeign { value, deallocate } => {
+                        println!("Deallocating foreign value async");
+                        unsafe { deallocate(value) };
                     }
                 }
             }
@@ -157,7 +163,10 @@ pub fn start_async_deallocation_thread(
         .unwrap()
 }
 
-impl<I, D> HelgobossAllocator<I, D> {
+impl<I, D> HelgobossAllocator<I, D>
+where
+    I: AsyncDeallocationIntegration,
+{
     /// Initializes the allocator.
     ///
     /// The deallocator that you pass here will only be used for synchronous deallocation.
@@ -190,6 +199,25 @@ impl<I, D> HelgobossAllocator<I, D> {
         AsyncDeallocatorCommandReceiver(receiver)
     }
 
+    /// Executes the given deallocation function on the given value, possibly asynchronously.
+    ///
+    /// This makes it possible to defer deallocation even with values that are not managed by Rust,
+    /// e.g. C values.
+    pub fn dealloc_foreign_value(
+        &self,
+        deallocate: unsafe extern "C" fn(ptr: *mut c_void),
+        value: *mut c_void,
+    ) {
+        self.dealloc_internal(
+            || self.check(None),
+            || unsafe {
+                println!("Deallocating foreign value sync");
+                deallocate(value);
+            },
+            || AsyncDeallocatorCommand::DeallocateForeign { value, deallocate },
+        )
+    }
+
     /// Sends a stop signal to the receiver of asynchronous deallocation commands (usually a
     /// dedicated thread).
     pub fn stop_async_deallocation(&self) {
@@ -198,22 +226,73 @@ impl<I, D> HelgobossAllocator<I, D> {
         }
     }
 
+    fn dealloc_internal(
+        &self,
+        check: impl FnOnce(),
+        dealloc_sync: impl FnOnce(),
+        create_async_command: impl FnOnce() -> AsyncDeallocatorCommand,
+    ) {
+        let Some(deallocation_machine) = self.async_deallocation_machine.get() else {
+            // We are not initialized yet. Attempt normal synchronous deallocation.
+            #[cfg(debug_assertions)]
+            check();
+            dealloc_sync();
+            return;
+        };
+        if deallocation_machine.integration.offload_deallocation() {
+            // Deallocation shall be offloaded and we are already initialized.
+            if let Err(e) = deallocation_machine.sender.try_send(create_async_command()) {
+                match e {
+                    TrySendError::Full(_) => {
+                        // This is possible if we have very many deallocations in a row or if for
+                        // some reason the async deallocator thread is not running. Then do
+                        // deallocation synchronously.
+                        #[cfg(debug_assertions)]
+                        check();
+                        dealloc_sync();
+                    }
+                    TrySendError::Disconnected(_) => {
+                        // Could happen on shutdown
+                        dealloc_sync();
+                    }
+                }
+            }
+        } else {
+            // Synchronous deallocation is fine. It's still possible that we are in an
+            // assert_no_alloc block. In that case, we want to report the violation.
+            #[cfg(debug_assertions)]
+            check();
+            dealloc_sync();
+        }
+    }
+
+    /// For deallocation of foreign structs (e.g. C structs), the layout is not given.
     #[cfg(debug_assertions)]
-    fn check(&self, layout: Layout) {
+    fn check(&self, layout: Option<Layout>) {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {
+            // Increase our counter (will be displayed in ReaLearn status line)
             UNDESIRED_ALLOCATION_COUNTER.fetch_add(1, Ordering::Relaxed);
-            // Comment out if you want to ignore it
+            // Comment out if you don't want to log the violation
             permit_alloc(|| {
-                eprintln!(
-                    "Undesired memory allocation of {} bytes from:\n{:?}",
-                    layout.size(),
-                    backtrace::Backtrace::new()
-                );
+                if let Some(layout) = layout {
+                    eprintln!(
+                        "Undesired memory (de)allocation of {} bytes from:\n{:?}",
+                        layout.size(),
+                        backtrace::Backtrace::new()
+                    );
+                } else {
+                    eprintln!(
+                        "Undesired memory (de)allocation of a foreign value from:\n{:?}",
+                        backtrace::Backtrace::new()
+                    );
+                }
             });
             // Comment out if you don't want to abort
-            // std::alloc::handle_alloc_error(layout);
+            // if let Some(layout) = layout {
+            //     std::alloc::handle_alloc_error(layout);
+            // }
         }
     }
 }
@@ -223,46 +302,15 @@ unsafe impl<I: AsyncDeallocationIntegration, D: Deallocate> GlobalAlloc
 {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         #[cfg(debug_assertions)]
-        self.check(layout);
+        self.check(Some(layout));
         System.alloc(layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let Some(deallocation_machine) = self.async_deallocation_machine.get() else {
-            // We are not initialized yet. Attempt normal synchronous deallocation.
-            #[cfg(debug_assertions)]
-            self.check(layout);
-            self.sync_deallocator.deallocate(ptr, layout);
-            return;
-        };
-        if deallocation_machine.integration.offload_deallocation() {
-            // Deallocation shall be offloaded and we are already initialized.
-            let command = DeallocateCommand { ptr, layout };
-            if let Err(e) = deallocation_machine
-                .sender
-                .try_send(AsyncDeallocatorCommand::Deallocate(command))
-            {
-                match e {
-                    TrySendError::Full(_) => {
-                        // This is possible if we have very many deallocations in a row or if for
-                        // some reason the async deallocator thread is not running. Then do
-                        // deallocation synchronously.
-                        #[cfg(debug_assertions)]
-                        self.check(layout);
-                        self.sync_deallocator.deallocate(ptr, layout);
-                    }
-                    TrySendError::Disconnected(_) => {
-                        // Could happen on shutdown
-                        self.sync_deallocator.deallocate(ptr, layout);
-                    }
-                }
-            }
-        } else {
-            // Synchronous deallocation is fine. It's still possible that we are in an
-            // assert_no_alloc block. In that case, we want to report the violation.
-            #[cfg(debug_assertions)]
-            self.check(layout);
-            self.sync_deallocator.deallocate(ptr, layout);
-        }
+        self.dealloc_internal(
+            || self.check(Some(layout)),
+            || self.sync_deallocator.deallocate(ptr, layout),
+            || AsyncDeallocatorCommand::Deallocate { ptr, layout },
+        );
     }
 }

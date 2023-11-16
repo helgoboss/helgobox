@@ -1,3 +1,4 @@
+use crate::base::allocator::GLOBAL_ALLOCATOR;
 use crate::base::bindings::root;
 use crate::base::bindings::root::eel_function_table;
 use reaper_medium::ReaperStr;
@@ -131,19 +132,13 @@ impl Variable {
 
 impl Drop for Vm {
     fn drop(&mut self) {
-        unsafe {
-            // TODO-high-ms2 Oh oh. Just realizing that this kind of deallocation is not covered
-            //  by our automatic deferred Rust deallocation. Look into it.
-            root::NSEEL_VM_free(self.vm_ctx);
-        }
+        GLOBAL_ALLOCATOR.dealloc_foreign_value(root::NSEEL_VM_free, self.vm_ctx);
     }
 }
 
 impl Drop for Program {
     fn drop(&mut self) {
-        unsafe {
-            root::NSEEL_code_free(self.0);
-        }
+        GLOBAL_ALLOCATOR.dealloc_foreign_value(root::NSEEL_code_free, self.0);
     }
 }
 

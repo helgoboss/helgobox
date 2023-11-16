@@ -278,11 +278,6 @@ impl RealTimeProcessor {
                         );
                     }
                     // Clear existing mappings
-                    // TODO-high-ms2 Look into eel.rs => The drop here causes EEL to free its memory
-                    //  and because it's not aware of our rt-friendly Rust allocator, it will
-                    //  deallocate in real-time! We don't have the same issue with the Lua scripts,
-                    //  simply because they don't even get synced over to the real-time processor
-                    //  (necessary for feedback only, which is handled in main processor).
                     self.mappings[compartment].clear();
                     // Set new mappings
                     self.mappings[compartment].extend(mappings.into_iter().map(|m| (m.id(), m)));

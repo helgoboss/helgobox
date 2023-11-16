@@ -32,9 +32,7 @@ use base::{
 };
 use enum_iterator::IntoEnumIterator;
 
-use crate::infrastructure::plugin::allocator::{
-    RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR,
-};
+use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;

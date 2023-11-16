@@ -4,7 +4,6 @@ mod tracing_util;
 use realearn_editor::*;
 mod app;
 pub use app::*;
-pub mod allocator;
 mod realearn_plugin;
 mod realearn_plugin_parameters;
 pub use realearn_plugin_parameters::*;
