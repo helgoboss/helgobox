@@ -2,7 +2,6 @@ use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
-use crate::infrastructure::worker::spawn_in_main_worker;
 use anyhow::{anyhow, Context, Result};
 use playtime_clip_engine::proto::{
     event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
@@ -197,7 +196,7 @@ impl AppInstance for StandaloneAppInstance {
         running_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
         let mut receivers = subscribe_to_events();
-        let join_handle = spawn_in_main_worker(async move {
+        let join_handle = App::get().spawn_in_async_runtime(async move {
             receivers
                 .keep_processing_updates(&session_id, &|event_reply| {
                     let reply = Reply {

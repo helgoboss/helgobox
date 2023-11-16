@@ -60,11 +60,14 @@ use slog::{debug, Drain, Logger};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::fs;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::thread::JoinHandle;
+use std::time::Duration;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
+use tokio::runtime::Runtime;
 use url::Url;
 
 /// Queue size for sending feedback tasks to audio hook.
@@ -165,6 +168,7 @@ struct AwakeState {
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
     accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
     async_deallocation_thread: JoinHandle<AsyncDeallocatorCommandReceiver>,
+    async_runtime: Runtime,
 }
 
 impl App {
@@ -435,6 +439,13 @@ impl App {
             RealearnDeallocator::with_metrics("async_deallocation"),
             sleeping_state.async_deallocation_receiver,
         );
+        // Start async runtime
+        let async_runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("ReaLearn async runtime")
+            .worker_threads(1)
+            .build()
+            .expect("couldn't start ReaLearn async runtime");
         // Activate server
         if self.config.borrow().server_is_enabled() {
             self.server()
@@ -491,6 +502,7 @@ impl App {
             audio_hook_handle,
             accelerator_handle,
             async_deallocation_thread,
+            async_runtime,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -531,6 +543,12 @@ impl App {
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
         // Server
         self.server().borrow_mut().stop();
+        // Shutdown async runtime
+        tracing::info!("Shutting down async runtime...");
+        awake_state
+            .async_runtime
+            .shutdown_timeout(Duration::from_secs(1));
+        tracing::info!("Async runtime shut down successfully");
         // Stop async deallocation thread
         GLOBAL_ALLOCATOR.stop_async_deallocation();
         let async_deallocation_receiver = awake_state
@@ -709,8 +727,28 @@ impl App {
             audio_hook_handle: awake_state.audio_hook_handle,
             accelerator_handle: awake_state.accelerator_handle,
             async_deallocation_thread: awake_state.async_deallocation_thread,
+            async_runtime: awake_state.async_runtime,
         };
         self.state.replace(AppState::Awake(awake_state));
+    }
+
+    /// Spawns the given future on the ReaLearn async runtime.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called in any state other than awake.
+    pub fn spawn_in_async_runtime<R>(
+        &self,
+        f: impl Future<Output = R> + Send + 'static,
+    ) -> tokio::task::JoinHandle<R>
+    where
+        R: Send + 'static,
+    {
+        let state = self.state.borrow();
+        let AppState::Awake(state) = &*state else {
+            panic!("attempted to spawn future while ReaLearn in wrong state: {state:?}");
+        };
+        state.async_runtime.spawn(f)
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
