@@ -13,12 +13,12 @@ use crate::domain::{
     MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
     PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedMappingId, QualifiedSource, RawParamValue, RealTimeMappingUpdate,
-    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
-    ReaperTarget, SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetControlEvent, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue,
+    QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
+    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
+    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
+    VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -2058,7 +2058,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: Compartment,
         mapping_updates: Vec<RealTimeMappingUpdate>,
         target_updates: Vec<RealTimeTargetUpdate>,
-        unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        unused_sources: UnusedSources,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
@@ -2314,16 +2314,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
+    /// Returns a hash map where each key is the source address of a source whose mapping
+    /// emits feedback and the value is the "off feedback" message.
+    ///
+    /// This will be used to check which sources are not in use anymore and then send the
+    /// "off feedback" message accordingly.
     fn currently_feedback_enabled_sources(
         &self,
         compartment: Compartment,
         include_virtual: bool,
-    ) -> HashMap<CompoundMappingSourceAddress, QualifiedSource> {
+    ) -> UnusedSources {
         if include_virtual {
             self.all_mappings_in_compartment(compartment)
                 .filter(|m| m.feedback_is_effectively_on())
                 .filter_map(|m| {
-                    Some((m.source().extract_feedback_address()?, m.qualified_source()))
+                    Some((
+                        m.source().extract_feedback_address()?,
+                        m.qualified_source()
+                            .off_feedback(&self.basics.source_context)?,
+                    ))
                 })
                 .collect()
         } else {
@@ -2331,7 +2340,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
                 .filter_map(|m| {
-                    Some((m.source().extract_feedback_address()?, m.qualified_source()))
+                    Some((
+                        m.source().extract_feedback_address()?,
+                        m.qualified_source()
+                            .off_feedback(&self.basics.source_context)?,
+                    ))
                 })
                 .collect()
         }
@@ -2340,7 +2353,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: Compartment,
-        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: UnusedSources,
     ) {
         self.send_feedback(
             FeedbackReason::Normal,
@@ -2357,7 +2370,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
         compartment: Compartment,
-        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: UnusedSources,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         self.send_feedback(
@@ -2373,15 +2386,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Indicate via off feedback the sources which are not in use anymore.
-    fn send_off_feedback_for_unused_sources(
-        &self,
-        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
-    ) {
-        for s in now_unused_sources.into_values() {
-            self.send_feedback(
-                FeedbackReason::ClearUnusedSource,
-                s.off_feedback(&self.basics.source_context),
-            );
+    fn send_off_feedback_for_unused_sources(&self, now_unused_sources: UnusedSources) {
+        for feedback_value in now_unused_sources.into_values() {
+            self.send_feedback(FeedbackReason::ClearUnusedSource, Some(feedback_value));
         }
     }
 
@@ -4354,3 +4361,5 @@ pub struct KeyProcessingResult {
     /// Whether this message should be filtered out from the keyboard processing chain.
     pub filter_out_event: bool,
 }
+
+type UnusedSources = HashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;
