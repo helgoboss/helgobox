@@ -37,6 +37,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
+use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
@@ -450,7 +451,7 @@ impl App {
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
-                .start(self.create_services())
+                .start(&async_runtime, self.create_services())
                 .unwrap_or_else(warn_about_failed_server_start);
         }
         let mut session = Reaper::get().medium_session();
@@ -744,11 +745,16 @@ impl App {
     where
         R: Send + 'static,
     {
+        self.with_async_runtime(|runtime| runtime.spawn(f))
+            .expect("couldn't use runtime")
+    }
+
+    fn with_async_runtime<R>(&self, f: impl FnOnce(&Runtime) -> R) -> anyhow::Result<R> {
         let state = self.state.borrow();
         let AppState::Awake(state) = &*state else {
-            panic!("attempted to spawn future while ReaLearn in wrong state: {state:?}");
+            bail!("attempt to access async runtime while ReaLearn in wrong state: {state:?}");
         };
-        state.async_runtime.spawn(f)
+        Ok(f(&state.async_runtime))
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
@@ -804,9 +810,15 @@ impl App {
     }
 
     pub fn start_server_persistently(&self) -> Result<(), String> {
-        self.server.borrow_mut().start(self.create_services())?;
+        let start_result = self
+            .with_async_runtime(|runtime| {
+                self.server
+                    .borrow_mut()
+                    .start(runtime, self.create_services())
+            })
+            .map_err(|e| e.to_string())?;
         self.change_config(AppConfig::enable_server);
-        Ok(())
+        start_result
     }
 
     pub fn stop_server_persistently(&self) {

@@ -23,6 +23,7 @@ use crate::infrastructure::server::services::RealearnServices;
 use derivative::Derivative;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use tokio::runtime::Runtime;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -99,7 +100,7 @@ enum ServerState {
 struct ServerRuntimeData {
     clients: ServerClients,
     shutdown_sender: broadcast::Sender<()>,
-    server_thread_join_handle: JoinHandle<()>,
+    server_join_handle: tokio::task::JoinHandle<()>,
 }
 
 impl ServerState {
@@ -135,7 +136,7 @@ impl RealearnServer {
     }
 
     /// Idempotent
-    pub fn start(&mut self, services: RealearnServices) -> Result<(), String> {
+    pub fn start(&mut self, runtime: &Runtime, services: RealearnServices) -> Result<(), String> {
         if self.state.is_starting_or_running() {
             return Ok(());
         }
@@ -150,30 +151,20 @@ impl RealearnServer {
         let key_and_cert = self.key_and_cert();
         let (shutdown_sender, shutdown_receiver) = broadcast::channel(5);
         let metrics_reporter = self.metrics_reporter.clone();
-        let server_thread_join_handle = std::thread::Builder::new()
-            .name("ReaLearn server".to_string())
-            .spawn(move || {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .unwrap();
-                runtime.block_on(start_servers(
-                    http_port,
-                    https_port,
-                    grpc_port,
-                    clients_clone,
-                    key_and_cert,
-                    shutdown_receiver,
-                    metrics_reporter,
-                    services,
-                ));
-                runtime.shutdown_timeout(Duration::from_secs(1));
-            })
-            .map_err(|_| "couldn't start server thread".to_string())?;
+        let server_join_handle = runtime.spawn(start_servers(
+            http_port,
+            https_port,
+            grpc_port,
+            clients_clone,
+            key_and_cert,
+            shutdown_receiver,
+            metrics_reporter,
+            services,
+        ));
         let runtime_data = ServerRuntimeData {
             clients,
             shutdown_sender,
-            server_thread_join_handle,
+            server_join_handle,
         };
         self.state = ServerState::Starting(runtime_data);
         self.notify_changed();
@@ -208,10 +199,11 @@ impl RealearnServer {
             ServerState::Stopped => return,
         };
         let _ = runtime_data.shutdown_sender.send(());
-        runtime_data
-            .server_thread_join_handle
-            .join()
-            .expect("couldn't wait for server thread to finish");
+        // TODO-high-ms2 Maybe this is enough? No shutdown sender necessary?
+        // runtime_data
+        //     .server_join_handle
+        //     .join()
+        //     .expect("couldn't wait for server thread to finish");
     }
 
     fn notify_changed(&mut self) {
