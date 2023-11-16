@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, AppInstance, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedAppInstance, SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -15,8 +15,8 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
-    Compartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue, QualifiedMappingId,
-    TargetControlEvent, TargetValueChangedEvent,
+    Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
+    QualifiedMappingId, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::http::{
@@ -24,6 +24,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use base::SoundPlayer;
+use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -238,9 +239,18 @@ impl MainPanel {
     }
 
     fn invalidate_version_text(&self) {
+        use std::fmt::Write;
+        let mut text = format!("ReaLearn {}", App::detailed_version_label());
+        if cfg!(debug_assertions) {
+            let _ = write!(
+                &mut text,
+                " | Undesired allocations: {}",
+                undesired_allocation_count()
+            );
+        }
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
-            .set_text(format!("ReaLearn {}", App::detailed_version_label()));
+            .set_text(text);
     }
 
     fn invalidate_all_controls(&self) {
@@ -323,6 +333,14 @@ impl MainPanel {
             data.header_panel.handle_affected(&affected, initiator);
         }
         self.handle_affected_own(affected);
+    }
+
+    fn handle_info_event(self: SharedView<Self>, event: &InfoEvent) {
+        match event {
+            InfoEvent::UndesiredAllocationCountChanged => {
+                self.invalidate_version_text();
+            }
+        }
     }
 
     fn handle_affected_own(self: SharedView<Self>, affected: Affected<SessionProp>) {
@@ -563,6 +581,10 @@ impl SessionUi for Weak<MainPanel> {
         }
         // Update primary GUI
         upgrade_panel(self).handle_affected(affected, initiator);
+    }
+
+    fn handle_info_event(&self, event: &InfoEvent) {
+        upgrade_panel(self).handle_info_event(event);
     }
 }
 

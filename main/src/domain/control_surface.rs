@@ -64,6 +64,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     reaper_config_change_detector: ReaperConfigChangeDetector,
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
+    last_undesired_allocation_count: u32,
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -214,11 +215,24 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             reaper_config_change_detector: Default::default(),
             control_surface_event_sender,
             control_surface_event_receiver,
+            last_undesired_allocation_count: 0,
         }
     }
 
     fn run_internal(&mut self) {
         let timestamp = ControlEventTimestamp::now();
+        #[cfg(debug_assertions)]
+        {
+            let current_undesired_allocation_count =
+                helgoboss_allocator::undesired_allocation_count();
+            if current_undesired_allocation_count != self.last_undesired_allocation_count {
+                self.last_undesired_allocation_count = current_undesired_allocation_count;
+                let event = &crate::domain::InfoEvent::UndesiredAllocationCountChanged;
+                for p in self.main_processors.borrow_mut().iter_mut() {
+                    p.process_info_event(event);
+                }
+            }
+        }
         // Poll for change events that don't support notification. At the moment we execute this
         // only once per run() invocation to save resources. As a consequence, we can't detect
         // whether the changes were caused by ReaLearn targets or direct interaction with REAPER

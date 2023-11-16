@@ -2302,6 +2302,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glidesort"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2e102e6eb644d3e0b186fc161e4460417880a0a0b87d235f2e5b8fb30f2e9e0"
+
+[[package]]
 name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4032,6 +4038,7 @@ dependencies = [
  "envcrypt",
  "erased-serde",
  "futures",
+ "glidesort",
  "helgoboss-allocator",
  "helgoboss-learn",
  "helgoboss-license-api",

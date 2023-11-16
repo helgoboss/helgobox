@@ -12,14 +12,14 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, InstanceState,
-    LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
-    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SharedInstanceState, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
-    TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
-    VirtualSourceValue,
+    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceContainer, InstanceId,
+    InstanceState, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey,
+    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
+    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
+    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId,
+    VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -71,6 +71,7 @@ pub trait SessionUi {
     );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn target_controlled(&self, event: TargetControlEvent);
+    fn handle_info_event(&self, event: &InfoEvent);
     fn handle_affected(
         &self,
         session: &Session,
@@ -2560,6 +2561,10 @@ impl DomainEventHandler for WeakSession {
         let session = self.upgrade().ok_or("session not existing anymore")?;
         use DomainEvent::*;
         match event {
+            Info(evt) => {
+                let s = session.try_borrow()?;
+                s.ui.handle_info_event(evt);
+            }
             ConditionsChanged => {
                 let s = session.try_borrow()?;
                 s.ui.conditions_changed()

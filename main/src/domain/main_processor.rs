@@ -7,18 +7,18 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
     FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
-    HitInstructionContext, HitInstructionResponse, InstanceContainer, InstanceOrchestrationEvent,
-    InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
-    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
-    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
-    QualifiedSource, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
-    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceContainer,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
+    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
+    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
+    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    QualifiedMappingId, QualifiedSource, RawParamValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
+    ReaperTarget, SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetControlEvent, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -1800,6 +1800,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn wants_osc_from(&self, device_id: &OscDeviceId) -> bool {
         self.wants_messages_in_general()
             && self.basics.settings.control_input == ControlInput::Osc(*device_id)
+    }
+
+    pub fn process_info_event(&mut self, evt: &InfoEvent) {
+        self.basics
+            .event_handler
+            .handle_event_ignoring_error(DomainEvent::Info(evt));
     }
 
     pub fn process_reaper_message(&mut self, evt: ControlEvent<&ReaperMessage>) {

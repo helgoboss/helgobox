@@ -278,6 +278,8 @@ impl RealTimeProcessor {
                         );
                     }
                     // Clear existing mappings (without deallocating)
+                    // TODO-high-ms2 If there's a mapping with a FlexibleMidiSourceScript and this
+                    //  contains Lua code, the Lua Drop handler allocates! (lua.rs line 1739)
                     self.mappings[compartment].clear();
                     // Set new mappings
                     self.mappings[compartment].extend(mappings.into_iter().map(|m| (m.id(), m)));

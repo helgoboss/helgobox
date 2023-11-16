@@ -1,5 +1,5 @@
 use crate::domain::{
-    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, MappingId,
+    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, InfoEvent, MappingId,
     MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
     QualifiedMappingId, RawParamValue,
 };
@@ -22,6 +22,7 @@ pub enum DomainEvent<'a> {
     },
     UpdatedAllParameters(PluginParams),
     TargetValueChanged(TargetValueChangedEvent<'a>),
+    Info(&'a InfoEvent),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
     TargetControlled(TargetControlEvent),

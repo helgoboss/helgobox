@@ -8,6 +8,7 @@
 //!   good testability but also nice otherwise as long as set_alloc_error_hook() is still unstable)
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TrySendError};
 use std::sync::{mpsc, OnceLock};
 use std::thread;
@@ -17,6 +18,12 @@ use std::thread::JoinHandle;
 thread_local! {
     static ALLOC_FORBID_COUNT: Cell<u32> = Cell::new(0);
     static ALLOC_PERMIT_COUNT: Cell<u32> = Cell::new(0);
+}
+
+static UNDESIRED_ALLOCATION_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+pub fn undesired_allocation_count() -> u32 {
+    UNDESIRED_ALLOCATION_COUNTER.load(Ordering::Relaxed)
 }
 
 #[cfg(not(debug_assertions))]
@@ -196,10 +203,11 @@ impl<I, D> HelgobossAllocator<I, D> {
         let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
         let permit_count = ALLOC_PERMIT_COUNT.with(|p| p.get());
         if forbid_count > 0 && permit_count == 0 {
-            // Comment out if you want to ignore it TODO-high
+            UNDESIRED_ALLOCATION_COUNTER.fetch_add(1, Ordering::Relaxed);
+            // Comment out if you want to ignore it
             permit_alloc(|| {
                 eprintln!(
-                    "Memory allocation of {} bytes failed from:\n{:?}",
+                    "Undesired memory allocation of {} bytes from:\n{:?}",
                     layout.size(),
                     backtrace::Backtrace::new()
                 );

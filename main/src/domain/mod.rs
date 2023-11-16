@@ -140,3 +140,6 @@ pub use control_event::*;
 
 mod lua_support;
 pub use lua_support::*;
+
+mod info_event;
+pub use info_event::*;
