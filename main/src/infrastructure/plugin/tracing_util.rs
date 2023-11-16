@@ -75,12 +75,6 @@ struct AsyncWriter<W> {
     data: Vec<u8>,
 }
 
-impl<W> Drop for AsyncWriter<W> {
-    fn drop(&mut self) {
-        println!("Dropping AsyncWriter...");
-    }
-}
-
 enum AsyncLoggerCommand {
     Finish,
     Log(Vec<u8>),
@@ -106,7 +100,6 @@ fn keep_logging(receiver: Receiver<AsyncLoggerCommand>, mut inner: impl Write) {
             }
         }
     }
-    println!("Async logging finished");
 }
 
 impl<W: Write> Write for AsyncWriter<W> {

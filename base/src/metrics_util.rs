@@ -132,5 +132,4 @@ fn keep_recording_metrics(receiver: Receiver<MetricsRecorderCommand>) {
             }
         }
     }
-    println!("Recording metrics finished");
 }

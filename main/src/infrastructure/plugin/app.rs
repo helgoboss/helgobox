@@ -1673,7 +1673,6 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        println!("Dropping App...");
         self.message_panel.close();
         self.party_is_over_subject.next(());
     }

@@ -103,12 +103,6 @@ struct AsyncDeallocationMachine<I> {
     integration: I,
 }
 
-impl<I, D> Drop for HelgobossAllocator<I, D> {
-    fn drop(&mut self) {
-        println!("Dropping HelgobossAllocator...");
-    }
-}
-
 #[derive(Debug)]
 pub struct AsyncDeallocatorCommandReceiver(Receiver<AsyncDeallocatorCommand>);
 
@@ -152,12 +146,10 @@ pub fn start_async_deallocation_thread(
                         deallocator.deallocate(ptr, layout);
                     }
                     AsyncDeallocatorCommand::DeallocateForeign { value, deallocate } => {
-                        println!("Deallocating foreign value async");
                         unsafe { deallocate(value) };
                     }
                 }
             }
-            println!("Async deallocation finished. Returning receiver.");
             receiver
         })
         .unwrap()
@@ -211,7 +203,6 @@ where
         self.dealloc_internal(
             || self.check(None),
             || unsafe {
-                println!("Deallocating foreign value sync");
                 deallocate(value);
             },
             || AsyncDeallocatorCommand::DeallocateForeign { value, deallocate },
