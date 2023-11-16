@@ -2,7 +2,7 @@ use crate::domain::{EelMidiSourceScript, LuaMidiSourceScript};
 use helgoboss_learn::{FeedbackValue, MidiSourceScript, MidiSourceScriptOutcome};
 use std::borrow::Cow;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum FlexibleMidiSourceScript<'a> {
     Eel(EelMidiSourceScript),
     Lua(LuaMidiSourceScript<'a>),

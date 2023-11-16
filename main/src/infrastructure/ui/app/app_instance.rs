@@ -8,7 +8,6 @@ use playtime_clip_engine::proto::{
     event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
 };
 use prost::Message;
-use reaper_low::raw;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;

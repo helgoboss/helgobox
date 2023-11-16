@@ -9,6 +9,7 @@ use helgoboss_learn::{
 };
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
+use crate::base::CloneAsDefault;
 use realearn_api::persistence::FeedbackValueTable;
 use std::time::Duration;
 
@@ -644,7 +645,9 @@ impl ModeModel {
                 FeedbackType::Dynamic => {
                     let lua = unsafe { BackboneState::main_thread_lua() };
                     match LuaFeedbackScript::compile(lua, &self.textual_feedback_expression) {
-                        Ok(script) => FeedbackProcessor::Dynamic { script },
+                        Ok(script) => FeedbackProcessor::Dynamic {
+                            script: CloneAsDefault::new(Some(script)),
+                        },
                         Err(_) => FeedbackProcessor::Text {
                             expression: " ".to_string(),
                         },

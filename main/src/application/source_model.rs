@@ -1,6 +1,7 @@
 use crate::application::{
     Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
+use crate::base::CloneAsDefault;
 use crate::domain::{
     BackboneState, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
@@ -632,19 +633,19 @@ impl SourceModel {
                     },
                     Script => MidiSource::Script {
                         script: {
-                            match self.midi_script_kind {
-                                MidiScriptKind::Eel => {
-                                    EelMidiSourceScript::compile(&self.midi_script)
-                                        .ok()
-                                        .map(FlexibleMidiSourceScript::Eel)
-                                }
+                            let script = match self.midi_script_kind {
+                                MidiScriptKind::Eel => FlexibleMidiSourceScript::Eel(
+                                    EelMidiSourceScript::compile(&self.midi_script).ok()?,
+                                ),
                                 MidiScriptKind::Lua => {
                                     let lua = unsafe { BackboneState::main_thread_lua() };
-                                    LuaMidiSourceScript::compile(lua, &self.midi_script)
-                                        .ok()
-                                        .map(FlexibleMidiSourceScript::Lua)
+                                    FlexibleMidiSourceScript::Lua(
+                                        LuaMidiSourceScript::compile(lua, &self.midi_script)
+                                            .ok()?,
+                                    )
                                 }
-                            }
+                            };
+                            CloneAsDefault::new(Some(script))
                         },
                     },
                     Display => MidiSource::Display {

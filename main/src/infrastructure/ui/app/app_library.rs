@@ -1,6 +1,6 @@
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
-use crate::infrastructure::ui::{AppCallback, AppPanel, SharedAppInstance};
+use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
@@ -20,7 +20,7 @@ use std::ffi::{c_char, c_void, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
-use swell_ui::{SharedView, Window};
+use swell_ui::Window;
 use tonic::Status;
 
 #[derive(Debug)]

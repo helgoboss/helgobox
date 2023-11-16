@@ -132,6 +132,8 @@ impl Variable {
 impl Drop for Vm {
     fn drop(&mut self) {
         unsafe {
+            // TODO-high-ms2 Oh oh. Just realizing that this kind of deallocation is not covered
+            //  by our automatic deferred Rust deallocation. Look into it.
             root::NSEEL_VM_free(self.vm_ctx);
         }
     }

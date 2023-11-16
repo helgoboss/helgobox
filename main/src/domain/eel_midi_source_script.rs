@@ -5,8 +5,6 @@ use helgoboss_learn::{
 };
 use std::borrow::Cow;
 
-use std::sync::Arc;
-
 #[derive(Debug)]
 struct EelUnit {
     // Declared above VM in order to be dropped before VM is dropped.
@@ -17,10 +15,10 @@ struct EelUnit {
     address: eel::Variable,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct EelMidiSourceScript {
     // Arc because EelUnit is not cloneable
-    eel_unit: Arc<EelUnit>,
+    eel_unit: EelUnit,
 }
 
 impl EelMidiSourceScript {
@@ -40,9 +38,7 @@ impl EelMidiSourceScript {
             msg_size,
             address,
         };
-        Ok(Self {
-            eel_unit: Arc::new(eel_unit),
-        })
+        Ok(Self { eel_unit })
     }
 }
 

@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::error::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct LuaFeedbackScript<'lua> {
     lua: &'lua SafeLua,
     function: Function<'lua>,

@@ -7,7 +7,7 @@ use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
 use std::borrow::Cow;
 use std::error::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct LuaMidiSourceScript<'lua> {
     lua: &'lua SafeLua,
     function: Function<'lua>,

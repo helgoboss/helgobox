@@ -15,3 +15,6 @@ pub mod notification;
 pub mod eel;
 
 pub mod bindings;
+
+mod clone_as_default;
+pub use clone_as_default::*;

@@ -1,6 +1,4 @@
-use crate::infrastructure::ui::{
-    AppInstance, MainPanel, MappingPanel, SessionMessagePanel, SharedAppInstance,
-};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel, SharedAppInstance};
 use reaper_high::Reaper;
 use slog::debug;
 
