@@ -359,6 +359,8 @@ impl MainMapping {
         self.tags.iter().any(|t| tags.contains(t))
     }
 
+    // TODO-high-ms2 The source clone here will not be a complete clone since commit b0074b26!
+    //  Don't clone the source!
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
@@ -396,7 +398,7 @@ impl MainMapping {
                     target_is_active: self.target_is_effectively_active(),
                     ..self.core.options
                 },
-                ..self.core.clone()
+                ..self.core.splinter_real_time_core()
             },
             is_active: self.is_active_in_terms_of_activation_state(),
             target_category: self.unresolved_target.as_ref().map(|t| match t {
@@ -1512,6 +1514,13 @@ pub struct MappingCore {
 }
 
 impl MappingCore {
+    pub fn splinter_real_time_core(&self) -> Self {
+        // This clone is special. Some compiled feedback scripts deep inside the object graph (in
+        // source and mode, in particular) will not really be cloned because the real-time
+        // processor will not use them anyway! Look up `CloneAsDefault`.
+        self.clone()
+    }
+
     pub fn invocation_count(&self) -> u32 {
         self.invocation_count
     }
