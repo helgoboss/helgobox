@@ -29,7 +29,10 @@ pub trait AppInstance: Debug {
     fn notify_app_is_ready(&mut self, callback: AppCallback);
 }
 
-pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
+pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
+    fn share(value: impl AppInstance + 'static) -> SharedAppInstance {
+        Rc::new(RefCell::new(value))
+    }
     // I was experimenting with 2 different ways of embedding the app GUI into REAPER:
     //
     // - Parented mode: We create a new SWELL window on ReaLearn side (HWND on Windows, NSView on
@@ -44,17 +47,15 @@ pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
     // 3. We stop sending events when the app window is hidden, not wasting resources when the
     //    app is not shown anyway. (However, with just a bit more effort, we could implement this
     //    for standalone mode as well.)
-    #[cfg(target_os = "windows")]
-    {
+    if cfg!(target_os = "windows") {
         // On Windows, parented mode works wonderfully. It needs some tricks (see View
         // implementation) but it's worth it. That's why we use parented mode on Windows.
         let app_panel = AppPanel::new(session);
-        ParentedAppInstance {
+        let instance = ParentedAppInstance {
             panel: SharedView::new(app_panel),
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
+        };
+        share(instance)
+    } else if cfg!(target_os = "macos") {
         // On macOS, parented mode is possible only by using Cocoa child windows (see app side
         // embedding docs). This means that the app doesn't really render itself in the NSView
         // provided by ReaLearn but places an NSWindow on top of the NSWindow provided by ReaLearn.
@@ -64,10 +65,13 @@ pub fn create_app_instance(session: WeakSession) -> impl AppInstance {
         // This could be solved on app side by navigating up the child/parent window chain, but
         // it's not something I want to do now as long as we don't support docking anyway.
         // Therefore: Standalone mode on macOS!
-        StandaloneAppInstance {
+        let instance = StandaloneAppInstance {
             session,
             running_state: None,
-        }
+        };
+        share(instance)
+    } else {
+        panic!("OS not supported yet");
     }
 }
 

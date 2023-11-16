@@ -38,28 +38,25 @@ impl Drop for AppLibrary {
 
 impl AppLibrary {
     pub fn load(app_base_dir: PathBuf) -> Result<Self> {
-        let (main_library, dependencies) = {
-            #[cfg(target_os = "windows")]
-            {
-                (
-                    "playtime.dll",
-                    [
-                        // Important: This must be the first. Because below plug-in libraries
-                        // depend on it.
-                        "flutter_windows.dll",
-                        // The rest can have an arbitrary order.
-                        "desktop_drop_plugin.dll",
-                        "native_context_menu_plugin.dll",
-                        "screen_retriever_plugin.dll",
-                        "url_launcher_windows_plugin.dll",
-                        "window_manager_plugin.dll",
-                        "pointer_lock_plugin.dll",
-                    ],
-                )
-            }
-            #[cfg(target_os = "macos")]
-            {
-                (
+        let (main_library, dependencies) = if cfg!(target_os = "windows") {
+            (
+                "playtime.dll",
+                [
+                    // Important: This must be the first. Because below plug-in libraries
+                    // depend on it.
+                    "flutter_windows.dll",
+                    // The rest can have an arbitrary order.
+                    "desktop_drop_plugin.dll",
+                    "native_context_menu_plugin.dll",
+                    "screen_retriever_plugin.dll",
+                    "url_launcher_windows_plugin.dll",
+                    "window_manager_plugin.dll",
+                    "pointer_lock_plugin.dll",
+                ]
+                .as_slice(),
+            )
+        } else if cfg!(target_os = "macos") {
+            (
                     "Contents/MacOS/playtime",
                     [
                         // Important: This must be the first. Because below plug-in libraries
@@ -74,19 +71,18 @@ impl AppLibrary {
                         "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
                         "Contents/Frameworks/window_manager.framework/window_manager",
                         "Contents/Frameworks/pointer_lock.framework/pointer_lock",
-                    ],
+                    ].as_slice(),
                 )
-            }
-            #[cfg(target_os = "linux")]
-            {
-                (
-                    "playtime.so",
-                    ["flutter_linux.so", "url_launcher_linux_plugin.so"],
-                )
-            }
+        } else if cfg!(target_os = "linux") {
+            (
+                "playtime.so",
+                ["flutter_linux.so", "url_launcher_linux_plugin.so"].as_slice(),
+            )
+        } else {
+            bail!("OS not supported");
         };
         let loaded_dependencies: Result<Vec<Library>> = dependencies
-            .into_iter()
+            .iter()
             .map(|dep| load_library(&app_base_dir.join(dep)))
             .collect();
         let library = AppLibrary {

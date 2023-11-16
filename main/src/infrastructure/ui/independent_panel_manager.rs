@@ -29,9 +29,7 @@ impl IndependentPanelManager {
             main_panel,
             mapping_panels: Default::default(),
             #[cfg(feature = "playtime")]
-            app_instance: std::rc::Rc::new(std::cell::RefCell::new(
-                crate::infrastructure::ui::create_app_instance(session.clone()),
-            )),
+            app_instance: crate::infrastructure::ui::create_shared_app_instance(session.clone()),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
     }
