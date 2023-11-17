@@ -242,11 +242,7 @@ impl MainPanel {
         use std::fmt::Write;
         let mut text = format!("ReaLearn {}", App::detailed_version_label());
         if cfg!(debug_assertions) {
-            let _ = write!(
-                &mut text,
-                " | Undesired allocations: {}",
-                undesired_allocation_count()
-            );
+            let _ = write!(&mut text, " | rt-allocs: {}", undesired_allocation_count());
         }
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
