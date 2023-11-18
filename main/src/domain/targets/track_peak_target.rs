@@ -6,6 +6,7 @@ use crate::domain::{
     FeedbackResolution, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::peak_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track, Volume};
 use reaper_medium::{ReaperVolumeValue, SoloMode, TrackAttributeKey};
@@ -60,31 +61,15 @@ impl<'a> Target<'a> for TrackPeakTarget {
 
 impl TrackPeakTarget {
     fn peak(&self) -> Option<Volume> {
-        let reaper = Reaper::get().medium_reaper();
-        if self.track.project().any_solo() && self.track.solo_mode() == SoloMode::Off {
-            // Another track is soloed. In this case, reporting the peak would be misleading.
+        if peak_util::peaks_should_be_hidden(&self.track) {
             return Some(Volume::MIN);
         }
-        let vu_mode = unsafe {
-            reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::VuMode) as i32
-        };
-        let channel_count = if matches!(vu_mode, 2 | 8) {
-            // These VU modes have multi-channel support.
-            unsafe {
-                reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
-            }
-        } else {
-            // Other VU modes always use stereo.
-            2
-        };
-        if channel_count <= 0 {
+        let peaks = peak_util::get_track_peaks(self.track.raw());
+        let channel_count = peaks.len();
+        if channel_count == 0 {
             return None;
         }
-        let mut sum = 0.0;
-        for ch in 0..channel_count {
-            let volume = unsafe { reaper.track_get_peak_info(self.track.raw(), ch as u32) };
-            sum += volume.get();
-        }
+        let sum: f64 = peaks.map(|v| v.get()).sum();
         let avg = sum / channel_count as f64;
         let vol = ReaperVolumeValue::new(avg);
         Some(Volume::from_reaper_value(vol))
