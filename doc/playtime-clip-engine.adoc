@@ -318,7 +318,7 @@ NOTE: This is a work-in-progress feature list of the Clip Engine. Not very polis
 * Display things like the clip play state, whether it's looped or not or real-time position within the clip.
 - This also includes text feedback to hardware displays.
 
-=== Rollback to previous clip
+=== [.line-through]#Rollback to previous clip#
 
 * When cancelling recording on an already filled clip slot, the previous clip is restored.
 
@@ -386,7 +386,7 @@ NOTE: This is a work-in-progress feature list of the Clip Engine. Not very polis
 
 Supported MIDI data modes for playback:
 
-* External MIDI files
+* External MIDI files (can be imported but will be converted to in-matrix clips, the reference will not be kept)
 * In-matrix clips
 ** Means that MIDI data of the clip is embedded in the clip matrix instance itself.
 

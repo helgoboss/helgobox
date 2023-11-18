@@ -8,8 +8,8 @@ use crate::domain::{
 };
 use base::peak_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
-use reaper_high::{Project, Reaper, Track, Volume};
-use reaper_medium::{ReaperVolumeValue, SoloMode, TrackAttributeKey};
+use reaper_high::{Project, Track, Volume};
+use reaper_medium::ReaperVolumeValue;
 use std::borrow::Cow;
 
 #[derive(Debug)]
