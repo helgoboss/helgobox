@@ -48,11 +48,18 @@ pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
     //    app is not shown anyway. (However, with just a bit more effort, we could implement this
     //    for standalone mode as well.)
     if cfg!(target_os = "windows") {
-        // On Windows, parented mode works wonderfully. It needs some tricks (see View
-        // implementation) but it's worth it. That's why we use parented mode on Windows.
-        let app_panel = AppPanel::new(session);
-        let instance = ParentedAppInstance {
-            panel: SharedView::new(app_panel),
+        // On Windows, parented mode works in general. With a few tricks (see AppPanel View
+        // implementation). However, I had issues completely removing the window title bar, maybe
+        // because SWELL windows are dialog windows and they work differently? Anyway, this was
+        // the reason that I switched to a standalone window.
+        // let app_panel = AppPanel::new(session);
+        // let instance = ParentedAppInstance {
+        //     panel: SharedView::new(app_panel),
+        // };
+        // share(instance)
+        let instance = StandaloneAppInstance {
+            session,
+            running_state: None,
         };
         share(instance)
     } else if cfg!(target_os = "macos") {
@@ -161,7 +168,6 @@ impl AppInstance for StandaloneAppInstance {
         }
         let session_id = extract_session_id(&self.session)?;
         let app_handle = app_library.start_app_instance(None, session_id)?;
-        app_library.show_app_instance(None, app_handle)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
