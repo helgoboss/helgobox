@@ -91,11 +91,8 @@ impl AppLibrary {
 
     fn verify_version_compatibility(&self) -> Result<()> {
         let version = self.get_app_api_version()?;
-        if version < MIN_APP_API_VERSION {
-            bail!("App API version too low. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
-        }
-        if version.major > MIN_APP_API_VERSION.major {
-            bail!("App API version too high. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
+        if version < MIN_APP_API_VERSION || version.major > MIN_APP_API_VERSION.major {
+            bail!("App API version doesn't match. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
         }
         Ok(())
     }
@@ -106,7 +103,7 @@ impl AppLibrary {
             let get_app_version: Symbol<GetAppApiVersion> = self
                 .main_library
                 .get(b"get_app_api_version\0")
-                .map_err(|_| anyhow!("failed to load get_api_version function"))?;
+                .map_err(|_| anyhow!("Failed to load get_api_version function"))?;
             get_app_version(buf.as_mut_ptr() as *mut c_char, buf.len());
             CStr::from_bytes_until_nul(&buf)?.to_str()?
         };
@@ -371,6 +368,12 @@ fn process_query_request(matrix_id: String, id: u32, query: proto::query::Value)
                 Ok(query_result::Value::GetProjectDirReply(value))
             });
         }
+        GetHostInfo(req) => {
+            send_query_reply_to_app(matrix_id, id, async move {
+                let value = handler.get_host_info(req).await?.into_inner();
+                Ok(query_result::Value::GetHostInfoReply(value))
+            });
+        }
     }
     Ok(())
 }
@@ -556,5 +559,5 @@ fn to_status(err: anyhow::Error) -> Status {
 }
 
 /// The minimum version of the app API that the host (ReaLearn) requires to properly
-/// communicates with it.
+/// communicates with it. Keep this up-to-date!
 pub const MIN_APP_API_VERSION: Version = Version::new(1, 0, 0);

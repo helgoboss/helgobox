@@ -318,6 +318,9 @@ Some SVGs embedded in the architecture documentation are generated via link:http
 
 This serves mainly as checklist for ReaLearn's author.
 
+. Take care of app versioning
+** Host repository: Adjust `HOST_API_VERSION` and `MIN_APP_API_VERSION`
+** App repository: Adjust `appApiVersion` (macOS, Swift), `APP_API_VERSION` (Windows, C++) and `_minHostApiVersionString` (Dart)
 . Bump up the version number in link:main/Cargo.toml[main/Cargo.toml].
 ** Either to a prerelease (e.g. `2.0.0-pre1`) or a final release (e.g. `2.0.0`).
 ** This is important for having the correct version number displayed in ReaLearn UI.
