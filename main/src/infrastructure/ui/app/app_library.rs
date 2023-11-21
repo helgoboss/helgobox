@@ -35,7 +35,7 @@ impl AppLibrary {
     pub fn load(app_base_dir: PathBuf) -> Result<Self> {
         let (main_library, dependencies) = if cfg!(target_os = "windows") {
             (
-                "playtime.dll",
+                "helgobox.dll",
                 [
                     // Important: This must be the first. Because below plug-in libraries
                     // depend on it.
@@ -52,7 +52,7 @@ impl AppLibrary {
             )
         } else if cfg!(target_os = "macos") {
             (
-                    "Contents/MacOS/playtime",
+                    "Contents/MacOS/helgobox",
                     [
                         // Important: This must be the first. Because below plug-in libraries
                         // depend on it.
@@ -70,7 +70,7 @@ impl AppLibrary {
                 )
         } else if cfg!(target_os = "linux") {
             (
-                "playtime.so",
+                "helgobox.so",
                 ["flutter_linux.so", "url_launcher_linux_plugin.so"].as_slice(),
             )
         } else {

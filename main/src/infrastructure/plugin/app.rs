@@ -879,7 +879,7 @@ impl App {
     pub fn app_archive_file_path() -> PathBuf {
         Reaper::get()
             .resource_path()
-            .join("Data/helgoboss/archives/app.tar.zst")
+            .join("Data/helgoboss/archives/helgobox-app.tar.zst")
     }
 
     pub fn realearn_high_click_sound_path() -> Option<&'static Path> {
