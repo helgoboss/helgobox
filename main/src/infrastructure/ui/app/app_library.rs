@@ -15,8 +15,9 @@ use playtime_clip_engine::proto::{
 use prost::Message;
 use reaper_high::Reaper;
 use reaper_low::raw::HWND;
+use semver::Version;
 use std::env;
-use std::ffi::{c_char, c_void, CString};
+use std::ffi::{c_char, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
@@ -84,7 +85,33 @@ impl AppLibrary {
             app_base_dir,
             _dependencies: loaded_dependencies?,
         };
+        library.verify_version_compatibility()?;
         Ok(library)
+    }
+
+    fn verify_version_compatibility(&self) -> Result<()> {
+        let version = self.get_app_api_version()?;
+        if version < MIN_APP_API_VERSION {
+            bail!("App API version too low. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
+        }
+        if version.major > MIN_APP_API_VERSION.major {
+            bail!("App API version too high. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
+        }
+        Ok(())
+    }
+
+    fn get_app_api_version(&self) -> Result<Version> {
+        let mut buf = [0; 32];
+        let version_str = unsafe {
+            let get_app_version: Symbol<GetAppApiVersion> = self
+                .main_library
+                .get(b"get_app_api_version\0")
+                .map_err(|_| anyhow!("failed to load get_api_version function"))?;
+            get_app_version(buf.as_mut_ptr() as *mut c_char, buf.len());
+            CStr::from_bytes_until_nul(&buf)?.to_str()?
+        };
+        let version = Version::parse(version_str)?;
+        Ok(version)
     }
 
     pub fn start_app_instance(
@@ -214,7 +241,17 @@ fn process_request(matrix_id: String, request_value: request::Value) -> Result<(
 
 pub type AppHandle = NonNull<c_void>;
 
-/// Signature of the function that we use to start an app instance.
+/// Signature of the function that we use to query the version of the app API.
+///
+/// This is not the official version off the app, just the semantic version that affects how
+/// the host can talk to the app. The general idea is:
+///
+/// 1. Host (ReaLearn) queries this app API version number (before doing anything else).
+/// 2. Host checks if that version number matches his expectations (semantic versioning semantics).
+/// 3. Host refuses to load the app if the expectations are not matched.
+type GetAppApiVersion = unsafe extern "C" fn(version: *mut c_char, buf_size: usize);
+
+/// Signature of the function that we use to start an app instance and show it for the first time.
 ///
 /// # Arguments
 ///
@@ -517,3 +554,7 @@ fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
 fn to_status(err: anyhow::Error) -> Status {
     Status::unknown(err.to_string())
 }
+
+/// The minimum version of the app API that the host (ReaLearn) requires to properly
+/// communicates with it.
+pub const MIN_APP_API_VERSION: Version = Version::new(1, 0, 0);
