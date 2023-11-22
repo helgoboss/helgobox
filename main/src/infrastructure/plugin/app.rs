@@ -126,8 +126,6 @@ pub struct App {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
-    app_decompression_result: RefCell<Option<Result<(), String>>>,
-    #[cfg(feature = "playtime")]
     app_library: std::cell::OnceCell<anyhow::Result<crate::infrastructure::ui::AppLibrary>>,
     #[cfg(feature = "playtime")]
     clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
@@ -288,14 +286,14 @@ impl App {
         );
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
-        // Silently decompress app so it's immediately available when needed (async)
+        // Silently decompress app and load library in background so it's ready when needed
         #[cfg(feature = "playtime")]
         let _ = std::thread::Builder::new()
-            .name("Decompress Helgobox app".to_string())
+            .name("Helgobox app loader".to_string())
             .spawn(|| {
-                let result = decompress_app().map_err(|e| e.to_string());
+                let result = decompress_app().and_then(|_| load_app_library());
                 let _ = Global::task_support().do_later_in_main_thread_asap(|| {
-                    *App::get().app_decompression_result.borrow_mut() = Some(result);
+                    let _ = App::get().app_library.set(result);
                 });
             });
         // REAPER registers/unregisters actions automatically depending on presence of plug-in
@@ -330,8 +328,6 @@ impl App {
             instances_changed_subject: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
-            #[cfg(feature = "playtime")]
-            app_decompression_result: Default::default(),
             #[cfg(feature = "playtime")]
             app_library: std::cell::OnceCell::new(),
             #[cfg(feature = "playtime")]
@@ -951,27 +947,14 @@ impl App {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn get_or_load_app_library(
-        &self,
-    ) -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
-        let result = match App::get().app_library.get() {
-            None => {
-                // Check if decompression was successful
-                let decompression_result = self.app_decompression_result.borrow();
-                match decompression_result.as_ref() {
-                    None => bail!("App is not decompressed yet"),
-                    Some(Err(e)) => bail!("App decompression failed: {e}"),
-                    _ => {}
-                }
-                // Load library
-                App::get()
-                    .app_library
-                    .get_or_init(load_app_library)
-                    .as_ref()
-            }
-            Some(l) => l.as_ref(),
-        };
-        result.map_err(|e| anyhow::anyhow!(format!("{e:?}")))
+    pub fn get_app_library() -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
+        use anyhow::Context;
+        let app_library = App::get()
+            .app_library
+            .get()
+            .context("App not loaded yet. Please try again later.")?
+            .as_ref();
+        app_library.map_err(|e| anyhow::anyhow!(format!("{e:?}")))
     }
 
     pub fn has_session(&self, session_id: &str) -> bool {
@@ -2041,8 +2024,18 @@ impl RealearnWindowSnitch for RealearnSnitch {
 
 #[cfg(feature = "playtime")]
 fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
+    tracing::info!("Loading app library...");
     let app_base_dir = App::app_base_dir_path();
-    crate::infrastructure::ui::AppLibrary::load(app_base_dir)
+    let lib = crate::infrastructure::ui::AppLibrary::load(app_base_dir);
+    match lib.as_ref() {
+        Ok(_) => {
+            tracing::info!("App library loaded successfully");
+        }
+        Err(e) => {
+            tracing::warn!("App library loading failed: {e}");
+        }
+    }
+    lib
 }
 
 #[cfg(feature = "playtime")]
@@ -2065,6 +2058,6 @@ fn decompress_app() -> anyhow::Result<()> {
     archive
         .unpack(destination_dir)
         .context("Couldn't unpack app archive.")?;
-    tracing::info!("App successfully decompressed");
+    tracing::info!("App decompressed successfully");
     Ok(())
 }
