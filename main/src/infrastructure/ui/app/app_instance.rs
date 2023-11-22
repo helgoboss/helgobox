@@ -111,7 +111,7 @@ impl AppInstance for ParentedAppInstance {
             return Ok(());
         }
         // Fail fast if library not available
-        App::get_or_load_app_library()?;
+        App::get().get_or_load_app_library()?;
         // Then open. This actually only opens the SWELL window. The real stuff is done
         // in the "opened" handler of the SWELL window.
         self.panel.clone().open(owning_window);
@@ -161,7 +161,7 @@ impl AppInstance for StandaloneAppInstance {
     }
 
     fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
-        let app_library = App::get_or_load_app_library()?;
+        let app_library = App::get().get_or_load_app_library()?;
         if let Some(running_state) = &self.running_state {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
             return Ok(());
@@ -296,7 +296,7 @@ impl AppPanel {
 
     fn open_internal(&self, window: Window) -> Result<()> {
         window.set_text("Playtime");
-        let app_library = App::get_or_load_app_library()?;
+        let app_library = App::get().get_or_load_app_library()?;
         let session_id = extract_session_id(&self.session)?;
         let app_handle = app_library.start_app_instance(Some(window), session_id)?;
         let running_state = ParentedAppRunningState {
@@ -328,7 +328,9 @@ impl CommonAppRunningState {
     }
 
     pub fn stop(&self, window: Option<Window>) -> Result<()> {
-        App::get_or_load_app_library()?.stop_app_instance(window, self.app_handle)
+        App::get()
+            .get_or_load_app_library()?
+            .stop_app_instance(window, self.app_handle)
     }
 }
 

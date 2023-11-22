@@ -126,6 +126,8 @@ pub struct App {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
+    app_decompression_result: RefCell<Option<Result<(), String>>>,
+    #[cfg(feature = "playtime")]
     app_library: std::cell::OnceCell<anyhow::Result<crate::infrastructure::ui::AppLibrary>>,
     #[cfg(feature = "playtime")]
     clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
@@ -286,6 +288,16 @@ impl App {
         );
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
+        // Silently decompress app so it's immediately available when needed (async)
+        #[cfg(feature = "playtime")]
+        let _ = std::thread::Builder::new()
+            .name("Decompress Helgobox app".to_string())
+            .spawn(|| {
+                let result = decompress_app().map_err(|e| e.to_string());
+                let _ = Global::task_support().do_later_in_main_thread_asap(|| {
+                    *App::get().app_decompression_result.borrow_mut() = Some(result);
+                });
+            });
         // REAPER registers/unregisters actions automatically depending on presence of plug-in
         Self::register_actions(&control_surface_main_task_sender);
         let sleeping_state = SleepingState {
@@ -318,6 +330,8 @@ impl App {
             instances_changed_subject: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
+            #[cfg(feature = "playtime")]
+            app_decompression_result: Default::default(),
             #[cfg(feature = "playtime")]
             app_library: std::cell::OnceCell::new(),
             #[cfg(feature = "playtime")]
@@ -938,19 +952,26 @@ impl App {
 
     #[cfg(feature = "playtime")]
     pub fn get_or_load_app_library(
+        &self,
     ) -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
-        use crate::infrastructure::ui::AppLibrary;
-        fn load_app_library() -> anyhow::Result<AppLibrary> {
-            let app_archive_file = App::app_archive_file_path();
-            let app_base_dir = App::app_base_dir_path();
-            decompress_app(&app_archive_file, &app_base_dir)?;
-            AppLibrary::load(app_base_dir)
-        }
-        App::get()
-            .app_library
-            .get_or_init(load_app_library)
-            .as_ref()
-            .map_err(|e| anyhow::anyhow!(format!("{e:?}")))
+        let result = match App::get().app_library.get() {
+            None => {
+                // Check if decompression was successful
+                let decompression_result = self.app_decompression_result.borrow();
+                match decompression_result.as_ref() {
+                    None => bail!("App is not decompressed yet"),
+                    Some(Err(e)) => bail!("App decompression failed: {e}"),
+                    _ => {}
+                }
+                // Load library
+                App::get()
+                    .app_library
+                    .get_or_init(load_app_library)
+                    .as_ref()
+            }
+            Some(l) => l.as_ref(),
+        };
+        result.map_err(|e| anyhow::anyhow!(format!("{e:?}")))
     }
 
     pub fn has_session(&self, session_id: &str) -> bool {
@@ -2019,15 +2040,24 @@ impl RealearnWindowSnitch for RealearnSnitch {
 }
 
 #[cfg(feature = "playtime")]
-fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result<()> {
+fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
+    let app_base_dir = App::app_base_dir_path();
+    crate::infrastructure::ui::AppLibrary::load(app_base_dir)
+}
+
+#[cfg(feature = "playtime")]
+fn decompress_app() -> anyhow::Result<()> {
+    tracing::info!("Decompressing app...");
     use anyhow::Context;
+    let archive_file = &App::app_archive_file_path();
+    let destination_dir = &App::app_base_dir_path();
     let archive_file =
         fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
     let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
     let mut archive = tar::Archive::new(tar);
     if destination_dir.exists() {
         #[cfg(target_family = "windows")]
-        let context = "Couldn't clean up existing app directory. This can happen if you have \"Allow complete unload of VST plug-ins\" enabled in REAPER preferences => Plug-ins => VST. Turn this option off and restart REAPER before using the app.";
+            let context = "Couldn't clean up existing app directory. This can happen if you have \"Allow complete unload of VST plug-ins\" enabled in REAPER preferences => Plug-ins => VST. Turn this option off and restart REAPER before using the app.";
         #[cfg(target_family = "unix")]
         let context = "Couldn't remove existing app directory";
         fs::remove_dir_all(destination_dir).context(context)?;
@@ -2035,5 +2065,6 @@ fn decompress_app(archive_file: &Path, destination_dir: &Path) -> anyhow::Result
     archive
         .unpack(destination_dir)
         .context("Couldn't unpack app archive.")?;
+    tracing::info!("App successfully decompressed");
     Ok(())
 }
