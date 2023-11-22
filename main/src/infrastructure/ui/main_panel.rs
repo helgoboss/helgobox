@@ -216,6 +216,9 @@ impl MainPanel {
             if !control_and_feedback_state.feedback_active {
                 text.push_str(" | FEEDBACK off");
             }
+            if cfg!(debug_assertions) {
+                let _ = write!(&mut text, " | rt-allocs: {}", undesired_allocation_count());
+            }
             let label = self.view.require_control(root::ID_MAIN_PANEL_STATUS_2_TEXT);
             label.disable();
             label.set_text(text.as_str());
@@ -239,14 +242,9 @@ impl MainPanel {
     }
 
     fn invalidate_version_text(&self) {
-        use std::fmt::Write;
-        let mut text = format!("ReaLearn {}", App::detailed_version_label());
-        if cfg!(debug_assertions) {
-            let _ = write!(&mut text, " | rt-allocs: {}", undesired_allocation_count());
-        }
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
-            .set_text(text);
+            .set_text(format!("ReaLearn {}", App::detailed_version_label()));
     }
 
     fn invalidate_all_controls(&self) {
@@ -334,7 +332,7 @@ impl MainPanel {
     fn handle_info_event(self: SharedView<Self>, event: &InfoEvent) {
         match event {
             InfoEvent::UndesiredAllocationCountChanged => {
-                self.invalidate_version_text();
+                self.invalidate_status_2_text();
             }
         }
     }
