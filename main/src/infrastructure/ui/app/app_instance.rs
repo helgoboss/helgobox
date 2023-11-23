@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::application::WeakSession;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::bindings::root;
@@ -29,6 +30,7 @@ pub trait AppInstance: Debug {
     fn notify_app_is_ready(&mut self, callback: AppCallback);
 }
 
+#[allow(clippy::if_same_then_else)]
 pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
     fn share(value: impl AppInstance + 'static) -> SharedAppInstance {
         Rc::new(RefCell::new(value))

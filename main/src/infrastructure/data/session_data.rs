@@ -814,7 +814,9 @@ impl SessionData {
                         )?;
                     BackboneState::get()
                         .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                        .load(playtime_api::persistence::FlexibleMatrix::Unsigned(matrix))?;
+                        .load(playtime_api::persistence::FlexibleMatrix::Unsigned(
+                            Box::new(matrix),
+                        ))?;
                 } else {
                     BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                 }

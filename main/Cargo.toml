@@ -38,7 +38,7 @@ helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
 helgoboss-license-api.workspace = true
 playtime-api = { workspace = true, optional = true }
-playtime-clip-engine = { workspace = true, optional = true }
+playtime-clip-engine = { workspace = true, optional = true, features = ["licensing"] }
 
 # 3rd-party
 # For easier error handling
