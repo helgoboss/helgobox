@@ -15,6 +15,9 @@ default = []
 # private playtime-clip-engine repository, otherwise the build will fail.
 playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
 
+# Activates license checks for Playtime Clip Engine. If not enabled, license checks will always fail.
+licensing = ["playtime", "playtime-clip-engine/licensing"]
+
 # Enables a bunch of features that need the egui user interface framework to work.
 egui = ["dep:baseview", "dep:egui-baseview", "dep:egui", "dep:egui_extras", "pot-browser"]
 
@@ -38,7 +41,7 @@ helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
 helgoboss-license-api.workspace = true
 playtime-api = { workspace = true, optional = true }
-playtime-clip-engine = { workspace = true, optional = true, features = ["licensing"] }
+playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
 # For easier error handling

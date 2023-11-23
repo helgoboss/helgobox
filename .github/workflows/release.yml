@@ -20,7 +20,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             use-cross: false
             profile: release
-            features: "playtime,egui"
+            features: "playtime,egui,licensing"
           - artifact: windows-i686
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
@@ -28,7 +28,7 @@ jobs:
             target: i686-pc-windows-msvc
             use-cross: false
             profile: release-llvm-out-of-memory-fix
-            features: "playtime,egui"
+            features: "egui"
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
@@ -36,7 +36,7 @@ jobs:
             target: x86_64-apple-darwin
             use-cross: false
             profile: release
-            features: "playtime,egui"
+            features: "playtime,egui,licensing"
           - artifact: macos-aarch64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
@@ -44,7 +44,7 @@ jobs:
             target: aarch64-apple-darwin
             use-cross: false
             profile: release
-            features: "playtime,egui"
+            features: "playtime,egui,licensing"
           - artifact: linux-x86_64
             os: ubuntu-20.04
             toolchain-suffix: x86_64-unknown-linux-gnu
