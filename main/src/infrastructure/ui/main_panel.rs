@@ -1,6 +1,6 @@
 use crate::infrastructure::ui::{
     bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedAppInstance, SharedIndependentPanelManager, SharedMainState,
+    SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
@@ -297,7 +297,7 @@ impl MainPanel {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_instance(&self) -> anyhow::Result<SharedAppInstance> {
+    pub fn app_instance(&self) -> anyhow::Result<crate::infrastructure::ui::SharedAppInstance> {
         let activate_data = self
             .active_data
             .borrow()

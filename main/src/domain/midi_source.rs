@@ -35,7 +35,7 @@ impl MidiSourceScript for ScriptType {
         let script = self
             .get()
             .as_ref()
-            .ok_or_else(|| Cow::Borrowed("script was removed on clone"))?;
+            .ok_or(Cow::Borrowed("script was removed on clone"))?;
         script.execute(input_value)
     }
 }

@@ -195,6 +195,7 @@ where
     ///
     /// This makes it possible to defer deallocation even with values that are not managed by Rust,
     /// e.g. C values.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn dealloc_foreign_value(
         &self,
         deallocate: unsafe extern "C" fn(ptr: *mut c_void),

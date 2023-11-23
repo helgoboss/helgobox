@@ -69,7 +69,7 @@ impl Default for ContentQuantizationSettings {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum FlexibleMatrix {
-    Unsigned(Matrix),
+    Unsigned(Box<Matrix>),
     Signed(SignedMatrix),
 }
 

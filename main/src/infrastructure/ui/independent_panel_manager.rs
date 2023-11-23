@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel, SharedAppInstance};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
@@ -47,7 +47,7 @@ impl IndependentPanelManager {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_instance(&self) -> &SharedAppInstance {
+    pub fn app_instance(&self) -> &crate::infrastructure::ui::SharedAppInstance {
         &self.app_instance
     }
 

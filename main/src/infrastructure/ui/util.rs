@@ -328,7 +328,7 @@ pub fn alert_feature_not_available() {
     // functions. I think we need to bypass baseview on Linux and write our own little
     // egui integration.
     crate::base::notification::alert(
-        "This feature is not available in this installation of ReaLearn, most likely because it's \
-        not yet supported on this operating system.",
+        "This feature is not available in this installation of ReaLearn, either because it's \
+        not yet supported on this operating system or it was intentionally not included in the build.",
     );
 }

@@ -24,7 +24,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{copy_text_to_clipboard, lua_serializer, MainPanel, MessagePanel};
+use crate::infrastructure::ui::{MainPanel, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
@@ -41,7 +41,6 @@ use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
-use playtime_clip_engine::PlaytimeItem;
 use realearn_api::persistence::{
     Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
 };
@@ -397,9 +396,12 @@ impl App {
         #[derive(Debug)]
         struct RealearnClipEngineIntegration;
         impl playtime_clip_engine::ClipEngineIntegration for RealearnClipEngineIntegration {
-            fn export_to_clipboard(&self, item: &dyn PlaytimeItem) -> anyhow::Result<()> {
-                let text = lua_serializer::to_string(item)?;
-                copy_text_to_clipboard(text);
+            fn export_to_clipboard(
+                &self,
+                item: &dyn playtime_clip_engine::PlaytimeItem,
+            ) -> anyhow::Result<()> {
+                let text = crate::infrastructure::ui::lua_serializer::to_string(item)?;
+                crate::infrastructure::ui::copy_text_to_clipboard(text);
                 Ok(())
             }
         }
@@ -748,6 +750,7 @@ impl App {
     /// # Panics
     ///
     /// Panics if called in any state other than awake.
+    #[allow(dead_code)]
     pub fn spawn_in_async_runtime<R>(
         &self,
         f: impl Future<Output = R> + Send + 'static,

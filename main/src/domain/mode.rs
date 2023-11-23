@@ -14,7 +14,7 @@ impl FeedbackScriptType {
     fn get_script(&self) -> Result<&LuaFeedbackScript<'static>, Cow<'static, str>> {
         self.get()
             .as_ref()
-            .ok_or_else(|| Cow::Borrowed("script was removed on clone"))
+            .ok_or(Cow::Borrowed("script was removed on clone"))
     }
 }
 
