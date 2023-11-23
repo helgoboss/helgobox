@@ -119,6 +119,10 @@ jobs:
       # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
+        env:
+          PLAYTIME_AUTHENTICITY_SIGNING_KEY: "${{ secrets.PLAYTIME_AUTHENTICITY_SIGNING_KEY }}"
+          PLAYTIME_LICENSE_VERIFYING_KEY: "${{ secrets.PLAYTIME_LICENSE_VERIFYING_KEY }}"
+          PLAYTIME_PRESET_VERIFYING_KEY: "${{ secrets.PLAYTIME_PRESET_VERIFYING_KEY }}"
         with:
           command: build
           args: --features "${{ matrix.features }}" --profile ${{ matrix.profile }} --target ${{ matrix.target }}
