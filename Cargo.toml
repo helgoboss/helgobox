@@ -4,6 +4,7 @@ members = [
     "allocator",
     "api",
     "dialogs",
+    "extension",
     "macros",
     "playtime-clip-engine",
     "playtime-api",
@@ -96,6 +97,7 @@ thiserror = "1.0.45"
 enum_dispatch = "0.3.6"
 tinyvec = "1.6.0"
 erased-serde = "0.3.31"
+fragile = "2.0.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

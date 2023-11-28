@@ -10,6 +10,7 @@ default = []
 playtime = ["dep:playtime-api"]
 
 [dependencies]
+reaper-low.workspace = true
 serde.workspace = true
 semver.workspace = true
 schemars.workspace = true

@@ -33,6 +33,7 @@ use base::{
 use enum_iterator::IntoEnumIterator;
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
+use crate::infrastructure::plugin::api_impl::register_api;
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
@@ -186,6 +187,7 @@ impl App {
                 support_email_address: "info@helgoboss.org".to_string(),
             },
         );
+        register_api();
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()

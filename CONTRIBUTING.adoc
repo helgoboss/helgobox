@@ -36,9 +36,10 @@ See link:ARCHITECTURE.adoc[here].
 |`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
 |`/dialogs` |The single source of truth for ReaLearn's GUI dialogs
 |`/doc` |Documentation
+|`/extension` |Helgobox REAPER extension (provides some additional convenience around the actual ReaLearn plug-in)
 |`/helgoboss-license-processor` |Contains code for license processing (currently a private submodule)
 |`/macros` |Various Rust macros for usage in this project only
-|`/main` |Main crate (`realearn`)
+|`/main` |Main crate: The actual ReaLearn instrument plug-in (`realearn`)
 |`/playtime-api` |Playtime data structures for describing e.g. clip engine presets
 |`/playtime-clip-engine` |Playtime Clip Engine for playing/recording clips (currently a private submodule)
 |`/playtime-clip-engine-placeholder` |A placeholder crate for the Playtime Clip Engine. Users who don't have access to

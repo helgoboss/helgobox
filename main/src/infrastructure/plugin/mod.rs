@@ -1,3 +1,4 @@
+mod api_impl;
 mod debug_util;
 mod realearn_editor;
 mod tracing_util;
