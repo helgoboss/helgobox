@@ -60,8 +60,8 @@ impl HookCommand for MyHookCommand {
             .plugin_context();
         let pointers = HelgoboxApiPointers::load(&plugin_context);
         let session = HelgoboxApiSession::new(pointers);
-        let res = session.HB_FindFirstInstanceInProject(null());
-        println!("Executing my command: {res}!");
+        session.HB_ShowOrHidePlaytime(45);
+        // println!("Executing my command: {res}!");
         true
     }
 }

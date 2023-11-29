@@ -11,6 +11,10 @@ impl HelgoboxApi for HelgoboxApiImpl {
     extern "C" fn HB_FindFirstInstanceInProject(project: *const ReaProject) -> c_long {
         42
     }
+
+    extern "C" fn HB_ShowOrHidePlaytime(instance_id: c_long) -> () {
+        Reaper::get().show_console_msg("Show or hide playtime");
+    }
 }
 
 pub fn register_api() {
