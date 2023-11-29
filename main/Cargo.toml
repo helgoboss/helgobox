@@ -47,17 +47,17 @@ playtime-clip-engine = { workspace = true, optional = true }
 # For easier error handling
 anyhow.workspace = true
 # For being able to (de)serialize using FromStr and Display
-serde_with = "2.0.1"
+serde_with.workspace = true
 c_str_macro = "1.0.2"
 vst = "0.3.0"
 rxrust.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_repr = "0.1.5"
+serde_repr.workspace = true
 validator = "0.10.0"
 validator_derive = "0.10"
 derive_more.workspace = true
-lazycell = "1.2"
+lazycell.workspace = true
 enum-iterator.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
@@ -133,7 +133,7 @@ async-channel = "1.5.1"
 # For displaying snapshot sizes
 bytesize.workspace = true
 # For OSC
-rosc = "0.5.1"
+rosc.workspace = true
 # For letting the user edit advanced mapping settings
 edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 # For parsing/formatting advanced mapping settings
@@ -159,7 +159,7 @@ enum_dispatch.workspace = true
 # For processing mappings in user-defined order
 indexmap = { workspace = true }
 # For comparing floating point numbers in tests
-approx = "0.3.2"
+approx.workspace = true
 # For the API (ReaLearn Script) and MIDI scripts
 mlua.workspace = true
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages

@@ -35,10 +35,7 @@ use crate::domain::ui_util::{
     log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_control,
     log_target_output, log_virtual_control_input, log_virtual_feedback_output,
 };
-use ascii::{AsciiString, ToAsciiChar};
-use base::{
-    hash_util, LimitedAsciiString, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
-};
+use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use indexmap::IndexSet;
 use reaper_high::{ChangeEvent, Reaper};
@@ -3933,6 +3930,18 @@ impl InstanceId {
     pub fn next() -> Self {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         Self(COUNTER.fetch_add(1, Ordering::SeqCst))
+    }
+}
+
+impl From<u32> for InstanceId {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<InstanceId> for u32 {
+    fn from(value: InstanceId) -> Self {
+        value.0
     }
 }
 

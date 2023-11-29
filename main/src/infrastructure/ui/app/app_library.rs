@@ -164,6 +164,28 @@ impl AppLibrary {
         Ok(())
     }
 
+    pub fn hide_app_instance(&self, app_handle: AppHandle) -> Result<()> {
+        unsafe {
+            let hide_app_instance: Symbol<HideAppInstance> = self
+                .main_library
+                .get(b"hide_app_instance\0")
+                .map_err(|_| anyhow!("failed to load hide_app_instance function"))?;
+            hide_app_instance(app_handle);
+        };
+        Ok(())
+    }
+
+    pub fn app_instance_is_visible(&self, app_handle: AppHandle) -> Result<bool> {
+        let visible = unsafe {
+            let app_instance_is_visible: Symbol<AppInstanceIsVisible> = self
+                .main_library
+                .get(b"app_instance_is_visible\0")
+                .map_err(|_| anyhow!("failed to load app_instance_is_visible function"))?;
+            app_instance_is_visible(app_handle)
+        };
+        Ok(visible)
+    }
+
     pub fn stop_app_instance(
         &self,
         parent_window: Option<Window>,
@@ -268,6 +290,12 @@ type StartAppInstance = unsafe extern "C" fn(
 
 /// Signature of the function that we use to show an app instance.
 type ShowAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
+
+/// Signature of the function that we use to hide an app instance.
+type HideAppInstance = unsafe extern "C" fn(app_handle: AppHandle);
+
+/// Signature of the function that we use to check whether an app instance is visible.
+type AppInstanceIsVisible = unsafe extern "C" fn(app_handle: AppHandle) -> bool;
 
 /// Signature of the function that we use to stop an app instance.
 type StopAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);

@@ -473,6 +473,9 @@ impl RealearnPlugin {
                 let weak_session = Rc::downgrade(&shared_session);
                 keep_informing_clients_about_session_events(&shared_session);
                 let plugin_instance_info = PluginInstanceInfo {
+                    processor_context: processor_context.clone(),
+                    instance_id,
+                    instance_state: Rc::downgrade(&instance_state),
                     session: weak_session.clone(),
                     ui: Rc::downgrade(&main_panel),
                 };

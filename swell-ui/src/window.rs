@@ -628,6 +628,10 @@ impl Window {
         }
     }
 
+    pub fn is_visible(self) -> bool {
+        unsafe { Swell::get().IsWindowVisible(self.raw) }
+    }
+
     pub fn is_open(self) -> bool {
         unsafe { Swell::get().IsWindow(self.raw) }
     }

@@ -66,13 +66,15 @@ macro_rules! api {
 }
 
 api![
-    /// Finds the first Helgobox instance in the given project.
+    /// Finds the first Helgobox instance in the given project that contains a Playtime clip matrix.
     ///
     /// If the given project is `null`, it will look in the current project.
     ///
     /// Returns the instance ID or -1 if none exists.
-    HB_FindFirstInstanceInProject(project: *const ReaProject) -> c_int;
+    HB_FindFirstPlaytimeInstanceInProject(project: *mut ReaProject) -> c_int;
 
+    /// Creates a new Playtime clip matrix in the given Helgobox instance.
+    HB_CreateClipMatrix(instance_id: c_int);
 
     /// Shows or hides the app for the given Helgobox instance and makes sure that the app displays
     /// Playtime.

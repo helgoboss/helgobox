@@ -13,6 +13,7 @@ members = [
     "csi",
     "main",
     "rx-util",
+    "reafluent",
     "swell-ui",
     "base",
     # Will probably be excluded from the workspace in future
@@ -28,6 +29,7 @@ reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "mast
 reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-macros = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 rppxml-parser = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
@@ -98,6 +100,11 @@ enum_dispatch = "0.3.6"
 tinyvec = "1.6.0"
 erased-serde = "0.3.31"
 fragile = "2.0.0"
+approx = "0.3.2"
+serde_repr = "0.1.5"
+serde_with = "2.0.1"
+lazycell = "1.2"
+rosc = "0.5.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

@@ -108,6 +108,20 @@ impl IndependentPanelManager {
     }
 
     #[cfg(feature = "playtime")]
+    pub fn start_show_or_hide_app_instance(&self) {
+        if self.app_instance.borrow_mut().is_visible() {
+            self.hide_app_instance();
+        } else {
+            self.start_or_show_app_instance();
+        }
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn hide_app_instance(&self) {
+        let _ = self.app_instance.borrow_mut().hide();
+    }
+
+    #[cfg(feature = "playtime")]
     pub fn stop_app_instance(&self) {
         let _ = self.app_instance.borrow_mut().stop();
     }

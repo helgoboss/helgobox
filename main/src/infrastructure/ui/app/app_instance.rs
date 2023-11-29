@@ -21,7 +21,11 @@ pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
 pub trait AppInstance: Debug {
     fn is_running(&self) -> bool;
 
+    fn is_visible(&self) -> bool;
+
     fn start_or_show(&mut self, owning_window: Window) -> Result<()>;
+
+    fn hide(&mut self) -> Result<()>;
 
     fn stop(&mut self) -> Result<()>;
 
@@ -106,6 +110,14 @@ impl AppInstance for ParentedAppInstance {
         self.panel.is_open()
     }
 
+    fn is_visible(&self) -> bool {
+        if let Some(window) = self.panel.view.window() {
+            window.is_visible()
+        } else {
+            false
+        }
+    }
+
     fn start_or_show(&mut self, owning_window: Window) -> Result<()> {
         if let Some(window) = self.panel.view_context().window() {
             // If window already open (and maybe just hidden), simply show it.
@@ -117,6 +129,12 @@ impl AppInstance for ParentedAppInstance {
         // Then open. This actually only opens the SWELL window. The real stuff is done
         // in the "opened" handler of the SWELL window.
         self.panel.clone().open(owning_window);
+        Ok(())
+    }
+
+    fn hide(&mut self) -> Result<()> {
+        let window = self.panel.view.window().context("App was not open")?;
+        window.hide();
         Ok(())
     }
 
@@ -162,6 +180,13 @@ impl AppInstance for StandaloneAppInstance {
         self.running_state.is_some()
     }
 
+    fn is_visible(&self) -> bool {
+        match &self.running_state {
+            None => false,
+            Some(state) => state.common_state.is_visible(),
+        }
+    }
+
     fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
         let app_library = App::get_app_library()?;
         if let Some(running_state) = &self.running_state {
@@ -179,6 +204,14 @@ impl AppInstance for StandaloneAppInstance {
         };
         self.running_state = Some(running_state);
         Ok(())
+    }
+
+    fn hide(&mut self) -> Result<()> {
+        self.running_state
+            .take()
+            .ok_or(anyhow!("app was already stopped"))?
+            .common_state
+            .hide()
     }
 
     fn stop(&mut self) -> Result<()> {
@@ -327,6 +360,19 @@ impl CommonAppRunningState {
         let app_callback = self.app_callback.context("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())
+    }
+
+    pub fn is_visible(&self) -> bool {
+        let Ok(app_library) = App::get_app_library() else {
+            return false;
+        };
+        app_library
+            .app_instance_is_visible(self.app_handle)
+            .unwrap_or(false)
+    }
+
+    pub fn hide(&self) -> Result<()> {
+        App::get_app_library()?.hide_app_instance(self.app_handle)
     }
 
     pub fn stop(&self, window: Option<Window>) -> Result<()> {

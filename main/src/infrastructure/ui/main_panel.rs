@@ -305,6 +305,19 @@ impl MainPanel {
         Ok(activate_data.panel_manager.borrow().app_instance().clone())
     }
 
+    #[cfg(feature = "playtime")]
+    pub fn start_show_or_hide_app_instance(&self) -> anyhow::Result<()> {
+        let activate_data = self
+            .active_data
+            .borrow()
+            .ok_or_else(|| anyhow::anyhow!("main panel not active yet"))?;
+        activate_data
+            .panel_manager
+            .borrow()
+            .start_show_or_hide_app_instance();
+        Ok(())
+    }
+
     fn handle_target_control_event(&self, event: TargetControlEvent) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager

@@ -10,10 +10,10 @@ use crate::domain::{
     InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
     LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent, MessageCaptureResult,
     MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
-    OscScanResult, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
+    OscScanResult, ProcessorContext, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
     RealearnTargetState, RealearnWindowSnitch, ReaperTarget, ReaperTargetType,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag, WeakInstanceState,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -133,6 +133,9 @@ pub struct App {
 
 #[derive(Debug)]
 pub struct PluginInstanceInfo {
+    pub instance_id: InstanceId,
+    pub processor_context: ProcessorContext,
+    pub instance_state: WeakInstanceState,
     pub session: WeakSession,
     pub ui: Weak<MainPanel>,
 }
@@ -984,6 +987,18 @@ impl App {
                 None
             }
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn find_main_panel_by_instance_id(
+        &self,
+        instance_id: InstanceId,
+    ) -> Option<SharedView<MainPanel>> {
+        self.instances
+            .borrow()
+            .iter()
+            .find(|i| i.instance_id == instance_id)
+            .and_then(|i| i.ui.upgrade())
     }
 
     #[cfg(feature = "playtime")]

@@ -1,0 +1,9 @@
+[package]
+name = "reafluent"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reaper-medium.workspace = true
+reaper-low.workspace = true
+reaper-macros.workspace = true
