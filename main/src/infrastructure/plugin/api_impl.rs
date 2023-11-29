@@ -26,14 +26,3 @@ pub fn register_api() {
         ));
     });
 }
-
-// Finds the first Helgobox instance in the given project.
-//
-// If the given project is `null`, it will look in the current project.
-//
-// Returns the instance ID or -1 if none exists.
-
-// Shows or hides the app for the given Helgobox instance and makes sure that the app displays
-// Playtime.
-//
-// If necessary, this will also start the app and create a clip matrix for the given instance.
