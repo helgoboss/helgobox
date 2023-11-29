@@ -1,6 +1,7 @@
+#![allow(non_snake_case)]
 use reaper_low::raw::ReaProject;
 use reaper_low::PluginContext;
-use std::ffi::{c_char, c_long, c_void, CStr};
+use std::ffi::{c_char, c_int, c_void, CStr};
 use std::mem::transmute;
 
 macro_rules! api {
@@ -50,15 +51,16 @@ macro_rules! api {
             )+
         }
 
-        pub fn register_helgobox_api<T: HelgoboxApi>(mut register_api_fn: impl FnMut(&CStr, *mut c_void)) {
+        pub fn register_helgobox_api<T: HelgoboxApi, E>(mut register_api_fn: impl FnMut(&CStr, *mut c_void) -> Result<(), E> ) -> Result<(), E> {
             unsafe {
                 $(
                     register_api_fn(
                         CStr::from_ptr(concat!(stringify!($func_name), "\0").as_ptr() as *const c_char),
                         T::$func_name as *mut c_void,
-                    );
+                    )?;
                 )+
             }
+            Ok(())
         }
     };
 }
@@ -69,12 +71,12 @@ api![
     /// If the given project is `null`, it will look in the current project.
     ///
     /// Returns the instance ID or -1 if none exists.
-    HB_FindFirstInstanceInProject(project: *const ReaProject) -> c_long;
+    HB_FindFirstInstanceInProject(project: *const ReaProject) -> c_int;
 
 
     /// Shows or hides the app for the given Helgobox instance and makes sure that the app displays
     /// Playtime.
     ///
     /// If necessary, this will also start the app and create a clip matrix for the given instance.
-    HB_ShowOrHidePlaytime(instance_id: c_long);
+    HB_ShowOrHidePlaytime(instance_id: c_int);
 ];

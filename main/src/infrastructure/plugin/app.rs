@@ -187,7 +187,7 @@ impl App {
                 support_email_address: "info@helgoboss.org".to_string(),
             },
         );
-        register_api();
+        register_api().expect("couldn't register API");
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()
