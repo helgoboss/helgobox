@@ -12,7 +12,7 @@ impl HelgoboxApi for HelgoboxApiImpl {
         42
     }
 
-    extern "C" fn HB_ShowOrHidePlaytime(instance_id: c_long) -> () {
+    extern "C" fn HB_ShowOrHidePlaytime(instance_id: c_long) {
         Reaper::get().show_console_msg("Show or hide playtime");
     }
 }

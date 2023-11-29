@@ -5,7 +5,6 @@ use reaper_low::PluginContext;
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{reaper_str, CommandId, HookCommand, OwnedGaccelRegister, ReaperSession};
 use std::error::Error;
-use std::ptr::null;
 use std::sync::OnceLock;
 
 static EXTENSION: OnceLock<HelgoboxExtension> = OnceLock::new();
