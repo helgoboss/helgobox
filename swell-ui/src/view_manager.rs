@@ -9,6 +9,7 @@ use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::ptr::{null_mut, NonNull};
 
+use reaper_medium::Hwnd;
 use std::sync::Once;
 
 /// Creates a window according to the given dialog resource.
@@ -240,8 +241,8 @@ unsafe extern "C" fn view_dialog_proc(
                         // This is not a slider. Not interested.
                         return 0;
                     }
-                    let raw_slider = NonNull::new_unchecked(lparam as raw::HWND);
-                    view.slider_moved(Window::from_non_null(raw_slider));
+                    let raw_slider = Hwnd::new(lparam as raw::HWND).expect("slider hwnd is null");
+                    view.slider_moved(Window::from_hwnd(raw_slider));
                     1
                 }
                 raw::WM_MOUSEWHEEL => {

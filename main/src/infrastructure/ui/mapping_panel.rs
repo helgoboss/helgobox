@@ -7631,7 +7631,7 @@ fn show_feedback_popup_menu(
         MenuAction::OpenColorPicker(target) => {
             let reaper = Reaper::get().medium_reaper();
             if let Some(native_color) =
-                reaper.gr_select_color(WindowContext::Win(window.raw_non_null()))
+                reaper.gr_select_color(WindowContext::Win(window.raw_hwnd()))
             {
                 let reaper_medium::RgbColor { r, g, b } = reaper.color_from_native(native_color);
                 let instruction = ChangeColorInstruction::new(

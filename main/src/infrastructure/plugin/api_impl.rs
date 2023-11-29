@@ -27,7 +27,9 @@ impl HelgoboxApi for HelgoboxApiImpl {
 }
 
 fn find_first_playtime_instance_in_project(project: *mut ReaProject) -> anyhow::Result<c_int> {
-    let project = NonNull::new(project).map(Project::new).or_current_project();
+    let project = reaper_medium::ReaProject::new(project)
+        .map(Project::new)
+        .or_current_project();
     let instance_id = App::get()
         .with_instances(|instances| {
             instances

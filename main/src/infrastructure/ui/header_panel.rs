@@ -2294,7 +2294,7 @@ impl HeaderPanel {
         open_child_panel_dyn(
             &self.pot_browser_panel,
             panel,
-            Window::from_non_null(Reaper::get().main_window()),
+            Window::from_hwnd(Reaper::get().main_window()),
         );
         Ok(())
     }

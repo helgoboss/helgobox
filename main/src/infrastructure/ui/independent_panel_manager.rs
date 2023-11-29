@@ -222,5 +222,5 @@ impl Drop for IndependentPanelManager {
 }
 
 fn reaper_main_window() -> Window {
-    Window::from_non_null(Reaper::get().main_window())
+    Window::from_hwnd(Reaper::get().main_window())
 }

@@ -2,6 +2,7 @@ use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, Sw
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
+use reaper_medium::Hwnd;
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
@@ -21,7 +22,7 @@ unsafe impl Send for Window {}
 
 impl Window {
     pub fn new(hwnd: raw::HWND) -> Option<Window> {
-        NonNull::new(hwnd).map(Window::from_non_null)
+        Hwnd::new(hwnd).map(Window::from_hwnd)
     }
 
     pub fn from_raw_window_handle(handle: RawWindowHandle) -> Result<Self, &'static str> {
@@ -79,7 +80,7 @@ impl Window {
         }
     }
 
-    pub fn from_non_null(hwnd: NonNull<raw::HWND__>) -> Window {
+    pub fn from_hwnd(hwnd: Hwnd) -> Window {
         Window { raw: hwnd.as_ptr() }
     }
 
@@ -105,8 +106,8 @@ impl Window {
         rect
     }
 
-    pub fn raw_non_null(self) -> NonNull<raw::HWND__> {
-        unsafe { NonNull::new_unchecked(self.raw) }
+    pub fn raw_hwnd(self) -> Hwnd {
+        Hwnd::new(self.raw).expect("raw hwnd is null")
     }
 
     pub fn find_control(self, control_id: u32) -> Option<Window> {
