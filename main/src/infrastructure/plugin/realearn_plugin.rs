@@ -139,7 +139,7 @@ impl Plugin for RealearnPlugin {
                     "parameter main tasks",
                     PARAMETER_MAIN_TASK_QUEUE_SIZE,
                 );
-            let instance_id = InstanceId::random();
+            let instance_id = InstanceId::next();
             let logger = App::logger().new(o!("instance" => instance_id.to_string()));
             let plugin_parameters =
                 Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));

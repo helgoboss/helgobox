@@ -266,9 +266,7 @@ impl Session {
         control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
     ) -> Session {
         Self {
-            // As long not changed (by loading a preset or manually changing session ID), the
-            // session ID is equal to the instance ID.
-            id: prop(instance_id.to_string()),
+            id: prop(nanoid::nanoid!(8)),
             instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),

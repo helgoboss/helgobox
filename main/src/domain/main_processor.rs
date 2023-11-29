@@ -51,6 +51,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -3919,11 +3920,8 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
         })
 }
 
-// At the moment based on a SmallAsciiString. When changing this in future, e.g. to UUID, take care
-// of implementing Display in a way that outputs something like nanoid! because this will be used
-// as the initial session ID - which should be a bit more human-friendly than UUIDs.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct InstanceId(LimitedAsciiString<INSTANCE_ID_LENGTH>);
+pub struct InstanceId(u32);
 
 impl fmt::Display for InstanceId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -3931,20 +3929,10 @@ impl fmt::Display for InstanceId {
     }
 }
 
-const INSTANCE_ID_LENGTH: usize = 8;
-
 impl InstanceId {
-    pub fn random() -> Self {
-        let instance_id = nanoid::nanoid!(INSTANCE_ID_LENGTH);
-        Self::from_string_cropping(&instance_id)
-    }
-
-    fn from_string_cropping(instance_id: &str) -> Self {
-        let ascii_string: AsciiString = instance_id
-            .chars()
-            .filter_map(|c| c.to_ascii_char().ok())
-            .collect();
-        Self(LimitedAsciiString::from_ascii_str_cropping(&ascii_string))
+    pub fn next() -> Self {
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        Self(COUNTER.fetch_add(1, Ordering::SeqCst))
     }
 }
 
