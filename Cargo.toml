@@ -31,6 +31,7 @@ reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "
 reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 reaper-macros = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 rppxml-parser = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reafluent = { path = "reafluent" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 playtime-clip-engine = { path = "playtime-clip-engine" }

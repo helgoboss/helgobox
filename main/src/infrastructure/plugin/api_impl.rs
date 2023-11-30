@@ -1,4 +1,4 @@
-use crate::domain::{BackboneState, InstanceContainer};
+use crate::domain::BackboneState;
 use crate::infrastructure::plugin::App;
 use anyhow::Context;
 use itertools::Itertools;
@@ -8,7 +8,6 @@ use reaper_low::raw::ReaProject;
 use reaper_medium::{ReaperFunctionError, ReaperStr, RegistrationObject};
 use std::borrow::Cow;
 use std::ffi::c_int;
-use std::ptr::NonNull;
 
 struct HelgoboxApiImpl;
 

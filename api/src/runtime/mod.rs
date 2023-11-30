@@ -6,6 +6,7 @@ use std::mem::transmute;
 
 macro_rules! api {
     ($( $( #[doc = $doc:expr] )* $func_name:ident ($( $param_name:ident: $param_type:ty ),*) $( -> $ret_type:ty )?; )+) => {
+        #[derive(Default)]
         pub struct HelgoboxApiPointers {
             $(
                 $func_name: Option<fn($( $param_name: $param_type ),*) $( -> $ret_type )?>
@@ -13,16 +14,23 @@ macro_rules! api {
         }
 
         impl HelgoboxApiPointers {
-            pub fn load(plugin_context: &PluginContext) -> Self {
+            pub fn load(plugin_context: &PluginContext) -> Option<Self> {
+                let mut pointers = Self::default();
+                let mut load_count = 0;
                 unsafe {
-                    Self {
-                        $(
-                            $func_name: transmute(plugin_context.GetFunc(
-                                concat!(stringify!($func_name), "\0").as_ptr() as *const c_char,
-                            ))
-                        ),+
-                    }
+                    $(
+                        pointers.$func_name = transmute(plugin_context.GetFunc(
+                            concat!(stringify!($func_name), "\0").as_ptr() as *const c_char,
+                        ));
+                        if pointers.$func_name.is_some() {
+                            load_count += 1;
+                        }
+                    )+
                 }
+                if load_count == 0 {
+                    return None;
+                }
+                Some(pointers)
             }
         }
 

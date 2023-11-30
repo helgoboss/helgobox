@@ -2539,7 +2539,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base",
- "fragile",
+ "reafluent",
  "realearn-api",
  "reaper-low",
  "reaper-macros 0.1.0 (git+https://github.com/helgoboss/reaper-rs.git?branch=master)",
@@ -4620,9 +4620,11 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 name = "reafluent"
 version = "0.1.0"
 dependencies = [
+ "fragile",
  "reaper-low",
  "reaper-macros 0.1.0 (git+https://github.com/helgoboss/reaper-rs.git?branch=master)",
  "reaper-medium",
+ "thiserror",
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ use reaper_medium::Hwnd;
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
-use std::ptr::{null, null_mut, NonNull};
+use std::ptr::{null, null_mut};
 use std::time::Duration;
 
 /// Represents a window.

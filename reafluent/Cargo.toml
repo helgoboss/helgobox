@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Own dependencies
 reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-macros.workspace = true
+fragile.workspace = true
+thiserror.workspace = true

@@ -1,18 +1,17 @@
 use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{
-    FlexibleOwnedPcmSource, MeasureAlignment, MidiImportBehavior, OwnedPreviewRegister,
+    FlexibleOwnedPcmSource, Handle, MeasureAlignment, MidiImportBehavior, OwnedPreviewRegister,
     PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::cell::Cell;
 use std::path::Path;
-use std::ptr::NonNull;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct SoundPlayer {
     preview_register: Arc<ReaperMutex<OwnedPreviewRegister>>,
-    play_handle: Cell<Option<NonNull<raw::preview_register_t>>>,
+    play_handle: Cell<Option<Handle<raw::preview_register_t>>>,
 }
 
 unsafe impl Send for SoundPlayer {}
