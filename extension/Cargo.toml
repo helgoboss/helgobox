@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-reafluent.workspace = true
+reaper-fluent.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-macros.workspace = true

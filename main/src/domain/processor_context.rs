@@ -50,6 +50,7 @@ pub struct ProcessorContext {
 }
 
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
+pub const HELGOBOX_INSTANCE_ID: &str = "instance_id";
 
 impl ProcessorContext {
     pub fn from_host(host: HostCallback) -> Result<ProcessorContext, &'static str> {

@@ -2539,8 +2539,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base",
- "reafluent",
  "realearn-api",
+ "reaper-fluent",
  "reaper-low",
  "reaper-macros 0.1.0 (git+https://github.com/helgoboss/reaper-rs.git?branch=master)",
  "reaper-medium",
@@ -4617,17 +4617,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
-name = "reafluent"
-version = "0.1.0"
-dependencies = [
- "fragile",
- "reaper-low",
- "reaper-macros 0.1.0 (git+https://github.com/helgoboss/reaper-rs.git?branch=master)",
- "reaper-medium",
- "thiserror",
-]
-
-[[package]]
 name = "realearn"
 version = "2.16.0-pre.3"
 dependencies = [
@@ -4787,6 +4776,16 @@ name = "realearn-macros"
 version = "0.1.0"
 
 [[package]]
+name = "reaper-fluent"
+version = "0.1.0"
+dependencies = [
+ "fragile",
+ "reaper-low",
+ "reaper-medium",
+ "thiserror",
+]
+
+[[package]]
 name = "reaper-high"
 version = "0.1.0"
 dependencies = [
@@ -4840,7 +4839,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#9db7c4c619630eb15308269d98fa423254361cee"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7d61f7337a5111e382f6fd5b879c287de633b0fa"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.30",

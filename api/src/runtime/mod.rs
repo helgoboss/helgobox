@@ -39,6 +39,10 @@ macro_rules! api {
         }
 
         impl HelgoboxApiSession {
+            pub fn load(plugin_context: &PluginContext) -> Option<Self> {
+                HelgoboxApiPointers::load(plugin_context).map(Self::new)
+            }
+
             pub fn new(pointers: HelgoboxApiPointers) -> Self {
                 Self {
                     pointers

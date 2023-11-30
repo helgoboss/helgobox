@@ -47,7 +47,6 @@ the Playtime Clip Engine submodule, must rename this directory to `playtime-clip
 ReaLearn without feature `playtime`.
 |`/pot` |Core logic behind Pot Browser, also powers the Pot targets
 |`/pot-browser` |The actual Pot Browser user interface
-|`/reafluent` |A gradual work-in-progress replacement for parts of reaper-high
 |`/resources` |REAPER projects for manual testing, controller preset files, etc.
 |`/rx-util` |Some reactive programming helpers
 |`/swell-ui` |Minimalistic UI framework based on https://www.cockos.com/wdl/[SWELL] (`swell-ui`)

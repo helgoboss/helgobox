@@ -534,6 +534,16 @@ impl RealearnPlugin {
                 buffer[0] = if self.session.filled() { 0 } else { 1 };
                 Ok(())
             }
+            crate::domain::HELGOBOX_INSTANCE_ID => {
+                let instance_id_c_string =
+                    CString::new(self.instance_id.to_string()).expect("should be number");
+                let mut bytes = instance_id_c_string
+                    .as_bytes_with_nul()
+                    .iter()
+                    .map(|v| *v as i8);
+                buffer[0..bytes.len()].fill_with(|| bytes.next().unwrap());
+                Ok(())
+            }
             _ => Err("unhandled config param"),
         }
     }
