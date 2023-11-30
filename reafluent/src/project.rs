@@ -46,6 +46,12 @@ impl<'a> Project<'a> {
         self.raw
     }
 
+    pub fn delete_track(&mut self, track: Track) {
+        unsafe {
+            Reaper::get().medium_reaper().delete_track(track.raw());
+        }
+    }
+
     pub fn tracks(
         &self,
     ) -> impl Iterator<Item = Track<'a>> + ExactSizeIterator + FusedIterator + DoubleEndedIterator + '_

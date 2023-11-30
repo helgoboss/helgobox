@@ -83,6 +83,16 @@ impl HookCommand for HelgoboxExtension {
 }
 
 fn add_and_show_playtime() -> Result<()> {
+    // Unwanted scenario
+    let current_project = Reaper::get().current_project();
+    let mut project = current_project.resolve().context("project doesn't exist")?;
+    let track = project
+        .tracks()
+        .next()
+        .context("project doesn't have tracks")?;
+    project.delete_track(track);
+    track.guid();
+
     let instance_id = Reaper::get()
         .insert_track_at(0, TrackDefaultsBehavior::OmitDefaultEnvAndFx)
         .normal_fx_chain()

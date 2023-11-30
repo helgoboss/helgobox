@@ -31,7 +31,7 @@ impl FxChainDesc {
 
 impl<'a> FxChain<'a> {
     pub fn add_fx_by_name<'b>(
-        &self,
+        &mut self,
         name: impl Into<ReaperStringArg<'b>>,
         behavior: AddFxBehavior,
     ) -> Result<FxDesc, ReaperFunctionError> {
