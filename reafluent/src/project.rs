@@ -1,3 +1,4 @@
+use crate::usage_scope::{ReadAccess, ReadScope, ReadWriteScope, WriteAccess};
 use crate::{Reaper, Track};
 use reaper_medium::{ProjectContext, ReaProject};
 use std::iter::FusedIterator;
@@ -9,9 +10,9 @@ pub struct ProjectDesc {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct Project<'a> {
+pub struct Project<'a, UsageScope: ReadAccess> {
     raw: ReaProject,
-    _p: PhantomData<&'a ()>,
+    _p: PhantomData<&'a (UsageScope)>,
 }
 
 impl ProjectDesc {
@@ -19,7 +20,15 @@ impl ProjectDesc {
         Self { raw }
     }
 
-    pub fn resolve(&self) -> Option<Project> {
+    pub fn resolve(&self) -> Option<Project<ReadScope>> {
+        self.resolve_internal()
+    }
+
+    pub fn resolve_mut(&mut self) -> Option<Project<ReadWriteScope>> {
+        self.resolve_internal()
+    }
+
+    fn resolve_internal<S: ReadAccess>(&self) -> Option<Project<S>> {
         if !Reaper::get()
             .medium_reaper()
             .validate_ptr_2(ProjectContext::CurrentProject, self.raw)
@@ -30,7 +39,7 @@ impl ProjectDesc {
     }
 }
 
-impl<'a> Project<'a> {
+impl<'a, UsageScope: ReadAccess> Project<'a, UsageScope> {
     pub fn new(raw: ReaProject) -> Self {
         Self {
             raw,
@@ -46,15 +55,9 @@ impl<'a> Project<'a> {
         self.raw
     }
 
-    pub fn delete_track(&mut self, track: Track) {
-        unsafe {
-            Reaper::get().medium_reaper().delete_track(track.raw());
-        }
-    }
-
-    pub fn tracks(
-        &self,
-    ) -> impl Iterator<Item = Track<'a>> + ExactSizeIterator + FusedIterator + DoubleEndedIterator + '_
+    pub fn tracks<'b>(
+        &'b self,
+    ) -> impl Iterator<Item = Track<'b>> + ExactSizeIterator + FusedIterator + DoubleEndedIterator + 'b
     {
         let r = Reaper::get().medium_reaper();
         (0..self.track_count()).map(|i| {
@@ -69,5 +72,13 @@ impl<'a> Project<'a> {
 
     pub fn context(&self) -> ProjectContext {
         ProjectContext::Proj(self.raw)
+    }
+}
+
+impl<'a, UsageScope: WriteAccess> Project<'a, UsageScope> {
+    pub fn delete_track(&mut self, track: Track) {
+        unsafe {
+            Reaper::get().medium_reaper().delete_track(track.raw());
+        }
     }
 }

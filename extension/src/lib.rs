@@ -84,8 +84,10 @@ impl HookCommand for HelgoboxExtension {
 
 fn add_and_show_playtime() -> Result<()> {
     // Unwanted scenario
-    let current_project = Reaper::get().current_project();
-    let mut project = current_project.resolve().context("project doesn't exist")?;
+    let mut current_project = Reaper::get().current_project();
+    let mut project = current_project
+        .resolve_mut()
+        .context("project doesn't exist")?;
     let track = project
         .tracks()
         .next()

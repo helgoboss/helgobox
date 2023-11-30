@@ -1,3 +1,4 @@
+use crate::usage_scope::ReadScope;
 use crate::{FxChainDesc, Project, ProjectDesc, Reaper};
 use reaper_low::raw::GUID;
 use reaper_medium::{MediaTrack, TrackFxChainType};
@@ -43,7 +44,7 @@ impl<'a> Track<'a> {
         TrackDesc::new(self.project().desc(), self.guid())
     }
 
-    pub fn project(&self) -> Project {
+    pub fn project(&self) -> Project<ReadScope> {
         let raw_project = unsafe {
             Reaper::get()
                 .medium_reaper()
