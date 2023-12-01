@@ -208,7 +208,7 @@ impl AppInstance for StandaloneAppInstance {
 
     fn hide(&mut self) -> Result<()> {
         self.running_state
-            .take()
+            .as_ref()
             .ok_or(anyhow!("app was already stopped"))?
             .common_state
             .hide()
