@@ -1,7 +1,7 @@
 use crate::domain::{ControlContext, PluginParams};
 use derivative::Derivative;
-use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
-use reaper_medium::{ParamId, TypeSpecificPluginContext};
+use reaper_high::{Fx, FxChainContext, Project, Reaper, Track};
+use reaper_medium::{ParamId, TrackFxLocation, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;
 use vst::plugin::HostCallback;
@@ -49,7 +49,6 @@ pub struct ProcessorContext {
     bypass_param_index: u32,
 }
 
-pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 pub const HELGOBOX_INSTANCE_ID: &str = "instance_id";
 
 impl ProcessorContext {
@@ -104,7 +103,8 @@ impl ProcessorContext {
 }
 
 /// Calling this in the `new()` method is too early. The containing FX can't generally be found
-/// when we just open a REAPER project. We must wait for `init()` to be called.
+/// when we just open a REAPER project. We must wait for `init()` to be called. No! Even longer.
+/// We need to wait until the next main loop cycle.
 fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
     let reaper = Reaper::get();
     let aeffect = NonNull::new(host.raw_effect()).expect("must not be null");
@@ -113,33 +113,36 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
         TypeSpecificPluginContext::Vst(ctx) => ctx,
         _ => unreachable!(),
     };
+    let fx_location = unsafe {
+        // This would fail if we would call it too soon. That's why this function needs to be
+        // called in the main loop cycle after loading the VST.
+        vst_context
+            .request_containing_fx_location(aeffect)
+            .ok_or("This version of ReaLearn needs REAPER >= v6.11.")?
+    };
     let fx = if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
         let project = unsafe { vst_context.request_containing_project(aeffect) };
         let track = Track::new(track, Some(project));
-        // We could use the following but it only works for REAPER v6.11+, so let's rely on our own
-        // technique for now.
-        // let location = unsafe { vst_context.request_containing_fx_location(aeffect) };
-        find_realearn_fx_waiting_for_session(&track.normal_fx_chain())
-            .or_else(|| find_realearn_fx_waiting_for_session(&track.input_fx_chain()))
+        let (fx_chain, index) = match fx_location {
+            TrackFxLocation::NormalFxChain(index) => (track.normal_fx_chain(), index),
+            TrackFxLocation::InputFxChain(index) => (track.input_fx_chain(), index),
+            TrackFxLocation::Unknown(_) => {
+                return Err("Unknown ReaLearn FX location");
+            }
+        };
+        fx_chain
+            .fx_by_index(index)
             .ok_or("couldn't find containing FX on track FX chains")?
     } else if let Some(_take) = unsafe { vst_context.request_containing_take(aeffect) } {
         return Err("ReaLearn as take FX is not supported yet");
     } else {
-        find_realearn_fx_waiting_for_session(&reaper.monitoring_fx_chain())
+        let TrackFxLocation::InputFxChain(index) = fx_location else {
+            return Err(
+                "ReaLearn FX has no track but also doesn't seem to be on monitoring FX chain",
+            );
+        };
+        Reaper::get().monitoring_fx_chain().fx_by_index(index)
             .ok_or("Couldn't find containing FX on monitoring FX chain. It's okay if this occurs during plug-in scanning.")?
     };
     Ok(fx)
-}
-
-fn is_realearn_waiting_for_session(fx: &Fx) -> bool {
-    let result = fx.get_named_config_param(WAITING_FOR_SESSION_PARAM_NAME, 1);
-    match result {
-        Ok(buffer) => *buffer.first().expect("impossible") == 1,
-        Err(_) => false,
-    }
-}
-
-fn find_realearn_fx_waiting_for_session(fx_chain: &FxChain) -> Option<Fx> {
-    // TODO-low Use REAPER 6.11 API addition instead, if available
-    fx_chain.fxs().find(is_realearn_waiting_for_session)
 }

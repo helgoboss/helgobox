@@ -530,10 +530,6 @@ impl RealearnPlugin {
             return Err("empty buffer");
         }
         match param_name {
-            crate::domain::WAITING_FOR_SESSION_PARAM_NAME => {
-                buffer[0] = if self.session.filled() { 0 } else { 1 };
-                Ok(())
-            }
             crate::domain::HELGOBOX_INSTANCE_ID => {
                 let instance_id_c_string =
                     CString::new(self.instance_id.to_string()).expect("should be number");
