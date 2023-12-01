@@ -4,8 +4,8 @@ use reaper_fluent::Reaper;
 use reaper_low::PluginContext;
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AddFxBehavior, CommandId, HookCommand, OwnedGaccelRegister, ProjectContext,
-    ReaperSession, TrackDefaultsBehavior, TrackFxChainType,
+    reaper_str, AcceleratorBehavior, AcceleratorKeyCode, AddFxBehavior, CommandId, HookCommand,
+    OwnedGaccelRegister, ProjectContext, ReaperSession, TrackDefaultsBehavior, TrackFxChainType,
 };
 use std::error::Error;
 use std::ptr::null_mut;
@@ -31,9 +31,13 @@ impl HelgoboxExtension {
         // Register actions
         let show_or_hide_playtime_command_id =
             medium_session.plugin_register_add_command_id(reaper_str!("HB_SHOW_HIDE_PLAYTIME"))?;
-        medium_session.plugin_register_add_gaccel(OwnedGaccelRegister::without_key_binding(
+        medium_session.plugin_register_add_gaccel(OwnedGaccelRegister::with_key_binding(
             show_or_hide_playtime_command_id,
             "Show/hide Playtime",
+            AcceleratorBehavior::Shift
+                | AcceleratorBehavior::Control
+                | AcceleratorBehavior::VirtKey,
+            AcceleratorKeyCode::new(b'P' as _),
         ))?;
         let _ = Reaper::install_globally(medium_session);
         let extension = Self {
