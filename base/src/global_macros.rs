@@ -30,11 +30,11 @@ macro_rules! make_available_globally_in_main_thread_on_demand {
         static mut INSTANCE: Option<$instance_struct> = None;
 
         impl $instance_struct {
-            pub fn make_available_globally(instance: $instance_struct) {
+            pub fn make_available_globally(create_instance: impl FnOnce() -> $instance_struct) {
                 static INIT_INSTANCE: std::sync::Once = std::sync::Once::new();
                 unsafe {
                     INIT_INSTANCE.call_once(|| {
-                        INSTANCE = Some(instance);
+                        INSTANCE = Some(create_instance());
                         reaper_low::register_plugin_destroy_hook(|| INSTANCE = None);
                     });
                 }

@@ -57,7 +57,7 @@ use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use slog::{debug, Drain, Logger};
+use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::fs;
@@ -93,6 +93,10 @@ const DEALLOCATOR_THREAD_CAPACITY: usize = 10000;
 
 make_available_globally_in_main_thread_on_demand!(App);
 
+#[cfg(feature = "playtime")]
+static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui::AppLibrary>> =
+    std::sync::OnceLock::new();
+
 pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession, RealearnSnitch>;
 
 pub type RealearnControlSurface =
@@ -125,8 +129,6 @@ pub struct App {
     instances_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    #[cfg(feature = "playtime")]
-    app_library: std::cell::OnceCell<anyhow::Result<crate::infrastructure::ui::AppLibrary>>,
     #[cfg(feature = "playtime")]
     clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
 }
@@ -177,7 +179,8 @@ struct AwakeState {
 
 impl App {
     /// Executed globally just once when module loaded.
-    pub fn init(logger: Logger, context: PluginContext) -> Self {
+    pub fn init(context: PluginContext) -> Self {
+        let logger = App::logger().clone();
         Swell::make_available_globally(Swell::load(context));
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
@@ -246,7 +249,7 @@ impl App {
             additional_feedback_event_sender.clone(),
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
         );
-        BackboneState::make_available_globally(backbone_state);
+        BackboneState::make_available_globally(|| backbone_state);
         let sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>> = Default::default();
         server::http::keep_informing_clients_about_sessions(
             sessions_changed_subject.borrow().clone(),
@@ -296,9 +299,7 @@ impl App {
             .name("Helgobox app loader".to_string())
             .spawn(|| {
                 let result = decompress_app().and_then(|_| load_app_library());
-                let _ = Global::task_support().do_later_in_main_thread_asap(|| {
-                    let _ = App::get().app_library.set(result);
-                });
+                let _ = APP_LIBRARY.set(result);
             });
         // REAPER registers/unregisters actions automatically depending on presence of plug-in
         Self::register_actions(&control_surface_main_task_sender);
@@ -332,8 +333,6 @@ impl App {
             instances_changed_subject: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
-            #[cfg(feature = "playtime")]
-            app_library: std::cell::OnceCell::new(),
             #[cfg(feature = "playtime")]
             clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
         }
@@ -416,7 +415,7 @@ impl App {
             metrics_recorder,
             integration: Box::new(RealearnClipEngineIntegration),
         };
-        ClipEngine::make_available_globally(ClipEngine::new(args));
+        ClipEngine::make_available_globally(|| ClipEngine::new(args));
     }
 
     fn reconnect_osc_devices(&self) {
@@ -957,8 +956,7 @@ impl App {
     #[cfg(feature = "playtime")]
     pub fn get_app_library() -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
         use anyhow::Context;
-        let app_library = App::get()
-            .app_library
+        let app_library = APP_LIBRARY
             .get()
             .context("App not loaded yet. Please try again later.")?
             .as_ref();

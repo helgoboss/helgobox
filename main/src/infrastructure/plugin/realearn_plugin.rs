@@ -1,3 +1,4 @@
+use reaper_macros::reaper_extension_plugin;
 use vst::editor::Editor;
 use vst::plugin;
 use vst::plugin::{
@@ -42,6 +43,7 @@ use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use helgoboss_learn::AbstractTimestamp;
 use std::convert::TryInto;
+use std::error::Error;
 use std::slice;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
@@ -55,6 +57,25 @@ const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 
 reaper_vst_plugin!();
+
+/// A REAPER-extension-like entry point, *in addition* to the VST entry point.
+///
+/// This needs some explanation: No, we are not a REAPER extension! This extension entry point will
+/// not be called by REAPER (because our shared library is located in the "UserPlugins/FX"
+/// directory, not in "UserPlugins", so REAPER will treat us as VST plug-in). It will
+/// be called by our own Helgobox Extension. And the reason for this is that we want
+/// to eagerly initialize certain things already at REAPER start time, without requiring
+/// the user to add a VST plug-in instance first. This is the easiest way and doesn't require
+/// us to split much logic between extension lib and VST plug-in lib.
+///
+/// If the Helgobox Extension is not installed, this extension entry point will *not* be called.
+/// Things will still work though! The only difference is that things are not initialized eagerly.
+/// They will be at the time the first plug-in instance is added.
+#[reaper_extension_plugin]
+fn plugin_main(context: PluginContext) -> Result<(), Box<dyn Error>> {
+    App::make_available_globally(|| App::init(context));
+    Ok(())
+}
 
 pub struct RealearnPlugin {
     /// An ID which is randomly generated on each start and is most relevant for log correlation.
@@ -390,7 +411,11 @@ impl RealearnPlugin {
                 let context =
                     PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context())
                         .unwrap();
-                App::make_available_globally(App::init(self.logger.clone(), context));
+                // If the Helgobox Extension is installed, it already called our eager-loading
+                // extension entry point. In this case, the following call will not have any
+                // effect. And that's exactly what we want, because the App already has been
+                // initialized then!
+                App::make_available_globally(|| App::init(context));
             },
             || {
                 App::get().wake_up();

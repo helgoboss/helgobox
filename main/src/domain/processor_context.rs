@@ -1,7 +1,8 @@
 use crate::domain::{ControlContext, PluginParams};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChainContext, Project, Reaper, Track};
-use reaper_medium::{ParamId, TrackFxLocation, TypeSpecificPluginContext};
+use reaper_low::{static_vst_plugin_context, PluginContext};
+use reaper_medium::{MainThreadScope, ParamId, TrackFxLocation, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;
 use vst::plugin::HostCallback;
@@ -106,9 +107,12 @@ impl ProcessorContext {
 /// when we just open a REAPER project. We must wait for `init()` to be called. No! Even longer.
 /// We need to wait until the next main loop cycle.
 fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
-    let reaper = Reaper::get();
     let aeffect = NonNull::new(host.raw_effect()).expect("must not be null");
-    let plugin_context = reaper.medium_reaper().plugin_context();
+    // We must not use the plug-in context from the global `Reaper` instance because this was
+    // probably initialized by the extension entry point or another instance.
+    let plugin_context = PluginContext::from_vst_plugin(host, static_vst_plugin_context())
+        .map_err(|_| "host callback not available")?;
+    let plugin_context = reaper_medium::PluginContext::<'_, MainThreadScope>::new(&plugin_context);
     let vst_context = match plugin_context.type_specific() {
         TypeSpecificPluginContext::Vst(ctx) => ctx,
         _ => unreachable!(),
