@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use libloading::{Library, Symbol};
 use realearn_api::runtime::{HelgoboxApiPointers, HelgoboxApiSession};
 use reaper_fluent::{FreeFn, Reaper};
@@ -9,6 +9,7 @@ use reaper_medium::{
     OwnedGaccelRegister, ProjectContext, ReaperSession, TrackDefaultsBehavior, TrackFxChainType,
 };
 use std::error::Error;
+use std::fs;
 use std::ptr::null_mut;
 use std::sync::OnceLock;
 
@@ -48,30 +49,9 @@ impl HelgoboxExtension {
             AcceleratorKeyCode::new(b'P' as _),
         ))?;
         let _ = Reaper::install_globally(medium_session);
-        // Eagerly load plug-in library (Justin's idea, awesome!)
-        let resource_path = Reaper::get()
-            .medium_reaper()
-            .get_resource_path(|path| path.to_path_buf());
-        let plugin_library_path = resource_path
-            .join("UserPlugins/FX")
-            .join("realearn.vst.dylib");
-        let plugin_library = unsafe { Library::new(plugin_library_path) }
-            .ok()
-            .and_then(|lib| {
-                let reaper_plugin_entry: Symbol<ReaperPluginEntry> =
-                    unsafe { lib.get(b"ReaperPluginEntry").ok()? };
-                let TypeSpecificPluginContext::Extension(ctx) = context.type_specific() else {
-                    return None;
-                };
-                let mut original_info_struct = ctx.to_raw();
-                unsafe {
-                    reaper_plugin_entry(context.h_instance(), &mut original_info_struct as *mut _);
-                }
-                Some(lib)
-            });
         // Return extension
         let extension = Self {
-            plugin_library,
+            plugin_library: Some(eagerly_load_plugin_lib(&context).unwrap()),
             show_or_hide_playtime_command_id,
         };
         Ok(extension)
@@ -156,4 +136,47 @@ fn enable_playtime_for_first_helgobox_instance_and_show_it() -> Result<()> {
     helgobox_api_session.HB_CreateClipMatrix(instance_id);
     helgobox_api_session.HB_ShowOrHidePlaytime(instance_id);
     Ok(())
+}
+
+/// Loads the Helgobox plug-in library eagerly (Justin's idea, awesome!)
+fn eagerly_load_plugin_lib(context: &PluginContext) -> Result<Library> {
+    // Find correct shared library file
+    let resource_path = Reaper::get()
+        .medium_reaper()
+        .get_resource_path(|path| path.to_path_buf());
+    let plugin_library_path = fs::read_dir(resource_path.join("UserPlugins/FX"))?
+        .flatten()
+        .find_map(|item| {
+            let file_type = item.file_type().ok()?;
+            if !file_type.is_file() && !file_type.is_symlink() {
+                return None;
+            }
+            let file_name = item.file_name().to_str()?.to_lowercase();
+            let extension = if cfg!(target_os = "windows") {
+                ".dll"
+            } else if cfg!(target_os = "macos") {
+                ".vst.dylib"
+            } else {
+                ".so"
+            };
+            let matches = file_name.starts_with("realearn") && file_name.ends_with(extension);
+            if !matches {
+                return None;
+            }
+            Some(item.path())
+        })
+        .context("couldn't find plug-in library")?;
+    // Load shared library
+    let plugin_library = unsafe { Library::new(plugin_library_path)? };
+    // Run extension entry point of library
+    let reaper_plugin_entry: Symbol<ReaperPluginEntry> =
+        unsafe { plugin_library.get(b"ReaperPluginEntry")? };
+    let TypeSpecificPluginContext::Extension(ctx) = context.type_specific() else {
+        bail!("unexpected plug-in context type for extension");
+    };
+    let mut original_info_struct = ctx.to_raw();
+    unsafe {
+        reaper_plugin_entry(context.h_instance(), &mut original_info_struct as *mut _);
+    }
+    Ok(plugin_library)
 }
