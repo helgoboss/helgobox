@@ -101,10 +101,11 @@ impl HookCommand for HelgoboxExtension {
 }
 
 fn add_and_show_playtime() -> Result<()> {
-    Reaper::get()
-        .model_mut()
-        .current_project_mut()
-        .insert_track_at(0, TrackDefaultsBehavior::OmitDefaultEnvAndFx)
+    let mut model = Reaper::get().model_mut();
+    let mut project = model.current_project_mut();
+    let mut track = project.insert_track_at(0, TrackDefaultsBehavior::OmitDefaultEnvAndFx);
+    track.set_name("Playtime");
+    track
         .normal_fx_chain_mut()
         .add_fx_by_name("<1751282284", AddFxBehavior::AlwaysAdd)
         .context("Couldn't add Helgobox. Maybe not installed?")?
