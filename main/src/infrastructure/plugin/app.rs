@@ -33,7 +33,7 @@ use base::{
 use enum_iterator::IntoEnumIterator;
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::infrastructure::plugin::api_impl::register_api;
+use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
@@ -1699,6 +1699,7 @@ impl Drop for App {
     fn drop(&mut self) {
         self.message_panel.close();
         self.party_is_over_subject.next(());
+        let _ = unregister_api();
     }
 }
 

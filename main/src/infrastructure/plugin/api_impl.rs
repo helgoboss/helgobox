@@ -1,5 +1,5 @@
-use crate::domain::BackboneState;
-use crate::infrastructure::plugin::App;
+use crate::domain::{BackboneState, InstanceId};
+use crate::infrastructure::plugin::{App, PluginInstanceInfo};
 use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
@@ -12,8 +12,12 @@ use std::ffi::c_int;
 struct HelgoboxApiImpl;
 
 impl HelgoboxApi for HelgoboxApiImpl {
-    extern "C" fn HB_FindFirstPlaytimeInstanceInProject(project: *mut ReaProject) -> c_int {
-        find_first_playtime_instance_in_project(project).unwrap_or(-1)
+    extern "C" fn HB_FindFirstHelgoboxInstanceInProject(project: *mut ReaProject) -> c_int {
+        find_first_helgobox_instance_in_project(project).unwrap_or(-1)
+    }
+
+    extern "C" fn HB_FindFirstPlaytimeHelgoboxInstanceInProject(project: *mut ReaProject) -> c_int {
+        find_first_playtime_helgobox_instance_in_project(project).unwrap_or(-1)
     }
 
     extern "C" fn HB_CreateClipMatrix(instance_id: c_int) {
@@ -25,38 +29,64 @@ impl HelgoboxApi for HelgoboxApiImpl {
     }
 }
 
-fn find_first_playtime_instance_in_project(project: *mut ReaProject) -> anyhow::Result<c_int> {
+fn find_first_playtime_helgobox_instance_in_project(
+    project: *mut ReaProject,
+) -> anyhow::Result<c_int> {
     let project = reaper_medium::ReaProject::new(project)
         .map(Project::new)
         .or_current_project();
-    let instance_id = App::get()
-        .with_instances(|instances| {
-            instances
-                .iter()
-                .filter_map(|instance| {
-                    let instance_project = instance.processor_context.project()?;
-                    if instance_project != project {
-                        return None;
-                    }
-                    let instance_state = instance.instance_state.upgrade()?;
-                    let instance_state = instance_state.borrow();
-                    instance_state.owned_clip_matrix()?;
-                    let track_index = instance.processor_context.track()?.index()?;
-                    Some((track_index, instance))
-                })
-                .sorted_by_key(|(track_index, _)| *track_index)
-                .next()
-                .map(|(_, instance)| instance.instance_id)
-        })
-        .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
+    let instance_id = find_first_helgobox_instance_matching(|instance| {
+        if instance.processor_context.project() != Some(project) {
+            return false;
+        }
+        let Some(instance_state) = instance.instance_state.upgrade() else {
+            return false;
+        };
+        let instance_state = instance_state.borrow();
+        instance_state.owned_clip_matrix().is_some()
+    })
+    .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
     Ok(u32::from(instance_id) as _)
+}
+
+fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::Result<c_int> {
+    let project = reaper_medium::ReaProject::new(project)
+        .map(Project::new)
+        .or_current_project();
+    let instance_id = find_first_helgobox_instance_matching(|instance| {
+        instance
+            .processor_context
+            .project()
+            .is_some_and(|p| p == project)
+    })
+    .context("Project doesn't contain Helgobox instance")?;
+    Ok(u32::from(instance_id) as _)
+}
+
+fn find_first_helgobox_instance_matching(
+    meets_criteria: impl Fn(&PluginInstanceInfo) -> bool,
+) -> Option<InstanceId> {
+    App::get().with_instances(|instances| {
+        instances
+            .iter()
+            .filter_map(|instance| {
+                if !meets_criteria(instance) {
+                    return None;
+                }
+                let track_index = instance.processor_context.track()?.index()?;
+                Some((track_index, instance))
+            })
+            .sorted_by_key(|(track_index, _)| *track_index)
+            .next()
+            .map(|(_, instance)| instance.instance_id)
+    })
 }
 
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
     let instance_state = App::get()
-        .with_instances(|instance| {
-            instance
+        .with_instances(|instances| {
+            instances
                 .iter()
                 .find(|i| i.instance_id == instance_id)
                 .and_then(|i| i.instance_state.upgrade())
@@ -77,8 +107,25 @@ fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
 
 pub fn register_api() -> anyhow::Result<()> {
     let mut session = Reaper::get().medium_session();
-    register_helgobox_api::<HelgoboxApiImpl, ReaperFunctionError>(|name, ptr| unsafe {
-        session.plugin_register_add(RegistrationObject::Api(
+    register_or_unregister_api(|reg| unsafe {
+        session.plugin_register_add(reg)?;
+        Ok(())
+    })
+}
+
+pub fn unregister_api() -> anyhow::Result<()> {
+    let mut session = Reaper::get().medium_session();
+    register_or_unregister_api(|reg| unsafe {
+        session.plugin_register_remove(reg);
+        Ok(())
+    })
+}
+
+fn register_or_unregister_api(
+    mut op: impl FnMut(RegistrationObject) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    register_helgobox_api::<HelgoboxApiImpl, anyhow::Error>(|name, ptr| unsafe {
+        op(RegistrationObject::Api(
             Cow::Borrowed(ReaperStr::from_ptr(name.as_ptr())),
             ptr,
         ))?;

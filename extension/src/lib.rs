@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use realearn_api::runtime::{HelgoboxApiPointers, HelgoboxApiSession};
-use reaper_fluent::Reaper;
+use reaper_fluent::{FreeFn, Reaper};
 use reaper_low::PluginContext;
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
@@ -53,19 +53,17 @@ impl HelgoboxExtension {
     }
 
     fn show_or_hide_playtime(&self) -> Result<()> {
-        let reaper = Reaper::get();
-        let medium_reaper = reaper.medium_session().reaper();
-        let plugin_context = medium_reaper.low().plugin_context();
-        let Some(helgobox_api_session) = HelgoboxApiSession::load(&plugin_context) else {
+        let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+        let Some(helgobox_api_session) = HelgoboxApiSession::load(plugin_context) else {
             // Project doesn't have any Helgobox instance yet. Add one.
-            add_and_show_playtime(&plugin_context)?;
+            add_and_show_playtime()?;
             return Ok(());
         };
         let helgobox_instance =
-            helgobox_api_session.HB_FindFirstPlaytimeInstanceInProject(null_mut());
+            helgobox_api_session.HB_FindFirstPlaytimeHelgoboxInstanceInProject(null_mut());
         if helgobox_instance == -1 {
             // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
-            add_and_show_playtime(&plugin_context)?;
+            add_and_show_playtime()?;
             return Ok(());
         }
         helgobox_api_session.HB_ShowOrHidePlaytime(helgobox_instance);
@@ -91,20 +89,37 @@ impl HookCommand for HelgoboxExtension {
     }
 }
 
-fn add_and_show_playtime(plugin_context: &PluginContext) -> Result<()> {
-    let instance_id = Reaper::get()
+fn add_and_show_playtime() -> Result<()> {
+    Reaper::get()
         .model_mut()
         .current_project_mut()
         .insert_track_at(0, TrackDefaultsBehavior::OmitDefaultEnvAndFx)
         .normal_fx_chain_mut()
         .add_fx_by_name("<1751282284", AddFxBehavior::AlwaysAdd)
-        .context("Couldn't add Helgobox. Maybe not installed?")?
-        .get_named_config_param_as_string("instance_id", 32)
-        .context("Helgobox doesn't expose instance ID. Maybe an older version?")?
-        .into_string()
-        .parse()?;
+        .context("Couldn't add Helgobox. Maybe not installed?")?;
+    // The rest needs to be done async because the instance initializes itself async
+    // (because FX not yet available when plug-in instantiated).
+    Reaper::get().execute_later::<Later>();
+    struct Later;
+    struct MuchLater;
+    impl FreeFn for Later {
+        fn call() {
+            Reaper::get().execute_later::<MuchLater>();
+        }
+    }
+    impl FreeFn for MuchLater {
+        fn call() {
+            enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
+        }
+    }
+    Ok(())
+}
+
+fn enable_playtime_for_first_helgobox_instance_and_show_it() -> Result<()> {
+    let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
     let helgobox_api_session = HelgoboxApiSession::load(&plugin_context)
         .context("Couldn't load API even after adding Helgobox. Old version?")?;
+    let instance_id = helgobox_api_session.HB_FindFirstHelgoboxInstanceInProject(null_mut());
     helgobox_api_session.HB_CreateClipMatrix(instance_id);
     helgobox_api_session.HB_ShowOrHidePlaytime(instance_id);
     Ok(())
