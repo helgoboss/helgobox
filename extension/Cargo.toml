@@ -13,6 +13,7 @@ base.workspace = true
 realearn-api.workspace = true
 enumflags2.workspace = true
 libloading.workspace = true
+rust-ini.workspace = true
 
 [lib]
 name = "reaper_helgobox"
