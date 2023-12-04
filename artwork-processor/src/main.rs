@@ -49,9 +49,9 @@ fn render_toolbar_icon(svg: &str, (width, height): (u32, u32)) -> Result<Pixmap>
         };
         let interpolated_svg = svg
             .replace("ROOT_CLASSES_PLACEHOLDER", root_classes)
-            .replace("var(--toolbar-icon-color)", "#686f6f")
-            .replace("var(--toolbar-icon-hovered-color)", "#7c8383")
-            .replace("var(--toolbar-icon-selected-color)", "#4da884");
+            .replace("var(--toolbar-icon-color)", "#818989")
+            .replace("var(--toolbar-icon-hovered-color)", "#939a9a")
+            .replace("var(--toolbar-icon-selected-color)", "#1abc98");
         let tree = usvg::Tree::from_str(&interpolated_svg, &Options::default())?;
         // Render sprite
         let render_tree = Tree::from_usvg(&tree);
