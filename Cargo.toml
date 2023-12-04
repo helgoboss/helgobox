@@ -15,6 +15,7 @@ members = [
     "rx-util",
     "swell-ui",
     "base",
+    "artwork-processor",
     # Will probably be excluded from the workspace in future
     "main/lib/helgoboss-learn"
 ]
