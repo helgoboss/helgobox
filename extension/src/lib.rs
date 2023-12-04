@@ -42,14 +42,19 @@ impl HelgoboxExtension {
         // Register actions
         let show_or_hide_playtime_command_id =
             medium_session.plugin_register_add_command_id(COMMAND_ID_SHOW_HIDE_PLAYTIME)?;
-        medium_session.plugin_register_add_gaccel(OwnedGaccelRegister::with_key_binding(
+        let gaccel_register = OwnedGaccelRegister::with_key_binding(
             show_or_hide_playtime_command_id,
             ACTION_LABEL_SHOW_HIDE_PLAYTIME,
             AcceleratorBehavior::Shift
                 | AcceleratorBehavior::Control
                 | AcceleratorBehavior::VirtKey,
             AcceleratorKeyCode::new(b'P' as _),
-        ))?;
+        );
+        medium_session
+            .plugin_register_add_gaccel_global_text(gaccel_register)
+            .or_else(|gaccel_register| {
+                medium_session.plugin_register_add_gaccel(gaccel_register)
+            })?;
         // Install reaper-fluent for global use
         let _ = Reaper::install_globally(medium_session);
         // Add toolbar button
