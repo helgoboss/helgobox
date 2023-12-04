@@ -1,7 +1,7 @@
 <svg
         viewBox="0 0 100 100"
         xmlns="http://www.w3.org/2000/svg"
-        class="ROOT_CLASSES_PLACEHOLDER"
+        class="ROOT_CLASSES_PLACEHOLDER inverted"
 >
     <style>
         <![CDATA[
@@ -13,10 +13,17 @@
             --toolbar-icon-color: #686f6f;
             --toolbar-icon-hovered-color: #7c8383;
             --toolbar-icon-selected-color: #4da884;
+
+            --dark-color: #616161;
+            --light-color: #f5f5f5;
         }
 
         #icon-background {
-            fill: #616161;
+            fill: var(--dark-color);
+        }
+
+        .inverted #icon-background {
+            fill: var(--light-color);
         }
 
         .toolbar-icon #icon-background {
@@ -25,6 +32,10 @@
 
         #watch-frame, #watch-straps {
             fill: #f5f5f5;
+        }
+
+        .inverted #watch-frame, .inverted #watch-straps {
+            fill: var(--dark-color);
         }
 
         .toolbar-icon #watch-frame, .toolbar-icon #watch-straps {
@@ -40,8 +51,13 @@
         }
 
         #button {
-            fill: #ffffff;
-            stroke: #ffffff;
+            fill: var(--light-color);
+            stroke: var(--light-color);
+        }
+
+        .inverted #button {
+            fill: var(--dark-color);
+            stroke: var(--dark-color);
         }
 
         .toolbar-icon #button {
@@ -63,7 +79,7 @@
     <defs>
         <mask id="cut-off-display">
             <rect x="0" y="0" width="100" height="100" fill="white"/>
-            <circle cx="50" cy="50" r="38" fill="black"/>
+            <circle cx="50" cy="50" r="30" fill="black"/>
         </mask>
     </defs>
     <g id="icon-background">
@@ -71,15 +87,15 @@
     </g>
     <g id="watch" mask="url(#cut-off-display)">
         <g id="watch-frame" stroke-width="012">
-            <circle cx="50" cy="50" r="45"/>
+            <circle cx="50" cy="50" r="35"/>
         </g>
         <g id="watch-straps">
-            <polygon id="watch-strap" points="50,10, 100,25, 100,75, 50,90"/>
+            <polygon id="watch-strap" points="50,20, 100,30, 100,70, 50,80"/>
             <use href="#watch-strap" x="0" y="0" transform="translate(100, 0) scale(-1, 1)"/>
         </g>
     </g>
     <g id="button" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"
-       transform="translate(50, 50) scale(0.8, 0.8) translate(-50, -50) ">
+       transform="translate(50, 50) scale(0.6, 0.6) translate(-50, -50) ">
         <path id="button-path"
               d="
                 M 50,50
