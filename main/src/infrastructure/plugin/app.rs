@@ -65,7 +65,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -2059,10 +2059,25 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
 
 #[cfg(feature = "playtime")]
 fn decompress_app() -> anyhow::Result<()> {
-    tracing::info!("Decompressing app...");
+    // Check if decompression necessary
     use anyhow::Context;
     let archive_file = &App::app_archive_file_path();
     let destination_dir = &App::app_base_dir_path();
+    let archive_metadata = archive_file.metadata()?;
+    let archive_size = archive_metadata.len();
+    let archive_modified = archive_metadata
+        .modified()?
+        .duration_since(SystemTime::UNIX_EPOCH)?;
+    let archive_id = format!("{archive_size},{}", archive_modified.as_millis());
+    let archive_id_file = destination_dir.join("ARCHIVE");
+    if let Ok(unpacked_archive_id) = fs::read_to_string(&archive_id_file) {
+        if archive_id == unpacked_archive_id {
+            tracing::info!("App is already decompressed.");
+            return Ok(());
+        }
+    }
+    // Decompress
+    tracing::info!("Decompressing app...");
     let archive_file =
         fs::File::open(archive_file).context("Couldn't open app archive file. Maybe you installed ReaLearn manually (without ReaPack) and forgot to add the app archive?")?;
     let tar = zstd::Decoder::new(&archive_file).context("Couldn't decode app archive file.")?;
@@ -2077,6 +2092,7 @@ fn decompress_app() -> anyhow::Result<()> {
     archive
         .unpack(destination_dir)
         .context("Couldn't unpack app archive.")?;
+    fs::write(archive_id_file, archive_id)?;
     tracing::info!("App decompressed successfully");
     Ok(())
 }
