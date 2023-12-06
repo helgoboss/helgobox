@@ -375,9 +375,9 @@ impl RealTimeClipTransportTarget {
         match self.basics.action {
             PlayStop => {
                 if on {
-                    matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
+                    matrix.play_slot(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
-                    matrix.stop_clip(
+                    matrix.stop_slot(
                         self.basics.slot_coordinates,
                         self.basics.options.play_stop_timing,
                     )
@@ -385,14 +385,14 @@ impl RealTimeClipTransportTarget {
             }
             PlayPause => {
                 if on {
-                    matrix.play_clip(self.basics.slot_coordinates, self.basics.play_options())
+                    matrix.play_slot(self.basics.slot_coordinates, self.basics.play_options())
                 } else {
                     matrix.pause_slot(self.basics.slot_coordinates)
                 }
             }
             Stop => {
                 if on {
-                    matrix.stop_clip(
+                    matrix.stop_slot(
                         self.basics.slot_coordinates,
                         self.basics.options.play_stop_timing,
                     )
