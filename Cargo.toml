@@ -107,6 +107,7 @@ serde_with = "2.0.1"
 lazycell = "1.2"
 rosc = "0.5.1"
 rust-ini = "0.20.0"
+function_name = "0.3.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.
