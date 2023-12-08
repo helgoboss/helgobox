@@ -522,6 +522,30 @@ impl Default for ClipPlayStopTiming {
     }
 }
 
+impl ClipPlayStopTiming {
+    pub fn resolve(&self, start_timing: ClipPlayStartTiming) -> ResolvedClipPlayStopTiming {
+        use ClipPlayStopTiming::*;
+        match self {
+            LikeClipStartTiming => match start_timing {
+                ClipPlayStartTiming::Immediately => ResolvedClipPlayStopTiming::Immediately,
+                ClipPlayStartTiming::Quantized(q) => ResolvedClipPlayStopTiming::Quantized(q),
+            },
+            Immediately => ResolvedClipPlayStopTiming::Immediately,
+            Quantized(q) => ResolvedClipPlayStopTiming::Quantized(*q),
+            UntilEndOfClip => ResolvedClipPlayStopTiming::UntilEndOfClip,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ResolvedClipPlayStopTiming {
+    Immediately,
+    /// Stops playing according to the given quantization.
+    Quantized(EvenQuantization),
+    /// Keeps playing until the end of the clip.
+    UntilEndOfClip,
+}
+
 // TODO-low This was generic before (9265c028). Now it's duplicated instead for easier Dart
 //  conversion. If we need to use generics one day more extensively, there's probably a way to make
 //  it work.
@@ -860,6 +884,12 @@ pub enum AudioTimeStretchMode {
     KeepingPitch(TimeStretchMode),
 }
 
+impl AudioTimeStretchMode {
+    pub fn is_vari_speed(&self) -> bool {
+        matches!(self, Self::VariSpeed)
+    }
+}
+
 impl Default for AudioTimeStretchMode {
     fn default() -> Self {
         Self::KeepingPitch(Default::default())
@@ -1087,7 +1117,7 @@ pub struct ClipAudioSettings {
     /// plus, it's not an audio-only setting.
     ///
     /// The tempo is also not kept as part of [`Source`] because it's just additional meta
-    /// information that's not strictly to load the source.
+    /// information that's not strictly necessary to load the source.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_tempo: Option<Bpm>,
 }
