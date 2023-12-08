@@ -38,7 +38,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
-use anyhow::bail;
+use anyhow::{bail, Context};
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
@@ -1004,10 +1004,10 @@ impl App {
         &self,
         clip_matrix_id: &str,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         let session = self
             .find_session_by_id(clip_matrix_id)
-            .ok_or("session not found")?;
+            .context("session not found")?;
         let session = session.borrow();
         let instance_state = session.instance_state();
         BackboneState::get().with_clip_matrix(instance_state, f)
@@ -1018,20 +1018,20 @@ impl App {
         &self,
         clip_matrix_id: &str,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         let session = self
             .find_session_by_id(clip_matrix_id)
-            .ok_or("session not found")?;
+            .context("session not found")?;
         let session = session.borrow();
         let instance_state = session.instance_state();
         BackboneState::get().with_clip_matrix_mut(instance_state, f)
     }
 
     #[cfg(feature = "playtime")]
-    pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> Result<(), &'static str> {
+    pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
         let session = self
             .find_session_by_id(clip_matrix_id)
-            .ok_or("session not found")?;
+            .context("session not found")?;
         let session = session.borrow();
         let instance_state = session.instance_state();
         BackboneState::get()

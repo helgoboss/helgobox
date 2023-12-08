@@ -68,10 +68,16 @@ impl RealearnTarget for ClipSeekTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
-        BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
-            matrix.seek_slot(self.slot_coordinates, value)?;
-            Ok(HitResponse::processed_with_effect())
-        })?
+        BackboneState::get()
+            .with_clip_matrix(
+                context.control_context.instance_state,
+                |matrix| -> anyhow::Result<HitResponse> {
+                    matrix.seek_slot(self.slot_coordinates, value)?;
+                    Ok(HitResponse::processed_with_effect())
+                },
+            )
+            .map_err(|_| "couldn't acquire matrix")?
+            .map_err(|_| "couldn't carry out seek action")
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

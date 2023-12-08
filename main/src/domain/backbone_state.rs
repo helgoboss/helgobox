@@ -11,6 +11,7 @@ use crate::domain::{
 use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
 
+use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Fx, Reaper};
@@ -394,12 +395,12 @@ impl BackboneState {
         &self,
         instance_state: &SharedInstanceState,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_id = match instance_state
             .borrow()
             .clip_matrix_ref()
-            .ok_or(NO_CLIP_MATRIX_SET)?
+            .context(NO_CLIP_MATRIX_SET)?
         {
             Own(m) => return Ok(f(m)),
             Foreign(instance_id) => *instance_id,
@@ -412,22 +413,22 @@ impl BackboneState {
         &self,
         foreign_instance_id: &InstanceId,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
             .get(foreign_instance_id)
-            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
-            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+            .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
         let other_instance_state = other_instance_state.borrow();
         match other_instance_state
             .clip_matrix_ref()
-            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+            .context(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
         {
             Own(m) => Ok(f(m)),
-            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+            Foreign(_) => Err(anyhow!(NESTED_CLIP_BORROW_NOT_SUPPORTED)),
         }
     }
 
@@ -438,12 +439,12 @@ impl BackboneState {
         &self,
         instance_state: &SharedInstanceState,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_id = match instance_state
             .borrow_mut()
             .clip_matrix_ref_mut()
-            .ok_or(NO_CLIP_MATRIX_SET)?
+            .context(NO_CLIP_MATRIX_SET)?
         {
             Own(m) => return Ok(f(m)),
             Foreign(instance_id) => *instance_id,
@@ -456,22 +457,22 @@ impl BackboneState {
         &self,
         instance_id: &InstanceId,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
             .get(instance_id)
-            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
-            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+            .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
         let mut other_instance_state = other_instance_state.borrow_mut();
         match other_instance_state
             .clip_matrix_ref_mut()
-            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+            .context(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
         {
             Own(m) => Ok(f(m)),
-            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+            Foreign(_) => Err(anyhow!(NESTED_CLIP_BORROW_NOT_SUPPORTED)),
         }
     }
 

@@ -39,31 +39,11 @@ pub struct ClipRowTarget {
 }
 
 impl ClipRowTarget {
-    fn with_matrix<R>(
-        &self,
-        context: ControlContext,
-        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
-        BackboneState::get().with_clip_matrix_mut(context.instance_state, f)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-struct ClipRowTargetBasics {
-    pub row_index: usize,
-    pub action: ClipRowAction,
-}
-
-impl RealearnTarget for ClipRowTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        control_type_and_character(self.basics.action)
-    }
-
-    fn hit(
+    fn hit_internal(
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitResponse, &'static str> {
+    ) -> anyhow::Result<HitResponse> {
         match self.basics.action {
             ClipRowAction::PlayScene => {
                 if !value.is_on() {
@@ -106,6 +86,35 @@ impl RealearnTarget for ClipRowTarget {
                 })?
             }
         }
+    }
+
+    fn with_matrix<R>(
+        &self,
+        context: ControlContext,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
+    ) -> anyhow::Result<R> {
+        BackboneState::get().with_clip_matrix_mut(context.instance_state, f)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ClipRowTargetBasics {
+    pub row_index: usize,
+    pub action: ClipRowAction,
+}
+
+impl RealearnTarget for ClipRowTarget {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+        control_type_and_character(self.basics.action)
+    }
+
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: MappingControlContext,
+    ) -> Result<HitResponse, &'static str> {
+        self.hit_internal(value, context)
+            .map_err(|_| "couldn't carry out row action")
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

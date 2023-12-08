@@ -39,35 +39,11 @@ pub struct ClipManagementTarget {
 }
 
 impl ClipManagementTarget {
-    fn with_matrix<R>(
-        &self,
-        context: MappingControlContext,
-        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
-    ) -> Result<R, &'static str> {
-        BackboneState::get().with_clip_matrix_mut(context.control_context.instance_state, f)
-    }
-}
-
-impl RealearnTarget for ClipManagementTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        use ClipManagementAction as A;
-        match self.action {
-            A::ClearSlot
-            | A::FillSlotWithSelectedItem
-            | A::CopyOrPasteClip
-            | A::AdjustClipSectionLength(_) => (
-                ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Trigger,
-            ),
-            A::EditClip => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
-        }
-    }
-
-    fn hit(
+    fn hit_internal(
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitResponse, &'static str> {
+    ) -> anyhow::Result<HitResponse> {
         use ClipManagementAction as A;
         match &self.action {
             A::ClearSlot => {
@@ -120,6 +96,39 @@ impl RealearnTarget for ClipManagementTarget {
                 })?
             }
         }
+    }
+
+    fn with_matrix<R>(
+        &self,
+        context: MappingControlContext,
+        f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
+    ) -> anyhow::Result<R> {
+        BackboneState::get().with_clip_matrix_mut(context.control_context.instance_state, f)
+    }
+}
+
+impl RealearnTarget for ClipManagementTarget {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+        use ClipManagementAction as A;
+        match self.action {
+            A::ClearSlot
+            | A::FillSlotWithSelectedItem
+            | A::CopyOrPasteClip
+            | A::AdjustClipSectionLength(_) => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Trigger,
+            ),
+            A::EditClip => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+        }
+    }
+
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: MappingControlContext,
+    ) -> Result<HitResponse, &'static str> {
+        self.hit_internal(value, context)
+            .map_err(|_| "couldn't carry out clip management action")
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {

@@ -22,6 +22,7 @@ use std::cmp;
 use std::error::Error;
 use std::ops::Add;
 use std::path::PathBuf;
+use thiserror::Error;
 
 // TODO-medium Add start time detection
 // TODO-medium Add legato
@@ -151,7 +152,7 @@ pub struct TempoRange {
 impl TempoRange {
     pub fn new(min: Bpm, max: Bpm) -> PlaytimeApiResult<Self> {
         if min > max {
-            return Err("min must be <= max");
+            return Err("min must be <= max".into());
         }
         Ok(Self { min, max })
     }
@@ -590,13 +591,13 @@ impl EvenQuantization {
 
     pub fn new(numerator: u32, denominator: u32) -> PlaytimeApiResult<Self> {
         if numerator == 0 {
-            return Err("numerator must be > 0");
+            return Err("numerator must be > 0".into());
         }
         if denominator == 0 {
-            return Err("denominator must be > 0");
+            return Err("denominator must be > 0".into());
         }
         if numerator > 1 && denominator > 1 {
-            return Err("if numerator > 1, denominator must be 1");
+            return Err("if numerator > 1, denominator must be 1".into());
         }
         let q = Self {
             numerator,
@@ -1368,7 +1369,7 @@ impl Bpm {
 
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value <= 0.0 {
-            return Err("BPM value must be > 0.0");
+            return Err("BPM value must be > 0.0".into());
         }
         Ok(Self(value))
     }
@@ -1385,7 +1386,7 @@ pub struct PositiveSecond(f64);
 impl PositiveSecond {
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value < 0.0 {
-            return Err("second value must be positive");
+            return Err("second value must be positive".into());
         }
         Ok(Self(value))
     }
@@ -1400,7 +1401,7 @@ impl PositiveSecond {
 }
 
 impl TryFrom<f64> for PositiveSecond {
-    type Error = &'static str;
+    type Error = PlaytimeApiError;
 
     fn try_from(value: f64) -> Result<Self, Self::Error> {
         Self::new(value)
@@ -1421,7 +1422,7 @@ pub struct PositiveBeat(f64);
 impl PositiveBeat {
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value < 0.0 {
-            return Err("beat value must be positive");
+            return Err("beat value must be positive".into());
         }
         Ok(Self(value))
     }
@@ -1439,7 +1440,7 @@ impl Db {
 
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value.is_nan() {
-            return Err("dB value must not be NaN");
+            return Err("dB value must not be NaN".into());
         }
         Ok(Self(value))
     }
@@ -1452,4 +1453,24 @@ impl Db {
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
-type PlaytimeApiResult<T> = Result<T, &'static str>;
+type PlaytimeApiResult<T> = Result<T, PlaytimeApiError>;
+
+/// Important: Since some of these types are going to be used in real-time contexts, we don't
+/// want heap-allocated types in here!
+#[derive(Error, Debug)]
+#[error("{msg}")]
+pub struct PlaytimeApiError {
+    msg: &'static str,
+}
+
+impl From<&'static str> for PlaytimeApiError {
+    fn from(msg: &'static str) -> Self {
+        Self { msg }
+    }
+}
+
+impl From<PlaytimeApiError> for &'static str {
+    fn from(value: PlaytimeApiError) -> Self {
+        value.msg
+    }
+}

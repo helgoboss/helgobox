@@ -72,13 +72,16 @@ impl RealearnTarget for ClipVolumeTarget {
             .unwrap_or_default();
         let db = volume.db();
         let api_db = playtime_api::persistence::Db::new(db.get())?;
-        BackboneState::get().with_clip_matrix_mut(
-            context.control_context.instance_state,
-            |matrix| {
-                matrix.set_slot_volume(self.slot_coordinates, api_db)?;
-                Ok(HitResponse::processed_with_effect())
-            },
-        )?
+        BackboneState::get()
+            .with_clip_matrix_mut(
+                context.control_context.instance_state,
+                |matrix| -> anyhow::Result<HitResponse> {
+                    matrix.set_slot_volume(self.slot_coordinates, api_db)?;
+                    Ok(HitResponse::processed_with_effect())
+                },
+            )
+            .map_err(|_| "couldn't acquire matrix")?
+            .map_err(|_| "couldn't carry out volume action")
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

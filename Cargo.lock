@@ -4184,6 +4184,7 @@ dependencies = [
  "rmp-serde",
  "schemars",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

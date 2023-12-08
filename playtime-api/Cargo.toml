@@ -19,3 +19,5 @@ derive_more.workspace = true
 rmp-serde.workspace = true
 # For encoding/decoding a signed matrix value
 base64 = "0.21.2"
+# For proper error types
+thiserror.workspace = true

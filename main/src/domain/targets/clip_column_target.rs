@@ -54,20 +54,23 @@ impl RealearnTarget for ClipColumnTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let response = BackboneState::get().with_clip_matrix(
-            context.control_context.instance_state,
-            |matrix| -> Result<HitResponse, &'static str> {
-                match self.action {
-                    ClipColumnAction::Stop => {
-                        if !value.is_on() {
-                            return Ok(HitResponse::ignored());
+        let response = BackboneState::get()
+            .with_clip_matrix(
+                context.control_context.instance_state,
+                |matrix| -> anyhow::Result<HitResponse> {
+                    match self.action {
+                        ClipColumnAction::Stop => {
+                            if !value.is_on() {
+                                return Ok(HitResponse::ignored());
+                            }
+                            matrix.stop_column(self.column_index, None)?;
                         }
-                        matrix.stop_column(self.column_index, None)?;
                     }
-                }
-                Ok(HitResponse::processed_with_effect())
-            },
-        )??;
+                    Ok(HitResponse::processed_with_effect())
+                },
+            )
+            .map_err(|_| "couldn't acquire matrix")?
+            .map_err(|_| "couldn't carry out column action")?;
         Ok(response)
     }
 

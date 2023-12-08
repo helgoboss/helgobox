@@ -48,44 +48,47 @@ impl RealearnTarget for ClipMatrixTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        BackboneState::get().with_clip_matrix_mut(
-            context.control_context.instance_state,
-            |matrix| {
-                if !value.is_on() {
-                    return Ok(HitResponse::ignored());
-                }
-                match self.action {
-                    ClipMatrixAction::Stop => {
-                        matrix.stop();
+        BackboneState::get()
+            .with_clip_matrix_mut(
+                context.control_context.instance_state,
+                |matrix| -> anyhow::Result<HitResponse> {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
                     }
-                    ClipMatrixAction::Undo => {
-                        let _ = matrix.undo();
+                    match self.action {
+                        ClipMatrixAction::Stop => {
+                            matrix.stop();
+                        }
+                        ClipMatrixAction::Undo => {
+                            let _ = matrix.undo();
+                        }
+                        ClipMatrixAction::Redo => {
+                            let _ = matrix.redo();
+                        }
+                        ClipMatrixAction::BuildScene => {
+                            matrix.build_scene_in_first_empty_row()?;
+                        }
+                        ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                            matrix.set_record_duration(RecordLength::OpenEnd);
+                        }
+                        ClipMatrixAction::SetRecordDurationToOneBar => {
+                            matrix.set_record_duration(record_duration_in_bars(1));
+                        }
+                        ClipMatrixAction::SetRecordDurationToTwoBars => {
+                            matrix.set_record_duration(record_duration_in_bars(2));
+                        }
+                        ClipMatrixAction::SetRecordDurationToFourBars => {
+                            matrix.set_record_duration(record_duration_in_bars(4));
+                        }
+                        ClipMatrixAction::SetRecordDurationToEightBars => {
+                            matrix.set_record_duration(record_duration_in_bars(8));
+                        }
                     }
-                    ClipMatrixAction::Redo => {
-                        let _ = matrix.redo();
-                    }
-                    ClipMatrixAction::BuildScene => {
-                        matrix.build_scene_in_first_empty_row()?;
-                    }
-                    ClipMatrixAction::SetRecordDurationToOpenEnd => {
-                        matrix.set_record_duration(RecordLength::OpenEnd);
-                    }
-                    ClipMatrixAction::SetRecordDurationToOneBar => {
-                        matrix.set_record_duration(record_duration_in_bars(1));
-                    }
-                    ClipMatrixAction::SetRecordDurationToTwoBars => {
-                        matrix.set_record_duration(record_duration_in_bars(2));
-                    }
-                    ClipMatrixAction::SetRecordDurationToFourBars => {
-                        matrix.set_record_duration(record_duration_in_bars(4));
-                    }
-                    ClipMatrixAction::SetRecordDurationToEightBars => {
-                        matrix.set_record_duration(record_duration_in_bars(8));
-                    }
-                }
-                Ok(HitResponse::processed_with_effect())
-            },
-        )?
+                    Ok(HitResponse::processed_with_effect())
+                },
+            )
+            .map_err(|_| "couldn't acquire matrix")?
+            .map_err(|_| "couldn't carry out matrix action")
     }
 
     fn process_change_event(

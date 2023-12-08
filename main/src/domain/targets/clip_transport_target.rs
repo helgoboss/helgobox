@@ -5,6 +5,7 @@ use crate::domain::{
     RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
+use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
@@ -70,40 +71,12 @@ impl ClipTransportTarget {
         let play_state = matrix.find_slot(self.basics.slot_coordinates)?.play_state();
         Some(play_state)
     }
-}
 
-#[derive(Clone, Debug, PartialEq)]
-struct ClipTransportTargetBasics {
-    pub slot_coordinates: ClipSlotAddress,
-    pub action: ClipTransportAction,
-    pub options: ClipTransportOptions,
-}
-
-impl ClipTransportTargetBasics {
-    fn play_options(&self) -> ColumnPlaySlotOptions {
-        ColumnPlaySlotOptions {
-            stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
-            start_timing: self.options.play_start_timing,
-        }
-    }
-}
-
-const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
-
-impl RealearnTarget for ClipTransportTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        control_type_and_character(self.basics.action)
-    }
-
-    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
-        format_value_as_on_off(value).to_string()
-    }
-
-    fn hit(
+    fn hit_internal(
         &mut self,
         value: ControlValue,
         context: MappingControlContext,
-    ) -> Result<HitResponse, &'static str> {
+    ) -> anyhow::Result<HitResponse> {
         use ClipTransportAction::*;
         let on = value.is_on();
         BackboneState::get().with_clip_matrix_mut(
@@ -161,7 +134,7 @@ impl RealearnTarget for ClipTransportTarget {
                                     self.basics.slot_coordinates.column(),
                                 )
                             {
-                                return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
+                                bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                             }
                             matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
                         } else {
@@ -193,7 +166,7 @@ impl RealearnTarget for ClipTransportTarget {
                                             None,
                                         )?;
                                     } else {
-                                        return Err(NOT_RECORDING_BECAUSE_NOT_ARMED);
+                                        bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                     }
                                 } else {
                                     // Definitely record.
@@ -226,6 +199,43 @@ impl RealearnTarget for ClipTransportTarget {
                 Ok(response)
             },
         )?
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct ClipTransportTargetBasics {
+    pub slot_coordinates: ClipSlotAddress,
+    pub action: ClipTransportAction,
+    pub options: ClipTransportOptions,
+}
+
+impl ClipTransportTargetBasics {
+    fn play_options(&self) -> ColumnPlaySlotOptions {
+        ColumnPlaySlotOptions {
+            stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
+            start_timing: self.options.play_start_timing,
+        }
+    }
+}
+
+const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
+
+impl RealearnTarget for ClipTransportTarget {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+        control_type_and_character(self.basics.action)
+    }
+
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
+        format_value_as_on_off(value).to_string()
+    }
+
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: MappingControlContext,
+    ) -> Result<HitResponse, &'static str> {
+        self.hit_internal(value, context)
+            .map_err(|_| "error while hitting clip transport target")
     }
 
     fn is_available(&self, _: ControlContext) -> bool {

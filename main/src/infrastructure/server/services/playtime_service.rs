@@ -17,7 +17,7 @@ impl MatrixProvider for AppMatrixProvider {
         &self,
         clip_matrix_id: &str,
         f: impl FnOnce(&Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         App::get().with_clip_matrix(clip_matrix_id, f)
     }
 
@@ -25,11 +25,11 @@ impl MatrixProvider for AppMatrixProvider {
         &self,
         clip_matrix_id: &str,
         f: impl FnOnce(&mut Matrix) -> R,
-    ) -> Result<R, &'static str> {
+    ) -> anyhow::Result<R> {
         App::get().with_clip_matrix_mut(clip_matrix_id, f)
     }
 
-    fn create_matrix(&self, clip_matrix_id: &str) -> Result<(), &'static str> {
+    fn create_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
         App::get().create_clip_matrix(clip_matrix_id)
     }
 }
