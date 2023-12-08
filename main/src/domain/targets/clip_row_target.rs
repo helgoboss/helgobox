@@ -178,7 +178,7 @@ impl RealTimeClipRowTarget {
                 }
                 let matrix = context.clip_matrix()?;
                 let matrix = matrix.lock();
-                matrix.play_row(self.basics.row_index);
+                matrix.play_scene(self.basics.row_index);
                 Ok(())
             }
             _ => Err("only row-play is supported in real-time"),
