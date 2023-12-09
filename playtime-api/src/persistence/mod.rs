@@ -3,8 +3,15 @@
 //! It is designed using the following conventions:
 //!
 //! - Fields are definitely optional if they have a totally natural default or are an optional
-//!   override of an otherwise inherited value. Fields that are added later must also be optional
-//!   (for backward compatibility).
+//!   override of an otherwise inherited value.
+//! - For fields that are added later, we must take care of backward compatibility. There are
+//!   two approaches to achieve that. One is `#[serde(default]`. This is the easiest approach and
+//!   very tempting to choose if the type has a natural default. However: This means this field
+//!   will *always* be present when serializing the state. And that means 1) there's no way of
+//!   leaving the value of that field open until the user actually sets it (often okay).
+//!   And 2) "Export as Lua without default values" will always contain those fields, even if they
+//!   are defaults (see `ConversionStyle`). If you don't want this, use the second approach:
+//!   An `Option` annotated with `#[serde(skip_serializing_if = "Option::is_none")]`.
 //! - Fat enum variants are used to distinguish between multiple alternatives, but not as a general
 //!   rule. For UI purposes, it's sometimes desirable to save data even it's not actually in use.
 //!   In the processing layer this would be different.
@@ -12,7 +19,7 @@
 //!   enums.
 //! - Only a subset of the possible Rust data structuring possibilities are used. The ones that
 //!   work well with ReaLearn Script (`lua_serializer.rs`) **and** our Rust-to-Dart converter.
-//!   For the latter, we need to avoid things like `#[serde(flatten)]`!
+//!   For the latter, we need to avoid things like `#[serde(flatten)]` or type parameters!
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
@@ -49,7 +56,12 @@ pub struct Matrix {
     pub color_palette: Option<ColorPalette>,
     #[serde(default)]
     pub content_quantization_settings: ContentQuantizationSettings,
+    #[serde(default)]
+    pub sequences: Vec<MatrixSequence>,
 }
+
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct MatrixSequence {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ContentQuantizationSettings {
