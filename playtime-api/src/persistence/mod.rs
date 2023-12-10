@@ -23,6 +23,7 @@
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
+use chrono::{Local, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::error::Error;
@@ -54,12 +55,82 @@ pub struct Matrix {
     pub color_palette: Option<ColorPalette>,
     #[serde(default)]
     pub content_quantization_settings: ContentQuantizationSettings,
-    // #[serde(default)]
-    // pub sequences: Vec<MatrixSequence>,
+    #[serde(default)]
+    pub sequencer: MatrixSequencer,
 }
 
-// #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-// pub struct MatrixSequence {}
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+pub struct MatrixSequencer {
+    #[serde(default)]
+    pub sequences: Vec<MatrixSequence>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_sequence: Option<MatrixSequenceId>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequence {
+    pub id: MatrixSequenceId,
+    pub info: MatrixSequenceInfo,
+    pub data: MatrixSequenceData,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub created_at: NaiveDateTime,
+}
+
+impl Default for MatrixSequenceInfo {
+    fn default() -> Self {
+        Self {
+            name: None,
+            created_at: Utc::now().naive_local(),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceData {
+    pub ppq: u32,
+    pub count_in: u32,
+    pub events: Vec<MatrixSequenceEvent>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceEvent {
+    pub pulse_diff: u32,
+    pub message: MatrixSequenceMessage,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum MatrixSequenceMessage {
+    StopMatrix,
+    PanicMatrix,
+    StopColumn(MatrixSequenceColumnMessage),
+    PanicColumn(MatrixSequenceColumnMessage),
+    StartScene(MatrixSequenceRowMessage),
+    StartSlot(MatrixSequenceSlotMessage),
+    StopSlot(MatrixSequenceSlotMessage),
+    PanicSlot(MatrixSequenceSlotMessage),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceColumnMessage {
+    pub index: usize,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceRowMessage {
+    pub index: usize,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceSlotMessage {
+    pub column_index: usize,
+    pub row_index: usize,
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ContentQuantizationSettings {
@@ -712,6 +783,21 @@ impl ClipId {
 }
 
 impl Default for ClipId {
+    fn default() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize, derive_more::Display)]
+pub struct MatrixSequenceId(String);
+
+impl MatrixSequenceId {
+    pub fn random() -> Self {
+        Default::default()
+    }
+}
+
+impl Default for MatrixSequenceId {
     fn default() -> Self {
         Self(nanoid::nanoid!())
     }
