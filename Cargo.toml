@@ -79,7 +79,6 @@ slug = "0.1.4"
 num_enum = "0.5.0"
 tonic = "0.9.2"
 prost = "0.11.5"
-schemars = "0.8.10"
 nom = "7.0.0"
 semver = { version = "1.0.17", features = ["serde"] }
 enumset = "1.0.12"
@@ -108,6 +107,7 @@ lazycell = "1.2"
 rosc = "0.5.1"
 rust-ini = "0.20.0"
 function_name = "0.3.0"
+num = "0.4.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

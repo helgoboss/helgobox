@@ -7,8 +7,6 @@ publish = false
 
 [dependencies]
 serde.workspace = true
-# TODO-medium Actually not necessary anymore because we generate Dart directly now.
-schemars.workspace = true
 # For being able to use various attributes that can help in Rust-to-Dart code generation
 realearn-macros.workspace = true
 # For generating random IDs

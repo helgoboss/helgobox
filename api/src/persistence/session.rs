@@ -1,8 +1,6 @@
 use crate::persistence::*;
-use schemars::JsonSchema;
 
 /// Only used for JSON schema generation at the moment.
-#[derive(JsonSchema)]
 pub struct Session {
     _main_compartment: Option<Compartment>,
     #[cfg(feature = "playtime")]
@@ -10,19 +8,19 @@ pub struct Session {
     _mapping_snapshots: Vec<MappingSnapshot>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MappingSnapshot {
     pub id: String,
     pub mappings: Vec<MappingInSnapshot>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MappingInSnapshot {
     pub id: String,
     pub target_value: TargetValue,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum TargetValue {
     #[serde(alias = "Normalized")]

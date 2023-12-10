@@ -1,9 +1,8 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Default, Serialize, Deserialize)]
 pub struct Glue {
     //region Relevant for control and feedback
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,19 +57,19 @@ pub struct Glue {
     //endregion
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum FeedbackValueTable {
     FromTextToDiscrete(FeedbackValueTableContent<String, u32>),
     FromTextToContinuous(FeedbackValueTableContent<String, f64>),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
     pub value: HashMap<K, V>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub enum AbsoluteMode {
     #[default]
     Normal,
@@ -80,7 +79,7 @@ pub enum AbsoluteMode {
     PerformanceControl,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RelativeMode {
     Normal,
     MakeAbsolute,
@@ -92,7 +91,7 @@ impl Default for RelativeMode {
     }
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum FireMode {
     Normal(NormalFireMode),
@@ -108,50 +107,50 @@ impl Default for FireMode {
     }
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct NormalFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub press_duration_interval: Option<Interval<u32>>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct AfterTimeoutFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct AfterTimeoutKeepFiringFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
     pub rate: Option<u32>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct OnDoublePressFireMode;
 
-#[derive(Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum VirtualColor {
     Rgb(RgbColor),
     Prop(PropColor),
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PropColor {
     pub prop: String,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OutOfRangeBehavior {
     MinOrMax,
     Min,
@@ -164,7 +163,7 @@ impl Default for OutOfRangeBehavior {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TakeoverMode {
     Off,
     PickUpTolerant,
@@ -180,19 +179,19 @@ impl Default for TakeoverMode {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ButtonFilter {
     PressOnly,
     ReleaseOnly,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EncoderFilter {
     IncrementOnly,
     DecrementOnly,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Interaction {
     SameControl,
     SameTargetValue,
@@ -202,7 +201,7 @@ pub enum Interaction {
     InverseTargetValueOffOnly,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct FeedbackCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<VirtualColor>,
@@ -210,7 +209,7 @@ pub struct FeedbackCommons {
     pub background_color: Option<VirtualColor>,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Feedback {
     Numeric(NumericFeedback),
@@ -224,7 +223,7 @@ impl Default for Feedback {
     }
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct NumericFeedback {
     #[serde(flatten)]
     pub commons: FeedbackCommons,
@@ -232,7 +231,7 @@ pub struct NumericFeedback {
     pub transformation: Option<String>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct TextFeedback {
     #[serde(flatten)]
     pub commons: FeedbackCommons,
@@ -240,7 +239,7 @@ pub struct TextFeedback {
     pub text_expression: Option<String>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct DynamicFeedback {
     #[serde(flatten)]
     pub commons: FeedbackCommons,
@@ -248,5 +247,5 @@ pub struct DynamicFeedback {
     pub script: Option<String>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct Interval<T>(pub T, pub T);

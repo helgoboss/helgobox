@@ -2,11 +2,10 @@ pub use keyboard::*;
 pub use midi::*;
 pub use osc::*;
 pub use reaper::*;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use virt::*;
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 #[allow(clippy::enum_variant_names)]
 pub enum Source {
@@ -49,7 +48,7 @@ pub enum Source {
 }
 
 // Only makes sense for sources that support both control *and* feedback.
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FeedbackBehavior {
     Normal,
     SendFeedbackAfterControl,
@@ -67,10 +66,9 @@ mod midi {
     use derive_more::Display;
     use enum_iterator::IntoEnumIterator;
     use num_enum::{IntoPrimitive, TryFromPrimitive};
-    use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiNoteVelocitySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -80,7 +78,7 @@ mod midi {
         pub key_number: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiNoteKeyNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -88,7 +86,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiPolyphonicKeyPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -98,7 +96,7 @@ mod midi {
         pub key_number: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiControlChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -112,7 +110,7 @@ mod midi {
         pub fourteen_bit: Option<bool>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiProgramChangeNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -120,7 +118,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiSpecificProgramChangeSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -130,7 +128,7 @@ mod midi {
         pub program_number: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiChannelPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -138,7 +136,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiPitchBendChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -146,7 +144,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiParameterNumberValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -162,19 +160,19 @@ mod midi {
         pub character: Option<SourceCharacter>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiClockTempoSource;
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiDeviceChangesSource;
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiClockTransportSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub message: Option<MidiClockTransportMessage>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiRawSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -184,7 +182,7 @@ mod midi {
         pub character: Option<SourceCharacter>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(alias = "kind")]
@@ -207,7 +205,6 @@ mod midi {
         TryFromPrimitive,
         IntoPrimitive,
         Display,
-        JsonSchema,
     )]
     #[repr(usize)]
     pub enum MidiScriptKind {
@@ -220,7 +217,7 @@ mod midi {
         Lua,
     }
 
-    #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
     pub enum SourceCharacter {
         #[default]
         Range,
@@ -234,7 +231,7 @@ mod midi {
         StatefulButton,
     }
 
-    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
     pub enum MidiClockTransportMessage {
         #[default]
         Start,
@@ -242,7 +239,7 @@ mod midi {
         Stop,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct MackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub extender_index: Option<u8>,
@@ -252,7 +249,7 @@ mod midi {
         pub line: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct XTouchMackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub extender_index: Option<u8>,
@@ -262,7 +259,7 @@ mod midi {
         pub line: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct SlKeyboardDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub section: Option<u8>,
@@ -270,13 +267,13 @@ mod midi {
         pub line: Option<u8>,
     }
 
-    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
     pub struct MackieSevenSegmentDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub scope: Option<MackieSevenSegmentDisplayScope>,
     }
 
-    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
     pub enum MackieSevenSegmentDisplayScope {
         All,
         #[default]
@@ -288,7 +285,7 @@ mod midi {
         TcFramesTicks,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct SiniConE24DisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cell_index: Option<u8>,
@@ -296,16 +293,15 @@ mod midi {
         pub item_index: Option<u8>,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct LaunchpadProScrollingTextDisplaySource;
 }
 
 mod osc {
     use crate::persistence::{FeedbackBehavior, OscArgument};
-    use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, PartialEq, Serialize, Deserialize)]
     pub struct OscSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub feedback_behavior: Option<FeedbackBehavior>,
@@ -323,18 +319,18 @@ mod osc {
 mod reaper {
     use super::*;
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct RealearnInstanceStartSource;
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct RealearnParameterSource {
         pub parameter_index: u32,
     }
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct SpeechSource {}
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct TimerSource {
         pub duration: u64,
     }
@@ -343,13 +339,13 @@ mod reaper {
 mod keyboard {
     use super::*;
 
-    #[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct KeySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub keystroke: Option<Keystroke>,
     }
 
-    #[derive(Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
     pub struct Keystroke {
         pub modifiers: u8,
         pub key: u16,
@@ -358,10 +354,9 @@ mod keyboard {
 
 mod virt {
     use crate::persistence::{VirtualControlElementCharacter, VirtualControlElementId};
-    use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
         #[serde(skip_serializing_if = "Option::is_none")]

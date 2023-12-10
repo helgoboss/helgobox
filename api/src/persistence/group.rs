@@ -1,8 +1,7 @@
 use crate::persistence::*;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Group {
     /// An optional ID that you can assign to this group in order to refer
     /// to it from somewhere else.

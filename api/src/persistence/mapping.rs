@@ -1,8 +1,7 @@
 use super::*;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Default, Serialize, Deserialize)]
 pub struct Mapping {
     /// An optional ID that you can assign to this mapping in order to refer
     /// to it from somewhere else.
@@ -42,32 +41,32 @@ pub struct Mapping {
     pub unprocessed: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct LifecycleHook {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_midi_feedback: Option<Vec<SendMidiFeedbackAction>>,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum SendMidiFeedbackAction {
     Raw { message: RawMidiMessage },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RawMidiMessage {
     HexString(String),
     ByteArray(Vec<u8>),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum SuccessAudioFeedback {
     Simple,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ActivationCondition {
     Modifier(ModifierActivationCondition),
@@ -77,55 +76,55 @@ pub enum ActivationCondition {
     TargetValue(TargetValueActivationCondition),
 }
 
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct ModifierActivationCondition {
     pub modifiers: Option<Vec<ModifierState>>,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct ModifierState {
     pub parameter: ParamRef,
     pub on: bool,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct BankActivationCondition {
     pub parameter: ParamRef,
     pub bank_index: u32,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct EelActivationCondition {
     pub condition: String,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct ExpressionActivationCondition {
     pub condition: String,
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct TargetValueActivationCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapping: Option<String>,
     pub condition: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ParamRef {
     Index(u32),
     Key(String),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum VirtualControlElementId {
     Indexed(u32),
     Named(String),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum VirtualControlElementCharacter {
     Multi,
     Button,
@@ -137,7 +136,7 @@ impl Default for VirtualControlElementCharacter {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct OscArgument {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<u32>,
@@ -148,7 +147,7 @@ pub struct OscArgument {
     pub value_range: Option<Interval<f64>>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OscArgKind {
     Float,
     Double,
