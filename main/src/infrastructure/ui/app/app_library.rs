@@ -9,8 +9,7 @@ use playtime_clip_engine::proto;
 use playtime_clip_engine::proto::{
     create_initial_clip_updates, create_initial_matrix_updates, create_initial_slot_updates,
     create_initial_track_updates, event_reply, query_result, reply, request,
-    ClipEngineRequestHandler, EventReply, MatrixProvider, Notification, NotificationKind,
-    QueryReply, QueryResult, Reply, Request,
+    ClipEngineRequestHandler, EventReply, MatrixProvider, QueryReply, QueryResult, Reply, Request,
 };
 use prost::Message;
 use reaper_high::Reaper;
@@ -363,10 +362,7 @@ fn process_command_request(matrix_id: String, value: proto::command_request::Val
             let _ = send_to_app(
                 &matrix_id,
                 reply::Value::EventReply(EventReply {
-                    value: Some(event_reply::Value::Notification(Notification {
-                        kind: NotificationKind::NotificationTypeError.into(),
-                        text: status.message().to_string(),
-                    })),
+                    value: Some(event_reply::Value::ErrorMessage(status.message().to_string())),
                 }),
             );
         }
