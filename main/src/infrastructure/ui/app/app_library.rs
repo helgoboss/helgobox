@@ -526,6 +526,12 @@ fn process_command(req: proto::command_request::Value) -> std::result::Result<()
         SetClipData(req) => {
             handler.set_clip_data(req)?;
         }
+        TriggerSequence(req) => {
+            handler.trigger_sequence(req)?;
+        }
+        SetSequenceInfo(req) => {
+            handler.set_sequence_info(req)?;
+        }
     }
     Ok(())
 }

@@ -94,7 +94,7 @@ impl Default for MatrixSequenceInfo {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixSequenceData {
     pub ppq: u64,
     pub count_in: u64,
@@ -795,6 +795,10 @@ impl Default for ClipId {
 pub struct MatrixSequenceId(String);
 
 impl MatrixSequenceId {
+    pub fn new(raw: String) -> Self {
+        Self(raw)
+    }
+
     pub fn random() -> Self {
         Default::default()
     }
