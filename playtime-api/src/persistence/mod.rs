@@ -24,7 +24,7 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
 use chrono::{Local, NaiveDateTime, Utc};
-use serde::ser::SerializeSeq;
+use serde::ser::{SerializeSeq, SerializeTuple};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 use std::cmp;
@@ -105,6 +105,28 @@ pub struct MatrixSequenceEvent {
     pub message: MatrixSequenceMessage,
 }
 
+/// A very compact representation of an event.
+///
+/// The compactness is achieved using tuple serialization.
+///
+/// Pro:
+///
+/// - If used with a CSV serializer, the outcome can be made look as "noise-less" as
+///   REAPER's MIDI sequence format (newline to separate events, space delimiter, unquoted strings).
+/// - If used with JSON/Lua serializer, the outcome is valid JSON/Lua while still being compact.
+///   No need for string embedding (which looks especially bad in JSON due to newline escaping).
+/// - If used with a binary serializer (e.g. bincode or msgpack), one can achieve a *really* compact
+///   serialization that  also tops REAPER's MIDI sequence format. That will come in handy with
+///   large undo histories or storage within RPP (in RPPs, we are base64-encoded, so the
+///   human-readable-text advantage is not present anyway).
+/// - TODO-high-ms3 Especially the last point could be desirable for MIDI sequences as well.
+///    Use serde for them, too!
+///
+/// Contra:
+///
+/// - Not self-describing. However: If embedded in some `Serialize` wrapper that evaluates
+///   `is_human_readable`, one could switch between this non-descriptive serialization style and a
+///   (derived) descriptive serialization style. So we can have both if we want.
 impl Serialize for MatrixSequenceEvent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -114,7 +136,7 @@ impl Serialize for MatrixSequenceEvent {
         use MatrixSequenceMessage::*;
         match self.message {
             PanicMatrix => {
-                let mut seq = serializer.serialize_seq(Some(2))?;
+                let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 if hr {
                     seq.serialize_element(&"pm")?;
@@ -124,34 +146,34 @@ impl Serialize for MatrixSequenceEvent {
                 seq.end()
             }
             StopMatrix => {
-                let mut seq = serializer.serialize_seq(Some(2))?;
+                let mut seq = serializer.serialize_tuple(2)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&1u8)?;
                 seq.end()
             }
             PanicColumn(m) => {
-                let mut seq = serializer.serialize_seq(Some(3))?;
+                let mut seq = serializer.serialize_tuple(3)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&2u8)?;
                 seq.serialize_element(&m.index)?;
                 seq.end()
             }
             StopColumn(m) => {
-                let mut seq = serializer.serialize_seq(Some(3))?;
+                let mut seq = serializer.serialize_tuple(3)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&3u8)?;
                 seq.serialize_element(&m.index)?;
                 seq.end()
             }
             StartScene(m) => {
-                let mut seq = serializer.serialize_seq(Some(3))?;
+                let mut seq = serializer.serialize_tuple(3)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&4u8)?;
                 seq.serialize_element(&m.index)?;
                 seq.end()
             }
             PanicSlot(m) => {
-                let mut seq = serializer.serialize_seq(Some(4))?;
+                let mut seq = serializer.serialize_tuple(4)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&5u8)?;
                 seq.serialize_element(&m.column_index)?;
@@ -159,7 +181,7 @@ impl Serialize for MatrixSequenceEvent {
                 seq.end()
             }
             StartSlot(m) => {
-                let mut seq = serializer.serialize_seq(Some(4))?;
+                let mut seq = serializer.serialize_tuple(4)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&6u8)?;
                 seq.serialize_element(&m.column_index)?;
@@ -168,7 +190,7 @@ impl Serialize for MatrixSequenceEvent {
             }
 
             StopSlot(m) => {
-                let mut seq = serializer.serialize_seq(Some(4))?;
+                let mut seq = serializer.serialize_tuple(4)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&7u8)?;
                 seq.serialize_element(&m.column_index)?;

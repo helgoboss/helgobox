@@ -57,7 +57,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
     type SerializeSeq = Self;
-    type SerializeTuple = Impossible<(), Error>;
+    type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Impossible<(), Error>;
     type SerializeMap = Self;
@@ -204,7 +204,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::Unsupported("tuple"))
+        self.output += "{";
+        Ok(self)
     }
 
     fn serialize_tuple_struct(
@@ -278,6 +279,26 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
             // Vec needs to be wrapped in an Optional.
             self.output += "nil";
         }
+        Ok(())
+    }
+}
+
+impl<'a> ser::SerializeTuple for &'a mut Serializer {
+    type Ok = ();
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        if !self.output.ends_with('{') {
+            self.output += ", ";
+        }
+        value.serialize(&mut **self)
+    }
+
+    fn end(self) -> Result<()> {
+        self.output += "}";
         Ok(())
     }
 }
