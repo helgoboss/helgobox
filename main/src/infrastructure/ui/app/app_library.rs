@@ -6,6 +6,7 @@ use base::Global;
 use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto;
+use playtime_clip_engine::proto::query::Value;
 use playtime_clip_engine::proto::{
     create_initial_clip_updates, create_initial_matrix_updates, create_initial_slot_updates,
     create_initial_track_updates, event_reply, query_result, reply, request,
@@ -396,6 +397,12 @@ fn process_query_request(matrix_id: String, id: u32, query: proto::query::Value)
             send_query_reply_to_app(matrix_id, id, async move {
                 let value = handler.get_host_info(req).await?.into_inner();
                 Ok(query_result::Value::GetHostInfoReply(value))
+            });
+        }
+        GetArrangementInfo(req) => {
+            send_query_reply_to_app(matrix_id, id, async move {
+                let value = handler.get_arrangement_info(req).await?.into_inner();
+                Ok(query_result::Value::GetArrangementInfoReply(value))
             });
         }
     }
