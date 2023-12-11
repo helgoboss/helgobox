@@ -24,7 +24,9 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
 use chrono::{Local, NaiveDateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Serialize, Serializer};
+use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 use std::cmp;
 use std::error::Error;
 use std::ops::Add;
@@ -92,44 +94,117 @@ impl Default for MatrixSequenceInfo {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSequenceData {
-    pub ppq: u32,
-    pub count_in: u32,
+    pub ppq: u64,
+    pub count_in: u64,
     pub events: Vec<MatrixSequenceEvent>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Deserialize)]
 pub struct MatrixSequenceEvent {
     pub pulse_diff: u32,
     pub message: MatrixSequenceMessage,
 }
 
+impl Serialize for MatrixSequenceEvent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let hr = serializer.is_human_readable();
+        use MatrixSequenceMessage::*;
+        match self.message {
+            PanicMatrix => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                if hr {
+                    seq.serialize_element(&"pm")?;
+                } else {
+                    seq.serialize_element(&0u8)?;
+                }
+                seq.end()
+            }
+            StopMatrix => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&1u8)?;
+                seq.end()
+            }
+            PanicColumn(m) => {
+                let mut seq = serializer.serialize_seq(Some(3))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&2u8)?;
+                seq.serialize_element(&m.index)?;
+                seq.end()
+            }
+            StopColumn(m) => {
+                let mut seq = serializer.serialize_seq(Some(3))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&3u8)?;
+                seq.serialize_element(&m.index)?;
+                seq.end()
+            }
+            StartScene(m) => {
+                let mut seq = serializer.serialize_seq(Some(3))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&4u8)?;
+                seq.serialize_element(&m.index)?;
+                seq.end()
+            }
+            PanicSlot(m) => {
+                let mut seq = serializer.serialize_seq(Some(4))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&5u8)?;
+                seq.serialize_element(&m.column_index)?;
+                seq.serialize_element(&m.row_index)?;
+                seq.end()
+            }
+            StartSlot(m) => {
+                let mut seq = serializer.serialize_seq(Some(4))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&6u8)?;
+                seq.serialize_element(&m.column_index)?;
+                seq.serialize_element(&m.row_index)?;
+                seq.end()
+            }
+
+            StopSlot(m) => {
+                let mut seq = serializer.serialize_seq(Some(4))?;
+                seq.serialize_element(&self.pulse_diff)?;
+                seq.serialize_element(&7u8)?;
+                seq.serialize_element(&m.column_index)?;
+                seq.serialize_element(&m.row_index)?;
+                seq.end()
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind")]
 pub enum MatrixSequenceMessage {
-    StopMatrix,
     PanicMatrix,
-    StopColumn(MatrixSequenceColumnMessage),
+    StopMatrix,
     PanicColumn(MatrixSequenceColumnMessage),
+    StopColumn(MatrixSequenceColumnMessage),
     StartScene(MatrixSequenceRowMessage),
+    PanicSlot(MatrixSequenceSlotMessage),
     StartSlot(MatrixSequenceSlotMessage),
     StopSlot(MatrixSequenceSlotMessage),
-    PanicSlot(MatrixSequenceSlotMessage),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSequenceColumnMessage {
-    pub index: usize,
+    pub index: u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSequenceRowMessage {
-    pub index: usize,
+    pub index: u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSequenceSlotMessage {
-    pub column_index: usize,
-    pub row_index: usize,
+    pub column_index: u32,
+    pub row_index: u32,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]

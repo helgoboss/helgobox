@@ -21,3 +21,5 @@ base64 = "0.21.2"
 thiserror.workspace = true
 # For date/time persistence
 chrono = { workspace = true, features = ["serde"]}
+# For a more compact serialization of sequences
+serde_tuple = "0.5.0"
