@@ -254,7 +254,7 @@ impl Default for TempoRange {
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipPlaySettings {
     #[serde(default)]
-    pub trigger_behavior_ui: TriggerPlayBehavior,
+    pub trigger_behavior: TriggerPlayBehavior,
     pub start_timing: ClipPlayStartTiming,
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
@@ -854,10 +854,20 @@ impl Column {
     }
 }
 
+fn default_follows_scene() -> bool {
+    true
+}
+
+fn default_exclusive() -> bool {
+    true
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ColumnClipPlaySettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mode: Option<ColumnPlayMode>,
+    #[serde(default = "default_follows_scene")]
+    pub follows_scene: bool,
+    #[serde(default = "default_exclusive")]
+    pub exclusive: bool,
     /// REAPER track used for playing back clips in this column.
     ///
     /// Usually, each column should have a play track. But events might occur that leave a column
@@ -877,44 +887,6 @@ pub struct ColumnClipPlaySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     pub audio_settings: ColumnClipPlayAudioSettings,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum ColumnPlayMode {
-    /// - Only one clip in the column can play at a certain point in time.
-    /// - Clips are started/stopped if the corresponding scene is started/stopped.
-    ExclusiveFollowingScene,
-    /// - Only one clip in the column can play at a certain point in time.
-    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
-    ExclusiveIgnoringScene,
-    /// - Multiple clips can play simultaneously.
-    /// - Clips are started/stopped if the corresponding scene is started/stopped
-    ///   (in an exclusive manner).
-    NonExclusiveFollowingScene,
-    /// - Multiple clips can play simultaneously.
-    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
-    Free,
-}
-
-impl Default for ColumnPlayMode {
-    fn default() -> Self {
-        Self::ExclusiveFollowingScene
-    }
-}
-
-impl ColumnPlayMode {
-    pub fn is_exclusive(&self) -> bool {
-        use ColumnPlayMode::*;
-        matches!(self, ExclusiveFollowingScene | ExclusiveIgnoringScene)
-    }
-
-    pub fn follows_scene(&self) -> bool {
-        matches!(
-            self,
-            ColumnPlayMode::ExclusiveFollowingScene | ColumnPlayMode::NonExclusiveFollowingScene
-        )
-    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
