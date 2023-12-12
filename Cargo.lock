@@ -4230,7 +4230,6 @@ dependencies = [
  "realearn-macros",
  "rmp-serde",
  "serde",
- "serde_tuple",
  "thiserror",
 ]
 
@@ -4241,6 +4240,7 @@ dependencies = [
  "anyhow",
  "atomic",
  "base",
+ "chrono",
  "crossbeam-channel",
  "derivative",
  "derive_more",
@@ -5656,27 +5656,6 @@ name = "serde_repr"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98d0516900518c29efa217c298fa1f4e6c6ffc85ae29fd7f4ee48f176e1a9ed5"
-dependencies = [
- "proc-macro2 1.0.63",
- "quote 1.0.30",
- "syn 1.0.99",
-]
-
-[[package]]
-name = "serde_tuple"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4f025b91216f15a2a32aa39669329a475733590a015835d1783549a56d09427"
-dependencies = [
- "serde",
- "serde_tuple_macros",
-]
-
-[[package]]
-name = "serde_tuple_macros"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4076151d1a2b688e25aaf236997933c66e18b870d0369f8b248b8ab2be630d7e"
 dependencies = [
  "proc-macro2 1.0.63",
  "quote 1.0.30",

@@ -29,7 +29,6 @@ use chrono::{Local, NaiveDateTime, Utc};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::{SerializeSeq, SerializeTuple};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 use std::cmp;
 use std::fmt::Formatter;
 use std::ops::Add;
@@ -54,6 +53,7 @@ pub struct Matrix {
     pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
+    // TODO-high-ms4 This strikes me as a global setting.
     pub common_tempo_range: TempoRange,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
@@ -83,15 +83,6 @@ pub struct MatrixSequenceInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub created_at: NaiveDateTime,
-}
-
-impl Default for MatrixSequenceInfo {
-    fn default() -> Self {
-        Self {
-            name: None,
-            created_at: Utc::now().naive_local(),
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -262,6 +253,8 @@ impl Default for TempoRange {
 /// Matrix-global settings related to playing clips.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipPlaySettings {
+    #[serde(default)]
+    pub trigger_behavior_ui: TriggerPlayBehavior,
     pub start_timing: ClipPlayStartTiming,
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
@@ -447,6 +440,18 @@ pub enum ClipRecordTimeBase {
     Time,
     /// Sets the time base of the recorded clip to [`ClipTimeBase::Beat`].
     Beat,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum TriggerPlayBehavior {
+    /// Press once = play, press again = stop.
+    #[default]
+    TogglePlayStop,
+    /// Press once = play, release = stop.
+    MomentaryPlayStop,
+    /// Press once = play, press again = retrigger.
+    Retrigger,
 }
 
 impl Default for ClipRecordTimeBase {
