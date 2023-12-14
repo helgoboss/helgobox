@@ -1,12 +1,3 @@
+//! Usually we use Protocol Buffers for the runtime API but there are a few things that are
+//! not performance-critical and better expressed in a Rust-first manner.
 use serde::{Deserialize, Serialize};
-
-// We don't really need a tagged enum here but it's an easy way to transmit the event as a
-// JSON object (vs. just a string) ... which is better for some clients.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum MatrixInfoEvent {
-    RecordedMatrixSequence,
-    DiscardedMatrixSequenceBecauseEmpty,
-    RemovedMatrixSequence,
-    WroteMatrixSequenceToArrangement,
-}
