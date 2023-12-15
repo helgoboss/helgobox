@@ -1,4 +1,4 @@
-use crate::application::{VirtualControlElementType, WeakSession};
+use crate::application::{Session, SharedSession, VirtualControlElementType, WeakSession};
 use crate::domain::{
     BackboneState, Compartment, GroupId, InstanceId, InstanceState, QualifiedClipMatrixEvent,
     ReaperTarget, WeakInstanceState,
@@ -56,6 +56,16 @@ impl MatrixHandler {
             session,
         }
     }
+
+    fn do_async_with_session(&self, f: impl FnOnce(SharedSession) + 'static) {
+        let session = self.session.clone();
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                let shared_session = session.upgrade().expect("session gone");
+                f(shared_session);
+            })
+            .unwrap();
+    }
 }
 
 #[cfg(feature = "playtime")]
@@ -99,7 +109,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         }
     }
 
-    fn get_learning_target(&self) -> Option<SimpleMappingTarget> {
+    fn get_currently_learning_target(&self) -> Option<SimpleMappingTarget> {
         let shared_session = self.session.upgrade().expect("session gone");
         let mut session = shared_session.borrow();
         let instance_state = session.instance_state();
@@ -113,19 +123,23 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         target
     }
 
-    fn toggle_learn_target(&self, target: SimpleMappingTarget) {
-        let session = self.session.clone();
-        Global::task_support()
-            .do_later_in_main_thread_from_main_thread_asap(move || {
-                let shared_session = session.upgrade().expect("session gone");
-                let mut session = shared_session.borrow_mut();
-                let reaper_target = ReaperTarget::from_simple_target(target);
-                session.toggle_learn_source_for_target(
-                    &shared_session,
-                    Compartment::Main,
-                    &reaper_target,
-                );
-            })
-            .unwrap();
+    fn toggle_learn_source_by_target(&self, target: SimpleMappingTarget) {
+        self.do_async_with_session(move |shared_session| {
+            let mut session = shared_session.borrow_mut();
+            let reaper_target = ReaperTarget::from_simple_target(target);
+            session.toggle_learn_source_for_target(
+                &shared_session,
+                Compartment::Main,
+                &reaper_target,
+            );
+        });
+    }
+
+    fn remove_mapping_by_target(&self, target: SimpleMappingTarget) {
+        self.do_async_with_session(move |shared_session| {
+            let mut session = shared_session.borrow_mut();
+            let reaper_target = ReaperTarget::from_simple_target(target);
+            session.remove_mapping_by_target(Compartment::Main, &reaper_target);
+        });
     }
 }

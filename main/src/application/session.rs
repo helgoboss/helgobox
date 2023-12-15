@@ -1867,6 +1867,10 @@ impl Session {
     }
 
     pub fn remove_mapping(&mut self, id: QualifiedMappingId) {
+        self.remove_mapping_internal(id);
+    }
+
+    fn remove_mapping_internal(&mut self, id: QualifiedMappingId) {
         self.stop_mapping_actions();
         self.mappings[id.compartment].retain(|m| m.borrow().id() != id.id);
         self.notify_mapping_list_changed(id.compartment, None);
@@ -2334,6 +2338,13 @@ impl Session {
         self.toggle_learning_source(Rc::downgrade(session), mapping.borrow().qualified_id())
             .expect("error during toggle learn-source for target");
         mapping
+    }
+
+    pub fn remove_mapping_by_target(&mut self, compartment: Compartment, target: &ReaperTarget) {
+        if let Some(mapping) = self.find_mapping_with_target(compartment, target) {
+            let id = mapping.borrow().qualified_id();
+            self.remove_mapping_internal(id);
+        }
     }
 
     pub fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
