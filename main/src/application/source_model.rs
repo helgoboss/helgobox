@@ -18,6 +18,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_api::runtime::NoteSource;
 use realearn_api::persistence::MidiScriptKind;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
@@ -752,6 +753,30 @@ impl SourceModel {
         self.display_id
             .and_then(|id| MackieSevenSegmentDisplayScope::try_from(id as usize).ok())
             .unwrap_or_default()
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn simple_source(&self) -> Option<playtime_api::runtime::SimpleSource> {
+        use playtime_api::runtime::*;
+        use MidiSourceType::*;
+        if self.category == SourceCategory::Never {
+            return None;
+        }
+        let s = match self.midi_source_type {
+            NoteVelocity => {
+                if let (Some(channel), Some(number)) = (self.channel, self.midi_message_number) {
+                    let s = NoteSource {
+                        channel: channel.get(),
+                        number: number.get(),
+                    };
+                    SimpleSource::Note(s)
+                } else {
+                    SimpleSource::MoreComplicated
+                }
+            }
+            _ => SimpleSource::MoreComplicated,
+        };
+        Some(s)
     }
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {

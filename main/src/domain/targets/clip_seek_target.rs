@@ -2,6 +2,7 @@ use reaper_medium::PositionInSeconds;
 use std::borrow::Cow;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use playtime_api::runtime::SlotAddress;
 
 use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, Compartment,
@@ -9,7 +10,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
 use playtime_clip_engine::rt::{
     ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent,
@@ -53,13 +54,17 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipSeekTarget {
-    pub slot_coordinates: ClipSlotAddress,
+    pub slot_coordinates: SlotAddress,
     pub feedback_resolution: FeedbackResolution,
 }
 
 impl RealearnTarget for ClipSeekTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+    }
+
+    fn clip_slot_address(&self) -> Option<SlotAddress> {
+        Some(self.slot_coordinates)
     }
 
     fn hit(

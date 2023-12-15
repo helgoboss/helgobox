@@ -913,10 +913,9 @@ impl TargetModelData {
             let slot_descriptor = self
                 .clip_slot
                 .clone()
-                .unwrap_or(ClipSlotDescriptor::ByIndex {
-                    column_index: self.slot_index,
-                    row_index: 0,
-                });
+                .unwrap_or(ClipSlotDescriptor::ByIndex(
+                    playtime_api::runtime::SlotAddress::new(self.slot_index, 0),
+                ));
             model.change(C::SetClipSlot(slot_descriptor));
             model.change(C::SetClipColumn(self.clip_column.clone()));
             model.change(C::SetClipRow(self.clip_row.clone()));

@@ -17,6 +17,7 @@ pub struct SimpleMapping {
 #[serde(tag = "kind")]
 pub enum SimpleSource {
     Note(NoteSource),
+    MoreComplicated,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -36,16 +37,45 @@ pub enum SimpleMappingTarget {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ColumnAddress {
-    pub index: u32,
+    pub index: usize,
+}
+
+impl ColumnAddress {
+    pub fn new(index: usize) -> Self {
+        Self { index }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct RowAddress {
-    pub index: u32,
+    pub index: usize,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+impl RowAddress {
+    pub fn new(index: usize) -> Self {
+        Self { index }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
 pub struct SlotAddress {
-    pub column_index: u32,
-    pub row_index: u32,
+    pub column_index: usize,
+    pub row_index: usize,
+}
+
+impl SlotAddress {
+    pub fn new(column: usize, row: usize) -> Self {
+        Self {
+            column_index: column,
+            row_index: row,
+        }
+    }
+
+    pub fn column(&self) -> usize {
+        self.column_index
+    }
+
+    pub fn row(&self) -> usize {
+        self.row_index
+    }
 }

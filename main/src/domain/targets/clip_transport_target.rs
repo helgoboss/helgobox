@@ -8,7 +8,8 @@ use crate::domain::{
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
+use playtime_api::runtime::SlotAddress;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{
     ClipChangeEvent, ColumnPlaySlotOptions, InternalClipPlayState, QualifiedClipChangeEvent,
     QualifiedSlotChangeEvent, SlotChangeEvent,
@@ -59,8 +60,8 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {
-    project: Project,
-    basics: ClipTransportTargetBasics,
+    pub project: Project,
+    pub basics: ClipTransportTargetBasics,
 }
 
 impl ClipTransportTarget {
@@ -203,8 +204,8 @@ impl ClipTransportTarget {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct ClipTransportTargetBasics {
-    pub slot_coordinates: ClipSlotAddress,
+pub struct ClipTransportTargetBasics {
+    pub slot_coordinates: SlotAddress,
     pub action: ClipTransportAction,
     pub options: ClipTransportOptions,
 }
@@ -223,6 +224,10 @@ const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.basics.action)
+    }
+
+    fn clip_slot_address(&self) -> Option<SlotAddress> {
+        Some(self.basics.slot_coordinates)
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {

@@ -2427,6 +2427,8 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
+        #[cfg(feature = "playtime")]
+        self.notify_matrix_simple_mappings_changed();
         let group_data = self
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
@@ -2451,12 +2453,21 @@ impl Session {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: Compartment) {
+        #[cfg(feature = "playtime")]
+        self.notify_matrix_simple_mappings_changed();
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
             ));
+    }
+
+    #[cfg(feature = "playtime")]
+    fn notify_matrix_simple_mappings_changed(&self) {
+        if let Some(matrix) = self.instance_state().borrow().owned_clip_matrix() {
+            matrix.notify_simple_mappings_changed();
+        }
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.

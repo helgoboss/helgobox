@@ -5,6 +5,7 @@ use crate::domain::{
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use playtime_api::runtime::ColumnAddress;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipColumnAction;
@@ -43,6 +44,10 @@ pub struct ClipColumnTarget {
 impl RealearnTarget for ClipColumnTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.action)
+    }
+
+    fn clip_column_address(&self) -> Option<ColumnAddress> {
+        Some(ColumnAddress::new(self.column_index))
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {

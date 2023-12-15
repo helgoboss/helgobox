@@ -241,6 +241,18 @@ pub trait RealearnTarget {
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         None
     }
+    #[feature(cfg = "playtime")]
+    fn clip_slot_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+        None
+    }
+    #[feature(cfg = "playtime")]
+    fn clip_column_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+        None
+    }
+    #[feature(cfg = "playtime")]
+    fn clip_row_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+        None
+    }
 
     /// Whether the target supports automatic feedback in response to some events or polling.
     ///

@@ -1941,10 +1941,7 @@ impl Default for TrackRouteKind {
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
     Selected,
-    ByIndex {
-        column_index: usize,
-        row_index: usize,
-    },
+    ByIndex(playtime_api::runtime::SlotAddress),
     Dynamic {
         column_expression: String,
         row_expression: String,
@@ -1959,11 +1956,22 @@ impl Default for ClipSlotDescriptor {
 }
 
 #[cfg(feature = "playtime")]
+impl ClipSlotDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+        if let Self::ByIndex(address) = self {
+            Some(*address)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
     Selected,
-    ByIndex { index: usize },
+    ByIndex(playtime_api::runtime::ColumnAddress),
     Dynamic { expression: String },
 }
 
@@ -1975,12 +1983,34 @@ impl Default for ClipColumnDescriptor {
 }
 
 #[cfg(feature = "playtime")]
+impl ClipColumnDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+        if let Self::ByIndex(address) = self {
+            Some(*address)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
     Selected,
-    ByIndex { index: usize },
+    ByIndex(playtime_api::runtime::RowAddress),
     Dynamic { expression: String },
+}
+
+#[cfg(feature = "playtime")]
+impl ClipRowDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+        if let Self::ByIndex(address) = self {
+            Some(*address)
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(feature = "playtime")]

@@ -1022,9 +1022,8 @@ impl App {
         let session = self
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
-        let session = session.borrow();
-        let instance_state = session.instance_state();
-        BackboneState::get().with_clip_matrix_mut(instance_state, f)
+        let instance_state = session.borrow().instance_state().clone();
+        BackboneState::get().with_clip_matrix_mut(&instance_state, f)
     }
 
     #[cfg(feature = "playtime")]

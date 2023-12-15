@@ -60,8 +60,8 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
-    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
+    Axis, BrowseTracksMode, ClipSlotDescriptor, FxChainDescriptor, FxDescriptorCommons,
+    FxToolAction, LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
     MonitoringMode, MouseAction, MouseButton, PotFilterKind, SeekBehavior,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
@@ -1786,6 +1786,22 @@ impl TargetModel {
         if let Some(track_exclusivity) = target.track_exclusivity() {
             self.track_exclusivity = track_exclusivity;
         }
+        #[cfg(feature = "playtime")]
+        {
+            use realearn_api::persistence::ClipColumnDescriptor;
+            use realearn_api::persistence::ClipRowDescriptor;
+            use realearn_api::persistence::ClipSlotDescriptor;
+            if let Some(slot_address) = target.clip_slot_address() {
+                self.clip_slot = ClipSlotDescriptor::ByIndex(slot_address);
+            }
+            if let Some(column_address) = target.clip_column_address() {
+                self.clip_column = ClipColumnDescriptor::ByIndex(column_address);
+            }
+            if let Some(row_address) = target.clip_row_address() {
+                self.clip_row = ClipRowDescriptor::ByIndex(row_address);
+            }
+        }
+
         match target {
             Action(t) => {
                 self.action = Some(t.action.clone());
@@ -2182,13 +2198,7 @@ impl TargetModel {
         use realearn_api::persistence::ClipSlotDescriptor::*;
         let slot = match &self.clip_slot {
             Selected => VirtualClipSlot::Selected,
-            ByIndex {
-                column_index,
-                row_index,
-            } => VirtualClipSlot::ByIndex {
-                column_index: *column_index,
-                row_index: *row_index,
-            },
+            ByIndex(address) => VirtualClipSlot::ByIndex(*address),
             Dynamic {
                 column_expression,
                 row_expression,
@@ -2216,7 +2226,7 @@ impl TargetModel {
         use realearn_api::persistence::ClipRowDescriptor::*;
         let row = match &self.clip_row {
             Selected => VirtualClipRow::Selected,
-            ByIndex { index } => VirtualClipRow::ByIndex(*index),
+            ByIndex(address) => VirtualClipRow::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
             } => {
@@ -2712,6 +2722,32 @@ impl TargetModel {
     #[cfg(feature = "playtime")]
     pub fn clip_column_action(&self) -> realearn_api::persistence::ClipColumnAction {
         self.clip_column_action
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
+        use playtime_api::runtime::SimpleMappingTarget;
+        use realearn_api::persistence::*;
+        use ReaperTargetType::*;
+        if self.category != TargetCategory::Reaper {
+            return None;
+        }
+        let t = match self.r#type {
+            ClipTransport if self.clip_transport_action() == ClipTransportAction::PlayStop => {
+                SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
+            }
+            ClipColumn if self.clip_column_action() == ClipColumnAction::Stop => {
+                SimpleMappingTarget::TriggerColumn(self.clip_column.fixed_address()?)
+            }
+            ClipRow if self.clip_row_action() == ClipRowAction::PlayScene => {
+                SimpleMappingTarget::TriggerRow(self.clip_row.fixed_address()?)
+            }
+            ClipMatrix if self.clip_matrix_action() == ClipMatrixAction::Stop => {
+                SimpleMappingTarget::TriggerMatrix
+            }
+            _ => return None,
+        };
+        Some(t)
     }
 
     pub fn tag_scope(&self) -> TagScope {
@@ -4186,7 +4222,9 @@ impl TrackPropValues {
                 use realearn_api::persistence::ClipColumnDescriptor;
                 match track.clip_column().unwrap_or(&Default::default()) {
                     VirtualClipColumn::Selected => ClipColumnDescriptor::Selected,
-                    VirtualClipColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex { index: *i },
+                    VirtualClipColumn::ByIndex(i) => {
+                        ClipColumnDescriptor::ByIndex(playtime_api::runtime::ColumnAddress::new(*i))
+                    }
                     VirtualClipColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
                         expression: Default::default(),
                     },

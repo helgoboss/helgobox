@@ -278,6 +278,34 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
+    #[cfg(feature = "playtime")]
+    pub fn from_simple_target(simple_target: playtime_api::runtime::SimpleMappingTarget) -> Self {
+        use playtime_api::runtime::SimpleMappingTarget::*;
+        match simple_target {
+            TriggerMatrix => Self::ClipMatrix(crate::domain::ClipMatrixTarget {
+                action: realearn_api::persistence::ClipMatrixAction::Stop,
+            }),
+            TriggerColumn(t) => Self::ClipColumn(crate::domain::ClipColumnTarget {
+                column_index: t.index,
+                action: realearn_api::persistence::ClipColumnAction::Stop,
+            }),
+            TriggerRow(t) => Self::ClipRow(crate::domain::ClipRowTarget {
+                basics: crate::domain::ClipRowTargetBasics {
+                    row_index: t.index,
+                    action: realearn_api::persistence::ClipRowAction::PlayScene,
+                },
+            }),
+            TriggerSlot(t) => Self::ClipTransport(crate::domain::ClipTransportTarget {
+                project: Reaper::get().current_project(),
+                basics: crate::domain::ClipTransportTargetBasics {
+                    slot_coordinates: t,
+                    action: realearn_api::persistence::ClipTransportAction::PlayStop,
+                    options: Default::default(),
+                },
+            }),
+        }
+    }
+
     /// Returns `true` if the given change event can be a reason for re-resolving targets or
     /// auto-loading another main preset.
     pub fn changes_conditions(evt: CompoundChangeEvent) -> bool {

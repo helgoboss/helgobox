@@ -5,6 +5,7 @@ use crate::domain::{
     VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+use playtime_api::runtime::RowAddress;
 use realearn_api::persistence::ClipRowAction;
 
 #[derive(Debug)]
@@ -35,7 +36,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipRowTarget {
-    basics: ClipRowTargetBasics,
+    pub basics: ClipRowTargetBasics,
 }
 
 impl ClipRowTarget {
@@ -98,7 +99,7 @@ impl ClipRowTarget {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct ClipRowTargetBasics {
+pub struct ClipRowTargetBasics {
     pub row_index: usize,
     pub action: ClipRowAction,
 }
@@ -106,6 +107,10 @@ struct ClipRowTargetBasics {
 impl RealearnTarget for ClipRowTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.basics.action)
+    }
+
+    fn clip_row_address(&self) -> Option<RowAddress> {
+        Some(RowAddress::new(self.basics.row_index))
     }
 
     fn hit(

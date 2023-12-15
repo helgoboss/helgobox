@@ -757,10 +757,7 @@ impl Default for TrackRouteType {
 #[derive(Debug)]
 pub enum VirtualClipSlot {
     Selected,
-    ByIndex {
-        column_index: usize,
-        row_index: usize,
-    },
+    ByIndex(playtime_api::runtime::SlotAddress),
     Dynamic {
         column_evaluator: Box<ExpressionEvaluator>,
         row_evaluator: Box<ExpressionEvaluator>,
@@ -773,14 +770,12 @@ impl VirtualClipSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
-    ) -> Result<playtime_clip_engine::base::ClipSlotAddress, &'static str> {
+    ) -> Result<playtime_api::runtime::SlotAddress, &'static str> {
+        use playtime_api::runtime::SlotAddress;
         use VirtualClipSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),
-            ByIndex {
-                column_index,
-                row_index,
-            } => playtime_clip_engine::base::ClipSlotAddress::new(*column_index, *row_index),
+            ByIndex(address) => *address,
             Dynamic {
                 column_evaluator,
                 row_evaluator,
@@ -790,7 +785,7 @@ impl VirtualClipSlot {
                     to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
                 let row_index =
                     to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
-                playtime_clip_engine::base::ClipSlotAddress::new(column_index, row_index)
+                SlotAddress::new(column_index, row_index)
             }
         };
         // let slot_exists = BackboneState::get()
@@ -831,7 +826,7 @@ impl VirtualClipColumn {
         use realearn_api::persistence::ClipColumnDescriptor::*;
         let column = match descriptor {
             Selected => VirtualClipColumn::Selected,
-            ByIndex { index } => VirtualClipColumn::ByIndex(*index),
+            ByIndex(address) => VirtualClipColumn::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
             } => {

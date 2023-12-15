@@ -9,15 +9,17 @@ use crate::domain::{
     ActivationCondition, Compartment, CompoundMappingSource, CompoundMappingTarget,
     EelTransformation, ExtendedProcessorContext, ExtendedSourceCharacter, FeedbackSendBehavior,
     GroupId, MainMapping, MappingId, MappingKey, Mode, PersistentMappingProcessingState,
-    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, Script, Tag,
-    TargetCharacter, UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
+    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType,
+    Script, Tag, TargetCharacter, UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, DiscreteIncrement, Interval,
     ModeApplicabilityCheckInput, ModeParameter, SourceCharacter, Target, UnitValue,
 };
 
-use realearn_api::persistence::TrackScope;
+use realearn_api::persistence::{
+    ClipColumnAction, ClipMatrixAction, ClipRowAction, ClipTransportAction, TrackScope,
+};
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
@@ -547,6 +549,14 @@ impl MappingModel {
         PersistentMappingProcessingState {
             is_enabled: self.is_enabled(),
         }
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn get_simple_mapping(&self) -> Option<playtime_api::runtime::SimpleMapping> {
+        let target = self.target_model.simple_target()?;
+        let source = self.source_model.simple_source()?;
+        let mapping = playtime_api::runtime::SimpleMapping { source, target };
+        Some(mapping)
     }
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are

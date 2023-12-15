@@ -9,7 +9,8 @@ use crate::domain::{
     VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use playtime_clip_engine::base::{ClipMatrixEvent, ClipSlotAddress};
+use playtime_api::runtime::SlotAddress;
+use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use reaper_high::Volume;
 use reaper_medium::Db;
@@ -39,12 +40,16 @@ impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClipVolumeTarget {
-    pub slot_coordinates: ClipSlotAddress,
+    pub slot_coordinates: SlotAddress,
 }
 
 impl RealearnTarget for ClipVolumeTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+    }
+
+    fn clip_slot_address(&self) -> Option<SlotAddress> {
+        Some(self.slot_coordinates)
     }
 
     fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {

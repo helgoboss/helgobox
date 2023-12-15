@@ -1,6 +1,9 @@
-use crate::application::WeakSession;
-use crate::domain::{BackboneState, InstanceId, InstanceState, QualifiedClipMatrixEvent};
-use base::NamedChannelSender;
+use crate::application::{VirtualControlElementType, WeakSession};
+use crate::domain::{
+    BackboneState, Compartment, GroupId, InstanceId, InstanceState, QualifiedClipMatrixEvent,
+    ReaperTarget, WeakInstanceState,
+};
+use base::{Global, NamedChannelSender};
 use playtime_api::runtime;
 use playtime_api::runtime::{
     NoteSource, SimpleMapping, SimpleMappingContainer, SimpleMappingTarget, SimpleSource,
@@ -33,6 +36,7 @@ pub struct MatrixHandler {
     audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
     event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
+    session: WeakSession,
 }
 
 #[cfg(feature = "playtime")]
@@ -49,6 +53,7 @@ impl MatrixHandler {
             audio_hook_task_sender,
             real_time_processor_sender,
             event_sender,
+            session,
         }
     }
 }
@@ -84,28 +89,43 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     }
 
     fn get_simple_mappings(&self) -> SimpleMappingContainer {
+        let session = self.session.upgrade().expect("session gone");
+        let session = session.borrow();
+        let simple_mappings = session
+            .mappings(Compartment::Main)
+            .filter_map(|m| m.borrow().get_simple_mapping());
         SimpleMappingContainer {
-            mappings: vec![SimpleMapping {
-                source: SimpleSource::Note(NoteSource {
-                    channel: 0,
-                    number: 50,
-                }),
-                target: SimpleMappingTarget::TriggerSlot(runtime::SlotAddress {
-                    column_index: 1,
-                    row_index: 1,
-                }),
-            }],
+            mappings: simple_mappings.collect(),
         }
     }
 
     fn get_learning_target(&self) -> Option<SimpleMappingTarget> {
-        Some(SimpleMappingTarget::TriggerSlot(runtime::SlotAddress {
-            column_index: 3,
-            row_index: 3,
-        }))
+        let shared_session = self.session.upgrade().expect("session gone");
+        let mut session = shared_session.borrow();
+        let instance_state = session.instance_state();
+        let instance_state = instance_state.borrow();
+        let learning_mapping_id = instance_state.mapping_which_learns_source().get()?;
+        if learning_mapping_id.compartment != Compartment::Main {
+            return None;
+        }
+        let mapping = session.find_mapping_by_qualified_id(learning_mapping_id)?;
+        let target = mapping.borrow().target_model.simple_target();
+        target
     }
 
     fn toggle_learn_target(&self, target: SimpleMappingTarget) {
-        todo!()
+        let session = self.session.clone();
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                let shared_session = session.upgrade().expect("session gone");
+                let mut session = shared_session.borrow_mut();
+                let reaper_target = ReaperTarget::from_simple_target(target);
+                session.toggle_learn_source_for_target(
+                    &shared_session,
+                    Compartment::Main,
+                    &reaper_target,
+                );
+            })
+            .unwrap();
     }
 }

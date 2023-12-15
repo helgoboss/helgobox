@@ -195,6 +195,10 @@ impl InstanceState {
         mapping_id: Option<QualifiedMappingId>,
     ) -> Option<QualifiedMappingId> {
         let previous_value = self.mapping_which_learns_source.replace(mapping_id);
+        #[cfg(feature = "playtime")]
+        if let Some(matrix) = self.owned_clip_matrix() {
+            matrix.notify_learning_target_changed();
+        }
         self.instance_feedback_event_sender
             .send_complaining(InstanceStateChanged::MappingWhichLearnsSourceChanged { mapping_id });
         previous_value
