@@ -3,6 +3,7 @@ use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderTo
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;
+use std::rc::Rc;
 
 use crate::application::{ParamContainer, SharedSession, WeakSession};
 use crate::domain::{
@@ -97,7 +98,9 @@ impl RealearnPluginParameters {
             }
         }
         let params = session_data.create_params();
-        if let Err(e) = session_data.apply_to_model(&mut session, &params) {
+        if let Err(e) =
+            session_data.apply_to_model(&mut session, &params, Rc::downgrade(&shared_session))
+        {
             notification::warn(e.to_string());
         }
         // Update parameters

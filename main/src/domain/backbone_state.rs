@@ -313,9 +313,13 @@ impl BackboneState {
     pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
         &self,
         instance_state: &'a mut InstanceState,
+        create_handler: impl FnOnce(
+            &InstanceState,
+        ) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> &'a mut playtime_clip_engine::base::Matrix {
         let instance_id = instance_state.instance_id();
-        let created = instance_state.create_and_install_owned_clip_matrix_if_necessary();
+        let created =
+            instance_state.create_and_install_owned_clip_matrix_if_necessary(create_handler);
         let matrix = instance_state.owned_clip_matrix_mut().unwrap();
         if created {
             self.update_rt_clip_matrix_of_referencing_instances(

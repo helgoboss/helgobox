@@ -2069,7 +2069,7 @@ impl HeaderPanel {
                     let session = session.borrow();
                     let mut instance_state = session.instance_state().borrow_mut();
                     if let Some(matrix) = *value {
-                        BackboneState::get().get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state).load(matrix)?;
+                        crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance_state).load(matrix)?;
                     } else {
                         BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                     }

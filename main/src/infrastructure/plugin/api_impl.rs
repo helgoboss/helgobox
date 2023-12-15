@@ -1,3 +1,4 @@
+use crate::application::get_or_insert_owned_clip_matrix;
 use crate::domain::{BackboneState, InstanceId};
 use crate::infrastructure::plugin::{App, PluginInstanceInfo};
 use anyhow::Context;
@@ -84,17 +85,18 @@ fn find_first_helgobox_instance_matching(
 
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
-    let instance_state = App::get()
-        .with_instances(|instances| {
-            instances
-                .iter()
-                .find(|i| i.instance_id == instance_id)
-                .and_then(|i| i.instance_state.upgrade())
-        })
-        .context("Instance not found")?;
-    BackboneState::get()
-        .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state.borrow_mut());
-    Ok(())
+    App::get().with_instances(|instances| {
+        let instance = instances
+            .iter()
+            .find(|i| i.instance_id == instance_id)
+            .context("Instance not found")?;
+        let mut instance_state = instance
+            .instance_state
+            .upgrade()
+            .context("instance state gone")?;
+        get_or_insert_owned_clip_matrix(instance.session.clone(), &mut instance_state.borrow_mut());
+        Ok(())
+    })
 }
 
 fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {

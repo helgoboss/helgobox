@@ -45,3 +45,8 @@ pub use compartment_model::*;
 
 mod props;
 pub use props::*;
+
+#[cfg(feature = "playtime")]
+mod clip_matrix_handler;
+#[cfg(feature = "playtime")]
+pub use clip_matrix_handler::*;

@@ -1,6 +1,6 @@
 use crate::application::{
-    RealearnControlSurfaceMainTaskSender, Session, SessionCommand, SharedMapping, SharedSession,
-    VirtualControlElementType, WeakSession,
+    get_or_insert_owned_clip_matrix, RealearnControlSurfaceMainTaskSender, Session, SessionCommand,
+    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -1029,13 +1029,15 @@ impl App {
 
     #[cfg(feature = "playtime")]
     pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
-        let session = self
+        let shared_session = self
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
-        let session = session.borrow();
+        let session = shared_session.borrow();
         let instance_state = session.instance_state();
-        BackboneState::get()
-            .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state.borrow_mut());
+        get_or_insert_owned_clip_matrix(
+            Rc::downgrade(&shared_session),
+            &mut instance_state.borrow_mut(),
+        );
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
-    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand,
+    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand, WeakSession,
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
@@ -540,6 +540,7 @@ impl SessionData {
         &self,
         session: &mut Session,
         params: &PluginParams,
+        weak_session: WeakSession,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
@@ -776,11 +777,11 @@ impl SessionData {
                     use ClipMatrixRefData::*;
                     match matrix_ref {
                         Own(m) => {
-                            BackboneState::get()
-                                .get_or_insert_owned_clip_matrix_from_instance_state(
-                                    &mut instance_state,
-                                )
-                                .load(*m.clone())?;
+                            crate::application::get_or_insert_owned_clip_matrix(
+                                weak_session,
+                                &mut instance_state,
+                            )
+                            .load(*m.clone())?;
                         }
                         Foreign(session_id) => {
                             // Check if a session with that ID already exists.
@@ -812,11 +813,13 @@ impl SessionData {
                             &self.controller_mappings,
                             session.processor_context().track(),
                         )?;
-                    BackboneState::get()
-                        .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
-                        .load(playtime_api::persistence::FlexibleMatrix::Unsigned(
-                            Box::new(matrix),
-                        ))?;
+                    crate::application::get_or_insert_owned_clip_matrix(
+                        weak_session,
+                        &mut instance_state,
+                    )
+                    .load(
+                        playtime_api::persistence::FlexibleMatrix::Unsigned(Box::new(matrix)),
+                    )?;
                 } else {
                     BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                 }
