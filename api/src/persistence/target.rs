@@ -1378,6 +1378,9 @@ pub enum TransportAction {
 )]
 #[repr(usize)]
 pub enum ClipTransportAction {
+    /// Triggers the slot according to the matrix settings (toggle, momentary, retrigger).
+    #[display(fmt = "Trigger")]
+    Trigger,
     /// Starts or stops playback.
     ///
     /// - If slot filled, starts or stops playback.

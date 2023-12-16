@@ -84,6 +84,10 @@ impl ClipTransportTarget {
             context.control_context.instance_state,
             |matrix| {
                 let response = match self.basics.action {
+                    Trigger => {
+                        matrix.trigger_slot(self.basics.slot_coordinates, on)?;
+                        HitResponse::processed_with_effect()
+                    }
                     PlayStop => {
                         if on {
                             matrix.play_slot(
@@ -269,11 +273,12 @@ impl RealearnTarget for ClipTransportTarget {
                 use ClipTransportAction::*;
                 match event {
                     SlotChangeEvent::PlayState(new_state) => match self.basics.action {
-                        PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
+                        Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
+                        | RecordPlayStop => {
                             let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }
-                        _ => (false, None),
+                        Looped => (false, None),
                     },
                     SlotChangeEvent::Clips(_) => (true, None),
                     _ => (false, None),
@@ -348,7 +353,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
             .with_clip_matrix(context.instance_state, |matrix| {
                 use ClipTransportAction::*;
                 let val = match self.basics.action {
-                    PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
+                    Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                         let play_state = self.clip_play_state(matrix)?;
                         clip_play_state_unit_value(self.basics.action, play_state)
                     }
@@ -388,6 +393,7 @@ impl RealTimeClipTransportTarget {
         let matrix = context.clip_matrix()?;
         let matrix = matrix.lock();
         match self.basics.action {
+            Trigger => matrix.trigger_slot(self.basics.slot_coordinates, on),
             PlayStop => {
                 if on {
                     matrix.play_slot(self.basics.slot_coordinates, self.basics.play_options())
@@ -450,7 +456,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
             return Some(AbsoluteValue::Continuous(UnitValue::MIN));
         };
         let val = match self.basics.action {
-            PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
+            Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                 clip_play_state_unit_value(self.basics.action, first_clip.play_state())
             }
             Looped => transport_is_enabled_unit_value(first_clip.looped()),
@@ -475,6 +481,10 @@ pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
 fn control_type_and_character(action: ClipTransportAction) -> (ControlType, TargetCharacter) {
     use ClipTransportAction::*;
     match action {
+        Trigger => (
+            ControlType::AbsoluteContinuousRetriggerable,
+            TargetCharacter::Trigger,
+        ),
         // Retriggerable because we want to be able to retrigger play!
         PlayStop | PlayPause | RecordPlayStop => (
             ControlType::AbsoluteContinuousRetriggerable,

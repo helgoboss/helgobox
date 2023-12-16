@@ -21,7 +21,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::{SeekBehavior, TrackScope};
+use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
@@ -299,7 +299,7 @@ impl ReaperTarget {
                 project: Reaper::get().current_project(),
                 basics: crate::domain::ClipTransportTargetBasics {
                     slot_coordinates: t,
-                    action: realearn_api::persistence::ClipTransportAction::PlayStop,
+                    action: realearn_api::persistence::ClipTransportAction::Trigger,
                     options: Default::default(),
                 },
             }),
@@ -771,14 +771,14 @@ pub(crate) fn clip_play_state_unit_value(
     use playtime_clip_engine::rt::ClipPlayState;
     use realearn_api::persistence::ClipTransportAction::*;
     match action {
-        PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
+        Trigger | PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
         Stop => transport_is_enabled_unit_value(matches!(
             play_state.get(),
             ClipPlayState::Stopped | ClipPlayState::Ignited
         )),
         Pause => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Paused),
         RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
-        _ => panic!("wrong argument"),
+        Looped => panic!("wrong argument"),
     }
 }
 

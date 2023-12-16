@@ -1842,6 +1842,10 @@ impl TargetModel {
                     self.automation_mode = RealearnAutomationMode::from_reaper(am);
                 }
             },
+            #[cfg(feature = "playtime")]
+            ClipTransport(t) => {
+                self.clip_transport_action = t.basics.action;
+            }
             _ => {}
         };
         Some(Affected::Multiple)
@@ -2733,7 +2737,7 @@ impl TargetModel {
             return None;
         }
         let t = match self.r#type {
-            ClipTransport if self.clip_transport_action() == ClipTransportAction::PlayStop => {
+            ClipTransport if self.clip_transport_action() == ClipTransportAction::Trigger => {
                 SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
             }
             ClipColumn if self.clip_column_action() == ClipColumnAction::Stop => {
