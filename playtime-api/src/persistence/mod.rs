@@ -25,12 +25,9 @@ mod serialization;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
-use chrono::{Local, NaiveDateTime, Utc};
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::{SerializeSeq, SerializeTuple};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use std::cmp;
-use std::fmt::Formatter;
 use std::ops::Add;
 use std::path::PathBuf;
 

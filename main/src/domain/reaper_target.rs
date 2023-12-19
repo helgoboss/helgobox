@@ -21,7 +21,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::{ClipTransportAction, SeekBehavior, TrackScope};
+use realearn_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{

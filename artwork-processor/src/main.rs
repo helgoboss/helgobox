@@ -1,8 +1,7 @@
-use crate::ToolbarIconStatus::Hovered;
-use anyhow::{bail, Context, Result};
-use resvg::tiny_skia::{IntSize, Pixmap, Transform};
-use resvg::usvg::{Color, Fill, NodeKind, NormalizedF32, Options, Paint, TreeParsing};
-use resvg::{tiny_skia, usvg, Tree};
+use anyhow::{Context, Result};
+use resvg::tiny_skia::{Pixmap, Transform};
+use resvg::usvg::{Options, TreeParsing};
+use resvg::{usvg, Tree};
 use std::fs;
 use std::path::Path;
 

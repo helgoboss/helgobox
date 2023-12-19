@@ -9,17 +9,15 @@ use crate::domain::{
     ActivationCondition, Compartment, CompoundMappingSource, CompoundMappingTarget,
     EelTransformation, ExtendedProcessorContext, ExtendedSourceCharacter, FeedbackSendBehavior,
     GroupId, MainMapping, MappingId, MappingKey, Mode, PersistentMappingProcessingState,
-    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType,
-    Script, Tag, TargetCharacter, UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
+    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, Script, Tag,
+    TargetCharacter, UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, DiscreteIncrement, Interval,
     ModeApplicabilityCheckInput, ModeParameter, SourceCharacter, Target, UnitValue,
 };
 
-use realearn_api::persistence::{
-    ClipColumnAction, ClipMatrixAction, ClipRowAction, ClipTransportAction, TrackScope,
-};
+use realearn_api::persistence::TrackScope;
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;

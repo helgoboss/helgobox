@@ -1,12 +1,12 @@
 use crate::application::get_or_insert_owned_clip_matrix;
-use crate::domain::{BackboneState, InstanceId};
+use crate::domain::InstanceId;
 use crate::infrastructure::plugin::{App, PluginInstanceInfo};
 use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
 use reaper_high::{OrCurrentProject, Project, Reaper};
 use reaper_low::raw::ReaProject;
-use reaper_medium::{ReaperFunctionError, ReaperStr, RegistrationObject};
+use reaper_medium::{ReaperStr, RegistrationObject};
 use std::borrow::Cow;
 use std::ffi::c_int;
 
@@ -90,7 +90,7 @@ fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
             .iter()
             .find(|i| i.instance_id == instance_id)
             .context("Instance not found")?;
-        let mut instance_state = instance
+        let instance_state = instance
             .instance_state
             .upgrade()
             .context("instance state gone")?;

@@ -60,8 +60,8 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, ClipSlotDescriptor, FxChainDescriptor, FxDescriptorCommons,
-    FxToolAction, LearnTargetMappingModification, LearnableTargetKind, MappingModification,
+    Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
+    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
     MonitoringMode, MouseAction, MouseButton, PotFilterKind, SeekBehavior,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,

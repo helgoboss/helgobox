@@ -955,7 +955,6 @@ impl App {
 
     #[cfg(feature = "playtime")]
     pub fn get_app_library() -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
-        use anyhow::Context;
         let app_library = APP_LIBRARY
             .get()
             .context("App not loaded yet. Please try again later.")?
@@ -2061,7 +2060,6 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
 #[cfg(feature = "playtime")]
 fn decompress_app() -> anyhow::Result<()> {
     // Check if decompression necessary
-    use anyhow::Context;
     let archive_file = &App::app_archive_file_path();
     let destination_dir = &App::app_base_dir_path();
     let archive_metadata = archive_file.metadata()?;

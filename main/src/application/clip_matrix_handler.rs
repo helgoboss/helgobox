@@ -1,13 +1,9 @@
-use crate::application::{Session, SharedSession, VirtualControlElementType, WeakSession};
+use crate::application::{SharedSession, WeakSession};
 use crate::domain::{
-    BackboneState, Compartment, GroupId, InstanceId, InstanceState, QualifiedClipMatrixEvent,
-    ReaperTarget, WeakInstanceState,
+    BackboneState, Compartment, InstanceId, InstanceState, QualifiedClipMatrixEvent, ReaperTarget,
 };
 use base::{Global, NamedChannelSender};
-use playtime_api::runtime;
-use playtime_api::runtime::{
-    NoteSource, SimpleMapping, SimpleMappingContainer, SimpleMappingTarget, SimpleSource,
-};
+use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
 
 #[cfg(feature = "playtime")]
 pub fn get_or_insert_owned_clip_matrix(
@@ -111,7 +107,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
 
     fn get_currently_learning_target(&self) -> Option<SimpleMappingTarget> {
         let shared_session = self.session.upgrade().expect("session gone");
-        let mut session = shared_session.borrow();
+        let session = shared_session.borrow();
         let instance_state = session.instance_state();
         let instance_state = instance_state.borrow();
         let learning_mapping_id = instance_state.mapping_which_learns_source().get()?;

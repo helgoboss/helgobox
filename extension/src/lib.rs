@@ -1,19 +1,18 @@
 use anyhow::{bail, Context, Result};
 use ini::{Ini, ParseOption};
 use libloading::{Library, Symbol};
-use realearn_api::runtime::{HelgoboxApiPointers, HelgoboxApiSession};
+use realearn_api::runtime::HelgoboxApiSession;
 use reaper_fluent::{FreeFn, Reaper};
 use reaper_low::{PluginContext, TypeSpecificPluginContext};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorBehavior, AcceleratorKeyCode, AddFxBehavior, CommandId, HookCommand,
-    OwnedGaccelRegister, ProjectContext, ReaperSession, ReaperStr, TrackDefaultsBehavior,
-    TrackFxChainType,
+    AcceleratorBehavior, AcceleratorKeyCode, AddFxBehavior, CommandId, HookCommand,
+    OwnedGaccelRegister, ReaperSession, TrackDefaultsBehavior,
 };
 use std::error::Error;
+use std::fs;
 use std::ptr::null_mut;
 use std::sync::OnceLock;
-use std::{cmp, fs};
 
 // Executing Drop not important because extensions always live until REAPER ends.
 static EXTENSION: OnceLock<HelgoboxExtension> = OnceLock::new();
@@ -30,7 +29,8 @@ type ReaperPluginEntry = unsafe extern "C" fn(
 ) -> ::std::os::raw::c_int;
 
 struct HelgoboxExtension {
-    plugin_library: Option<Library>,
+    /// Just for RAII.
+    _plugin_library: Option<Library>,
     show_or_hide_playtime_command_id: CommandId,
 }
 
@@ -61,7 +61,7 @@ impl HelgoboxExtension {
         let _ = add_playtime_toolbar_button();
         // Return extension
         let extension = Self {
-            plugin_library: eagerly_load_plugin_lib(&context).ok(),
+            _plugin_library: eagerly_load_plugin_lib(&context).ok(),
             show_or_hide_playtime_command_id,
         };
         Ok(extension)
@@ -141,7 +141,7 @@ fn add_and_show_playtime() -> Result<()> {
 
 fn enable_playtime_for_first_helgobox_instance_and_show_it() -> Result<()> {
     let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-    let helgobox_api_session = HelgoboxApiSession::load(&plugin_context)
+    let helgobox_api_session = HelgoboxApiSession::load(plugin_context)
         .context("Couldn't load API even after adding Helgobox. Old version?")?;
     let instance_id = helgobox_api_session.HB_FindFirstHelgoboxInstanceInProject(null_mut());
     helgobox_api_session.HB_CreateClipMatrix(instance_id);
@@ -234,7 +234,7 @@ fn add_playtime_toolbar_button() -> Result<()> {
 struct ToolbarItem<'a> {
     index: u32,
     command: &'a str,
-    desc: &'a str,
+    _desc: &'a str,
 }
 
 impl<'a> ToolbarItem<'a> {
@@ -248,7 +248,7 @@ impl<'a> ToolbarItem<'a> {
         let item = ToolbarItem {
             index: i.parse().ok()?,
             command,
-            desc,
+            _desc: desc,
         };
         Some(item)
     }
