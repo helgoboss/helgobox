@@ -8,10 +8,11 @@ use crate::domain::{
     RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua,
     SharedInstanceState, WeakInstanceState,
 };
+#[allow(unused)]
+use anyhow::{anyhow, Context};
 use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
 
-use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Fx, Reaper};

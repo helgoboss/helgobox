@@ -10,6 +10,8 @@ default = []
 playtime = ["dep:playtime-api"]
 
 [dependencies]
+# For being able to use the API macro
+realearn-macros.workspace = true
 reaper-low.workspace = true
 serde.workspace = true
 semver.workspace = true

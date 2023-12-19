@@ -2702,6 +2702,7 @@ dependencies = [
  "base",
  "enumflags2",
  "libloading 0.8.0",
+ "playtime-api",
  "realearn-api",
  "reaper-fluent",
  "reaper-low",
@@ -4106,9 +4107,9 @@ checksum = "6448add382c60bbbc64f9dab41309a12ec530c05191601042f911356ac09758c"
 
 [[package]]
 name = "paste"
-version = "1.0.9"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1de2e551fb905ac83f73f7aedf2f0cb4a0da7e35efa24a202a936269f1f18e1"
+checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
 name = "pathdiff"
@@ -4255,6 +4256,7 @@ dependencies = [
  "derive_more",
  "nanoid",
  "realearn-macros",
+ "reaper-low",
  "rmp-serde",
  "serde",
  "thiserror",
@@ -4889,7 +4891,7 @@ checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
 name = "realearn"
-version = "2.16.0-pre.4"
+version = "2.16.0-pre.5"
 dependencies = [
  "anyhow",
  "approx",
@@ -5018,6 +5020,7 @@ dependencies = [
  "mlua",
  "num_enum 0.5.4",
  "playtime-api",
+ "realearn-macros",
  "reaper-low",
  "semver 1.0.17",
  "serde",

@@ -1,6 +1,6 @@
 use crate::application::{
-    get_or_insert_owned_clip_matrix, RealearnControlSurfaceMainTaskSender, Session, SessionCommand,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    RealearnControlSurfaceMainTaskSender, Session, SessionCommand, SharedMapping, SharedSession,
+    VirtualControlElementType, WeakSession,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -25,6 +25,8 @@ use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
 use crate::infrastructure::ui::{MainPanel, MessagePanel};
+#[allow(unused)]
+use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
@@ -38,7 +40,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
-use anyhow::{bail, Context};
+use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
@@ -65,7 +67,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::thread::JoinHandle;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -1032,7 +1034,7 @@ impl App {
             .context("session not found")?;
         let session = shared_session.borrow();
         let instance_state = session.instance_state();
-        get_or_insert_owned_clip_matrix(
+        crate::application::get_or_insert_owned_clip_matrix(
             Rc::downgrade(&shared_session),
             &mut instance_state.borrow_mut(),
         );
@@ -2066,7 +2068,7 @@ fn decompress_app() -> anyhow::Result<()> {
     let archive_size = archive_metadata.len();
     let archive_modified = archive_metadata
         .modified()?
-        .duration_since(SystemTime::UNIX_EPOCH)?;
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)?;
     let archive_id = format!("{archive_size},{}", archive_modified.as_millis());
     let archive_id_file = destination_dir.join("ARCHIVE");
     if let Ok(unpacked_archive_id) = fs::read_to_string(&archive_id_file) {

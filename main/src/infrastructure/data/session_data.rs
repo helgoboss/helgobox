@@ -536,6 +536,7 @@ impl SessionData {
     /// # Errors
     ///
     /// Returns and error if this session data is invalid.
+    #[allow(unused_variables)]
     pub fn apply_to_model(
         &self,
         session: &mut Session,

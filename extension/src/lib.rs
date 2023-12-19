@@ -1,17 +1,11 @@
 use anyhow::{bail, Context, Result};
-use ini::{Ini, ParseOption};
 use libloading::{Library, Symbol};
-use realearn_api::runtime::HelgoboxApiSession;
-use reaper_fluent::{FreeFn, Reaper};
+use reaper_fluent::Reaper;
 use reaper_low::{PluginContext, TypeSpecificPluginContext};
 use reaper_macros::reaper_extension_plugin;
-use reaper_medium::{
-    AcceleratorBehavior, AcceleratorKeyCode, AddFxBehavior, CommandId, HookCommand,
-    OwnedGaccelRegister, ReaperSession, TrackDefaultsBehavior,
-};
+use reaper_medium::{CommandId, HookCommand, ReaperSession};
 use std::error::Error;
 use std::fs;
-use std::ptr::null_mut;
 use std::sync::OnceLock;
 
 // Executing Drop not important because extensions always live until REAPER ends.
@@ -31,6 +25,7 @@ type ReaperPluginEntry = unsafe extern "C" fn(
 struct HelgoboxExtension {
     /// Just for RAII.
     _plugin_library: Option<Library>,
+    #[cfg(feature = "playtime")]
     show_or_hide_playtime_command_id: CommandId,
 }
 
@@ -39,30 +34,37 @@ impl HelgoboxExtension {
         // Do our own thing
         let mut medium_session = ReaperSession::load(context);
         medium_session.plugin_register_add_hook_command::<Self>()?;
-        // Register actions
-        let show_or_hide_playtime_command_id =
-            medium_session.plugin_register_add_command_id(COMMAND_ID_SHOW_HIDE_PLAYTIME)?;
-        let gaccel_register = OwnedGaccelRegister::with_key_binding(
-            show_or_hide_playtime_command_id,
-            ACTION_LABEL_SHOW_HIDE_PLAYTIME,
-            AcceleratorBehavior::Shift
-                | AcceleratorBehavior::Control
-                | AcceleratorBehavior::VirtKey,
-            AcceleratorKeyCode::new(b'P' as _),
-        );
-        medium_session
-            .plugin_register_add_gaccel_global_text(gaccel_register)
-            .or_else(|gaccel_register| {
-                medium_session.plugin_register_add_gaccel(gaccel_register)
-            })?;
         // Install reaper-fluent for global use
         let _ = Reaper::install_globally(medium_session);
-        // Add toolbar button
-        let _ = add_playtime_toolbar_button();
+        #[cfg(feature = "playtime")]
+        {
+            // Add toolbar button
+            let _ = add_playtime_toolbar_button();
+        }
         // Return extension
         let extension = Self {
             _plugin_library: eagerly_load_plugin_lib(&context).ok(),
-            show_or_hide_playtime_command_id,
+            #[cfg(feature = "playtime")]
+            show_or_hide_playtime_command_id: {
+                use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode, OwnedGaccelRegister};
+                let mut medium_session = Reaper::get().medium_session_mut();
+                let show_or_hide_playtime_command_id =
+                    medium_session.plugin_register_add_command_id(COMMAND_ID_SHOW_HIDE_PLAYTIME)?;
+                let gaccel_register = OwnedGaccelRegister::with_key_binding(
+                    show_or_hide_playtime_command_id,
+                    ACTION_LABEL_SHOW_HIDE_PLAYTIME,
+                    AcceleratorBehavior::Shift
+                        | AcceleratorBehavior::Control
+                        | AcceleratorBehavior::VirtKey,
+                    AcceleratorKeyCode::new(b'P' as _),
+                );
+                medium_session
+                    .plugin_register_add_gaccel_global_text(gaccel_register)
+                    .or_else(|gaccel_register| {
+                        medium_session.plugin_register_add_gaccel(gaccel_register)
+                    })?;
+                show_or_hide_playtime_command_id
+            },
         };
         Ok(extension)
     }
@@ -73,26 +75,29 @@ impl HelgoboxExtension {
             .expect("Helgobox extension not yet initialized")
     }
 
+    #[cfg(feature = "playtime")]
     fn show_or_hide_playtime(&self) -> Result<()> {
         let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-        let Some(helgobox_api_session) = HelgoboxApiSession::load(plugin_context) else {
+        let Some(playtime_api) = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+        else {
             // Project doesn't have any Helgobox instance yet. Add one.
             add_and_show_playtime()?;
             return Ok(());
         };
         let helgobox_instance =
-            helgobox_api_session.HB_FindFirstPlaytimeHelgoboxInstanceInProject(null_mut());
+            playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
         if helgobox_instance == -1 {
             // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
             add_and_show_playtime()?;
             return Ok(());
         }
-        helgobox_api_session.HB_ShowOrHidePlaytime(helgobox_instance);
+        playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
         Ok(())
     }
 
     fn command_invoked(&self, command_id: CommandId) -> Result<bool> {
         match command_id {
+            #[cfg(feature = "playtime")]
             id if id == self.show_or_hide_playtime_command_id => {
                 self.show_or_hide_playtime()?;
                 Ok(true)
@@ -110,14 +115,16 @@ impl HookCommand for HelgoboxExtension {
     }
 }
 
+#[cfg(feature = "playtime")]
 fn add_and_show_playtime() -> Result<()> {
     let mut model = Reaper::get().model_mut();
     let mut project = model.current_project_mut();
-    let mut track = project.insert_track_at(0, TrackDefaultsBehavior::OmitDefaultEnvAndFx);
+    let mut track =
+        project.insert_track_at(0, reaper_medium::TrackDefaultsBehavior::OmitDefaultEnvAndFx);
     track.set_name("Playtime");
     track
         .normal_fx_chain_mut()
-        .add_fx_by_name("<1751282284", AddFxBehavior::AlwaysAdd)
+        .add_fx_by_name("<1751282284", reaper_medium::AddFxBehavior::AlwaysAdd)
         .context("Couldn't add Helgobox. Maybe not installed?")?
         .hide_window();
     // The rest needs to be done async because the instance initializes itself async
@@ -126,12 +133,12 @@ fn add_and_show_playtime() -> Result<()> {
     Reaper::get().execute_later::<Later>();
     struct Later;
     struct MuchLater;
-    impl FreeFn for Later {
+    impl reaper_fluent::FreeFn for Later {
         fn call() {
             Reaper::get().execute_later::<MuchLater>();
         }
     }
-    impl FreeFn for MuchLater {
+    impl reaper_fluent::FreeFn for MuchLater {
         fn call() {
             enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
         }
@@ -139,13 +146,16 @@ fn add_and_show_playtime() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "playtime")]
 fn enable_playtime_for_first_helgobox_instance_and_show_it() -> Result<()> {
     let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-    let helgobox_api_session = HelgoboxApiSession::load(plugin_context)
-        .context("Couldn't load API even after adding Helgobox. Old version?")?;
-    let instance_id = helgobox_api_session.HB_FindFirstHelgoboxInstanceInProject(null_mut());
-    helgobox_api_session.HB_CreateClipMatrix(instance_id);
-    helgobox_api_session.HB_ShowOrHidePlaytime(instance_id);
+    let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
+        .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
+    let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+        .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
+    let instance_id = helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
+    playtime_api.HB_CreateClipMatrix(instance_id);
+    playtime_api.HB_ShowOrHidePlaytime(instance_id);
     Ok(())
 }
 
@@ -192,14 +202,15 @@ fn eagerly_load_plugin_lib(context: &PluginContext) -> Result<Library> {
     Ok(plugin_library)
 }
 
+#[cfg(feature = "playtime")]
 fn add_playtime_toolbar_button() -> Result<()> {
     // Load toolbar button INI file
     let reaper_menu_ini = Reaper::get()
         .medium_reaper()
         .get_resource_path(|p| p.join("reaper-menu.ini"));
-    let mut ini = Ini::load_from_file_opt(
+    let mut ini = ini::Ini::load_from_file_opt(
         &reaper_menu_ini,
-        ParseOption {
+        ini::ParseOption {
             enabled_quote: false,
             enabled_escape: false,
         },
@@ -231,12 +242,14 @@ fn add_playtime_toolbar_button() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "playtime")]
 struct ToolbarItem<'a> {
     index: u32,
     command: &'a str,
     _desc: &'a str,
 }
 
+#[cfg(feature = "playtime")]
 impl<'a> ToolbarItem<'a> {
     fn parse_from_ini_prop(key: &'a str, value: &'a str) -> Option<Self> {
         let Some(("item", i)) = key.split_once('_') else {
@@ -254,5 +267,7 @@ impl<'a> ToolbarItem<'a> {
     }
 }
 
+#[cfg(feature = "playtime")]
 const COMMAND_ID_SHOW_HIDE_PLAYTIME: &str = "HB_SHOW_HIDE_PLAYTIME";
+#[cfg(feature = "playtime")]
 const ACTION_LABEL_SHOW_HIDE_PLAYTIME: &str = "Show/hide Playtime";
