@@ -23,7 +23,7 @@ use base::{
 use helgoboss_allocator::*;
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
-use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
+use reaper_low::{static_vst_plugin_context, PluginContext};
 use reaper_medium::{Hz, ReaperStr};
 
 use slog::{debug, o};
@@ -56,9 +56,8 @@ const NORMAL_REAL_TIME_TO_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
 const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 
-reaper_vst_plugin!();
-
-/// A REAPER-extension-like entry point, *in addition* to the VST entry point.
+/// Generates a REAPER-extension-like entry point. It also generates everything that
+/// `reaper_vst_plugin!` macro would generate, so we don't need that anymore.
 ///
 /// This needs some explanation: No, we are not a REAPER extension! This extension entry point will
 /// not be called by REAPER (because our shared library is located in the "UserPlugins/FX"

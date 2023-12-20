@@ -154,6 +154,7 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #reaper-fluent = { path = "../reaper-rs/main/fluent" }
 #reaper-high = { path = "../reaper-rs/main/high" }
 #reaper-medium = { path = "../reaper-rs/main/medium" }
+#reaper-macros = { path = "../reaper-rs/main/macros" }
 #reaper-low = { path = "../reaper-rs/main/low" }
 #reaper-rx = { path = "../reaper-rs/main/rx" }
 #rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }

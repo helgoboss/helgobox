@@ -1699,7 +1699,15 @@ impl Drop for App {
     fn drop(&mut self) {
         self.message_panel.close();
         self.party_is_over_subject.next(());
-        let _ = unregister_api();
+        // This is ugly but we need it on Windows where getting the current thread can lead to
+        // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
+        // when exiting REAPER. The following code essentially ignores this.
+        let old_panic_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let _ = std::panic::catch_unwind(|| {
+            let _ = unregister_api();
+        });
+        std::panic::set_hook(old_panic_hook);
     }
 }
 
