@@ -232,7 +232,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos-x86_64/libreaper_helgobox.dylib
-          asset_name: reaper_helgobox.dylib
+          asset_name: reaper_helgobox-macos-x86_64.dylib
           asset_content_type: application/octet-stream
       - name: Upload macos-aarch64 release artifact 1
         uses: actions/upload-release-asset@v1
@@ -250,7 +250,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos-aarch64/libreaper_helgobox.dylib
-          asset_name: reaper_helgobox.dylib
+          asset_name: reaper_helgobox-macos-aarch64.dylib
           asset_content_type: application/octet-stream
       - name: Upload linux-x86_64 release artifact
         uses: actions/upload-release-asset@v1
