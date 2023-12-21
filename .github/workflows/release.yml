@@ -17,6 +17,7 @@ jobs:
             os: windows-latest
             toolchain-suffix: x86_64-pc-windows-msvc
             lib-file-name: realearn.dll
+            extension-file-name: ""
             target: x86_64-pc-windows-msvc
             use-cross: false
             profile: release
@@ -25,6 +26,7 @@ jobs:
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
             lib-file-name: realearn.dll
+            extension-file-name: ""
             target: i686-pc-windows-msvc
             use-cross: false
             profile: release-llvm-out-of-memory-fix
@@ -33,6 +35,7 @@ jobs:
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
+            extension-file-name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
             use-cross: false
             profile: release
@@ -41,6 +44,7 @@ jobs:
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
+            extension-file-name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
             use-cross: false
             profile: release
@@ -49,6 +53,7 @@ jobs:
             os: ubuntu-20.04
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
+            extension-file-name: ""
             target: x86_64-unknown-linux-gnu
             use-cross: false
             strip-cmd: strip
@@ -58,6 +63,7 @@ jobs:
 #            os: ubuntu-22.04
 #            toolchain-suffix: x86_64-unknown-linux-gnu
 #            lib-file-name: librealearn.so
+#            extension-file-name: ""
 #            target: aarch64-unknown-linux-gnu
 #            use-cross: true
 #            strip-cmd: aarch64-linux-gnu-strip
@@ -67,6 +73,7 @@ jobs:
 #            os: ubuntu-22.04
 #            toolchain-suffix: x86_64-unknown-linux-gnu
 #            lib-file-name: librealearn.so
+#            extension-file-name: ""
 #            target: armv7-unknown-linux-gnueabihf
 #            use-cross: true
 #            strip-cmd: arm-linux-gnueabihf-strip
@@ -144,6 +151,13 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
+      # Upload extension (macOS only for now)
+      - name: Upload extension to artifact
+        if: matrix.extension-file-name != ''
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension-file-name }}
       # Upload debug symbols (all)
       - name: Upload Windows debug symbols to artifact
         if: matrix.os == 'windows-latest'
@@ -202,7 +216,7 @@ jobs:
           asset_path: ./windows-i686/realearn.dll
           asset_name: realearn-windows-i686.dll
           asset_content_type: application/octet-stream
-      - name: Upload macos-x86_64 release artifact
+      - name: Upload macos-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -211,7 +225,16 @@ jobs:
           asset_path: ./macos-x86_64/librealearn.dylib
           asset_name: realearn-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
-      - name: Upload macos-aarch64 release artifact
+      - name: Upload macos-x86_64 release artifact 2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./macos-x86_64/libreaper_helgobox.dylib
+          asset_name: reaper_helgobox.dylib
+          asset_content_type: application/octet-stream
+      - name: Upload macos-aarch64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -219,6 +242,15 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos-aarch64/librealearn.dylib
           asset_name: realearn-macos-aarch64.vst.dylib
+          asset_content_type: application/octet-stream
+      - name: Upload macos-aarch64 release artifact 2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./macos-aarch64/libreaper_helgobox.dylib
+          asset_name: reaper_helgobox.dylib
           asset_content_type: application/octet-stream
       - name: Upload linux-x86_64 release artifact
         uses: actions/upload-release-asset@v1
