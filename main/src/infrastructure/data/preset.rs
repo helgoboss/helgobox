@@ -2,7 +2,7 @@ use crate::application::{Preset, PresetManager};
 use std::error::Error;
 
 use crate::base::notification;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::file_util;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
@@ -170,7 +170,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             )
         })?;
         if let Some(v) = data.version() {
-            if App::version() < v {
+            if BackboneShell::version() < v {
                 let msg = format!(
                     "Skipped loading of preset \"{}\" because it has been saved with \
                          ReaLearn {}, which is newer than the installed version {}. \
@@ -181,7 +181,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                          the preset and uninstall the factory preset.",
                     path.display(),
                     v,
-                    App::version()
+                    BackboneShell::version()
                 );
                 return Err(msg.into());
             }

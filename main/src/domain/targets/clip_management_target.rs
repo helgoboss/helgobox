@@ -1,6 +1,6 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
@@ -104,7 +104,7 @@ impl ClipManagementTarget {
         context: MappingControlContext,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        BackboneState::get().with_clip_matrix_mut(context.control_context.instance_state, f)
+        Backbone::get().with_clip_matrix_mut(context.control_context.instance_state, f)
     }
 }
 
@@ -141,7 +141,7 @@ impl RealearnTarget for ClipManagementTarget {
     // TODO-high-clip-engine Also add a "Clip" target, just like "Track" target
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         match key {
-            "clip.name" => BackboneState::get()
+            "clip.name" => Backbone::get()
                 .with_clip_matrix_mut(context.instance_state, |matrix| {
                     let clip = matrix.find_slot(self.slot_coordinates)?.clips().next()?;
                     let name = clip.name()?;
@@ -171,7 +171,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
             | A::FillSlotWithSelectedItem
             | A::CopyOrPasteClip
             | A::AdjustClipSectionLength(_) => Some(AbsoluteValue::default()),
-            A::EditClip => BackboneState::get()
+            A::EditClip => Backbone::get()
                 .with_clip_matrix(context.instance_state, |matrix| {
                     let clip_address = ClipAddress::new(self.slot_coordinates, 0);
                     let is_editing = matrix.is_editing_clip(clip_address);

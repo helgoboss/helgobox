@@ -6,17 +6,17 @@ use vst::plugin::{
     PluginParameters,
 };
 
-use super::RealearnEditor;
+use super::InstanceEditor;
 use crate::domain::{
-    BackboneState, ControlEvent, ControlEventTimestamp, ControlMainTask, FeedbackRealTimeTask,
+    Backbone, ControlEvent, ControlEventTimestamp, ControlMainTask, FeedbackRealTimeTask,
     InstanceId, MainProcessor, MidiEvent, NormalMainTask, NormalRealTimeToMainThreadTask,
     ParameterMainTask, PluginParamIndex, ProcessorContext, RealTimeProcessorLocker,
     SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
-use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
+use crate::infrastructure::plugin::instance_parameters::InstanceParameters;
 use crate::infrastructure::plugin::{PluginInstanceInfo, SET_STATE_PARAM_NAME};
-use crate::infrastructure::ui::MainPanel;
+use crate::infrastructure::ui::InstancePanel;
 use base::{
     tracing_debug, Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
@@ -36,8 +36,8 @@ use std::rc::Rc;
 
 use std::sync::{Arc, Mutex};
 
-use crate::application::{Session, SharedSession};
-use crate::infrastructure::plugin::app::App;
+use crate::application::{InstanceModel, SharedSession};
+use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
 use crate::base::notification;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
@@ -72,24 +72,27 @@ const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 /// They will be at the time the first plug-in instance is added.
 #[reaper_extension_plugin]
 fn plugin_main(context: PluginContext) -> Result<(), Box<dyn Error>> {
-    App::make_available_globally(|| App::init(context));
+    BackboneShell::make_available_globally(|| BackboneShell::init(context));
     Ok(())
 }
 
-pub struct RealearnPlugin {
+/// Just the old term as alias for easier class search.
+type _RealearnPlugin = InstanceShell;
+
+pub struct InstanceShell {
     /// An ID which is randomly generated on each start and is most relevant for log correlation.
     /// It's also used in other ReaLearn singletons.
     /// It also serves as initial value for the (persistent) session ID. Should be unique.
     instance_id: InstanceId,
     logger: slog::Logger,
     // This will be filled right at construction time. It won't have a session yet though.
-    main_panel: SharedView<MainPanel>,
+    main_panel: SharedView<InstancePanel>,
     // This will be set on `new()`.
     host: HostCallback,
     // This will be set as soon as the containing FX is known (one main loop cycle after `init()`).
     session: Rc<LazyCell<SharedSession>>,
     // We need to keep that here in order to notify it as soon as the session becomes available.
-    plugin_parameters: Arc<RealearnPluginParameters>,
+    plugin_parameters: Arc<InstanceParameters>,
     // This will be set on `init()`.
     _reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
@@ -121,15 +124,15 @@ pub struct RealearnPlugin {
     is_plugin_scan: bool,
 }
 
-impl Default for RealearnPlugin {
+impl Default for InstanceShell {
     fn default() -> Self {
-        RealearnPlugin::new(Default::default())
+        InstanceShell::new(Default::default())
     }
 }
 
-unsafe impl Send for RealearnPlugin {}
+unsafe impl Send for InstanceShell {}
 
-impl Plugin for RealearnPlugin {
+impl Plugin for InstanceShell {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
@@ -160,9 +163,8 @@ impl Plugin for RealearnPlugin {
                     PARAMETER_MAIN_TASK_QUEUE_SIZE,
                 );
             let instance_id = InstanceId::next();
-            let logger = App::logger().new(o!("instance" => instance_id.to_string()));
-            let plugin_parameters =
-                Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
+            let logger = BackboneShell::logger().new(o!("instance" => instance_id.to_string()));
+            let plugin_parameters = Arc::new(InstanceParameters::new(parameter_main_task_sender));
             let real_time_processor = RealTimeProcessor::new(
                 instance_id,
                 &logger,
@@ -183,7 +185,7 @@ impl Plugin for RealearnPlugin {
                 logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
-                main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
+                main_panel: SharedView::new(InstancePanel::new(Arc::downgrade(&plugin_parameters))),
                 _reaper_guard: None,
                 plugin_parameters,
                 normal_real_time_task_sender,
@@ -259,7 +261,7 @@ impl Plugin for RealearnPlugin {
             // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
             // host, e.g. in order to check if it should the hasEditor flag or not. That means
             // we don't know yet if this is a plug-in scan or not. We have to create the editor.
-            let boxed: Box<dyn Editor> = Box::new(RealearnEditor::new(self.main_panel.clone()));
+            let boxed: Box<dyn Editor> = Box::new(InstanceEditor::new(self.main_panel.clone()));
             Some(boxed)
         })
         .unwrap_or(None)
@@ -388,7 +390,7 @@ impl Plugin for RealearnPlugin {
     }
 }
 
-impl RealearnPlugin {
+impl InstanceShell {
     /// Should be called in real-time thread only.
     fn is_now_playing(&self) -> bool {
         use vst::api::TimeInfoFlags;
@@ -414,12 +416,12 @@ impl RealearnPlugin {
                 // extension entry point. In this case, the following call will not have any
                 // effect. And that's exactly what we want, because the App already has been
                 // initialized then!
-                App::make_available_globally(|| App::init(context));
+                BackboneShell::make_available_globally(|| BackboneShell::init(context));
             },
             || {
-                App::get().wake_up();
+                BackboneShell::get().wake_up();
                 || {
-                    App::get().go_to_sleep();
+                    BackboneShell::get().go_to_sleep();
                 }
             },
         )
@@ -458,19 +460,19 @@ impl RealearnPlugin {
                 // Instance state (domain - shared)
                 let (instance_feedback_event_sender, instance_feedback_event_receiver) =
                     SenderToNormalThread::new_unbounded_channel("instance state change events");
-                let instance_state = BackboneState::get().create_instance(
+                let instance_state = Backbone::get().create_instance(
                     instance_id,
                     processor_context.clone(),
                     instance_feedback_event_sender,
                     #[cfg(feature = "playtime")]
-                    App::get().clip_matrix_event_sender().clone(),
+                    BackboneShell::get().clip_matrix_event_sender().clone(),
                     #[cfg(feature = "playtime")]
-                    App::get().normal_audio_hook_task_sender().clone(),
+                    BackboneShell::get().normal_audio_hook_task_sender().clone(),
                     #[cfg(feature = "playtime")]
                     normal_real_time_task_sender.clone(),
                 );
                 // Session (application - shared)
-                let session = Session::new(
+                let session = InstanceModel::new(
                     instance_id,
                     &logger,
                     processor_context.clone(),
@@ -483,15 +485,15 @@ impl RealearnPlugin {
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
                     plugin_parameters.clone(),
-                    App::get(),
-                    App::get().controller_preset_manager(),
-                    App::get().main_preset_manager(),
-                    App::get().preset_link_manager(),
+                    BackboneShell::get(),
+                    BackboneShell::get().controller_preset_manager(),
+                    BackboneShell::get().main_preset_manager(),
+                    BackboneShell::get().preset_link_manager(),
                     instance_state.clone(),
-                    App::get().feedback_audio_hook_task_sender(),
+                    BackboneShell::get().feedback_audio_hook_task_sender(),
                     feedback_real_time_task_sender.clone(),
-                    App::get().osc_feedback_task_sender(),
-                    App::get().control_surface_main_task_sender(),
+                    BackboneShell::get().osc_feedback_task_sender(),
+                    BackboneShell::get().control_surface_main_task_sender(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
@@ -503,7 +505,7 @@ impl RealearnPlugin {
                     session: weak_session.clone(),
                     ui: Rc::downgrade(&main_panel),
                 };
-                App::get().register_plugin_instance(plugin_instance_info);
+                BackboneShell::get().register_plugin_instance(plugin_instance_info);
                 // Main processor - (domain, owned by REAPER control surface)
                 // Register the main processor with the global ReaLearn control surface. We let it
                 // call by the control surface because it must be called regularly,
@@ -520,16 +522,18 @@ impl RealearnPlugin {
                     instance_feedback_event_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
-                    App::get().feedback_audio_hook_task_sender().clone(),
-                    App::get().additional_feedback_event_sender(),
-                    App::get().instance_orchestration_event_sender(),
-                    App::get().osc_feedback_task_sender().clone(),
+                    BackboneShell::get()
+                        .feedback_audio_hook_task_sender()
+                        .clone(),
+                    BackboneShell::get().additional_feedback_event_sender(),
+                    BackboneShell::get().instance_orchestration_event_sender(),
+                    BackboneShell::get().osc_feedback_task_sender().clone(),
                     weak_session.clone(),
                     processor_context,
                     instance_state,
-                    App::get(),
+                    BackboneShell::get(),
                 );
-                App::get().register_processor_couple(
+                BackboneShell::get().register_processor_couple(
                     instance_id,
                     shared_real_time_processor,
                     main_processor,
@@ -678,12 +682,12 @@ fn write_to_c_str(dest: *mut c_void, src: String) -> Result<(), &'static str> {
     Ok(())
 }
 
-impl Drop for RealearnPlugin {
+impl Drop for InstanceShell {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
-            App::get().unregister_processor_couple(self.instance_id);
-            App::get().unregister_session(session.as_ptr());
+            BackboneShell::get().unregister_processor_couple(self.instance_id);
+            BackboneShell::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,
                 "{} pointers are still referring to this session",

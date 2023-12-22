@@ -4,7 +4,7 @@ use crate::domain::{
     ReaperTarget, Tag, VirtualSourceValue,
 };
 
-use crate::application::{MappingModel, Session};
+use crate::application::{InstanceModel, MappingModel};
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -193,7 +193,11 @@ impl SearchExpression {
         self.wild_match.matches(&text.to_lowercase())
     }
 
-    pub fn matches_any_tag_in_group(&self, mapping: &MappingModel, session: &Session) -> bool {
+    pub fn matches_any_tag_in_group(
+        &self,
+        mapping: &MappingModel,
+        session: &InstanceModel,
+    ) -> bool {
         if self.tag.is_none() {
             return false;
         }

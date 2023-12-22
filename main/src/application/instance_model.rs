@@ -8,18 +8,18 @@ use crate::application::{
 };
 use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, BackboneState, BasicSettings, Compartment,
+    convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, Compartment,
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey,
-    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
-    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedInstanceState, StayActiveWhenProjectInBackground, Tag,
-    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId,
-    VirtualFx, VirtualSource, VirtualSourceValue,
+    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, Instance, InstanceContainer,
+    InstanceId, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
+    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType,
+    SharedInstanceState, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
+    TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
+    VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -49,15 +49,15 @@ pub trait SessionUi {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);
     fn show_pot_browser(&self);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
-    fn parameters_changed(&self, session: &Session);
+    fn parameters_changed(&self, session: &InstanceModel);
     fn midi_devices_changed(&self);
     fn celebrate_success(&self);
     fn conditions_changed(&self);
-    fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn send_projection_feedback(&self, session: &InstanceModel, value: ProjectionFeedbackValue);
     #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
@@ -65,7 +65,7 @@ pub trait SessionUi {
     #[cfg(feature = "playtime")]
     fn process_control_surface_change_event_for_clip_engine(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[reaper_high::ChangeEvent],
     );
@@ -74,7 +74,7 @@ pub trait SessionUi {
     fn handle_info_event(&self, event: &InfoEvent);
     fn handle_affected(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
     );
@@ -84,12 +84,15 @@ pub trait ParamContainer {
     fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams);
 }
 
+/// Just the old term as alias for easier class search.
+pub type _Session = InstanceModel;
+
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct Session {
+pub struct InstanceModel {
     instance_id: InstanceId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
@@ -243,7 +246,7 @@ pub mod session_defaults {
     pub const INSTANCE_FX_DESCRIPTOR: FxDescriptor = FxDescriptor::Focused;
 }
 
-impl Session {
+impl InstanceModel {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         instance_id: InstanceId,
@@ -264,7 +267,7 @@ impl Session {
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
         control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
-    ) -> Session {
+    ) -> InstanceModel {
         Self {
             id: prop(nanoid::nanoid!(8)),
             instance_id,
@@ -683,7 +686,7 @@ impl Session {
 
     fn active_virtual_controller_mappings<'a>(
         &'a self,
-        instance_state: &'a InstanceState,
+        instance_state: &'a Instance,
     ) -> impl Iterator<Item = &SharedMapping> {
         self.mappings(Compartment::Controller).filter(move |m| {
             let m = m.borrow();
@@ -1130,7 +1133,7 @@ impl Session {
         &mut self,
         initiator: Option<u32>,
         weak_session: WeakSession,
-        f: impl FnOnce(&mut Session) -> ChangeResult<SessionProp>,
+        f: impl FnOnce(&mut InstanceModel) -> ChangeResult<SessionProp>,
     ) -> Result<(), String> {
         if let Some(affected) = f(self)? {
             self.handle_affected(affected, initiator, weak_session);
@@ -2385,7 +2388,7 @@ impl Session {
     }
 
     fn sync_upper_floor_membership(&self) {
-        let backbone_state = BackboneState::get();
+        let backbone_state = Backbone::get();
         if self.lives_on_upper_floor.get() {
             backbone_state.add_to_upper_floor(self.instance_id);
         } else {
@@ -2544,14 +2547,14 @@ impl Session {
     }
 }
 
-impl Drop for Session {
+impl Drop for InstanceModel {
     fn drop(&mut self) {
         debug!(self.logger(), "Dropping session...");
         self.party_is_over_subject.next(());
     }
 }
 
-impl Display for Session {
+impl Display for InstanceModel {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let fx_pos = self.processor_context.containing_fx().index() + 1;
         let fx_name = self.processor_context.containing_fx().name();
@@ -2700,8 +2703,7 @@ impl DomainEventHandler for WeakSession {
                             included_target_types: &included_targets,
                             touch_cause: m.touch_cause.unwrap_or_default(),
                         };
-                        let Some(target) = BackboneState::get().find_last_touched_target(filter)
-                        else {
+                        let Some(target) = Backbone::get().find_last_touched_target(filter) else {
                             return Ok(());
                         };
                         let Some(m) = s.find_mapping_by_qualified_id(id).cloned() else {
@@ -2800,11 +2802,11 @@ impl DomainEventHandler for WeakSession {
 /// behavior. It will let us know immediately when we violated that safety rule.
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-pub type SharedSession = Rc<RefCell<Session>>;
+pub type SharedSession = Rc<RefCell<InstanceModel>>;
 
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
-pub type WeakSession = Weak<RefCell<Session>>;
+pub type WeakSession = Weak<RefCell<InstanceModel>>;
 
 fn mappings_have_project_references<'a>(
     mut mappings: impl Iterator<Item = &'a SharedMapping>,
@@ -2849,12 +2851,12 @@ pub enum SessionProp {
 
 #[derive(Copy, Clone)]
 pub struct CompartmentInSession<'a> {
-    pub session: &'a Session,
+    pub session: &'a InstanceModel,
     pub compartment: Compartment,
 }
 
 impl<'a> CompartmentInSession<'a> {
-    pub fn new(session: &'a Session, compartment: Compartment) -> Self {
+    pub fn new(session: &'a InstanceModel, compartment: Compartment) -> Self {
         Self {
             session,
             compartment,

@@ -1,6 +1,6 @@
 use crate::application::{Change, ModeCommand, ModeModel};
 use crate::infrastructure::data::MigrationDescriptor;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default, is_unit_value_one, unit_value_one};
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
@@ -293,7 +293,7 @@ impl ModeModelData {
                 && self.r#type == AbsoluteMode::Normal
             {
                 debug!(
-                    App::logger(),
+                    BackboneShell::logger(),
                     "Migration: Inverting target interval of mapping {} in order to not break existing behavior because of #117",
                     mapping_name
                 );

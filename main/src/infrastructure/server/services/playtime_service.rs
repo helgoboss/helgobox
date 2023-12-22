@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::proto::clip_engine_server::ClipEngineServer;
 use playtime_clip_engine::proto::{ClipEngineHub, GrpcClipEngineService, MatrixProvider};
@@ -18,7 +18,7 @@ impl MatrixProvider for AppMatrixProvider {
         clip_matrix_id: &str,
         f: impl FnOnce(&Matrix) -> R,
     ) -> anyhow::Result<R> {
-        App::get().with_clip_matrix(clip_matrix_id, f)
+        BackboneShell::get().with_clip_matrix(clip_matrix_id, f)
     }
 
     fn with_matrix_mut<R>(
@@ -26,10 +26,10 @@ impl MatrixProvider for AppMatrixProvider {
         clip_matrix_id: &str,
         f: impl FnOnce(&mut Matrix) -> R,
     ) -> anyhow::Result<R> {
-        App::get().with_clip_matrix_mut(clip_matrix_id, f)
+        BackboneShell::get().with_clip_matrix_mut(clip_matrix_id, f)
     }
 
     fn create_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
-        App::get().create_clip_matrix(clip_matrix_id)
+        BackboneShell::get().create_clip_matrix(clip_matrix_id)
     }
 }

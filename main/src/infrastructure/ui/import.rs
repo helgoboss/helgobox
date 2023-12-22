@@ -12,7 +12,7 @@ use crate::infrastructure::data::{
     ActivationConditionData, CompartmentModelData, MappingModelData, ModeModelData, SessionData,
     SourceModelData, TargetModelData,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
 use mlua::{Lua, LuaSerdeExt, Value};
@@ -253,7 +253,7 @@ pub fn dry_run_lua_script(text: &str) -> Result<(), Box<dyn Error>> {
     let lua = SafeLua::new()?;
     let value = execute_lua_import_script(&lua, text)?;
     let json = serde_json::to_string_pretty(&value)?;
-    match App::get_temp_dir() {
+    match BackboneShell::get_temp_dir() {
         None => {
             Reaper::get().show_console_msg(json);
         }

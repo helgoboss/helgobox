@@ -1,4 +1,4 @@
-use crate::domain::{BackboneState, EelTransformation, LuaFeedbackScript, Mode};
+use crate::domain::{Backbone, EelTransformation, LuaFeedbackScript, Mode};
 
 use helgoboss_learn::{
     check_mode_applicability, create_unit_value_interval, full_discrete_interval,
@@ -643,7 +643,7 @@ impl ModeModel {
                     expression: self.textual_feedback_expression.to_owned(),
                 },
                 FeedbackType::Dynamic => {
-                    let lua = unsafe { BackboneState::main_thread_lua() };
+                    let lua = unsafe { Backbone::main_thread_lua() };
                     match LuaFeedbackScript::compile(lua, &self.textual_feedback_expression) {
                         Ok(script) => FeedbackProcessor::Dynamic {
                             script: CloneAsDefault::new(Some(script)),

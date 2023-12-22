@@ -7,7 +7,7 @@ use slog::debug;
 
 use crate::application::{SharedSession, WeakSession};
 use crate::base::when;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 
 use qrcode::QrCode;
 
@@ -45,10 +45,10 @@ impl CompanionAppPresenter {
     }
 
     fn update_app_info(&self) -> PathBuf {
-        let dir = App::get_temp_dir().expect("app setup temp dir not lazily created");
+        let dir = BackboneShell::get_temp_dir().expect("app setup temp dir not lazily created");
         let session = self.session();
         let session = session.borrow();
-        let app = App::get();
+        let app = BackboneShell::get();
         let server = app.server().borrow();
         let full_companion_app_url = server.generate_full_companion_app_url(session.id(), false);
         let server_is_running = server.is_running();
@@ -113,7 +113,7 @@ impl CompanionAppPresenter {
     }
 
     fn register_listeners(self: &Rc<Self>) {
-        let app = App::get();
+        let app = BackboneShell::get();
         when(
             app.changed()
                 .merge(app.server().borrow().changed())

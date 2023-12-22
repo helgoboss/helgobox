@@ -1,5 +1,5 @@
 use crate::domain::{
-    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, BackboneState,
+    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, Backbone,
     Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
@@ -3573,7 +3573,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
-        let mut global_source_state = BackboneState::source_state().borrow_mut();
+        let mut global_source_state = Backbone::source_state().borrow_mut();
         let mut feedback_collector =
             FeedbackCollector::new(&mut global_source_state, self.settings.feedback_output);
         for feedback_value in feedback_values.into_iter() {
@@ -3823,14 +3823,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn instance_control_is_effectively_enabled(&self) -> bool {
         self.control_is_globally_enabled
-            && BackboneState::get()
-                .control_is_allowed(&self.instance_id, self.settings.control_input)
+            && Backbone::get().control_is_allowed(&self.instance_id, self.settings.control_input)
     }
 
     pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
         if let Some(fo) = self.settings.feedback_output {
             self.feedback_is_globally_enabled
-                && BackboneState::get().feedback_is_allowed(&self.instance_id, fo)
+                && Backbone::get().feedback_is_allowed(&self.instance_id, fo)
         } else {
             // Pointless but allowed
             true

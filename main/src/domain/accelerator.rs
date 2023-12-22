@@ -1,5 +1,5 @@
 use crate::domain::{
-    BackboneState, ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
+    Backbone, ControlEvent, ControlEventTimestamp, DomainEventHandler, KeyMessage, Keystroke,
     SharedMainProcessors,
 };
 use helgoboss_learn::AbstractTimestamp;
@@ -55,7 +55,7 @@ where
             // main loop cycle. We need to do that only once.
             if !notified_backbone && result.match_outcome.matched() {
                 notified_backbone = true;
-                BackboneState::get().set_keyboard_input_match_flag();
+                Backbone::get().set_keyboard_input_match_flag();
             }
             // If at least one instance wants to filter the key out, we filter it out, not
             // passing it forward to the rest of the keyboard processing chain!

@@ -1,6 +1,6 @@
 use crate::application::{SharedSession, WeakSession};
 use crate::domain::{
-    BackboneState, Compartment, InstanceId, InstanceState, QualifiedClipMatrixEvent, ReaperTarget,
+    Backbone, Compartment, Instance, InstanceId, QualifiedClipMatrixEvent, ReaperTarget,
 };
 use base::{Global, NamedChannelSender};
 use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
@@ -8,9 +8,9 @@ use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
 #[cfg(feature = "playtime")]
 pub fn get_or_insert_owned_clip_matrix(
     session: WeakSession,
-    instance_state: &mut InstanceState,
+    instance_state: &mut Instance,
 ) -> &mut playtime_clip_engine::base::Matrix {
-    BackboneState::get().get_or_insert_owned_clip_matrix_from_instance_state(
+    Backbone::get().get_or_insert_owned_clip_matrix_from_instance_state(
         instance_state,
         move |instance_state| {
             let handler = MatrixHandler::new(

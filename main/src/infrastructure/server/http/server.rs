@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::http::ServerClients;
 use axum::extract::{Query, WebSocketUpgrade};
 use axum::handler::Handler;
@@ -42,7 +42,7 @@ pub async fn start_http_server(
     // Notify UI
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
-            App::get().server().borrow_mut().notify_started();
+            BackboneShell::get().server().borrow_mut().notify_started();
         })
         .unwrap();
     // Actually await the bind futures

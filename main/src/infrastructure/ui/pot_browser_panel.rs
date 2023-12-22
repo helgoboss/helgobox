@@ -1,6 +1,6 @@
 use crate::application::get_track_label;
-use crate::domain::{AnyThreadBackboneState, BackboneState};
-use crate::infrastructure::plugin::App;
+use crate::domain::{AnyThreadBackboneState, Backbone};
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
 use derivative::Derivative;
@@ -77,7 +77,7 @@ impl PotBrowserIntegration for RealearnPotBrowserIntegration {
     }
 
     fn pot_preview_template_path(&self) -> Option<&'static Path> {
-        App::realearn_pot_preview_template_path()
+        BackboneShell::realearn_pot_preview_template_path()
     }
 
     fn pot_favorites(&self) -> &'static RwLock<PotFavorites> {
@@ -85,11 +85,11 @@ impl PotBrowserIntegration for RealearnPotBrowserIntegration {
     }
 
     fn with_current_fx_preset(&self, fx: &Fx, f: impl FnOnce(Option<&CurrentPreset>)) {
-        let target_state = BackboneState::target_state().borrow();
+        let target_state = Backbone::target_state().borrow();
         f(target_state.current_fx_preset(fx));
     }
 
     fn with_pot_filter_exclude_list(&self, f: impl FnOnce(&PotFilterExcludes)) {
-        f(&BackboneState::get().pot_filter_exclude_list());
+        f(&Backbone::get().pot_filter_exclude_list());
     }
 }

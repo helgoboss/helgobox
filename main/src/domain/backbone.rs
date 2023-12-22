@@ -4,7 +4,7 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceId, InstanceState, InstanceStateChanged, ProcessorContext,
+    FeedbackOutput, Instance, InstanceId, InstanceStateChanged, ProcessorContext,
     RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua,
     SharedInstanceState, WeakInstanceState,
 };
@@ -23,11 +23,14 @@ use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
-make_available_globally_in_main_thread_on_demand!(BackboneState);
+make_available_globally_in_main_thread_on_demand!(Backbone);
+
+/// Just the old term as alias for easier class search.
+type _BackboneState = Backbone;
 
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
-pub struct BackboneState {
+pub struct Backbone {
     time_of_start: Instant,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     source_state: RefCell<RealearnSourceState>,
@@ -141,7 +144,7 @@ impl<'a> LastTouchedTargetFilter<'a> {
     }
 }
 
-impl BackboneState {
+impl Backbone {
     pub fn new(
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
         target_context: RealearnTargetState,
@@ -210,11 +213,11 @@ impl BackboneState {
     }
 
     pub fn source_state() -> &'static RefCell<RealearnSourceState> {
-        &BackboneState::get().source_state
+        &Backbone::get().source_state
     }
 
     pub fn target_state() -> &'static RefCell<RealearnTargetState> {
-        &BackboneState::get().target_state
+        &Backbone::get().target_state
     }
 
     /// Returns the last touched targets (max. one per touchable type, so not much more than a
@@ -263,7 +266,7 @@ impl BackboneState {
             crate::domain::NormalRealTimeTask,
         >,
     ) -> SharedInstanceState {
-        let instance_state = InstanceState::new(
+        let instance_state = Instance::new(
             id,
             processor_context,
             instance_feedback_event_sender,
@@ -298,7 +301,7 @@ impl BackboneState {
     /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
     /// to this one.
     #[cfg(feature = "playtime")]
-    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut InstanceState) {
+    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut Instance) {
         instance_state.set_clip_matrix_ref(None);
         self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
     }
@@ -313,10 +316,8 @@ impl BackboneState {
     #[cfg(feature = "playtime")]
     pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
         &self,
-        instance_state: &'a mut InstanceState,
-        create_handler: impl FnOnce(
-            &InstanceState,
-        ) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
+        instance_state: &'a mut Instance,
+        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> &'a mut playtime_clip_engine::base::Matrix {
         let instance_id = instance_state.instance_id();
         let created =
@@ -368,7 +369,7 @@ impl BackboneState {
     #[cfg(feature = "playtime")]
     pub fn set_instance_clip_matrix_to_foreign_matrix(
         &self,
-        instance_state: &mut InstanceState,
+        instance_state: &mut Instance,
         foreign_instance_id: InstanceId,
     ) {
         // Set the reference

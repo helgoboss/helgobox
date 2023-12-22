@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
@@ -584,7 +584,7 @@ fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
 }
 
 fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
-    App::get()
+    BackboneShell::get()
         .find_main_panel_by_session_id(session_id)
         .context("instance not found")?
         .app_instance()

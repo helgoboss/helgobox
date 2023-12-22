@@ -1,5 +1,5 @@
 use crate::domain::{
-    BackboneState, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     VirtualClipRow, DEFAULT_TARGET,
@@ -94,7 +94,7 @@ impl ClipRowTarget {
         context: ControlContext,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        BackboneState::get().with_clip_matrix_mut(context.instance_state, f)
+        Backbone::get().with_clip_matrix_mut(context.instance_state, f)
     }
 }
 

@@ -3,7 +3,7 @@ use crate::application::{
 };
 use crate::base::CloneAsDefault;
 use crate::domain::{
-    BackboneState, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
+    Backbone, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
     MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
     VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
@@ -638,7 +638,7 @@ impl SourceModel {
                                     EelMidiSourceScript::compile(&self.midi_script).ok()?,
                                 ),
                                 MidiScriptKind::Lua => {
-                                    let lua = unsafe { BackboneState::main_thread_lua() };
+                                    let lua = unsafe { Backbone::main_thread_lua() };
                                     FlexibleMidiSourceScript::Lua(
                                         LuaMidiSourceScript::compile(lua, &self.midi_script)
                                             .ok()?,

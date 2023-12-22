@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceId, InstanceState,
+    HitInstructionContext, HitInstructionResponse, HitResponse, Instance, InstanceId,
     InstanceStateChanged, MappingControlContext, MappingId, MappingKey,
     MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -185,7 +185,7 @@ impl RealearnTarget for ModifyMappingTarget {
 }
 
 struct GetArgs<'a> {
-    instance_state: &'a InstanceState,
+    instance_state: &'a Instance,
     id: QualifiedMappingId,
 }
 

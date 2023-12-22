@@ -1,7 +1,7 @@
 use crate::application::{
-    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, Session, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
-    WeakSession,
+    Affected, CompartmentProp, InstanceModel, MappingCommand, MappingModel, MappingProp,
+    SessionProp, SharedMapping, SharedSession, SourceCategory, TargetCategory,
+    TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId};
@@ -11,7 +11,7 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
     ActivationConditionData, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
@@ -565,7 +565,7 @@ impl MappingRowPanel {
     fn change_mapping(&self, cmd: MappingCommand) {
         let mapping = self.require_mapping();
         let mut mapping = mapping.borrow_mut();
-        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
+        InstanceModel::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
@@ -955,25 +955,24 @@ fn copy_mapping_object(
     let mapping = mapping.borrow();
     let compartment_in_session = session.compartment_in_session(compartment);
     let data_object = match object_type {
-        Mapping => DataObject::Mapping(App::create_envelope(Box::new(
+        Mapping => DataObject::Mapping(BackboneShell::create_envelope(Box::new(
             MappingModelData::from_model(&mapping, &compartment_in_session),
         ))),
-        Source => DataObject::Source(App::create_envelope(Box::new(SourceModelData::from_model(
-            &mapping.source_model,
-        )))),
-        Glue => DataObject::Glue(App::create_envelope(Box::new(ModeModelData::from_model(
-            &mapping.mode_model,
-        )))),
-        Target => DataObject::Target(App::create_envelope(Box::new(TargetModelData::from_model(
-            &mapping.target_model,
-            &compartment_in_session,
-        )))),
-        ActivationCondition => DataObject::ActivationCondition(App::create_envelope(Box::new(
-            ActivationConditionData::from_model(
+        Source => DataObject::Source(BackboneShell::create_envelope(Box::new(
+            SourceModelData::from_model(&mapping.source_model),
+        ))),
+        Glue => DataObject::Glue(BackboneShell::create_envelope(Box::new(
+            ModeModelData::from_model(&mapping.mode_model),
+        ))),
+        Target => DataObject::Target(BackboneShell::create_envelope(Box::new(
+            TargetModelData::from_model(&mapping.target_model, &compartment_in_session),
+        ))),
+        ActivationCondition => DataObject::ActivationCondition(BackboneShell::create_envelope(
+            Box::new(ActivationConditionData::from_model(
                 &mapping.activation_condition_model,
                 &compartment_in_session,
-            ),
-        ))),
+            )),
+        )),
     };
     let text = serialize_data_object(data_object, format)?;
     copy_text_to_clipboard(text);
@@ -998,7 +997,7 @@ fn paste_data_object_in_place(
         .find_mapping_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?
         .clone();
-    App::warn_if_envelope_version_higher(data_object.version());
+    BackboneShell::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope {

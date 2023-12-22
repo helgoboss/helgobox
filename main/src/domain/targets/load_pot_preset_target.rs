@@ -1,5 +1,5 @@
 use crate::domain::{
-    BackboneState, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    Backbone, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -154,7 +154,7 @@ impl<'a> Target<'a> for LoadPotPresetTarget {
 
 impl LoadPotPresetTarget {
     fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&Preset>) -> R) -> R {
-        match BackboneState::target_state()
+        match Backbone::target_state()
             .borrow()
             .current_fx_preset(&self.fx)
         {

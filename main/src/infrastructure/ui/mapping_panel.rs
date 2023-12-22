@@ -39,10 +39,10 @@ use crate::application::{
     format_osc_feedback_args, get_bookmark_label_by_id, get_fx_label, get_fx_param_label,
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
-    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MappingRefModel, MappingSnapshotTypeForLoad,
-    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
+    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, InstanceModel,
+    MappingChangeContext, MappingCommand, MappingModel, MappingProp, MappingRefModel,
+    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
+    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
     SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
     TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
@@ -53,7 +53,7 @@ use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    control_element_domains, AnyOnParameter, BackboneState, ControlContext, Exclusivity,
+    control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
     ReaperTargetType, SendMidiDestination, SimpleExclusivity, TargetControlEvent,
     TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
@@ -65,7 +65,7 @@ use crate::domain::{
     RealearnTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType, TrackExclusivity,
     TrackRouteType, TransportAction, VirtualControlElement, VirtualControlElementId, VirtualFx,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
@@ -73,7 +73,7 @@ use crate::infrastructure::ui::util::{
 };
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
-    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
+    InstancePanel, ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel,
     MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
     ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
 };
@@ -84,7 +84,7 @@ pub struct MappingPanel {
     view: ViewContext,
     session: WeakSession,
     mapping: RefCell<Option<SharedMapping>>,
-    main_panel: WeakView<MainPanel>,
+    main_panel: WeakView<InstancePanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
@@ -96,7 +96,7 @@ pub struct MappingPanel {
 }
 
 struct ImmutableMappingPanel<'a> {
-    session: &'a Session,
+    session: &'a InstanceModel,
     mapping: &'a MappingModel,
     source: &'a SourceModel,
     mode: &'a ModeModel,
@@ -106,7 +106,7 @@ struct ImmutableMappingPanel<'a> {
 }
 
 struct MutableMappingPanel<'a> {
-    session: &'a mut Session,
+    session: &'a mut InstanceModel,
     mapping: &'a mut MappingModel,
     panel: &'a SharedView<MappingPanel>,
     view: &'a ViewContext,
@@ -126,7 +126,7 @@ struct WindowCache {
 }
 
 impl MappingPanel {
-    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> MappingPanel {
+    pub fn new(session: WeakSession, main_panel: WeakView<InstancePanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session: session.clone(),
@@ -676,7 +676,7 @@ impl MappingPanel {
             let session = self.session.clone();
             let panel = crate::infrastructure::ui::TargetFilterPanel::new(value, move |value| {
                 let mut mapping = mapping.borrow_mut();
-                Session::change_mapping_from_ui_simple(
+                InstanceModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
@@ -684,7 +684,7 @@ impl MappingPanel {
                     )),
                     None,
                 );
-                Session::change_mapping_from_ui_simple(
+                InstanceModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
@@ -746,7 +746,7 @@ impl MappingPanel {
                                 help_url,
                                 |m| m.target_model.raw_midi_pattern().to_owned(),
                                 move |m, text| {
-                                    Session::change_mapping_from_ui_simple(
+                                    InstanceModel::change_mapping_from_ui_simple(
                                         session.clone(),
                                         m,
                                         MappingCommand::ChangeTarget(
@@ -924,7 +924,7 @@ impl MappingPanel {
                         session_id,
                         mapping_key,
                     } => {
-                        let session = App::get()
+                        let session = BackboneShell::get()
                             .find_session_by_id(&session_id)
                             .ok_or("session not found")?;
                         let mapping_id = {
@@ -992,7 +992,7 @@ impl MappingPanel {
         }
     }
 
-    fn main_panel(&self) -> SharedView<MainPanel> {
+    fn main_panel(&self) -> SharedView<InstancePanel> {
         self.main_panel.upgrade().expect("main view gone")
     }
 
@@ -1013,7 +1013,7 @@ impl MappingPanel {
                             help_url,
                             |m| m.source_model.raw_midi_pattern().to_owned(),
                             move |m, text| {
-                                Session::change_mapping_from_ui_simple(
+                                InstanceModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
@@ -1029,7 +1029,7 @@ impl MappingPanel {
                         self.edit_midi_source_script_internal(
                             |m| m.source_model.midi_script().to_owned(),
                             move |m, eel| {
-                                Session::change_mapping_from_ui_simple(
+                                InstanceModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
@@ -1047,7 +1047,7 @@ impl MappingPanel {
                     |m| format_osc_feedback_args(m.source_model.osc_feedback_args()),
                     move |m, text| {
                         let args = parse_osc_feedback_args(&text);
-                        Session::change_mapping_from_ui_simple(
+                        InstanceModel::change_mapping_from_ui_simple(
                             session.clone(),
                             m,
                             MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
@@ -1066,7 +1066,7 @@ impl MappingPanel {
         let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation";
         let get_value = |m: &MappingModel| m.mode_model.eel_control_transformation().to_owned();
         let set_value = move |m: &mut MappingModel, eel: String| {
-            Session::change_mapping_from_ui_simple(
+            InstanceModel::change_mapping_from_ui_simple(
                 session.clone(),
                 m,
                 MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
@@ -1096,7 +1096,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.eel_feedback_transformation().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                InstanceModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetEelFeedbackTransformation(eel)),
@@ -1113,7 +1113,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                InstanceModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1130,7 +1130,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                InstanceModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1353,7 +1353,7 @@ impl MappingPanel {
 
     pub fn notify_parameters_changed(
         self: SharedView<Self>,
-        session: &Session,
+        session: &InstanceModel,
     ) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping")?;
         let mapping = mapping.borrow();
@@ -1633,7 +1633,7 @@ impl<'a> MutableMappingPanel<'a> {
         let context = self.session.extended_context();
         let menu = {
             use swell_ui::menu_tree::*;
-            let recently_touched_items = BackboneState::get()
+            let recently_touched_items = Backbone::get()
                 .extract_last_touched_targets()
                 .into_iter()
                 .rev()
@@ -3067,7 +3067,7 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => {
                     let dev_id = match combo.selected_combo_box_item_data() {
                         -1 => None,
-                        i if i >= 0 => App::get()
+                        i if i >= 0 => BackboneShell::get()
                             .osc_device_manager()
                             .borrow()
                             .find_device_by_index(i as usize)
@@ -4713,7 +4713,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::SendOsc => {
                     combo.show();
-                    let osc_device_manager = App::get().osc_device_manager();
+                    let osc_device_manager = BackboneShell::get().osc_device_manager();
                     let osc_device_manager = osc_device_manager.borrow();
                     let osc_devices = osc_device_manager.devices();
                     combo.fill_combo_box_with_data_small(
@@ -5171,7 +5171,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ModifyMapping => match self.target.mapping_ref() {
                     MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
                     MappingRefModel::ForeignMapping { session_id, .. } => {
-                        if let Some(session) = App::get().find_session_by_id(session_id) {
+                        if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
                             Some(session.borrow().to_string())
                         } else {
                             Some("<Session doesn't exist>".to_string())
@@ -5217,8 +5217,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                         } => match mapping_key {
                             None => NONE.to_string(),
                             Some(mapping_key) => {
-                                if let Some(other_session) =
-                                    App::get().find_session_by_id_ignoring_borrowed_ones(session_id)
+                                if let Some(other_session) = BackboneShell::get()
+                                    .find_session_by_id_ignoring_borrowed_ones(session_id)
                                 {
                                     let other_session = other_session.borrow();
                                     match other_session
@@ -7833,7 +7833,7 @@ fn has_multiple_lines(text: &str) -> bool {
     text.lines().count() > 1
 }
 
-fn get_relevant_target_fx(mapping: &MappingModel, session: &Session) -> Option<Fx> {
+fn get_relevant_target_fx(mapping: &MappingModel, session: &InstanceModel) -> Option<Fx> {
     let is_focused_fx_type = {
         let fx_type = mapping.target_model.fx_type();
         if fx_type == VirtualFxType::Instance {

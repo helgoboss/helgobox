@@ -1,7 +1,7 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value,
-    AdditionalFeedbackEvent, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -63,7 +63,7 @@ impl RealearnTarget for TrackTouchStateTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let target_context = BackboneState::target_state();
+        let target_context = Backbone::target_state();
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -127,7 +127,7 @@ impl<'a> Target<'a> for TrackTouchStateTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let is_touched = BackboneState::target_state()
+        let is_touched = Backbone::target_state()
             .borrow()
             .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
         Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))

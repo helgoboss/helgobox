@@ -1,5 +1,5 @@
 use crate::domain::{
-    BackboneState, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
+    Backbone, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
     DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
     InstanceStateChanged, MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
     OscDeviceId, OscInputDevice, OscScanResult, ReaperConfigChangeDetector, ReaperMessage,
@@ -248,7 +248,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // processing chain might have run before and caused ReaLearn to invoke some target.
         // In this case, the backbone knows about it.
         let realearn_was_matching_keyboard_input =
-            BackboneState::get().reset_keyboard_input_match_flag();
+            Backbone::get().reset_keyboard_input_match_flag();
         self.process_events(realearn_was_matching_keyboard_input);
         // Execute operations scheduled by ReaLearn (in different ways)
         self.main_task_middleware.run();
@@ -495,7 +495,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     }
                 }
                 IoUpdated(e) => {
-                    let backbone_state = BackboneState::get();
+                    let backbone_state = Backbone::get();
                     let feedback_dev_usage_changed = backbone_state.update_io_usage(
                         &e.instance_id,
                         if e.control_input_used {
@@ -666,7 +666,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.change_detection_middleware.process(event, |e| {
             // Notify backbone whenever focused FX changes
             if let ChangeEvent::FxFocused(evt) = &e {
-                BackboneState::get().notify_fx_focused(evt.fx.clone());
+                Backbone::get().notify_fx_focused(evt.fx.clone());
             }
             // We don't process change events immediately in order to be able to process
             // multiple events occurring in one main loop cycle as a natural batch. This
@@ -723,7 +723,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
         if let Ok(domain_type) = TouchedTrackParameterType::try_from_reaper(args.parameter_type) {
-            BackboneState::target_state()
+            Backbone::target_state()
                 .borrow()
                 .automation_parameter_is_touched(args.track, domain_type)
         } else {
@@ -794,5 +794,5 @@ fn process_touched_target(
     for sender in target_capture_senders.values() {
         let _ = sender.try_send(touch_event.clone());
     }
-    BackboneState::get().notify_target_touched(touch_event);
+    Backbone::get().notify_target_touched(touch_event);
 }

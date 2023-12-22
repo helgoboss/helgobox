@@ -1,6 +1,6 @@
 use crate::base::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use derive_more::Display;
 use rx_util::Notifier;
@@ -220,7 +220,8 @@ impl OscDevice {
         OscInputDevice::bind(
             self.id,
             socket,
-            App::logger().new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
+            BackboneShell::logger()
+                .new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
         )
     }
 
@@ -236,7 +237,8 @@ impl OscDevice {
             self.id,
             socket,
             dest_addr,
-            App::logger().new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
+            BackboneShell::logger()
+                .new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
             self.can_deal_with_bundles,
         );
         Ok(dev)

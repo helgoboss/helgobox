@@ -1,7 +1,7 @@
 mod bindings;
 
-mod main_panel;
-pub use main_panel::*;
+mod instance_panel;
+pub use instance_panel::*;
 
 mod state;
 pub use state::*;

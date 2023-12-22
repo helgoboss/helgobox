@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
+    format_value_as_on_off, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
@@ -59,7 +59,7 @@ impl RealearnTarget for ClipColumnTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let response = BackboneState::get()
+        let response = Backbone::get()
             .with_clip_matrix(
                 context.control_context.instance_state,
                 |matrix| -> anyhow::Result<HitResponse> {
@@ -130,7 +130,7 @@ impl<'a> Target<'a> for ClipColumnTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let is_on = BackboneState::get()
+        let is_on = Backbone::get()
             .with_clip_matrix(context.instance_state, |matrix| match self.action {
                 ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
             })

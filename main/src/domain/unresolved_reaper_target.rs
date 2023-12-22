@@ -1,7 +1,7 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    scoped_track_index, BackboneState, Compartment, CompartmentParamIndex, CompartmentParams,
+    scoped_track_index, Backbone, Compartment, CompartmentParamIndex, CompartmentParams,
     ExtendedProcessorContext, FeedbackResolution, ReaperTarget, UnresolvedActionTarget,
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
@@ -1040,7 +1040,7 @@ impl VirtualFxParameter {
             .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
                 "mapped_fx_parameter_indexes" => {
                     let slot_index = extract_first_arg_as_positive_integer(args)?;
-                    let target_state = BackboneState::target_state().borrow();
+                    let target_state = Backbone::target_state().borrow();
                     let preset = target_state.current_fx_preset(fx);
                     let index = preset
                         .and_then(|p| {
@@ -1436,7 +1436,7 @@ impl VirtualTrack {
                 let clip_column_index = column
                     .resolve(context, compartment)
                     .map_err(|_| generic_error())?;
-                let track = BackboneState::get()
+                let track = Backbone::get()
                     .with_clip_matrix(context.control_context.instance_state, |matrix| {
                         let column = matrix.get_column(clip_column_index)?;
                         match track_context {

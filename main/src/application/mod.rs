@@ -1,5 +1,5 @@
-mod session;
-pub use session::*;
+mod instance_model;
+pub use instance_model::*;
 
 mod source_model;
 pub use source_model::*;

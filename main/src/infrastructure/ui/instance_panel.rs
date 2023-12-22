@@ -9,8 +9,8 @@ use reaper_high::Reaper;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, Session, SessionProp,
-    SessionUi, VirtualFxType, WeakSession,
+    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, InstanceModel,
+    SessionProp, SessionUi, VirtualFxType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -18,7 +18,7 @@ use crate::domain::{
     Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
     QualifiedMappingId, TargetControlEvent, TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::{App, RealearnPluginParameters};
+use crate::infrastructure::plugin::{BackboneShell, InstanceParameters};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
@@ -30,15 +30,18 @@ use std::rc::{Rc, Weak};
 use std::sync;
 use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
 
+/// Just the old term as alias for easier class search.
+type _MainPanel = InstancePanel;
+
 /// The complete ReaLearn panel containing everything.
 // TODO-low Maybe call this SessionPanel
 #[derive(Debug)]
-pub struct MainPanel {
+pub struct InstancePanel {
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     state: SharedMainState,
-    plugin_parameters: sync::Weak<RealearnPluginParameters>,
+    plugin_parameters: sync::Weak<InstanceParameters>,
 }
 
 #[derive(Debug)]
@@ -51,7 +54,7 @@ struct ActiveData {
 }
 
 impl ActiveData {
-    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Result<R, &'static str> {
+    fn do_with_session<R>(&self, f: impl FnOnce(&InstanceModel) -> R) -> Result<R, &'static str> {
         match self.session.upgrade() {
             None => Err("session not available anymore"),
             Some(session) => Ok(f(&session.borrow())),
@@ -59,8 +62,8 @@ impl ActiveData {
     }
 }
 
-impl MainPanel {
-    pub fn new(plugin_parameters: sync::Weak<RealearnPluginParameters>) -> Self {
+impl InstancePanel {
+    pub fn new(plugin_parameters: sync::Weak<InstanceParameters>) -> Self {
         Self {
             view: Default::default(),
             active_data: LazyCell::new(),
@@ -97,7 +100,7 @@ impl MainPanel {
             panel_manager,
             success_sound_player: {
                 let mut sound_player = SoundPlayer::new();
-                if let Some(path_to_file) = App::realearn_high_click_sound_path() {
+                if let Some(path_to_file) = BackboneShell::realearn_high_click_sound_path() {
                     if sound_player.load_file(path_to_file).is_ok() {
                         Some(sound_player)
                     } else {
@@ -225,14 +228,17 @@ impl MainPanel {
         });
     }
 
-    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Result<R, &'static str> {
+    fn do_with_session<R>(&self, f: impl FnOnce(&InstanceModel) -> R) -> Result<R, &'static str> {
         match self.active_data.borrow() {
             None => Err("session not available"),
             Some(active_data) => active_data.do_with_session(f),
         }
     }
 
-    fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Result<R, &'static str> {
+    fn do_with_session_mut<R>(
+        &self,
+        f: impl FnOnce(&mut InstanceModel) -> R,
+    ) -> Result<R, &'static str> {
         if let Some(data) = self.active_data.borrow() {
             if let Some(session) = data.session.upgrade() {
                 return Ok(f(&mut session.borrow_mut()));
@@ -244,7 +250,10 @@ impl MainPanel {
     fn invalidate_version_text(&self) {
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
-            .set_text(format!("ReaLearn {}", App::detailed_version_label()));
+            .set_text(format!(
+                "ReaLearn {}",
+                BackboneShell::detailed_version_label()
+            ));
     }
 
     fn invalidate_all_controls(&self) {
@@ -364,7 +373,7 @@ impl MainPanel {
         }
     }
 
-    fn handle_changed_parameters(&self, session: &Session) {
+    fn handle_changed_parameters(&self, session: &InstanceModel) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
                 .borrow()
@@ -434,7 +443,7 @@ impl MainPanel {
         // TODO-low Introduce a SessionId newtype.
         let new_session_id = session_id.replace(|ch| !nanoid::alphabet::SAFE.contains(&ch), "");
         if !new_session_id.is_empty() && new_session_id != initial_session_id {
-            if App::get().has_session(&new_session_id) {
+            if BackboneShell::get().has_session(&new_session_id) {
                 self.view.require_window().alert(
                     "ReaLearn",
                     "There's another open ReaLearn session which already has this session ID!",
@@ -459,7 +468,7 @@ impl MainPanel {
     }
 }
 
-impl View for MainPanel {
+impl View for InstancePanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_MAIN_PANEL
     }
@@ -500,7 +509,7 @@ impl View for MainPanel {
     }
 }
 
-impl SessionUi for Weak<MainPanel> {
+impl SessionUi for Weak<InstancePanel> {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
         upgrade_panel(self).edit_mapping(compartment, mapping_id);
     }
@@ -513,7 +522,7 @@ impl SessionUi for Weak<MainPanel> {
         upgrade_panel(self).handle_changed_target_value(event);
     }
 
-    fn parameters_changed(&self, session: &Session) {
+    fn parameters_changed(&self, session: &InstanceModel) {
         upgrade_panel(self).handle_changed_parameters(session);
     }
 
@@ -529,19 +538,19 @@ impl SessionUi for Weak<MainPanel> {
         upgrade_panel(self).celebrate_success();
     }
 
-    fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {
+    fn send_projection_feedback(&self, session: &InstanceModel, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 
     #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
     ) {
-        App::get().clip_engine_hub().clip_matrix_changed(
+        BackboneShell::get().clip_engine_hub().clip_matrix_changed(
             session.id(),
             matrix,
             events,
@@ -553,11 +562,11 @@ impl SessionUi for Weak<MainPanel> {
     #[cfg(feature = "playtime")]
     fn process_control_surface_change_event_for_clip_engine(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[reaper_high::ChangeEvent],
     ) {
-        App::get()
+        BackboneShell::get()
             .clip_engine_hub()
             .send_occasional_matrix_updates_caused_by_reaper(session.id(), matrix, events);
     }
@@ -572,7 +581,7 @@ impl SessionUi for Weak<MainPanel> {
 
     fn handle_affected(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
     ) {
@@ -595,6 +604,6 @@ impl SessionUi for Weak<MainPanel> {
     }
 }
 
-fn upgrade_panel(panel: &Weak<MainPanel>) -> Rc<MainPanel> {
+fn upgrade_panel(panel: &Weak<InstancePanel>) -> Rc<InstancePanel> {
     panel.upgrade().expect("main panel not existing anymore")
 }

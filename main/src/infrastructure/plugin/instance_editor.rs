@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::MainPanel;
+use crate::infrastructure::ui::InstancePanel;
 
 use reaper_low::firewall;
 use reaper_low::raw::HWND;
@@ -8,17 +8,17 @@ use std::os::raw::c_void;
 use swell_ui::{SharedView, View, Window};
 use vst::editor::Editor;
 
-pub struct RealearnEditor {
-    main_panel: SharedView<MainPanel>,
+pub struct InstanceEditor {
+    main_panel: SharedView<InstancePanel>,
 }
 
-impl RealearnEditor {
-    pub fn new(main_panel: SharedView<MainPanel>) -> RealearnEditor {
-        RealearnEditor { main_panel }
+impl InstanceEditor {
+    pub fn new(main_panel: SharedView<InstancePanel>) -> InstanceEditor {
+        InstanceEditor { main_panel }
     }
 }
 
-impl Editor for RealearnEditor {
+impl Editor for InstanceEditor {
     fn size(&self) -> (i32, i32) {
         firewall(|| self.main_panel.dimensions().to_vst()).unwrap_or_default()
     }

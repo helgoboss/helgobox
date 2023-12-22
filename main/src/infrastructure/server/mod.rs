@@ -1,6 +1,6 @@
 //! Contains the ReaLearn server interface and runtime.
 
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 
 use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, SanType};
 use reaper_high::Reaper;
@@ -215,7 +215,7 @@ impl RealearnServer {
             self.local_ip().map(|ip| ip.to_string())
         };
         Url::parse_with_params(
-            App::get()
+            BackboneShell::get()
                 .config()
                 .companion_web_app_url()
                 .join("controller-routing")

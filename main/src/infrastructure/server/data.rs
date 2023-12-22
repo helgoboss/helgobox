@@ -1,11 +1,11 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
 use crate::application::{
-    ControllerPreset, Preset, PresetManager, Session, SourceCategory, TargetCategory,
+    ControllerPreset, InstanceModel, Preset, PresetManager, SourceCategory, TargetCategory,
 };
 use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use helgoboss_learn::UnitValue;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ struct TargetDescriptor {
 }
 
 pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataError> {
-    let _ = App::get()
+    let _ = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
@@ -105,7 +105,7 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
 pub fn get_controller_routing_by_session_id(
     session_id: String,
 ) -> Result<ControllerRouting, DataError> {
-    let session = App::get()
+    let session = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let routing = get_controller_routing(&session.borrow());
@@ -113,14 +113,14 @@ pub fn get_controller_routing_by_session_id(
 }
 
 pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPresetData, DataError> {
-    let session = App::get()
+    let session = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let session = session.borrow();
     get_controller_preset_data_internal(&session)
 }
 
-pub fn get_controller_routing(session: &Session) -> ControllerRouting {
+pub fn get_controller_routing(session: &InstanceModel) -> ControllerRouting {
     let main_preset = session.active_main_preset().map(|mp| LightMainPresetData {
         id: mp.id().to_string(),
         name: mp.name().to_string(),
@@ -186,7 +186,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
         return Err(DataError::OnlyCustomDataKeyIsSupportedAsPatchPath);
     };
     // Update the global controller preset.
-    let controller_manager = App::get().controller_preset_manager();
+    let controller_manager = BackboneShell::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
     let mut controller_preset = controller_manager
         .find_by_id(&controller_id)
@@ -202,7 +202,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     // TODO-low In future versions of the Companion app, we should not update the controller
     //  source directly but update a session. This makes more sense because now ReaLearn treats
     //  custom data exactly like mappings - it's saved with the session.
-    App::get().with_instances(|instances| {
+    BackboneShell::get().with_instances(|instances| {
         let sessions = instances.iter().filter_map(|s| s.session.upgrade());
         for session in sessions {
             let mut session = session.borrow_mut();
@@ -262,14 +262,14 @@ impl TryFrom<&str> for Topic {
 }
 
 pub fn send_initial_feedback(session_id: &str) {
-    if let Some(session) = App::get().find_session_by_id(session_id) {
+    if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
         session.borrow_mut().send_all_feedback();
     }
 }
 
 pub fn get_active_controller_updated_event(
     session_id: &str,
-    session: Option<&Session>,
+    session: Option<&InstanceModel>,
 ) -> Event<Option<ControllerPresetData>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller"),
@@ -298,7 +298,7 @@ pub fn get_session_updated_event(
 
 pub fn get_controller_routing_updated_event(
     session_id: &str,
-    session: Option<&Session>,
+    session: Option<&InstanceModel>,
 ) -> Event<Option<ControllerRouting>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller-routing"),
@@ -345,12 +345,12 @@ enum EventType {
     Patch,
 }
 
-fn get_controller(session: &Session) -> Option<ControllerPresetData> {
+fn get_controller(session: &InstanceModel) -> Option<ControllerPresetData> {
     get_controller_preset_data_internal(session).ok()
 }
 
 fn get_controller_preset_data_internal(
-    session: &Session,
+    session: &InstanceModel,
 ) -> Result<ControllerPresetData, DataError> {
     let data = session.extract_compartment_model(Compartment::Controller);
     if data.mappings.is_empty() {
@@ -359,7 +359,7 @@ fn get_controller_preset_data_internal(
     let id = session.active_controller_preset_id();
     let name = id
         .and_then(|id| {
-            App::get()
+            BackboneShell::get()
                 .controller_preset_manager()
                 .borrow()
                 .find_by_id(id)

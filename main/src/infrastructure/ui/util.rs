@@ -1,4 +1,4 @@
-use crate::application::Session;
+use crate::application::InstanceModel;
 use crate::domain::{compartment_param_index_iter, Compartment, Tag};
 use crate::infrastructure::ui::bindings::root;
 use realearn_dialogs::constants;
@@ -254,7 +254,7 @@ pub fn parse_tags_from_csv(text: &str) -> Vec<Tag> {
 }
 
 pub fn compartment_parameter_dropdown_contents(
-    session: &Session,
+    session: &InstanceModel,
     compartment: Compartment,
 ) -> impl Iterator<Item = (isize, String)> + '_ {
     compartment_param_index_iter().map(move |i| {

@@ -1,6 +1,6 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    BackboneState, Compartment, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
+    Backbone, Compartment, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
     ReaperTargetType, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use realearn_api::persistence::TargetTouchCause;
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
             included_target_types: &self.included_targets,
             touch_cause: self.touch_cause,
         };
-        let last_touched_target = BackboneState::get()
+        let last_touched_target = Backbone::get()
             .find_last_touched_target(filter)
             .ok_or("no last touched target")?;
         if !last_touched_target.is_available(context.control_context()) {

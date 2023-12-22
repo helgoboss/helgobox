@@ -1,5 +1,5 @@
 use crate::domain::{
-    get_fx_name, get_track_color, get_track_name, BackboneState, CompoundChangeEvent,
+    get_fx_name, get_track_color, get_track_name, Backbone, CompoundChangeEvent,
     CompoundMappingTarget, ControlContext, FeedbackResolution, MainMapping, RealearnTarget,
     ReaperTarget, UnresolvedCompoundMappingTarget,
 };
@@ -352,9 +352,7 @@ impl GlobalProp for GlobalRealearnTimeProp {
 
     fn get_value(&self, _: PropGetValueArgs<()>) -> Option<PropValue> {
         Some(PropValue::DurationInMillis(
-            BackboneState::get()
-                .duration_since_time_of_start()
-                .as_millis() as _,
+            Backbone::get().duration_since_time_of_start().as_millis() as _,
         ))
     }
 }

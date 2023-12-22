@@ -1,5 +1,5 @@
 use crate::domain::InstanceId;
-use crate::infrastructure::plugin::{App, PluginInstanceInfo};
+use crate::infrastructure::plugin::{BackboneShell, PluginInstanceInfo};
 use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
@@ -70,7 +70,7 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
 fn find_first_helgobox_instance_matching(
     meets_criteria: impl Fn(&PluginInstanceInfo) -> bool,
 ) -> Option<InstanceId> {
-    App::get().with_instances(|instances| {
+    BackboneShell::get().with_instances(|instances| {
         instances
             .iter()
             .filter_map(|instance| {
@@ -89,7 +89,7 @@ fn find_first_helgobox_instance_matching(
 #[cfg(feature = "playtime")]
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
-    App::get().with_instances(|instances| {
+    BackboneShell::get().with_instances(|instances| {
         let instance = instances
             .iter()
             .find(|i| i.instance_id == instance_id)
@@ -109,7 +109,7 @@ fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
 #[cfg(feature = "playtime")]
 fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?;
-    let main_panel = App::get()
+    let main_panel = BackboneShell::get()
         .find_main_panel_by_instance_id(instance_id.into())
         .context("Instance not found")?;
     main_panel.start_show_or_hide_app_instance()

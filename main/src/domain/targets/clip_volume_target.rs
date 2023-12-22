@@ -3,10 +3,10 @@ use crate::domain::ui_util::{
     volume_unit_value,
 };
 use crate::domain::{
-    interpret_current_clip_slot_value, BackboneState, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    VirtualClipSlot, DEFAULT_TARGET,
+    interpret_current_clip_slot_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::runtime::SlotAddress;
@@ -77,7 +77,7 @@ impl RealearnTarget for ClipVolumeTarget {
             .unwrap_or_default();
         let db = volume.db();
         let api_db = playtime_api::persistence::Db::new(db.get())?;
-        BackboneState::get()
+        Backbone::get()
             .with_clip_matrix_mut(
                 context.control_context.instance_state,
                 |matrix| -> anyhow::Result<HitResponse> {
@@ -131,7 +131,7 @@ impl RealearnTarget for ClipVolumeTarget {
 
 impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
-        BackboneState::get()
+        Backbone::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
                 Some(Volume::from_db(Db::new(db.get())))

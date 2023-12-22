@@ -9,7 +9,7 @@ use std::rc::{Rc, Weak};
 
 use crate::application::{
     ActivationConditionCommand, ActivationConditionProp, ActivationType, BankConditionModel,
-    GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
+    GroupCommand, GroupModel, InstanceModel, MappingCommand, MappingModel, ModifierConditionModel,
     SharedSession, WeakSession,
 };
 use crate::domain::ui_util::format_tags_as_csv;
@@ -345,7 +345,7 @@ impl MappingHeaderPanel {
 
     fn invalidate_mapping_activation_modifier_controls(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         button: Window,
         check_box: Window,
         compartment: Compartment,
@@ -714,7 +714,7 @@ impl Item for MappingModel {
     }
 
     fn set_name(&mut self, session: WeakSession, name: String, initiator: u32) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::SetName(name),
@@ -727,7 +727,7 @@ impl Item for MappingModel {
     }
 
     fn set_tags(&mut self, session: WeakSession, tags: Vec<Tag>, initiator: u32) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::SetTags(tags),
@@ -740,7 +740,7 @@ impl Item for MappingModel {
     }
 
     fn set_control_is_enabled(&mut self, session: WeakSession, value: bool) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::SetControlIsEnabled(value),
@@ -753,7 +753,7 @@ impl Item for MappingModel {
     }
 
     fn set_feedback_is_enabled(&mut self, session: WeakSession, value: bool) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::SetFeedbackIsEnabled(value),
@@ -766,7 +766,7 @@ impl Item for MappingModel {
     }
 
     fn set_activation_type(&mut self, session: WeakSession, value: ActivationType) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(
@@ -781,7 +781,7 @@ impl Item for MappingModel {
     }
 
     fn set_modifier_condition_1(&mut self, session: WeakSession, value: ModifierConditionModel) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(
@@ -796,7 +796,7 @@ impl Item for MappingModel {
     }
 
     fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(
@@ -811,7 +811,7 @@ impl Item for MappingModel {
     }
 
     fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(
@@ -826,7 +826,7 @@ impl Item for MappingModel {
     }
 
     fn set_script(&mut self, session: WeakSession, value: String, initiator: u32) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetScript(value)),
@@ -839,7 +839,7 @@ impl Item for MappingModel {
     }
 
     fn set_mapping_id(&mut self, session: WeakSession, value: Option<MappingId>) {
-        Session::change_mapping_from_ui_simple(
+        InstanceModel::change_mapping_from_ui_simple(
             session,
             self,
             MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetMappingId(
@@ -864,7 +864,7 @@ impl Item for GroupModel {
     }
 
     fn set_name(&mut self, session: WeakSession, name: String, initiator: u32) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::SetName(name),
@@ -877,7 +877,7 @@ impl Item for GroupModel {
     }
 
     fn set_tags(&mut self, session: WeakSession, tags: Vec<Tag>, initiator: u32) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::SetTags(tags),
@@ -890,7 +890,7 @@ impl Item for GroupModel {
     }
 
     fn set_control_is_enabled(&mut self, session: WeakSession, value: bool) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::SetControlIsEnabled(value),
@@ -903,7 +903,7 @@ impl Item for GroupModel {
     }
 
     fn set_feedback_is_enabled(&mut self, session: WeakSession, value: bool) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::SetFeedbackIsEnabled(value),
@@ -916,7 +916,7 @@ impl Item for GroupModel {
     }
 
     fn set_activation_type(&mut self, session: WeakSession, value: ActivationType) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetActivationType(
@@ -931,7 +931,7 @@ impl Item for GroupModel {
     }
 
     fn set_modifier_condition_1(&mut self, session: WeakSession, value: ModifierConditionModel) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(
@@ -946,7 +946,7 @@ impl Item for GroupModel {
     }
 
     fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(
@@ -961,7 +961,7 @@ impl Item for GroupModel {
     }
 
     fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetBankCondition(
@@ -976,7 +976,7 @@ impl Item for GroupModel {
     }
 
     fn set_script(&mut self, session: WeakSession, value: String, initiator: u32) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetScript(value)),
@@ -989,7 +989,7 @@ impl Item for GroupModel {
     }
 
     fn set_mapping_id(&mut self, session: WeakSession, value: Option<MappingId>) {
-        Session::change_group_from_ui_simple(
+        InstanceModel::change_group_from_ui_simple(
             session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetMappingId(

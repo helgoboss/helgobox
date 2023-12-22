@@ -1,8 +1,8 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{InstancePanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
+use crate::application::{Affected, InstanceModel, SessionProp, SharedMapping, WeakSession};
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
 };
@@ -14,7 +14,7 @@ const MAX_PANEL_COUNT: u32 = 4;
 #[derive(Debug)]
 pub struct IndependentPanelManager {
     session: WeakSession,
-    main_panel: WeakView<MainPanel>,
+    main_panel: WeakView<InstancePanel>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
     /// We have at most one app instance open per ReaLearn instance.
@@ -23,7 +23,10 @@ pub struct IndependentPanelManager {
 }
 
 impl IndependentPanelManager {
-    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> IndependentPanelManager {
+    pub fn new(
+        session: WeakSession,
+        main_panel: WeakView<InstancePanel>,
+    ) -> IndependentPanelManager {
         Self {
             session: session.clone(),
             main_panel,
@@ -82,7 +85,7 @@ impl IndependentPanelManager {
         }
     }
 
-    pub fn handle_changed_parameters(&self, session: &Session) {
+    pub fn handle_changed_parameters(&self, session: &InstanceModel) {
         for p in &self.mapping_panels {
             let _ = p.clone().notify_parameters_changed(session);
         }

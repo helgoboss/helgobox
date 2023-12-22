@@ -23,7 +23,7 @@ use crate::infrastructure::data::{
     DataToModelConversionContext, MigrationDescriptor, ModelToDataConversionContext,
     VirtualControlElementIdData,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
 };
@@ -691,7 +691,7 @@ impl TargetModelData {
         self.apply_to_model_flexible(
             model,
             Some(context),
-            Some(App::version()),
+            Some(BackboneShell::version()),
             compartment,
             conversion_context,
             &MigrationDescriptor::default(),

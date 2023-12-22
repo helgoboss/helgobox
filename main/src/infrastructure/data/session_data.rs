@@ -1,19 +1,20 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
-    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, Session, SessionCommand, WeakSession,
+    FxPresetLinkConfig, GroupModel, InstanceModel, MainPresetAutoLoadMode, SessionCommand,
+    WeakSession,
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, InstanceId, InstanceState, MappingId,
-    MappingKey, MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination,
-    OscDeviceId, Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, Instance, InstanceId, MappingId, MappingKey,
+    MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
+    Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
     ensure_no_duplicate_compartment_data, CompartmentModelData, GroupModelData, MappingModelData,
     MigrationDescriptor, ParameterData,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
@@ -310,7 +311,7 @@ struct CompartmentState {
 }
 
 impl CompartmentState {
-    fn from_instance_state(instance_state: &InstanceState, compartment: Compartment) -> Self {
+    fn from_instance_state(instance_state: &Instance, compartment: Compartment) -> Self {
         CompartmentState {
             active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
             active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
@@ -347,7 +348,7 @@ impl Default for SessionData {
     fn default() -> Self {
         use crate::application::session_defaults;
         Self {
-            version: Some(App::version().clone()),
+            version: Some(BackboneShell::version().clone()),
             id: None,
             let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
             let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
@@ -397,7 +398,7 @@ impl Default for SessionData {
 
 impl SessionData {
     /// The given parameters are the canonical ones from `RealearnPluginParameters`.
-    pub fn from_model(session: &Session, plugin_params: &PluginParams) -> SessionData {
+    pub fn from_model(session: &InstanceModel, plugin_params: &PluginParams) -> SessionData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession::new(session, compartment);
             session
@@ -425,7 +426,7 @@ impl SessionData {
         let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
         let instance_state = session.instance_state().borrow();
         SessionData {
-            version: Some(App::version().clone()),
+            version: Some(BackboneShell::version().clone()),
             id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
@@ -494,7 +495,7 @@ impl SessionData {
                             Some(ClipMatrixRefData::Own(Box::new(m.save())))
                         }
                         crate::domain::ClipMatrixRef::Foreign(instance_id) => {
-                            let foreign_session = App::get()
+                            let foreign_session = BackboneShell::get()
                                 .find_session_by_instance_id_ignoring_borrowed_ones(*instance_id)?;
                             let foreign_id = foreign_session.borrow().id().to_owned();
                             Some(ClipMatrixRefData::Foreign(foreign_id))
@@ -539,7 +540,7 @@ impl SessionData {
     #[allow(unused_variables)]
     pub fn apply_to_model(
         &self,
-        session: &mut Session,
+        session: &mut InstanceModel,
         params: &PluginParams,
         weak_session: WeakSession,
     ) -> Result<(), Box<dyn Error>> {
@@ -773,7 +774,7 @@ impl SessionData {
             let mut instance_state = instance_state.borrow_mut();
             #[cfg(feature = "playtime")]
             {
-                use crate::domain::BackboneState;
+                use crate::domain::Backbone;
                 if let Some(matrix_ref) = &self.clip_matrix {
                     use ClipMatrixRefData::*;
                     match matrix_ref {
@@ -786,14 +787,14 @@ impl SessionData {
                         }
                         Foreign(session_id) => {
                             // Check if a session with that ID already exists.
-                            let foreign_instance_id = App::get()
+                            let foreign_instance_id = BackboneShell::get()
                                 .find_session_by_id_ignoring_borrowed_ones(session_id)
                                 .and_then(|session| {
                                     session.try_borrow().map(|s| *s.instance_id()).ok()
                                 });
                             if let Some(id) = foreign_instance_id {
                                 // Referenced ReaLearn instance exists already.
-                                BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                                Backbone::get().set_instance_clip_matrix_to_foreign_matrix(
                                     &mut instance_state,
                                     id,
                                 );
@@ -822,7 +823,7 @@ impl SessionData {
                         playtime_api::persistence::FlexibleMatrix::Unsigned(Box::new(matrix)),
                     )?;
                 } else {
-                    BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                    Backbone::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                 }
             }
             instance_state
@@ -857,8 +858,8 @@ impl SessionData {
         // Check if some other instances waited for the clip matrix of this instance.
         // (important to do after instance state released).
         #[cfg(feature = "playtime")]
-        App::get().with_instances(|instances| {
-            use crate::domain::BackboneState;
+        BackboneShell::get().with_instances(|instances| {
+            use crate::domain::Backbone;
             // Gather other sessions that have a foreign clip matrix ID set.
             let relevant_other_sessions = instances.iter().filter_map(|other_session| {
                 let other_session = other_session.session.upgrade()?;
@@ -879,7 +880,7 @@ impl SessionData {
             for other_session in relevant_other_sessions {
                 let mut other_session = other_session.borrow_mut();
                 let other_instance_state = other_session.instance_state();
-                BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                Backbone::get().set_instance_clip_matrix_to_foreign_matrix(
                     &mut other_instance_state.borrow_mut(),
                     *session.instance_id(),
                 );
@@ -952,7 +953,7 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
     }
 
     fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
-        App::get().find_session_id_by_instance_id(instance_id)
+        BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }
 
@@ -967,7 +968,7 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
     }
 
     fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
-        App::get().find_instance_id_by_session_id(session_id)
+        BackboneShell::get().find_instance_id_by_session_id(session_id)
     }
 }
 
@@ -1070,13 +1071,13 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
     }
 
     fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
-        App::get().find_instance_id_by_session_id(session_id)
+        BackboneShell::get().find_instance_id_by_session_id(session_id)
     }
 }
 
 fn convert_mapping_snapshots_to_api(
-    session: &Session,
-    instance_state: &InstanceState,
+    session: &InstanceModel,
+    instance_state: &Instance,
     compartment: Compartment,
 ) -> Vec<MappingSnapshot> {
     let compartment_in_session = CompartmentInSession::new(session, compartment);

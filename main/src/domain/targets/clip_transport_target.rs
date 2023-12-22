@@ -1,9 +1,9 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
-    transport_is_enabled_unit_value, BackboneState, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    transport_is_enabled_unit_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -80,130 +80,120 @@ impl ClipTransportTarget {
     ) -> anyhow::Result<HitResponse> {
         use ClipTransportAction::*;
         let on = value.is_on();
-        BackboneState::get().with_clip_matrix_mut(
-            context.control_context.instance_state,
-            |matrix| {
-                let response = match self.basics.action {
-                    Trigger => {
-                        matrix.trigger_slot(self.basics.slot_coordinates, on)?;
+        Backbone::get().with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
+            let response = match self.basics.action {
+                Trigger => {
+                    matrix.trigger_slot(self.basics.slot_coordinates, on)?;
+                    HitResponse::processed_with_effect()
+                }
+                PlayStop => {
+                    if on {
+                        matrix
+                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
+                    } else {
+                        matrix.stop_slot(
+                            self.basics.slot_coordinates,
+                            self.basics.options.play_stop_timing,
+                        )?;
+                    }
+                    HitResponse::processed_with_effect()
+                }
+                PlayPause => {
+                    if on {
+                        matrix
+                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
+                    } else {
+                        matrix.pause_clip(self.basics.slot_coordinates)?;
+                    }
+                    HitResponse::processed_with_effect()
+                }
+                Stop => {
+                    if on {
+                        matrix.stop_slot(
+                            self.basics.slot_coordinates,
+                            self.basics.options.play_stop_timing,
+                        )?;
                         HitResponse::processed_with_effect()
+                    } else {
+                        HitResponse::ignored()
                     }
-                    PlayStop => {
-                        if on {
-                            matrix.play_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.play_options(),
-                            )?;
-                        } else {
-                            matrix.stop_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.options.play_stop_timing,
-                            )?;
-                        }
+                }
+                Pause => {
+                    if on {
+                        matrix.pause_clip(self.basics.slot_coordinates)?;
                         HitResponse::processed_with_effect()
+                    } else {
+                        HitResponse::ignored()
                     }
-                    PlayPause => {
-                        if on {
-                            matrix.play_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.play_options(),
-                            )?;
-                        } else {
-                            matrix.pause_clip(self.basics.slot_coordinates)?;
+                }
+                RecordStop => {
+                    if on {
+                        if self.basics.options.record_only_if_track_armed
+                            && !matrix.column_is_armed_for_recording(
+                                self.basics.slot_coordinates.column(),
+                            )
+                        {
+                            bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                         }
-                        HitResponse::processed_with_effect()
+                        matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
+                    } else {
+                        matrix.stop_slot(
+                            self.basics.slot_coordinates,
+                            self.basics.options.play_stop_timing,
+                        )?;
                     }
-                    Stop => {
-                        if on {
-                            matrix.stop_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.options.play_stop_timing,
-                            )?;
-                            HitResponse::processed_with_effect()
-                        } else {
-                            HitResponse::ignored()
-                        }
-                    }
-                    Pause => {
-                        if on {
-                            matrix.pause_clip(self.basics.slot_coordinates)?;
-                            HitResponse::processed_with_effect()
-                        } else {
-                            HitResponse::ignored()
-                        }
-                    }
-                    RecordStop => {
-                        if on {
-                            if self.basics.options.record_only_if_track_armed
-                                && !matrix.column_is_armed_for_recording(
+                    HitResponse::processed_with_effect()
+                }
+                RecordPlayStop => {
+                    if on {
+                        if matrix.slot_is_empty(self.basics.slot_coordinates) {
+                            // Slot is empty.
+                            if self.basics.options.record_only_if_track_armed {
+                                // Record only if armed.
+                                if matrix.column_is_armed_for_recording(
                                     self.basics.slot_coordinates.column(),
-                                )
-                            {
-                                bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
-                            }
-                            matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
-                        } else {
-                            matrix.stop_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.options.play_stop_timing,
-                            )?;
-                        }
-                        HitResponse::processed_with_effect()
-                    }
-                    RecordPlayStop => {
-                        if on {
-                            if matrix.slot_is_empty(self.basics.slot_coordinates) {
-                                // Slot is empty.
-                                if self.basics.options.record_only_if_track_armed {
-                                    // Record only if armed.
-                                    if matrix.column_is_armed_for_recording(
-                                        self.basics.slot_coordinates.column(),
-                                    ) {
-                                        // Is armed, so record.
-                                        matrix
-                                            .record_or_overdub_slot(self.basics.slot_coordinates)?;
-                                    } else if self.basics.options.stop_column_if_slot_empty {
-                                        // Not armed but column stopping on empty slots enabled.
-                                        // Since we already know that the slot is empty, we do
-                                        // it explicitly without invoking play passing that option.
-                                        matrix.stop_column(
-                                            self.basics.slot_coordinates.column(),
-                                            None,
-                                        )?;
-                                    } else {
-                                        bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
-                                    }
-                                } else {
-                                    // Definitely record.
+                                ) {
+                                    // Is armed, so record.
                                     matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
+                                } else if self.basics.options.stop_column_if_slot_empty {
+                                    // Not armed but column stopping on empty slots enabled.
+                                    // Since we already know that the slot is empty, we do
+                                    // it explicitly without invoking play passing that option.
+                                    matrix
+                                        .stop_column(self.basics.slot_coordinates.column(), None)?;
+                                } else {
+                                    bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                 }
                             } else {
-                                // Slot is filled.
-                                matrix.play_slot(
-                                    self.basics.slot_coordinates,
-                                    self.basics.play_options(),
-                                )?;
+                                // Definitely record.
+                                matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
                             }
                         } else {
-                            matrix.stop_slot(
+                            // Slot is filled.
+                            matrix.play_slot(
                                 self.basics.slot_coordinates,
-                                self.basics.options.play_stop_timing,
+                                self.basics.play_options(),
                             )?;
                         }
+                    } else {
+                        matrix.stop_slot(
+                            self.basics.slot_coordinates,
+                            self.basics.options.play_stop_timing,
+                        )?;
+                    }
+                    HitResponse::processed_with_effect()
+                }
+                Looped => {
+                    if on {
+                        matrix.toggle_looped(self.basics.slot_coordinates)?;
                         HitResponse::processed_with_effect()
+                    } else {
+                        HitResponse::ignored()
                     }
-                    Looped => {
-                        if on {
-                            matrix.toggle_looped(self.basics.slot_coordinates)?;
-                            HitResponse::processed_with_effect()
-                        } else {
-                            HitResponse::ignored()
-                        }
-                    }
-                };
-                Ok(response)
-            },
-        )?
+                }
+            };
+            Ok(response)
+        })?
     }
 }
 
@@ -331,7 +321,7 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         match key {
-            "slot_state.id" => BackboneState::get()
+            "slot_state.id" => Backbone::get()
                 .with_clip_matrix(context.instance_state, |matrix| {
                     let id_string = match self.clip_play_state(matrix) {
                         None => "empty",
@@ -349,7 +339,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let val = BackboneState::get()
+        let val = Backbone::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 use ClipTransportAction::*;
                 let val = match self.basics.action {

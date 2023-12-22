@@ -1,6 +1,6 @@
-use crate::application::{Session, WeakSession};
+use crate::application::{InstanceModel, WeakSession};
 use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
 use std::iter;
@@ -108,7 +108,7 @@ pub fn menu_containing_mappings(
 }
 
 pub fn menu_containing_sessions(
-    this_session: &Session,
+    this_session: &InstanceModel,
     current_other_session_id: Option<&str>,
 ) -> swell_ui::menu_tree::Menu<Option<String>> {
     let this_item = item_with_opts(
@@ -119,7 +119,7 @@ pub fn menu_containing_sessions(
         },
         || None,
     );
-    let items: Vec<_> = App::get().with_instances(|sessions| {
+    let items: Vec<_> = BackboneShell::get().with_instances(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
             let other_session = session.session.upgrade()?;
             let other_session = other_session.try_borrow().ok()?;
@@ -206,7 +206,7 @@ pub fn menu_containing_banks(
 }
 
 pub fn get_param_name(
-    session: &Session,
+    session: &InstanceModel,
     compartment: Compartment,
     index: Option<CompartmentParamIndex>,
 ) -> String {
@@ -223,7 +223,7 @@ pub fn get_param_name(
 }
 
 pub fn get_bank_name(
-    session: &Session,
+    session: &InstanceModel,
     item: &dyn Item,
     bank_param_index: CompartmentParamIndex,
     bank_index: u32,

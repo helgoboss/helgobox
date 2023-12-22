@@ -5,7 +5,7 @@ use crate::infrastructure::data::{
 };
 use base::default_util::{deserialize_null_default, is_default};
 
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -64,7 +64,7 @@ impl PresetData for MainPresetData {
 
     fn from_model(preset: &MainPreset) -> MainPresetData {
         MainPresetData {
-            version: Some(App::version().clone()),
+            version: Some(BackboneShell::version().clone()),
             id: Some(preset.id().to_string()),
             data: CompartmentModelData::from_model(preset.data()),
             name: preset.name().to_string(),

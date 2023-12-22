@@ -1,6 +1,6 @@
 use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, InstanceState,
+    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, Instance,
     InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
     MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -240,7 +240,7 @@ impl LoadMappingSnapshotInstruction {
             .collect()
     }
 
-    fn mark_snapshot_as_active(&self, instance_state: &mut InstanceState) {
+    fn mark_snapshot_as_active(&self, instance_state: &mut Instance) {
         instance_state.mark_snapshot_active(self.compartment, &self.scope, &self.snapshot);
     }
 }

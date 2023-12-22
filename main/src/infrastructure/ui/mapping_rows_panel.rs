@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+    Affected, InstanceModel, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
 use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -318,7 +318,7 @@ impl MappingRowsPanel {
     }
 
     pub fn filtered_mappings<'a>(
-        session: &'a Session,
+        session: &'a InstanceModel,
         main_state: &'a MainState,
         compartment: Compartment,
         ignore_group: bool,
@@ -368,7 +368,7 @@ impl MappingRowsPanel {
     }
 
     fn mapping_matches_filter(
-        session: &Session,
+        session: &InstanceModel,
         main_state: &MainState,
         mapping: &SharedMapping,
         ignore_group: bool,
@@ -414,7 +414,7 @@ impl MappingRowsPanel {
 
     fn invalidate_empty_group_controls(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         main_state: &MainState,
         compartment: Compartment,
         displayed_mapping_count: usize,
@@ -452,7 +452,7 @@ impl MappingRowsPanel {
 
     fn determine_empty_mapping_list_case(
         &self,
-        session: &Session,
+        session: &InstanceModel,
         main_state: &MainState,
         compartment: Compartment,
     ) -> EmptyMappingListCase {

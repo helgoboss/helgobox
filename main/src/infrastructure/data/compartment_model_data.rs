@@ -1,4 +1,4 @@
-use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, Session};
+use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, InstanceModel};
 use crate::domain::{
     Compartment, CompartmentParamIndex, GroupId, GroupKey, InstanceId, MappingId, MappingKey,
     ParamSetting,
@@ -7,7 +7,7 @@ use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
     SimpleDataToModelConversionContext,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
 use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
@@ -71,7 +71,7 @@ impl ModelToDataConversionContext for CompartmentModel {
     }
 
     fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
-        App::get().find_session_id_by_instance_id(instance_id)
+        BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }
 
@@ -105,7 +105,7 @@ impl CompartmentModelData {
         &self,
         version: Option<&Version>,
         compartment: Compartment,
-        session: Option<&Session>,
+        session: Option<&InstanceModel>,
     ) -> Result<CompartmentModel, Box<dyn Error>> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,

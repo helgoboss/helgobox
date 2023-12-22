@@ -11,13 +11,13 @@ use crate::domain::{
     RawParamValue,
 };
 use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use reaper_medium::ProjectRef;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
 
 #[derive(Debug)]
-pub struct RealearnPluginParameters {
+pub struct InstanceParameters {
     session: AtomicLazyCell<SendOrSyncWhatever<WeakSession>>,
     // We may have to cache some data that the host wants us to load because we are not ready
     // for loading data as long as the session is not available.
@@ -31,7 +31,7 @@ pub struct RealearnPluginParameters {
     params: RwLock<PluginParams>,
 }
 
-impl RealearnPluginParameters {
+impl InstanceParameters {
     pub fn new(parameter_main_task_channel: SenderToNormalThread<ParameterMainTask>) -> Self {
         Self {
             session: AtomicLazyCell::new(),
@@ -85,7 +85,7 @@ impl RealearnPluginParameters {
         let shared_session = self.session().expect("session should exist already");
         let mut session = shared_session.borrow_mut();
         if let Some(v) = session_data.version.as_ref() {
-            if App::version() < v {
+            if BackboneShell::version() < v {
                 notification::warn(format!(
                     "The session that is about to load was saved with ReaLearn {}, which is \
                          newer than the installed version {}. Things might not work as expected. \
@@ -93,7 +93,7 @@ impl RealearnPluginParameters {
                          saved with the new ReaLearn version! Please consider upgrading your \
                          ReaLearn installation to the latest version.",
                     v,
-                    App::version()
+                    BackboneShell::version()
                 ));
             }
         }
@@ -153,7 +153,7 @@ impl RealearnPluginParameters {
 /// This will be returned if ReaLearn cannot return reasonable bank data yet.
 const NOT_READY_YET: &str = "not-ready-yet";
 
-impl PluginParameters for RealearnPluginParameters {
+impl PluginParameters for InstanceParameters {
     fn get_bank_data(&self) -> Vec<u8> {
         firewall(|| {
             if self.session.borrow().is_none() {
@@ -273,7 +273,7 @@ impl PluginParameters for RealearnPluginParameters {
     }
 }
 
-impl ParamContainer for Arc<RealearnPluginParameters> {
+impl ParamContainer for Arc<InstanceParameters> {
     fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams) {
         let mut plugin_params = self.params_mut();
         let compartment_params = plugin_params.compartment_params_mut(compartment);

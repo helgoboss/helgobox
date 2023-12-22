@@ -23,9 +23,9 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    convert_compartment_param_index_range_to_iter, BackboneState, Compartment,
-    CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
-    ParamSetting, ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
+    convert_compartment_param_index_range_to_iter, Backbone, Compartment, CompartmentParamIndex,
+    ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId, ParamSetting,
+    ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -33,7 +33,7 @@ use crate::infrastructure::data::{
     OscDevice,
 };
 use crate::infrastructure::plugin::{
-    warn_about_failed_server_start, App, RealearnPluginParameters,
+    warn_about_failed_server_start, BackboneShell, InstanceParameters,
 };
 
 use crate::infrastructure::ui::bindings::root;
@@ -74,7 +74,7 @@ pub struct HeaderPanel {
     session: WeakSession,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
-    plugin_parameters: sync::Weak<RealearnPluginParameters>,
+    plugin_parameters: sync::Weak<InstanceParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -86,7 +86,7 @@ impl HeaderPanel {
     pub fn new(
         session: WeakSession,
         main_state: SharedMainState,
-        plugin_parameters: sync::Weak<RealearnPluginParameters>,
+        plugin_parameters: sync::Weak<InstanceParameters>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
     ) -> HeaderPanel {
         HeaderPanel {
@@ -268,15 +268,15 @@ impl HeaderPanel {
     }
 
     fn open_main_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
-        let app = App::get();
+        let app = BackboneShell::get();
         let pure_menu = {
             use std::iter::once;
             use swell_ui::menu_tree::*;
-            let dev_manager = App::get().osc_device_manager();
+            let dev_manager = BackboneShell::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let preset_link_manager = App::get().preset_link_manager();
+            let preset_link_manager = BackboneShell::get().preset_link_manager();
             let preset_link_manager = preset_link_manager.borrow();
-            let main_preset_manager = App::get().main_preset_manager();
+            let main_preset_manager = BackboneShell::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
@@ -299,7 +299,7 @@ impl HeaderPanel {
                 .is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
-            let last_relevant_focused_fx_id = BackboneState::get()
+            let last_relevant_focused_fx_id = Backbone::get()
                 .last_relevant_focused_fx_id(session.processor_context().containing_fx())
                 .and_then(|fx| {
                     if fx.is_available() {
@@ -519,9 +519,9 @@ impl HeaderPanel {
                     "Server",
                     vec![
                         item(
-                            if App::get().server_is_running() {
+                            if BackboneShell::get().server_is_running() {
                                 "Disable and stop!"
-                            } else if App::get().config().server_is_enabled() {
+                            } else if BackboneShell::get().config().server_is_enabled() {
                                 "Start! (currently enabled but failed to start)"
                             } else {
                                 "Enable and start!"
@@ -690,14 +690,13 @@ impl HeaderPanel {
                 remove_osc_device(self.view.require_window(), dev_id)
             }
             MainMenuAction::ToggleOscDeviceControl(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_control())
             }
             MainMenuAction::ToggleOscDeviceFeedback(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
             }
-            MainMenuAction::ToggleOscDeviceBundles(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
-            }
+            MainMenuAction::ToggleOscDeviceBundles(dev_id) => BackboneShell::get()
+                .do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles()),
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
@@ -854,7 +853,7 @@ impl HeaderPanel {
             .iter()
             .map(|m| MappingModelData::from_model(&m.borrow(), &compartment_in_session))
             .collect();
-        DataObject::Mappings(App::create_envelope(mapping_datas))
+        DataObject::Mappings(BackboneShell::create_envelope(mapping_datas))
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -1498,7 +1497,9 @@ impl HeaderPanel {
                 let compartment = self.active_compartment();
                 let preset_is_active_and_exists =
                     if let Some(preset_id) = session.active_preset_id(compartment) {
-                        App::get().preset_manager(compartment).exists(preset_id)
+                        BackboneShell::get()
+                            .preset_manager(compartment)
+                            .exists(preset_id)
                     } else {
                         false
                     };
@@ -1517,7 +1518,7 @@ impl HeaderPanel {
 
     fn fill_preset_combo_box(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
-        let preset_manager = App::get().preset_manager(self.active_compartment());
+        let preset_manager = BackboneShell::get().preset_manager(self.active_compartment());
         let all_entries = [(-1isize, "<None>".to_string())].into_iter().chain(
             preset_manager
                 .preset_infos()
@@ -1541,7 +1542,7 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
-        let preset_manager = App::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().preset_manager(compartment);
         let data = match session.active_preset_id(compartment) {
             None => -1isize,
             Some(id) => match preset_manager.find_index_by_id(id) {
@@ -1564,7 +1565,7 @@ impl HeaderPanel {
 
     fn invalidate_control_input_combo_box_options(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        let osc_device_manager = App::get().osc_device_manager();
+        let osc_device_manager = BackboneShell::get().osc_device_manager();
         let osc_device_manager = osc_device_manager.borrow();
         let osc_devices = osc_device_manager.devices();
         b.fill_combo_box_with_data_small(
@@ -1609,7 +1610,7 @@ impl HeaderPanel {
                     }),
             },
             ControlInput::Osc(osc_device_id) => {
-                match App::get()
+                match BackboneShell::get()
                     .osc_device_manager()
                     .borrow()
                     .find_index_by_id(&osc_device_id)
@@ -1638,7 +1639,7 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        let osc_device_manager = App::get().osc_device_manager();
+        let osc_device_manager = BackboneShell::get().osc_device_manager();
         let osc_device_manager = osc_device_manager.borrow();
         let osc_devices = osc_device_manager.devices();
         b.fill_combo_box_with_data_small(
@@ -1686,7 +1687,7 @@ impl HeaderPanel {
                         }),
                 },
                 FeedbackOutput::Osc(osc_device_id) => {
-                    match App::get()
+                    match BackboneShell::get()
                         .osc_device_manager()
                         .borrow()
                         .find_index_by_id(&osc_device_id)
@@ -1737,7 +1738,7 @@ impl HeaderPanel {
                 -1 => Ok(ControlInput::Midi(MidiControlInput::FxInput)),
                 KEYBOARD_INDEX_OFFSET => Ok(ControlInput::Keyboard),
                 osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = App::get()
+                    if let Some(dev) = BackboneShell::get()
                         .osc_device_manager()
                         .borrow()
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
@@ -1771,7 +1772,7 @@ impl HeaderPanel {
                 -2 => Ok(Some(FeedbackOutput::Midi(MidiDestination::FxOutput))),
                 -1 => Ok(None),
                 osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = App::get()
+                    if let Some(dev) = BackboneShell::get()
                         .osc_device_manager()
                         .borrow()
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
@@ -1903,7 +1904,7 @@ impl HeaderPanel {
         self.main_state.borrow_mut().stop_filter_learning();
         let session = self.session();
         let compartment = self.active_compartment();
-        let preset_manager = App::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().preset_manager(compartment);
         let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
         if compartment_is_dirty
             && !self
@@ -2020,7 +2021,7 @@ impl HeaderPanel {
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        App::warn_if_envelope_version_higher(res.value.version());
+        BackboneShell::warn_if_envelope_version_higher(res.value.version());
         use UntaggedDataObject::*;
         match res.value {
             PresetLike(preset_data) => {
@@ -2071,7 +2072,7 @@ impl HeaderPanel {
                     if let Some(matrix) = *value {
                         crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance_state).load(matrix)?;
                     } else {
-                        BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                        Backbone::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                     }
                 }
             }
@@ -2195,7 +2196,8 @@ impl HeaderPanel {
                     .upgrade()
                     .expect("plugin params gone");
                 let session_data = plugin_parameters.create_session_data();
-                let data_object = DataObject::Session(App::create_envelope(Box::new(session_data)));
+                let data_object =
+                    DataObject::Session(BackboneShell::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
@@ -2208,7 +2210,7 @@ impl HeaderPanel {
                     .borrow()
                     .owned_clip_matrix()
                     .map(|matrix| matrix.save());
-                let envelope = App::create_envelope(Box::new(matrix));
+                let envelope = BackboneShell::create_envelope(Box::new(matrix));
                 let data_object = DataObject::ClipMatrix(envelope);
                 let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
@@ -2218,7 +2220,7 @@ impl HeaderPanel {
                 let session = session.borrow();
                 let model = session.extract_compartment_model(compartment);
                 let data = CompartmentModelData::from_model(&model);
-                let envelope = App::create_envelope(Box::new(data));
+                let envelope = BackboneShell::create_envelope(Box::new(data));
                 let data_object = match compartment {
                     Compartment::Controller => DataObject::ControllerCompartment(envelope),
                     Compartment::Main => DataObject::MainCompartment(envelope),
@@ -2251,7 +2253,7 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let mut preset_manager = App::get().preset_manager(compartment);
+        let mut preset_manager = BackboneShell::get().preset_manager(compartment);
         let active_preset_id = session
             .active_preset_id(compartment)
             .ok_or("no preset selected")?
@@ -2265,11 +2267,14 @@ impl HeaderPanel {
     }
 
     fn reload_all_presets(&self) {
-        let _ = App::get()
+        let _ = BackboneShell::get()
             .controller_preset_manager()
             .borrow_mut()
             .load_presets();
-        let _ = App::get().main_preset_manager().borrow_mut().load_presets();
+        let _ = BackboneShell::get()
+            .main_preset_manager()
+            .borrow_mut()
+            .load_presets();
     }
 
     pub fn show_pot_browser(&self) {
@@ -2310,7 +2315,7 @@ impl HeaderPanel {
     }
 
     fn open_preset_folder(&self) {
-        let path = App::realearn_preset_dir_path();
+        let path = BackboneShell::realearn_preset_dir_path();
         let result = open_in_file_manager(&path).map_err(|e| e.into());
         self.notify_user_on_error(result);
     }
@@ -2340,7 +2345,7 @@ impl HeaderPanel {
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             Compartment::Controller => {
-                let preset_manager = App::get().controller_preset_manager();
+                let preset_manager = BackboneShell::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller preset not found")?;
@@ -2350,7 +2355,7 @@ impl HeaderPanel {
                     .update_preset(controller_preset)?;
             }
             Compartment::Main => {
-                let preset_manager = App::get().main_preset_manager();
+                let preset_manager = BackboneShell::get().main_preset_manager();
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
@@ -2393,7 +2398,7 @@ impl HeaderPanel {
             Compartment::Controller => {
                 let controller =
                     ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
-                App::get()
+                BackboneShell::get()
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
@@ -2402,7 +2407,7 @@ impl HeaderPanel {
             Compartment::Main => {
                 let main_preset =
                     MainPreset::new(preset_id.clone(), preset_name, compartment_model);
-                App::get()
+                BackboneShell::get()
                     .main_preset_manager()
                     .borrow_mut()
                     .add_preset(main_preset)?;
@@ -2424,11 +2429,12 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         session.log_debug_info();
-        App::get().log_debug_info(session.id());
+        BackboneShell::get().log_debug_info(session.id());
     }
 
     fn open_user_guide_offline(&self) {
-        let user_guide_pdf = App::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
+        let user_guide_pdf =
+            BackboneShell::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
         if open::that(user_guide_pdf).is_err() {
             self.view.require_window().alert(
                 "ReaLearn",
@@ -2541,11 +2547,16 @@ impl HeaderPanel {
             view.invalidate_group_controls();
         });
         when(
-            App::get()
+            BackboneShell::get()
                 .controller_preset_manager()
                 .borrow()
                 .changed()
-                .merge(App::get().main_preset_manager().borrow().changed())
+                .merge(
+                    BackboneShell::get()
+                        .main_preset_manager()
+                        .borrow()
+                        .changed(),
+                )
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2553,7 +2564,7 @@ impl HeaderPanel {
             view.invalidate_preset_controls();
         });
         when(
-            App::get()
+            BackboneShell::get()
                 .osc_device_manager()
                 .borrow()
                 .changed()
@@ -2831,7 +2842,7 @@ fn edit_new_osc_device() {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .add_device(dev)
@@ -2839,7 +2850,7 @@ fn edit_new_osc_device() {
 }
 
 fn edit_existing_osc_device(dev_id: OscDeviceId) {
-    let dev = App::get()
+    let dev = BackboneShell::get()
         .osc_device_manager()
         .borrow()
         .find_device_by_id(&dev_id)
@@ -2850,7 +2861,7 @@ fn edit_existing_osc_device(dev_id: OscDeviceId) {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .update_device(dev)
@@ -2864,7 +2875,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
     ) {
         return;
     }
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .remove_device_by_id(dev_id)
@@ -3131,7 +3142,7 @@ fn with_scoped_preset_link_mutator(
 ) {
     match scope {
         PresetLinkScope::Global => {
-            let preset_link_manager = App::get().preset_link_manager();
+            let preset_link_manager = BackboneShell::get().preset_link_manager();
             let mut mutator = preset_link_manager.borrow_mut();
             f(mutator.deref_mut());
         }

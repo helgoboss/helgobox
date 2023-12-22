@@ -1,10 +1,10 @@
 use crate::application::{
-    RealearnControlSurfaceMainTaskSender, Session, SessionCommand, SharedMapping, SharedSession,
-    VirtualControlElementType, WeakSession,
+    InstanceModel, RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping,
+    SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::notification;
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, ChangeInstanceFxArgs,
+    ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
     GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
     InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
@@ -24,7 +24,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{MainPanel, MessagePanel};
+use crate::infrastructure::ui::{InstancePanel, MessagePanel};
 #[allow(unused)]
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
@@ -93,7 +93,7 @@ const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 ///   real-time thread until there's capacity again.
 const DEALLOCATOR_THREAD_CAPACITY: usize = 10000;
 
-make_available_globally_in_main_thread_on_demand!(App);
+make_available_globally_in_main_thread_on_demand!(BackboneShell);
 
 #[cfg(feature = "playtime")]
 static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui::AppLibrary>> =
@@ -104,8 +104,11 @@ pub type RealearnSessionAccelerator = RealearnAccelerator<WeakSession, RealearnS
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
 
+/// Just the old term as alias for easier class search.
+type _App = BackboneShell;
+
 #[derive(Debug)]
-pub struct App {
+pub struct BackboneShell {
     /// RAII
     _tracing_hook: Option<TracingHook>,
     /// RAII
@@ -141,7 +144,7 @@ pub struct PluginInstanceInfo {
     pub processor_context: ProcessorContext,
     pub instance_state: WeakInstanceState,
     pub session: WeakSession,
-    pub ui: Weak<MainPanel>,
+    pub ui: Weak<InstancePanel>,
 }
 
 #[derive(Debug)]
@@ -179,10 +182,10 @@ struct AwakeState {
     async_runtime: Runtime,
 }
 
-impl App {
+impl BackboneShell {
     /// Executed globally just once when module loaded.
     pub fn init(context: PluginContext) -> Self {
-        let logger = App::logger().clone();
+        let logger = BackboneShell::logger().clone();
         Swell::make_available_globally(Swell::load(context));
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
@@ -191,13 +194,13 @@ impl App {
             logger,
             CrashInfo {
                 plugin_name: "ReaLearn".to_string(),
-                plugin_version: App::detailed_version_label().to_string(),
+                plugin_version: BackboneShell::detailed_version_label().to_string(),
                 support_email_address: "info@helgoboss.org".to_string(),
             },
         );
         register_api().expect("couldn't register API");
         let config = AppConfig::load().unwrap_or_else(|e| {
-            debug!(App::logger(), "{}", e);
+            debug!(BackboneShell::logger(), "{}", e);
             Default::default()
         });
         let (control_surface_main_task_sender, control_surface_main_task_receiver) =
@@ -247,40 +250,41 @@ impl App {
         );
         #[cfg(feature = "playtime")]
         Self::init_clip_engine();
-        let backbone_state = BackboneState::new(
+        let backbone_state = Backbone::new(
             additional_feedback_event_sender.clone(),
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
         );
-        BackboneState::make_available_globally(|| backbone_state);
+        Backbone::make_available_globally(|| backbone_state);
         let sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>> = Default::default();
         server::http::keep_informing_clients_about_sessions(
             sessions_changed_subject.borrow().clone(),
         );
         let controller_preset_manager = FileBasedControllerPresetManager::new(
-            App::realearn_preset_dir_path().join("controller"),
+            BackboneShell::realearn_preset_dir_path().join("controller"),
         );
         let main_preset_manager =
-            FileBasedMainPresetManager::new(App::realearn_preset_dir_path().join("main"));
+            FileBasedMainPresetManager::new(BackboneShell::realearn_preset_dir_path().join("main"));
         let preset_link_manager =
-            FileBasedPresetLinkManager::new(App::realearn_auto_load_configs_dir_path());
+            FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
         // This doesn't yet start listening for OSC messages (will happen on wake up)
-        let osc_device_manager = OscDeviceManager::new(App::realearn_osc_device_config_file_path());
+        let osc_device_manager =
+            OscDeviceManager::new(BackboneShell::realearn_osc_device_config_file_path());
         // This doesn't yet start the server (will happen on wake up)
         let server = RealearnServer::new(
             config.main.server_http_port,
             config.main.server_https_port,
             config.main.server_grpc_port,
-            App::server_resource_dir_path().join("certificates"),
+            BackboneShell::server_resource_dir_path().join("certificates"),
             MetricsReporter::new(),
         );
         let osc_feedback_processor = OscFeedbackProcessor::new(osc_feedback_task_receiver);
         osc_device_manager
             .changed()
-            .subscribe(|_| App::get().reconnect_osc_devices());
+            .subscribe(|_| BackboneShell::get().reconnect_osc_devices());
         let shared_main_processors = SharedMainProcessors::default();
         // This doesn't yet activate the control surface (will happen on wake up)
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            App::logger(),
+            BackboneShell::logger(),
             control_surface_main_task_receiver,
             #[cfg(feature = "playtime")]
             clip_matrix_event_receiver,
@@ -311,7 +315,7 @@ impl App {
             accelerator: Box::new(accelerator),
             async_deallocation_receiver,
         };
-        App {
+        BackboneShell {
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
@@ -368,7 +372,7 @@ impl App {
                          Please consider upgrading your \
                          ReaLearn installation to the latest version.",
                     v,
-                    App::version()
+                    BackboneShell::version()
                 ));
             }
         }
@@ -384,7 +388,7 @@ impl App {
     fn init_clip_engine() {
         use playtime_clip_engine::ClipEngine;
         let license_manager = crate::infrastructure::data::LicenseManager::new(
-            App::helgoboss_resource_dir_path().join("licensing.json"),
+            BackboneShell::helgoboss_resource_dir_path().join("licensing.json"),
         );
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
@@ -486,7 +490,7 @@ impl App {
         let _ = session.plugin_register_add_hook_post_command_2::<Self>();
         // Audio hook
         debug!(
-            App::logger(),
+            BackboneShell::logger(),
             "Registering ReaLearn audio hook and control surface..."
         );
         let audio_hook_handle = session
@@ -536,7 +540,7 @@ impl App {
         };
         let mut session = Reaper::get().medium_session();
         debug!(
-            App::logger(),
+            BackboneShell::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
         let (accelerator, mut control_surface, audio_hook) = unsafe {
@@ -802,14 +806,14 @@ impl App {
     }
 
     pub fn do_with_osc_device(&self, dev_id: OscDeviceId, f: impl FnOnce(&mut OscDevice)) {
-        let mut dev = App::get()
+        let mut dev = BackboneShell::get()
             .osc_device_manager()
             .borrow()
             .find_device_by_id(&dev_id)
             .unwrap()
             .clone();
         f(&mut dev);
-        App::get()
+        BackboneShell::get()
             .osc_device_manager()
             .borrow_mut()
             .update_device(dev)
@@ -881,11 +885,11 @@ impl App {
 
     #[cfg(feature = "playtime")]
     pub fn app_base_dir_path() -> PathBuf {
-        App::helgoboss_resource_dir_path().join("App")
+        BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
     fn realearn_resource_dir_path() -> PathBuf {
-        App::helgoboss_resource_dir_path().join("ReaLearn")
+        BackboneShell::helgoboss_resource_dir_path().join("ReaLearn")
     }
 
     pub fn realearn_data_dir_path() -> PathBuf {
@@ -910,7 +914,7 @@ impl App {
             // https://github.com/helgoboss/realearn/issues/780
             // Encoding the file in the binary frees us from having to distribute it.
             let bytes = include_bytes!("../../../../resources/sounds/click-high.mp3");
-            let dest_path = App::get_temp_dir()?.path().join("click-high.mp3");
+            let dest_path = BackboneShell::get_temp_dir()?.path().join("click-high.mp3");
             fs::write(&dest_path, bytes).ok()?;
             Some(dest_path)
         });
@@ -923,7 +927,9 @@ impl App {
             let bytes = include_bytes!(
                 "../../../../resources/template-projects/pot-preview/pot-preview.RPP"
             );
-            let dest_path = App::get_temp_dir()?.path().join("pot-preview.RPP");
+            let dest_path = BackboneShell::get_temp_dir()?
+                .path()
+                .join("pot-preview.RPP");
             fs::write(&dest_path, bytes).ok()?;
             Some(dest_path)
         });
@@ -939,7 +945,7 @@ impl App {
     }
 
     pub fn realearn_osc_device_config_file_path() -> PathBuf {
-        App::realearn_resource_dir_path().join("osc.json")
+        BackboneShell::realearn_resource_dir_path().join("osc.json")
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have
@@ -978,7 +984,10 @@ impl App {
     }
 
     #[allow(dead_code)]
-    pub fn find_main_panel_by_session_id(&self, session_id: &str) -> Option<SharedView<MainPanel>> {
+    pub fn find_main_panel_by_session_id(
+        &self,
+        session_id: &str,
+    ) -> Option<SharedView<InstancePanel>> {
         self.instances.borrow().iter().find_map(|i| {
             if i.session.upgrade()?.borrow().id() == session_id {
                 i.ui.upgrade()
@@ -992,7 +1001,7 @@ impl App {
     pub fn find_main_panel_by_instance_id(
         &self,
         instance_id: InstanceId,
-    ) -> Option<SharedView<MainPanel>> {
+    ) -> Option<SharedView<InstancePanel>> {
         self.instances
             .borrow()
             .iter()
@@ -1011,7 +1020,7 @@ impl App {
             .context("session not found")?;
         let session = session.borrow();
         let instance_state = session.instance_state();
-        BackboneState::get().with_clip_matrix(instance_state, f)
+        Backbone::get().with_clip_matrix(instance_state, f)
     }
 
     #[cfg(feature = "playtime")]
@@ -1024,7 +1033,7 @@ impl App {
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
         let instance_state = session.borrow().instance_state().clone();
-        BackboneState::get().with_clip_matrix_mut(&instance_state, f)
+        Backbone::get().with_clip_matrix_mut(&instance_state, f)
     }
 
     #[cfg(feature = "playtime")]
@@ -1128,7 +1137,7 @@ impl App {
         self.notify_instances_changed();
     }
 
-    pub fn unregister_session(&self, session: *const Session) {
+    pub fn unregister_session(&self, session: *const InstanceModel) {
         let mut instances = self.instances.borrow_mut();
         debug!(Reaper::get().logger(), "Unregistering session...");
         instances.retain(|i| {
@@ -1179,12 +1188,12 @@ impl App {
                     included_target_types: &included_target_types,
                     touch_cause: TargetTouchCause::Any,
                 };
-                let target = BackboneState::get().find_last_touched_target(filter);
+                let target = Backbone::get().find_last_touched_target(filter);
                 let target = match target.as_ref() {
                     None => return,
                     Some(t) => t,
                 };
-                App::get().start_learning_source_for_target(Compartment::Main, target);
+                BackboneShell::get().start_learning_source_for_target(Compartment::Main, target);
             },
             ActionKind::NotToggleable,
         );
@@ -1193,7 +1202,7 @@ impl App {
             "ReaLearn: Learn single mapping (reassigning source)",
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = App::get()
+                    let _ = BackboneShell::get()
                         .learn_mapping_reassigning_source(Compartment::Main, false)
                         .await;
                     Ok(())
@@ -1206,7 +1215,7 @@ impl App {
             "ReaLearn: Learn single mapping (reassigning source) and open it",
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = App::get()
+                    let _ = BackboneShell::get()
                         .learn_mapping_reassigning_source(Compartment::Main, true)
                         .await;
                     Ok(())
@@ -1219,7 +1228,7 @@ impl App {
             "ReaLearn: Find first mapping by source",
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = App::get()
+                    let _ = BackboneShell::get()
                         .find_first_mapping_by_source(Compartment::Main)
                         .await;
                     Ok(())
@@ -1231,7 +1240,8 @@ impl App {
             "REALEARN_OPEN_FIRST_POT_BROWSER",
             "ReaLearn: Open first Pot Browser",
             move || {
-                let Some(session) = App::get().find_first_relevant_session_monitoring_first()
+                let Some(session) =
+                    BackboneShell::get().find_first_relevant_session_monitoring_first()
                 else {
                     return;
                 };
@@ -1244,7 +1254,7 @@ impl App {
             "ReaLearn: Find first mapping by target",
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = App::get()
+                    let _ = BackboneShell::get()
                         .find_first_mapping_by_target(Compartment::Main)
                         .await;
                     Ok(())
@@ -1285,7 +1295,7 @@ impl App {
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
-            App::stop_learning_sources();
+            BackboneShell::stop_learning_sources();
         });
         let midi_receiver = self.request_next_midi_messages();
         let osc_receiver = self.request_next_osc_messages();
@@ -1321,7 +1331,7 @@ impl App {
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
-            App::get()
+            BackboneShell::get()
                 .control_surface_main_task_sender
                 .stop_capturing_targets(None);
         });
@@ -1449,7 +1459,7 @@ impl App {
         msg: &str,
     ) -> Result<MessageCaptureResult, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
-            App::stop_learning_sources();
+            BackboneShell::stop_learning_sources();
         });
         let midi_receiver = self.request_next_midi_messages();
         let osc_receiver = self.request_next_osc_messages();
@@ -1465,10 +1475,10 @@ impl App {
     }
 
     fn stop_learning_sources() {
-        App::get()
+        BackboneShell::get()
             .audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::StopCapturingMidi);
-        App::get()
+        BackboneShell::get()
             .control_surface_main_task_sender
             .0
             .send_complaining(RealearnControlSurfaceMainTask::StopCapturingOsc);
@@ -1491,7 +1501,7 @@ impl App {
 
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
-            App::get()
+            BackboneShell::get()
                 .control_surface_main_task_sender
                 .stop_capturing_targets(None);
         });
@@ -1661,7 +1671,7 @@ impl App {
     fn do_with_initiator_session_or_sessions_matching_tags(
         &self,
         common_args: &InstanceContainerCommonArgs,
-        f: impl Fn(&mut Session, WeakSession),
+        f: impl Fn(&mut InstanceModel, WeakSession),
     ) -> Result<(), &'static str> {
         if common_args.scope.has_tags() {
             // Modify all sessions whose tags match.
@@ -1695,7 +1705,7 @@ impl App {
     }
 }
 
-impl Drop for App {
+impl Drop for BackboneShell {
     fn drop(&mut self) {
         self.message_panel.close();
         self.party_is_over_subject.next(());
@@ -1751,7 +1761,7 @@ impl AppConfig {
     }
 
     fn config_file_path() -> PathBuf {
-        App::realearn_resource_dir_path().join("realearn.ini")
+        BackboneShell::realearn_resource_dir_path().join("realearn.ini")
     }
 }
 
@@ -1869,9 +1879,9 @@ fn determine_module_base_address() -> Option<usize> {
     Some(hinstance.as_ptr() as usize)
 }
 
-impl HookPostCommand for App {
+impl HookPostCommand for BackboneShell {
     fn call(command_id: CommandId, _flag: i32) {
-        App::get()
+        BackboneShell::get()
             .additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 section_context: SectionContext::MainSection,
@@ -1880,7 +1890,7 @@ impl HookPostCommand for App {
     }
 }
 
-impl HookPostCommand2 for App {
+impl HookPostCommand2 for BackboneShell {
     fn call(
         section: SectionContext,
         command_id: CommandId,
@@ -1891,7 +1901,7 @@ impl HookPostCommand2 for App {
         if section != SectionContext::MainSection {
             return;
         }
-        App::get()
+        BackboneShell::get()
             .additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 section_context: SectionContext::MainSection,
@@ -1900,13 +1910,13 @@ impl HookPostCommand2 for App {
     }
 }
 
-impl InstanceContainer for App {
+impl InstanceContainer for BackboneShell {
     fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession> {
-        App::get().find_session_by_id_ignoring_borrowed_ones(session_id)
+        BackboneShell::get().find_session_by_id_ignoring_borrowed_ones(session_id)
     }
 
     fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedSession> {
-        App::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
+        BackboneShell::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
     }
 
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
@@ -2054,7 +2064,7 @@ impl RealearnWindowSnitch for RealearnSnitch {
 #[cfg(feature = "playtime")]
 fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     tracing::info!("Loading app library...");
-    let app_base_dir = App::app_base_dir_path();
+    let app_base_dir = BackboneShell::app_base_dir_path();
     let lib = crate::infrastructure::ui::AppLibrary::load(app_base_dir);
     match lib.as_ref() {
         Ok(_) => {
@@ -2070,8 +2080,8 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
 #[cfg(feature = "playtime")]
 fn decompress_app() -> anyhow::Result<()> {
     // Check if decompression necessary
-    let archive_file = &App::app_archive_file_path();
-    let destination_dir = &App::app_base_dir_path();
+    let archive_file = &BackboneShell::app_archive_file_path();
+    let destination_dir = &BackboneShell::app_base_dir_path();
     let archive_metadata = archive_file.metadata()?;
     let archive_size = archive_metadata.len();
     let archive_modified = archive_metadata

@@ -4,7 +4,7 @@ use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
 };
 
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -65,7 +65,7 @@ impl PresetData for ControllerPresetData {
 
     fn from_model(preset: &ControllerPreset) -> ControllerPresetData {
         ControllerPresetData {
-            version: Some(App::version().clone()),
+            version: Some(BackboneShell::version().clone()),
             id: Some(preset.id().to_string()),
             data: CompartmentModelData::from_model(preset.data()),
             name: preset.name().to_string(),

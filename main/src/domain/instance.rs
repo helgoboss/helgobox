@@ -9,18 +9,20 @@ use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    AnyThreadBackboneState, BackboneState, Compartment, FxDescriptor,
-    GlobalControlAndFeedbackState, GroupId, InstanceId, MappingId, MappingSnapshotContainer,
-    ProcessorContext, QualifiedMappingId, Tag, TagScope, TrackDescriptor,
-    VirtualMappingSnapshotIdForLoad,
+    AnyThreadBackboneState, Backbone, Compartment, FxDescriptor, GlobalControlAndFeedbackState,
+    GroupId, InstanceId, MappingId, MappingSnapshotContainer, ProcessorContext, QualifiedMappingId,
+    Tag, TagScope, TrackDescriptor, VirtualMappingSnapshotIdForLoad,
 };
 use base::{NamedChannelSender, SenderToNormalThread};
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
 
-pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
-pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
+pub type SharedInstanceState = Rc<RefCell<Instance>>;
+pub type WeakInstanceState = Weak<RefCell<Instance>>;
+
+/// Just the old term as alias for easier class search.
+type _InstanceState = Instance;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
@@ -33,7 +35,7 @@ pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
 ///
 /// For state of global nature which doesn't need to be persisted, see `RealearnTargetState`.
 #[derive(Debug)]
-pub struct InstanceState {
+pub struct Instance {
     instance_id: InstanceId,
     processor_context: ProcessorContext,
     /// Owned clip matrix or reference to a clip matrix owned by another instance.
@@ -147,7 +149,7 @@ pub struct MappingInfo {
     pub name: String,
 }
 
-impl InstanceState {
+impl Instance {
     pub(super) fn new(
         instance_id: InstanceId,
         processor_context: ProcessorContext,
@@ -367,9 +369,7 @@ impl InstanceState {
     #[cfg(feature = "playtime")]
     pub(super) fn create_and_install_owned_clip_matrix_if_necessary(
         &mut self,
-        create_handler: impl FnOnce(
-            &InstanceState,
-        ) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
+        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> bool {
         if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Own(_))) {
             return false;
@@ -615,9 +615,9 @@ impl InstanceState {
     }
 }
 
-impl Drop for InstanceState {
+impl Drop for Instance {
     fn drop(&mut self) {
-        BackboneState::get().unregister_instance_state(&self.instance_id);
+        Backbone::get().unregister_instance_state(&self.instance_id);
     }
 }
 
@@ -701,7 +701,7 @@ impl PotIntegration for RealearnPotIntegration {
     }
 
     fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset) {
-        BackboneState::target_state()
+        Backbone::target_state()
             .borrow_mut()
             .set_current_fx_preset(fx, preset);
         self.sender
@@ -711,11 +711,11 @@ impl PotIntegration for RealearnPotIntegration {
     }
 
     fn exclude_list(&self) -> Ref<PotFilterExcludes> {
-        BackboneState::get().pot_filter_exclude_list()
+        Backbone::get().pot_filter_exclude_list()
     }
 
     fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
-        BackboneState::get().pot_filter_exclude_list_mut()
+        Backbone::get().pot_filter_exclude_list_mut()
     }
 
     fn notify_preset_changed(&self, id: Option<PresetId>) {

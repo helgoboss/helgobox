@@ -5,7 +5,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Ta
 use playtime_api::runtime::SlotAddress;
 
 use crate::domain::{
-    interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, Compartment,
+    interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
@@ -73,7 +73,7 @@ impl RealearnTarget for ClipSeekTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let value = value.to_unit_value()?;
-        BackboneState::get()
+        Backbone::get()
             .with_clip_matrix(
                 context.control_context.instance_state,
                 |matrix| -> anyhow::Result<HitResponse> {
@@ -153,7 +153,7 @@ impl RealearnTarget for ClipSeekTarget {
 
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
-        BackboneState::get()
+        Backbone::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let slot = matrix.find_slot(self.slot_coordinates)?;
                 let timeline = matrix.timeline();
@@ -170,7 +170,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let val = BackboneState::get()
+        let val = Backbone::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let relevant_content = matrix.find_slot(self.slot_coordinates)?.relevant_contents();
                 let val = relevant_content
