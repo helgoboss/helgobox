@@ -1,7 +1,7 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
     FxPresetLinkConfig, GroupModel, InstanceModel, MainPresetAutoLoadMode, SessionCommand,
-    WeakSession,
+    WeakInstanceModel,
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
@@ -542,7 +542,7 @@ impl SessionData {
         &self,
         session: &mut InstanceModel,
         params: &PluginParams,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(

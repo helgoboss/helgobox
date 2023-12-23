@@ -1,3 +1,4 @@
+use anyhow::{bail, Context};
 use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
@@ -105,7 +106,7 @@ impl DataObject {
     pub fn try_from_api_mappings(
         api_mappings: Vec<persistence::Mapping>,
         conversion_context: &impl ApiToDataConversionContext,
-    ) -> Result<Vec<MappingModelData>, Box<dyn Error>> {
+    ) -> anyhow::Result<Vec<MappingModelData>> {
         api_mappings
             .into_iter()
             .map(|m| to_data::convert_mapping(m, conversion_context))
@@ -115,7 +116,7 @@ impl DataObject {
     pub fn try_into_api_object(
         self,
         conversion_style: ConversionStyle,
-    ) -> Result<ApiObject, Box<dyn Error>> {
+    ) -> anyhow::Result<ApiObject> {
         let api_object = match self {
             DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
             #[cfg(feature = "playtime")]
@@ -143,10 +144,7 @@ impl DataObject {
                 ApiObject::Mapping(Envelope::new(version, Box::new(api_mapping)))
             }
             _ => {
-                return Err(
-                    "conversion from source/mode/target data object not supported at the moment"
-                        .into(),
-                )
+                bail!("conversion from source/mode/target data object not supported at the moment");
             }
         };
         Ok(api_object)
@@ -244,8 +242,8 @@ pub fn deserialize_data_object_from_lua(
     Ok(data_object)
 }
 
-pub fn serialize_data_object_to_json(object: DataObject) -> Result<String, Box<dyn Error>> {
-    Ok(serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?)
+pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<String> {
+    Ok(serde_json::to_string_pretty(&object).context("couldn't serialize object")?)
 }
 
 /// Runs without importing the result and also doesn't have an execution time limit.
@@ -274,7 +272,7 @@ pub enum SerializationFormat {
 pub fn serialize_data_object(
     data_object: DataObject,
     format: SerializationFormat,
-) -> Result<String, Box<dyn Error>> {
+) -> anyhow::Result<String> {
     match format {
         SerializationFormat::JsonDataObject => serialize_data_object_to_json(data_object),
         SerializationFormat::LuaApiObject(style) => {
@@ -286,7 +284,7 @@ pub fn serialize_data_object(
 pub fn serialize_data_object_to_lua(
     data_object: DataObject,
     conversion_style: ConversionStyle,
-) -> Result<String, Box<dyn Error>> {
+) -> anyhow::Result<String> {
     let api_object = data_object.try_into_api_object(conversion_style)?;
     Ok(lua_serializer::to_string(&api_object)?)
 }

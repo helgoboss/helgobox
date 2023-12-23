@@ -9,6 +9,7 @@ use std::error::Error;
 use std::io;
 use std::net::{SocketAddrV4, UdpSocket};
 
+use anyhow::Context;
 use core::mem;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -306,10 +307,10 @@ impl OscDeviceId {
 }
 
 impl FromStr for OscDeviceId {
-    type Err = &'static str;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(OscDeviceId(s.parse().map_err(|_| "invalid OSC device ID")?))
+        Ok(OscDeviceId(s.parse().context("invalid OSC device ID")?))
     }
 }
 

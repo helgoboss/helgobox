@@ -1,5 +1,5 @@
 //! Contains functions for sending data to WebSocket clients.
-use crate::application::{InstanceModel, SharedSession};
+use crate::application::{InstanceModel, SharedInstanceModel};
 use crate::base::when;
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::BackboneShell;
@@ -176,7 +176,7 @@ pub fn send_sessions_to_subscribed_clients() {
     .unwrap();
 }
 
-pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
+pub fn keep_informing_clients_about_session_events(shared_session: &SharedInstanceModel) {
     let session = shared_session.borrow();
     let instance_state = session.instance_state().borrow();
     when(

@@ -69,7 +69,7 @@ pub use companion_app_presenter::*;
 
 mod dialog_util;
 
-mod util;
+pub mod util;
 
 mod clipboard;
 pub use clipboard::*;

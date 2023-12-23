@@ -1,4 +1,4 @@
-use crate::application::{InstanceModel, WeakSession};
+use crate::application::{InstanceModel, WeakInstanceModel};
 use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
@@ -7,7 +7,7 @@ use std::iter;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
 
 pub fn menu_containing_realearn_params(
-    session: &WeakSession,
+    session: &WeakInstanceModel,
     compartment: Compartment,
     current_value: CompartmentParamIndex,
 ) -> swell_ui::menu_tree::Menu<CompartmentParamIndex> {
@@ -31,7 +31,7 @@ pub fn menu_containing_realearn_params(
 }
 
 pub fn menu_containing_realearn_params_optional(
-    session: &WeakSession,
+    session: &WeakInstanceModel,
     compartment: Compartment,
     current_value: Option<CompartmentParamIndex>,
 ) -> swell_ui::menu_tree::Menu<Option<CompartmentParamIndex>> {
@@ -63,7 +63,7 @@ pub fn menu_containing_realearn_params_optional(
 }
 
 pub fn menu_containing_mappings(
-    session: &WeakSession,
+    session: &WeakInstanceModel,
     compartment: Compartment,
     current_value: Option<MappingId>,
 ) -> swell_ui::menu_tree::Menu<Option<MappingId>> {
@@ -176,7 +176,7 @@ pub fn menu_containing_sessions(
 }
 
 pub fn menu_containing_banks(
-    session: &WeakSession,
+    session: &WeakInstanceModel,
     compartment: Compartment,
     param_index: CompartmentParamIndex,
     current_value: u32,

@@ -10,7 +10,7 @@ use std::cell::{Cell, RefCell};
 
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, InstanceModel,
-    SessionProp, SessionUi, VirtualFxType, WeakSession,
+    SessionProp, SessionUi, VirtualFxType, WeakInstanceModel,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -18,7 +18,7 @@ use crate::domain::{
     Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
     QualifiedMappingId, TargetControlEvent, TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::{BackboneShell, InstanceParameters};
+use crate::infrastructure::plugin::{BackboneShell, UnitParameterContainer};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
@@ -34,19 +34,18 @@ use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewCon
 type _MainPanel = InstancePanel;
 
 /// The complete ReaLearn panel containing everything.
-// TODO-low Maybe call this SessionPanel
 #[derive(Debug)]
 pub struct InstancePanel {
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     state: SharedMainState,
-    plugin_parameters: sync::Weak<InstanceParameters>,
+    plugin_parameters: sync::Weak<UnitParameterContainer>,
 }
 
 #[derive(Debug)]
 struct ActiveData {
-    session: WeakSession,
+    session: WeakInstanceModel,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
@@ -63,7 +62,7 @@ impl ActiveData {
 }
 
 impl InstancePanel {
-    pub fn new(plugin_parameters: sync::Weak<InstanceParameters>) -> Self {
+    pub fn new(plugin_parameters: sync::Weak<UnitParameterContainer>) -> Self {
         Self {
             view: Default::default(),
             active_data: LazyCell::new(),
@@ -77,7 +76,8 @@ impl InstancePanel {
         &self.state
     }
 
-    pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
+    // TODO-high CONTINUE Not really necessary anymore because we defer the creation of the main panel itself.
+    pub fn notify_session_is_available(self: Rc<Self>, session: WeakInstanceModel) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let panel_manager = IndependentPanelManager::new(session.clone(), Rc::downgrade(&self));
         let panel_manager = Rc::new(RefCell::new(panel_manager));

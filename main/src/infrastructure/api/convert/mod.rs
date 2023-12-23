@@ -2,7 +2,7 @@ pub mod defaults;
 pub mod from_data;
 pub mod to_data;
 
-type ConversionResult<T> = Result<T, Box<dyn std::error::Error>>;
+type ConversionResult<T> = anyhow::Result<T>;
 
 fn convert_multiple<A, B>(
     input: Vec<A>,

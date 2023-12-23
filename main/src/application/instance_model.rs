@@ -489,7 +489,7 @@ impl InstanceModel {
 
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
-    pub fn activate(&mut self, weak_session: WeakSession) {
+    pub fn activate(&mut self, weak_session: WeakInstanceModel) {
         // Initial sync
         self.full_sync();
         // Whenever something in the group list changes, resubscribe to those groups and sync
@@ -581,7 +581,7 @@ impl InstanceModel {
             .find_preset_linked_to_fx(&fx_id)
     }
 
-    fn invalidate_fx_indexes_of_mapping_targets(&mut self, weak_session: WeakSession) {
+    fn invalidate_fx_indexes_of_mapping_targets(&mut self, weak_session: WeakInstanceModel) {
         let ids: Vec<_> = self
             .all_mappings()
             .map(|m| m.borrow().qualified_id())
@@ -735,7 +735,7 @@ impl InstanceModel {
             })
     }
 
-    fn learn_target(&mut self, target: &ReaperTarget, weak_session: WeakSession) {
+    fn learn_target(&mut self, target: &ReaperTarget, weak_session: WeakInstanceModel) {
         // Prevent learning targets from other project tabs (leads to weird effects, just think
         // about it)
         if let Some(p) = target.project() {
@@ -879,7 +879,7 @@ impl InstanceModel {
         compartment: Compartment,
         mapping_ids: &[MappingId],
         group_id: GroupId,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) -> Result<(), &'static str> {
         for mapping_id in mapping_ids.iter() {
             let id = QualifiedMappingId::new(compartment, *mapping_id);
@@ -915,7 +915,7 @@ impl InstanceModel {
     ///
     /// Panics if mapping not found.
     pub fn change_mapping_from_ui_simple(
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         mapping: &mut MappingModel,
         cmd: MappingCommand,
         initiator: Option<u32>,
@@ -930,7 +930,7 @@ impl InstanceModel {
         mapping: &mut MappingModel,
         cmd: MappingCommand,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         if let Some(affected) = mapping.change(cmd) {
             use Affected::*;
@@ -943,7 +943,7 @@ impl InstanceModel {
     }
 
     pub fn change_group_from_ui_simple(
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         group: &mut GroupModel,
         cmd: GroupCommand,
         initiator: Option<u32>,
@@ -958,7 +958,7 @@ impl InstanceModel {
         group: &mut GroupModel,
         cmd: GroupCommand,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         if let Some(affected) = group.change(cmd) {
             use Affected::*;
@@ -979,7 +979,7 @@ impl InstanceModel {
         &mut self,
         id: QualifiedMappingId,
         val: MappingCommand,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         self.change_with_notification(
             SessionCommand::ChangeCompartment(
@@ -1000,7 +1000,7 @@ impl InstanceModel {
         &mut self,
         cmd: SessionCommand,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         let _ = self.change_with_closure(initiator, weak_session, |session| session.change(cmd));
     }
@@ -1056,7 +1056,7 @@ impl InstanceModel {
         &mut self,
         id: QualifiedMappingId,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
     ) -> Result<(), String> {
         use Affected::*;
@@ -1074,7 +1074,7 @@ impl InstanceModel {
         &mut self,
         mapping: &mut MappingModel,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
     ) {
         let _ = self.change_mapping_with_closure(mapping, initiator, weak_session, |ctx| {
@@ -1086,7 +1086,7 @@ impl InstanceModel {
         &mut self,
         mapping: &mut MappingModel,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
     ) -> Result<(), String> {
         use Affected::*;
@@ -1103,7 +1103,7 @@ impl InstanceModel {
     pub fn notify_compartment_has_changed(
         &mut self,
         compartment: Compartment,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         use Affected::*;
         self.handle_affected(
@@ -1116,7 +1116,7 @@ impl InstanceModel {
     pub fn notify_mapping_has_changed(
         &mut self,
         id: QualifiedMappingId,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         use Affected::*;
         self.handle_affected(
@@ -1132,7 +1132,7 @@ impl InstanceModel {
     fn change_with_closure(
         &mut self,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         f: impl FnOnce(&mut InstanceModel) -> ChangeResult<SessionProp>,
     ) -> Result<(), String> {
         if let Some(affected) = f(self)? {
@@ -1145,7 +1145,7 @@ impl InstanceModel {
         &self,
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
     ) {
         // We react in the next main loop cycle. First, because otherwise we can easily run into
         // BorrowMut errors (because the handler might borrow the session but we still have it
@@ -1382,7 +1382,7 @@ impl InstanceModel {
 
     pub fn start_learning_many_mappings(
         &mut self,
-        session: &SharedSession,
+        session: &SharedInstanceModel,
         compartment: Compartment,
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
@@ -1426,7 +1426,7 @@ impl InstanceModel {
 
     fn add_and_learn_one_of_many_mappings(
         &mut self,
-        session: &SharedSession,
+        session: &SharedInstanceModel,
         compartment: Compartment,
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
@@ -1614,7 +1614,7 @@ impl InstanceModel {
 
     pub fn toggle_learning_source(
         &mut self,
-        session: WeakSession,
+        session: WeakInstanceModel,
         mapping_id: QualifiedMappingId,
     ) -> Result<(), &'static str> {
         let currently_learning_mapping_id = self
@@ -1633,7 +1633,7 @@ impl InstanceModel {
 
     fn start_learning_source(
         &mut self,
-        session: WeakSession,
+        session: WeakInstanceModel,
         mapping_id: QualifiedMappingId,
         ignore_sources: Vec<CompoundMappingSource>,
     ) -> Result<(), &'static str> {
@@ -1656,7 +1656,7 @@ impl InstanceModel {
 
     fn start_learning_source_internal(
         &mut self,
-        session: WeakSession,
+        session: WeakInstanceModel,
         mapping_id: QualifiedMappingId,
         reenable_control_after_touched: bool,
         ignore_sources: Vec<CompoundMappingSource>,
@@ -1734,7 +1734,11 @@ impl InstanceModel {
             .set_mapping_which_learns_source(None);
     }
 
-    pub fn toggle_learning_target(&mut self, session: WeakSession, mapping_id: QualifiedMappingId) {
+    pub fn toggle_learning_target(
+        &mut self,
+        session: WeakInstanceModel,
+        mapping_id: QualifiedMappingId,
+    ) {
         let currently_learning_mapping_id = self
             .instance_state
             .borrow()
@@ -1755,7 +1759,7 @@ impl InstanceModel {
     /// future.
     fn start_learning_target_internal(
         &mut self,
-        weak_session: WeakSession,
+        weak_session: WeakInstanceModel,
         mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
         filter: (HashSet<ReaperTargetType>, TargetTouchCause),
@@ -2308,7 +2312,7 @@ impl InstanceModel {
 
     pub fn toggle_learn_source_for_target(
         &mut self,
-        session: &SharedSession,
+        session: &SharedInstanceModel,
         compartment: Compartment,
         target: &ReaperTarget,
     ) -> SharedMapping {
@@ -2579,7 +2583,7 @@ impl Display for InstanceModel {
     }
 }
 
-impl DomainEventHandler for WeakSession {
+impl DomainEventHandler for WeakInstanceModel {
     fn handle_event(&self, event: DomainEvent) -> Result<(), Box<dyn Error>> {
         let session = self.upgrade().ok_or("session not existing anymore")?;
         use DomainEvent::*;
@@ -2802,11 +2806,11 @@ impl DomainEventHandler for WeakSession {
 /// behavior. It will let us know immediately when we violated that safety rule.
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-pub type SharedSession = Rc<RefCell<InstanceModel>>;
+pub type SharedInstanceModel = Rc<RefCell<InstanceModel>>;
 
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
-pub type WeakSession = Weak<RefCell<InstanceModel>>;
+pub type WeakInstanceModel = Weak<RefCell<InstanceModel>>;
 
 fn mappings_have_project_references<'a>(
     mut mappings: impl Iterator<Item = &'a SharedMapping>,
@@ -2871,7 +2875,7 @@ pub struct MappingChangeContext<'a> {
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMainTaskSender(
-    pub SenderToNormalThread<RealearnControlSurfaceMainTask<WeakSession>>,
+    pub SenderToNormalThread<RealearnControlSurfaceMainTask<WeakInstanceModel>>,
 );
 
 impl RealearnControlSurfaceMainTaskSender {

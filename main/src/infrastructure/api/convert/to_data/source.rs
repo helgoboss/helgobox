@@ -5,6 +5,7 @@ use crate::infrastructure::api::convert::to_data::{
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
+use anyhow::bail;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
 use realearn_api::persistence::*;
@@ -57,9 +58,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
                     0 => DisplayType::MackieLcd,
                     1 => DisplayType::MackieXtLcd,
                     _ => {
-                        return Err(
-                            "at the moment, only extender indexes 0 and 1 are supported".into()
-                        )
+                        bail!("at the moment, only extender indexes 0 and 1 are supported");
                     }
                 }
             }
@@ -71,9 +70,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
                     0 => DisplayType::XTouchMackieLcd,
                     1 => DisplayType::XTouchMackieXtLcd,
                     _ => {
-                        return Err(
-                            "at the moment, only extender indexes 0 and 1 are supported".into()
-                        )
+                        bail!("at the moment, only extender indexes 0 and 1 are supported");
                     }
                 }
             }
@@ -150,7 +147,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         parameter_index: match &s {
-            RealearnParameter(s) => s.parameter_index.try_into()?,
+            RealearnParameter(s) => s.parameter_index.try_into().map_err(anyhow::Error::msg)?,
             _ => Default::default(),
         },
     };

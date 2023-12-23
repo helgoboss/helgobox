@@ -34,7 +34,7 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelD
             .into_iter()
             .map(|p| {
                 Ok((
-                    CompartmentParamIndex::try_from(p.index)?,
+                    CompartmentParamIndex::try_from(p.index).map_err(anyhow::Error::msg)?,
                     convert_parameter(p)?,
                 ))
             })

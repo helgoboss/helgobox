@@ -1,4 +1,4 @@
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{SharedInstanceModel, WeakInstanceModel};
 use crate::domain::{
     Backbone, Compartment, Instance, InstanceId, QualifiedClipMatrixEvent, ReaperTarget,
 };
@@ -7,7 +7,7 @@ use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
 
 #[cfg(feature = "playtime")]
 pub fn get_or_insert_owned_clip_matrix(
-    session: WeakSession,
+    session: WeakInstanceModel,
     instance_state: &mut Instance,
 ) -> &mut playtime_clip_engine::base::Matrix {
     Backbone::get().get_or_insert_owned_clip_matrix_from_instance_state(
@@ -32,7 +32,7 @@ pub struct MatrixHandler {
     audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
     event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
-    session: WeakSession,
+    session: WeakInstanceModel,
 }
 
 #[cfg(feature = "playtime")]
@@ -42,7 +42,7 @@ impl MatrixHandler {
         audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
         real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
         event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
-        session: WeakSession,
+        session: WeakInstanceModel,
     ) -> Self {
         Self {
             instance_id,
@@ -53,7 +53,7 @@ impl MatrixHandler {
         }
     }
 
-    fn do_async_with_session(&self, f: impl FnOnce(SharedSession) + 'static) {
+    fn do_async_with_session(&self, f: impl FnOnce(SharedInstanceModel) + 'static) {
         let session = self.session.clone();
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {

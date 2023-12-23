@@ -1,17 +1,19 @@
 mod api_impl;
 mod debug_util;
-mod instance_editor;
 mod tracing_util;
-use instance_editor::*;
+mod unit_panel;
+use unit_panel::*;
 mod backbone_shell;
 pub use backbone_shell::*;
-mod instance_parameters;
 mod instance_shell;
-pub use instance_parameters::*;
+mod unit_parameter_container;
+mod unit_shell;
+mod unit_vst_plugin;
+pub use unit_parameter_container::*;
 
 #[allow(unused)]
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-vst::plugin_main!(instance_shell::InstanceShell);
+vst::plugin_main!(unit_vst_plugin::UnitVstPlugin);

@@ -5,7 +5,7 @@ use askama::Template;
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{SharedInstanceModel, WeakInstanceModel};
 use crate::base::when;
 use crate::infrastructure::plugin::BackboneShell;
 
@@ -20,14 +20,14 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct CompanionAppPresenter {
-    session: WeakSession,
+    session: WeakInstanceModel,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     /// `true` as soon as requested within this ReaLearn session execution at least once
     app_info_requested: Cell<bool>,
 }
 
 impl CompanionAppPresenter {
-    pub fn new(session: WeakSession) -> Rc<CompanionAppPresenter> {
+    pub fn new(session: WeakInstanceModel) -> Rc<CompanionAppPresenter> {
         let m = CompanionAppPresenter {
             session,
             party_is_over_subject: Default::default(),
@@ -88,7 +88,7 @@ impl CompanionAppPresenter {
         index_file
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedInstanceModel {
         self.session.upgrade().expect("session gone")
     }
 

@@ -63,6 +63,15 @@ pub fn blocking_read_lock<'a, T>(
     })
 }
 
+/// Returns `None` if access would block.
+pub fn non_blocking_try_read_lock<T>(rw_lock: &RwLock<T>) -> Option<RwLockReadGuard<T>> {
+    match rw_lock.try_read() {
+        Ok(g) => Some(g),
+        Err(std::sync::TryLockError::Poisoned(e)) => Some(e.into_inner()),
+        Err(std::sync::TryLockError::WouldBlock) => None,
+    }
+}
+
 /// Locks the given rw lock.
 ///
 /// Returns the guard even if mutex is poisoned.

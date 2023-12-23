@@ -43,10 +43,11 @@ use crate::application::{
     MappingChangeContext, MappingCommand, MappingModel, MappingProp, MappingRefModel,
     MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
     ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    SharedInstanceModel, SharedMapping, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
     TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakInstanceModel,
+    KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -82,7 +83,7 @@ use base::Global;
 #[derive(Debug)]
 pub struct MappingPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakInstanceModel,
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<InstancePanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
@@ -126,7 +127,7 @@ struct WindowCache {
 }
 
 impl MappingPanel {
-    pub fn new(session: WeakSession, main_panel: WeakView<InstancePanel>) -> MappingPanel {
+    pub fn new(session: WeakInstanceModel, main_panel: WeakView<InstancePanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session: session.clone(),
@@ -1458,7 +1459,7 @@ impl MappingPanel {
         .expect("mapping must be filled at this point");
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedInstanceModel {
         self.session.upgrade().expect("session gone")
     }
 

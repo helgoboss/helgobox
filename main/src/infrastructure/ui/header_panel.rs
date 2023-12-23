@@ -19,7 +19,7 @@ use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
     ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
     MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    SharedInstanceModel, SharedMapping, VirtualControlElementType, WeakInstanceModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -33,12 +33,12 @@ use crate::infrastructure::data::{
     OscDevice,
 };
 use crate::infrastructure::plugin::{
-    warn_about_failed_server_start, BackboneShell, InstanceParameters,
+    warn_about_failed_server_start, BackboneShell, UnitParameterContainer,
 };
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::base::notification::notify_processing_result;
+use crate::base::notification::{notify_processing_result, notify_user_on_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{
@@ -55,6 +55,7 @@ use crate::infrastructure::ui::{
     UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
 use semver::Version;
@@ -71,10 +72,10 @@ const PARAM_BATCH_SIZE: u32 = 5;
 #[derive(Debug)]
 pub struct HeaderPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakInstanceModel,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
-    plugin_parameters: sync::Weak<InstanceParameters>,
+    plugin_parameters: sync::Weak<UnitParameterContainer>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -84,9 +85,9 @@ pub struct HeaderPanel {
 
 impl HeaderPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakInstanceModel,
         main_state: SharedMainState,
-        plugin_parameters: sync::Weak<InstanceParameters>,
+        plugin_parameters: sync::Weak<UnitParameterContainer>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
     ) -> HeaderPanel {
         HeaderPanel {
@@ -173,7 +174,7 @@ impl HeaderPanel {
         }
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedInstanceModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -2033,7 +2034,7 @@ impl HeaderPanel {
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
                 ) {
-                    plugin_parameters.apply_session_data(&d);
+                    notify_user_on_anyhow_error(plugin_parameters.apply_session_data(&d));
                 }
             }
             #[cfg(feature = "playtime")]
@@ -2130,7 +2131,7 @@ impl HeaderPanel {
         }
     }
 
-    pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
+    pub fn export_to_clipboard(&self) -> anyhow::Result<()> {
         enum MenuAction {
             None,
             ExportSession(SerializationFormat),
@@ -2194,8 +2195,8 @@ impl HeaderPanel {
                 let plugin_parameters = self
                     .plugin_parameters
                     .upgrade()
-                    .expect("plugin params gone");
-                let session_data = plugin_parameters.create_session_data();
+                    .context("plugin params gone")?;
+                let session_data = plugin_parameters.create_session_data()?;
                 let data_object =
                     DataObject::Session(BackboneShell::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
@@ -2238,7 +2239,17 @@ impl HeaderPanel {
         }
     }
 
+    fn notify_user_on_anyhow_error(&self, result: anyhow::Result<()>) {
+        if let Err(e) = result {
+            self.notify_user_about_anyhow_error(e);
+        }
+    }
+
     fn notify_user_about_error(&self, e: Box<dyn Error>) {
+        self.view.require_window().alert("ReaLearn", e.to_string());
+    }
+
+    fn notify_user_about_anyhow_error(&self, e: anyhow::Error) {
         self.view.require_window().alert("ReaLearn", e.to_string());
     }
 
@@ -2651,7 +2662,7 @@ impl View for HeaderPanel {
                 self.notify_user_on_error(result);
             }
             root::ID_EXPORT_BUTTON => {
-                self.notify_user_on_error(self.export_to_clipboard());
+                self.notify_user_on_anyhow_error(self.export_to_clipboard());
             }
             root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => {
                 self.update_let_matched_events_through()
@@ -2883,7 +2894,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 }
 
 fn edit_compartment_parameter(
-    session: SharedSession,
+    session: SharedInstanceModel,
     compartment: Compartment,
     range: RangeInclusive<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
@@ -3137,7 +3148,7 @@ fn generate_fx_to_preset_links_menu_entries(
 
 fn with_scoped_preset_link_mutator(
     scope: PresetLinkScope,
-    session: &WeakSession,
+    session: &WeakInstanceModel,
     f: impl FnOnce(&mut dyn PresetLinkMutator),
 ) {
     match scope {

@@ -83,7 +83,7 @@ pub fn convert_tags(tag_strings: Vec<String>) -> ConversionResult<Vec<Tag>> {
 }
 
 fn convert_tag(tag_string: String) -> ConversionResult<Tag> {
-    let tag = Tag::from_str(&tag_string)?;
+    let tag = Tag::from_str(&tag_string).map_err(anyhow::Error::msg)?;
     Ok(tag)
 }
 

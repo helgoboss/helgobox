@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    Affected, InstanceModel, SessionProp, SharedMapping, SharedSession, WeakSession,
+    Affected, InstanceModel, SessionProp, SharedInstanceModel, SharedMapping, WeakInstanceModel,
 };
 use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -24,7 +24,7 @@ use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window
 pub struct MappingRowsPanel {
     view: ViewContext,
     position: Point<DialogUnits>,
-    session: WeakSession,
+    session: WeakInstanceModel,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
@@ -33,7 +33,7 @@ pub struct MappingRowsPanel {
 
 impl MappingRowsPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakInstanceModel,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
         position: Point<DialogUnits>,
@@ -61,7 +61,7 @@ impl MappingRowsPanel {
         }
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedInstanceModel {
         self.session.upgrade().expect("session gone")
     }
 

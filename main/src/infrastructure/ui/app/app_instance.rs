@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::application::WeakSession;
+use crate::application::WeakInstanceModel;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
@@ -35,7 +35,7 @@ pub trait AppInstance: Debug {
 }
 
 #[allow(clippy::if_same_then_else)]
-pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
+pub fn create_shared_app_instance(session: WeakInstanceModel) -> SharedAppInstance {
     fn share(value: impl AppInstance + 'static) -> SharedAppInstance {
         Rc::new(RefCell::new(value))
     }
@@ -157,7 +157,7 @@ impl AppInstance for ParentedAppInstance {
 /// This is possible on all OS.
 #[derive(Debug)]
 struct StandaloneAppInstance {
-    session: WeakSession,
+    session: WeakInstanceModel,
     running_state: Option<StandaloneAppRunningState>,
 }
 
@@ -258,7 +258,7 @@ impl AppInstance for StandaloneAppInstance {
 #[derive(Debug)]
 pub struct AppPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakInstanceModel,
     running_state: RefCell<Option<ParentedAppRunningState>>,
 }
 
@@ -291,7 +291,7 @@ struct CommonAppRunningState {
 }
 
 impl AppPanel {
-    pub fn new(session: WeakSession) -> Self {
+    pub fn new(session: WeakInstanceModel) -> Self {
         Self {
             view: Default::default(),
             session,
@@ -513,7 +513,7 @@ fn subscribe_to_events() -> ClipEngineReceivers {
 //  and hold a global mapping from session ID to instance ID in the app. Or maybe better: We use
 //  the instance ID whenever we are embedded, not the session ID! Then the "matrix ID" refers
 //  to the instance ID when embedded and to the session ID when remote.
-fn extract_session_id(session: &WeakSession) -> Result<String> {
+fn extract_session_id(session: &WeakInstanceModel) -> Result<String> {
     Ok(session
         .upgrade()
         .ok_or_else(|| anyhow!("session gone"))?

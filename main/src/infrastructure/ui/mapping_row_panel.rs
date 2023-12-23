@@ -1,7 +1,7 @@
 use crate::application::{
     Affected, CompartmentProp, InstanceModel, MappingCommand, MappingModel, MappingProp,
-    SessionProp, SharedMapping, SharedSession, SourceCategory, TargetCategory,
-    TargetModelFormatMultiLine, WeakSession,
+    SessionProp, SharedInstanceModel, SharedMapping, SourceCategory, TargetCategory,
+    TargetModelFormatMultiLine, WeakInstanceModel,
 };
 use crate::base::when;
 use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId};
@@ -43,7 +43,7 @@ pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 #[derive(Debug)]
 pub struct MappingRowPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakInstanceModel,
     main_state: SharedMainState,
     row_index: u32,
     is_last_row: bool,
@@ -60,7 +60,7 @@ pub struct MappingRowPanel {
 
 impl MappingRowPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakInstanceModel,
         row_index: u32,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
@@ -231,7 +231,7 @@ impl MappingRowPanel {
             .set_text(right_label);
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedInstanceModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -922,7 +922,7 @@ impl Drop for MappingRowPanel {
 }
 
 fn move_mapping_to_group(
-    session: SharedSession,
+    session: SharedInstanceModel,
     compartment: Compartment,
     mapping_id: MappingId,
     group_id: Option<GroupId>,
@@ -941,7 +941,7 @@ fn move_mapping_to_group(
 }
 
 fn copy_mapping_object(
-    session: SharedSession,
+    session: SharedInstanceModel,
     compartment: Compartment,
     mapping_id: MappingId,
     object_type: ObjectType,
@@ -989,7 +989,7 @@ enum ObjectType {
 
 fn paste_data_object_in_place(
     data_object: DataObject,
-    shared_session: SharedSession,
+    shared_session: SharedInstanceModel,
     triple: MappingTriple,
 ) -> Result<(), &'static str> {
     let mut session = shared_session.borrow_mut();
@@ -1058,7 +1058,7 @@ fn paste_data_object_in_place(
 #[allow(clippy::needless_collect)]
 pub fn paste_mappings(
     mapping_datas: Envelope<Vec<MappingModelData>>,
-    session: SharedSession,
+    session: SharedInstanceModel,
     compartment: Compartment,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,

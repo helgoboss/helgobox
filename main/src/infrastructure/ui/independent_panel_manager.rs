@@ -2,7 +2,7 @@ use crate::infrastructure::ui::{InstancePanel, MappingPanel, SessionMessagePanel
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{Affected, InstanceModel, SessionProp, SharedMapping, WeakSession};
+use crate::application::{Affected, InstanceModel, SessionProp, SharedMapping, WeakInstanceModel};
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
 };
@@ -13,7 +13,7 @@ const MAX_PANEL_COUNT: u32 = 4;
 /// Responsible for managing the currently open top-level mapping panels.
 #[derive(Debug)]
 pub struct IndependentPanelManager {
-    session: WeakSession,
+    session: WeakInstanceModel,
     main_panel: WeakView<InstancePanel>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
@@ -24,7 +24,7 @@ pub struct IndependentPanelManager {
 
 impl IndependentPanelManager {
     pub fn new(
-        session: WeakSession,
+        session: WeakInstanceModel,
         main_panel: WeakView<InstancePanel>,
     ) -> IndependentPanelManager {
         Self {
