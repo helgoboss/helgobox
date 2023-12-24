@@ -1,4 +1,4 @@
-use crate::domain::InstanceId;
+use crate::domain::UnitId;
 use crate::infrastructure::plugin::{BackboneShell, PluginInstanceInfo};
 use anyhow::Context;
 use itertools::Itertools;
@@ -69,7 +69,7 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
 
 fn find_first_helgobox_instance_matching(
     meets_criteria: impl Fn(&PluginInstanceInfo) -> bool,
-) -> Option<InstanceId> {
+) -> Option<UnitId> {
     BackboneShell::get().with_instances(|instances| {
         instances
             .iter()

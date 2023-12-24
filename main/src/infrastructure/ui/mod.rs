@@ -1,7 +1,7 @@
 mod bindings;
 
-mod instance_panel;
-pub use instance_panel::*;
+mod unit_panel;
+pub use unit_panel::*;
 
 mod state;
 pub use state::*;
@@ -84,4 +84,4 @@ mod egui_views;
 
 mod menus;
 
-pub mod unit_panel;
+pub mod instance_panel;

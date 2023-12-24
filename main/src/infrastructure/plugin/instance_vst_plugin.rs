@@ -6,10 +6,10 @@ use vst::plugin::{
 };
 
 use crate::domain::{
-    ControlEvent, ControlEventTimestamp, MidiEvent, PluginParamIndex, ProcessorContext, UnitId,
+    ControlEvent, ControlEventTimestamp, InstanceId, MidiEvent, PluginParamIndex, ProcessorContext,
     PLUGIN_PARAMETER_COUNT,
 };
-use crate::infrastructure::plugin::unit_parameter_container::UnitParameterContainer;
+use crate::infrastructure::plugin::instance_param_container::InstanceParamContainer;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use base::{tracing_debug, Global};
 use helgoboss_allocator::*;
@@ -25,9 +25,9 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
-use crate::infrastructure::plugin::unit_editor::UnitEditor;
-use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::ui::unit_panel::UnitPanel;
+use crate::infrastructure::plugin::instance_editor::InstanceEditor;
+use crate::infrastructure::plugin::instance_shell::InstanceShell;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::{anyhow, Context};
 use helgoboss_learn::AbstractTimestamp;
 use std::convert::TryInto;
@@ -40,16 +40,16 @@ use vst::buffer::AudioBuffer;
 use vst::host::Host;
 
 /// Just the old term as alias for easier class search.
-type _RealearnPlugin = UnitVstPlugin;
+type _RealearnPlugin = InstanceVstPlugin;
 
 /// The actual VST plug-in and thus main entry point.
 ///
-/// Owns the unit shell, but not immediately. It's created as soon as the containing FX is
+/// Owns the instance shell, but not immediately. It's created as soon as the containing FX is
 /// available.
-pub struct UnitVstPlugin {
-    unit_id: UnitId,
+pub struct InstanceVstPlugin {
+    instance_id: InstanceId,
     host: HostCallback,
-    unit_parameters: Arc<UnitParameterContainer>,
+    instance_params: Arc<InstanceParamContainer>,
     /// This will be set on `init()`.
     _reaper_guard: Option<Arc<ReaperGuard>>,
     // For detecting play state changes
@@ -59,32 +59,32 @@ pub struct UnitVstPlugin {
     /// REAPER VST scan (and is not going to be used "for real").
     is_plugin_scan: bool,
     // This will be set as soon as the containing FX is known (one main loop cycle after `init()`).
-    unit_shell: OnceLock<Arc<UnitShell>>,
-    unit_panel: SharedView<UnitPanel>,
+    instance_shell: OnceLock<Arc<InstanceShell>>,
+    instance_panel: SharedView<InstancePanel>,
 }
 
-impl Default for UnitVstPlugin {
+impl Default for InstanceVstPlugin {
     fn default() -> Self {
-        UnitVstPlugin::new(Default::default())
+        InstanceVstPlugin::new(Default::default())
     }
 }
 
-unsafe impl Send for UnitVstPlugin {}
+unsafe impl Send for InstanceVstPlugin {}
 
-impl Plugin for UnitVstPlugin {
+impl Plugin for InstanceVstPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
-            let unit_parameters = Arc::new(UnitParameterContainer::new());
+            let instance_params = Arc::new(InstanceParamContainer::new());
             Self {
-                unit_id: UnitId::next(),
+                instance_id: InstanceId::next(),
                 host,
                 _reaper_guard: None,
-                unit_parameters,
+                instance_params,
                 was_playing_in_last_cycle: false,
                 sample_rate: Default::default(),
                 is_plugin_scan: false,
-                unit_shell: OnceLock::new(),
-                unit_panel: Rc::new(UnitPanel::new()),
+                instance_shell: OnceLock::new(),
+                instance_panel: Rc::new(InstancePanel::new()),
             }
         })
         .unwrap_or_default()
@@ -114,7 +114,7 @@ impl Plugin for UnitVstPlugin {
             Ok(i) => i,
             Err(_) => return None,
         };
-        let params = self.unit_parameters.params();
+        let params = self.instance_params.params();
         let param = params.at(i);
         if let Some(value_count) = param.setting().value_count {
             let mut info = PluginParameterInfo::default();
@@ -140,15 +140,15 @@ impl Plugin for UnitVstPlugin {
             tracing_debug!("ReaLearn is being opened by REAPER");
             self._reaper_guard = Some(self.ensure_reaper_setup());
             // At this point, REAPER cannot reliably give us the containing FX. As a
-            // consequence we also don't have a unit shell yet, because creating an incomplete
-            // unit shell pushes the problem of not knowing the containing FX into the application
+            // consequence we also don't have a instance shell yet, because creating an incomplete
+            // instance shell pushes the problem of not knowing the containing FX into the application
             // logic, which we for sure don't want. In the next main loop cycle, it should be
             // possible to identify the containing FX.
             let host = self.host;
             Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || {
                     let plugin = unsafe { (*host.raw_effect()).get_plugin() };
-                    plugin.vendor_specific(INIT_FIRST_INSTANCE_VENDOR_CODE, 0, null_mut(), 0.0);
+                    plugin.vendor_specific(INIT_INSTANCE_SHELL, 0, null_mut(), 0.0);
                 })
                 .unwrap();
         });
@@ -159,7 +159,7 @@ impl Plugin for UnitVstPlugin {
             // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
             // host, e.g. in order to check if it should the hasEditor flag or not. That means
             // we don't know yet if this is a plug-in scan or not. We have to create the editor.
-            let boxed: Box<dyn Editor> = Box::new(UnitEditor::new(self.unit_panel.clone()));
+            let boxed: Box<dyn Editor> = Box::new(InstanceEditor::new(self.instance_panel.clone()));
             Some(boxed)
         })
         .unwrap_or(None)
@@ -195,7 +195,7 @@ impl Plugin for UnitVstPlugin {
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
-        self.unit_parameters.clone()
+        self.instance_params.clone()
     }
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
@@ -221,8 +221,8 @@ impl Plugin for UnitVstPlugin {
                         Ok(e) => e,
                     };
                     let our_event = ControlEvent::new(our_event, timestamp);
-                    if let Some(unit_shell) = self.unit_shell.get() {
-                        unit_shell.process_incoming_midi_from_plugin(
+                    if let Some(instance_shell) = self.instance_shell.get() {
+                        instance_shell.process_incoming_midi_from_plugin(
                             our_event,
                             is_transport_start,
                             self.host,
@@ -241,8 +241,8 @@ impl Plugin for UnitVstPlugin {
                 // Get current time information so we can detect changes in play state reliably
                 // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
                 self.was_playing_in_last_cycle = self.is_now_playing();
-                if let Some(unit_shell) = self.unit_shell.get() {
-                    unit_shell.run_from_plugin(
+                if let Some(instance_shell) = self.instance_shell.get() {
+                    instance_shell.run_from_plugin(
                         #[cfg(feature = "playtime")]
                         buffer,
                         #[cfg(feature = "playtime")]
@@ -258,8 +258,8 @@ impl Plugin for UnitVstPlugin {
         firewall(|| {
             tracing_debug!("VST set sample rate");
             self.sample_rate = Hz::new(rate as _);
-            if let Some(unit_shell) = self.unit_shell.get() {
-                unit_shell.set_sample_rate(rate);
+            if let Some(instance_shell) = self.instance_shell.get() {
+                instance_shell.set_sample_rate(rate);
             }
         });
     }
@@ -285,7 +285,7 @@ impl Plugin for UnitVstPlugin {
     }
 }
 
-impl UnitVstPlugin {
+impl InstanceVstPlugin {
     /// Should be called in real-time thread only.
     fn is_now_playing(&self) -> bool {
         use vst::api::TimeInfoFlags;
@@ -331,12 +331,9 @@ impl UnitVstPlugin {
             return Err("empty buffer");
         }
         match param_name {
-            // TODO-high CONTINUE Rename to HELGOBOX_UNIT_ID. Or no. Swap instance and unit.
-            //  It's better if the container is named "instance" because it corresponds to one
-            //  plug-in instance. Then we can use ReaLearnUnit, PotUnit, and PlaytimeUnit (Matrix).
             crate::domain::HELGOBOX_INSTANCE_ID => {
                 let instance_id_c_string =
-                    CString::new(self.unit_id.to_string()).expect("should be number");
+                    CString::new(self.instance_id.to_string()).expect("should be number");
                 let mut bytes = instance_id_c_string
                     .as_bytes_with_nul()
                     .iter()
@@ -357,27 +354,27 @@ impl UnitVstPlugin {
             SET_STATE_PARAM_NAME => {
                 let c_str = unsafe { CStr::from_ptr(buffer) };
                 let rust_str = c_str.to_str().expect("not valid UTF-8");
-                self.unit_parameters.load_state(rust_str)?;
+                self.instance_params.load_state(rust_str)?;
                 Ok(())
             }
             _ => Err(anyhow!("unhandled config param")),
         }
     }
 
-    fn init_unit_shell(&self) -> anyhow::Result<()> {
+    fn init_instance_shell(&self) -> anyhow::Result<()> {
         let processor_context = ProcessorContext::from_host(self.host)
             .context("couldn't build processor context, called too early.")?;
-        let unit_shell = Arc::new(UnitShell::new(
+        let instance_shell = Arc::new(InstanceShell::new(
             processor_context,
-            self.unit_parameters.clone(),
-            self.unit_panel.clone(),
+            self.instance_params.clone(),
+            self.instance_panel.clone(),
         ));
-        unit_shell.set_sample_rate(self.sample_rate.get() as _);
-        self.unit_shell
-            .set(unit_shell.clone())
-            .map_err(|_| anyhow!("unit shell already initialized"))?;
-        self.unit_parameters
-            .notify_unit_shell_is_available(unit_shell);
+        instance_shell.set_sample_rate(self.sample_rate.get() as _);
+        self.instance_shell
+            .set(instance_shell.clone())
+            .map_err(|_| anyhow!("instance shell already initialized"))?;
+        self.instance_params
+            .notify_instance_shell_is_available(instance_shell);
         Ok(())
     }
 
@@ -394,8 +391,9 @@ impl UnitVstPlugin {
             param_name.to_str().map_err(|_| "invalid parameter name")
         }
         match index {
-            INIT_FIRST_INSTANCE_VENDOR_CODE => {
-                self.init_unit_shell().expect("couldn't init unit shell");
+            INIT_INSTANCE_SHELL => {
+                self.init_instance_shell()
+                    .expect("couldn't init instance shell");
                 return 0;
             }
             _ => {}
@@ -440,7 +438,7 @@ impl UnitVstPlugin {
                     Ok(i) => i,
                     Err(_) => return 0,
                 };
-                let params = self.unit_parameters.params();
+                let params = self.instance_params.params();
                 let string = params.at(i).setting().with_raw_value(opt).to_string();
                 if write_to_c_str(ptr, string).is_err() {
                     return 0;
@@ -459,7 +457,7 @@ impl UnitVstPlugin {
                     // REAPER checks if we support this.
                     return 0xbeef;
                 }
-                let params = self.unit_parameters.params();
+                let params = self.instance_params.params();
                 let param = params.at(i);
                 let raw_value = match param.setting().parse_to_raw_value(text_input) {
                     Ok(v) => v,
@@ -491,6 +489,6 @@ fn firewall<F: FnOnce() -> R, R>(f: F) -> Option<R> {
 }
 
 /// This is our own code. We call ourselves in order to safe us an Arc around
-/// the unit shell. Why use an Arc (and therefore make each internal access to the unit shell have to
+/// the instance shell. Why use an Arc (and therefore make each internal access to the instance shell have to
 /// dereference a pointer) if we already have a pointer from outside.
-const INIT_FIRST_INSTANCE_VENDOR_CODE: i32 = -235978234;
+const INIT_INSTANCE_SHELL: i32 = -235978234;

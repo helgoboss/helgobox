@@ -7,18 +7,18 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
     FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
-    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
-    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
-    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
-    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceOrchestrationEvent,
+    InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
+    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
+    RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
     ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
     SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    TargetValueChangedEvent, UnitContainer, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -73,9 +73,9 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
-    instance_id: InstanceId,
+    instance_id: UnitId,
     source_context: SourceContext,
-    instance_container: &'static dyn InstanceContainer,
+    instance_container: &'static dyn UnitContainer,
     logger: slog::Logger,
     settings: BasicSettings,
     control_is_globally_enabled: bool,
@@ -259,7 +259,7 @@ struct Channels {
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: InstanceId,
+        instance_id: UnitId,
         parent_logger: &slog::Logger,
         self_normal_sender: SenderToNormalThread<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
@@ -278,7 +278,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         event_handler: EH,
         context: ProcessorContext,
         instance_state: SharedInstanceState,
-        instance_container: &'static dyn InstanceContainer,
+        instance_container: &'static dyn UnitContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             SenderToNormalThread::new_bounded_channel(
@@ -332,7 +332,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn instance_id(&self) -> &InstanceId {
+    pub fn instance_id(&self) -> &UnitId {
         &self.basics.instance_id
     }
 
@@ -778,7 +778,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[cfg(feature = "playtime")]
     pub fn process_polled_clip_matrix_events(
         &self,
-        instance_id: InstanceId,
+        instance_id: UnitId,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
     ) {
         let instance_state = self.basics.instance_state.borrow();
@@ -3917,29 +3917,29 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct InstanceId(u32);
+pub struct UnitId(u32);
 
-impl fmt::Display for InstanceId {
+impl fmt::Display for UnitId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl InstanceId {
+impl UnitId {
     pub fn next() -> Self {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         Self(COUNTER.fetch_add(1, Ordering::SeqCst))
     }
 }
 
-impl From<u32> for InstanceId {
+impl From<u32> for UnitId {
     fn from(value: u32) -> Self {
         Self(value)
     }
 }
 
-impl From<InstanceId> for u32 {
-    fn from(value: InstanceId) -> Self {
+impl From<UnitId> for u32 {
+    fn from(value: UnitId) -> Self {
         value.0
     }
 }

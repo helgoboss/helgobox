@@ -1,9 +1,9 @@
 use crate::domain::{
     Backbone, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
+    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue,
     InstanceStateChanged, MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
     OscDeviceId, OscInputDevice, OscScanResult, ReaperConfigChangeDetector, ReaperMessage,
-    ReaperTarget, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType,
+    ReaperTarget, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType, UnitId,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -57,7 +57,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     full_beats: HashMap<ReaProject, u32>,
     fx_focus_state: Option<GetFocusedFx2Result>,
-    target_capture_senders: HashMap<Option<InstanceId>, TargetCaptureSender>,
+    target_capture_senders: HashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
     device_change_detector: DeviceChangeDetector,
@@ -71,8 +71,8 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     // Removing a main processor is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
-    StartCapturingTargets(Option<InstanceId>, TargetCaptureSender),
-    StopCapturingTargets(Option<InstanceId>),
+    StartCapturingTargets(Option<UnitId>, TargetCaptureSender),
+    StopCapturingTargets(Option<UnitId>),
     StartCapturingOsc(OscCaptureSender),
     StopCapturingOsc,
     SendAllFeedback,
@@ -106,7 +106,7 @@ pub enum AdditionalFeedbackEvent {
     /// Not all instance state events are forwarded, only those that might matter for other
     /// instances.
     Instance {
-        instance_id: InstanceId,
+        instance_id: UnitId,
         instance_event: InstanceStateChanged,
     },
     LastTouchedTargetChanged,
@@ -127,7 +127,7 @@ pub enum InstanceOrchestrationEvent {
 /// Communicates changes in which input and output device a ReaLearn instance uses or used.
 #[derive(Debug)]
 pub struct IoUpdatedEvent {
-    pub instance_id: InstanceId,
+    pub instance_id: UnitId,
     pub control_input: Option<DeviceControlInput>,
     pub control_input_used: bool,
     pub feedback_output: Option<DeviceFeedbackOutput>,
@@ -137,7 +137,7 @@ pub struct IoUpdatedEvent {
 
 #[derive(Debug)]
 pub struct SourceReleasedEvent {
-    pub instance_id: InstanceId,
+    pub instance_id: UnitId,
     pub feedback_output: FeedbackOutput,
     pub feedback_value: FinalSourceFeedbackValue,
 }
@@ -280,7 +280,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.counter += 1;
     }
 
-    pub fn remove_main_processor(&mut self, id: &InstanceId) {
+    pub fn remove_main_processor(&mut self, id: &UnitId) {
         self.main_processors
             .borrow_mut()
             .retain(|p| p.instance_id() != id);
@@ -785,7 +785,7 @@ fn reset_midi_devices(
 fn process_touched_target(
     target: ReaperTarget,
     caused_by_realearn: bool,
-    target_capture_senders: &HashMap<Option<InstanceId>, TargetCaptureSender>,
+    target_capture_senders: &HashMap<Option<UnitId>, TargetCaptureSender>,
 ) {
     let touch_event = TargetTouchEvent {
         target,

@@ -2,10 +2,10 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionResponse, HitResponse, Instance, InstanceId,
-    InstanceStateChanged, MappingControlContext, MappingId, MappingKey,
-    MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceStateChanged,
+    MappingControlContext, MappingId, MappingKey, MappingModificationRequestedEvent,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, Unit, UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -82,7 +82,7 @@ impl RealearnTarget for ModifyMappingTarget {
     ) -> Result<HitResponse, &'static str> {
         struct ModifyMappingInstruction {
             compartment: Compartment,
-            instance_id: Option<InstanceId>,
+            instance_id: Option<UnitId>,
             mapping_id: MappingId,
             modification: MappingModification,
             value: ControlValue,
@@ -185,7 +185,7 @@ impl RealearnTarget for ModifyMappingTarget {
 }
 
 struct GetArgs<'a> {
-    instance_state: &'a Instance,
+    instance_state: &'a Unit,
     id: QualifiedMappingId,
 }
 

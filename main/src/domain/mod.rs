@@ -81,8 +81,8 @@ pub use realearn_source_context::*;
 mod backbone;
 pub use backbone::*;
 
-mod instance;
-pub use instance::*;
+mod unit;
+pub use unit::*;
 
 mod osc;
 pub use osc::*;
@@ -144,5 +144,5 @@ pub use lua_support::*;
 mod info_event;
 pub use info_event::*;
 
-mod unit;
-pub use unit::*;
+mod instance;
+pub use instance::*;

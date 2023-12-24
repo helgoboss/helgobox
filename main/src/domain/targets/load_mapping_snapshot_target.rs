@@ -1,9 +1,9 @@
 use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, Instance,
+    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
     InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
     MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetTypeDef, Unit, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForLoad;
@@ -240,7 +240,7 @@ impl LoadMappingSnapshotInstruction {
             .collect()
     }
 
-    fn mark_snapshot_as_active(&self, instance_state: &mut Instance) {
+    fn mark_snapshot_as_active(&self, instance_state: &mut Unit) {
         instance_state.mark_snapshot_active(self.compartment, &self.scope, &self.snapshot);
     }
 }

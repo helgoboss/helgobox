@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{InstancePanel, MappingPanel, SessionMessagePanel};
+use crate::infrastructure::ui::{MappingPanel, SessionMessagePanel, UnitPanel};
 use reaper_high::Reaper;
 use slog::debug;
 use std::cell::OnceCell;
@@ -15,7 +15,7 @@ const MAX_PANEL_COUNT: u32 = 4;
 #[derive(Debug)]
 pub struct IndependentPanelManager {
     session: WeakInstanceModel,
-    main_panel: OnceCell<WeakView<InstancePanel>>,
+    main_panel: OnceCell<WeakView<UnitPanel>>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
     /// We have at most one app instance open per ReaLearn instance.
@@ -35,7 +35,7 @@ impl IndependentPanelManager {
         }
     }
 
-    pub fn set_main_panel(&mut self, main_panel: WeakView<InstancePanel>) {
+    pub fn set_main_panel(&mut self, main_panel: WeakView<UnitPanel>) {
         self.main_panel.set(main_panel).expect("can set only once")
     }
 
@@ -197,7 +197,7 @@ impl IndependentPanelManager {
         }
     }
 
-    fn main_panel(&self) -> &WeakView<InstancePanel> {
+    fn main_panel(&self) -> &WeakView<UnitPanel> {
         self.main_panel.get().expect("main panel not set")
     }
 

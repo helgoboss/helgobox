@@ -1,7 +1,7 @@
 use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, InstanceModel};
 use crate::domain::{
-    Compartment, CompartmentParamIndex, GroupId, GroupKey, InstanceId, MappingId, MappingKey,
-    ParamSetting,
+    Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
+    UnitId,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
@@ -70,7 +70,7 @@ impl ModelToDataConversionContext for CompartmentModel {
         Some(mapping.key().clone())
     }
 
-    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+    fn session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
         BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }

@@ -6,14 +6,14 @@ use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
-    GroupId, InputDescriptor, InstanceContainer, InstanceContainerCommonArgs,
-    InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent, InstanceTrackChangeRequest,
-    LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent, MessageCaptureResult,
-    MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
-    OscScanResult, ProcessorContext, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, RealearnWindowSnitch, ReaperTarget, ReaperTargetType,
-    SharedMainProcessors, SharedRealTimeProcessor, Tag, WeakInstanceState,
+    GroupId, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest,
+    InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
+    MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
+    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId,
+    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
+    ReaperTarget, ReaperTargetType, SharedMainProcessors, SharedRealTimeProcessor, Tag,
+    UnitContainer, UnitId, WeakInstanceState,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -24,7 +24,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{InstancePanel, MessagePanel};
+use crate::infrastructure::ui::{MessagePanel, UnitPanel};
 #[allow(unused)]
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
@@ -161,11 +161,11 @@ pub struct BackboneShell {
 
 #[derive(Debug)]
 pub struct PluginInstanceInfo {
-    pub instance_id: InstanceId,
+    pub instance_id: UnitId,
     pub processor_context: ProcessorContext,
     pub instance_state: WeakInstanceState,
     pub session: WeakInstanceModel,
-    pub ui: Weak<InstancePanel>,
+    pub ui: Weak<UnitPanel>,
 }
 
 #[derive(Debug)]
@@ -611,7 +611,7 @@ impl BackboneShell {
 
     pub fn register_processor_couple(
         &self,
-        instance_id: InstanceId,
+        instance_id: UnitId,
         real_time_processor: SharedRealTimeProcessor,
         main_processor: MainProcessor<WeakInstanceModel>,
     ) {
@@ -625,7 +625,7 @@ impl BackboneShell {
         );
     }
 
-    pub fn unregister_processor_couple(&self, instance_id: InstanceId) {
+    pub fn unregister_processor_couple(&self, instance_id: UnitId) {
         self.unregister_main_processor(&instance_id);
         self.unregister_real_time_processor(instance_id);
     }
@@ -681,7 +681,7 @@ impl BackboneShell {
     ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
     ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
     ///       output.
-    fn unregister_real_time_processor(&self, instance_id: InstanceId) {
+    fn unregister_real_time_processor(&self, instance_id: UnitId) {
         self.audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id));
     }
@@ -691,7 +691,7 @@ impl BackboneShell {
     /// receivers are gone because we know it's not supposed to happen. Also, unlike with
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
-    fn unregister_main_processor(&self, instance_id: &InstanceId) {
+    fn unregister_main_processor(&self, instance_id: &UnitId) {
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             // Remove main processor.
             control_surface
@@ -1005,10 +1005,7 @@ impl BackboneShell {
     }
 
     #[allow(dead_code)]
-    pub fn find_main_panel_by_session_id(
-        &self,
-        session_id: &str,
-    ) -> Option<SharedView<InstancePanel>> {
+    pub fn find_main_panel_by_session_id(&self, session_id: &str) -> Option<SharedView<UnitPanel>> {
         self.instances.borrow().iter().find_map(|i| {
             if i.session.upgrade()?.borrow().id() == session_id {
                 i.ui.upgrade()
@@ -1021,8 +1018,8 @@ impl BackboneShell {
     #[allow(dead_code)]
     pub fn find_main_panel_by_instance_id(
         &self,
-        instance_id: InstanceId,
-    ) -> Option<SharedView<InstancePanel>> {
+        instance_id: UnitId,
+    ) -> Option<SharedView<UnitPanel>> {
         self.instances
             .borrow()
             .iter()
@@ -1084,13 +1081,13 @@ impl BackboneShell {
         })
     }
 
-    pub fn find_session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+    pub fn find_session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
         let session = self.find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
         let session = session.borrow();
         Some(session.id().to_string())
     }
 
-    pub fn find_instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+    pub fn find_instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
         let session = self.find_session_by_id(session_id)?;
         let session = session.borrow();
         Some(*session.instance_id())
@@ -1098,7 +1095,7 @@ impl BackboneShell {
 
     pub fn find_session_by_instance_id_ignoring_borrowed_ones(
         &self,
-        instance_id: InstanceId,
+        instance_id: UnitId,
     ) -> Option<SharedInstanceModel> {
         self.find_session(|session| {
             if let Ok(session) = session.try_borrow() {
@@ -1111,7 +1108,7 @@ impl BackboneShell {
 
     fn find_original_mapping(
         &self,
-        initiator_instance_id: InstanceId,
+        initiator_instance_id: UnitId,
         id: QualifiedMappingId,
     ) -> Result<SharedMapping, &'static str> {
         let session = self
@@ -1934,12 +1931,12 @@ impl HookPostCommand2 for BackboneShell {
     }
 }
 
-impl InstanceContainer for BackboneShell {
+impl UnitContainer for BackboneShell {
     fn find_session_by_id(&self, session_id: &str) -> Option<SharedInstanceModel> {
         BackboneShell::get().find_session_by_id_ignoring_borrowed_ones(session_id)
     }
 
-    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedInstanceModel> {
+    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedInstanceModel> {
         BackboneShell::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
     }
 

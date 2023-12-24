@@ -12,14 +12,14 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, Instance, InstanceContainer,
-    InstanceId, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask, OscFeedbackTask,
-    ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType,
-    SharedInstanceState, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
-    TargetTouchEvent, TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource,
-    VirtualSourceValue,
+    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, LastTouchedTargetFilter, MainMapping,
+    MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
+    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
+    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
+    TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
+    VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -93,7 +93,7 @@ pub type _Session = InstanceModel;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct InstanceModel {
-    instance_id: InstanceId,
+    instance_id: UnitId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
@@ -161,7 +161,7 @@ pub struct InstanceModel {
     // TODO-low-multi-config Make all the following fully qualified
     #[derivative(Debug = "ignore")]
     param_container: Box<dyn ParamContainer>,
-    instance_container: &'static dyn InstanceContainer,
+    instance_container: &'static dyn UnitContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
     // TODO-low-multi-config Make all the following fully qualified
     params: PluginParams,
@@ -249,13 +249,13 @@ pub mod session_defaults {
 impl InstanceModel {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: InstanceId,
+        instance_id: UnitId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         param_container: impl ParamContainer + 'static,
-        instance_container: &'static dyn InstanceContainer,
+        instance_container: &'static dyn UnitContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
@@ -342,7 +342,7 @@ impl InstanceModel {
         }
     }
 
-    pub fn instance_id(&self) -> &InstanceId {
+    pub fn instance_id(&self) -> &UnitId {
         &self.instance_id
     }
 
@@ -691,7 +691,7 @@ impl InstanceModel {
 
     fn active_virtual_controller_mappings<'a>(
         &'a self,
-        instance_state: &'a Instance,
+        instance_state: &'a Unit,
     ) -> impl Iterator<Item = &SharedMapping> {
         self.mappings(Compartment::Controller).filter(move |m| {
             let m = m.borrow();
@@ -2887,7 +2887,7 @@ pub struct RealearnControlSurfaceMainTaskSender(
 impl RealearnControlSurfaceMainTaskSender {
     pub fn capture_targets(
         &self,
-        instance_id: Option<InstanceId>,
+        instance_id: Option<UnitId>,
     ) -> async_channel::Receiver<TargetTouchEvent> {
         let (sender, receiver) = async_channel::bounded(500);
         self.0
@@ -2898,7 +2898,7 @@ impl RealearnControlSurfaceMainTaskSender {
         receiver
     }
 
-    pub fn stop_capturing_targets(&self, instance_id: Option<InstanceId>) {
+    pub fn stop_capturing_targets(&self, instance_id: Option<UnitId>) {
         self.0
             .send_complaining(RealearnControlSurfaceMainTask::StopCapturingTargets(
                 instance_id,

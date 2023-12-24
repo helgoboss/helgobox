@@ -33,7 +33,7 @@ use crate::infrastructure::data::{
     OscDevice,
 };
 use crate::infrastructure::plugin::{
-    warn_about_failed_server_start, BackboneShell, UnitParameterContainer,
+    warn_about_failed_server_start, BackboneShell, InstanceParamContainer,
 };
 
 use crate::infrastructure::ui::bindings::root;
@@ -75,7 +75,7 @@ pub struct HeaderPanel {
     session: WeakInstanceModel,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
-    plugin_parameters: sync::Weak<UnitParameterContainer>,
+    plugin_parameters: sync::Weak<InstanceParamContainer>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -87,7 +87,7 @@ impl HeaderPanel {
     pub fn new(
         session: WeakInstanceModel,
         main_state: SharedMainState,
-        plugin_parameters: sync::Weak<UnitParameterContainer>,
+        plugin_parameters: sync::Weak<InstanceParamContainer>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
     ) -> HeaderPanel {
         HeaderPanel {

@@ -5,9 +5,9 @@ use crate::application::{
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
-    ControlInput, FeedbackOutput, GroupId, GroupKey, Instance, InstanceId, MappingId, MappingKey,
+    ControlInput, FeedbackOutput, GroupId, GroupKey, MappingId, MappingKey,
     MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
-    Param, PluginParams, StayActiveWhenProjectInBackground, Tag,
+    Param, PluginParams, StayActiveWhenProjectInBackground, Tag, Unit, UnitId,
 };
 use crate::infrastructure::data::{
     convert_target_value_to_api, convert_target_value_to_model,
@@ -311,7 +311,7 @@ struct CompartmentState {
 }
 
 impl CompartmentState {
-    fn from_instance_state(instance_state: &Instance, compartment: Compartment) -> Self {
+    fn from_instance_state(instance_state: &Unit, compartment: Compartment) -> Self {
         CompartmentState {
             active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
             active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
@@ -952,7 +952,7 @@ impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
         Some(mapping.borrow().key().clone())
     }
 
-    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
+    fn session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
         BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }
@@ -967,7 +967,7 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
         self.session.find_mapping_id_by_key(self.compartment, key)
     }
 
-    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
         BackboneShell::get().find_instance_id_by_session_id(session_id)
     }
 }
@@ -997,7 +997,7 @@ pub trait ModelToDataConversionContext {
 
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey>;
 
-    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String>;
+    fn session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String>;
 }
 
 /// Consists of methods that return a transient technical ID ("ID") for a given persistent
@@ -1014,7 +1014,7 @@ pub trait DataToModelConversionContext {
 
     fn mapping_id_by_key(&self, key: &MappingKey) -> Option<MappingId>;
 
-    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId>;
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId>;
 }
 
 /// Defines a direct translation from keys to IDs.
@@ -1070,14 +1070,14 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
         self.mapping_id_by_key.get(key).copied()
     }
 
-    fn instance_id_by_session_id(&self, session_id: &str) -> Option<InstanceId> {
+    fn instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
         BackboneShell::get().find_instance_id_by_session_id(session_id)
     }
 }
 
 fn convert_mapping_snapshots_to_api(
     session: &InstanceModel,
-    instance_state: &Instance,
+    instance_state: &Unit,
     compartment: Compartment,
 ) -> Vec<MappingSnapshot> {
     let compartment_in_session = CompartmentInSession::new(session, compartment);

@@ -7,24 +7,24 @@ use crate::domain::{
     new_set_track_ui_functions_are_available, scoped_track_index, AdditionalFeedbackEvent,
     AdditionalTransformationInput, BasicSettings, Compartment, DomainEventHandler, Exclusivity,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
-    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
-    OrderedMappingMap, OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget,
-    ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity,
-    ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
-    BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET,
-    BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
-    FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
-    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
-    LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET,
-    LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
-    OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
-    ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
-    ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET, SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET,
-    SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET,
-    TRACK_MONITORING_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET,
-    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
-    TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
-    TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
+    OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, ReaperTarget,
+    SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, UnitId, ACTION_TARGET,
+    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
+    BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
+    DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET,
+    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET,
+    FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET,
+    LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
+    LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
+    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
+    TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
+    TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
+    TRANSPORT_TARGET,
 };
 use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
@@ -364,9 +364,9 @@ pub fn get_track_color(t: &Track) -> Option<RgbColor> {
     Some(RgbColor::new(r, g, b))
 }
 
-pub trait InstanceContainer: Debug {
+pub trait UnitContainer: Debug {
     fn find_session_by_id(&self, session_id: &str) -> Option<SharedInstanceModel>;
-    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedInstanceModel>;
+    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedInstanceModel>;
     /// Returns activated tags if they don't correspond to the tags in the args.
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
     fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;
@@ -408,7 +408,7 @@ pub enum InstanceTrackChangeRequest {
 }
 
 pub struct InstanceContainerCommonArgs<'a> {
-    pub initiator_instance_id: InstanceId,
+    pub initiator_instance_id: UnitId,
     /// `None` if monitoring FX.
     pub initiator_project: Option<Project>,
     pub scope: &'a TagScope,
@@ -420,9 +420,9 @@ pub struct ControlContext<'a> {
     pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
-    pub instance_container: &'a dyn InstanceContainer,
+    pub instance_container: &'a dyn UnitContainer,
     pub instance_state: &'a SharedInstanceState,
-    pub instance_id: &'a InstanceId,
+    pub instance_id: &'a UnitId,
     pub output_logging_enabled: bool,
     pub source_context: &'a SourceContext,
     pub processor_context: &'a ProcessorContext,

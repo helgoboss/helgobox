@@ -1,12 +1,12 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, Compartment, CompoundMappingSource, ControlEvent,
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
-    ControlOptions, FeedbackSendBehavior, InstanceId, LifecycleMidiMessage, LifecyclePhase,
-    MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
+    ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingId,
+    MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification, MidiScanResult,
+    MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
     OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
     QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
-    RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
+    RealTimeReaperTarget, SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -35,7 +35,7 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
-    instance_id: InstanceId,
+    instance_id: UnitId,
     // TODO-low-multi-config Okay to have per config
     logger: slog::Logger,
     // Synced processing settings
@@ -74,7 +74,7 @@ pub struct RealTimeProcessor {
 impl RealTimeProcessor {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: InstanceId,
+        instance_id: UnitId,
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,

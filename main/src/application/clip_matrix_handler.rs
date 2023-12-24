@@ -1,14 +1,12 @@
 use crate::application::{SharedInstanceModel, WeakInstanceModel};
-use crate::domain::{
-    Backbone, Compartment, Instance, InstanceId, QualifiedClipMatrixEvent, ReaperTarget,
-};
+use crate::domain::{Backbone, Compartment, QualifiedClipMatrixEvent, ReaperTarget, Unit, UnitId};
 use base::{Global, NamedChannelSender};
 use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
 
 #[cfg(feature = "playtime")]
 pub fn get_or_insert_owned_clip_matrix(
     session: WeakInstanceModel,
-    instance_state: &mut Instance,
+    instance_state: &mut Unit,
 ) -> &mut playtime_clip_engine::base::Matrix {
     Backbone::get().get_or_insert_owned_clip_matrix_from_instance_state(
         instance_state,
@@ -28,7 +26,7 @@ pub fn get_or_insert_owned_clip_matrix(
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub struct MatrixHandler {
-    instance_id: InstanceId,
+    instance_id: UnitId,
     audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
     event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
@@ -38,7 +36,7 @@ pub struct MatrixHandler {
 #[cfg(feature = "playtime")]
 impl MatrixHandler {
     pub fn new(
-        instance_id: InstanceId,
+        instance_id: UnitId,
         audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
         real_time_processor_sender: base::SenderToRealTimeThread<crate::domain::NormalRealTimeTask>,
         event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,

@@ -3,21 +3,21 @@ use reaper_low::raw::HWND;
 
 use std::os::raw::c_void;
 
-use crate::infrastructure::ui::unit_panel::UnitPanel;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use swell_ui::{SharedView, View, Window};
 use vst::editor::Editor;
 
-pub struct UnitEditor {
-    unit_panel: SharedView<UnitPanel>,
+pub struct InstanceEditor {
+    unit_panel: SharedView<InstancePanel>,
 }
 
-impl UnitEditor {
-    pub fn new(unit_panel: SharedView<UnitPanel>) -> Self {
+impl InstanceEditor {
+    pub fn new(unit_panel: SharedView<InstancePanel>) -> Self {
         Self { unit_panel }
     }
 }
 
-impl Editor for UnitEditor {
+impl Editor for InstanceEditor {
     fn size(&self) -> (i32, i32) {
         firewall(|| self.unit_panel.dimensions().to_vst()).unwrap_or_default()
     }

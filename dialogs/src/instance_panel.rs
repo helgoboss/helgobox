@@ -10,7 +10,7 @@ pub fn create(
     use Style::*;
     let controls = vec![];
     Dialog {
-        id: ids.named_id("ID_UNIT_PANEL"),
+        id: ids.named_id("ID_INSTANCE_PANEL"),
         kind: DialogKind::DIALOGEX,
         rect: Rect::new(
             0,

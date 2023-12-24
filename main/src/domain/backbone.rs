@@ -4,9 +4,9 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, Instance, InstanceId, InstanceStateChanged, ProcessorContext,
-    RealearnSourceState, RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua,
-    SharedInstanceState, WeakInstanceState,
+    FeedbackOutput, InstanceStateChanged, ProcessorContext, RealearnSourceState,
+    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstanceState, Unit,
+    UnitId, WeakInstanceState,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -37,14 +37,14 @@ pub struct Backbone {
     target_state: RefCell<RealearnTargetState>,
     last_touched_targets_container: RefCell<LastTouchedTargetsContainer>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
-    control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<InstanceId>>>,
+    control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<UnitId>>>,
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
-    feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<InstanceId>>>,
-    upper_floor_instances: RefCell<HashSet<InstanceId>>,
+    feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<UnitId>>>,
+    upper_floor_instances: RefCell<HashSet<UnitId>>,
     /// We hold pointers to the instance state of all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
-    instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
+    instance_states: RefCell<HashMap<UnitId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
@@ -239,21 +239,21 @@ impl Backbone {
         container.find(filter).cloned()
     }
 
-    pub fn lives_on_upper_floor(&self, instance_id: &InstanceId) -> bool {
+    pub fn lives_on_upper_floor(&self, instance_id: &UnitId) -> bool {
         self.upper_floor_instances.borrow().contains(instance_id)
     }
 
-    pub fn add_to_upper_floor(&self, instance_id: InstanceId) {
+    pub fn add_to_upper_floor(&self, instance_id: UnitId) {
         self.upper_floor_instances.borrow_mut().insert(instance_id);
     }
 
-    pub fn remove_from_upper_floor(&self, instance_id: &InstanceId) {
+    pub fn remove_from_upper_floor(&self, instance_id: &UnitId) {
         self.upper_floor_instances.borrow_mut().remove(instance_id);
     }
 
     pub fn create_instance(
         &self,
-        id: InstanceId,
+        id: UnitId,
         processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
@@ -266,7 +266,7 @@ impl Backbone {
             crate::domain::NormalRealTimeTask,
         >,
     ) -> SharedInstanceState {
-        let instance_state = Instance::new(
+        let instance_state = Unit::new(
             id,
             processor_context,
             instance_feedback_event_sender,
@@ -301,7 +301,7 @@ impl Backbone {
     /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
     /// to this one.
     #[cfg(feature = "playtime")]
-    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut Instance) {
+    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut Unit) {
         instance_state.set_clip_matrix_ref(None);
         self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
     }
@@ -316,8 +316,8 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
         &self,
-        instance_state: &'a mut Instance,
-        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
+        instance_state: &'a mut Unit,
+        create_handler: impl FnOnce(&Unit) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> &'a mut playtime_clip_engine::base::Matrix {
         let instance_id = instance_state.instance_id();
         let created =
@@ -335,7 +335,7 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn update_rt_clip_matrix_of_referencing_instances(
         &self,
-        this_instance_id: InstanceId,
+        this_instance_id: UnitId,
         real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     ) {
         for (id, is) in self.instance_states.borrow().iter() {
@@ -369,8 +369,8 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn set_instance_clip_matrix_to_foreign_matrix(
         &self,
-        instance_state: &mut Instance,
-        foreign_instance_id: InstanceId,
+        instance_state: &mut Unit,
+        foreign_instance_id: UnitId,
     ) {
         // Set the reference
         let matrix_ref = crate::domain::ClipMatrixRef::Foreign(foreign_instance_id);
@@ -417,7 +417,7 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance<R>(
         &self,
-        foreign_instance_id: &InstanceId,
+        foreign_instance_id: &UnitId,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
@@ -461,7 +461,7 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance_mut<R>(
         &self,
-        instance_id: &InstanceId,
+        instance_id: &UnitId,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
@@ -482,15 +482,11 @@ impl Backbone {
         }
     }
 
-    pub(super) fn unregister_instance_state(&self, id: &InstanceId) {
+    pub(super) fn unregister_instance_state(&self, id: &UnitId) {
         self.instance_states.borrow_mut().remove(id);
     }
 
-    pub fn control_is_allowed(
-        &self,
-        instance_id: &InstanceId,
-        control_input: ControlInput,
-    ) -> bool {
+    pub fn control_is_allowed(&self, instance_id: &UnitId, control_input: ControlInput) -> bool {
         if let Some(dev_input) = control_input.device_input() {
             self.interaction_is_allowed(instance_id, dev_input, &self.control_input_usages)
         } else {
@@ -499,7 +495,7 @@ impl Backbone {
     }
 
     #[allow(dead_code)]
-    pub fn find_instance_state(&self, instance_id: InstanceId) -> Option<SharedInstanceState> {
+    pub fn find_instance_state(&self, instance_id: UnitId) -> Option<SharedInstanceState> {
         let weak_instance_states = self.instance_states.borrow();
         let weak_instance_state = weak_instance_states.get(&instance_id)?;
         weak_instance_state.upgrade()
@@ -526,7 +522,7 @@ impl Backbone {
 
     pub fn feedback_is_allowed(
         &self,
-        instance_id: &InstanceId,
+        instance_id: &UnitId,
         feedback_output: FeedbackOutput,
     ) -> bool {
         if let Some(dev_output) = feedback_output.device_output() {
@@ -541,7 +537,7 @@ impl Backbone {
     /// Returns true if this actually caused a change in *feedback output* usage.
     pub fn update_io_usage(
         &self,
-        instance_id: &InstanceId,
+        instance_id: &UnitId,
         control_input: Option<DeviceControlInput>,
         feedback_output: Option<DeviceFeedbackOutput>,
     ) -> bool {
@@ -568,9 +564,9 @@ impl Backbone {
 
     fn interaction_is_allowed<D: Eq + Hash>(
         &self,
-        instance_id: &InstanceId,
+        instance_id: &UnitId,
         device: D,
-        usages: &RefCell<HashMap<D, HashSet<InstanceId>>>,
+        usages: &RefCell<HashMap<D, HashSet<UnitId>>>,
     ) -> bool {
         let upper_floor_instances = self.upper_floor_instances.borrow();
         if upper_floor_instances.is_empty() || upper_floor_instances.contains(instance_id) {
@@ -600,8 +596,8 @@ impl Backbone {
 
 /// Returns `true` if there was an actual change.
 fn update_io_usage<D: Eq + Hash + Copy>(
-    usages: &mut HashMap<D, HashSet<InstanceId>>,
-    instance_id: &InstanceId,
+    usages: &mut HashMap<D, HashSet<UnitId>>,
+    instance_id: &UnitId,
     device: Option<D>,
 ) -> bool {
     let mut previously_used_device: Option<D> = None;

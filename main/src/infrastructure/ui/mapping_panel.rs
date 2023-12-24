@@ -74,9 +74,9 @@ use crate::infrastructure::ui::util::{
 };
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
-    InstancePanel, ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel,
-    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
-    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
+    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
+    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
 };
 use base::Global;
 
@@ -85,7 +85,7 @@ pub struct MappingPanel {
     view: ViewContext,
     session: WeakInstanceModel,
     mapping: RefCell<Option<SharedMapping>>,
-    main_panel: WeakView<InstancePanel>,
+    main_panel: WeakView<UnitPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
@@ -127,7 +127,7 @@ struct WindowCache {
 }
 
 impl MappingPanel {
-    pub fn new(session: WeakInstanceModel, main_panel: WeakView<InstancePanel>) -> MappingPanel {
+    pub fn new(session: WeakInstanceModel, main_panel: WeakView<UnitPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session: session.clone(),
@@ -993,7 +993,7 @@ impl MappingPanel {
         }
     }
 
-    fn main_panel(&self) -> SharedView<InstancePanel> {
+    fn main_panel(&self) -> SharedView<UnitPanel> {
         self.main_panel.upgrade().expect("main view gone")
     }
 

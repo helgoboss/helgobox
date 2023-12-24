@@ -1,7 +1,7 @@
 use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
-    IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, RealTimeProcessor,
+    IncomingMidiMessage, MidiControlInput, MidiEvent, MidiMessageClassification, MidiScanResult,
+    MidiScanner, RealTimeProcessor, UnitId,
 };
 use base::metrics_util::record_duration;
 use base::non_blocking_lock;
@@ -36,8 +36,8 @@ pub enum NormalAudioHookTask {
     //
     // Having the ID saves us from unnecessarily blocking the audio thread by looking into the
     // processor.
-    AddRealTimeProcessor(InstanceId, SharedRealTimeProcessor),
-    RemoveRealTimeProcessor(InstanceId),
+    AddRealTimeProcessor(UnitId, SharedRealTimeProcessor),
+    RemoveRealTimeProcessor(UnitId),
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
     #[cfg(feature = "playtime")]
@@ -57,7 +57,7 @@ pub enum FeedbackAudioHookTask {
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
-    real_time_processors: SmallVec<[(InstanceId, SharedRealTimeProcessor); 256]>,
+    real_time_processors: SmallVec<[(UnitId, SharedRealTimeProcessor); 256]>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,

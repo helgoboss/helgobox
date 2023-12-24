@@ -7,7 +7,7 @@ use crate::domain::{
     Compartment, CompartmentParams, PluginParamIndex, PluginParams, RawParamValue,
 };
 use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::unit_shell::UnitShell;
+use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use anyhow::Context;
 use std::sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
@@ -17,13 +17,13 @@ use vst::plugin::PluginParameters;
 ///
 /// vst-rs requires us to make this separate from the actual plug-in struct.
 ///
-/// It's good to have this separate from the [UnitShell] because data chunk and parameters might
+/// It's good to have this separate from the [InstanceShell] because data chunk and parameters might
 /// be set or queried by the host *before* the containing FX - and thus the unit shell - is
 /// available.
 #[derive(Debug)]
-pub struct UnitParameterContainer {
+pub struct InstanceParamContainer {
     /// Will be set as soon as the containing FX is known.
-    unit_shell: OnceLock<Arc<UnitShell>>,
+    unit_shell: OnceLock<Arc<InstanceShell>>,
     /// We may have to cache some data that the host wants us to load because we are not ready
     /// for loading data as long as the unit shell is not available.
     pending_data_to_be_loaded: RwLock<Option<Vec<u8>>>,
@@ -35,7 +35,7 @@ pub struct UnitParameterContainer {
     params: RwLock<PluginParams>,
 }
 
-impl UnitParameterContainer {
+impl InstanceParamContainer {
     /// Creates the parameter container.
     pub fn new() -> Self {
         Self {
@@ -48,7 +48,7 @@ impl UnitParameterContainer {
     /// Sets the unit shell.
     ///
     /// Also checks if there's pending state to be loaded into the unit shell and if yes, loads it.
-    pub fn notify_unit_shell_is_available(&self, unit_shell: Arc<UnitShell>) {
+    pub fn notify_instance_shell_is_available(&self, unit_shell: Arc<InstanceShell>) {
         if let Some(data) = self.pending_data_to_be_loaded.write().unwrap().take() {
             match unit_shell.load(&data) {
                 Ok(params) => *self.params_mut() = params,
@@ -116,7 +116,7 @@ impl UnitParameterContainer {
 /// This will be returned if ReaLearn cannot return reasonable bank data yet.
 const NOT_READY_YET: &str = "not-ready-yet";
 
-impl PluginParameters for UnitParameterContainer {
+impl PluginParameters for InstanceParamContainer {
     fn get_bank_data(&self) -> Vec<u8> {
         firewall(|| {
             let Some(unit_shell) = self.unit_shell.get() else {
@@ -225,7 +225,7 @@ impl PluginParameters for UnitParameterContainer {
     }
 }
 
-impl ParamContainer for Arc<UnitParameterContainer> {
+impl ParamContainer for Arc<InstanceParamContainer> {
     fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams) {
         let mut plugin_params = self.params_mut();
         let compartment_params = plugin_params.compartment_params_mut(compartment);
