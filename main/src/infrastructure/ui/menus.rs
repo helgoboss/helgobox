@@ -1,4 +1,4 @@
-use crate::application::{InstanceModel, WeakInstanceModel};
+use crate::application::{UnitModel, WeakUnitModel};
 use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
@@ -7,7 +7,7 @@ use std::iter;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
 
 pub fn menu_containing_realearn_params(
-    session: &WeakInstanceModel,
+    session: &WeakUnitModel,
     compartment: Compartment,
     current_value: CompartmentParamIndex,
 ) -> swell_ui::menu_tree::Menu<CompartmentParamIndex> {
@@ -31,7 +31,7 @@ pub fn menu_containing_realearn_params(
 }
 
 pub fn menu_containing_realearn_params_optional(
-    session: &WeakInstanceModel,
+    session: &WeakUnitModel,
     compartment: Compartment,
     current_value: Option<CompartmentParamIndex>,
 ) -> swell_ui::menu_tree::Menu<Option<CompartmentParamIndex>> {
@@ -63,7 +63,7 @@ pub fn menu_containing_realearn_params_optional(
 }
 
 pub fn menu_containing_mappings(
-    session: &WeakInstanceModel,
+    session: &WeakUnitModel,
     compartment: Compartment,
     current_value: Option<MappingId>,
 ) -> swell_ui::menu_tree::Menu<Option<MappingId>> {
@@ -108,7 +108,7 @@ pub fn menu_containing_mappings(
 }
 
 pub fn menu_containing_sessions(
-    this_session: &InstanceModel,
+    this_session: &UnitModel,
     current_other_session_id: Option<&str>,
 ) -> swell_ui::menu_tree::Menu<Option<String>> {
     let this_item = item_with_opts(
@@ -176,7 +176,7 @@ pub fn menu_containing_sessions(
 }
 
 pub fn menu_containing_banks(
-    session: &WeakInstanceModel,
+    session: &WeakUnitModel,
     compartment: Compartment,
     param_index: CompartmentParamIndex,
     current_value: u32,
@@ -206,7 +206,7 @@ pub fn menu_containing_banks(
 }
 
 pub fn get_param_name(
-    session: &InstanceModel,
+    session: &UnitModel,
     compartment: Compartment,
     index: Option<CompartmentParamIndex>,
 ) -> String {
@@ -223,7 +223,7 @@ pub fn get_param_name(
 }
 
 pub fn get_bank_name(
-    session: &InstanceModel,
+    session: &UnitModel,
     item: &dyn Item,
     bank_param_index: CompartmentParamIndex,
     bank_index: u32,

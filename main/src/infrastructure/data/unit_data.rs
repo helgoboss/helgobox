@@ -1,7 +1,7 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
-    FxPresetLinkConfig, GroupModel, InstanceModel, MainPresetAutoLoadMode, SessionCommand,
-    WeakInstanceModel,
+    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, SessionCommand, UnitModel,
+    WeakUnitModel,
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
@@ -398,7 +398,7 @@ impl Default for UnitData {
 
 impl UnitData {
     /// The given parameters are the canonical ones from `RealearnPluginParameters`.
-    pub fn from_model(session: &InstanceModel, plugin_params: &PluginParams) -> UnitData {
+    pub fn from_model(session: &UnitModel, plugin_params: &PluginParams) -> UnitData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession::new(session, compartment);
             session
@@ -540,9 +540,9 @@ impl UnitData {
     #[allow(unused_variables)]
     pub fn apply_to_model(
         &self,
-        session: &mut InstanceModel,
+        session: &mut UnitModel,
         params: &PluginParams,
-        weak_session: WeakInstanceModel,
+        weak_session: WeakUnitModel,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
@@ -1076,7 +1076,7 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
 }
 
 fn convert_mapping_snapshots_to_api(
-    session: &InstanceModel,
+    session: &UnitModel,
     instance_state: &Unit,
     compartment: Compartment,
 ) -> Vec<MappingSnapshot> {

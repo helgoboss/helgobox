@@ -49,7 +49,7 @@ type _RealearnPlugin = HelgoboxPlugin;
 pub struct HelgoboxPlugin {
     instance_id: InstanceId,
     host: HostCallback,
-    instance_params: Arc<InstanceParamContainer>,
+    param_container: Arc<InstanceParamContainer>,
     /// This will be set on `init()`.
     _reaper_guard: Option<Arc<ReaperGuard>>,
     // For detecting play state changes
@@ -79,7 +79,7 @@ impl Plugin for HelgoboxPlugin {
                 instance_id: InstanceId::next(),
                 host,
                 _reaper_guard: None,
-                instance_params,
+                param_container: instance_params,
                 was_playing_in_last_cycle: false,
                 sample_rate: Default::default(),
                 is_plugin_scan: false,
@@ -114,7 +114,7 @@ impl Plugin for HelgoboxPlugin {
             Ok(i) => i,
             Err(_) => return None,
         };
-        let params = self.instance_params.params();
+        let params = self.param_container.params();
         let param = params.at(i);
         if let Some(value_count) = param.setting().value_count {
             let mut info = PluginParameterInfo::default();
@@ -196,7 +196,7 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
-        self.instance_params.clone()
+        self.param_container.clone()
     }
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
@@ -355,7 +355,7 @@ impl HelgoboxPlugin {
             SET_STATE_PARAM_NAME => {
                 let c_str = unsafe { CStr::from_ptr(buffer) };
                 let rust_str = c_str.to_str().expect("not valid UTF-8");
-                self.instance_params.load_state(rust_str)?;
+                self.param_container.load_state(rust_str)?;
                 Ok(())
             }
             _ => Err(anyhow!("unhandled config param")),
@@ -367,14 +367,16 @@ impl HelgoboxPlugin {
             .context("couldn't build processor context, called too early.")?;
         let instance_shell = Arc::new(InstanceShell::new(
             processor_context,
-            self.instance_params.clone(),
+            self.param_container.clone(),
             self.instance_panel.clone(),
         ));
+        self.instance_panel
+            .notify_shell_available(instance_shell.clone());
         instance_shell.set_sample_rate(self.sample_rate.get() as _);
         self.instance_shell
             .set(instance_shell.clone())
             .map_err(|_| anyhow!("instance shell already initialized"))?;
-        self.instance_params
+        self.param_container
             .notify_instance_shell_is_available(instance_shell);
         Ok(())
     }
@@ -439,7 +441,7 @@ impl HelgoboxPlugin {
                     Ok(i) => i,
                     Err(_) => return 0,
                 };
-                let params = self.instance_params.params();
+                let params = self.param_container.params();
                 let string = params.at(i).setting().with_raw_value(opt).to_string();
                 if write_to_c_str(ptr, string).is_err() {
                     return 0;
@@ -458,7 +460,7 @@ impl HelgoboxPlugin {
                     // REAPER checks if we support this.
                     return 0xbeef;
                 }
-                let params = self.instance_params.params();
+                let params = self.param_container.params();
                 let param = params.at(i);
                 let raw_value = match param.setting().parse_to_raw_value(text_input) {
                     Ok(v) => v,

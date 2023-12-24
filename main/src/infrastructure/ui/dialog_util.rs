@@ -1,4 +1,4 @@
-use crate::application::SharedInstanceModel;
+use crate::application::SharedUnitModel;
 use crate::domain::{Compartment, GroupId};
 use reaper_high::Reaper;
 
@@ -13,7 +13,7 @@ pub fn prompt_for(caption: &str, initial_value: &str) -> Option<String> {
 }
 
 pub fn add_group_via_dialog(
-    session: SharedInstanceModel,
+    session: SharedUnitModel,
     compartment: Compartment,
 ) -> Result<GroupId, &'static str> {
     if let Some(name) = prompt_for("Group name", "") {

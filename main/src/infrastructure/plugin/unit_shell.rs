@@ -21,13 +21,12 @@ use reaper_high::Reaper;
 use std::sync::{Arc, Mutex};
 use swell_ui::SharedView;
 
-use crate::application::{InstanceModel, SharedInstanceModel};
+use crate::application::{SharedUnitModel, UnitModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
 use crate::base::notification;
 use crate::infrastructure::data::UnitData;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
-use crate::infrastructure::ui::instance_panel::InstancePanel;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
@@ -39,10 +38,11 @@ const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 pub struct UnitShell {
     /// An ID which is randomly generated on each start and is most relevant for log correlation.
     /// It's also used in other ReaLearn singletons. Must be unique.
-    instance_id: UnitId,
+    id: UnitId,
     logger: slog::Logger,
     /// Fragile because we can't access this from any other thread than the main thread.
-    session: Fragile<SharedInstanceModel>,
+    model: Fragile<SharedUnitModel>,
+    panel: Fragile<SharedView<UnitPanel>>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
     // Called in real-time audio thread only.
@@ -56,8 +56,7 @@ pub struct UnitShell {
 impl UnitShell {
     pub fn new(
         processor_context: ProcessorContext,
-        unit_parameter_container: Arc<InstanceParamContainer>,
-        unit_panel: SharedView<InstancePanel>,
+        instance_param_container: Arc<InstanceParamContainer>,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -119,13 +118,13 @@ impl UnitShell {
             normal_real_time_task_sender.clone(),
         );
         // Session (application - shared)
-        let session = InstanceModel::new(
+        let session = UnitModel::new(
             instance_id,
             &logger,
             processor_context.clone(),
             normal_real_time_task_sender.clone(),
             normal_main_task_sender.clone(),
-            unit_parameter_container.clone(),
+            instance_param_container.clone(),
             BackboneShell::get(),
             BackboneShell::get().controller_preset_manager(),
             BackboneShell::get().main_preset_manager(),
@@ -138,20 +137,20 @@ impl UnitShell {
         );
         let shared_session = Rc::new(RefCell::new(session));
         let weak_session = Rc::downgrade(&shared_session);
-        let main_panel = UnitPanel::new(
+        let unit_panel = UnitPanel::new(
             weak_session.clone(),
-            Arc::downgrade(&unit_parameter_container),
+            Arc::downgrade(&instance_param_container),
         );
         shared_session
             .borrow_mut()
-            .set_ui(Rc::downgrade(&main_panel));
+            .set_ui(Rc::downgrade(&unit_panel));
         keep_informing_clients_about_session_events(&shared_session);
         let plugin_instance_info = PluginInstanceInfo {
             processor_context: processor_context.clone(),
             instance_id,
             instance_state: Rc::downgrade(&instance_state),
             session: weak_session.clone(),
-            ui: Rc::downgrade(&main_panel),
+            ui: Rc::downgrade(&unit_panel),
         };
         BackboneShell::get().register_plugin_instance(plugin_instance_info);
         // Main processor - (domain, owned by REAPER control surface)
@@ -187,24 +186,33 @@ impl UnitShell {
             main_processor,
         );
         shared_session.borrow_mut().activate(weak_session.clone());
-        unit_panel.notify_main_unit_panel_available(main_panel);
         shared_session.borrow().notify_realearn_instance_started();
         // End create session
         Self {
-            instance_id,
+            id: instance_id,
             logger: logger.clone(),
             // InstanceShell is the main owner of the InstanceModel. Everywhere else the InstanceModel is
             // just temporarily upgraded, never stored as Rc, only as Weak.
-            session: Fragile::new(shared_session),
+            model: Fragile::new(shared_session),
+            panel: Fragile::new(unit_panel),
             normal_real_time_task_sender,
             parameter_main_task_sender,
             real_time_processor,
         }
     }
 
+    pub fn id(&self) -> UnitId {
+        self.id
+    }
+
     /// Panics if not called from main thread.
-    pub fn model(&self) -> &SharedInstanceModel {
-        self.session.get()
+    pub fn model(&self) -> &SharedUnitModel {
+        self.model.get()
+    }
+
+    /// Panics if not called from main thread.
+    pub fn panel(&self) -> &SharedView<UnitPanel> {
+        self.panel.get()
     }
 
     pub fn set_all_parameters(&self, params: PluginParams) {
@@ -231,7 +239,7 @@ impl UnitShell {
     }
 
     pub fn apply_unit_data(&self, session_data: &UnitData) -> anyhow::Result<PluginParams> {
-        let shared_session = self.session.get();
+        let shared_session = self.model.get();
         let mut session = shared_session.borrow_mut();
         if let Some(v) = session_data.version.as_ref() {
             if BackboneShell::version() < v {
@@ -295,8 +303,8 @@ impl UnitShell {
 impl Drop for UnitShell {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping instance shell...");
-        let session = self.session.get();
-        BackboneShell::get().unregister_processor_couple(self.instance_id);
+        let session = self.model.get();
+        BackboneShell::get().unregister_processor_couple(self.id);
         BackboneShell::get().unregister_session(session.as_ptr());
         debug!(
             self.logger,

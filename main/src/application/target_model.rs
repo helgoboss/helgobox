@@ -14,7 +14,7 @@ use reaper_high::{
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
-    Affected, Change, GetProcessingRelevance, InstanceModel, ProcessingRelevance,
+    Affected, Change, GetProcessingRelevance, ProcessingRelevance, UnitModel,
     VirtualControlElementType,
 };
 use crate::domain::{
@@ -3123,16 +3123,12 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
 pub struct TargetModelFormatMultiLine<'a> {
     target: &'a TargetModel,
     context: ExtendedProcessorContext<'a>,
-    session: &'a InstanceModel,
+    session: &'a UnitModel,
     compartment: Compartment,
 }
 
 impl<'a> TargetModelFormatMultiLine<'a> {
-    pub fn new(
-        target: &'a TargetModel,
-        session: &'a InstanceModel,
-        compartment: Compartment,
-    ) -> Self {
+    pub fn new(target: &'a TargetModel, session: &'a UnitModel, compartment: Compartment) -> Self {
         TargetModelFormatMultiLine {
             target,
             context: session.extended_context(),

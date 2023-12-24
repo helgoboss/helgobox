@@ -1,7 +1,7 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
 use crate::application::{
-    ControllerPreset, InstanceModel, Preset, PresetManager, SourceCategory, TargetCategory,
+    ControllerPreset, Preset, PresetManager, SourceCategory, TargetCategory, UnitModel,
 };
 use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
@@ -120,7 +120,7 @@ pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPreset
     get_controller_preset_data_internal(&session)
 }
 
-pub fn get_controller_routing(session: &InstanceModel) -> ControllerRouting {
+pub fn get_controller_routing(session: &UnitModel) -> ControllerRouting {
     let main_preset = session.active_main_preset().map(|mp| LightMainPresetData {
         id: mp.id().to_string(),
         name: mp.name().to_string(),
@@ -269,7 +269,7 @@ pub fn send_initial_feedback(session_id: &str) {
 
 pub fn get_active_controller_updated_event(
     session_id: &str,
-    session: Option<&InstanceModel>,
+    session: Option<&UnitModel>,
 ) -> Event<Option<ControllerPresetData>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller"),
@@ -298,7 +298,7 @@ pub fn get_session_updated_event(
 
 pub fn get_controller_routing_updated_event(
     session_id: &str,
-    session: Option<&InstanceModel>,
+    session: Option<&UnitModel>,
 ) -> Event<Option<ControllerRouting>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller-routing"),
@@ -345,12 +345,12 @@ enum EventType {
     Patch,
 }
 
-fn get_controller(session: &InstanceModel) -> Option<ControllerPresetData> {
+fn get_controller(session: &UnitModel) -> Option<ControllerPresetData> {
     get_controller_preset_data_internal(session).ok()
 }
 
 fn get_controller_preset_data_internal(
-    session: &InstanceModel,
+    session: &UnitModel,
 ) -> Result<ControllerPresetData, DataError> {
     let data = session.extract_compartment_model(Compartment::Controller);
     if data.mappings.is_empty() {

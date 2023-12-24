@@ -1,5 +1,5 @@
 use crate::application::{
-    LearnManySubState, SharedInstanceModel, VirtualControlElementType, WeakInstanceModel,
+    LearnManySubState, SharedUnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::Compartment;
@@ -12,11 +12,11 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct SessionMessagePanel {
     view: ViewContext,
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
 }
 
 impl SessionMessagePanel {
-    pub fn new(session: WeakInstanceModel) -> SessionMessagePanel {
+    pub fn new(session: WeakUnitModel) -> SessionMessagePanel {
         SessionMessagePanel {
             view: Default::default(),
             session,
@@ -89,7 +89,7 @@ impl SessionMessagePanel {
         });
     }
 
-    fn session(&self) -> SharedInstanceModel {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 }

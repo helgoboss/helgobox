@@ -1,4 +1,4 @@
-use crate::application::SharedInstanceModel;
+use crate::application::SharedUnitModel;
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_raw_midi, log_output,
     parse_unit_value_from_percentage, OutputReason,
@@ -365,8 +365,8 @@ pub fn get_track_color(t: &Track) -> Option<RgbColor> {
 }
 
 pub trait UnitContainer: Debug {
-    fn find_session_by_id(&self, session_id: &str) -> Option<SharedInstanceModel>;
-    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedInstanceModel>;
+    fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel>;
+    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedUnitModel>;
     /// Returns activated tags if they don't correspond to the tags in the args.
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
     fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;

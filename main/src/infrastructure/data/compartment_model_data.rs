@@ -1,4 +1,4 @@
-use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, InstanceModel};
+use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, UnitModel};
 use crate::domain::{
     Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
     UnitId,
@@ -105,7 +105,7 @@ impl CompartmentModelData {
         &self,
         version: Option<&Version>,
         compartment: Compartment,
-        session: Option<&InstanceModel>,
+        session: Option<&UnitModel>,
     ) -> Result<CompartmentModel, Box<dyn Error>> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,

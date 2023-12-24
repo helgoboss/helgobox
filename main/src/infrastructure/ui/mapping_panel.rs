@@ -39,15 +39,14 @@ use crate::application::{
     format_osc_feedback_args, get_bookmark_label_by_id, get_fx_label, get_fx_param_label,
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
-    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, InstanceModel,
-    MappingChangeContext, MappingCommand, MappingModel, MappingProp, MappingRefModel,
-    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
-    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
-    SharedInstanceModel, SharedMapping, SourceCategory, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
-    TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakInstanceModel,
-    KEY_UNDEFINED_LABEL,
+    CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
+    MappingCommand, MappingModel, MappingProp, MappingRefModel, MappingSnapshotTypeForLoad,
+    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp, SharedMapping,
+    SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory,
+    TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -83,7 +82,7 @@ use base::Global;
 #[derive(Debug)]
 pub struct MappingPanel {
     view: ViewContext,
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<UnitPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
@@ -97,7 +96,7 @@ pub struct MappingPanel {
 }
 
 struct ImmutableMappingPanel<'a> {
-    session: &'a InstanceModel,
+    session: &'a UnitModel,
     mapping: &'a MappingModel,
     source: &'a SourceModel,
     mode: &'a ModeModel,
@@ -107,7 +106,7 @@ struct ImmutableMappingPanel<'a> {
 }
 
 struct MutableMappingPanel<'a> {
-    session: &'a mut InstanceModel,
+    session: &'a mut UnitModel,
     mapping: &'a mut MappingModel,
     panel: &'a SharedView<MappingPanel>,
     view: &'a ViewContext,
@@ -127,7 +126,7 @@ struct WindowCache {
 }
 
 impl MappingPanel {
-    pub fn new(session: WeakInstanceModel, main_panel: WeakView<UnitPanel>) -> MappingPanel {
+    pub fn new(session: WeakUnitModel, main_panel: WeakView<UnitPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session: session.clone(),
@@ -677,7 +676,7 @@ impl MappingPanel {
             let session = self.session.clone();
             let panel = crate::infrastructure::ui::TargetFilterPanel::new(value, move |value| {
                 let mut mapping = mapping.borrow_mut();
-                InstanceModel::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
@@ -685,7 +684,7 @@ impl MappingPanel {
                     )),
                     None,
                 );
-                InstanceModel::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
@@ -747,7 +746,7 @@ impl MappingPanel {
                                 help_url,
                                 |m| m.target_model.raw_midi_pattern().to_owned(),
                                 move |m, text| {
-                                    InstanceModel::change_mapping_from_ui_simple(
+                                    UnitModel::change_mapping_from_ui_simple(
                                         session.clone(),
                                         m,
                                         MappingCommand::ChangeTarget(
@@ -1014,7 +1013,7 @@ impl MappingPanel {
                             help_url,
                             |m| m.source_model.raw_midi_pattern().to_owned(),
                             move |m, text| {
-                                InstanceModel::change_mapping_from_ui_simple(
+                                UnitModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
@@ -1030,7 +1029,7 @@ impl MappingPanel {
                         self.edit_midi_source_script_internal(
                             |m| m.source_model.midi_script().to_owned(),
                             move |m, eel| {
-                                InstanceModel::change_mapping_from_ui_simple(
+                                UnitModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
@@ -1048,7 +1047,7 @@ impl MappingPanel {
                     |m| format_osc_feedback_args(m.source_model.osc_feedback_args()),
                     move |m, text| {
                         let args = parse_osc_feedback_args(&text);
-                        InstanceModel::change_mapping_from_ui_simple(
+                        UnitModel::change_mapping_from_ui_simple(
                             session.clone(),
                             m,
                             MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
@@ -1067,7 +1066,7 @@ impl MappingPanel {
         let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation";
         let get_value = |m: &MappingModel| m.mode_model.eel_control_transformation().to_owned();
         let set_value = move |m: &mut MappingModel, eel: String| {
-            InstanceModel::change_mapping_from_ui_simple(
+            UnitModel::change_mapping_from_ui_simple(
                 session.clone(),
                 m,
                 MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
@@ -1097,7 +1096,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.eel_feedback_transformation().to_owned(),
             move |m, eel| {
-                InstanceModel::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetEelFeedbackTransformation(eel)),
@@ -1114,7 +1113,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                InstanceModel::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1131,7 +1130,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                InstanceModel::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1354,7 +1353,7 @@ impl MappingPanel {
 
     pub fn notify_parameters_changed(
         self: SharedView<Self>,
-        session: &InstanceModel,
+        session: &UnitModel,
     ) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping")?;
         let mapping = mapping.borrow();
@@ -1459,7 +1458,7 @@ impl MappingPanel {
         .expect("mapping must be filled at this point");
     }
 
-    fn session(&self) -> SharedInstanceModel {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -7834,7 +7833,7 @@ fn has_multiple_lines(text: &str) -> bool {
     text.lines().count() > 1
 }
 
-fn get_relevant_target_fx(mapping: &MappingModel, session: &InstanceModel) -> Option<Fx> {
+fn get_relevant_target_fx(mapping: &MappingModel, session: &UnitModel) -> Option<Fx> {
     let is_focused_fx_type = {
         let fx_type = mapping.target_model.fx_type();
         if fx_type == VirtualFxType::Instance {

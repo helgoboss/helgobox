@@ -1,6 +1,6 @@
 use crate::application::{
-    InstanceModel, RealearnControlSurfaceMainTaskSender, SessionCommand, SharedInstanceModel,
-    SharedMapping, VirtualControlElementType, WeakInstanceModel,
+    RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping, SharedUnitModel,
+    UnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -120,10 +120,10 @@ make_available_globally_in_main_thread_on_demand!(BackboneShell);
 static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui::AppLibrary>> =
     std::sync::OnceLock::new();
 
-pub type RealearnSessionAccelerator = RealearnAccelerator<WeakInstanceModel, RealearnSnitch>;
+pub type RealearnSessionAccelerator = RealearnAccelerator<WeakUnitModel, RealearnSnitch>;
 
 pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakInstanceModel>>;
+    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
 
 /// Just the old term as alias for easier class search.
 type _App = BackboneShell;
@@ -164,7 +164,7 @@ pub struct PluginInstanceInfo {
     pub instance_id: UnitId,
     pub processor_context: ProcessorContext,
     pub instance_state: WeakInstanceState,
-    pub session: WeakInstanceModel,
+    pub session: WeakUnitModel,
     pub ui: Weak<UnitPanel>,
 }
 
@@ -613,7 +613,7 @@ impl BackboneShell {
         &self,
         instance_id: UnitId,
         real_time_processor: SharedRealTimeProcessor,
-        main_processor: MainProcessor<WeakInstanceModel>,
+        main_processor: MainProcessor<WeakUnitModel>,
     ) {
         self.audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
@@ -995,7 +995,7 @@ impl BackboneShell {
         self.find_session_by_id(session_id).is_some()
     }
 
-    pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedInstanceModel> {
+    pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let Ok(session) = session.try_borrow() else {
                 return false;
@@ -1071,7 +1071,7 @@ impl BackboneShell {
     pub fn find_session_by_id_ignoring_borrowed_ones(
         &self,
         session_id: &str,
-    ) -> Option<SharedInstanceModel> {
+    ) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             if let Ok(session) = session.try_borrow() {
                 session.id() == session_id
@@ -1096,7 +1096,7 @@ impl BackboneShell {
     pub fn find_session_by_instance_id_ignoring_borrowed_ones(
         &self,
         instance_id: UnitId,
-    ) -> Option<SharedInstanceModel> {
+    ) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             if let Ok(session) = session.try_borrow() {
                 *session.instance_id() == instance_id
@@ -1123,8 +1123,8 @@ impl BackboneShell {
 
     pub fn find_session(
         &self,
-        predicate: impl FnMut(&SharedInstanceModel) -> bool,
-    ) -> Option<SharedInstanceModel> {
+        predicate: impl FnMut(&SharedUnitModel) -> bool,
+    ) -> Option<SharedUnitModel> {
         self.instances
             .borrow()
             .iter()
@@ -1136,7 +1136,7 @@ impl BackboneShell {
         f(&self.instances.borrow())
     }
 
-    pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedInstanceModel> {
+    pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let session = session.borrow();
             session.processor_context().containing_fx() == fx
@@ -1155,7 +1155,7 @@ impl BackboneShell {
         self.notify_instances_changed();
     }
 
-    pub fn unregister_session(&self, session: *const InstanceModel) {
+    pub fn unregister_session(&self, session: *const UnitModel) {
         let mut instances = self.instances.borrow_mut();
         debug!(Reaper::get().logger(), "Unregistering session...");
         instances.retain(|i| {
@@ -1565,7 +1565,7 @@ impl BackboneShell {
         &self,
         compartment: Compartment,
         target: &ReaperTarget,
-    ) -> Option<(SharedInstanceModel, SharedMapping)> {
+    ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.find_first_session_with_target(
             Some(Reaper::get().current_project()),
             compartment,
@@ -1579,7 +1579,7 @@ impl BackboneShell {
         project: Option<Project>,
         compartment: Compartment,
         target: &ReaperTarget,
-    ) -> Option<(SharedInstanceModel, SharedMapping)> {
+    ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.instances.borrow().iter().find_map(|session| {
             let session = session.session.upgrade()?;
             let mapping = {
@@ -1593,28 +1593,25 @@ impl BackboneShell {
         })
     }
 
-    fn find_first_session_on_track(&self, track: &Track) -> Option<SharedInstanceModel> {
+    fn find_first_session_on_track(&self, track: &Track) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let session = session.borrow();
             session.processor_context().track() == Some(track)
         })
     }
 
-    fn find_first_relevant_session_monitoring_first(&self) -> Option<SharedInstanceModel> {
+    fn find_first_relevant_session_monitoring_first(&self) -> Option<SharedUnitModel> {
         self.find_first_session_in_project(None)
             .or_else(|| self.find_first_session_in_project(Some(Reaper::get().current_project())))
     }
 
-    fn find_first_relevant_session_project_first(&self) -> Option<SharedInstanceModel> {
+    fn find_first_relevant_session_project_first(&self) -> Option<SharedUnitModel> {
         self.find_first_session_in_project(Some(Reaper::get().current_project()))
             .or_else(|| self.find_first_session_in_project(None))
     }
 
     /// Project None means monitoring FX chain.
-    fn find_first_session_in_project(
-        &self,
-        project: Option<Project>,
-    ) -> Option<SharedInstanceModel> {
+    fn find_first_session_in_project(&self, project: Option<Project>) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let session = session.borrow();
             session.processor_context().project() == project
@@ -1624,7 +1621,7 @@ impl BackboneShell {
     fn find_first_relevant_session_with_input_from(
         &self,
         input_descriptor: &InputDescriptor,
-    ) -> Option<SharedInstanceModel> {
+    ) -> Option<SharedUnitModel> {
         self.find_first_session_with_input_from(
             Some(Reaper::get().current_project()),
             input_descriptor,
@@ -1636,7 +1633,7 @@ impl BackboneShell {
         &self,
         project: Option<Project>,
         input_descriptor: &InputDescriptor,
-    ) -> Option<SharedInstanceModel> {
+    ) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let session = session.borrow();
             session.processor_context().project() == project
@@ -1648,7 +1645,7 @@ impl BackboneShell {
         &self,
         compartment: Compartment,
         capture_result: &MessageCaptureResult,
-    ) -> Option<(SharedInstanceModel, SharedMapping)> {
+    ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.find_first_session_with_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
@@ -1662,7 +1659,7 @@ impl BackboneShell {
         project: Option<Project>,
         compartment: Compartment,
         capture_result: &MessageCaptureResult,
-    ) -> Option<(SharedInstanceModel, SharedMapping)> {
+    ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.instances.borrow().iter().find_map(|session| {
             let session = session.session.upgrade()?;
             let mapping = {
@@ -1692,7 +1689,7 @@ impl BackboneShell {
     fn do_with_initiator_session_or_sessions_matching_tags(
         &self,
         common_args: &InstanceContainerCommonArgs,
-        f: impl Fn(&mut InstanceModel, WeakInstanceModel),
+        f: impl Fn(&mut UnitModel, WeakUnitModel),
     ) -> Result<(), &'static str> {
         if common_args.scope.has_tags() {
             // Modify all sessions whose tags match.
@@ -1932,11 +1929,11 @@ impl HookPostCommand2 for BackboneShell {
 }
 
 impl UnitContainer for BackboneShell {
-    fn find_session_by_id(&self, session_id: &str) -> Option<SharedInstanceModel> {
+    fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel> {
         BackboneShell::get().find_session_by_id_ignoring_borrowed_ones(session_id)
     }
 
-    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedInstanceModel> {
+    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedUnitModel> {
         BackboneShell::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
     }
 

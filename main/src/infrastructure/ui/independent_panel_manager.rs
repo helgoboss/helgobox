@@ -3,7 +3,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::OnceCell;
 
-use crate::application::{Affected, InstanceModel, SessionProp, SharedMapping, WeakInstanceModel};
+use crate::application::{Affected, SessionProp, SharedMapping, UnitModel, WeakUnitModel};
 use crate::domain::{
     Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
 };
@@ -14,7 +14,7 @@ const MAX_PANEL_COUNT: u32 = 4;
 /// Responsible for managing the currently open top-level mapping panels.
 #[derive(Debug)]
 pub struct IndependentPanelManager {
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
     main_panel: OnceCell<WeakView<UnitPanel>>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
@@ -24,7 +24,7 @@ pub struct IndependentPanelManager {
 }
 
 impl IndependentPanelManager {
-    pub fn new(session: WeakInstanceModel) -> IndependentPanelManager {
+    pub fn new(session: WeakUnitModel) -> IndependentPanelManager {
         Self {
             session: session.clone(),
             main_panel: OnceCell::new(),
@@ -87,7 +87,7 @@ impl IndependentPanelManager {
         }
     }
 
-    pub fn handle_changed_parameters(&self, session: &InstanceModel) {
+    pub fn handle_changed_parameters(&self, session: &UnitModel) {
         for p in &self.mapping_panels {
             let _ = p.clone().notify_parameters_changed(session);
         }

@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    Affected, InstanceModel, SessionProp, SharedInstanceModel, SharedMapping, WeakInstanceModel,
+    Affected, SessionProp, SharedMapping, SharedUnitModel, UnitModel, WeakUnitModel,
 };
 use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -24,7 +24,7 @@ use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window
 pub struct MappingRowsPanel {
     view: ViewContext,
     position: Point<DialogUnits>,
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
@@ -33,7 +33,7 @@ pub struct MappingRowsPanel {
 
 impl MappingRowsPanel {
     pub fn new(
-        session: WeakInstanceModel,
+        session: WeakUnitModel,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
         position: Point<DialogUnits>,
@@ -61,7 +61,7 @@ impl MappingRowsPanel {
         }
     }
 
-    fn session(&self) -> SharedInstanceModel {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -318,7 +318,7 @@ impl MappingRowsPanel {
     }
 
     pub fn filtered_mappings<'a>(
-        session: &'a InstanceModel,
+        session: &'a UnitModel,
         main_state: &'a MainState,
         compartment: Compartment,
         ignore_group: bool,
@@ -368,7 +368,7 @@ impl MappingRowsPanel {
     }
 
     fn mapping_matches_filter(
-        session: &InstanceModel,
+        session: &UnitModel,
         main_state: &MainState,
         mapping: &SharedMapping,
         ignore_group: bool,
@@ -414,7 +414,7 @@ impl MappingRowsPanel {
 
     fn invalidate_empty_group_controls(
         &self,
-        session: &InstanceModel,
+        session: &UnitModel,
         main_state: &MainState,
         compartment: Compartment,
         displayed_mapping_count: usize,
@@ -452,7 +452,7 @@ impl MappingRowsPanel {
 
     fn determine_empty_mapping_list_case(
         &self,
-        session: &InstanceModel,
+        session: &UnitModel,
         main_state: &MainState,
         compartment: Compartment,
     ) -> EmptyMappingListCase {

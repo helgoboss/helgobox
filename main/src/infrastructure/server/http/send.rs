@@ -1,5 +1,5 @@
 //! Contains functions for sending data to WebSocket clients.
-use crate::application::{InstanceModel, SharedInstanceModel};
+use crate::application::{SharedUnitModel, UnitModel};
 use crate::base::when;
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::BackboneShell;
@@ -72,7 +72,7 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
-pub fn send_updated_active_controller(session: &InstanceModel) -> Result<(), &'static str> {
+pub fn send_updated_active_controller(session: &UnitModel) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
             session_id: session.id().to_string(),
@@ -86,7 +86,7 @@ pub fn send_updated_active_controller(session: &InstanceModel) -> Result<(), &'s
     )
 }
 
-pub fn send_updated_controller_routing(session: &InstanceModel) -> Result<(), &'static str> {
+pub fn send_updated_controller_routing(session: &UnitModel) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
@@ -176,7 +176,7 @@ pub fn send_sessions_to_subscribed_clients() {
     .unwrap();
 }
 
-pub fn keep_informing_clients_about_session_events(shared_session: &SharedInstanceModel) {
+pub fn keep_informing_clients_about_session_events(shared_session: &SharedUnitModel) {
     let session = shared_session.borrow();
     let instance_state = session.instance_state().borrow();
     when(

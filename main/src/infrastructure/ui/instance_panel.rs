@@ -1,7 +1,11 @@
-use crate::infrastructure::ui::{util, UnitPanel};
+use crate::infrastructure::ui::util;
+use anyhow::Context;
 use std::cell::{Cell, OnceCell};
 use std::fmt::Debug;
+use std::sync;
+use std::sync::Arc;
 
+use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::ui::bindings::root;
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
@@ -9,17 +13,17 @@ use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 pub struct InstancePanel {
     view: ViewContext,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
-    // TODO-high CONTINUE This should hold multiple panels, one for each unit. Then the
-    //  UI state of each unit is memorized.
-    main_unit_panel: OnceCell<SharedView<UnitPanel>>,
+    shell: OnceCell<sync::Weak<InstanceShell>>,
+    displayed_additional_unit_panel_index: Cell<Option<usize>>,
 }
 
 impl InstancePanel {
     pub fn new() -> InstancePanel {
         InstancePanel {
             view: Default::default(),
-            main_unit_panel: OnceCell::new(),
+            shell: OnceCell::new(),
             dimensions: None.into(),
+            displayed_additional_unit_panel_index: Default::default(),
         }
     }
 
@@ -42,13 +46,33 @@ impl InstancePanel {
         self.open(parent_window)
     }
 
-    pub fn notify_main_unit_panel_available(&self, panel: SharedView<UnitPanel>) {
+    pub fn notify_shell_available(&self, shell: Arc<InstanceShell>) {
+        self.displayed_additional_unit_panel_index.set(None);
+        self.shell
+            .set(sync::Arc::downgrade(&shell))
+            .expect("instance shell already set");
         if let Some(window) = self.view.window() {
-            panel.clone().open(window);
+            // Window is currently open. Add main unit panel as subview.
+            let main_unit_panel = shell.main_unit_shell().panel().clone();
+            main_unit_panel.clone().open(window);
         }
-        self.main_unit_panel
-            .set(panel)
-            .expect("main instance panel already set");
+    }
+
+    fn add_unit(&self) {
+        let shell = self.shell().unwrap();
+        shell.add_unit();
+        let index_of_new_unit = shell.additional_unit_panel_count() - 1;
+        self.displayed_additional_unit_panel_index
+            .set(Some(index_of_new_unit));
+        // TODO-high CONTINUE Display immediately
+    }
+
+    fn shell(&self) -> anyhow::Result<Arc<InstanceShell>> {
+        self.shell
+            .get()
+            .context("instance shell not yet set")?
+            .upgrade()
+            .context("instance shell gone")
     }
 }
 
@@ -76,10 +100,24 @@ impl View for InstancePanel {
             self.open(parent_window);
             return false;
         }
-        // Add main instance panel if already available
-        if let Some(p) = self.main_unit_panel.get() {
-            p.clone().open(window);
+        if let Ok(shell) = self.shell() {
+            let panel = match self.displayed_additional_unit_panel_index.get() {
+                None => shell.main_unit_shell().panel().clone(),
+                Some(i) => shell
+                    .find_additional_unit_panel_by_index(i)
+                    .expect("couldn't find additional unit panel"),
+            };
+            panel.open(window);
         }
         true
+    }
+
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        match resource_id {
+            root::IDC_UNIT_BUTTON => {
+                self.add_unit();
+            }
+            _ => unreachable!(),
+        }
     }
 }

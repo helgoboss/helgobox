@@ -8,8 +8,8 @@ use reaper_high::Reaper;
 use std::cell::RefCell;
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, InstanceModel,
-    SessionProp, SessionUi, VirtualFxType, WeakInstanceModel,
+    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionProp,
+    SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -36,7 +36,7 @@ type _MainPanel = UnitPanel;
 #[derive(Debug)]
 pub struct UnitPanel {
     view: ViewContext,
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
@@ -46,7 +46,7 @@ pub struct UnitPanel {
 
 impl UnitPanel {
     pub fn new(
-        session: WeakInstanceModel,
+        session: WeakUnitModel,
         plugin_parameters: sync::Weak<InstanceParamContainer>,
     ) -> SharedView<Self> {
         let panel_manager = IndependentPanelManager::new(session.clone());
@@ -182,7 +182,7 @@ impl UnitPanel {
         });
     }
 
-    fn do_with_session<R>(&self, f: impl FnOnce(&InstanceModel) -> R) -> Result<R, &'static str> {
+    fn do_with_session<R>(&self, f: impl FnOnce(&UnitModel) -> R) -> Result<R, &'static str> {
         match self.session.upgrade() {
             None => Err("session not available anymore"),
             Some(session) => Ok(f(&session.borrow())),
@@ -191,7 +191,7 @@ impl UnitPanel {
 
     fn do_with_session_mut<R>(
         &self,
-        f: impl FnOnce(&mut InstanceModel) -> R,
+        f: impl FnOnce(&mut UnitModel) -> R,
     ) -> Result<R, &'static str> {
         match self.session.upgrade() {
             None => Err("session not available anymore"),
@@ -307,7 +307,7 @@ impl UnitPanel {
         }
     }
 
-    fn handle_changed_parameters(&self, session: &InstanceModel) {
+    fn handle_changed_parameters(&self, session: &UnitModel) {
         self.panel_manager
             .borrow()
             .handle_changed_parameters(session);
@@ -448,7 +448,7 @@ impl SessionUi for Weak<UnitPanel> {
         upgrade_panel(self).handle_changed_target_value(event);
     }
 
-    fn parameters_changed(&self, session: &InstanceModel) {
+    fn parameters_changed(&self, session: &UnitModel) {
         upgrade_panel(self).handle_changed_parameters(session);
     }
 
@@ -464,14 +464,14 @@ impl SessionUi for Weak<UnitPanel> {
         upgrade_panel(self).celebrate_success();
     }
 
-    fn send_projection_feedback(&self, session: &InstanceModel, value: ProjectionFeedbackValue) {
+    fn send_projection_feedback(&self, session: &UnitModel, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 
     #[cfg(feature = "playtime")]
     fn clip_matrix_changed(
         &self,
-        session: &InstanceModel,
+        session: &UnitModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
@@ -488,7 +488,7 @@ impl SessionUi for Weak<UnitPanel> {
     #[cfg(feature = "playtime")]
     fn process_control_surface_change_event_for_clip_engine(
         &self,
-        session: &InstanceModel,
+        session: &UnitModel,
         matrix: &playtime_clip_engine::base::Matrix,
         events: &[reaper_high::ChangeEvent],
     ) {
@@ -507,7 +507,7 @@ impl SessionUi for Weak<UnitPanel> {
 
     fn handle_affected(
         &self,
-        session: &InstanceModel,
+        session: &UnitModel,
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
     ) {

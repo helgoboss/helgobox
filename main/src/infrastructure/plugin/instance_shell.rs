@@ -1,13 +1,15 @@
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, PluginParamIndex, PluginParams,
-    ProcessorContext, RawParamValue,
+    ProcessorContext, RawParamValue, UnitId,
 };
 use crate::infrastructure::data::UnitData;
 use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::InstanceParamContainer;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
+use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
-use base::{blocking_read_lock, non_blocking_try_read_lock};
+use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
+use fragile::Fragile;
 use std::iter::once;
 use std::sync::{Arc, RwLock};
 use swell_ui::SharedView;
@@ -21,7 +23,11 @@ use vst::plugin::HostCallback;
 /// This was previously simply a part of the `RealearnPlugin` struct.
 #[derive(Debug)]
 pub struct InstanceShell {
+    panel: Fragile<SharedView<InstancePanel>>,
+    // TODO-low Not too cool that we need to make this fragile. Related to reaper-high cells.
+    processor_context: Fragile<ProcessorContext>,
     main_unit_shell: UnitShell,
+    param_container: Arc<InstanceParamContainer>,
     /// Additional unit shells.
     ///
     /// This needs to be protected because we might add/remove/set instances in the main
@@ -34,24 +40,52 @@ pub struct InstanceShell {
 }
 
 impl InstanceShell {
-    /// Creates a unit shell with exactly one instance shell.
+    /// Creates an instance shell with exactly one unit shell.
     pub fn new(
         processor_context: ProcessorContext,
-        instance_param_container: Arc<InstanceParamContainer>,
-        instance_panel: SharedView<InstancePanel>,
+        param_container: Arc<InstanceParamContainer>,
+        panel: SharedView<InstancePanel>,
     ) -> Self {
-        let main_unit_shell = UnitShell::new(
-            processor_context.clone(),
-            instance_param_container,
-            instance_panel,
-        );
         Self {
-            main_unit_shell,
+            main_unit_shell: UnitShell::new(processor_context.clone(), param_container.clone()),
             additional_unit_shells: Default::default(),
+            param_container,
+            panel: Fragile::new(panel),
+            processor_context: Fragile::new(processor_context),
         }
     }
 
-    /// Returns the state of the current instance in serialized form.
+    pub fn main_unit_shell(&self) -> &UnitShell {
+        &self.main_unit_shell
+    }
+
+    pub fn additional_unit_panel_count(&self) -> usize {
+        blocking_read_lock(&self.additional_unit_shells, "additional_unit_panel_count").len()
+    }
+
+    pub fn find_additional_unit_panel_by_index(
+        &self,
+        index: usize,
+    ) -> Option<SharedView<UnitPanel>> {
+        blocking_read_lock(
+            &self.additional_unit_shells,
+            "find_additional_unit_panel_by_index",
+        )
+        .get(index)
+        .map(|unit_shell| unit_shell.panel().clone())
+    }
+
+    pub fn add_unit(&self) -> UnitId {
+        let unit_shell = UnitShell::new(
+            self.processor_context.get().clone(),
+            self.param_container.clone(),
+        );
+        let id = unit_shell.id();
+        blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+        id
+    }
+
+    /// Returns the state of the current unit in serialized form.
     ///
     /// This must not lock any data that's accessed from real-time threads.
     ///
@@ -122,7 +156,7 @@ impl InstanceShell {
             // Better miss one block than blocking the entire audio thread
             return;
         };
-        for instance_shell in once(&self.main_unit_shell).chain(unit_shells) {
+        for instance_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
             instance_shell.process_incoming_midi_from_vst(event, is_transport_start, host);
         }
     }
@@ -140,7 +174,7 @@ impl InstanceShell {
             // Better miss one block than blocking the entire audio thread
             return;
         };
-        for unit_shell in once(&self.main_unit_shell).chain(unit_shells) {
+        for unit_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
             unit_shell.run_from_vst(
                 #[cfg(feature = "playtime")]
                 buffer,
@@ -158,7 +192,7 @@ impl InstanceShell {
         // Called in main thread. There should not be any contention from audio thread because
         // this is only called when plug-in suspended.
         let unit_shells = blocking_read_lock(&self.additional_unit_shells, "set_sample_rate");
-        for unit_shell in once(&self.main_unit_shell).chain(unit_shells) {
+        for unit_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
             unit_shell.set_sample_rate(rate);
         }
     }

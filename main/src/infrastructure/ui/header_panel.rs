@@ -19,7 +19,7 @@ use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
     ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
     MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
-    SharedInstanceModel, SharedMapping, VirtualControlElementType, WeakInstanceModel,
+    SharedMapping, SharedUnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -72,7 +72,7 @@ const PARAM_BATCH_SIZE: u32 = 5;
 #[derive(Debug)]
 pub struct HeaderPanel {
     view: ViewContext,
-    session: WeakInstanceModel,
+    session: WeakUnitModel,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
     plugin_parameters: sync::Weak<InstanceParamContainer>,
@@ -85,7 +85,7 @@ pub struct HeaderPanel {
 
 impl HeaderPanel {
     pub fn new(
-        session: WeakInstanceModel,
+        session: WeakUnitModel,
         main_state: SharedMainState,
         plugin_parameters: sync::Weak<InstanceParamContainer>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
@@ -174,7 +174,7 @@ impl HeaderPanel {
         }
     }
 
-    fn session(&self) -> SharedInstanceModel {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -2894,7 +2894,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 }
 
 fn edit_compartment_parameter(
-    session: SharedInstanceModel,
+    session: SharedUnitModel,
     compartment: Compartment,
     range: RangeInclusive<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
@@ -3148,7 +3148,7 @@ fn generate_fx_to_preset_links_menu_entries(
 
 fn with_scoped_preset_link_mutator(
     scope: PresetLinkScope,
-    session: &WeakInstanceModel,
+    session: &WeakUnitModel,
     f: impl FnOnce(&mut dyn PresetLinkMutator),
 ) {
     match scope {
