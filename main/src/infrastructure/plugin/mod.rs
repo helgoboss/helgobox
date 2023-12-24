@@ -2,7 +2,7 @@ mod api_impl;
 mod backbone_shell;
 mod debug_util;
 mod tracing_util;
-mod unit_panel;
+mod unit_editor;
 pub use backbone_shell::*;
 mod instance_shell;
 mod unit_parameter_container;

@@ -1,11 +1,11 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
 use reaper_high::Reaper;
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, InstanceModel,
@@ -27,7 +27,7 @@ use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
-use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 /// Just the old term as alias for easier class search.
 type _MainPanel = InstancePanel;
@@ -41,9 +41,7 @@ pub struct InstancePanel {
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
     success_sound_player: Option<SoundPlayer>,
-    dimensions: Cell<Option<Dimensions<Pixels>>>,
     state: SharedMainState,
-    plugin_parameters: sync::Weak<UnitParameterContainer>,
 }
 
 impl InstancePanel {
@@ -56,9 +54,7 @@ impl InstancePanel {
         let state = SharedMainState::default();
         let main_panel = Self {
             view: Default::default(),
-            dimensions: None.into(),
             state: state.clone(),
-            plugin_parameters: plugin_parameters.clone(),
             session: session.clone(),
             header_panel: HeaderPanel::new(
                 session.clone(),
@@ -103,25 +99,6 @@ impl InstancePanel {
 
     pub fn state(&self) -> &SharedMainState {
         &self.state
-    }
-
-    pub fn dimensions(&self) -> Dimensions<Pixels> {
-        self.dimensions
-            .get()
-            .unwrap_or_else(|| util::main_panel_dimensions().in_pixels())
-    }
-
-    pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) {
-        #[cfg(target_family = "windows")]
-        {
-            // On Windows, the first time opening the dialog window is just to determine the best
-            // dimensions based on HiDPI settings.
-            // TODO-low If we skip this, the dimensions would be saved. Wouldn't that be better?
-            //  I guess if there are multiple screens, keeping this line is better. Then it's a
-            //  matter of reopening the GUI to improve scaling. Test it!
-            self.dimensions.replace(None);
-        }
-        self.open(parent_window)
     }
 
     pub fn force_scroll_to_mapping(&self, id: QualifiedMappingId) {

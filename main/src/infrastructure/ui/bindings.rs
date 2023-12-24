@@ -285,17 +285,18 @@ pub mod root {
     pub const ID_MAPPING_ACTIVATION_SETTING_2_BUTTON: u32 = 30227;
     pub const ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX: u32 = 30228;
     pub const ID_MAPPING_ACTIVATION_EDIT_CONTROL: u32 = 30229;
-    pub const ID_MAIN_PANEL: u32 = 30236;
-    pub const ID_MAIN_PANEL_STATUS_1_TEXT: u32 = 30232;
-    pub const ID_MAIN_PANEL_STATUS_2_TEXT: u32 = 30233;
-    pub const IDC_EDIT_TAGS_BUTTON: u32 = 30234;
-    pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 30235;
-    pub const ID_YAML_EDITOR_PANEL: u32 = 30241;
+    pub const ID_UNIT_PANEL: u32 = 30231;
+    pub const ID_MAIN_PANEL: u32 = 30237;
+    pub const ID_MAIN_PANEL_STATUS_1_TEXT: u32 = 30233;
+    pub const ID_MAIN_PANEL_STATUS_2_TEXT: u32 = 30234;
+    pub const IDC_EDIT_TAGS_BUTTON: u32 = 30235;
+    pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 30236;
+    pub const ID_YAML_EDITOR_PANEL: u32 = 30242;
     #[allow(dead_code)]
-    pub const ID_YAML_TEXT_EDITOR_BUTTON: u32 = 30237;
-    pub const ID_YAML_EDIT_CONTROL: u32 = 30238;
-    pub const ID_YAML_HELP_BUTTON: u32 = 30239;
-    pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30240;
+    pub const ID_YAML_TEXT_EDITOR_BUTTON: u32 = 30238;
+    pub const ID_YAML_EDIT_CONTROL: u32 = 30239;
+    pub const ID_YAML_HELP_BUTTON: u32 = 30240;
+    pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30241;
     #[allow(dead_code)]
-    pub const ID_EMPTY_PANEL: u32 = 30242;
+    pub const ID_EMPTY_PANEL: u32 = 30243;
 }

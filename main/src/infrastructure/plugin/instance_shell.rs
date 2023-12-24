@@ -9,7 +9,7 @@ use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::{PluginInstanceInfo, UnitParameterContainer};
 use crate::infrastructure::ui::InstancePanel;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use reaper_medium::Hz;
+use reaper_medium::{Hz, ProjectRef};
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -17,15 +17,17 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use fragile::Fragile;
+use reaper_high::Reaper;
 use std::sync::{Arc, Mutex};
+use swell_ui::SharedView;
 
 use crate::application::{InstanceModel, SharedInstanceModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
 use crate::base::notification;
 use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::unit_panel::SharedUnitPanel;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
+use crate::infrastructure::ui::unit_panel::UnitPanel;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
@@ -55,7 +57,7 @@ impl InstanceShell {
     pub fn new(
         processor_context: ProcessorContext,
         unit_parameter_container: Arc<UnitParameterContainer>,
-        unit_panel: SharedUnitPanel,
+        unit_panel: SharedView<UnitPanel>,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -221,6 +223,9 @@ impl InstanceShell {
         // (https://github.com/helgoboss/realearn/issues/59).
         // When rendering, we don't do it because that will accumulate until the rendering is
         // finished, which is pointless.
+        if is_rendering() {
+            return;
+        }
         self.parameter_main_task_sender
             .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
     }
@@ -299,4 +304,11 @@ impl Drop for InstanceShell {
             Rc::strong_count(session)
         );
     }
+}
+
+fn is_rendering() -> bool {
+    Reaper::get()
+        .medium_reaper()
+        .enum_projects(ProjectRef::CurrentlyRendering, 0)
+        .is_some()
 }

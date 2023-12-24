@@ -18,6 +18,7 @@ mod mapping_rows_panel;
 mod message_panel;
 mod shared_group_mapping_panel;
 mod simple_editor_panel;
+mod unit_panel;
 
 pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef<Path>) {
     let default_font = Font {
@@ -133,7 +134,15 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     let message_panel_dialog = message_panel::create(context.global(), &mut ids);
     let shared_group_mapping_panel_dialog =
         shared_group_mapping_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
-    let maine_panel_dialog = {
+    let unit_panel_dialog = {
+        unit_panel::create(
+            context.global(),
+            &mut ids,
+            header_panel_dialog.rect.height,
+            mapping_rows_panel_dialog.rect.height,
+        )
+    };
+    let main_panel_dialog = {
         main_panel::create(
             context.global(),
             &mut ids,
@@ -152,7 +161,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             mapping_rows_panel_dialog,
             message_panel_dialog,
             shared_group_mapping_panel_dialog,
-            maine_panel_dialog,
+            unit_panel_dialog,
+            main_panel_dialog,
             simple_editor_panel_dialog,
             empty_panel_dialog,
         ],

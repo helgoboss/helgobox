@@ -83,3 +83,5 @@ pub mod lua_serializer;
 mod egui_views;
 
 mod menus;
+
+pub mod unit_panel;

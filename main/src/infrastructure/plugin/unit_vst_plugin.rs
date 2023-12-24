@@ -25,13 +25,16 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
-use crate::infrastructure::plugin::unit_panel::SharedUnitPanel;
+use crate::infrastructure::plugin::unit_editor::UnitEditor;
 use crate::infrastructure::plugin::unit_shell::UnitShell;
+use crate::infrastructure::ui::unit_panel::UnitPanel;
 use anyhow::{anyhow, Context};
 use helgoboss_learn::AbstractTimestamp;
 use std::convert::TryInto;
 use std::ptr::null_mut;
+use std::rc::Rc;
 use std::slice;
+use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
 use vst::host::Host;
@@ -57,7 +60,7 @@ pub struct UnitVstPlugin {
     is_plugin_scan: bool,
     // This will be set as soon as the containing FX is known (one main loop cycle after `init()`).
     unit_shell: OnceLock<Arc<UnitShell>>,
-    unit_panel: SharedUnitPanel,
+    unit_panel: SharedView<UnitPanel>,
 }
 
 impl Default for UnitVstPlugin {
@@ -81,7 +84,7 @@ impl Plugin for UnitVstPlugin {
                 sample_rate: Default::default(),
                 is_plugin_scan: false,
                 unit_shell: OnceLock::new(),
-                unit_panel: SharedUnitPanel::new(),
+                unit_panel: Rc::new(UnitPanel::new()),
             }
         })
         .unwrap_or_default()
@@ -156,7 +159,7 @@ impl Plugin for UnitVstPlugin {
             // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
             // host, e.g. in order to check if it should the hasEditor flag or not. That means
             // we don't know yet if this is a plug-in scan or not. We have to create the editor.
-            let boxed: Box<dyn Editor> = Box::new(self.unit_panel.clone());
+            let boxed: Box<dyn Editor> = Box::new(UnitEditor::new(self.unit_panel.clone()));
             Some(boxed)
         })
         .unwrap_or(None)

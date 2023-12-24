@@ -4,13 +4,12 @@ use crate::domain::{
 };
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
-use crate::infrastructure::plugin::unit_panel::SharedUnitPanel;
 use crate::infrastructure::plugin::UnitParameterContainer;
+use crate::infrastructure::ui::unit_panel::UnitPanel;
 use anyhow::{bail, Context};
 use base::{blocking_read_lock, non_blocking_try_read_lock};
-use reaper_high::Reaper;
-use reaper_medium::ProjectRef;
 use std::sync::{Arc, RwLock};
+use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
 /// Represents a Helgobox Unit in the infrastructure layer.
@@ -38,7 +37,7 @@ impl UnitShell {
     pub fn new(
         processor_context: ProcessorContext,
         unit_parameter_container: Arc<UnitParameterContainer>,
-        unit_panel: SharedUnitPanel,
+        unit_panel: SharedView<UnitPanel>,
     ) -> Self {
         let main_instance_shell = InstanceShell::new(
             processor_context.clone(),
@@ -162,11 +161,4 @@ impl UnitShell {
             instance_shell.set_sample_rate(rate);
         }
     }
-}
-
-fn is_rendering() -> bool {
-    Reaper::get()
-        .medium_reaper()
-        .enum_projects(ProjectRef::CurrentlyRendering, 0)
-        .is_some()
 }
