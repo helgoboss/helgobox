@@ -1,9 +1,8 @@
 mod api_impl;
+mod backbone_shell;
 mod debug_util;
 mod tracing_util;
 mod unit_panel;
-use unit_panel::*;
-mod backbone_shell;
 pub use backbone_shell::*;
 mod instance_shell;
 mod unit_parameter_container;

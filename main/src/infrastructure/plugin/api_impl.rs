@@ -112,7 +112,8 @@ fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
     let main_panel = BackboneShell::get()
         .find_main_panel_by_instance_id(instance_id.into())
         .context("Instance not found")?;
-    main_panel.start_show_or_hide_app_instance()
+    main_panel.start_show_or_hide_app_instance();
+    Ok(())
 }
 
 pub fn register_api() -> anyhow::Result<()> {

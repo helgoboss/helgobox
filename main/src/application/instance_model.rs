@@ -29,7 +29,7 @@ use reaper_high::Reaper;
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
-use std::cell::{Ref, RefCell};
+use std::cell::{OnceCell, Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 
@@ -157,7 +157,7 @@ pub struct InstanceModel {
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
-    ui: Box<dyn SessionUi>,
+    ui: OnceCell<Box<dyn SessionUi>>,
     // TODO-low-multi-config Make all the following fully qualified
     #[derivative(Debug = "ignore")]
     param_container: Box<dyn ParamContainer>,
@@ -254,7 +254,6 @@ impl InstanceModel {
         context: ProcessorContext,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
-        ui: impl SessionUi + 'static,
         param_container: impl ParamContainer + 'static,
         instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
@@ -316,7 +315,7 @@ impl InstanceModel {
             normal_main_task_sender,
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
-            ui: Box::new(ui),
+            ui: OnceCell::new(),
             param_container: Box::new(param_container),
             instance_container,
             params: Default::default(),
@@ -334,6 +333,12 @@ impl InstanceModel {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
+        }
+    }
+
+    pub fn set_ui(&mut self, ui: impl SessionUi + 'static) {
+        if self.ui.set(Box::new(ui)).is_err() {
+            panic!("can set ui only once");
         }
     }
 
@@ -1217,14 +1222,14 @@ impl InstanceModel {
                     // need to borrow the session mutably. In case it's going to be an issue,
                     // we can also choose to clone the weak main panel instead.
                     let session = session.borrow();
-                    session.ui.handle_affected(&session, affected, initiator);
+                    session.ui().handle_affected(&session, affected, initiator);
                 }
             })
             .unwrap();
     }
 
     pub fn ui(&self) -> &dyn SessionUi {
-        &*self.ui
+        &**(self.ui.get().expect("UI not yet set"))
     }
 
     fn change_compartment_internal(
@@ -2355,7 +2360,7 @@ impl InstanceModel {
     }
 
     pub fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
-        self.ui.show_mapping(compartment, mapping_id);
+        self.ui().show_mapping(compartment, mapping_id);
     }
 
     /// Makes the main processor send feedback to the given sender instead of the configured
@@ -2590,15 +2595,15 @@ impl DomainEventHandler for WeakInstanceModel {
         match event {
             Info(evt) => {
                 let s = session.try_borrow()?;
-                s.ui.handle_info_event(evt);
+                s.ui().handle_info_event(evt);
             }
             ConditionsChanged => {
                 let s = session.try_borrow()?;
-                s.ui.conditions_changed()
+                s.ui().conditions_changed()
             }
             TimeForCelebratingSuccess => {
                 let s = session.try_borrow()?;
-                s.ui.celebrate_success()
+                s.ui().celebrate_success()
             }
             CapturedIncomingMessage(event) => {
                 session.borrow_mut().captured_incoming_message(event);
@@ -2629,27 +2634,27 @@ impl DomainEventHandler for WeakInstanceModel {
                 // particular case of reentrancy (because of a quirk in REAPER related to master
                 // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
                 // target value slider is not updated then ... so what.
-                session.try_borrow()?.ui.target_value_changed(e);
+                session.try_borrow()?.ui().target_value_changed(e);
             }
             UpdatedSingleParameterValue { index, value } => {
                 let mut session = session.borrow_mut();
                 session.params.at_mut(index).set_raw_value(value);
-                session.ui.parameters_changed(&session);
+                session.ui().parameters_changed(&session);
             }
             UpdatedAllParameters(params) => {
                 let mut session = session.borrow_mut();
                 session.params = params;
-                session.ui.parameters_changed(&session);
+                session.ui().parameters_changed(&session);
             }
             FullResyncRequested => {
                 session.borrow_mut().full_sync();
             }
             MidiDevicesChanged => {
-                session.try_borrow()?.ui.midi_devices_changed();
+                session.try_borrow()?.ui().midi_devices_changed();
             }
             ProjectionFeedback(value) => {
                 let s = session.try_borrow()?;
-                s.ui.send_projection_feedback(&s, value);
+                s.ui().send_projection_feedback(&s, value);
             }
             #[cfg(feature = "playtime")]
             ClipMatrixChanged {
@@ -2658,20 +2663,21 @@ impl DomainEventHandler for WeakInstanceModel {
                 is_poll,
             } => {
                 let s = session.try_borrow()?;
-                s.ui.clip_matrix_changed(&s, matrix, events, is_poll);
+                s.ui().clip_matrix_changed(&s, matrix, events, is_poll);
             }
             #[cfg(feature = "playtime")]
             ControlSurfaceChangeEventsForClipEngine(matrix, events) => {
                 let s = session.try_borrow()?;
-                s.ui.process_control_surface_change_event_for_clip_engine(&s, matrix, events);
+                s.ui()
+                    .process_control_surface_change_event_for_clip_engine(&s, matrix, events);
             }
             MappingMatched(event) => {
                 let s = session.try_borrow()?;
-                s.ui.mapping_matched(event);
+                s.ui().mapping_matched(event);
             }
             TargetControlled(event) => {
                 let s = session.try_borrow()?;
-                s.ui.target_controlled(event);
+                s.ui().target_controlled(event);
             }
             MappingEnabledChangeRequested(event) => {
                 let mut s = session.try_borrow_mut()?;

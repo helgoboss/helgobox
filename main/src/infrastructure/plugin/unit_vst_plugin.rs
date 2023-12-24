@@ -5,7 +5,6 @@ use vst::plugin::{
     PluginParameters,
 };
 
-use super::UnitPanel;
 use crate::domain::{
     ControlEvent, ControlEventTimestamp, MidiEvent, PluginParamIndex, ProcessorContext, UnitId,
     PLUGIN_PARAMETER_COUNT,

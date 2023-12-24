@@ -26,7 +26,6 @@ use crate::base::notification;
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::unit_panel::SharedUnitPanel;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
-use swell_ui::SharedView;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
@@ -117,9 +116,6 @@ impl InstanceShell {
             #[cfg(feature = "playtime")]
             normal_real_time_task_sender.clone(),
         );
-        let main_panel = SharedView::new(InstancePanel::new(Arc::downgrade(
-            &unit_parameter_container,
-        )));
         // Session (application - shared)
         let session = InstanceModel::new(
             instance_id,
@@ -127,13 +123,7 @@ impl InstanceShell {
             processor_context.clone(),
             normal_real_time_task_sender.clone(),
             normal_main_task_sender.clone(),
-            // It's important that we use a weak pointer here. Otherwise the session keeps
-            // a strong reference to the UI and the UI keeps strong
-            // references to the session. This results in UI stuff not
-            // being dropped when the plug-in is removed. It
-            // doesn't result in a crash, but there's no cleanup.
-            Rc::downgrade(&main_panel),
-            unit_parameter_container,
+            unit_parameter_container.clone(),
             BackboneShell::get(),
             BackboneShell::get().controller_preset_manager(),
             BackboneShell::get().main_preset_manager(),
@@ -146,6 +136,13 @@ impl InstanceShell {
         );
         let shared_session = Rc::new(RefCell::new(session));
         let weak_session = Rc::downgrade(&shared_session);
+        let main_panel = InstancePanel::new(
+            weak_session.clone(),
+            Arc::downgrade(&unit_parameter_container),
+        );
+        shared_session
+            .borrow_mut()
+            .set_ui(Rc::downgrade(&main_panel));
         keep_informing_clients_about_session_events(&shared_session);
         let plugin_instance_info = PluginInstanceInfo {
             processor_context: processor_context.clone(),
@@ -188,9 +185,6 @@ impl InstanceShell {
             main_processor,
         );
         shared_session.borrow_mut().activate(weak_session.clone());
-        main_panel
-            .clone()
-            .notify_session_is_available(weak_session.clone());
         unit_panel.notify_main_instance_panel_available(main_panel);
         shared_session.borrow().notify_realearn_instance_started();
         // End create session

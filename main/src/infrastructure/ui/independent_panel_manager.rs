@@ -1,6 +1,7 @@
 use crate::infrastructure::ui::{InstancePanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
+use std::cell::OnceCell;
 
 use crate::application::{Affected, InstanceModel, SessionProp, SharedMapping, WeakInstanceModel};
 use crate::domain::{
@@ -14,7 +15,7 @@ const MAX_PANEL_COUNT: u32 = 4;
 #[derive(Debug)]
 pub struct IndependentPanelManager {
     session: WeakInstanceModel,
-    main_panel: WeakView<InstancePanel>,
+    main_panel: OnceCell<WeakView<InstancePanel>>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
     /// We have at most one app instance open per ReaLearn instance.
@@ -23,18 +24,19 @@ pub struct IndependentPanelManager {
 }
 
 impl IndependentPanelManager {
-    pub fn new(
-        session: WeakInstanceModel,
-        main_panel: WeakView<InstancePanel>,
-    ) -> IndependentPanelManager {
+    pub fn new(session: WeakInstanceModel) -> IndependentPanelManager {
         Self {
             session: session.clone(),
-            main_panel,
+            main_panel: OnceCell::new(),
             mapping_panels: Default::default(),
             #[cfg(feature = "playtime")]
             app_instance: crate::infrastructure::ui::create_shared_app_instance(session.clone()),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
+    }
+
+    pub fn set_main_panel(&mut self, main_panel: WeakView<InstancePanel>) {
+        self.main_panel.set(main_panel).expect("can set only once")
     }
 
     pub fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
@@ -195,10 +197,14 @@ impl IndependentPanelManager {
         }
     }
 
+    fn main_panel(&self) -> &WeakView<InstancePanel> {
+        self.main_panel.get().expect("main panel not set")
+    }
+
     fn create_new_panel(&mut self) -> SharedView<MappingPanel> {
         let panel = SharedView::new(MappingPanel::new(
             self.session.clone(),
-            self.main_panel.clone(),
+            self.main_panel().clone(),
         ));
         let panel_clone_1 = panel.clone();
         let panel_clone_2 = panel.clone();

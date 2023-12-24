@@ -3,7 +3,6 @@ use crate::infrastructure::ui::{
     SharedIndependentPanelManager, SharedMainState,
 };
 
-use lazycell::LazyCell;
 use reaper_high::Reaper;
 
 use std::cell::{Cell, RefCell};
@@ -37,67 +36,45 @@ type _MainPanel = InstancePanel;
 #[derive(Debug)]
 pub struct InstancePanel {
     view: ViewContext,
-    active_data: LazyCell<ActiveData>,
-    dimensions: Cell<Option<Dimensions<Pixels>>>,
-    state: SharedMainState,
-    plugin_parameters: sync::Weak<UnitParameterContainer>,
-}
-
-#[derive(Debug)]
-struct ActiveData {
     session: WeakInstanceModel,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
     success_sound_player: Option<SoundPlayer>,
-}
-
-impl ActiveData {
-    fn do_with_session<R>(&self, f: impl FnOnce(&InstanceModel) -> R) -> Result<R, &'static str> {
-        match self.session.upgrade() {
-            None => Err("session not available anymore"),
-            Some(session) => Ok(f(&session.borrow())),
-        }
-    }
+    dimensions: Cell<Option<Dimensions<Pixels>>>,
+    state: SharedMainState,
+    plugin_parameters: sync::Weak<UnitParameterContainer>,
 }
 
 impl InstancePanel {
-    pub fn new(plugin_parameters: sync::Weak<UnitParameterContainer>) -> Self {
-        Self {
-            view: Default::default(),
-            active_data: LazyCell::new(),
-            dimensions: None.into(),
-            state: Default::default(),
-            plugin_parameters,
-        }
-    }
-
-    pub fn state(&self) -> &SharedMainState {
-        &self.state
-    }
-
-    // TODO-high CONTINUE Not really necessary anymore because we defer the creation of the main panel itself.
-    pub fn notify_session_is_available(self: Rc<Self>, session: WeakInstanceModel) {
-        // Finally, the session is available. First, save its reference and create sub panels.
-        let panel_manager = IndependentPanelManager::new(session.clone(), Rc::downgrade(&self));
+    pub fn new(
+        session: WeakInstanceModel,
+        plugin_parameters: sync::Weak<UnitParameterContainer>,
+    ) -> SharedView<Self> {
+        let panel_manager = IndependentPanelManager::new(session.clone());
         let panel_manager = Rc::new(RefCell::new(panel_manager));
-        let active_data = ActiveData {
+        let state = SharedMainState::default();
+        let main_panel = Self {
+            view: Default::default(),
+            dimensions: None.into(),
+            state: state.clone(),
+            plugin_parameters: plugin_parameters.clone(),
             session: session.clone(),
             header_panel: HeaderPanel::new(
                 session.clone(),
-                self.state.clone(),
-                self.plugin_parameters.clone(),
+                state.clone(),
+                plugin_parameters,
                 Rc::downgrade(&panel_manager),
             )
             .into(),
             mapping_rows_panel: MappingRowsPanel::new(
                 session,
                 Rc::downgrade(&panel_manager),
-                self.state.clone(),
+                state,
                 Point::new(DialogUnits(0), header_panel_height()),
             )
             .into(),
-            panel_manager,
+            panel_manager: panel_manager.clone(),
             success_sound_player: {
                 let mut sound_player = SoundPlayer::new();
                 if let Some(path_to_file) = BackboneShell::realearn_high_click_sound_path() {
@@ -111,13 +88,21 @@ impl InstancePanel {
                 }
             },
         };
-        self.active_data.fill(active_data).unwrap();
+        let main_panel = Rc::new(main_panel);
+        panel_manager
+            .borrow_mut()
+            .set_main_panel(Rc::downgrade(&main_panel));
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
-        if let Some(window) = self.view.window() {
-            self.open_sub_panels(window);
-            self.invalidate_all_controls();
-            self.register_session_listeners();
+        if let Some(window) = main_panel.view.window() {
+            main_panel.open_sub_panels(window);
+            main_panel.invalidate_all_controls();
+            main_panel.register_session_listeners();
         }
+        main_panel
+    }
+
+    pub fn state(&self) -> &SharedMainState {
+        &self.state
     }
 
     pub fn dimensions(&self) -> Dimensions<Pixels> {
@@ -140,29 +125,21 @@ impl InstancePanel {
     }
 
     pub fn force_scroll_to_mapping(&self, id: QualifiedMappingId) {
-        if let Some(data) = self.active_data.borrow() {
-            data.mapping_rows_panel.force_scroll_to_mapping(id);
-        }
+        self.mapping_rows_panel.force_scroll_to_mapping(id);
     }
 
     pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
-        if let Some(data) = self.active_data.borrow() {
-            data.mapping_rows_panel
-                .edit_mapping(compartment, mapping_id);
-        }
+        self.mapping_rows_panel
+            .edit_mapping(compartment, mapping_id);
     }
 
     pub fn show_pot_browser(&self) {
-        if let Some(data) = self.active_data.borrow() {
-            data.header_panel.show_pot_browser();
-        }
+        self.header_panel.show_pot_browser();
     }
 
     fn open_sub_panels(&self, window: Window) {
-        if let Some(data) = self.active_data.borrow() {
-            data.header_panel.clone().open(window);
-            data.mapping_rows_panel.clone().open(window);
-        }
+        self.header_panel.clone().open(window);
+        self.mapping_rows_panel.clone().open(window);
     }
 
     fn invalidate_status_1_text(&self) {
@@ -229,9 +206,9 @@ impl InstancePanel {
     }
 
     fn do_with_session<R>(&self, f: impl FnOnce(&InstanceModel) -> R) -> Result<R, &'static str> {
-        match self.active_data.borrow() {
-            None => Err("session not available"),
-            Some(active_data) => active_data.do_with_session(f),
+        match self.session.upgrade() {
+            None => Err("session not available anymore"),
+            Some(session) => Ok(f(&session.borrow())),
         }
     }
 
@@ -239,12 +216,10 @@ impl InstancePanel {
         &self,
         f: impl FnOnce(&mut InstanceModel) -> R,
     ) -> Result<R, &'static str> {
-        if let Some(data) = self.active_data.borrow() {
-            if let Some(session) = data.session.upgrade() {
-                return Ok(f(&mut session.borrow_mut()));
-            }
+        match self.session.upgrade() {
+            None => Err("session not available anymore"),
+            Some(session) => Ok(f(&mut session.borrow_mut())),
         }
-        Err("session not available")
     }
 
     fn invalidate_version_text(&self) {
@@ -289,50 +264,34 @@ impl InstancePanel {
     }
 
     fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager
-                .borrow()
-                .handle_changed_target_value(event);
-        }
+        self.panel_manager
+            .borrow()
+            .handle_changed_target_value(event);
     }
 
     fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager.borrow().handle_matched_mapping(event);
-            if self.is_open() {
-                data.mapping_rows_panel.handle_matched_mapping(event);
-            }
+        self.panel_manager.borrow().handle_matched_mapping(event);
+        if self.is_open() {
+            self.mapping_rows_panel.handle_matched_mapping(event);
         }
     }
 
     #[cfg(feature = "playtime")]
-    pub fn app_instance(&self) -> anyhow::Result<crate::infrastructure::ui::SharedAppInstance> {
-        let activate_data = self
-            .active_data
-            .borrow()
-            .ok_or_else(|| anyhow::anyhow!("main panel not active yet"))?;
-        Ok(activate_data.panel_manager.borrow().app_instance().clone())
+    pub fn app_instance(&self) -> crate::infrastructure::ui::SharedAppInstance {
+        self.panel_manager.borrow().app_instance().clone()
     }
 
     #[cfg(feature = "playtime")]
-    pub fn start_show_or_hide_app_instance(&self) -> anyhow::Result<()> {
-        let activate_data = self
-            .active_data
-            .borrow()
-            .ok_or_else(|| anyhow::anyhow!("main panel not active yet"))?;
-        activate_data
-            .panel_manager
+    pub fn start_show_or_hide_app_instance(&self) {
+        self.panel_manager
             .borrow()
             .start_show_or_hide_app_instance();
-        Ok(())
     }
 
     fn handle_target_control_event(&self, event: TargetControlEvent) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager
-                .borrow()
-                .handle_target_control_event(event);
-        }
+        self.panel_manager
+            .borrow()
+            .handle_target_control_event(event);
     }
 
     fn handle_affected(
@@ -340,14 +299,12 @@ impl InstancePanel {
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
     ) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager
-                .borrow()
-                .handle_affected(&affected, initiator);
-            data.mapping_rows_panel
-                .handle_affected(&affected, initiator);
-            data.header_panel.handle_affected(&affected, initiator);
-        }
+        self.panel_manager
+            .borrow()
+            .handle_affected(&affected, initiator);
+        self.mapping_rows_panel
+            .handle_affected(&affected, initiator);
+        self.header_panel.handle_affected(&affected, initiator);
         self.handle_affected_own(affected);
     }
 
@@ -374,33 +331,25 @@ impl InstancePanel {
     }
 
     fn handle_changed_parameters(&self, session: &InstanceModel) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager
-                .borrow()
-                .handle_changed_parameters(session);
-        }
+        self.panel_manager
+            .borrow()
+            .handle_changed_parameters(session);
     }
 
     fn celebrate_success(&self) {
-        if let Some(data) = self.active_data.borrow() {
-            if let Some(s) = &data.success_sound_player {
-                let _ = s.play();
-            }
+        if let Some(s) = &self.success_sound_player {
+            let _ = s.play();
         }
     }
 
     fn handle_changed_midi_devices(&self) {
-        if let Some(data) = self.active_data.borrow() {
-            data.header_panel.handle_changed_midi_devices();
-        }
+        self.header_panel.handle_changed_midi_devices();
     }
 
     fn handle_changed_conditions(&self) {
-        if let Some(data) = self.active_data.borrow() {
-            data.panel_manager.borrow().handle_changed_conditions();
-            if self.is_open() {
-                data.mapping_rows_panel.handle_changed_conditions();
-            }
+        self.panel_manager.borrow().handle_changed_conditions();
+        if self.is_open() {
+            self.mapping_rows_panel.handle_changed_conditions();
         }
     }
 
