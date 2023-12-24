@@ -19,7 +19,7 @@ use std::rc::Rc;
 use fragile::Fragile;
 use reaper_high::Reaper;
 use std::sync::{Arc, Mutex};
-use swell_ui::SharedView;
+use swell_ui::{SharedView, WeakView};
 
 use crate::application::{SharedUnitModel, UnitModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
@@ -27,6 +27,7 @@ use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 use crate::base::notification;
 use crate::infrastructure::data::UnitData;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
@@ -57,6 +58,7 @@ impl UnitShell {
     pub fn new(
         processor_context: ProcessorContext,
         instance_param_container: Arc<InstanceParamContainer>,
+        instance_panel: WeakView<InstancePanel>,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -140,6 +142,7 @@ impl UnitShell {
         let unit_panel = UnitPanel::new(
             weak_session.clone(),
             Arc::downgrade(&instance_param_container),
+            instance_panel,
         );
         shared_session
             .borrow_mut()

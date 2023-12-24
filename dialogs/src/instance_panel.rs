@@ -8,20 +8,7 @@ pub fn create(
     effective_rows_panel_height: u32,
 ) -> Dialog {
     use Style::*;
-    let footer_y_offset = effective_header_panel_height + effective_rows_panel_height;
-    let create_rect = |x, y, width, height| {
-        let local_rect = context.rect(x, y, width, height);
-        Rect {
-            y: footer_y_offset + local_rect.y,
-            ..local_rect
-        }
-    };
-    let line_spacing = 12;
-    let controls = vec![pushbutton(
-        "Unit",
-        ids.named_id("IDC_UNIT_BUTTON"),
-        create_rect(8, 5 + line_spacing, 56, 14),
-    )];
+    let controls = vec![];
     Dialog {
         id: ids.named_id("ID_INSTANCE_PANEL"),
         kind: DialogKind::DIALOGEX,

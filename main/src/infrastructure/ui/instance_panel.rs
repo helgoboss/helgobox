@@ -58,7 +58,7 @@ impl InstancePanel {
         }
     }
 
-    fn add_unit(&self) {
+    pub fn add_unit(&self) {
         let shell = self.shell().unwrap();
         shell.add_unit();
         let index_of_new_unit = shell.additional_unit_panel_count() - 1;
@@ -110,14 +110,5 @@ impl View for InstancePanel {
             panel.open(window);
         }
         true
-    }
-
-    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        match resource_id {
-            root::IDC_UNIT_BUTTON => {
-                self.add_unit();
-            }
-            _ => unreachable!(),
-        }
     }
 }

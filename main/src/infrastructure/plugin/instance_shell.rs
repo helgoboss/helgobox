@@ -12,7 +12,7 @@ use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
 use fragile::Fragile;
 use std::iter::once;
 use std::sync::{Arc, RwLock};
-use swell_ui::SharedView;
+use swell_ui::{SharedView, WeakView};
 use vst::plugin::HostCallback;
 
 /// Represents a Helgobox instance in the infrastructure layer.
@@ -47,7 +47,11 @@ impl InstanceShell {
         panel: SharedView<InstancePanel>,
     ) -> Self {
         Self {
-            main_unit_shell: UnitShell::new(processor_context.clone(), param_container.clone()),
+            main_unit_shell: UnitShell::new(
+                processor_context.clone(),
+                param_container.clone(),
+                SharedView::downgrade(&panel),
+            ),
             additional_unit_shells: Default::default(),
             param_container,
             panel: Fragile::new(panel),
@@ -79,6 +83,7 @@ impl InstanceShell {
         let unit_shell = UnitShell::new(
             self.processor_context.get().clone(),
             self.param_container.clone(),
+            SharedView::downgrade(self.panel.get()),
         );
         let id = unit_shell.id();
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);

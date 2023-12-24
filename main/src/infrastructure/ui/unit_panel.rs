@@ -21,13 +21,14 @@ use crate::infrastructure::plugin::{BackboneShell, InstanceParamContainer};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use base::SoundPlayer;
 use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 /// Just the old term as alias for easier class search.
 type _MainPanel = UnitPanel;
@@ -37,6 +38,7 @@ type _MainPanel = UnitPanel;
 pub struct UnitPanel {
     view: ViewContext,
     session: WeakUnitModel,
+    instance_panel: WeakView<InstancePanel>,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
@@ -48,6 +50,7 @@ impl UnitPanel {
     pub fn new(
         session: WeakUnitModel,
         plugin_parameters: sync::Weak<InstanceParamContainer>,
+        instance_panel: WeakView<InstancePanel>,
     ) -> SharedView<Self> {
         let panel_manager = IndependentPanelManager::new(session.clone());
         let panel_manager = Rc::new(RefCell::new(panel_manager));
@@ -56,6 +59,7 @@ impl UnitPanel {
             view: Default::default(),
             state: state.clone(),
             session: session.clone(),
+            instance_panel,
             header_panel: HeaderPanel::new(
                 session.clone(),
                 state.clone(),
@@ -330,6 +334,13 @@ impl UnitPanel {
         }
     }
 
+    fn add_unit(&self) {
+        self.instance_panel
+            .upgrade()
+            .expect("instance panel doesn't exist anymore")
+            .add_unit();
+    }
+
     fn edit_instance_data(&self) -> Result<(), &'static str> {
         let (initial_session_id, initial_tags_as_csv) = self.do_with_session(|session| {
             (
@@ -427,6 +438,12 @@ impl View for UnitPanel {
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            root::IDC_UNIT_BUTTON => {
+                // Yes, putting this button into the instance panel would make more sense logically
+                // but since the unit panel completely covers the instance panel, the button would
+                // be unusable.
+                self.add_unit();
+            }
             root::IDC_EDIT_TAGS_BUTTON => {
                 self.edit_instance_data().unwrap();
             }
@@ -531,5 +548,5 @@ impl SessionUi for Weak<UnitPanel> {
 }
 
 fn upgrade_panel(panel: &Weak<UnitPanel>) -> Rc<UnitPanel> {
-    panel.upgrade().expect("main panel not existing anymore")
+    panel.upgrade().expect("unit panel not existing anymore")
 }
