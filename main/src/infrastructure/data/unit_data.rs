@@ -36,7 +36,7 @@ use std::ops::Deref;
 // the session.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionData {
+pub struct UnitData {
     // Since ReaLearn 1.12.0-pre18
     #[serde(
         default,
@@ -344,7 +344,7 @@ enum FeedbackDeviceId {
     MidiOrFxOutput(String),
 }
 
-impl Default for SessionData {
+impl Default for UnitData {
     fn default() -> Self {
         use crate::application::session_defaults;
         Self {
@@ -396,9 +396,9 @@ impl Default for SessionData {
     }
 }
 
-impl SessionData {
+impl UnitData {
     /// The given parameters are the canonical ones from `RealearnPluginParameters`.
-    pub fn from_model(session: &InstanceModel, plugin_params: &PluginParams) -> SessionData {
+    pub fn from_model(session: &InstanceModel, plugin_params: &PluginParams) -> UnitData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession::new(session, compartment);
             session
@@ -425,7 +425,7 @@ impl SessionData {
         };
         let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
         let instance_state = session.instance_state().borrow();
-        SessionData {
+        UnitData {
             version: Some(BackboneShell::version().clone()),
             id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),

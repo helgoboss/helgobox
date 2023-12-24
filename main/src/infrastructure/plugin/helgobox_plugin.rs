@@ -25,7 +25,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
-use crate::infrastructure::plugin::instance_editor::InstanceEditor;
+use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::{anyhow, Context};
@@ -40,13 +40,13 @@ use vst::buffer::AudioBuffer;
 use vst::host::Host;
 
 /// Just the old term as alias for easier class search.
-type _RealearnPlugin = InstanceVstPlugin;
+type _RealearnPlugin = HelgoboxPlugin;
 
 /// The actual VST plug-in and thus main entry point.
 ///
 /// Owns the instance shell, but not immediately. It's created as soon as the containing FX is
 /// available.
-pub struct InstanceVstPlugin {
+pub struct HelgoboxPlugin {
     instance_id: InstanceId,
     host: HostCallback,
     instance_params: Arc<InstanceParamContainer>,
@@ -63,15 +63,15 @@ pub struct InstanceVstPlugin {
     instance_panel: SharedView<InstancePanel>,
 }
 
-impl Default for InstanceVstPlugin {
+impl Default for HelgoboxPlugin {
     fn default() -> Self {
-        InstanceVstPlugin::new(Default::default())
+        HelgoboxPlugin::new(Default::default())
     }
 }
 
-unsafe impl Send for InstanceVstPlugin {}
+unsafe impl Send for HelgoboxPlugin {}
 
-impl Plugin for InstanceVstPlugin {
+impl Plugin for HelgoboxPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
             let instance_params = Arc::new(InstanceParamContainer::new());
@@ -159,7 +159,8 @@ impl Plugin for InstanceVstPlugin {
             // Unfortunately, vst-rs calls `get_editor` before the plug-in is initialized by the
             // host, e.g. in order to check if it should the hasEditor flag or not. That means
             // we don't know yet if this is a plug-in scan or not. We have to create the editor.
-            let boxed: Box<dyn Editor> = Box::new(InstanceEditor::new(self.instance_panel.clone()));
+            let boxed: Box<dyn Editor> =
+                Box::new(HelgoboxPluginEditor::new(self.instance_panel.clone()));
             Some(boxed)
         })
         .unwrap_or(None)
@@ -285,7 +286,7 @@ impl Plugin for InstanceVstPlugin {
     }
 }
 
-impl InstanceVstPlugin {
+impl HelgoboxPlugin {
     /// Should be called in real-time thread only.
     fn is_now_playing(&self) -> bool {
         use vst::api::TimeInfoFlags;

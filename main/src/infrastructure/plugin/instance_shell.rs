@@ -2,26 +2,27 @@ use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, PluginParamIndex, PluginParams,
     ProcessorContext, RawParamValue,
 };
-use crate::infrastructure::data::SessionData;
+use crate::infrastructure::data::UnitData;
 use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::InstanceParamContainer;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::{bail, Context};
 use base::{blocking_read_lock, non_blocking_try_read_lock};
+use std::iter::once;
 use std::sync::{Arc, RwLock};
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
-/// Represents a Helgobox Unit in the infrastructure layer.
+/// Represents a Helgobox instance in the infrastructure layer.
 ///
-/// Each Helgobox FX instance owns exactly one Helgobox unit shell. The unit shell shell owns all
-/// its associated instance shells.
+/// Each Helgobox FX instance owns exactly one Helgobox instance. The instance shell owns all
+/// its associated unit shells.
 ///
 /// This was previously simply a part of the `RealearnPlugin` struct.
 #[derive(Debug)]
 pub struct InstanceShell {
-    main_instance_shell: UnitShell,
-    /// All contained instance shells.
+    main_unit_shell: UnitShell,
+    /// Additional unit shells.
     ///
     /// This needs to be protected because we might add/remove/set instances in the main
     /// thread at a later point in time. There should be no contention whatsoever unless
@@ -29,56 +30,56 @@ pub struct InstanceShell {
     ///
     /// That's why each access from the audio thread should fail fast if there's contention. It
     /// should never wait for a lock. That way, the audio thread will not be blocked for sure.
-    instance_shells: RwLock<Vec<UnitShell>>,
+    additional_unit_shells: RwLock<Vec<UnitShell>>,
 }
 
 impl InstanceShell {
     /// Creates a unit shell with exactly one instance shell.
     pub fn new(
         processor_context: ProcessorContext,
-        unit_parameter_container: Arc<InstanceParamContainer>,
-        unit_panel: SharedView<InstancePanel>,
+        instance_param_container: Arc<InstanceParamContainer>,
+        instance_panel: SharedView<InstancePanel>,
     ) -> Self {
-        let main_instance_shell = UnitShell::new(
+        let main_unit_shell = UnitShell::new(
             processor_context.clone(),
-            unit_parameter_container,
-            unit_panel,
+            instance_param_container,
+            instance_panel,
         );
         Self {
-            main_instance_shell,
-            instance_shells: Default::default(),
+            main_unit_shell,
+            additional_unit_shells: Default::default(),
         }
     }
 
-    /// Returns the state of the current unit in serialized form.
+    /// Returns the state of the current instance in serialized form.
     ///
     /// This must not lock any data that's accessed from real-time threads.
     ///
     /// Must be called from the main thread.
     pub fn save(&self, params: &PluginParams) -> Vec<u8> {
-        let session_data = self.create_session_data_internal(params);
-        serde_json::to_vec(&session_data).expect("couldn't serialize session data")
+        let unit_data = self.create_unit_data_internal(params);
+        serde_json::to_vec(&unit_data).expect("couldn't serialize unit data")
     }
 
     /// Must be called from the main thread.
-    pub fn create_session_data(&self, params: &PluginParams) -> SessionData {
-        self.create_session_data_internal(params)
+    pub fn create_unit_data(&self, params: &PluginParams) -> UnitData {
+        self.create_unit_data_internal(params)
     }
 
-    fn create_session_data_internal(&self, params: &PluginParams) -> SessionData {
-        let model = self.main_instance_shell.model().borrow();
-        SessionData::from_model(&model, params)
+    fn create_unit_data_internal(&self, params: &PluginParams) -> UnitData {
+        let model = self.main_unit_shell.model().borrow();
+        UnitData::from_model(&model, params)
     }
 
     pub fn set_all_parameters(&self, params: PluginParams) {
-        self.main_instance_shell.set_all_parameters(params);
+        self.main_unit_shell.set_all_parameters(params);
     }
 
     pub fn set_single_parameter(&self, index: PluginParamIndex, value: RawParamValue) {
-        self.main_instance_shell.set_single_parameter(index, value);
+        self.main_unit_shell.set_single_parameter(index, value);
     }
 
-    /// Restores unit shell state from the given serialized data.
+    /// Restores instance shell state from the given serialized data.
     ///
     /// This must not lock any data that's accessed from real-time threads.
     ///
@@ -91,24 +92,24 @@ impl InstanceShell {
         // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
         // start of JSON data.
         let data = &data[left_json_object_brace..];
-        let session_data: SessionData = match serde_json::from_slice(data) {
+        let unit_data: UnitData = match serde_json::from_slice(data) {
             Ok(d) => d,
             Err(e) => {
                 bail!(
-                    "ReaLearn couldn't restore this session: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
+                    "ReaLearn couldn't restore this unit: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
                     e,
                     std::str::from_utf8(data).unwrap_or("UTF-8 decoding error")
                 )
             }
         };
-        self.main_instance_shell.apply_session_data(&session_data)
+        self.main_unit_shell.apply_unit_data(&unit_data)
     }
 
-    pub fn apply_session_data(&self, session_data: &SessionData) -> anyhow::Result<PluginParams> {
-        self.main_instance_shell.apply_session_data(session_data)
+    pub fn apply_unit_data(&self, unit_data: &UnitData) -> anyhow::Result<PluginParams> {
+        self.main_unit_shell.apply_unit_data(unit_data)
     }
 
-    /// Forwards the given <FX input> MIDI event to all instances.
+    /// Forwards the given <FX input> MIDI event to all units.
     ///
     /// To be called from real-time thread.
     pub fn process_incoming_midi_from_plugin(
@@ -117,16 +118,16 @@ impl InstanceShell {
         is_transport_start: bool,
         host: HostCallback,
     ) {
-        let Some(instance_shells) = non_blocking_try_read_lock(&self.instance_shells) else {
+        let Some(unit_shells) = non_blocking_try_read_lock(&self.additional_unit_shells) else {
             // Better miss one block than blocking the entire audio thread
             return;
         };
-        for instance_shell in &*instance_shells {
+        for instance_shell in once(&self.main_unit_shell).chain(unit_shells) {
             instance_shell.process_incoming_midi_from_vst(event, is_transport_start, host);
         }
     }
 
-    /// Invokes the processing function for each instance.
+    /// Invokes the processing function for each unit.
     ///
     /// To be called from real-time thread (in the plug-in's processing function).
     pub fn run_from_plugin(
@@ -135,12 +136,12 @@ impl InstanceShell {
         #[cfg(feature = "playtime")] block_props: AudioBlockProps,
         host: HostCallback,
     ) {
-        let Some(instance_shells) = non_blocking_try_read_lock(&self.instance_shells) else {
+        let Some(unit_shells) = non_blocking_try_read_lock(&self.additional_unit_shells) else {
             // Better miss one block than blocking the entire audio thread
             return;
         };
-        for instance_shell in &*instance_shells {
-            instance_shell.run_from_vst(
+        for unit_shell in once(&self.main_unit_shell).chain(unit_shells) {
+            unit_shell.run_from_vst(
                 #[cfg(feature = "playtime")]
                 buffer,
                 #[cfg(feature = "playtime")]
@@ -150,15 +151,15 @@ impl InstanceShell {
         }
     }
 
-    /// Informs all instances about a sample rate change.
+    /// Informs all units about a sample rate change.
     ///
     /// To be called from main thread.
     pub fn set_sample_rate(&self, rate: f32) {
         // Called in main thread. There should not be any contention from audio thread because
         // this is only called when plug-in suspended.
-        let instance_shells = blocking_read_lock(&self.instance_shells, "set_sample_rate");
-        for instance_shell in &*instance_shells {
-            instance_shell.set_sample_rate(rate);
+        let unit_shells = blocking_read_lock(&self.additional_unit_shells, "set_sample_rate");
+        for unit_shell in once(&self.main_unit_shell).chain(unit_shells) {
+            unit_shell.set_sample_rate(rate);
         }
     }
 }

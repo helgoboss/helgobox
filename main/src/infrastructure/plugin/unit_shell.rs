@@ -25,7 +25,7 @@ use crate::application::{InstanceModel, SharedInstanceModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
 use crate::base::notification;
-use crate::infrastructure::data::SessionData;
+use crate::infrastructure::data::UnitData;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 
@@ -230,7 +230,7 @@ impl UnitShell {
             .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
     }
 
-    pub fn apply_session_data(&self, session_data: &SessionData) -> anyhow::Result<PluginParams> {
+    pub fn apply_unit_data(&self, session_data: &UnitData) -> anyhow::Result<PluginParams> {
         let shared_session = self.session.get();
         let mut session = shared_session.borrow_mut();
         if let Some(v) = session_data.version.as_ref() {

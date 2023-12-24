@@ -6,7 +6,7 @@ use crate::application::ParamContainer;
 use crate::domain::{
     Compartment, CompartmentParams, PluginParamIndex, PluginParams, RawParamValue,
 };
-use crate::infrastructure::data::SessionData;
+use crate::infrastructure::data::UnitData;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use anyhow::Context;
 use std::sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -60,22 +60,22 @@ impl InstanceParamContainer {
 
     /// This struct is the best candidate for creating the SessionData object because it knows
     /// the session (at least it holds a share) and most importantly, it owns the parameters.
-    pub fn create_session_data(&self) -> anyhow::Result<SessionData> {
+    pub fn create_session_data(&self) -> anyhow::Result<UnitData> {
         let unit_shell = self.unit_shell.get().context("session gone")?;
-        Ok(unit_shell.create_session_data(&self.params()))
+        Ok(unit_shell.create_unit_data(&self.params()))
     }
 
-    pub fn apply_session_data(&self, session_data: &SessionData) -> anyhow::Result<()> {
+    pub fn apply_session_data(&self, session_data: &UnitData) -> anyhow::Result<()> {
         self.apply_session_data_internal(session_data)
     }
 
     pub fn load_state(&self, json: &str) -> anyhow::Result<()> {
-        let session_data: SessionData =
+        let session_data: UnitData =
             serde_json::from_str(json).expect("couldn't deserialize session data");
         self.apply_session_data_internal(&session_data)
     }
 
-    fn apply_session_data_internal(&self, session_data: &SessionData) -> anyhow::Result<()> {
+    fn apply_session_data_internal(&self, session_data: &UnitData) -> anyhow::Result<()> {
         // TODO-medium This is called from ReaLearn itself so we should maybe automate host
         //  parameters otherwise host is not updated. New feature at some point I guess.
         // At the point this is called, the unit shell must exist.
@@ -83,7 +83,7 @@ impl InstanceParamContainer {
             .unit_shell
             .get()
             .context("unit shell not yet available when applying session data")?;
-        let params = unit_shell.apply_session_data(session_data)?;
+        let params = unit_shell.apply_unit_data(session_data)?;
         *self.params_mut() = params;
         Ok(())
     }
@@ -136,7 +136,7 @@ impl PluginParameters for InstanceParamContainer {
                 if let Some(unit_shell) = self.unit_shell.get() {
                     // Looks like someone activated the "Reset to factory default" preset.
                     unit_shell
-                        .apply_session_data(&SessionData::default())
+                        .apply_unit_data(&UnitData::default())
                         .expect("couldn't load factory default");
                 }
                 return;

@@ -10,8 +10,8 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    ActivationConditionData, CompartmentModelData, MappingModelData, ModeModelData, SessionData,
-    SourceModelData, TargetModelData,
+    ActivationConditionData, CompartmentModelData, MappingModelData, ModeModelData,
+    SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
@@ -42,7 +42,7 @@ impl UntaggedDataObject {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum DataObject {
-    Session(Envelope<Box<SessionData>>),
+    Session(Envelope<Box<UnitData>>),
     #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     MainCompartment(Envelope<Box<CompartmentModelData>>),

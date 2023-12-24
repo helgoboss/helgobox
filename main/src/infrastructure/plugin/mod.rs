@@ -1,12 +1,12 @@
 mod api_impl;
 mod backbone_shell;
 mod debug_util;
-mod instance_editor;
+mod helgobox_plugin_editor;
 mod tracing_util;
 pub use backbone_shell::*;
+mod helgobox_plugin;
 mod instance_param_container;
 mod instance_shell;
-mod instance_vst_plugin;
 mod unit_shell;
 pub use instance_param_container::*;
 
@@ -15,4 +15,4 @@ mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-vst::plugin_main!(instance_vst_plugin::InstanceVstPlugin);
+vst::plugin_main!(helgobox_plugin::HelgoboxPlugin);
