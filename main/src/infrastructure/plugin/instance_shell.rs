@@ -7,12 +7,12 @@ use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::InstanceParamContainer;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
-use anyhow::{bail, Context};
+use anyhow::{bail, ensure, Context};
 use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
 use fragile::Fragile;
 use std::iter::once;
 use std::sync::{Arc, RwLock};
-use swell_ui::{SharedView, WeakView};
+use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
 /// Represents a Helgobox instance in the infrastructure layer.
@@ -67,10 +67,14 @@ impl InstanceShell {
         blocking_read_lock(&self.additional_unit_shells, "additional_unit_panel_count").len()
     }
 
-    pub fn find_additional_unit_panel_by_index(
-        &self,
-        index: usize,
-    ) -> Option<SharedView<UnitPanel>> {
+    pub fn find_unit_panel_by_index(&self, index: Option<usize>) -> Option<SharedView<UnitPanel>> {
+        match index {
+            None => Some(self.main_unit_shell.panel().clone()),
+            Some(i) => self.find_additional_unit_panel_by_index(i),
+        }
+    }
+
+    fn find_additional_unit_panel_by_index(&self, index: usize) -> Option<SharedView<UnitPanel>> {
         blocking_read_lock(
             &self.additional_unit_shells,
             "find_additional_unit_panel_by_index",
@@ -88,6 +92,13 @@ impl InstanceShell {
         let id = unit_shell.id();
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
         id
+    }
+
+    pub fn remove_unit(&self, index: usize) -> anyhow::Result<()> {
+        let mut guard = blocking_write_lock(&self.additional_unit_shells, "remove_unit");
+        ensure!(index < guard.len(), "unit doesn't exist");
+        guard.remove(index);
+        Ok(())
     }
 
     /// Returns the state of the current unit in serialized form.

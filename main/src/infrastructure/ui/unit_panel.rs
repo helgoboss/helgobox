@@ -23,7 +23,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
-use base::SoundPlayer;
+use base::{Global, SoundPlayer};
 use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
@@ -203,6 +203,24 @@ impl UnitPanel {
         }
     }
 
+    fn invalidate_all_controls(&self) {
+        self.invalidate_unit_button();
+        self.invalidate_version_text();
+        self.invalidate_status_1_text();
+        self.invalidate_status_2_text();
+    }
+
+    fn invalidate_unit_button(&self) {
+        let index = self.instance_panel().displayed_unit_panel_index();
+        let label = match index {
+            None => "Unit 1 (main)".to_string(),
+            Some(i) => format!("Unit {}", i + 2),
+        };
+        self.view
+            .require_control(root::IDC_UNIT_BUTTON)
+            .set_text(label);
+    }
+
     fn invalidate_version_text(&self) {
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
@@ -210,12 +228,6 @@ impl UnitPanel {
                 "ReaLearn {}",
                 BackboneShell::detailed_version_label()
             ));
-    }
-
-    fn invalidate_all_controls(&self) {
-        self.invalidate_version_text();
-        self.invalidate_status_1_text();
-        self.invalidate_status_2_text();
     }
 
     fn register_listeners(self: SharedView<Self>) {
@@ -334,11 +346,14 @@ impl UnitPanel {
         }
     }
 
-    fn add_unit(&self) {
+    fn open_unit_popup_menu(self: SharedView<Self>) {
+        self.instance_panel().open_unit_popup_menu();
+    }
+
+    fn instance_panel(&self) -> SharedView<InstancePanel> {
         self.instance_panel
             .upgrade()
             .expect("instance panel doesn't exist anymore")
-            .add_unit();
     }
 
     fn edit_instance_data(&self) -> Result<(), &'static str> {
@@ -442,7 +457,7 @@ impl View for UnitPanel {
                 // Yes, putting this button into the instance panel would make more sense logically
                 // but since the unit panel completely covers the instance panel, the button would
                 // be unusable.
-                self.add_unit();
+                self.open_unit_popup_menu();
             }
             root::IDC_EDIT_TAGS_BUTTON => {
                 self.edit_instance_data().unwrap();

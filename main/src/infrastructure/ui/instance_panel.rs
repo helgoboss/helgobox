@@ -14,7 +14,7 @@ pub struct InstancePanel {
     view: ViewContext,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     shell: OnceCell<sync::Weak<InstanceShell>>,
-    displayed_additional_unit_panel_index: Cell<Option<usize>>,
+    displayed_unit_panel_index: Cell<Option<usize>>,
 }
 
 impl InstancePanel {
@@ -23,7 +23,7 @@ impl InstancePanel {
             view: Default::default(),
             shell: OnceCell::new(),
             dimensions: None.into(),
-            displayed_additional_unit_panel_index: Default::default(),
+            displayed_unit_panel_index: Default::default(),
         }
     }
 
@@ -47,7 +47,7 @@ impl InstancePanel {
     }
 
     pub fn notify_shell_available(&self, shell: Arc<InstanceShell>) {
-        self.displayed_additional_unit_panel_index.set(None);
+        self.displayed_unit_panel_index.set(None);
         self.shell
             .set(sync::Arc::downgrade(&shell))
             .expect("instance shell already set");
@@ -58,13 +58,99 @@ impl InstancePanel {
         }
     }
 
-    pub fn add_unit(&self) {
+    pub fn displayed_unit_panel_index(&self) -> Option<usize> {
+        self.displayed_unit_panel_index.get()
+    }
+
+    pub fn open_unit_popup_menu(&self) {
+        enum MenuAction {
+            RemoveCurrentUnit,
+            ShowUnit(Option<usize>),
+            AddUnit,
+        }
+        let menu = {
+            use swell_ui::menu_tree::*;
+            let additional_unit_count = self.shell().unwrap().additional_unit_panel_count();
+            let displayed_unit_index = self.displayed_unit_panel_index.get();
+            root_menu(
+                [
+                    item_with_opts(
+                        "Remove current unit",
+                        ItemOpts {
+                            enabled: displayed_unit_index.is_some(),
+                            checked: false,
+                        },
+                        || MenuAction::RemoveCurrentUnit,
+                    ),
+                    separator(),
+                    item_with_opts(
+                        "Unit 1 (main unit)",
+                        ItemOpts {
+                            enabled: true,
+                            checked: displayed_unit_index == None,
+                        },
+                        || MenuAction::ShowUnit(None),
+                    ),
+                ]
+                .into_iter()
+                .chain((0..additional_unit_count).map(|i| {
+                    item_with_opts(
+                        format!("Unit {}", i + 2),
+                        ItemOpts {
+                            enabled: true,
+                            checked: displayed_unit_index == Some(i),
+                        },
+                        move || MenuAction::ShowUnit(Some(i)),
+                    )
+                }))
+                .chain([separator(), item("Add unit", || MenuAction::AddUnit)])
+                .collect(),
+            )
+        };
+        let action = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(menu, Window::cursor_pos());
+        if let Some(action) = action {
+            match action {
+                MenuAction::RemoveCurrentUnit => self.remove_current_unit(),
+                MenuAction::ShowUnit(i) => self.show_unit(i),
+                MenuAction::AddUnit => {
+                    self.add_unit();
+                }
+            }
+        }
+    }
+
+    fn add_unit(&self) {
         let shell = self.shell().unwrap();
         shell.add_unit();
         let index_of_new_unit = shell.additional_unit_panel_count() - 1;
-        self.displayed_additional_unit_panel_index
-            .set(Some(index_of_new_unit));
-        // TODO-high CONTINUE Display immediately
+        self.show_unit(Some(index_of_new_unit));
+    }
+
+    fn remove_current_unit(&self) {
+        let Some(index) = self.displayed_unit_panel_index.get() else {
+            return;
+        };
+        let new_index = index.checked_sub(1);
+        self.show_unit(new_index);
+        let _ = self.shell().unwrap().remove_unit(index);
+    }
+
+    fn show_unit(&self, unit_index: Option<usize>) {
+        self.displayed_unit_panel_index.set(unit_index);
+        if let Some(window) = self.view.window() {
+            if let Some(child_window) = window.first_child() {
+                child_window.close();
+            }
+            let panel = self
+                .shell()
+                .unwrap()
+                .find_unit_panel_by_index(self.displayed_unit_panel_index.get())
+                .expect("couldn't find unit panel");
+            panel.clone().open(window);
+        }
     }
 
     fn shell(&self) -> anyhow::Result<Arc<InstanceShell>> {
@@ -101,13 +187,10 @@ impl View for InstancePanel {
             return false;
         }
         if let Ok(shell) = self.shell() {
-            let panel = match self.displayed_additional_unit_panel_index.get() {
-                None => shell.main_unit_shell().panel().clone(),
-                Some(i) => shell
-                    .find_additional_unit_panel_by_index(i)
-                    .expect("couldn't find additional unit panel"),
-            };
-            panel.open(window);
+            shell
+                .find_unit_panel_by_index(self.displayed_unit_panel_index.get())
+                .expect("couldn't find unit panel")
+                .open(window);
         }
         true
     }
