@@ -1,16 +1,15 @@
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, ProcessorContext, UnitId,
 };
-use crate::infrastructure::data::UnitData;
+use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::plugin::InstanceParameterContainer;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, ensure, Context};
 use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
 use fragile::Fragile;
 use std::iter::once;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
@@ -82,13 +81,17 @@ impl InstanceShell {
     }
 
     pub fn add_unit(&self) -> UnitId {
-        let unit_shell = UnitShell::new(
-            self.processor_context.get().clone(),
-            SharedView::downgrade(self.panel.get()),
-        );
+        let unit_shell = self.create_unit_shell();
         let id = unit_shell.id();
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
         id
+    }
+
+    fn create_unit_shell(&self) -> UnitShell {
+        UnitShell::new(
+            self.processor_context.get().clone(),
+            SharedView::downgrade(self.panel.get()),
+        )
     }
 
     pub fn remove_unit(&self, index: usize) -> anyhow::Result<()> {
@@ -104,13 +107,22 @@ impl InstanceShell {
     ///
     /// Must be called from the main thread.
     pub fn save(&self) -> Vec<u8> {
-        let unit_data = self.create_unit_data_internal();
-        serde_json::to_vec(&unit_data).expect("couldn't serialize unit data")
+        let instance_data = self.create_instance_data();
+        let data = InstanceOrUnitData::InstanceData(instance_data);
+        serde_json::to_vec(&data).expect("couldn't serialize instance data")
     }
 
-    fn create_unit_data_internal(&self) -> UnitData {
-        let model = self.main_unit_shell.model().borrow();
-        UnitData::from_model(&model)
+    fn create_instance_data(&self) -> InstanceData {
+        InstanceData {
+            main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
+            additional_units: blocking_read_lock(
+                &self.additional_unit_shells,
+                "create_instance_data",
+            )
+            .iter()
+            .map(|us| UnitData::from_model(&us.model().borrow()))
+            .collect(),
+        }
     }
 
     /// Restores instance shell state from the given serialized data.
@@ -126,8 +138,7 @@ impl InstanceShell {
         // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
         // start of JSON data.
         let data = &data[left_json_object_brace..];
-        // TODO-high CONTINUE Use instance data
-        let unit_data: UnitData = match serde_json::from_slice(data) {
+        let data: InstanceOrUnitData = match serde_json::from_slice(data) {
             Ok(d) => d,
             Err(e) => {
                 bail!(
@@ -137,12 +148,29 @@ impl InstanceShell {
                 )
             }
         };
-        self.main_unit_shell.apply_unit_data(&unit_data)?;
+        self.apply_data_internal(data)?;
         Ok(())
     }
 
-    pub fn apply_unit_data(&self, unit_data: &UnitData) -> anyhow::Result<()> {
-        self.main_unit_shell.apply_unit_data(unit_data)
+    pub fn apply_data(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
+        self.apply_data_internal(instance_data)
+    }
+
+    fn apply_data_internal(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
+        let instance_data = instance_data.into_instance_data();
+        self.main_unit_shell.apply_data(&instance_data.main_unit)?;
+        let additional_unit_shells: anyhow::Result<Vec<UnitShell>> = instance_data
+            .additional_units
+            .into_iter()
+            .map(|ud| {
+                let unit_shell = self.create_unit_shell();
+                unit_shell.apply_data(&ud)?;
+                Ok(unit_shell)
+            })
+            .collect();
+        *blocking_write_lock(&self.additional_unit_shells, "InstanceShell apply_data") =
+            additional_unit_shells?;
+        Ok(())
     }
 
     /// Forwards the given <FX input> MIDI event to all units.

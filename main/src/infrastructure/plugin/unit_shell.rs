@@ -209,7 +209,7 @@ impl UnitShell {
         self.panel.get()
     }
 
-    pub fn apply_unit_data(&self, session_data: &UnitData) -> anyhow::Result<()> {
+    pub fn apply_data(&self, session_data: &UnitData) -> anyhow::Result<()> {
         session_data.apply_to_model(self.model.get())
     }
 

@@ -3,7 +3,7 @@ use reaper_low::firewall;
 use std::sync;
 
 use crate::domain::{ParameterManager, PluginParamIndex};
-use crate::infrastructure::data::UnitData;
+use crate::infrastructure::data::InstanceOrUnitData;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use std::sync::{Arc, OnceLock, RwLock};
 use vst::plugin::PluginParameters;
@@ -158,12 +158,11 @@ impl PluginParameters for InstanceParameterContainer {
             if data == NOT_READY_YET.as_bytes() {
                 if let Some(lazy_data) = self.lazy_data.get() {
                     // Looks like someone activated the "Reset to factory default" preset.
-                    // TODO-high CONTINUE Use instance data
                     lazy_data
                         .instance_shell
                         .upgrade()
                         .expect("instance shell gone")
-                        .apply_unit_data(&UnitData::default())
+                        .apply_data(InstanceOrUnitData::default())
                         .expect("couldn't load factory default");
                 }
                 return;

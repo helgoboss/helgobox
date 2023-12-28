@@ -5,11 +5,31 @@ use serde::{Deserialize, Serialize};
 #[serde(untagged)]
 pub enum InstanceOrUnitData {
     InstanceData(InstanceData),
+    /// For backward compatibility.
     UnitData(UnitData),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceData {
-    pub units: Vec<UnitData>,
+    pub main_unit: UnitData,
+    pub additional_units: Vec<UnitData>,
+}
+
+impl Default for InstanceOrUnitData {
+    fn default() -> Self {
+        Self::InstanceData(InstanceData::default())
+    }
+}
+
+impl InstanceOrUnitData {
+    pub fn into_instance_data(self) -> InstanceData {
+        match self {
+            InstanceOrUnitData::InstanceData(d) => d,
+            InstanceOrUnitData::UnitData(d) => InstanceData {
+                main_unit: d,
+                additional_units: vec![],
+            },
+        }
+    }
 }
