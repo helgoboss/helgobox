@@ -894,7 +894,7 @@ fn convert_track_descriptor(
             scope: style.optional_value(props.r#type.virtual_track_scope()),
         },
         Master => T::Master { commons },
-        Instance => T::Instance { commons },
+        Unit => T::Instance { commons },
         ById | ByIdOrName => T::ById {
             commons,
             id: props.id.map(|guid| guid.to_string_without_braces()),
@@ -1039,7 +1039,7 @@ fn convert_fx_descriptor(
     let v = match props.r#type {
         This => T::This { commons },
         Focused => T::Focused,
-        Instance => T::Instance { commons },
+        Unit => T::Instance { commons },
         Dynamic => T::Dynamic {
             commons,
             expression: props.expression,

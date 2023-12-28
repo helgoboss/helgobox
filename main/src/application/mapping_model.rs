@@ -311,7 +311,7 @@ impl MappingModel {
                             // This is ourselves!
                             VirtualFx::This
                         } else {
-                            VirtualFx::Instance
+                            VirtualFx::Unit
                         };
                         let _ = target.set_virtual_fx(virtual_fx, context, compartment);
                         true

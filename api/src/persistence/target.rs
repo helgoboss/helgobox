@@ -495,10 +495,12 @@ pub struct TrackToolTarget {
 pub enum TrackToolAction {
     #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set (as instance track)")]
-    SetAsInstanceTrack,
-    #[display(fmt = "Pin (as instance track)")]
-    PinAsInstanceTrack,
+    #[display(fmt = "Set (as unit track)")]
+    #[serde(alias = "SetAsInstanceTrack")]
+    SetAsUnitTrack,
+    #[display(fmt = "Pin (as unit track)")]
+    #[serde(alias = "PinAsInstanceTrack")]
+    PinAsUnitTrack,
 }
 
 impl Default for TrackToolAction {
@@ -732,10 +734,12 @@ pub struct FxToolTarget {
 pub enum FxToolAction {
     #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set (as instance FX)")]
-    SetAsInstanceFx,
-    #[display(fmt = "Pin (as instance FX)")]
-    PinAsInstanceFx,
+    #[display(fmt = "Set (as unit FX)")]
+    #[serde(alias = "SetAsInstanceFx")]
+    SetAsUnitFx,
+    #[display(fmt = "Pin (as unit FX)")]
+    #[serde(alias = "PinAsInstanceFx")]
+    PinAsUnitFx,
 }
 
 impl Default for FxToolAction {

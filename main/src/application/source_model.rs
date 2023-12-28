@@ -673,7 +673,7 @@ impl SourceModel {
                 use ReaperSourceType::*;
                 let reaper_source = match self.reaper_source_type {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
-                    RealearnInstanceStart => ReaperSource::RealearnInstanceStart,
+                    RealearnUnitStart => ReaperSource::RealearnInstanceStart,
                     Timer => ReaperSource::Timer(self.create_timer_source()),
                     RealearnParameter => {
                         ReaperSource::RealearnParameter(self.create_realearn_parameter_source())
@@ -1234,8 +1234,8 @@ pub enum ReaperSourceType {
     #[display(fmt = "MIDI device changes")]
     MidiDeviceChanges,
     #[serde(rename = "realearn-instance-start")]
-    #[display(fmt = "ReaLearn instance start")]
-    RealearnInstanceStart,
+    #[display(fmt = "ReaLearn unit start")]
+    RealearnUnitStart,
     #[serde(rename = "timer")]
     #[display(fmt = "Timer")]
     Timer,
@@ -1252,7 +1252,7 @@ impl ReaperSourceType {
         use ReaperSource::*;
         match source {
             MidiDeviceChanges => Self::MidiDeviceChanges,
-            RealearnInstanceStart => Self::RealearnInstanceStart,
+            RealearnInstanceStart => Self::RealearnUnitStart,
             Timer(_) => Self::Timer,
             RealearnParameter(_) => Self::RealearnParameter,
             Speech(_) => Self::Speech,
@@ -1262,7 +1262,7 @@ impl ReaperSourceType {
     pub fn supports_control(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => true,
+            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => true,
             Speech => false,
         }
     }
@@ -1270,7 +1270,7 @@ impl ReaperSourceType {
     pub fn supports_feedback(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => false,
+            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => false,
             Speech => true,
         }
     }

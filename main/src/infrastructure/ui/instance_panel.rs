@@ -91,7 +91,7 @@ impl InstancePanel {
                     ),
                     separator(),
                     item_with_opts(
-                        "Unit 1 (main unit)",
+                        "Unit 1 (main)",
                         ItemOpts {
                             enabled: true,
                             checked: displayed_unit_index == None,

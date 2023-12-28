@@ -296,7 +296,7 @@ impl TrackDescriptor {
         let (track, commons) = match api_desc {
             This { commons } => (VirtualTrack::This, commons),
             Master { commons } => (VirtualTrack::Master, commons),
-            Instance { commons } => (VirtualTrack::Instance, commons),
+            Instance { commons } => (VirtualTrack::Unit, commons),
             Selected { allow_multiple } => (
                 VirtualTrack::Selected {
                     allow_multiple: allow_multiple.unwrap_or(false),
@@ -385,7 +385,7 @@ impl FxDescriptor {
                     (Default::default(), VirtualFx::Focused, Default::default())
                 }
                 FxDescriptor::Instance { commons } => {
-                    (Default::default(), VirtualFx::Instance, commons)
+                    (Default::default(), VirtualFx::Unit, commons)
                 }
                 FxDescriptor::Dynamic {
                     commons,
@@ -491,10 +491,10 @@ impl FxDescriptor {
                     Err("FX unfocused")
                 }
             }
-            VirtualFx::Instance => {
+            VirtualFx::Unit => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let instance_fx = instance_state.instance_fx_descriptor();
-                if matches!(instance_fx.fx, VirtualFx::Instance) {
+                if matches!(instance_fx.fx, VirtualFx::Unit) {
                     return Err("circular reference");
                 }
                 instance_fx.resolve(context, compartment)
@@ -963,8 +963,8 @@ pub enum VirtualTrack {
         column: VirtualClipColumn,
         context: realearn_api::persistence::ClipColumnTrackContext,
     },
-    /// Instance track
-    Instance,
+    /// Unit track
+    Unit,
 }
 
 impl Default for VirtualTrack {
@@ -1211,7 +1211,7 @@ impl fmt::Display for VirtualTrack {
                 "<Selected>"
             }),
             Master => f.write_str("<Master>"),
-            Instance => f.write_str("<Instance>"),
+            Unit => f.write_str("<Unit>"),
             Dynamic { scope, .. } => {
                 let text = match scope {
                     TrackScope::AllTracks => "<Dynamic>",
@@ -1251,8 +1251,8 @@ pub enum VirtualFx {
     This,
     /// Focused or last focused FX.
     Focused,
-    /// Instance FX.
-    Instance,
+    /// Unit FX.
+    Unit,
     /// Particular FX.
     ChainFx {
         is_input_fx: bool,
@@ -1274,7 +1274,7 @@ impl fmt::Display for VirtualFx {
         match self {
             This => f.write_str("<This>"),
             Focused => f.write_str("<Focused>"),
-            Instance => f.write_str("<Instance>"),
+            Unit => f.write_str("<Unit>"),
             ChainFx {
                 chain_fx,
                 is_input_fx,
@@ -1294,7 +1294,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
-            VirtualFx::Instance => None,
+            VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.id(),
         }
     }
@@ -1304,7 +1304,7 @@ impl VirtualFx {
             // In case of <This>, it doesn't matter.
             VirtualFx::This => false,
             VirtualFx::Focused => false,
-            VirtualFx::Instance => false,
+            VirtualFx::Unit => false,
             VirtualFx::ChainFx { is_input_fx, .. } => *is_input_fx,
         }
     }
@@ -1313,7 +1313,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
-            VirtualFx::Instance => None,
+            VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.index(),
         }
     }
@@ -1322,7 +1322,7 @@ impl VirtualFx {
         match self {
             VirtualFx::This => None,
             VirtualFx::Focused => None,
-            VirtualFx::Instance => None,
+            VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }
     }
@@ -1376,10 +1376,10 @@ impl VirtualTrack {
             Master => vec![project
                 .master_track()
                 .map_err(|_| TrackResolveError::ProjectNotAvailable)?],
-            Instance => {
+            Unit => {
                 let instance_state = context.control_context.instance_state.borrow();
                 let instance_track = instance_state.instance_track_descriptor();
-                if matches!(&instance_track.track, VirtualTrack::Instance) {
+                if matches!(&instance_track.track, VirtualTrack::Unit) {
                     return Err(TrackResolveError::CircularReference);
                 }
                 return instance_track.track.resolve(context, compartment);
@@ -1499,12 +1499,19 @@ impl VirtualTrack {
                         Some(get_track_index_for_expression(track))
                     }
                     "instance_track_index"
+                    | "unit_track_index"
                     | "instance_track_tcp_index"
-                    | "instance_track_mcp_index" => {
+                    | "unit_track_tcp_index"
+                    | "instance_track_mcp_index"
+                    | "unit_track_mcp_index" => {
                         let scope = match name {
-                            "instance_track_index" => TrackScope::AllTracks,
-                            "instance_track_tcp_index" => TrackScope::TracksVisibleInTcp,
-                            "instance_track_mcp_index" => TrackScope::TracksVisibleInMcp,
+                            "instance_track_index" | "unit_track_index" => TrackScope::AllTracks,
+                            "instance_track_tcp_index" | "unit_track_tcp_index" => {
+                                TrackScope::TracksVisibleInTcp
+                            }
+                            "instance_track_mcp_index" | "unit_track_mcp_index" => {
+                                TrackScope::TracksVisibleInMcp
+                            }
                             _ => unreachable!(),
                         };
                         let instance_track = context
@@ -1834,12 +1841,12 @@ impl VirtualChainFx {
                     let fx = context.context().containing_fx();
                     Some(fx.index() as f64)
                 }
-                "instance_fx_index" => {
+                "instance_fx_index" | "unit_fx_index" => {
                     let index = context
                         .control_context
                         .instance_state
                         // We do this in order to prevent infinite recursion in case the
-                        // instance FX also uses "instance_fx_index".
+                        // instance FX also uses "unit_fx_index".
                         .try_borrow_mut()
                         .ok()?
                         .instance_fx_descriptor()

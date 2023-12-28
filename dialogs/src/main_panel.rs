@@ -36,7 +36,7 @@ pub fn create(
             create_rect(8, 5 + line_spacing, 56, 14),
         ),
         pushbutton(
-            "Instance data...",
+            "Unit data...",
             ids.named_id("IDC_EDIT_TAGS_BUTTON"),
             create_rect(406, 5 + line_spacing, 56, 14),
         ),

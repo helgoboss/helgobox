@@ -43,7 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
                 })
                 .collect(),
             Err(e) => {
-                if self.action == TrackToolAction::SetAsInstanceTrack {
+                if self.action == TrackToolAction::SetAsUnitTrack {
                     // If we just want to *set* the (unresolved) track as instance track, we
                     // don't need a resolved target.
                     let target = ReaperTarget::TrackTool(TrackToolTarget {
@@ -122,10 +122,10 @@ impl RealearnTarget for TrackToolTarget {
         }
         let request = match self.action {
             TrackToolAction::DoNothing => return Ok(HitResponse::ignored()),
-            TrackToolAction::SetAsInstanceTrack => InstanceTrackChangeRequest::SetFromMapping(
+            TrackToolAction::SetAsUnitTrack => InstanceTrackChangeRequest::SetFromMapping(
                 context.mapping_data.qualified_mapping_id(),
             ),
-            TrackToolAction::PinAsInstanceTrack => {
+            TrackToolAction::PinAsUnitTrack => {
                 let track = self.track.as_ref().ok_or("track could not be resolved")?;
                 let guid = if track.is_master_track() {
                     None
@@ -167,7 +167,7 @@ impl<'a> Target<'a> for TrackToolTarget {
                 );
                 Some(percentage)
             }
-            TrackToolAction::SetAsInstanceTrack | TrackToolAction::PinAsInstanceTrack => {
+            TrackToolAction::SetAsUnitTrack | TrackToolAction::PinAsUnitTrack => {
                 // In future, we might support feedback here.
                 None
             }

@@ -128,14 +128,14 @@ impl UnitPanel {
             let scroll_status = state.scroll_status.get_ref();
             let tags = session.tags.get_ref();
             let mut text = format!(
-                "Showing mappings {} to {} of {} | Session ID: {}",
+                "Showing mappings {} to {} of {} | Unit ID: {}",
                 scroll_status.from_pos,
                 scroll_status.to_pos,
                 scroll_status.item_count,
                 session.id()
             );
             if !tags.is_empty() {
-                let _ = write!(&mut text, " | Instance tags: {}", format_tags_as_csv(tags));
+                let _ = write!(&mut text, " | Unit tags: {}", format_tags_as_csv(tags));
             }
             self.view
                 .require_control(root::ID_MAIN_PANEL_STATUS_1_TEXT)
@@ -369,7 +369,7 @@ impl UnitPanel {
         let csv_result = Reaper::get().medium_reaper().get_user_inputs(
             "ReaLearn",
             2,
-            "Session ID,Tags,separator=|,extrawidth=200",
+            "Unit ID,Tags,separator=|,extrawidth=200",
             initial_csv,
             512,
         );
@@ -399,7 +399,7 @@ impl UnitPanel {
             if BackboneShell::get().has_session(&new_session_id) {
                 self.view.require_window().alert(
                     "ReaLearn",
-                    "There's another open ReaLearn session which already has this session ID!",
+                    "There's another open ReaLearn unit which already has this unit ID!",
                 );
                 return Ok(());
             }

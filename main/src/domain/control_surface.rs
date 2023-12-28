@@ -472,7 +472,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use InstanceOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
-                    debug!(self.logger, "Source of instance {} released", e.instance_id);
+                    debug!(self.logger, "Source of unit {} released", e.instance_id);
                     // We also allow the instance to take over which released the source in
                     // the first place! Simply because in the meanwhile, this instance
                     // could have found a new usage for it! E.g. likely to happen with
@@ -514,7 +514,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     {
                         debug!(
                             self.logger,
-                            "Upper-floor instance {} {} feedback output",
+                            "Upper-floor unit {} {} feedback output",
                             e.instance_id,
                             if e.feedback_output_used {
                                 "claimed"

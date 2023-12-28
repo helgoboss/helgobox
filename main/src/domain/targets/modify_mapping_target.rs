@@ -123,11 +123,11 @@ impl RealearnTarget for ModifyMappingTarget {
                     .control_context
                     .instance_container
                     .find_session_by_id(session_id)
-                    .ok_or("other ReaLearn instance not found")?;
+                    .ok_or("other ReaLearn unit not found")?;
                 let session = session.borrow();
                 let mapping_id = session
                     .find_mapping_id_by_key(self.compartment, mapping_key)
-                    .ok_or("mapping in other ReaLearn instance not found")?;
+                    .ok_or("mapping in other ReaLearn unit not found")?;
                 (Some(*session.instance_id()), mapping_id)
             }
         };

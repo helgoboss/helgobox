@@ -1082,7 +1082,7 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
         ),
         Instance { commons } => (
             TrackPropValues {
-                r#type: VirtualTrackType::Instance,
+                r#type: VirtualTrackType::Unit,
                 ..Default::default()
             },
             commons
@@ -1289,7 +1289,7 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
         Instance { commons } => (
             FxChainDesc::default(),
             FxPropValues {
-                r#type: VirtualFxType::Instance,
+                r#type: VirtualFxType::Unit,
                 ..Default::default()
             },
             commons

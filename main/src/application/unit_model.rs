@@ -2492,7 +2492,7 @@ impl UnitModel {
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_dirty(&self) {
-        debug!(self.logger, "Marking session as dirty");
+        debug!(self.logger, "Marking unit as dirty");
         self.processor_context.notify_dirty();
     }
 
@@ -2513,7 +2513,7 @@ impl UnitModel {
 
 impl Drop for UnitModel {
     fn drop(&mut self) {
-        debug!(self.logger(), "Dropping session...");
+        debug!(self.logger(), "Dropping UnitModel...");
         self.party_is_over_subject.next(());
     }
 }
@@ -2694,7 +2694,7 @@ impl DomainEventHandler for WeakUnitModel {
         let mut session = session
             .try_borrow_mut()
             .map_err(|_| "session already borrowed")?;
-        if session.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::InstanceFx {
+        if session.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::UnitFx {
             return Ok(false);
         }
         let fx_id = {

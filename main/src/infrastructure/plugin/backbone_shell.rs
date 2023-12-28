@@ -1380,7 +1380,7 @@ impl BackboneShell {
             self.close_message_panel_with_alert(
                 "At first you need to add a ReaLearn instance to the monitoring FX chain or this project! Don't forget to set the MIDI control input.",
             );
-            return Err("no ReaLearn instance");
+            return Err("no ReaLearn unit");
         }
         let capture_result = self
             .prompt_for_next_message("Touch a control element!")
@@ -1392,9 +1392,9 @@ impl BackboneShell {
             s
         } else {
             self.close_message_panel_with_alert(
-                "No ReaLearn instance found which has this MIDI control input! First please add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
+                "No ReaLearn unit found which has this MIDI control input! First please add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
             );
-            return Err("no ReaLearn instance with that MIDI input");
+            return Err("no ReaLearn unit with that MIDI input");
         };
         let reaper_target = self
             .prompt_for_next_reaper_target("Now touch the desired target!")
@@ -1549,7 +1549,7 @@ impl BackboneShell {
         match session {
             None => {
                 notification::alert(
-                    "No suitable ReaLearn instance found! First please add one to the monitoring FX chain or this project!",
+                    "No suitable ReaLearn unit found! First please add one to the monitoring FX chain or this project!",
                 );
             }
             Some(s) => {

@@ -2255,14 +2255,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             == Some(feedback_output)
         {
             if self.basics.instance_feedback_is_effectively_enabled() {
-                debug!(self.basics.logger, "Reactivating instance...");
+                debug!(self.basics.logger, "Reactivating unit...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
                 // *audio hook*, not in the real-time processor. Because there's only one audio
                 // hook can guarantee a deterministic feedback send order.
                 self.send_all_feedback();
             } else {
-                debug!(self.basics.logger, "Cancelling instance...");
+                debug!(self.basics.logger, "Cancelling unit...");
                 self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
             }
         }

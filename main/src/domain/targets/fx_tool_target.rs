@@ -44,7 +44,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
                 })
                 .collect(),
             Err(e) => {
-                if self.action == FxToolAction::SetAsInstanceFx {
+                if self.action == FxToolAction::SetAsUnitFx {
                     // If we just want to *set* the (unresolved) FX as instance FX, we
                     // don't need a resolved target.
                     let target = ReaperTarget::FxTool(FxToolTarget {
@@ -124,10 +124,10 @@ impl RealearnTarget for FxToolTarget {
         }
         let request = match self.action {
             FxToolAction::DoNothing => return Ok(HitResponse::ignored()),
-            FxToolAction::SetAsInstanceFx => {
+            FxToolAction::SetAsUnitFx => {
                 InstanceFxChangeRequest::SetFromMapping(context.mapping_data.qualified_mapping_id())
             }
-            FxToolAction::PinAsInstanceFx => {
+            FxToolAction::PinAsUnitFx => {
                 let fx = self.fx.as_ref().ok_or("FX could not be resolved")?;
                 InstanceFxChangeRequest::Pin {
                     track_guid: fx.track().and_then(|t| {
@@ -170,7 +170,7 @@ impl<'a> Target<'a> for FxToolTarget {
                 let fx_index = fx.index();
                 percentage_for_fx_within_chain(fx.chain(), fx_index)
             }
-            FxToolAction::SetAsInstanceFx | FxToolAction::PinAsInstanceFx => {
+            FxToolAction::SetAsUnitFx | FxToolAction::PinAsUnitFx => {
                 // In future, we might support feedback here.
                 None
             }

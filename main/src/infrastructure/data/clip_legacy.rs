@@ -105,7 +105,7 @@ fn determine_legacy_clip_track(
                         LegacyClipOutput::ThisTrack
                     },
                     Master => LegacyClipOutput::MasterTrack,
-                    Instance => return None,
+                    Unit => return None,
                     ById => if let Some(id) = prop_values.id { LegacyClipOutput::TrackById(id) } else {
                         LegacyClipOutput::ThisTrack
                     },

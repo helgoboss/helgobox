@@ -1068,7 +1068,7 @@ pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
             guid: Some("master".to_string()),
             ..Default::default()
         },
-        Instance => TrackData {
+        Unit => TrackData {
             guid: Some("instance".to_string()),
             ..Default::default()
         },
@@ -1155,8 +1155,8 @@ pub fn serialize_fx(fx: FxPropValues) -> FxData {
             is_input_fx: false,
             expression: None,
         },
-        Instance => FxData {
-            anchor: Some(VirtualFxType::Instance),
+        Unit => FxData {
+            anchor: Some(VirtualFxType::Unit),
             guid: None,
             index: None,
             name: None,
@@ -1487,7 +1487,7 @@ pub fn deserialize_track(input: TrackDeserializationInput) -> TrackPropValues {
             TrackPropValues::from_virtual_track(VirtualTrack::Master)
         }
         TrackData { guid: Some(g), .. } if g == "instance" => {
-            TrackPropValues::from_virtual_track(VirtualTrack::Instance)
+            TrackPropValues::from_virtual_track(VirtualTrack::Unit)
         }
         TrackData { guid: Some(g), .. } if g == "selected" => {
             TrackPropValues::from_virtual_track(VirtualTrack::Selected {
@@ -1615,7 +1615,7 @@ pub fn deserialize_fx(
     match fx_data {
         // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
         FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
-            r#type: VirtualFxType::Instance,
+            r#type: VirtualFxType::Unit,
             ..Default::default()
         },
         // Before ReaLearn 1.12.0 only the index was saved, even if it was (implicitly) always
@@ -1736,7 +1736,7 @@ pub fn deserialize_fx(
             r#type: if *fx_type == VirtualFxType::Focused
                 && migration_descriptor.fx_selector_transformation_188
             {
-                VirtualFxType::Instance
+                VirtualFxType::Unit
             } else {
                 *fx_type
             },

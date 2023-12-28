@@ -241,7 +241,7 @@ pub fn convert_source(
                 MidiDeviceChanges => {
                     persistence::Source::MidiDeviceChanges(persistence::MidiDeviceChangesSource)
                 }
-                RealearnInstanceStart => persistence::Source::RealearnInstanceStart(
+                RealearnUnitStart => persistence::Source::RealearnInstanceStart(
                     persistence::RealearnInstanceStartSource,
                 ),
                 Timer => persistence::Source::Timer(persistence::TimerSource {

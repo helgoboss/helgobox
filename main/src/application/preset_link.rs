@@ -212,8 +212,8 @@ pub enum MainPresetAutoLoadMode {
     #[display(fmt = "Off")]
     Off,
     #[serde(rename = "focused-fx")]
-    #[display(fmt = "Based on instance FX")]
-    InstanceFx,
+    #[display(fmt = "Based on unit FX")]
+    UnitFx,
 }
 
 impl Default for MainPresetAutoLoadMode {

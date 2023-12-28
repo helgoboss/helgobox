@@ -7,7 +7,7 @@ pub struct MigrationDescriptor {
     ///
     /// https://github.com/helgoboss/realearn/issues/117
     pub target_interval_transformation_117: bool,
-    /// If the FX selector was <Focused> before the "Instance FX" concept was introduced, we
+    /// If the FX selector was <Focused> before the "Unit FX" concept was introduced, we
     /// transform it to <Instance> (and set the instance FX by default to <Focused>).
     ///  
     /// https://github.com/helgoboss/realearn/issues/188

@@ -5106,7 +5106,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
-                ReaperTargetType::ModifyMapping => Some("Instance"),
+                ReaperTargetType::ModifyMapping => Some("Unit"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -5174,7 +5174,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
                             Some(session.borrow().to_string())
                         } else {
-                            Some("<Session doesn't exist>".to_string())
+                            Some("<Unit doesn't exist>".to_string())
                         }
                     }
                 },
@@ -7836,7 +7836,7 @@ fn has_multiple_lines(text: &str) -> bool {
 fn get_relevant_target_fx(mapping: &MappingModel, session: &UnitModel) -> Option<Fx> {
     let is_focused_fx_type = {
         let fx_type = mapping.target_model.fx_type();
-        if fx_type == VirtualFxType::Instance {
+        if fx_type == VirtualFxType::Unit {
             session.instance_fx_descriptor() == &FxDescriptor::Focused
         } else {
             fx_type == VirtualFxType::Focused

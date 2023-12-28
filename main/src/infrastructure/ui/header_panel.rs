@@ -428,7 +428,7 @@ impl HeaderPanel {
                             || MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
                         ),
                         item_with_opts(
-                            "Make instance superior",
+                            "Make unit superior",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
@@ -436,7 +436,7 @@ impl HeaderPanel {
                             || MainMenuAction::ToggleUpperFloorMembership,
                         ),
                         item_with_opts(
-                            "Use instance-wide FX-to-preset links only",
+                            "Use unit-wide FX-to-preset links only",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.use_instance_preset_links_only(),
@@ -502,7 +502,7 @@ impl HeaderPanel {
                         .collect(),
                 ),
                 menu(
-                    "Instance-wide FX-to-preset links",
+                    "Unit-wide FX-to-preset links",
                     generate_fx_to_preset_links_menu_entries(
                         last_relevant_focused_fx_id.as_ref(),
                         &main_preset_manager,
@@ -525,7 +525,7 @@ impl HeaderPanel {
                             || MainMenuAction::ToggleServer,
                         ),
                         item("Add firewall rule", || MainMenuAction::AddFirewallRule),
-                        item("Change session ID...", || MainMenuAction::ChangeSessionId),
+                        item("Change unit ID...", || MainMenuAction::ChangeSessionId),
                     ],
                 ),
                 menu(
@@ -1284,7 +1284,7 @@ impl HeaderPanel {
             new_state
         };
         if enabled {
-            let msg = "This ReaLearn instance is now superior. When this instance is active (contains active main mappings), it will disable other ReaLearn instances with the same control input and/or feedback output that don't have this setting turned on.";
+            let msg = "This ReaLearn unit is now superior. When this unit is active (contains active main mappings), it will disable other ReaLearn unit with the same control input and/or feedback output that don't have this setting turned on.";
             self.view.require_window().alert("ReaLearn", msg);
         };
     }
@@ -2397,7 +2397,7 @@ impl HeaderPanel {
     fn change_session_id(&self) {
         self.view.require_window().alert(
             "ReaLearn",
-            "Please change the session ID using the \"Instance data...\" button on the bottom right!",
+            "Please change the unit ID using the \"Unit data...\" button on the bottom right!",
         );
     }
 

@@ -1433,7 +1433,7 @@ impl TargetModel {
                             _ => None,
                         },
                         // No update necessary
-                        VirtualFx::Instance | VirtualFx::Focused | VirtualFx::This => None,
+                        VirtualFx::Unit | VirtualFx::Focused | VirtualFx::This => None,
                     }
                 }
                 // Shouldn't happen
@@ -1563,7 +1563,7 @@ impl TargetModel {
                 self.clip_column = track.clip_column;
                 self.clip_column_track_context = track.clip_column_track_context;
             }
-            Instance | Selected | AllSelected | Master | Dynamic | DynamicTcp | DynamicMcp => {}
+            Unit | Selected | AllSelected | Master | Dynamic | DynamicTcp | DynamicMcp => {}
         }
         Some(Affected::Multiple)
     }
@@ -1646,7 +1646,7 @@ impl TargetModel {
                 self.fx_id = fx.id;
                 self.fx_index = fx.index;
             }
-            Dynamic | Focused | Instance => {}
+            Dynamic | Focused | Unit => {}
         };
         Some(Affected::Multiple)
     }
@@ -1885,7 +1885,7 @@ impl TargetModel {
                 allow_multiple: true,
             },
             Master => VirtualTrack::Master,
-            Instance => VirtualTrack::Instance,
+            Unit => VirtualTrack::Unit,
             ById => VirtualTrack::ById(self.track_id?),
             ByName => VirtualTrack::ByName {
                 wild_match: WildMatch::new(&self.track_name),
@@ -1937,7 +1937,7 @@ impl TargetModel {
         let fx = match self.fx_type {
             Focused => VirtualFx::Focused,
             This => VirtualFx::This,
-            Instance => VirtualFx::Instance,
+            Unit => VirtualFx::Unit,
             _ => VirtualFx::ChainFx {
                 is_input_fx: self.fx_is_input_fx,
                 chain_fx: self.virtual_chain_fx()?,
@@ -2038,7 +2038,7 @@ impl TargetModel {
     pub fn virtual_chain_fx(&self) -> Option<VirtualChainFx> {
         use VirtualFxType::*;
         let fx = match self.fx_type {
-            Focused | This | Instance => return None,
+            Focused | This | Unit => return None,
             ById => VirtualChainFx::ById(self.fx_id?, Some(self.fx_index)),
             ByName => VirtualChainFx::ByName {
                 wild_match: WildMatch::new(&self.fx_name),
@@ -2112,7 +2112,7 @@ impl TargetModel {
                 allow_multiple: Some(true),
             },
             Master => TrackDescriptor::Master { commons },
-            Instance => TrackDescriptor::Instance { commons },
+            Unit => TrackDescriptor::Instance { commons },
             ById | ByIdOrName => TrackDescriptor::ById {
                 commons,
                 id: self
@@ -2171,7 +2171,7 @@ impl TargetModel {
                 chain,
                 expression: self.track_expression.clone(),
             },
-            Instance => FxDescriptor::Instance { commons },
+            Unit => FxDescriptor::Instance { commons },
             ById => FxDescriptor::ById {
                 commons,
                 chain,
@@ -3266,7 +3266,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
     }
 }
 
-const INSTANCE_NOT_FOUND_LABEL: &str = "<Instance not found>";
+const UNIT_NOT_FOUND_LABEL: &str = "<Unit not found>";
 const MAPPING_NOT_FOUND_LABEL: &str = "<Mapping not found>";
 
 const NONE_LABEL: &str = "<None>";
@@ -3411,7 +3411,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                                 session_id,
                                 mapping_key,
                             } => {
-                                write!(f, "Instance: {session_id}\n{MAPPING_LABEL}")?;
+                                write!(f, "Unit: {session_id}\n{MAPPING_LABEL}")?;
                                 if let Some(mapping_key) = mapping_key {
                                     let session = self
                                         .context
@@ -3428,7 +3428,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                                             MAPPING_NOT_FOUND_LABEL.fmt(f)?;
                                         }
                                     } else {
-                                        INSTANCE_NOT_FOUND_LABEL.fmt(f)?;
+                                        UNIT_NOT_FOUND_LABEL.fmt(f)?;
                                     }
                                 } else {
                                     NONE_LABEL.fmt(f)?;
@@ -3771,8 +3771,8 @@ pub enum VirtualTrackType {
     DynamicMcp,
     #[display(fmt = "<Master>")]
     Master,
-    #[display(fmt = "<Instance>")]
-    Instance,
+    #[display(fmt = "<Unit>")]
+    Unit,
     #[display(fmt = "Particular")]
     ById,
     #[display(fmt = "Named")]
@@ -3899,7 +3899,7 @@ impl VirtualTrackType {
                 TrackScope::TracksVisibleInMcp => Self::DynamicMcp,
             },
             Master => Self::Master,
-            Instance => Self::Instance,
+            Unit => Self::Unit,
             ByIdOrName(_, _) => Self::ByIdOrName,
             ById(_) => Self::ById,
             ByName { allow_multiple, .. } => {
@@ -3974,9 +3974,9 @@ pub enum VirtualFxType {
     #[display(fmt = "<Focused>")]
     #[serde(rename = "focused")]
     Focused,
-    #[display(fmt = "<Instance>")]
+    #[display(fmt = "<Unit>")]
     #[serde(rename = "instance")]
-    Instance,
+    Unit,
     #[display(fmt = "<Dynamic>")]
     #[serde(rename = "dynamic")]
     Dynamic,
@@ -4008,7 +4008,7 @@ impl VirtualFxType {
         match virtual_fx {
             This => VirtualFxType::This,
             Focused => VirtualFxType::Focused,
-            Instance => VirtualFxType::Instance,
+            Unit => VirtualFxType::Unit,
             ChainFx { chain_fx, .. } => {
                 use VirtualChainFx::*;
                 match chain_fx {
@@ -4034,7 +4034,7 @@ impl VirtualFxType {
             This => false,
             Focused => false,
             Dynamic => true,
-            Instance => false,
+            Unit => false,
             ById => true,
             ByName => true,
             AllByName => true,
