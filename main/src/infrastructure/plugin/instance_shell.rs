@@ -60,7 +60,7 @@ impl InstanceShell {
         &self.main_unit_shell
     }
 
-    pub fn additional_unit_panel_count(&self) -> usize {
+    pub fn additional_unit_count(&self) -> usize {
         blocking_read_lock(&self.additional_unit_shells, "additional_unit_panel_count").len()
     }
 

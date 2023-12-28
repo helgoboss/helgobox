@@ -209,10 +209,13 @@ impl UnitPanel {
     }
 
     fn invalidate_unit_button(&self) {
-        let index = self.instance_panel().displayed_unit_panel_index();
-        let label = match index {
-            None => "Unit 1 (main)".to_string(),
-            Some(i) => format!("Unit {}", i + 2),
+        let instance_panel = self.instance_panel();
+        let instance_shell = instance_panel.shell().unwrap();
+        let unit_count = instance_shell.additional_unit_count() + 1;
+        let unit_index = instance_panel.displayed_unit_index();
+        let label = match unit_index {
+            None => format!("Unit 1/{unit_count} (main)"),
+            Some(i) => format!("Unit {}/{unit_count}", i + 2),
         };
         self.view
             .require_control(root::IDC_UNIT_BUTTON)
