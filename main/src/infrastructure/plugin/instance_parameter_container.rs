@@ -158,6 +158,7 @@ impl PluginParameters for InstanceParameterContainer {
             if data == NOT_READY_YET.as_bytes() {
                 if let Some(lazy_data) = self.lazy_data.get() {
                     // Looks like someone activated the "Reset to factory default" preset.
+                    // TODO-high CONTINUE Use instance data
                     lazy_data
                         .instance_shell
                         .upgrade()

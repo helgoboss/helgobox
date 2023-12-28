@@ -126,6 +126,7 @@ impl InstanceShell {
         // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
         // start of JSON data.
         let data = &data[left_json_object_brace..];
+        // TODO-high CONTINUE Use instance data
         let unit_data: UnitData = match serde_json::from_slice(data) {
             Ok(d) => d,
             Err(e) => {

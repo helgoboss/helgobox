@@ -399,6 +399,7 @@ impl HelgoboxPlugin {
             SET_STATE_PARAM_NAME => {
                 let c_str = unsafe { CStr::from_ptr(buffer) };
                 let rust_str = c_str.to_str().expect("not valid UTF-8");
+                // TODO-high CONTINUE Use InstanceData
                 let unit_data: UnitData =
                     serde_json::from_str(rust_str).context("couldn't deserialize unit data")?;
                 let lazy_data = self.lazy_data.get().context("lazy data not yet set")?;

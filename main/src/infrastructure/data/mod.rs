@@ -13,6 +13,9 @@ pub use mode_model_data::*;
 mod unit_data;
 pub use unit_data::*;
 
+mod instance_data;
+pub use instance_data::*;
+
 mod source_model_data;
 pub use source_model_data::*;
 
