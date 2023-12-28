@@ -145,7 +145,7 @@ impl InstancePanel {
         let _ = self.shell().unwrap().remove_unit(index);
     }
 
-    fn show_unit(&self, unit_index: Option<usize>) {
+    pub fn show_unit(&self, unit_index: Option<usize>) {
         self.displayed_unit_panel_index.set(unit_index);
         if let Some(window) = self.view.window() {
             if let Some(child_window) = window.first_child() {
@@ -160,7 +160,7 @@ impl InstancePanel {
         }
     }
 
-    fn shell(&self) -> anyhow::Result<Arc<InstanceShell>> {
+    pub fn shell(&self) -> anyhow::Result<Arc<InstanceShell>> {
         self.shell
             .get()
             .context("instance shell not yet set")?

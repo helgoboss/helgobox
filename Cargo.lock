@@ -4251,6 +4251,7 @@ checksum = "e3d7ddaed09e0eb771a79ab0fd64609ba0afb0a8366421957936ad14cbd13630"
 name = "playtime-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.21.2",
  "chrono",
  "derive_more",

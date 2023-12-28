@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use mlua::{ChunkMode, Function, HookTriggers, Lua, Table, Value};
 use std::error::Error;
 use std::sync::Arc;
@@ -8,7 +9,7 @@ pub struct SafeLua(Lua);
 
 impl SafeLua {
     /// Creates the Lua state.
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         let lua = Lua::new();
         // TODO-medium Maybe we can avoid having to build the safe Lua environment for each
         //  compilation/create-fresh-env step by doing something like the following.
@@ -55,7 +56,7 @@ impl SafeLua {
         name: &str,
         code: &str,
         env: Table<'a>,
-    ) -> Result<Value<'a>, Box<dyn Error>> {
+    ) -> anyhow::Result<Value<'a>> {
         let lua_chunk = self
             .0
             .load(code)
@@ -65,10 +66,9 @@ impl SafeLua {
         let value = lua_chunk.eval().map_err(|e| match e {
             // Box the cause if it's a callback error (used for the execution time limit feature).
             mlua::Error::CallbackError { cause, .. } => {
-                let boxed: Box<dyn Error> = Box::new(cause);
-                boxed
+                anyhow!(cause)
             }
-            e => Box::new(e),
+            e => anyhow!(e),
         })?;
         Ok(value)
     }
@@ -77,10 +77,7 @@ impl SafeLua {
     ///
     /// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
     /// fresh Lua state for each execution.
-    pub fn create_fresh_environment(
-        &self,
-        allow_side_effects: bool,
-    ) -> Result<Table, Box<dyn Error>> {
+    pub fn create_fresh_environment(&self, allow_side_effects: bool) -> anyhow::Result<Table> {
         build_safe_lua_env(&self.0, self.0.globals(), allow_side_effects)
     }
 
@@ -88,7 +85,7 @@ impl SafeLua {
     pub fn start_execution_time_limit_countdown(
         self,
         max_duration: Duration,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> anyhow::Result<Self> {
         let instant = Instant::now();
         self.0.set_hook(
             HookTriggers::every_nth_instruction(10),
@@ -129,7 +126,7 @@ fn build_safe_lua_env<'a>(
     lua: &'a Lua,
     original_env: Table,
     allow_side_effects: bool,
-) -> Result<Table<'a>, Box<dyn Error>> {
+) -> anyhow::Result<Table<'a>> {
     let safe_env = lua.create_table()?;
     for var in SAFE_LUA_VARS {
         copy_var_to_table(lua, &safe_env, &original_env, var)?;
@@ -147,7 +144,7 @@ fn copy_var_to_table(
     dest_table: &Table,
     src_table: &Table,
     var: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> anyhow::Result<()> {
     if let Some(dot_index) = var.find('.') {
         // Nested variable
         let parent_var = &var[0..dot_index];

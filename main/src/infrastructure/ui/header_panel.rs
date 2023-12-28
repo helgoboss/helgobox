@@ -13,7 +13,7 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
@@ -29,16 +29,17 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, MappingModelData,
-    OscDevice, UnitData,
+    CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, InstanceOrUnitData,
+    MappingModelData, OscDevice, UnitData,
 };
 use crate::infrastructure::plugin::{warn_about_failed_server_start, BackboneShell};
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::base::notification::{notify_processing_result, notify_user_on_anyhow_error};
+use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
     open_in_file_manager,
@@ -53,6 +54,7 @@ use crate::infrastructure::ui::{
     UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use anyhow::{bail, Context};
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
 use semver::Version;
@@ -70,6 +72,7 @@ const PARAM_BATCH_SIZE: u32 = 5;
 pub struct HeaderPanel {
     view: ViewContext,
     session: WeakUnitModel,
+    instance_panel: WeakView<InstancePanel>,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
@@ -84,10 +87,12 @@ impl HeaderPanel {
         session: WeakUnitModel,
         main_state: SharedMainState,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
+        instance_panel: WeakView<InstancePanel>,
     ) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
             session: session.clone(),
+            instance_panel,
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
             panel_manager,
@@ -1999,9 +2004,8 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
-    pub fn import_from_clipboard(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let text =
-            get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
+    pub fn import_from_clipboard(&self) -> anyhow::Result<()> {
+        let text = get_text_from_clipboard().context("Couldn't read from clipboard.")?;
         let res = {
             let session = self.session();
             let session = session.borrow();
@@ -2015,14 +2019,24 @@ impl HeaderPanel {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
             }
-            Tagged(DataObject::Session(Envelope { value: d, ..})) => {
+            Tagged(DataObject::Instance(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
-                    "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
+                    "Do you want to continue replacing the complete ReaLearn instance with the data in the clipboard?",
+                ) {
+                    let instance_panel = self.instance_panel.upgrade().context("instance panel gone")?;
+                    instance_panel.show_unit(None);
+                    let instance_shell = instance_panel.shell()?;
+                    instance_shell.apply_data(InstanceOrUnitData::InstanceData(*d))?;
+                }
+            }
+            Tagged(DataObject::Unit(Envelope { value: d, ..})) => {
+                if self.view.require_window().confirm(
+                    "ReaLearn",
+                    "Do you want to continue replacing this complete ReaLearn unit with the data in the clipboard?",
                 ) {
                     let session = self.session();
-                    let result = d.apply_to_model(&session);
-                    notify_user_on_anyhow_error(result);
+                    d.apply_to_model(&session)?;
                 }
             }
             #[cfg(feature = "playtime")]
@@ -2076,13 +2090,13 @@ impl HeaderPanel {
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::Mappings{..}) => {
-                return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
+                bail!("The clipboard contains just a lose collection of mappings. Please import them using the context menus.")
             }
             Tagged(DataObject::Mapping{..}) => {
-                return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
+                bail!("The clipboard contains just one single mapping. Please import it using the context menus.")
             }
             _ => {
-                return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
+                bail!("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.")
             }
         }
         if !res.annotations.is_empty() {
@@ -2122,7 +2136,8 @@ impl HeaderPanel {
     pub fn export_to_clipboard(&self) -> anyhow::Result<()> {
         enum MenuAction {
             None,
-            ExportSession(SerializationFormat),
+            ExportInstance(SerializationFormat),
+            ExportUnit(SerializationFormat),
             #[cfg(feature = "playtime")]
             ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
@@ -2136,18 +2151,11 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item("Export session as JSON", || {
-                    MenuAction::ExportSession(SerializationFormat::JsonDataObject)
+                item("Export instance as JSON", || {
+                    MenuAction::ExportInstance(SerializationFormat::JsonDataObject)
                 }),
-                #[cfg(feature = "playtime")]
-                item("Export clip matrix as JSON", || {
-                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
-                }),
-                #[cfg(feature = "playtime")]
-                item("Export clip matrix as Lua", || {
-                    MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
-                        ConversionStyle::Minimal,
-                    ))
+                item("Export unit as JSON", || {
+                    MenuAction::ExportUnit(SerializationFormat::JsonDataObject)
                 }),
                 item(format!("Export {compartment} as JSON"), || {
                     MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
@@ -2165,6 +2173,17 @@ impl HeaderPanel {
                         ))
                     },
                 ),
+                separator(),
+                #[cfg(feature = "playtime")]
+                item("Export clip matrix as JSON", || {
+                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
+                }),
+                #[cfg(feature = "playtime")]
+                item("Export clip matrix as Lua", || {
+                    MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
+                        ConversionStyle::Minimal,
+                    ))
+                }),
             ];
             root_menu(entries)
         };
@@ -2179,11 +2198,23 @@ impl HeaderPanel {
         // Execute action
         match result {
             MenuAction::None => {}
-            MenuAction::ExportSession(_) => {
+            MenuAction::ExportInstance(_) => {
+                let instance_panel = self
+                    .instance_panel
+                    .upgrade()
+                    .context("instance panel gone")?;
+                let instance_shell = instance_panel.shell()?;
+                let data = instance_shell.create_data();
+                let data_object =
+                    DataObject::Instance(BackboneShell::create_envelope(Box::new(data)));
+                let json = serialize_data_object_to_json(data_object).unwrap();
+                copy_text_to_clipboard(json);
+            }
+            MenuAction::ExportUnit(_) => {
                 let session = self.session();
                 let session_data = UnitData::from_model(&session.borrow());
                 let data_object =
-                    DataObject::Session(BackboneShell::create_envelope(Box::new(session_data)));
+                    DataObject::Unit(BackboneShell::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
@@ -2644,7 +2675,7 @@ impl View for HeaderPanel {
             }
             root::ID_IMPORT_BUTTON => {
                 let result = self.import_from_clipboard();
-                self.notify_user_on_error(result);
+                self.notify_user_on_anyhow_error(result);
             }
             root::ID_EXPORT_BUTTON => {
                 self.notify_user_on_anyhow_error(self.export_to_clipboard());

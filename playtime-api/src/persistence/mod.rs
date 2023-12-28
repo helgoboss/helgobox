@@ -159,12 +159,12 @@ pub struct SignedMatrix {
 }
 
 impl SignedMatrix {
-    pub fn encode_value(matrix: &Matrix) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn encode_value(matrix: &Matrix) -> anyhow::Result<String> {
         let bytes = rmp_serde::to_vec_named(matrix)?;
         Ok(BASE64_ENGINE.encode(bytes))
     }
 
-    pub fn decode_value(&self) -> Result<Matrix, Box<dyn std::error::Error>> {
+    pub fn decode_value(&self) -> anyhow::Result<Matrix> {
         let bytes = BASE64_ENGINE.decode(self.matrix.as_bytes())?;
         Ok(rmp_serde::from_slice(&bytes)?)
     }

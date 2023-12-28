@@ -57,11 +57,12 @@ impl UnitPanel {
             view: Default::default(),
             state: state.clone(),
             session: session.clone(),
-            instance_panel,
+            instance_panel: instance_panel.clone(),
             header_panel: HeaderPanel::new(
                 session.clone(),
                 state.clone(),
                 Rc::downgrade(&panel_manager),
+                instance_panel,
             )
             .into(),
             mapping_rows_panel: MappingRowsPanel::new(

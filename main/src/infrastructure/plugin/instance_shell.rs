@@ -107,12 +107,12 @@ impl InstanceShell {
     ///
     /// Must be called from the main thread.
     pub fn save(&self) -> Vec<u8> {
-        let instance_data = self.create_instance_data();
+        let instance_data = self.create_data();
         let data = InstanceOrUnitData::InstanceData(instance_data);
         serde_json::to_vec(&data).expect("couldn't serialize instance data")
     }
 
-    fn create_instance_data(&self) -> InstanceData {
+    pub fn create_data(&self) -> InstanceData {
         InstanceData {
             main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
             additional_units: blocking_read_lock(

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
@@ -10,7 +10,7 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    ActivationConditionData, CompartmentModelData, MappingModelData, ModeModelData,
+    ActivationConditionData, CompartmentModelData, InstanceData, MappingModelData, ModeModelData,
     SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
@@ -42,7 +42,9 @@ impl UntaggedDataObject {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum DataObject {
-    Session(Envelope<Box<UnitData>>),
+    Instance(Envelope<Box<InstanceData>>),
+    #[serde(alias = "Session")]
+    Unit(Envelope<Box<UnitData>>),
     #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     MainCompartment(Envelope<Box<CompartmentModelData>>),
@@ -73,7 +75,7 @@ impl DataObject {
     pub fn try_from_api_object(
         api_object: ApiObject,
         conversion_context: &impl ApiToDataConversionContext,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> anyhow::Result<Self> {
         let data_object = match api_object {
             #[cfg(feature = "playtime")]
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
@@ -118,7 +120,7 @@ impl DataObject {
         conversion_style: ConversionStyle,
     ) -> anyhow::Result<ApiObject> {
         let api_object = match self {
-            DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+            DataObject::Unit(Envelope { .. }) => todo!("session API not yet implemented"),
             #[cfg(feature = "playtime")]
             DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
             DataObject::MainCompartment(Envelope { value: c, version }) => {
@@ -153,7 +155,8 @@ impl DataObject {
     pub fn version(&self) -> Option<&Version> {
         use DataObject::*;
         match self {
-            Session(v) => v.version.as_ref(),
+            Instance(v) => v.version.as_ref(),
+            Unit(v) => v.version.as_ref(),
             #[cfg(feature = "playtime")]
             ClipMatrix(v) => v.version.as_ref(),
             MainCompartment(v) => v.version.as_ref(),
@@ -172,7 +175,7 @@ impl DataObject {
 pub fn deserialize_data_object(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> Result<AnnotatedResult<UntaggedDataObject>, Box<dyn Error>> {
+) -> anyhow::Result<AnnotatedResult<UntaggedDataObject>> {
     let json_err = match deserialize_untagged_data_object_from_json(text) {
         Ok(o) => {
             return Ok(AnnotatedResult::without_annotations(o));
@@ -198,7 +201,7 @@ pub fn deserialize_data_object(
         }
         Err(e) => e,
     };
-    let msg = format!(
+    let msg = anyhow!(
         "Clipboard content doesn't look like proper ReaLearn import data:\n\n\
         Invalid JSON: \n\
         {json_err}\n\n\
@@ -207,7 +210,7 @@ pub fn deserialize_data_object(
         Invalid CSI: \n\
         {csi_err}"
     );
-    Err(msg.into())
+    Err(msg)
 }
 
 pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
@@ -216,7 +219,7 @@ pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<d
 
 pub fn deserialize_untagged_data_object_from_json(
     text: &str,
-) -> Result<UntaggedDataObject, Box<dyn Error>> {
+) -> anyhow::Result<UntaggedDataObject> {
     Ok(serde_json::from_str(text)?)
 }
 
@@ -236,7 +239,7 @@ pub fn deserialize_data_object_from_csi(
 pub fn deserialize_data_object_from_lua(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> Result<DataObject, Box<dyn Error>> {
+) -> anyhow::Result<DataObject> {
     let api_object = deserialize_api_object_from_lua(text)?;
     let data_object = DataObject::try_from_api_object(api_object, conversion_context)?;
     Ok(data_object)
@@ -289,17 +292,14 @@ pub fn serialize_data_object_to_lua(
     Ok(lua_serializer::to_string(&api_object)?)
 }
 
-pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
+pub fn deserialize_api_object_from_lua(text: &str) -> anyhow::Result<ApiObject> {
     let lua = SafeLua::new()?;
     let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
     let value = execute_lua_import_script(&lua, text)?;
     Ok(lua.as_ref().from_value(value)?)
 }
 
-fn execute_lua_import_script<'a>(
-    lua: &'a SafeLua,
-    text: &str,
-) -> Result<mlua::Value<'a>, Box<dyn Error>> {
+fn execute_lua_import_script<'a>(lua: &'a SafeLua, text: &str) -> anyhow::Result<mlua::Value<'a>> {
     let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)
     let realearn_table = {
