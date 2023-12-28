@@ -15,8 +15,8 @@ use crate::domain::{
     PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
     RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
-    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedUnit,
+    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
     TargetValueChangedEvent, UnitContainer, UpdatedSingleMappingOnStateEvent,
     VirtualControlElement, VirtualSourceValue,
 };
@@ -85,7 +85,7 @@ struct Basics<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
-    instance_state: SharedInstanceState,
+    instance_state: SharedUnit,
     channels: Channels,
     // Using RefCell in the processing layer is an exception. We do it here because we can't
     // safely make feedback processing mutable. I tried (see branch
@@ -277,7 +277,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
-        instance_state: SharedInstanceState,
+        instance_state: SharedUnit,
         instance_container: &'static dyn UnitContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
@@ -2841,7 +2841,7 @@ impl Default for StayActiveWhenProjectInBackground {
 impl BasicSettings {
     pub fn target_control_logger<'a>(
         &'a self,
-        instance_state: &'a SharedInstanceState,
+        instance_state: &'a SharedUnit,
         context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + 'a {

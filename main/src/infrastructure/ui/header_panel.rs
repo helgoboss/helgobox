@@ -4,7 +4,7 @@ use derive_more::Display;
 use std::rc::{Rc, Weak};
 
 use rxrust::prelude::*;
-use std::{iter, sync};
+use std::iter;
 
 use enum_iterator::IntoEnumIterator;
 
@@ -30,11 +30,9 @@ use crate::domain::{
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, MappingModelData,
-    OscDevice,
+    OscDevice, UnitData,
 };
-use crate::infrastructure::plugin::{
-    warn_about_failed_server_start, BackboneShell, InstanceParamContainer,
-};
+use crate::infrastructure::plugin::{warn_about_failed_server_start, BackboneShell};
 
 use crate::infrastructure::ui::bindings::root;
 
@@ -55,7 +53,6 @@ use crate::infrastructure::ui::{
     UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
-use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
 use semver::Version;
@@ -75,7 +72,6 @@ pub struct HeaderPanel {
     session: WeakUnitModel,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
-    plugin_parameters: sync::Weak<InstanceParamContainer>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -87,7 +83,6 @@ impl HeaderPanel {
     pub fn new(
         session: WeakUnitModel,
         main_state: SharedMainState,
-        plugin_parameters: sync::Weak<InstanceParamContainer>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
     ) -> HeaderPanel {
         HeaderPanel {
@@ -95,7 +90,6 @@ impl HeaderPanel {
             session: session.clone(),
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
-            plugin_parameters,
             panel_manager,
             group_panel: Default::default(),
             extra_panel: Default::default(),
@@ -293,11 +287,7 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             #[cfg(feature = "playtime")]
-            let has_clip_matrix = session
-                .instance_state()
-                .borrow()
-                .owned_clip_matrix()
-                .is_some();
+            let has_clip_matrix = session.unit().borrow().owned_clip_matrix().is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
@@ -1199,7 +1189,7 @@ impl HeaderPanel {
         let weak_session = self.session.clone();
         base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
             let shared_session = weak_session.upgrade().expect("session gone");
-            let shared_instance_state = { shared_session.borrow().instance_state().clone() };
+            let shared_instance_state = { shared_session.borrow().unit().clone() };
             shared_instance_state
                 .borrow_mut()
                 .owned_clip_matrix_mut()
@@ -2012,10 +2002,6 @@ impl HeaderPanel {
     pub fn import_from_clipboard(&self) -> Result<(), Box<dyn std::error::Error>> {
         let text =
             get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
-        let plugin_parameters = self
-            .plugin_parameters
-            .upgrade()
-            .expect("plugin params gone");
         let res = {
             let session = self.session();
             let session = session.borrow();
@@ -2034,13 +2020,15 @@ impl HeaderPanel {
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
                 ) {
-                    notify_user_on_anyhow_error(plugin_parameters.apply_session_data(&d));
+                    let session = self.session();
+                    let result = d.apply_to_model(&session);
+                    notify_user_on_anyhow_error(result);
                 }
             }
             #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 use playtime_api::persistence::FlexibleMatrix;
-                let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
+                let old_matrix_label = match self.session().borrow().unit().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
                         crate::domain::ClipMatrixRef::Own(m) => {
@@ -2069,7 +2057,7 @@ impl HeaderPanel {
                 ) {
                     let session = self.session();
                     let session = session.borrow();
-                    let mut instance_state = session.instance_state().borrow_mut();
+                    let mut instance_state = session.unit().borrow_mut();
                     if let Some(matrix) = *value {
                         crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance_state).load(matrix)?;
                     } else {
@@ -2192,11 +2180,8 @@ impl HeaderPanel {
         match result {
             MenuAction::None => {}
             MenuAction::ExportSession(_) => {
-                let plugin_parameters = self
-                    .plugin_parameters
-                    .upgrade()
-                    .context("plugin params gone")?;
-                let session_data = plugin_parameters.create_session_data()?;
+                let session = self.session();
+                let session_data = UnitData::from_model(&session.borrow());
                 let data_object =
                     DataObject::Session(BackboneShell::create_envelope(Box::new(session_data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
@@ -2207,7 +2192,7 @@ impl HeaderPanel {
                 let matrix = self
                     .session()
                     .borrow()
-                    .instance_state()
+                    .unit()
                     .borrow()
                     .owned_clip_matrix()
                     .map(|matrix| matrix.save());
@@ -2305,7 +2290,7 @@ impl HeaderPanel {
     #[cfg(feature = "egui")]
     fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
         let session = self.session();
-        let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
+        let pot_unit = session.borrow().unit().borrow_mut().pot_unit()?;
         let panel = crate::infrastructure::ui::PotBrowserPanel::new(pot_unit);
         open_child_panel_dyn(
             &self.pot_browser_panel,

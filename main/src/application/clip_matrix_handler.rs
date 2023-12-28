@@ -106,7 +106,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     fn get_currently_learning_target(&self) -> Option<SimpleMappingTarget> {
         let shared_session = self.session.upgrade().expect("session gone");
         let session = shared_session.borrow();
-        let instance_state = session.instance_state();
+        let instance_state = session.unit();
         let instance_state = instance_state.borrow();
         let learning_mapping_id = instance_state.mapping_which_learns_source().get()?;
         if learning_mapping_id.compartment != Compartment::Main {

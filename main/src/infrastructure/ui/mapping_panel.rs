@@ -3740,7 +3740,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_window_title(&self) {
         let mapping_is_on = self
             .session
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_on(self.mapping.qualified_id());
         let suffix = if mapping_is_on { "" } else { " (inactive)" };
@@ -3865,7 +3865,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_is_learning_source(self.mapping.qualified_id()),
             root::ID_SOURCE_LEARN_BUTTON,
@@ -5857,7 +5857,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_is_learning_target(self.mapping.qualified_id()),
             root::ID_TARGET_LEARN_BUTTON,
@@ -5886,14 +5886,14 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel.when(
-            self.session.instance_state().borrow().on_mappings_changed(),
+            self.session.unit().borrow().on_mappings_changed(),
             |view, _| {
                 view.invalidate_window_title();
             },
         );
         self.panel.when(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_which_learns_source()
                 .changed(),
@@ -5903,7 +5903,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.panel.when(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_which_learns_target()
                 .changed(),

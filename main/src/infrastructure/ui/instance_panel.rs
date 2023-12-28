@@ -1,5 +1,6 @@
 use crate::infrastructure::ui::util;
 use anyhow::Context;
+use base::tracing_debug;
 use std::cell::{Cell, OnceCell};
 use std::fmt::Debug;
 use std::sync;
@@ -15,6 +16,12 @@ pub struct InstancePanel {
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     shell: OnceCell<sync::Weak<InstanceShell>>,
     displayed_unit_panel_index: Cell<Option<usize>>,
+}
+
+impl Drop for InstancePanel {
+    fn drop(&mut self) {
+        tracing_debug!("Dropping InstancePanel");
+    }
 }
 
 impl InstancePanel {

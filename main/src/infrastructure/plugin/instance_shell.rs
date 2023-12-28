@@ -1,14 +1,13 @@
 use crate::domain::{
-    AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, PluginParamIndex, PluginParams,
-    ProcessorContext, RawParamValue, UnitId,
+    AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, ProcessorContext, UnitId,
 };
 use crate::infrastructure::data::UnitData;
 use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::plugin::InstanceParamContainer;
+use crate::infrastructure::plugin::InstanceParameterContainer;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, ensure, Context};
-use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
+use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
 use fragile::Fragile;
 use std::iter::once;
 use std::sync::{Arc, RwLock};
@@ -27,7 +26,6 @@ pub struct InstanceShell {
     // TODO-low Not too cool that we need to make this fragile. Related to reaper-high cells.
     processor_context: Fragile<ProcessorContext>,
     main_unit_shell: UnitShell,
-    param_container: Arc<InstanceParamContainer>,
     /// Additional unit shells.
     ///
     /// This needs to be protected because we might add/remove/set instances in the main
@@ -39,21 +37,21 @@ pub struct InstanceShell {
     additional_unit_shells: RwLock<Vec<UnitShell>>,
 }
 
+impl Drop for InstanceShell {
+    fn drop(&mut self) {
+        tracing_debug!("Dropping InstanceShell");
+    }
+}
+
 impl InstanceShell {
     /// Creates an instance shell with exactly one unit shell.
-    pub fn new(
-        processor_context: ProcessorContext,
-        param_container: Arc<InstanceParamContainer>,
-        panel: SharedView<InstancePanel>,
-    ) -> Self {
+    pub fn new(processor_context: ProcessorContext, panel: SharedView<InstancePanel>) -> Self {
         Self {
             main_unit_shell: UnitShell::new(
                 processor_context.clone(),
-                param_container.clone(),
                 SharedView::downgrade(&panel),
             ),
             additional_unit_shells: Default::default(),
-            param_container,
             panel: Fragile::new(panel),
             processor_context: Fragile::new(processor_context),
         }
@@ -86,7 +84,6 @@ impl InstanceShell {
     pub fn add_unit(&self) -> UnitId {
         let unit_shell = UnitShell::new(
             self.processor_context.get().clone(),
-            self.param_container.clone(),
             SharedView::downgrade(self.panel.get()),
         );
         let id = unit_shell.id();
@@ -106,27 +103,14 @@ impl InstanceShell {
     /// This must not lock any data that's accessed from real-time threads.
     ///
     /// Must be called from the main thread.
-    pub fn save(&self, params: &PluginParams) -> Vec<u8> {
-        let unit_data = self.create_unit_data_internal(params);
+    pub fn save(&self) -> Vec<u8> {
+        let unit_data = self.create_unit_data_internal();
         serde_json::to_vec(&unit_data).expect("couldn't serialize unit data")
     }
 
-    /// Must be called from the main thread.
-    pub fn create_unit_data(&self, params: &PluginParams) -> UnitData {
-        self.create_unit_data_internal(params)
-    }
-
-    fn create_unit_data_internal(&self, params: &PluginParams) -> UnitData {
+    fn create_unit_data_internal(&self) -> UnitData {
         let model = self.main_unit_shell.model().borrow();
-        UnitData::from_model(&model, params)
-    }
-
-    pub fn set_all_parameters(&self, params: PluginParams) {
-        self.main_unit_shell.set_all_parameters(params);
-    }
-
-    pub fn set_single_parameter(&self, index: PluginParamIndex, value: RawParamValue) {
-        self.main_unit_shell.set_single_parameter(index, value);
+        UnitData::from_model(&model)
     }
 
     /// Restores instance shell state from the given serialized data.
@@ -134,7 +118,7 @@ impl InstanceShell {
     /// This must not lock any data that's accessed from real-time threads.
     ///
     /// To be called from main thread.
-    pub fn load(&self, data: &[u8]) -> anyhow::Result<PluginParams> {
+    pub fn load(&self, data: &[u8]) -> anyhow::Result<()> {
         let left_json_object_brace = data
             .iter()
             .position(|b| *b == 0x7b)
@@ -152,10 +136,11 @@ impl InstanceShell {
                 )
             }
         };
-        self.main_unit_shell.apply_unit_data(&unit_data)
+        self.main_unit_shell.apply_unit_data(&unit_data)?;
+        Ok(())
     }
 
-    pub fn apply_unit_data(&self, unit_data: &UnitData) -> anyhow::Result<PluginParams> {
+    pub fn apply_unit_data(&self, unit_data: &UnitData) -> anyhow::Result<()> {
         self.main_unit_shell.apply_unit_data(unit_data)
     }
 

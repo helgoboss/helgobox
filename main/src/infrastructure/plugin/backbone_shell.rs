@@ -1037,7 +1037,7 @@ impl BackboneShell {
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
         let session = session.borrow();
-        let instance_state = session.instance_state();
+        let instance_state = session.unit();
         Backbone::get().with_clip_matrix(instance_state, f)
     }
 
@@ -1050,7 +1050,7 @@ impl BackboneShell {
         let session = self
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
-        let instance_state = session.borrow().instance_state().clone();
+        let instance_state = session.borrow().unit().clone();
         Backbone::get().with_clip_matrix_mut(&instance_state, f)
     }
 
@@ -1060,7 +1060,7 @@ impl BackboneShell {
             .find_session_by_id(clip_matrix_id)
             .context("session not found")?;
         let session = shared_session.borrow();
-        let instance_state = session.instance_state();
+        let instance_state = session.unit();
         crate::application::get_or_insert_owned_clip_matrix(
             Rc::downgrade(&shared_session),
             &mut instance_state.borrow_mut(),

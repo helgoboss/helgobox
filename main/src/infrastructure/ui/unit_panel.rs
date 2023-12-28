@@ -17,17 +17,16 @@ use crate::domain::{
     Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
     QualifiedMappingId, TargetControlEvent, TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::{BackboneShell, InstanceParamContainer};
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
-use base::{Global, SoundPlayer};
+use base::SoundPlayer;
 use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
-use std::sync;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 /// Just the old term as alias for easier class search.
@@ -49,7 +48,6 @@ pub struct UnitPanel {
 impl UnitPanel {
     pub fn new(
         session: WeakUnitModel,
-        plugin_parameters: sync::Weak<InstanceParamContainer>,
         instance_panel: WeakView<InstancePanel>,
     ) -> SharedView<Self> {
         let panel_manager = IndependentPanelManager::new(session.clone());
@@ -63,7 +61,6 @@ impl UnitPanel {
             header_panel: HeaderPanel::new(
                 session.clone(),
                 state.clone(),
-                plugin_parameters,
                 Rc::downgrade(&panel_manager),
             )
             .into(),
@@ -148,7 +145,7 @@ impl UnitPanel {
     fn invalidate_status_2_text(&self) {
         use std::fmt::Write;
         let _ = self.do_with_session(|session| {
-            let instance_state = session.instance_state().borrow();
+            let instance_state = session.unit().borrow();
             let instance_track = instance_state.instance_track_descriptor();
             let compartment = Compartment::Main;
             let instance_track_label = get_virtual_track_label(
@@ -246,7 +243,7 @@ impl UnitPanel {
             self.when(session.tags.changed().merge(session.id.changed()), |view| {
                 view.invalidate_status_1_text();
             });
-            let instance_state = session.instance_state().borrow();
+            let instance_state = session.unit().borrow();
             self.when(
                 instance_state.global_control_and_feedback_state_changed(),
                 |view| {

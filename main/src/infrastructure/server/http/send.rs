@@ -178,7 +178,7 @@ pub fn send_sessions_to_subscribed_clients() {
 
 pub fn keep_informing_clients_about_session_events(shared_session: &SharedUnitModel) {
     let session = shared_session.borrow();
-    let instance_state = session.instance_state().borrow();
+    let instance_state = session.unit().borrow();
     when(
         instance_state
             .on_mappings_changed()

@@ -135,6 +135,9 @@ pub use accelerator::*;
 mod parameter;
 pub use parameter::*;
 
+mod parameter_manager;
+pub use parameter_manager::*;
+
 mod control_event;
 pub use control_event::*;
 

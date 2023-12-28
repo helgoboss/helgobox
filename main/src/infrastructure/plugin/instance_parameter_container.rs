@@ -1,0 +1,215 @@
+use crate::base::notification;
+use reaper_low::firewall;
+use std::sync;
+
+use crate::domain::{ParameterManager, PluginParamIndex};
+use crate::infrastructure::data::UnitData;
+use crate::infrastructure::plugin::instance_shell::InstanceShell;
+use std::sync::{Arc, OnceLock, RwLock};
+use vst::plugin::PluginParameters;
+
+/// Container that owns all plug-in parameters (descriptions and values) and is responsible
+/// for handling parameter changes as well as saving and loading plug-in state.
+///
+/// vst-rs requires us to make this separate from the actual plug-in struct.
+///
+/// It's good to have this separate from the [InstanceShell] because data chunk and parameters might
+/// be set or queried by the host *before* the containing FX - and thus the unit shell - is
+/// available.
+#[derive(Debug)]
+pub struct InstanceParameterContainer {
+    /// Will be set as soon as the containing FX is known.
+    lazy_data: OnceLock<LazyData>,
+    /// We may have to cache some data that the host wants us to load because we are not ready
+    /// for loading data as long as the unit shell is not available.
+    pending_data_to_be_loaded: RwLock<Option<Vec<u8>>>,
+}
+
+#[derive(Debug)]
+struct LazyData {
+    instance_shell: sync::Weak<InstanceShell>,
+    /// Only the parameters of the main unit are exposed as VST parameters.
+    main_unit_parameter_manager: Arc<ParameterManager>,
+}
+
+impl InstanceParameterContainer {
+    /// Creates the parameter container.
+    pub fn new() -> Self {
+        Self {
+            lazy_data: OnceLock::new(),
+            pending_data_to_be_loaded: Default::default(),
+        }
+    }
+
+    /// Sets the unit shell.
+    ///
+    /// Also checks if there's pending state to be loaded into the unit shell and if yes, loads it.
+    pub fn notify_lazy_data_available(
+        &self,
+        instance_shell: &Arc<InstanceShell>,
+        main_unit_parameter_manager: Arc<ParameterManager>,
+    ) {
+        if let Some(data) = self.pending_data_to_be_loaded.write().unwrap().take() {
+            notification::notify_user_on_anyhow_error(instance_shell.load(&data));
+        }
+        let lazy_data = LazyData {
+            instance_shell: Arc::downgrade(&instance_shell),
+            main_unit_parameter_manager,
+        };
+        self.lazy_data.set(lazy_data).unwrap();
+    }
+
+    fn get_parameter_name_internal(&self, index: i32) -> Result<String, &'static str> {
+        let index = PluginParamIndex::try_from(index as u32)?;
+        let lazy_data = self.get_lazy_data()?;
+        let name = lazy_data
+            .main_unit_parameter_manager
+            .params()
+            .build_qualified_parameter_name(index);
+        Ok(name)
+    }
+
+    fn get_parameter_text_internal(&self, index: i32) -> Result<String, &'static str> {
+        let index = PluginParamIndex::try_from(index as u32)?;
+        let lazy_data = self.get_lazy_data()?;
+        let text = lazy_data
+            .main_unit_parameter_manager
+            .params()
+            .at(index)
+            .to_string();
+        Ok(text)
+    }
+
+    fn set_parameter_internal(&self, index: i32, value: f32) -> Result<(), &'static str> {
+        let index = PluginParamIndex::try_from(index as u32)?;
+        let lazy_data = self.get_lazy_data()?;
+        lazy_data
+            .main_unit_parameter_manager
+            .set_single_parameter(index, value);
+        Ok(())
+    }
+
+    fn string_to_parameter_internal(&self, index: i32, text: String) -> Result<bool, &'static str> {
+        let index = PluginParamIndex::try_from(index as u32)?;
+        let lazy_data = self.get_lazy_data()?;
+        let parse_result = lazy_data
+            .main_unit_parameter_manager
+            .params()
+            .at(index)
+            .setting()
+            .parse_to_raw_value(&text);
+        let res = if let Ok(raw_value) = parse_result {
+            lazy_data
+                .main_unit_parameter_manager
+                .set_single_parameter(index, raw_value);
+            true
+        } else {
+            false
+        };
+        Ok(res)
+    }
+
+    fn get_lazy_data(&self) -> Result<&LazyData, &'static str> {
+        self.lazy_data.get().ok_or("lazy data not available yet")
+    }
+
+    fn get_parameter_internal(&self, index: i32) -> Result<f32, &'static str> {
+        let index = PluginParamIndex::try_from(index as u32)?;
+        let lazy_data = self.get_lazy_data()?;
+        // It's super important that we don't get the parameter from the session because if
+        // the parameter is set shortly before via `set_parameter()`, it can happen that we
+        // don't get this latest value from the session - it will arrive there a bit later
+        // because we use async messaging to let the session know about the new parameter
+        // value. Getting an old value is terrible for clients which use the current value
+        // for calculating a new value, e.g. ReaLearn itself when used with relative encoders.
+        // Turning the encoder will result in increments not being applied reliably.
+        let value = lazy_data
+            .main_unit_parameter_manager
+            .params()
+            .at(index)
+            .raw_value();
+        Ok(value)
+    }
+}
+
+/// This will be returned if ReaLearn cannot return reasonable bank data yet.
+const NOT_READY_YET: &str = "not-ready-yet";
+
+impl PluginParameters for InstanceParameterContainer {
+    fn get_bank_data(&self) -> Vec<u8> {
+        firewall(|| {
+            let Some(lazy_data) = self.lazy_data.get() else {
+                return match self.pending_data_to_be_loaded.read().unwrap().as_ref() {
+                    None => NOT_READY_YET.to_string().into_bytes(),
+                    Some(d) => d.clone(),
+                };
+            };
+            lazy_data
+                .instance_shell
+                .upgrade()
+                .expect("instance shell gone")
+                .save()
+        })
+        .unwrap_or_default()
+    }
+
+    fn load_bank_data(&self, data: &[u8]) {
+        firewall(|| {
+            if data == NOT_READY_YET.as_bytes() {
+                if let Some(lazy_data) = self.lazy_data.get() {
+                    // Looks like someone activated the "Reset to factory default" preset.
+                    lazy_data
+                        .instance_shell
+                        .upgrade()
+                        .expect("instance shell gone")
+                        .apply_unit_data(&UnitData::default())
+                        .expect("couldn't load factory default");
+                }
+                return;
+            }
+            let Some(lazy_data) = self.lazy_data.get() else {
+                // Unit shell is not available yet. Memorize data so we can apply it
+                // as soon as the shell is available.
+                self.pending_data_to_be_loaded
+                    .write()
+                    .unwrap()
+                    .replace(data.to_vec());
+                return;
+            };
+            lazy_data
+                .instance_shell
+                .upgrade()
+                .expect("instance shell gone")
+                .load(data)
+                .expect("couldn't load bank data provided by REAPER");
+        });
+    }
+
+    fn get_parameter_name(&self, index: i32) -> String {
+        firewall(|| self.get_parameter_name_internal(index).unwrap_or_default()).unwrap_or_default()
+    }
+
+    fn get_parameter(&self, index: i32) -> f32 {
+        firewall(|| self.get_parameter_internal(index).unwrap_or_default()).unwrap_or_default()
+    }
+
+    fn set_parameter(&self, index: i32, value: f32) {
+        firewall(|| {
+            let _ = self.set_parameter_internal(index, value);
+        });
+    }
+
+    fn get_parameter_text(&self, index: i32) -> String {
+        firewall(|| self.get_parameter_text_internal(index).unwrap_or_default()).unwrap_or_default()
+    }
+
+    fn string_to_parameter(&self, index: i32, text: String) -> bool {
+        firewall(|| {
+            self.string_to_parameter_internal(index, text)
+                .unwrap_or_default()
+        })
+        .unwrap_or(false)
+    }
+}
+
+pub const SET_STATE_PARAM_NAME: &str = "set-state";

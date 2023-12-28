@@ -9,17 +9,16 @@ use crate::application::{
 use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, Compartment,
-    CompartmentParamIndex, CompartmentParams, CompoundMappingSource, ControlContext, ControlInput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, LastTouchedTargetFilter, MainMapping,
-    MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
-    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
-    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstanceState,
-    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
-    TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
-    VirtualSource, VirtualSourceValue,
+    CompartmentParamIndex, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
+    InfoEvent, InputDescriptor, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey,
+    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
+    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SharedUnit, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
+    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -78,10 +77,6 @@ pub trait SessionUi {
         affected: Affected<SessionProp>,
         initiator: Option<u32>,
     );
-}
-
-pub trait ParamContainer {
-    fn update_compartment_params(&mut self, compartment: Compartment, params: CompartmentParams);
 }
 
 /// Just the old term as alias for easier class search.
@@ -159,8 +154,6 @@ pub struct UnitModel {
     #[derivative(Debug = "ignore")]
     ui: OnceCell<Box<dyn SessionUi>>,
     // TODO-low-multi-config Make all the following fully qualified
-    #[derivative(Debug = "ignore")]
-    param_container: Box<dyn ParamContainer>,
     instance_container: &'static dyn UnitContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
     // TODO-low-multi-config Make all the following fully qualified
@@ -170,7 +163,7 @@ pub struct UnitModel {
     global_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_preset_link_config: FxPresetLinkConfig,
     use_instance_preset_links_only: bool,
-    instance_state: SharedInstanceState,
+    unit: SharedUnit,
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
@@ -254,12 +247,11 @@ impl UnitModel {
         context: ProcessorContext,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
-        param_container: impl ParamContainer + 'static,
         instance_container: &'static dyn UnitContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
-        instance_state: SharedInstanceState,
+        instance_state: SharedUnit,
         global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
             FeedbackAudioHookTask,
         >,
@@ -316,7 +308,6 @@ impl UnitModel {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: OnceCell::new(),
-            param_container: Box::new(param_container),
             instance_container,
             params: Default::default(),
             controller_preset_manager: Box::new(controller_manager),
@@ -324,7 +315,7 @@ impl UnitModel {
             global_preset_link_manager: Box::new(preset_link_manager),
             instance_preset_link_config: Default::default(),
             use_instance_preset_links_only: false,
-            instance_state,
+            unit: instance_state,
             global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
@@ -412,7 +403,7 @@ impl UnitModel {
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
         let virtual_source_value = self.virtualize_source_value(source_value);
-        let instance_state = self.instance_state.borrow();
+        let instance_state = self.unit.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
             let m = m.borrow();
@@ -649,7 +640,7 @@ impl UnitModel {
         &self,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<VirtualSourceValue> {
-        let instance_state = self.instance_state.borrow();
+        let instance_state = self.unit.borrow();
         let res = self
             .active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
@@ -670,7 +661,7 @@ impl UnitModel {
     }
 
     pub fn virtualize_source_model(&self, source_model: &SourceModel) -> Option<SourceModel> {
-        let instance_state = self.instance_state.borrow();
+        let instance_state = self.unit.borrow();
         let res = self
             .active_virtual_controller_mappings(&instance_state)
             .find_map(|m| {
@@ -748,10 +739,7 @@ impl UnitModel {
                 return;
             }
         }
-        let qualified_id = self
-            .instance_state
-            .borrow_mut()
-            .set_mapping_which_learns_target(None);
+        let qualified_id = self.unit.borrow_mut().set_mapping_which_learns_target(None);
         if let Some(qualified_id) = qualified_id {
             if let Some(mapping) = self.find_mapping_by_qualified_id(qualified_id).cloned() {
                 let mut mapping = mapping.borrow_mut();
@@ -792,7 +780,7 @@ impl UnitModel {
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
             instance_container: self.instance_container,
-            instance_state: self.instance_state(),
+            instance_state: self.unit(),
             instance_id: self.instance_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),
             source_context: &SOURCE_CONTEXT,
@@ -1023,7 +1011,7 @@ impl UnitModel {
                     ..virtual_track
                 };
                 self.instance_track_descriptor = api_desc;
-                self.instance_state
+                self.unit
                     .borrow_mut()
                     .set_instance_track_descriptor(virtual_track);
                 self.normal_main_task_sender
@@ -1038,7 +1026,7 @@ impl UnitModel {
                     ..virtual_fx
                 };
                 self.instance_fx_descriptor = api_desc;
-                self.instance_state
+                self.unit
                     .borrow_mut()
                     .set_instance_fx_descriptor(virtual_fx);
                 self.normal_main_task_sender
@@ -1405,7 +1393,7 @@ impl UnitModel {
             control_element_type,
         );
         // After target learned, add new mapping and start learning its source
-        let instance_state = self.instance_state.borrow();
+        let instance_state = self.unit.borrow();
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
@@ -1471,7 +1459,7 @@ impl UnitModel {
         // one wants when creating a controller mapping).
         if compartment == Compartment::Main {
             when(
-                self.instance_state()
+                self.unit()
                     .borrow()
                     .mapping_which_learns_source()
                     .changed_to(None)
@@ -1500,11 +1488,7 @@ impl UnitModel {
 
     pub fn stop_learning_many_mappings(&mut self) {
         self.learn_many_state.set(None);
-        let source_learning_mapping_id = self
-            .instance_state
-            .borrow()
-            .mapping_which_learns_source()
-            .get();
+        let source_learning_mapping_id = self.unit.borrow().mapping_which_learns_source().get();
         self.stop_mapping_actions();
         self.enable_control();
         // Remove last added mapping if source not learned already
@@ -1622,11 +1606,7 @@ impl UnitModel {
         session: WeakUnitModel,
         mapping_id: QualifiedMappingId,
     ) -> Result<(), &'static str> {
-        let currently_learning_mapping_id = self
-            .instance_state
-            .borrow()
-            .mapping_which_learns_source()
-            .get();
+        let currently_learning_mapping_id = self.unit.borrow().mapping_which_learns_source().get();
         if let Some(id) = currently_learning_mapping_id {
             if id == mapping_id {
                 self.stop_learning_source();
@@ -1643,14 +1623,14 @@ impl UnitModel {
         ignore_sources: Vec<CompoundMappingSource>,
     ) -> Result<(), &'static str> {
         if self
-            .instance_state
+            .unit
             .borrow()
             .mapping_which_learns_source()
             .get_ref()
             .is_some()
         {
             // Learning active already. Simply change the mapping that's going to be learned.
-            self.instance_state
+            self.unit
                 .borrow_mut()
                 .set_mapping_which_learns_source(Some(mapping_id));
             Ok(())
@@ -1674,7 +1654,7 @@ impl UnitModel {
             let m = mapping.borrow();
             m.source_model.osc_arg_index()
         };
-        self.instance_state
+        self.unit
             .borrow_mut()
             .set_mapping_which_learns_source(Some(mapping_id));
         when(
@@ -1694,7 +1674,7 @@ impl UnitModel {
             .take_until(self.party_is_over())
             // If the user stops learning manually without ever touching the controller.
             .take_until(
-                self.instance_state
+                self.unit
                     .borrow()
                     .mapping_which_learns_source()
                     .changed_to(None),
@@ -1706,17 +1686,13 @@ impl UnitModel {
         .finally(|session| {
             session
                 .borrow()
-                .instance_state
+                .unit
                 .borrow_mut()
                 .set_mapping_which_learns_source(None);
         })
         .do_async(|shared_session, event: MessageCaptureEvent| {
             let mut session = shared_session.borrow_mut();
-            let qualified_id = session
-                .instance_state
-                .borrow()
-                .mapping_which_learns_source()
-                .get();
+            let qualified_id = session.unit.borrow().mapping_which_learns_source().get();
             if let Some(qualified_id) = qualified_id {
                 if let Some(source) = session.create_compound_source(event) {
                     // The learn process should stop when removing a mapping but just in case,
@@ -1734,9 +1710,7 @@ impl UnitModel {
     }
 
     fn stop_learning_source(&self) {
-        self.instance_state
-            .borrow_mut()
-            .set_mapping_which_learns_source(None);
+        self.unit.borrow_mut().set_mapping_which_learns_source(None);
     }
 
     pub fn toggle_learning_target(
@@ -1744,11 +1718,7 @@ impl UnitModel {
         session: WeakUnitModel,
         mapping_id: QualifiedMappingId,
     ) {
-        let currently_learning_mapping_id = self
-            .instance_state
-            .borrow()
-            .mapping_which_learns_target()
-            .get();
+        let currently_learning_mapping_id = self.unit.borrow().mapping_which_learns_target().get();
         if let Some(id) = currently_learning_mapping_id {
             if id == mapping_id {
                 self.stop_learning_target();
@@ -1773,7 +1743,7 @@ impl UnitModel {
         if handle_control_disabling {
             self.disable_control();
         }
-        self.instance_state
+        self.unit
             .borrow_mut()
             .set_mapping_which_learns_target(Some(mapping_id));
         Global::future_support().spawn_in_main_thread_from_main_thread(async move {
@@ -1817,9 +1787,7 @@ impl UnitModel {
     fn stop_learning_target(&self) {
         self.control_surface_main_task_sender
             .stop_capturing_targets(Some(self.instance_id));
-        self.instance_state
-            .borrow_mut()
-            .set_mapping_which_learns_target(None);
+        self.unit.borrow_mut().set_mapping_which_learns_target(None);
         self.enable_control();
     }
 
@@ -2124,7 +2092,9 @@ impl UnitModel {
             let compartment_params = self.params.compartment_params_mut(compartment);
             compartment_params.reset_all();
             compartment_params.apply_given_settings(model.parameters);
-            self.param_container
+            self.unit
+                .borrow()
+                .parameter_manager()
                 .update_compartment_params(compartment, compartment_params.clone());
             self.custom_compartment_data[compartment] = model.custom_data;
             self.compartment_notes[compartment] = model.notes;
@@ -2152,7 +2122,9 @@ impl UnitModel {
         self.set_groups_without_notification(compartment, std::iter::empty());
         self.set_mappings_without_notification(compartment, std::iter::empty());
         self.params.compartment_params_mut(compartment).reset_all();
-        self.param_container
+        self.unit
+            .borrow()
+            .parameter_manager()
             .update_compartment_params(compartment, Default::default());
         self.custom_compartment_data[compartment] = Default::default();
         self.compartment_notes[compartment] = Default::default();
@@ -2165,7 +2137,9 @@ impl UnitModel {
     ) {
         let compartment_params = self.params.compartment_params_mut(compartment);
         compartment_params.apply_given_settings(settings);
-        self.param_container
+        self.unit
+            .borrow()
+            .parameter_manager()
             .update_compartment_params(compartment, compartment_params.clone());
         // We don't need to notify the UI because it will be done once the param container has
         // propagated the changes to the session again via event (uni-directional dataflow).
@@ -2263,7 +2237,7 @@ impl UnitModel {
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
-        self.instance_state.borrow().mapping_is_on(id)
+        self.unit.borrow().mapping_is_on(id)
     }
 
     fn log_debug_info_internal(&self) {
@@ -2413,8 +2387,8 @@ impl UnitModel {
         self.feedback_output.get()
     }
 
-    pub fn instance_state(&self) -> &SharedInstanceState {
-        &self.instance_state
+    pub fn unit(&self) -> &SharedUnit {
+        &self.unit
     }
 
     fn sync_settings(&self) {
@@ -2488,7 +2462,7 @@ impl UnitModel {
 
     #[cfg(feature = "playtime")]
     fn notify_matrix_simple_mappings_changed(&self) {
-        if let Some(matrix) = self.instance_state().borrow().owned_clip_matrix() {
+        if let Some(matrix) = self.unit().borrow().owned_clip_matrix() {
             matrix.notify_simple_mappings_changed();
         }
     }
@@ -2611,21 +2585,21 @@ impl DomainEventHandler for WeakUnitModel {
             UpdatedOnMappings(on_mappings) => {
                 session
                     .borrow()
-                    .instance_state
+                    .unit
                     .borrow_mut()
                     .set_on_mappings(on_mappings);
             }
             GlobalControlAndFeedbackStateChanged(state) => {
                 session
                     .borrow()
-                    .instance_state
+                    .unit
                     .borrow_mut()
                     .set_global_control_and_feedback_state(state);
             }
             UpdatedSingleMappingOnState(event) => {
                 session
                     .borrow()
-                    .instance_state
+                    .unit
                     .borrow_mut()
                     .set_mapping_on(event.id, event.is_on);
             }
@@ -2743,7 +2717,7 @@ impl DomainEventHandler for WeakUnitModel {
             return Ok(false);
         }
         let fx_id = {
-            let instance_state = session.instance_state.borrow();
+            let instance_state = session.unit.borrow();
             let instance_fx_descriptor = instance_state.instance_fx_descriptor();
             let instance_fx = instance_fx_descriptor
                 .resolve(session.extended_context(), Compartment::Main)

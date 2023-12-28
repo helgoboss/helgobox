@@ -2,14 +2,13 @@ use vst::plugin::HostCallback;
 
 use crate::domain::{
     AudioBlockProps, Backbone, ControlEvent, IncomingMidiMessage, MainProcessor, MidiEvent,
-    ParameterMainTask, PluginParamIndex, PluginParams, ProcessorContext, RawParamValue,
-    RealTimeProcessorLocker, SharedRealTimeProcessor, UnitId,
+    ParameterManager, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, UnitId,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
-use crate::infrastructure::plugin::{InstanceParamContainer, PluginInstanceInfo};
+use crate::infrastructure::plugin::PluginInstanceInfo;
 use crate::infrastructure::ui::UnitPanel;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use reaper_medium::{Hz, ProjectRef};
+use reaper_medium::Hz;
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -17,14 +16,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use fragile::Fragile;
-use reaper_high::Reaper;
 use std::sync::{Arc, Mutex};
 use swell_ui::{SharedView, WeakView};
 
 use crate::application::{SharedUnitModel, UnitModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
-use crate::base::notification;
 use crate::infrastructure::data::UnitData;
 use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -45,7 +42,6 @@ pub struct UnitShell {
     model: Fragile<SharedUnitModel>,
     panel: Fragile<SharedView<UnitPanel>>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
-    parameter_main_task_sender: SenderToNormalThread<ParameterMainTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // and drive its processing without detour. Well, almost. We share it with the global ReaLearn
@@ -57,7 +53,6 @@ pub struct UnitShell {
 impl UnitShell {
     pub fn new(
         processor_context: ProcessorContext,
-        instance_param_container: Arc<InstanceParamContainer>,
         instance_panel: WeakView<InstancePanel>,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
@@ -108,10 +103,12 @@ impl UnitShell {
         // Instance state (domain - shared)
         let (instance_feedback_event_sender, instance_feedback_event_receiver) =
             SenderToNormalThread::new_unbounded_channel("instance state change events");
-        let instance_state = Backbone::get().create_instance(
+        let parameter_manager = ParameterManager::new(parameter_main_task_sender);
+        let instance_state = Backbone::get().create_unit(
             instance_id,
             processor_context.clone(),
             instance_feedback_event_sender,
+            Arc::new(parameter_manager),
             #[cfg(feature = "playtime")]
             BackboneShell::get().clip_matrix_event_sender().clone(),
             #[cfg(feature = "playtime")]
@@ -126,7 +123,6 @@ impl UnitShell {
             processor_context.clone(),
             normal_real_time_task_sender.clone(),
             normal_main_task_sender.clone(),
-            instance_param_container.clone(),
             BackboneShell::get(),
             BackboneShell::get().controller_preset_manager(),
             BackboneShell::get().main_preset_manager(),
@@ -139,11 +135,7 @@ impl UnitShell {
         );
         let shared_session = Rc::new(RefCell::new(session));
         let weak_session = Rc::downgrade(&shared_session);
-        let unit_panel = UnitPanel::new(
-            weak_session.clone(),
-            Arc::downgrade(&instance_param_container),
-            instance_panel,
-        );
+        let unit_panel = UnitPanel::new(weak_session.clone(), instance_panel);
         shared_session
             .borrow_mut()
             .set_ui(Rc::downgrade(&unit_panel));
@@ -199,7 +191,6 @@ impl UnitShell {
             model: Fragile::new(shared_session),
             panel: Fragile::new(unit_panel),
             normal_real_time_task_sender,
-            parameter_main_task_sender,
             real_time_processor,
         }
     }
@@ -218,57 +209,8 @@ impl UnitShell {
         self.panel.get()
     }
 
-    pub fn set_all_parameters(&self, params: PluginParams) {
-        // Propagate
-        // send_if_space because https://github.com/helgoboss/realearn/issues/847
-        self.parameter_main_task_sender
-            .send_if_space(ParameterMainTask::UpdateAllParams(params));
-    }
-
-    pub fn set_single_parameter(&self, index: PluginParamIndex, value: RawParamValue) {
-        // We immediately send to the main processor. Sending to the session and using the
-        // session parameter list as single source of truth is no option because this method
-        // will be called in a processing thread, not in the main thread. Not even a mutex would
-        // help here because the session is conceived for main-thread usage only! I was not
-        // aware of this being called in another thread and it led to subtle errors of course
-        // (https://github.com/helgoboss/realearn/issues/59).
-        // When rendering, we don't do it because that will accumulate until the rendering is
-        // finished, which is pointless.
-        if is_rendering() {
-            return;
-        }
-        self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateSingleParamValue { index, value });
-    }
-
-    pub fn apply_unit_data(&self, session_data: &UnitData) -> anyhow::Result<PluginParams> {
-        let shared_session = self.model.get();
-        let mut session = shared_session.borrow_mut();
-        if let Some(v) = session_data.version.as_ref() {
-            if BackboneShell::version() < v {
-                notification::warn(format!(
-                    "The session that is about to load was saved with ReaLearn {}, which is \
-                         newer than the installed version {}. Things might not work as expected. \
-                         Even more importantly: Saving might result in loss of the data that was \
-                         saved with the new ReaLearn version! Please consider upgrading your \
-                         ReaLearn installation to the latest version.",
-                    v,
-                    BackboneShell::version()
-                ));
-            }
-        }
-        let params = session_data.create_params();
-        if let Err(e) =
-            session_data.apply_to_model(&mut session, &params, Rc::downgrade(&shared_session))
-        {
-            notification::warn(e.to_string());
-        }
-        // Update parameters
-        self.parameter_main_task_sender
-            .send_complaining(ParameterMainTask::UpdateAllParams(params.clone()));
-        // Notify
-        session.notify_everything_has_changed();
-        Ok(params)
+    pub fn apply_unit_data(&self, session_data: &UnitData) -> anyhow::Result<()> {
+        session_data.apply_to_model(self.model.get())
     }
 
     pub fn process_incoming_midi_from_vst(
@@ -305,7 +247,7 @@ impl UnitShell {
 
 impl Drop for UnitShell {
     fn drop(&mut self) {
-        debug!(self.logger, "Dropping instance shell...");
+        debug!(self.logger, "Dropping UnitShell...");
         let session = self.model.get();
         BackboneShell::get().unregister_processor_couple(self.id);
         BackboneShell::get().unregister_session(session.as_ptr());
@@ -315,11 +257,4 @@ impl Drop for UnitShell {
             Rc::strong_count(session)
         );
     }
-}
-
-fn is_rendering() -> bool {
-    Reaper::get()
-        .medium_reaper()
-        .enum_projects(ProjectRef::CurrentlyRendering, 0)
-        .is_some()
 }

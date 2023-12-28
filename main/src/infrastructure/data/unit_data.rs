@@ -1,7 +1,7 @@
 use crate::application::{
     reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
-    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, SessionCommand, UnitModel,
-    WeakUnitModel,
+    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, SessionCommand, SharedUnitModel,
+    UnitModel, WeakUnitModel,
 };
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
@@ -17,6 +17,7 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
+use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
@@ -27,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ops::Deref;
+use std::rc::Rc;
 
 /// This is the structure for loading and saving a ReaLearn session.
 ///
@@ -398,7 +400,7 @@ impl Default for UnitData {
 
 impl UnitData {
     /// The given parameters are the canonical ones from `RealearnPluginParameters`.
-    pub fn from_model(session: &UnitModel, plugin_params: &PluginParams) -> UnitData {
+    pub fn from_model(session: &UnitModel) -> UnitData {
         let from_mappings = |compartment| {
             let compartment_in_session = CompartmentInSession::new(session, compartment);
             session
@@ -424,7 +426,8 @@ impl UnitData {
             Some(group_model_data)
         };
         let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
-        let instance_state = session.instance_state().borrow();
+        let instance_state = session.unit().borrow();
+        let plugin_params = instance_state.parameter_manager().params();
         UnitData {
             version: Some(BackboneShell::version().clone()),
             id: Some(session.id().to_string()),
@@ -482,8 +485,8 @@ impl UnitData {
                 .active_preset_id(Compartment::Main)
                 .map(|id| id.to_string()),
             main_preset_auto_load_mode,
-            parameters: get_parameter_data_map(plugin_params, Compartment::Main),
-            controller_parameters: get_parameter_data_map(plugin_params, Compartment::Controller),
+            parameters: get_parameter_data_map(&plugin_params, Compartment::Main),
+            controller_parameters: get_parameter_data_map(&plugin_params, Compartment::Controller),
             #[cfg(feature = "playtime")]
             clip_slots: vec![],
             #[cfg(feature = "playtime")]
@@ -531,6 +534,31 @@ impl UnitData {
     }
 
     /// Applies this session data to the given session.
+    #[allow(unused_variables)]
+    pub fn apply_to_model(&self, shared_session: &SharedUnitModel) -> anyhow::Result<()> {
+        let mut session = shared_session.borrow_mut();
+        if let Some(v) = self.version.as_ref() {
+            if BackboneShell::version() < v {
+                notification::warn(format!(
+                    "The session that is about to load was saved with ReaLearn {}, which is \
+                         newer than the installed version {}. Things might not work as expected. \
+                         Even more importantly: Saving might result in loss of the data that was \
+                         saved with the new ReaLearn version! Please consider upgrading your \
+                         ReaLearn installation to the latest version.",
+                    v,
+                    BackboneShell::version()
+                ));
+            }
+        }
+        if let Err(e) = self.apply_to_model_internal(&mut session, Rc::downgrade(shared_session)) {
+            notification::warn(e.to_string());
+        }
+        // Notify
+        session.notify_everything_has_changed();
+        Ok(())
+    }
+
+    /// Applies this session data to the given session.
     ///
     /// Doesn't notify listeners! Consumers must inform session that everything has changed.
     ///
@@ -538,13 +566,13 @@ impl UnitData {
     ///
     /// Returns and error if this session data is invalid.
     #[allow(unused_variables)]
-    pub fn apply_to_model(
+    fn apply_to_model_internal(
         &self,
         session: &mut UnitModel,
-        params: &PluginParams,
         weak_session: WeakUnitModel,
     ) -> Result<(), Box<dyn Error>> {
         // Validation
+        let params = self.create_params();
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
             &self.groups,
             &self.mappings,
@@ -728,7 +756,7 @@ impl UnitData {
                             &migration_descriptor,
                             self.version.as_ref(),
                             conversion_context(compartment),
-                            Some(session.extended_context_with_params(params)),
+                            Some(session.extended_context_with_params(&params)),
                         )
                     })
                     .collect();
@@ -770,8 +798,11 @@ impl UnitData {
         session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
-            let instance_state = session.instance_state().clone();
+            let instance_state = session.unit().clone();
             let mut instance_state = instance_state.borrow_mut();
+            instance_state
+                .parameter_manager()
+                .set_all_parameters(params);
             #[cfg(feature = "playtime")]
             {
                 use crate::domain::Backbone;
@@ -879,7 +910,7 @@ impl UnitData {
             // session's instance state.
             for other_session in relevant_other_sessions {
                 let mut other_session = other_session.borrow_mut();
-                let other_instance_state = other_session.instance_state();
+                let other_instance_state = other_session.unit();
                 Backbone::get().set_instance_clip_matrix_to_foreign_matrix(
                     &mut other_instance_state.borrow_mut(),
                     *session.instance_id(),
@@ -890,7 +921,7 @@ impl UnitData {
         Ok(())
     }
 
-    pub fn create_params(&self) -> PluginParams {
+    fn create_params(&self) -> PluginParams {
         let mut params = PluginParams::default();
         fill_compartment_params(
             &self.parameters,

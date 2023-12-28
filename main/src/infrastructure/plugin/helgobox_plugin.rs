@@ -6,10 +6,10 @@ use vst::plugin::{
 };
 
 use crate::domain::{
-    ControlEvent, ControlEventTimestamp, InstanceId, MidiEvent, PluginParamIndex, ProcessorContext,
-    PLUGIN_PARAMETER_COUNT,
+    ControlEvent, ControlEventTimestamp, InstanceId, MidiEvent, ParameterManager, PluginParamIndex,
+    ProcessorContext, RawParamValue, PLUGIN_PARAMETER_COUNT,
 };
-use crate::infrastructure::plugin::instance_param_container::InstanceParamContainer;
+use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use base::{tracing_debug, Global};
 use helgoboss_allocator::*;
@@ -25,6 +25,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
+use crate::infrastructure::data::UnitData;
 use crate::infrastructure::plugin::helgobox_plugin_editor::HelgoboxPluginEditor;
 use crate::infrastructure::plugin::instance_shell::InstanceShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -49,9 +50,7 @@ type _RealearnPlugin = HelgoboxPlugin;
 pub struct HelgoboxPlugin {
     instance_id: InstanceId,
     host: HostCallback,
-    param_container: Arc<InstanceParamContainer>,
-    /// This will be set on `init()`.
-    _reaper_guard: Option<Arc<ReaperGuard>>,
+    param_container: Arc<InstanceParameterContainer>,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
     sample_rate: Hz,
@@ -59,8 +58,26 @@ pub struct HelgoboxPlugin {
     /// REAPER VST scan (and is not going to be used "for real").
     is_plugin_scan: bool,
     // This will be set as soon as the containing FX is known (one main loop cycle after `init()`).
-    instance_shell: OnceLock<Arc<InstanceShell>>,
+    lazy_data: OnceLock<LazyData>,
     instance_panel: SharedView<InstancePanel>,
+    /// This will be set on `init()`.
+    ///
+    /// This should be the last because the other members should be dropped first (especially lazy
+    /// data including instance shell)!
+    _reaper_guard: Option<Arc<ReaperGuard>>,
+}
+
+impl Drop for HelgoboxPlugin {
+    fn drop(&mut self) {
+        tracing_debug!("Dropping HelgoboxPlugin");
+    }
+}
+
+#[derive(Clone)]
+struct LazyData {
+    instance_shell: Arc<InstanceShell>,
+    /// Only the parameters of the main unit are exposed as VST parameters.
+    main_unit_parameter_manager: Arc<ParameterManager>,
 }
 
 impl Default for HelgoboxPlugin {
@@ -73,19 +90,16 @@ unsafe impl Send for HelgoboxPlugin {}
 
 impl Plugin for HelgoboxPlugin {
     fn new(host: HostCallback) -> Self {
-        firewall(|| {
-            let instance_params = Arc::new(InstanceParamContainer::new());
-            Self {
-                instance_id: InstanceId::next(),
-                host,
-                _reaper_guard: None,
-                param_container: instance_params,
-                was_playing_in_last_cycle: false,
-                sample_rate: Default::default(),
-                is_plugin_scan: false,
-                instance_shell: OnceLock::new(),
-                instance_panel: Rc::new(InstancePanel::new()),
-            }
+        firewall(|| Self {
+            instance_id: InstanceId::next(),
+            host,
+            _reaper_guard: None,
+            param_container: Arc::new(InstanceParameterContainer::new()),
+            was_playing_in_last_cycle: false,
+            sample_rate: Default::default(),
+            is_plugin_scan: false,
+            lazy_data: OnceLock::new(),
+            instance_panel: Rc::new(InstancePanel::new()),
         })
         .unwrap_or_default()
     }
@@ -110,23 +124,17 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn get_parameter_info(&self, index: i32) -> Option<PluginParameterInfo> {
-        let i = match PluginParamIndex::try_from(index as u32) {
-            Ok(i) => i,
-            Err(_) => return None,
-        };
-        let params = self.param_container.params();
+        let i = PluginParamIndex::try_from(index as u32).ok()?;
+        let params = self.lazy_data.get()?.main_unit_parameter_manager.params();
         let param = params.at(i);
-        if let Some(value_count) = param.setting().value_count {
-            let mut info = PluginParameterInfo::default();
-            info.character = PluginParameterCharacter::Discrete {
-                min: 0,
-                max: (value_count.get() - 1) as i32,
-                steps: None,
-            };
-            Some(info)
-        } else {
-            None
-        }
+        let value_count = param.setting().value_count?;
+        let mut info = PluginParameterInfo::default();
+        info.character = PluginParameterCharacter::Discrete {
+            min: 0,
+            max: (value_count.get() - 1) as i32,
+            steps: None,
+        };
+        Some(info)
     }
 
     fn init(&mut self) {
@@ -222,8 +230,8 @@ impl Plugin for HelgoboxPlugin {
                         Ok(e) => e,
                     };
                     let our_event = ControlEvent::new(our_event, timestamp);
-                    if let Some(instance_shell) = self.instance_shell.get() {
-                        instance_shell.process_incoming_midi_from_plugin(
+                    if let Some(lazy_data) = self.lazy_data.get() {
+                        lazy_data.instance_shell.process_incoming_midi_from_plugin(
                             our_event,
                             is_transport_start,
                             self.host,
@@ -242,8 +250,8 @@ impl Plugin for HelgoboxPlugin {
                 // Get current time information so we can detect changes in play state reliably
                 // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
                 self.was_playing_in_last_cycle = self.is_now_playing();
-                if let Some(instance_shell) = self.instance_shell.get() {
-                    instance_shell.run_from_plugin(
+                if let Some(lazy_data) = self.lazy_data.get() {
+                    lazy_data.instance_shell.run_from_plugin(
                         #[cfg(feature = "playtime")]
                         buffer,
                         #[cfg(feature = "playtime")]
@@ -259,8 +267,8 @@ impl Plugin for HelgoboxPlugin {
         firewall(|| {
             tracing_debug!("VST set sample rate");
             self.sample_rate = Hz::new(rate as _);
-            if let Some(instance_shell) = self.instance_shell.get() {
-                instance_shell.set_sample_rate(rate);
+            if let Some(lazy_data) = self.lazy_data.get() {
+                lazy_data.instance_shell.set_sample_rate(rate);
             }
         });
     }
@@ -323,6 +331,42 @@ impl HelgoboxPlugin {
         )
     }
 
+    fn get_lazy_data(&self) -> Result<&LazyData, &'static str> {
+        self.lazy_data.get().ok_or("lazy data not available yet")
+    }
+
+    fn get_parameter_display(&self, index: u32, raw_value: f32) -> Result<String, &'static str> {
+        let i = PluginParamIndex::try_from(index)?;
+        let display = self
+            .get_lazy_data()?
+            .main_unit_parameter_manager
+            .params()
+            .at(i)
+            .setting()
+            .with_raw_value(raw_value)
+            .to_string();
+        Ok(display)
+    }
+
+    /// Returns `None` if REAPER string is empty (REAPER's way of checking whether
+    /// we support this).
+    fn string_to_parameter(
+        &self,
+        index: u32,
+        reaper_str: &ReaperStr,
+    ) -> Result<Option<RawParamValue>, &'static str> {
+        let text_input = reaper_str.to_str();
+        if text_input.is_empty() {
+            // REAPER checks if we support this.
+            return Ok(None);
+        }
+        let i = PluginParamIndex::try_from(index)?;
+        let params = self.get_lazy_data()?.main_unit_parameter_manager.params();
+        let param = params.at(i);
+        let raw_value = param.setting().parse_to_raw_value(text_input)?;
+        Ok(Some(raw_value))
+    }
+
     fn get_named_config_param(
         &self,
         param_name: &str,
@@ -355,7 +399,10 @@ impl HelgoboxPlugin {
             SET_STATE_PARAM_NAME => {
                 let c_str = unsafe { CStr::from_ptr(buffer) };
                 let rust_str = c_str.to_str().expect("not valid UTF-8");
-                self.param_container.load_state(rust_str)?;
+                let unit_data: UnitData =
+                    serde_json::from_str(rust_str).context("couldn't deserialize unit data")?;
+                let lazy_data = self.lazy_data.get().context("lazy data not yet set")?;
+                lazy_data.instance_shell.apply_unit_data(&unit_data)?;
                 Ok(())
             }
             _ => Err(anyhow!("unhandled config param")),
@@ -367,17 +414,30 @@ impl HelgoboxPlugin {
             .context("couldn't build processor context, called too early.")?;
         let instance_shell = Arc::new(InstanceShell::new(
             processor_context,
-            self.param_container.clone(),
             self.instance_panel.clone(),
         ));
         self.instance_panel
             .notify_shell_available(instance_shell.clone());
         instance_shell.set_sample_rate(self.sample_rate.get() as _);
-        self.instance_shell
-            .set(instance_shell.clone())
-            .map_err(|_| anyhow!("instance shell already initialized"))?;
-        self.param_container
-            .notify_instance_shell_is_available(instance_shell);
+        let main_unit_parameter_manager = instance_shell
+            .main_unit_shell()
+            .model()
+            .borrow()
+            .unit()
+            .borrow()
+            .parameter_manager()
+            .clone();
+        let lazy_data = LazyData {
+            instance_shell,
+            main_unit_parameter_manager,
+        };
+        self.lazy_data
+            .set(lazy_data.clone())
+            .map_err(|_| anyhow!("lazy data already initialized"))?;
+        self.param_container.notify_lazy_data_available(
+            &lazy_data.instance_shell,
+            lazy_data.main_unit_parameter_manager,
+        );
         Ok(())
     }
 
@@ -437,34 +497,23 @@ impl HelgoboxPlugin {
             }
             // Cockos: Format parameter value without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
             GetParameterDisplay if !ptr.is_null() && value >= 0 => {
-                let i = match PluginParamIndex::try_from(value as u32) {
-                    Ok(i) => i,
-                    Err(_) => return 0,
+                let Ok(display) = self.get_parameter_display(value as u32, opt) else {
+                    return 0;
                 };
-                let params = self.param_container.params();
-                let string = params.at(i).setting().with_raw_value(opt).to_string();
-                if write_to_c_str(ptr, string).is_err() {
+                if write_to_c_str(ptr, display).is_err() {
                     return 0;
                 }
                 0xbeef
             }
             // Cockos: Parse parameter value without setting it (http://reaper.fm/sdk/vst/vst_ext.php)
             StringToParameter if !ptr.is_null() && value >= 0 => {
-                let i = match PluginParamIndex::try_from(value as u32) {
-                    Ok(i) => i,
-                    Err(_) => return 0,
-                };
                 let reaper_str = unsafe { ReaperStr::from_ptr(ptr as *const c_char) };
-                let text_input = reaper_str.to_str();
-                if text_input.is_empty() {
+                let Ok(raw_value) = self.string_to_parameter(value as u32, reaper_str) else {
+                    return 0;
+                };
+                let Some(raw_value) = raw_value else {
                     // REAPER checks if we support this.
                     return 0xbeef;
-                }
-                let params = self.param_container.params();
-                let param = params.at(i);
-                let raw_value = match param.setting().parse_to_raw_value(text_input) {
-                    Ok(v) => v,
-                    Err(_) => return 0,
                 };
                 if write_to_c_str(ptr, raw_value.to_string()).is_err() {
                     return 0;

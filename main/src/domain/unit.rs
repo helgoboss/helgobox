@@ -1,7 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use enum_map::EnumMap;
 use reaper_high::Fx;
@@ -10,15 +10,15 @@ use rxrust::prelude::*;
 use crate::base::Prop;
 use crate::domain::{
     AnyThreadBackboneState, Backbone, Compartment, FxDescriptor, GlobalControlAndFeedbackState,
-    GroupId, MappingId, MappingSnapshotContainer, ProcessorContext, QualifiedMappingId, Tag,
-    TagScope, TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad,
+    GroupId, MappingId, MappingSnapshotContainer, ParameterManager, ProcessorContext,
+    QualifiedMappingId, Tag, TagScope, TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad,
 };
 use base::{NamedChannelSender, SenderToNormalThread};
 use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
 use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
 use realearn_api::persistence::PotFilterKind;
 
-pub type SharedInstanceState = Rc<RefCell<Unit>>;
+pub type SharedUnit = Rc<RefCell<Unit>>;
 pub type WeakInstanceState = Weak<RefCell<Unit>>;
 
 /// Just the old term as alias for easier class search.
@@ -128,6 +128,7 @@ pub struct Unit {
     // TODO-low-multi-config Make fully qualified
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
+    parameter_manager: Arc<ParameterManager>,
 }
 
 #[cfg(feature = "playtime")]
@@ -154,6 +155,7 @@ impl Unit {
         instance_id: UnitId,
         processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        parameter_manager: Arc<ParameterManager>,
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             QualifiedClipMatrixEvent,
         >,
@@ -189,7 +191,12 @@ impl Unit {
             pot_unit: Default::default(),
             mapping_which_learns_source: Default::default(),
             mapping_which_learns_target: Default::default(),
+            parameter_manager,
         }
+    }
+
+    pub fn parameter_manager(&self) -> &Arc<ParameterManager> {
+        &self.parameter_manager
     }
 
     pub fn set_mapping_which_learns_source(

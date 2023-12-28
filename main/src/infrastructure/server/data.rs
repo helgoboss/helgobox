@@ -125,7 +125,7 @@ pub fn get_controller_routing(session: &UnitModel) -> ControllerRouting {
         id: mp.id().to_string(),
         name: mp.name().to_string(),
     });
-    let instance_state = session.instance_state().borrow();
+    let instance_state = session.unit().borrow();
     let routes = session
         .mappings(Compartment::Controller)
         .filter_map(|m| {

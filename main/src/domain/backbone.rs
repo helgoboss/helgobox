@@ -4,9 +4,9 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceStateChanged, ProcessorContext, RealearnSourceState,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedInstanceState, Unit,
-    UnitId, WeakInstanceState,
+    FeedbackOutput, InstanceStateChanged, ParameterManager, ProcessorContext, RealearnSourceState,
+    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedUnit, Unit, UnitId,
+    WeakInstanceState,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -20,7 +20,7 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -44,7 +44,8 @@ pub struct Backbone {
     /// We hold pointers to the instance state of all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
-    instance_states: RefCell<HashMap<UnitId, WeakInstanceState>>,
+    // TODO-high Foreign matrixes are not used in practice. Let's keep this for a while and remove.
+    units: RefCell<HashMap<UnitId, WeakInstanceState>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
@@ -158,7 +159,7 @@ impl Backbone {
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
-            instance_states: Default::default(),
+            units: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
             recently_focused_fx_container: Default::default(),
@@ -251,11 +252,12 @@ impl Backbone {
         self.upper_floor_instances.borrow_mut().remove(instance_id);
     }
 
-    pub fn create_instance(
+    pub fn create_unit(
         &self,
         id: UnitId,
         processor_context: ProcessorContext,
         instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        parameter_manager: Arc<ParameterManager>,
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             crate::domain::QualifiedClipMatrixEvent,
         >,
@@ -265,11 +267,12 @@ impl Backbone {
         #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
             crate::domain::NormalRealTimeTask,
         >,
-    ) -> SharedInstanceState {
-        let instance_state = Unit::new(
+    ) -> SharedUnit {
+        let unit = Unit::new(
             id,
             processor_context,
             instance_feedback_event_sender,
+            parameter_manager,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
             #[cfg(feature = "playtime")]
@@ -277,11 +280,11 @@ impl Backbone {
             #[cfg(feature = "playtime")]
             real_time_processor_sender,
         );
-        let shared_instance_state = Rc::new(RefCell::new(instance_state));
-        self.instance_states
+        let shared_unit = Rc::new(RefCell::new(unit));
+        self.units
             .borrow_mut()
-            .insert(id, Rc::downgrade(&shared_instance_state));
-        shared_instance_state
+            .insert(id, Rc::downgrade(&shared_unit));
+        shared_unit
     }
     //
     // /// Returns and - if necessary - installs an owned clip matrix.
@@ -338,7 +341,7 @@ impl Backbone {
         this_instance_id: UnitId,
         real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     ) {
-        for (id, is) in self.instance_states.borrow().iter() {
+        for (id, is) in self.units.borrow().iter() {
             if *id == this_instance_id {
                 continue;
             }
@@ -399,7 +402,7 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
-        instance_state: &SharedInstanceState,
+        instance_state: &SharedUnit,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
@@ -422,7 +425,7 @@ impl Backbone {
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
-            .instance_states
+            .units
             .borrow()
             .get(foreign_instance_id)
             .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
@@ -443,7 +446,7 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(
         &self,
-        instance_state: &SharedInstanceState,
+        instance_state: &SharedUnit,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
@@ -466,7 +469,7 @@ impl Backbone {
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
-            .instance_states
+            .units
             .borrow()
             .get(instance_id)
             .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
@@ -483,7 +486,7 @@ impl Backbone {
     }
 
     pub(super) fn unregister_instance_state(&self, id: &UnitId) {
-        self.instance_states.borrow_mut().remove(id);
+        self.units.borrow_mut().remove(id);
     }
 
     pub fn control_is_allowed(&self, instance_id: &UnitId, control_input: ControlInput) -> bool {
@@ -495,8 +498,8 @@ impl Backbone {
     }
 
     #[allow(dead_code)]
-    pub fn find_instance_state(&self, instance_id: UnitId) -> Option<SharedInstanceState> {
-        let weak_instance_states = self.instance_states.borrow();
+    pub fn find_instance_state(&self, instance_id: UnitId) -> Option<SharedUnit> {
+        let weak_instance_states = self.units.borrow();
         let weak_instance_state = weak_instance_states.get(&instance_id)?;
         weak_instance_state.upgrade()
     }

@@ -211,7 +211,7 @@ impl ModifyMappingTarget {
                 let session = session.borrow();
                 let mapping_id = session.find_mapping_id_by_key(self.compartment, mapping_key)?;
                 let args = GetArgs {
-                    instance_state: &session.instance_state().borrow(),
+                    instance_state: &session.unit().borrow(),
                     id: QualifiedMappingId::new(self.compartment, mapping_id),
                 };
                 get(args)

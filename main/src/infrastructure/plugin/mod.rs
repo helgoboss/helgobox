@@ -5,11 +5,11 @@ mod helgobox_plugin_editor;
 mod tracing_util;
 pub use backbone_shell::*;
 mod helgobox_plugin;
-mod instance_param_container;
+mod instance_parameter_container;
 mod instance_shell;
 pub use instance_shell::*;
 mod unit_shell;
-pub use instance_param_container::*;
+pub use instance_parameter_container::*;
 
 #[allow(unused)]
 mod built_info {

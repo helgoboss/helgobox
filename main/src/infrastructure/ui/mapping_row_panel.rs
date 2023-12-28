@@ -302,7 +302,7 @@ impl MappingRowPanel {
         let text = if self
             .session()
             .borrow()
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_learning_source(mapping.qualified_id())
         {
@@ -319,7 +319,7 @@ impl MappingRowPanel {
         let text = if self
             .session()
             .borrow()
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_learning_target(mapping.qualified_id())
         {
@@ -416,7 +416,7 @@ impl MappingRowPanel {
     fn register_listeners(self: &SharedView<Self>) {
         let session = self.session();
         let session = session.borrow();
-        let instance_state = session.instance_state().borrow();
+        let instance_state = session.unit().borrow();
         self.when(
             instance_state.mapping_which_learns_source().changed(),
             |view| {
