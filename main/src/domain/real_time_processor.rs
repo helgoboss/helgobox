@@ -36,12 +36,10 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 #[derive(Debug)]
 pub struct RealTimeProcessor {
     instance_id: UnitId,
-    // TODO-low-multi-config Okay to have per config
     logger: slog::Logger,
     // Synced processing settings
     settings: BasicSettings,
     control_mode: ControlMode,
-    // TODO-low-multi-config Make fully qualified
     mappings: EnumMap<Compartment, OrderedMappingMap<RealTimeMapping>>,
     // State
     control_is_globally_enabled: bool,
@@ -53,12 +51,9 @@ pub struct RealTimeProcessor {
     normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
     control_main_task_sender: SenderToNormalThread<ControlMainTask>,
     // Scanners for more complex MIDI message types
-    // TODO-low-multi-config Make fully qualified
     nrpn_scanner: PollingParameterNumberMessageScanner,
-    // TODO-low-multi-config Make fully qualified
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
     // For MIDI capturing
-    // TODO-low-multi-config Make fully qualified
     midi_scanner: MidiScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,

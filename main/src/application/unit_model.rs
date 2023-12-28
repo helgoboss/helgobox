@@ -92,16 +92,13 @@ pub struct UnitModel {
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
-    // TODO-medium We should rename session ID to session key or instance key.
+    // TODO-medium We should rename session ID to unit key?
     pub id: Prop<String>,
     logger: slog::Logger,
-    // TODO-low-multi-config Make fully qualified
     pub let_matched_events_through: Prop<bool>,
-    // TODO-low-multi-config Make fully qualified
     pub let_unmatched_events_through: Prop<bool>,
     pub stay_active_when_project_in_background: Prop<StayActiveWhenProjectInBackground>,
     pub auto_correct_settings: Prop<bool>,
-    // TODO-low-multi-config Make all the following fully qualified
     pub real_input_logging_enabled: Prop<bool>,
     pub real_output_logging_enabled: Prop<bool>,
     pub virtual_input_logging_enabled: Prop<bool>,
@@ -115,48 +112,33 @@ pub struct UnitModel {
     // --
     pub lives_on_upper_floor: Prop<bool>,
     pub tags: Prop<Vec<Tag>>,
-    // TODO-low-multi-config Make all the following fully qualified
     pub compartment_is_dirty: EnumMap<Compartment, Prop<bool>>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
-    // TODO-low-multi-config Make all the following fully qualified
     active_controller_preset_id: Option<String>,
-    // TODO-low-multi-config Make all the following fully qualified
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
-    // TODO-low-multi-config Make all the following fully qualified
     mappings: EnumMap<Compartment, Vec<SharedMapping>>,
     /// At the moment, custom data is only used in the controller compartment.
-    // TODO-low-multi-config Make all the following fully qualified
     custom_compartment_data: EnumMap<Compartment, HashMap<String, serde_json::Value>>,
-    // TODO-low-multi-config Make all the following fully qualified
     compartment_notes: EnumMap<Compartment, String>,
-    // TODO-low-multi-config Make all the following fully qualified
     default_main_group: SharedGroup,
-    // TODO-low-multi-config Make all the following fully qualified
     default_controller_group: SharedGroup,
-    // TODO-low-multi-config Make all the following fully qualified
     groups: EnumMap<Compartment, Vec<SharedGroup>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
-    // TODO-low-multi-config Make all the following fully qualified
     mapping_list_changed_subject: LocalSubject<'static, (Compartment, Option<MappingId>), ()>,
-    // TODO-low-multi-config Make all the following fully qualified
     group_list_changed_subject: LocalSubject<'static, Compartment, ()>,
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
-    // TODO-low-multi-config Make all the following fully qualified
     mapping_subscriptions: EnumMap<Compartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    // TODO-low-multi-config Make all the following fully qualified
     group_subscriptions: EnumMap<Compartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: OnceCell<Box<dyn SessionUi>>,
-    // TODO-low-multi-config Make all the following fully qualified
     instance_container: &'static dyn UnitContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
-    // TODO-low-multi-config Make all the following fully qualified
     params: PluginParams,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
@@ -173,7 +155,6 @@ pub struct UnitModel {
     unresolved_foreign_clip_matrix_session_id: Option<String>,
     instance_track_descriptor: TrackDescriptor,
     instance_fx_descriptor: FxDescriptor,
-    // TODO-low-multi-config Make all the following fully qualified
     memorized_main_compartment: Option<CompartmentModel>,
 }
 

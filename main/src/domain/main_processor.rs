@@ -67,7 +67,6 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     basics: Basics<EH>,
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
-    // TODO-low-multi-config Make fully qualified
     poll_control_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
 }
 
@@ -96,7 +95,6 @@ struct Basics<EH: DomainEventHandler> {
     //  https://github.com/helgoboss/reaper-rs/issues/54
     last_feedback_checksum_by_address:
         RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
-    // TODO-low-multi-config Make fully qualified
     target_based_conditional_activation_processors:
         EnumMap<Compartment, TargetBasedConditionalActivationProcessor>,
 }
@@ -210,29 +208,21 @@ fn hash_osc_arg<H: Hasher>(arg: &OscType, hasher: &mut H) {
 #[derive(Debug)]
 struct Collections {
     /// Contains mappings without virtual targets.
-    // TODO-low-multi-config Make fully qualified
     mappings: EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
     /// Contains mappings with virtual targets.
-    // TODO-low-multi-config Make fully qualified
     mappings_with_virtual_targets: OrderedMappingMap<MainMapping>,
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
-    // TODO-low-multi-config Make fully qualified
     target_touch_dependent_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
     beat_dependent_feedback_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
-    // TODO-low-multi-config Make fully qualified
     /// Contains IDs of those mappings whose feedback might change depending on the current milli.
     /// TODO-low The mappings in there are polled regularly (even if main timeline is not playing).
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
-    // TODO-low-multi-config Make fully qualified
     milli_dependent_feedback_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
-    // TODO-low-multi-config Major issue: Adding new plug-in params for each config. Should we
-    //  use completely internal parameters instead? 5 connected devices would result in 1000
-    //  parameters, quite many.
+    // TODO-high CONTINUE Use completely internal parameters if not main unit (build special target).
     parameters: PluginParams,
-    // TODO-low-multi-config Make fully qualified
     previous_target_values: EnumMap<Compartment, HashMap<MappingId, AbsoluteValue>>,
 }
 
@@ -2793,7 +2783,6 @@ pub enum NormalMainTask {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-// TODO-low-multi-config Make everything fully qualified except "stay_active_when_project_in_background"
 pub struct BasicSettings {
     pub control_input: ControlInput,
     pub feedback_output: Option<FeedbackOutput>,

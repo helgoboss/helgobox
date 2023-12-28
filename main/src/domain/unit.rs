@@ -58,21 +58,18 @@ pub struct Unit {
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
     ///   but it's very related to the active mapping by group, so we decided to keep it here too.
-    // TODO-low-multi-config Qualify by config
     mappings_by_group: EnumMap<Compartment, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
     /// - Persistent
     /// - Set by target "ReaLearn: Browse group mappings".
     /// - Non-redundant state!
-    // TODO-low-multi-config Qualify by config
     active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
     /// - Not persistent
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer.
-    // TODO-low-multi-config Qualify by config
     mapping_infos: HashMap<QualifiedMappingId, MappingInfo>,
     /// The mappings which are on.
     ///
@@ -80,19 +77,16 @@ pub struct Unit {
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
     /// - Completely derived from mappings, so it's redundant state.
     /// - It's needed by both processing layer and layers above.
-    // TODO-low-multi-config Qualify by config
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
     /// Whether control/feedback are globally active.
     ///
     /// Not persistent.
-    // TODO-low-multi-config Make fully qualified
     global_control_and_feedback_state: Prop<GlobalControlAndFeedbackState>,
     /// All mapping tags whose mappings have been switched on via tag.
     ///
     /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
-    // TODO-low-multi-config Make fully qualified
     active_mapping_tags: EnumMap<Compartment, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
@@ -119,13 +113,11 @@ pub struct Unit {
     /// Mapping snapshots.
     ///
     /// Persistent.
-    // TODO-low-multi-config Make fully qualified
     mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
     /// Saves the current state for Pot preset navigation.
     ///
     /// Persistent.
     pot_unit: PotUnit,
-    // TODO-low-multi-config Make fully qualified
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
