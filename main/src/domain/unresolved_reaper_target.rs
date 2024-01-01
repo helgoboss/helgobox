@@ -492,7 +492,7 @@ impl FxDescriptor {
                 }
             }
             VirtualFx::Unit => {
-                let instance_state = context.control_context.instance_state.borrow();
+                let instance_state = context.control_context.unit.borrow();
                 let instance_fx = instance_state.instance_fx_descriptor();
                 if matches!(instance_fx.fx, VirtualFx::Unit) {
                     return Err("circular reference");
@@ -1377,7 +1377,7 @@ impl VirtualTrack {
                 .master_track()
                 .map_err(|_| TrackResolveError::ProjectNotAvailable)?],
             Unit => {
-                let instance_state = context.control_context.instance_state.borrow();
+                let instance_state = context.control_context.unit.borrow();
                 let instance_track = instance_state.instance_track_descriptor();
                 if matches!(&instance_track.track, VirtualTrack::Unit) {
                     return Err(TrackResolveError::CircularReference);
@@ -1437,7 +1437,7 @@ impl VirtualTrack {
                     .resolve(context, compartment)
                     .map_err(|_| generic_error())?;
                 let track = Backbone::get()
-                    .with_clip_matrix(context.control_context.instance_state, |matrix| {
+                    .with_clip_matrix(context.control_context.instance, |matrix| {
                         let column = matrix.get_column(clip_column_index)?;
                         match track_context {
                             realearn_api::persistence::ClipColumnTrackContext::Playback => {
@@ -1516,7 +1516,7 @@ impl VirtualTrack {
                         };
                         let instance_track = context
                             .control_context
-                            .instance_state
+                            .unit
                             // We do this in order to prevent infinite recursion in case the
                             // instance FX also uses "instance_track_index".
                             .try_borrow_mut()
@@ -1844,7 +1844,7 @@ impl VirtualChainFx {
                 "instance_fx_index" | "unit_fx_index" => {
                     let index = context
                         .control_context
-                        .instance_state
+                        .unit
                         // We do this in order to prevent infinite recursion in case the
                         // instance FX also uses "unit_fx_index".
                         .try_borrow_mut()

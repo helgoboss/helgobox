@@ -267,7 +267,7 @@ impl HeaderPanel {
         );
     }
 
-    fn open_main_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+    fn open_main_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
         let app = BackboneShell::get();
         let pure_menu = {
             use std::iter::once;
@@ -281,7 +281,7 @@ impl HeaderPanel {
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
             #[cfg(feature = "playtime")]
-            let app_is_open = self.panel_manager().borrow().app_instance_is_running();
+            let app_is_open = self.instance_panel().app_instance_is_running();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
             } else {
@@ -292,7 +292,7 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             #[cfg(feature = "playtime")]
-            let has_clip_matrix = session.unit().borrow().owned_clip_matrix().is_some();
+            let has_clip_matrix = session.instance().borrow().owned_clip_matrix().is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
@@ -649,7 +649,7 @@ impl HeaderPanel {
             .view
             .require_window()
             .open_simple_popup_menu(pure_menu, location)
-            .ok_or("no entry selected")?;
+            .context("no entry selected")?;
         match result {
             MainMenuAction::None => {}
             MainMenuAction::CopyListedMappingsAsJson => {
@@ -1194,8 +1194,8 @@ impl HeaderPanel {
         let weak_session = self.session.clone();
         base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
             let shared_session = weak_session.upgrade().expect("session gone");
-            let shared_instance_state = { shared_session.borrow().unit().clone() };
-            shared_instance_state
+            let instance = { shared_session.borrow().instance() };
+            instance
                 .borrow_mut()
                 .owned_clip_matrix_mut()
                 .expect("this instance has no clip matrix")
@@ -2004,6 +2004,10 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
+    fn instance_panel(&self) -> SharedView<InstancePanel> {
+        self.instance_panel.upgrade().expect("instance panel gone")
+    }
+
     pub fn import_from_clipboard(&self) -> anyhow::Result<()> {
         let text = get_text_from_clipboard().context("Couldn't read from clipboard.")?;
         let res = {
@@ -2024,7 +2028,7 @@ impl HeaderPanel {
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn instance with the data in the clipboard?",
                 ) {
-                    let instance_panel = self.instance_panel.upgrade().context("instance panel gone")?;
+                    let instance_panel = self.instance_panel();
                     instance_panel.show_unit(None);
                     let instance_shell = instance_panel.shell()?;
                     instance_shell.apply_data(InstanceOrUnitData::InstanceData(*d))?;
@@ -2042,7 +2046,7 @@ impl HeaderPanel {
             #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 use playtime_api::persistence::FlexibleMatrix;
-                let old_matrix_label = match self.session().borrow().unit().borrow().clip_matrix_ref() {
+                let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
                         crate::domain::ClipMatrixRef::Own(m) => {
@@ -2069,13 +2073,12 @@ impl HeaderPanel {
                     "ReaLearn",
                     format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
                 ) {
-                    let session = self.session();
-                    let session = session.borrow();
-                    let mut instance_state = session.unit().borrow_mut();
+                    let instance = self.session().borrow().instance();
+                    let mut instance = instance.borrow_mut();
                     if let Some(matrix) = *value {
-                        crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance_state).load(matrix)?;
+                        crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance).load(matrix)?;
                     } else {
-                        Backbone::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                        Backbone::get().clear_clip_matrix_from_instance(&mut instance);
                     }
                 }
             }
@@ -2223,7 +2226,7 @@ impl HeaderPanel {
                 let matrix = self
                     .session()
                     .borrow()
-                    .unit()
+                    .instance()
                     .borrow()
                     .owned_clip_matrix()
                     .map(|matrix| matrix.save());
@@ -2333,12 +2336,12 @@ impl HeaderPanel {
 
     #[cfg(feature = "playtime")]
     fn show_app(&self) {
-        self.panel_manager().borrow().start_or_show_app_instance();
+        self.instance_panel().start_or_show_app_instance();
     }
 
     #[cfg(feature = "playtime")]
     fn close_app(&self) {
-        self.panel_manager().borrow().stop_app_instance();
+        self.instance_panel().stop_app_instance();
     }
 
     fn open_preset_folder(&self) {

@@ -9,16 +9,17 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
     InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
     OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, ReaperTarget,
-    SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity, UnitId, ACTION_TARGET,
-    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
-    BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
-    DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET,
-    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET,
-    FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET,
-    LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
-    LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
-    PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
-    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity, UnitId,
+    WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
+    AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET,
+    BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET,
+    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET,
+    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET,
+    FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET,
+    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET,
+    MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET,
+    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
+    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
     SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
     TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
     TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
@@ -26,7 +27,7 @@ use crate::domain::{
     TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET,
     TRANSPORT_TARGET,
 };
-use base::{SenderToNormalThread, SenderToRealTimeThread};
+use base::{non_blocking_lock, SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -420,9 +421,10 @@ pub struct ControlContext<'a> {
     pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
-    pub instance_container: &'a dyn UnitContainer,
-    pub instance_state: &'a SharedUnit,
-    pub instance_id: &'a UnitId,
+    pub unit_container: &'a dyn UnitContainer,
+    pub instance: &'a SharedInstance,
+    pub unit: &'a SharedUnit,
+    pub unit_id: UnitId,
     pub output_logging_enabled: bool,
     pub source_context: &'a SourceContext,
     pub processor_context: &'a ProcessorContext,
@@ -430,18 +432,17 @@ pub struct ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct RealTimeControlContext<'a> {
-    #[cfg(feature = "playtime")]
-    pub clip_matrix: Option<&'a playtime_clip_engine::rt::WeakRtMatrix>,
+    pub instance: &'a WeakRealTimeInstance,
     pub _p: &'a (),
 }
 
 impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
-        let weak_matrix = self
-            .clip_matrix
-            .ok_or("real-time clip matrix not yet initialized")?;
-        weak_matrix
+        let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
+        non_blocking_lock(&*instance, "real-time instance")
+            .clip_matrix()
+            .ok_or("real-time clip matrix not yet initialized")?
             .upgrade()
             .ok_or("real-time clip matrix doesn't exist anymore")
     }
@@ -458,7 +459,7 @@ impl<'a> ControlContext<'a> {
         if self.output_logging_enabled {
             for e in events {
                 log_output(
-                    self.instance_id,
+                    self.unit_id,
                     OutputReason::TargetOutput,
                     format_raw_midi(e.bytes()),
                 );
@@ -471,7 +472,7 @@ impl<'a> ControlContext<'a> {
         scope: &'c TagScope,
     ) -> InstanceContainerCommonArgs<'c> {
         InstanceContainerCommonArgs {
-            initiator_instance_id: *self.instance_id,
+            initiator_instance_id: self.unit_id,
             initiator_project: self.processor_context.project(),
             scope,
         }

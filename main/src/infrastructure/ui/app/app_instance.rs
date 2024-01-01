@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use crate::application::WeakUnitModel;
+use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
@@ -35,7 +36,7 @@ pub trait AppInstance: Debug {
 }
 
 #[allow(clippy::if_same_then_else)]
-pub fn create_shared_app_instance(session: WeakUnitModel) -> SharedAppInstance {
+pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance {
     fn share(value: impl AppInstance + 'static) -> SharedAppInstance {
         Rc::new(RefCell::new(value))
     }
@@ -64,7 +65,7 @@ pub fn create_shared_app_instance(session: WeakUnitModel) -> SharedAppInstance {
         // };
         // share(instance)
         let instance = StandaloneAppInstance {
-            session,
+            instance_id,
             running_state: None,
         };
         share(instance)
@@ -79,7 +80,7 @@ pub fn create_shared_app_instance(session: WeakUnitModel) -> SharedAppInstance {
         // it's not something I want to do now as long as we don't support docking anyway.
         // Therefore: Standalone mode on macOS!
         let instance = StandaloneAppInstance {
-            session,
+            instance_id,
             running_state: None,
         };
         share(instance)
@@ -157,7 +158,7 @@ impl AppInstance for ParentedAppInstance {
 /// This is possible on all OS.
 #[derive(Debug)]
 struct StandaloneAppInstance {
-    session: WeakUnitModel,
+    instance_id: InstanceId,
     running_state: Option<StandaloneAppRunningState>,
 }
 
@@ -193,7 +194,8 @@ impl AppInstance for StandaloneAppInstance {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
             return Ok(());
         }
-        let session_id = extract_session_id(&self.session)?;
+        // TODO-medium This doesn't need to be a string anymore
+        let session_id = self.instance_id.to_string();
         let app_handle = app_library.start_app_instance(None, session_id)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
@@ -234,9 +236,7 @@ impl AppInstance for StandaloneAppInstance {
         let Some(running_state) = &mut self.running_state else {
             return;
         };
-        let Ok(session_id) = extract_session_id(&self.session) else {
-            return;
-        };
+        let session_id = self.instance_id.to_string();
         // Handshake finished! The app has the host callback and we have the app callback.
         running_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback

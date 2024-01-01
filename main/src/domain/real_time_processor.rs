@@ -7,6 +7,7 @@ use crate::domain::{
     OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
     QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
     RealTimeReaperTarget, SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue,
+    WeakRealTimeInstance,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -35,7 +36,7 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
-    instance_id: UnitId,
+    unit_id: UnitId,
     logger: slog::Logger,
     // Synced processing settings
     settings: BasicSettings,
@@ -58,18 +59,14 @@ pub struct RealTimeProcessor {
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
     sample_rate: Hz,
-    #[cfg(feature = "playtime")]
-    clip_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
-    #[cfg(feature = "playtime")]
-    clip_matrix_is_owned: bool,
-    #[cfg(feature = "playtime")]
-    clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook,
+    instance: WeakRealTimeInstance,
 }
 
 impl RealTimeProcessor {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: UnitId,
+        unit_id: UnitId,
+        instance: WeakRealTimeInstance,
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
@@ -79,7 +76,8 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use Compartment::*;
         RealTimeProcessor {
-            instance_id,
+            unit_id,
+            instance,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             settings: Default::default(),
             control_mode: ControlMode::Controlling,
@@ -99,12 +97,6 @@ impl RealTimeProcessor {
             control_is_globally_enabled: false,
             feedback_is_globally_enabled: false,
             sample_rate: Hz::new(1.0),
-            #[cfg(feature = "playtime")]
-            clip_matrix: None,
-            #[cfg(feature = "playtime")]
-            clip_matrix_is_owned: false,
-            #[cfg(feature = "playtime")]
-            clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook::new(),
         }
     }
 
@@ -137,18 +129,7 @@ impl RealTimeProcessor {
         }
     }
 
-    pub fn run_from_vst(
-        &mut self,
-        #[cfg(feature = "playtime")] buffer: &mut vst::buffer::AudioBuffer<f64>,
-        #[cfg(feature = "playtime")] block_props: AudioBlockProps,
-        host: &HostCallback,
-    ) {
-        #[cfg(feature = "playtime")]
-        {
-            let inputs = VstChannelInputs(buffer.split().0);
-            self.clip_engine_fx_hook
-                .poll(&inputs, block_props.to_playtime());
-        }
+    pub fn run_from_vst(&mut self, host: &HostCallback) {
         self.process_feedback_tasks(Caller::Vst(host));
     }
 
@@ -222,16 +203,6 @@ impl RealTimeProcessor {
         block_props: AudioBlockProps,
         might_be_rebirth: bool,
     ) {
-        #[cfg(feature = "playtime")]
-        {
-            // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
-            // clip matrix as well, it would be polled more than once, which is unnecessary.
-            if self.clip_matrix_is_owned {
-                if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
-                    clip_matrix.lock().poll(block_props.to_playtime());
-                }
-            }
-        }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(block_props.block_length as u64);
@@ -444,17 +415,6 @@ impl RealTimeProcessor {
                         }
                     }
                 }
-                #[cfg(feature = "playtime")]
-                SetClipMatrix { is_owned, matrix } => {
-                    self.clip_matrix_is_owned = is_owned;
-                    self.clip_matrix = matrix;
-                }
-                #[cfg(feature = "playtime")]
-                PlaytimeClipEngineCommand(command) => {
-                    let _ = self
-                        .clip_engine_fx_hook
-                        .process_command(command, block_props.to_playtime());
-                }
             }
         }
     }
@@ -574,7 +534,7 @@ impl RealTimeProcessor {
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
-                self.instance_id,
+                self.unit_id,
                 self.control_mode,
                 self.mappings[Compartment::Main].len(),
                 self.mappings[Compartment::Main]
@@ -936,8 +896,7 @@ impl RealTimeProcessor {
                 caller,
                 self.settings.midi_destination(),
                 LogOptions::from_basic_settings(&self.settings),
-                #[cfg(feature = "playtime")]
-                self.clip_matrix.as_ref(),
+                &self.instance,
                 is_rendering,
             )
         } else {
@@ -978,8 +937,7 @@ impl RealTimeProcessor {
                         caller,
                         self.settings.midi_destination(),
                         LogOptions::from_basic_settings(&self.settings),
-                        #[cfg(feature = "playtime")]
-                        self.clip_matrix.as_ref(),
+                        &self.instance,
                         is_rendering,
                     );
                     // It can't be consumed because we checked this before for all mappings.
@@ -1204,11 +1162,6 @@ impl<'a> Caller<'a> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    #[cfg(feature = "playtime")]
-    SetClipMatrix {
-        is_owned: bool,
-        matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
-    },
     UpdateAllMappings(Compartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(Compartment, Box<RealTimeMapping>),
     UpdatePersistentMappingProcessingState {
@@ -1234,8 +1187,6 @@ pub enum NormalRealTimeTask {
     ReturnToControlMode,
     UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
-    #[cfg(feature = "playtime")]
-    PlaytimeClipEngineCommand(playtime_clip_engine::rt::fx_hook::ClipEngineFxHookCommand),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1343,7 +1294,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    #[cfg(feature = "playtime")] matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
+    instance: &WeakRealTimeInstance,
     is_rendering: bool,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
@@ -1383,8 +1334,7 @@ fn control_controller_mappings_midi(
                         caller,
                         midi_feedback_output,
                         log_options,
-                        #[cfg(feature = "playtime")]
-                        matrix,
+                        instance,
                         is_rendering,
                     );
                     if log_options.virtual_input_logging_enabled {
@@ -1413,8 +1363,7 @@ fn control_controller_mappings_midi(
                         caller,
                         midi_feedback_output,
                         log_options,
-                        #[cfg(feature = "playtime")]
-                        matrix,
+                        instance,
                         is_rendering,
                     );
                     // We do this only for transactions of *real* target matches.
@@ -1439,7 +1388,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    #[cfg(feature = "playtime")] clip_matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
+    instance: &WeakRealTimeInstance,
     is_rendering: bool,
 ) {
     let pure_control_event = flatten_control_midi_event(value_event);
@@ -1450,11 +1399,7 @@ fn process_real_mapping(
         if reaper_target.wants_real_time_control(caller, is_rendering) {
             // Try to process directly here in real-time.
             mapping.core.increase_invocation_count();
-            let control_context = RealTimeControlContext {
-                #[cfg(feature = "playtime")]
-                clip_matrix,
-                _p: &(),
-            };
+            let control_context = RealTimeControlContext { instance, _p: &() };
             let mode_control_result = mapping.core.mode.control_with_options(
                 pure_control_event,
                 reaper_target,
@@ -1651,7 +1596,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    #[cfg(feature = "playtime")] matrix: Option<&playtime_clip_engine::rt::WeakRtMatrix>,
+    instance: &WeakRealTimeInstance,
     is_rendering: bool,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
@@ -1677,8 +1622,7 @@ fn control_main_mappings_virtual(
                     caller,
                     midi_feedback_output,
                     log_options,
-                    #[cfg(feature = "playtime")]
-                    matrix,
+                    instance,
                     is_rendering,
                 );
                 // If we find an associated main mapping, this is not just consumed, it's matched.
@@ -1868,18 +1812,4 @@ fn is_rendering() -> bool {
         .medium_reaper()
         .enum_projects(ProjectRef::CurrentlyRendering, 0)
         .is_some()
-}
-
-#[cfg(feature = "playtime")]
-struct VstChannelInputs<'a>(vst::buffer::Inputs<'a, f64>);
-
-#[cfg(feature = "playtime")]
-impl<'a> playtime_clip_engine::rt::fx_hook::ChannelInputs for VstChannelInputs<'a> {
-    fn channel_count(&self) -> usize {
-        self.0.len()
-    }
-
-    fn get_channel_data(&self, channel_index: usize) -> &[f64] {
-        self.0.get(channel_index)
-    }
 }

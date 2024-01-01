@@ -16,9 +16,9 @@ use crate::domain::{
     MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
     OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedUnit, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
-    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    ReaperTargetType, SharedInstance, SharedUnit, StayActiveWhenProjectInBackground, Tag,
+    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue, WeakInstance,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -53,21 +53,6 @@ pub trait SessionUi {
     fn celebrate_success(&self);
     fn conditions_changed(&self);
     fn send_projection_feedback(&self, session: &UnitModel, value: ProjectionFeedbackValue);
-    #[cfg(feature = "playtime")]
-    fn clip_matrix_changed(
-        &self,
-        session: &UnitModel,
-        matrix: &playtime_clip_engine::base::Matrix,
-        events: &[playtime_clip_engine::base::ClipMatrixEvent],
-        is_poll: bool,
-    );
-    #[cfg(feature = "playtime")]
-    fn process_control_surface_change_event_for_clip_engine(
-        &self,
-        session: &UnitModel,
-        matrix: &playtime_clip_engine::base::Matrix,
-        events: &[reaper_high::ChangeEvent],
-    );
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn target_controlled(&self, event: TargetControlEvent);
     fn handle_info_event(&self, event: &InfoEvent);
@@ -88,7 +73,7 @@ pub type _Session = UnitModel;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct UnitModel {
-    instance_id: UnitId,
+    unit_id: UnitId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
@@ -137,7 +122,7 @@ pub struct UnitModel {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: OnceCell<Box<dyn SessionUi>>,
-    instance_container: &'static dyn UnitContainer,
+    unit_container: &'static dyn UnitContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
     params: PluginParams,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
@@ -145,6 +130,7 @@ pub struct UnitModel {
     global_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_preset_link_config: FxPresetLinkConfig,
     use_instance_preset_links_only: bool,
+    instance: WeakInstance,
     unit: SharedUnit,
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
@@ -232,7 +218,8 @@ impl UnitModel {
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
-        instance_state: SharedUnit,
+        instance: WeakInstance,
+        unit: SharedUnit,
         global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
             FeedbackAudioHookTask,
         >,
@@ -242,7 +229,7 @@ impl UnitModel {
     ) -> UnitModel {
         Self {
             id: prop(nanoid::nanoid!(8)),
-            instance_id,
+            unit_id: instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
@@ -289,14 +276,15 @@ impl UnitModel {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: OnceCell::new(),
-            instance_container,
+            unit_container: instance_container,
             params: Default::default(),
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             global_preset_link_manager: Box::new(preset_link_manager),
             instance_preset_link_config: Default::default(),
             use_instance_preset_links_only: false,
-            unit: instance_state,
+            instance,
+            unit,
             global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
@@ -314,8 +302,8 @@ impl UnitModel {
         }
     }
 
-    pub fn instance_id(&self) -> &UnitId {
-        &self.instance_id
+    pub fn unit_id(&self) -> UnitId {
+        self.unit_id
     }
 
     pub fn id(&self) -> &str {
@@ -760,9 +748,10 @@ impl UnitModel {
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
-            instance_container: self.instance_container,
-            instance_state: self.unit(),
-            instance_id: self.instance_id(),
+            unit_container: self.unit_container,
+            instance: &self.instance(),
+            unit: self.unit(),
+            unit_id: self.unit_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),
             source_context: &SOURCE_CONTEXT,
             processor_context: &self.processor_context,
@@ -1720,7 +1709,7 @@ impl UnitModel {
         handle_control_disabling: bool,
         filter: (HashSet<ReaperTargetType>, TargetTouchCause),
     ) {
-        let instance_id = self.instance_id;
+        let instance_id = self.unit_id;
         if handle_control_disabling {
             self.disable_control();
         }
@@ -1767,7 +1756,7 @@ impl UnitModel {
 
     fn stop_learning_target(&self) {
         self.control_surface_main_task_sender
-            .stop_capturing_targets(Some(self.instance_id));
+            .stop_capturing_targets(Some(self.unit_id));
         self.unit.borrow_mut().set_mapping_which_learns_target(None);
         self.enable_control();
     }
@@ -2236,7 +2225,7 @@ impl UnitModel {
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
-            self.instance_id,
+            self.unit_id,
             self.id.get_ref(),
             self.mappings[Compartment::Main].len(),
             self.mapping_subscriptions[Compartment::Main].len(),
@@ -2354,9 +2343,9 @@ impl UnitModel {
     fn sync_upper_floor_membership(&self) {
         let backbone_state = Backbone::get();
         if self.lives_on_upper_floor.get() {
-            backbone_state.add_to_upper_floor(self.instance_id);
+            backbone_state.add_to_upper_floor(self.unit_id);
         } else {
-            backbone_state.remove_from_upper_floor(&self.instance_id);
+            backbone_state.remove_from_upper_floor(&self.unit_id);
         }
     }
 
@@ -2405,8 +2394,9 @@ impl UnitModel {
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
-        #[cfg(feature = "playtime")]
-        self.notify_matrix_simple_mappings_changed();
+        self.instance()
+            .borrow()
+            .notify_mappings_in_unit_changed(self.unit_id);
         let group_data = self
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
@@ -2414,6 +2404,10 @@ impl UnitModel {
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)));
+    }
+
+    pub fn instance(&self) -> SharedInstance {
+        self.instance.upgrade().expect("instance gone")
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
@@ -2431,21 +2425,15 @@ impl UnitModel {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: Compartment) {
-        #[cfg(feature = "playtime")]
-        self.notify_matrix_simple_mappings_changed();
+        self.instance()
+            .borrow()
+            .notify_mappings_in_unit_changed(self.unit_id);
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
             ));
-    }
-
-    #[cfg(feature = "playtime")]
-    fn notify_matrix_simple_mappings_changed(&self) {
-        if let Some(matrix) = self.unit().borrow().owned_clip_matrix() {
-            matrix.notify_simple_mappings_changed();
-        }
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
@@ -2610,21 +2598,6 @@ impl DomainEventHandler for WeakUnitModel {
             ProjectionFeedback(value) => {
                 let s = session.try_borrow()?;
                 s.ui().send_projection_feedback(&s, value);
-            }
-            #[cfg(feature = "playtime")]
-            ClipMatrixChanged {
-                matrix,
-                events,
-                is_poll,
-            } => {
-                let s = session.try_borrow()?;
-                s.ui().clip_matrix_changed(&s, matrix, events, is_poll);
-            }
-            #[cfg(feature = "playtime")]
-            ControlSurfaceChangeEventsForClipEngine(matrix, events) => {
-                let s = session.try_borrow()?;
-                s.ui()
-                    .process_control_surface_change_event_for_clip_engine(&s, matrix, events);
             }
             MappingMatched(event) => {
                 let s = session.try_borrow()?;

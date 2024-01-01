@@ -94,7 +94,7 @@ impl RealearnTarget for EnableMappingsTarget {
                         ),
                     );
                 }
-                let mut instance_state = context.control_context.instance_state.borrow_mut();
+                let mut instance_state = context.control_context.unit.borrow_mut();
                 use Exclusivity::*;
                 if self.exclusivity == Exclusive
                     || (self.exclusivity == ExclusiveOnOnly && self.is_enable)
@@ -160,7 +160,7 @@ impl<'a> Target<'a> for EnableMappingsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         use Exclusivity::*;
         let active = match self.exclusivity {
             NonExclusive => instance_state

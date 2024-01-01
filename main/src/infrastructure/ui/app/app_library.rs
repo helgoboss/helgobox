@@ -113,7 +113,7 @@ impl AppLibrary {
     pub fn start_app_instance(
         &self,
         parent_window: Option<Window>,
-        session_id: String,
+        instance_id: String,
     ) -> Result<AppHandle> {
         let app_base_dir_str = self
             .app_base_dir
@@ -122,7 +122,7 @@ impl AppLibrary {
         let app_base_dir_c_string = CString::new(app_base_dir_str)
             .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
         let session_id_c_string =
-            CString::new(session_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
+            CString::new(instance_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
             let app_handle = unsafe {
@@ -585,10 +585,10 @@ fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
 
 fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
     let instance = BackboneShell::get()
-        .find_main_panel_by_session_id(session_id)
+        .find_instance_panel_by_instance_id(session_id.parse()?)
         .context("instance not found")?
         .app_instance();
-    Ok(instance)
+    Ok(instance.clone())
 }
 
 fn to_status(err: anyhow::Error) -> Status {

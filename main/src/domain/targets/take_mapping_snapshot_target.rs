@@ -168,7 +168,7 @@ impl HitInstruction for TakeMappingSnapshotInstruction {
             })
             .collect();
         let snapshot = MappingSnapshot::new(target_values);
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         let snapshot_container = instance_state.mapping_snapshot_container_mut(self.compartment);
         let resolved_snapshot_id = match self.snapshot_id {
             VirtualMappingSnapshotIdForTake::LastLoaded => {

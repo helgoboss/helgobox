@@ -121,10 +121,10 @@ pub fn menu_containing_sessions(
     );
     let items: Vec<_> = BackboneShell::get().with_instances(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
-            let other_session = session.session.upgrade()?;
+            let other_session = session.unit_model.upgrade()?;
             let other_session = other_session.try_borrow().ok()?;
             // Exclude certain sessions
-            if other_session.instance_id() == this_session.instance_id() {
+            if other_session.unit_id() == this_session.unit_id() {
                 // Don't include our own session.
                 return None;
             }

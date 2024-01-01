@@ -270,18 +270,6 @@ impl UnitPanel {
         }
     }
 
-    #[cfg(feature = "playtime")]
-    pub fn app_instance(&self) -> crate::infrastructure::ui::SharedAppInstance {
-        self.panel_manager.borrow().app_instance().clone()
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn start_show_or_hide_app_instance(&self) {
-        self.panel_manager
-            .borrow()
-            .start_show_or_hide_app_instance();
-    }
-
     fn handle_target_control_event(&self, event: TargetControlEvent) {
         self.panel_manager
             .borrow()
@@ -499,35 +487,6 @@ impl SessionUi for Weak<UnitPanel> {
 
     fn send_projection_feedback(&self, session: &UnitModel, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
-    }
-
-    #[cfg(feature = "playtime")]
-    fn clip_matrix_changed(
-        &self,
-        session: &UnitModel,
-        matrix: &playtime_clip_engine::base::Matrix,
-        events: &[playtime_clip_engine::base::ClipMatrixEvent],
-        is_poll: bool,
-    ) {
-        BackboneShell::get().clip_engine_hub().clip_matrix_changed(
-            session.id(),
-            matrix,
-            events,
-            is_poll,
-            session.processor_context().project(),
-        );
-    }
-
-    #[cfg(feature = "playtime")]
-    fn process_control_surface_change_event_for_clip_engine(
-        &self,
-        session: &UnitModel,
-        matrix: &playtime_clip_engine::base::Matrix,
-        events: &[reaper_high::ChangeEvent],
-    ) {
-        BackboneShell::get()
-            .clip_engine_hub()
-            .send_occasional_matrix_updates_caused_by_reaper(session.id(), matrix, events);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {

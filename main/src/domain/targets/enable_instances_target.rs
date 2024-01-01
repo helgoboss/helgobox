@@ -56,9 +56,9 @@ impl RealearnTarget for EnableInstancesTarget {
         };
         let tags = context
             .control_context
-            .instance_container
+            .unit_container
             .enable_instances(args);
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         use Exclusivity::*;
         if self.exclusivity == Exclusive || (self.exclusivity == ExclusiveOnOnly && is_enable) {
             // Completely replace
@@ -99,7 +99,7 @@ impl<'a> Target<'a> for EnableInstancesTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         use Exclusivity::*;
         let active = match self.exclusivity {
             NonExclusive => {

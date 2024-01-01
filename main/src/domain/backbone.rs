@@ -4,9 +4,8 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, InstanceStateChanged, ParameterManager, ProcessorContext, RealearnSourceState,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, SafeLua, SharedUnit, Unit, UnitId,
-    WeakInstanceState,
+    FeedbackOutput, Instance, InstanceId, RealearnSourceState, RealearnTargetState, ReaperTarget,
+    ReaperTargetType, SafeLua, SharedInstance, UnitId, WeakInstance,
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
@@ -20,7 +19,7 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
@@ -40,12 +39,13 @@ pub struct Backbone {
     control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<UnitId>>>,
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<UnitId>>>,
-    upper_floor_instances: RefCell<HashSet<UnitId>>,
-    /// We hold pointers to the instance state of all ReaLearn instances in order to let instance B
+    upper_floor_units: RefCell<HashSet<UnitId>>,
+    /// We hold pointers to all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
-    // TODO-high Foreign matrixes are not used in practice. Let's keep this for a while and remove.
-    units: RefCell<HashMap<UnitId, WeakInstanceState>>,
+    // TODO-high Since the introduction of units, foreign matrixes are not used in practice. Let's
+    //  keep this for a while and remove.
+    instances: RefCell<HashMap<InstanceId, WeakInstance>>,
     was_processing_keyboard_input: Cell<bool>,
     global_pot_filter_exclude_list: RefCell<PotFilterExcludes>,
     recently_focused_fx_container: Rc<RefCell<RecentlyFocusedFxContainer>>,
@@ -158,8 +158,8 @@ impl Backbone {
             last_touched_targets_container: Default::default(),
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
-            upper_floor_instances: Default::default(),
-            units: Default::default(),
+            upper_floor_units: Default::default(),
+            instances: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
             recently_focused_fx_container: Default::default(),
@@ -241,51 +241,17 @@ impl Backbone {
     }
 
     pub fn lives_on_upper_floor(&self, instance_id: &UnitId) -> bool {
-        self.upper_floor_instances.borrow().contains(instance_id)
+        self.upper_floor_units.borrow().contains(instance_id)
     }
 
     pub fn add_to_upper_floor(&self, instance_id: UnitId) {
-        self.upper_floor_instances.borrow_mut().insert(instance_id);
+        self.upper_floor_units.borrow_mut().insert(instance_id);
     }
 
     pub fn remove_from_upper_floor(&self, instance_id: &UnitId) {
-        self.upper_floor_instances.borrow_mut().remove(instance_id);
+        self.upper_floor_units.borrow_mut().remove(instance_id);
     }
 
-    pub fn create_unit(
-        &self,
-        id: UnitId,
-        processor_context: ProcessorContext,
-        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
-        parameter_manager: Arc<ParameterManager>,
-        #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
-            crate::domain::QualifiedClipMatrixEvent,
-        >,
-        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
-            crate::domain::NormalAudioHookTask,
-        >,
-        #[cfg(feature = "playtime")] real_time_processor_sender: base::SenderToRealTimeThread<
-            crate::domain::NormalRealTimeTask,
-        >,
-    ) -> SharedUnit {
-        let unit = Unit::new(
-            id,
-            processor_context,
-            instance_feedback_event_sender,
-            parameter_manager,
-            #[cfg(feature = "playtime")]
-            clip_matrix_event_sender,
-            #[cfg(feature = "playtime")]
-            audio_hook_task_sender,
-            #[cfg(feature = "playtime")]
-            real_time_processor_sender,
-        );
-        let shared_unit = Rc::new(RefCell::new(unit));
-        self.units
-            .borrow_mut()
-            .insert(id, Rc::downgrade(&shared_unit));
-        shared_unit
-    }
     //
     // /// Returns and - if necessary - installs an owned clip matrix.
     // ///
@@ -304,9 +270,9 @@ impl Backbone {
     /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
     /// to this one.
     #[cfg(feature = "playtime")]
-    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut Unit) {
-        instance_state.set_clip_matrix_ref(None);
-        self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
+    pub fn clear_clip_matrix_from_instance(&self, instance: &mut Instance) {
+        instance.set_clip_matrix_ref(None);
+        self.update_rt_clip_matrix_of_referencing_instances(instance.id(), None);
     }
 
     /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
@@ -317,15 +283,14 @@ impl Backbone {
     /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
     /// to this one.
     #[cfg(feature = "playtime")]
-    pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a>(
+    pub fn get_or_insert_owned_clip_matrix_from_instance<'a>(
         &self,
-        instance_state: &'a mut Unit,
-        create_handler: impl FnOnce(&Unit) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
+        instance: &'a mut Instance,
+        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> &'a mut playtime_clip_engine::base::Matrix {
-        let instance_id = instance_state.instance_id();
-        let created =
-            instance_state.create_and_install_owned_clip_matrix_if_necessary(create_handler);
-        let matrix = instance_state.owned_clip_matrix_mut().unwrap();
+        let instance_id = instance.id();
+        let created = instance.create_and_install_owned_clip_matrix_if_necessary(create_handler);
+        let matrix = instance.owned_clip_matrix_mut().unwrap();
         if created {
             self.update_rt_clip_matrix_of_referencing_instances(
                 instance_id,
@@ -338,10 +303,10 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn update_rt_clip_matrix_of_referencing_instances(
         &self,
-        this_instance_id: UnitId,
+        this_instance_id: InstanceId,
         real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     ) {
-        for (id, is) in self.units.borrow().iter() {
+        for (id, is) in self.instances.borrow().iter() {
             if *id == this_instance_id {
                 continue;
             }
@@ -372,16 +337,16 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn set_instance_clip_matrix_to_foreign_matrix(
         &self,
-        instance_state: &mut Unit,
-        foreign_instance_id: UnitId,
+        instance: &mut Instance,
+        foreign_instance_id: InstanceId,
     ) {
         // Set the reference
         let matrix_ref = crate::domain::ClipMatrixRef::Foreign(foreign_instance_id);
-        instance_state.set_clip_matrix_ref(Some(matrix_ref));
+        instance.set_clip_matrix_ref(Some(matrix_ref));
         // Get a real-time matrix from the foreign instance and send it to the real-time processor
         // of *this* instance.
         let result = self.with_owned_clip_matrix_from_instance(&foreign_instance_id, |matrix| {
-            instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
+            instance.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
         });
         if let Err(e) = result {
             base::tracing_debug!("waiting for foreign clip matrix instance ({e})");
@@ -402,11 +367,11 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
-        instance_state: &SharedUnit,
+        instance: &SharedInstance,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
-        let other_instance_id = match instance_state
+        let other_instance_id = match instance
             .borrow()
             .clip_matrix_ref()
             .context(NO_CLIP_MATRIX_SET)?
@@ -420,12 +385,12 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance<R>(
         &self,
-        foreign_instance_id: &UnitId,
+        foreign_instance_id: &InstanceId,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
-            .units
+            .instances
             .borrow()
             .get(foreign_instance_id)
             .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
@@ -446,11 +411,11 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(
         &self,
-        instance_state: &SharedUnit,
+        instance: &SharedInstance,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
-        let other_instance_id = match instance_state
+        let other_instance_id = match instance
             .borrow_mut()
             .clip_matrix_ref_mut()
             .context(NO_CLIP_MATRIX_SET)?
@@ -464,12 +429,12 @@ impl Backbone {
     #[cfg(feature = "playtime")]
     fn with_owned_clip_matrix_from_instance_mut<R>(
         &self,
-        instance_id: &UnitId,
+        instance_id: &InstanceId,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         use crate::domain::ClipMatrixRef::*;
         let other_instance_state = self
-            .units
+            .instances
             .borrow()
             .get(instance_id)
             .context(REFERENCED_INSTANCE_NOT_AVAILABLE)?
@@ -485,8 +450,12 @@ impl Backbone {
         }
     }
 
-    pub(super) fn unregister_instance_state(&self, id: &UnitId) {
-        self.units.borrow_mut().remove(id);
+    pub fn register_instance(&self, id: InstanceId, instance: WeakInstance) {
+        self.instances.borrow_mut().insert(id, instance);
+    }
+
+    pub(super) fn unregister_instance(&self, id: &InstanceId) {
+        self.instances.borrow_mut().remove(id);
     }
 
     pub fn control_is_allowed(&self, instance_id: &UnitId, control_input: ControlInput) -> bool {
@@ -498,8 +467,8 @@ impl Backbone {
     }
 
     #[allow(dead_code)]
-    pub fn find_instance_state(&self, instance_id: UnitId) -> Option<SharedUnit> {
-        let weak_instance_states = self.units.borrow();
+    pub fn find_instance(&self, instance_id: InstanceId) -> Option<SharedInstance> {
+        let weak_instance_states = self.instances.borrow();
         let weak_instance_state = weak_instance_states.get(&instance_id)?;
         weak_instance_state.upgrade()
     }
@@ -571,7 +540,7 @@ impl Backbone {
         device: D,
         usages: &RefCell<HashMap<D, HashSet<UnitId>>>,
     ) -> bool {
-        let upper_floor_instances = self.upper_floor_instances.borrow();
+        let upper_floor_instances = self.upper_floor_units.borrow();
         if upper_floor_instances.is_empty() || upper_floor_instances.contains(instance_id) {
             // There's no instance living on a higher floor.
             true

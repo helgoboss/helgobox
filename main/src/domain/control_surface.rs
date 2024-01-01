@@ -1,9 +1,10 @@
 use crate::domain::{
     Backbone, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue,
+    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
     InstanceStateChanged, MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
     OscDeviceId, OscInputDevice, OscScanResult, ReaperConfigChangeDetector, ReaperMessage,
-    ReaperTarget, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType, UnitId,
+    ReaperTarget, SharedInstance, SharedMainProcessors, TargetTouchEvent,
+    TouchedTrackParameterType, UnitId, WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -17,6 +18,7 @@ use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
 use base::metrics_util::measure_time;
+use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,
@@ -46,6 +48,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     change_event_queue: RefCell<Vec<ChangeEvent>>,
     monitoring_fx_chain_change_detector: MonitoringFxChainChangeDetector,
     rx_middleware: ControlSurfaceRxMiddleware,
+    instances: IndexMap<InstanceId, WeakInstance>,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     #[cfg(feature = "playtime")]
@@ -68,7 +71,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
-    // Removing a main processor is done synchronously by temporarily regaining ownership of the
+    AddInstance(WeakInstance),
+    // Removing instances and main processors is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
     StartCapturingTargets(Option<UnitId>, TargetCaptureSender),
@@ -127,7 +131,7 @@ pub enum InstanceOrchestrationEvent {
 /// Communicates changes in which input and output device a ReaLearn instance uses or used.
 #[derive(Debug)]
 pub struct IoUpdatedEvent {
-    pub instance_id: UnitId,
+    pub unit_id: UnitId,
     pub control_input: Option<DeviceControlInput>,
     pub control_input_used: bool,
     pub feedback_output: Option<DeviceFeedbackOutput>,
@@ -137,7 +141,7 @@ pub struct IoUpdatedEvent {
 
 #[derive(Debug)]
 pub struct SourceReleasedEvent {
-    pub instance_id: UnitId,
+    pub unit_id: UnitId,
     pub feedback_output: FeedbackOutput,
     pub feedback_value: FinalSourceFeedbackValue,
 }
@@ -197,6 +201,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             change_event_queue: RefCell::new(Vec::with_capacity(100)),
             monitoring_fx_chain_change_detector: Default::default(),
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
+            instances: Default::default(),
             main_processors,
             main_task_receiver,
             #[cfg(feature = "playtime")]
@@ -280,10 +285,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.counter += 1;
     }
 
-    pub fn remove_main_processor(&mut self, id: &UnitId) {
+    pub fn remove_instance(&mut self, id: InstanceId) {
+        self.instances.remove(&id);
+    }
+
+    pub fn remove_main_processor(&mut self, id: UnitId) {
         self.main_processors
             .borrow_mut()
-            .retain(|p| p.instance_id() != id);
+            .retain(|p| p.unit_id() != id);
     }
 
     pub fn set_osc_input_devices(&mut self, devs: Vec<OscInputDevice>) {
@@ -300,6 +309,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.change_detection_middleware.reset(|e| {
             change_events.push(e);
         });
+        for i in self.instances() {
+            i.borrow_mut()
+                .process_control_surface_change_events(&change_events);
+        }
         for m in &*self.main_processors.borrow() {
             m.process_control_surface_change_events(&change_events);
         }
@@ -344,15 +357,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         if normal_events.is_empty() && monitoring_fx_events.is_empty() {
             return;
         }
+        for i in self.instances() {
+            i.borrow_mut()
+                .process_control_surface_change_events(&normal_events);
+        }
         // This is for feedback processing. No Rx!
         let main_processors = self.main_processors.borrow();
         for p in main_processors.iter() {
-            if !normal_events.is_empty() {
-                p.process_control_surface_change_events(&normal_events);
-            }
-            if !monitoring_fx_events.is_empty() {
-                p.process_control_surface_change_events(&monitoring_fx_events);
-            }
+            p.process_control_surface_change_events(&normal_events);
+            p.process_control_surface_change_events(&monitoring_fx_events);
         }
         // The rest is only for upper layers (e.g. UI), not for processing.
         for e in normal_events
@@ -410,13 +423,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     #[cfg(feature = "playtime")]
     fn poll_clip_matrixes(&mut self) {
-        for processor in &*self.main_processors.borrow() {
-            let events = processor.poll_owned_clip_matrix();
-            for other_processor in &*self.main_processors.borrow() {
-                other_processor
-                    .process_polled_clip_matrix_events(*processor.instance_id(), &events);
+        for instance in self.instances() {
+            let mut instance = instance.borrow_mut();
+            let instance_id = instance.id();
+            let events = instance.poll_owned_clip_matrix();
+            for processor in &*self.main_processors.borrow() {
+                processor.process_polled_clip_matrix_events(instance_id, &events);
             }
         }
+    }
+
+    fn instances(&self) -> impl Iterator<Item = SharedInstance> + '_ {
+        self.instances.values().filter_map(|i| i.upgrade())
     }
 
     fn run_main_processors(&mut self, timestamp: ControlEventTimestamp) {
@@ -457,6 +475,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             .try_iter()
             .take(CLIP_MATRIX_EVENT_BULK_SIZE)
         {
+            for i in self.instances() {
+                i.borrow().process_non_polled_clip_matrix_event(&event);
+            }
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_non_polled_clip_matrix_event(&event);
             }
@@ -472,7 +493,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use InstanceOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
-                    debug!(self.logger, "Source of unit {} released", e.instance_id);
+                    debug!(self.logger, "Source of unit {} released", e.unit_id);
                     // We also allow the instance to take over which released the source in
                     // the first place! Simply because in the meanwhile, this instance
                     // could have found a new usage for it! E.g. likely to happen with
@@ -487,7 +508,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             .main_processors
                             .borrow()
                             .iter()
-                            .find(|p| p.instance_id() == &e.instance_id)
+                            .find(|p| p.unit_id() == e.unit_id)
                         {
                             // Finally safe to switch off lights!
                             p.finally_switch_off_source(e.feedback_output, e.feedback_value);
@@ -497,7 +518,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 IoUpdated(e) => {
                     let backbone_state = Backbone::get();
                     let feedback_dev_usage_changed = backbone_state.update_io_usage(
-                        &e.instance_id,
+                        &e.unit_id,
                         if e.control_input_used {
                             e.control_input
                         } else {
@@ -509,13 +530,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             None
                         },
                     );
-                    if feedback_dev_usage_changed
-                        && backbone_state.lives_on_upper_floor(&e.instance_id)
+                    if feedback_dev_usage_changed && backbone_state.lives_on_upper_floor(&e.unit_id)
                     {
                         debug!(
                             self.logger,
                             "Upper-floor unit {} {} feedback output",
-                            e.instance_id,
+                            e.unit_id,
                             if e.feedback_output_used {
                                 "claimed"
                             } else {
@@ -527,7 +547,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             self.main_processors
                                 .borrow()
                                 .iter()
-                                .filter(|p| p.instance_id() != &e.instance_id)
+                                .filter(|p| p.unit_id() != e.unit_id)
                                 .for_each(|p| {
                                     p.handle_change_of_some_upper_floor_instance(feedback_output)
                                 });

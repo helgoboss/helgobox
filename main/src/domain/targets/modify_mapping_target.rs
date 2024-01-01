@@ -99,7 +99,7 @@ impl RealearnTarget for ModifyMappingTarget {
                 if let Some(instance_id) = self.instance_id {
                     if let Some(session) = context
                         .control_context
-                        .instance_container
+                        .unit_container
                         .find_session_by_instance_id(instance_id)
                     {
                         let session = Rc::downgrade(&session);
@@ -121,14 +121,14 @@ impl RealearnTarget for ModifyMappingTarget {
             } => {
                 let session = context
                     .control_context
-                    .instance_container
+                    .unit_container
                     .find_session_by_id(session_id)
                     .ok_or("other ReaLearn unit not found")?;
                 let session = session.borrow();
                 let mapping_id = session
                     .find_mapping_id_by_key(self.compartment, mapping_key)
                     .ok_or("mapping in other ReaLearn unit not found")?;
-                (Some(*session.instance_id()), mapping_id)
+                (Some(session.unit_id()), mapping_id)
             }
         };
         let instruction = ModifyMappingInstruction {
@@ -198,7 +198,7 @@ impl ModifyMappingTarget {
         match &self.mapping_ref {
             MappingRef::OwnMapping { mapping_id } => {
                 let args = GetArgs {
-                    instance_state: &context.instance_state.borrow(),
+                    instance_state: &context.unit.borrow(),
                     id: QualifiedMappingId::new(self.compartment, *mapping_id),
                 };
                 get(args)
@@ -207,7 +207,7 @@ impl ModifyMappingTarget {
                 session_id,
                 mapping_key,
             } => {
-                let session = context.instance_container.find_session_by_id(session_id)?;
+                let session = context.unit_container.find_session_by_id(session_id)?;
                 let session = session.borrow();
                 let mapping_id = session.find_mapping_id_by_key(self.compartment, mapping_key)?;
                 let args = GetArgs {

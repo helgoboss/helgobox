@@ -61,7 +61,7 @@ impl RealearnTarget for ClipColumnTarget {
     ) -> Result<HitResponse, &'static str> {
         let response = Backbone::get()
             .with_clip_matrix(
-                context.control_context.instance_state,
+                context.control_context.instance,
                 |matrix| -> anyhow::Result<HitResponse> {
                     match self.action {
                         ClipColumnAction::Stop => {
@@ -131,7 +131,7 @@ impl<'a> Target<'a> for ClipColumnTarget {
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let is_on = Backbone::get()
-            .with_clip_matrix(context.instance_state, |matrix| match self.action {
+            .with_clip_matrix(context.instance, |matrix| match self.action {
                 ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
             })
             .ok()?;

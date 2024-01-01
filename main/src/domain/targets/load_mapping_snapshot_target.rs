@@ -159,7 +159,7 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         let is_active = instance_state
             .mapping_snapshot_container(self.compartment)
             .snapshot_is_active(&self.scope, &self.snapshot_id);
@@ -227,7 +227,7 @@ impl LoadMappingSnapshotInstruction {
                     context.processor_context,
                     ControlValue::from_absolute(snapshot_value),
                     context.basic_settings.target_control_logger(
-                        context.processor_context.control_context.instance_state,
+                        context.processor_context.control_context.unit,
                         ControlLogContext::LoadingMappingSnapshot,
                         m.qualified_id(),
                     ),
@@ -252,7 +252,7 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
                 self.load_snapshot(&mut context, |m| m.initial_target_value())
             }
             VirtualMappingSnapshotIdForLoad::ById(id) => {
-                let instance_state = context.control_context.instance_state.borrow();
+                let instance_state = context.control_context.unit.borrow();
                 let snapshot_container =
                     instance_state.mapping_snapshot_container(self.compartment);
                 let snapshot = snapshot_container.find_snapshot_by_id(id);
@@ -262,7 +262,7 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
             }
         };
         // Mark snapshot as active.
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         self.mark_snapshot_as_active(&mut instance_state);
         HitInstructionResponse::CausedEffect(results)
     }

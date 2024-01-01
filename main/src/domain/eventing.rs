@@ -30,18 +30,6 @@ pub enum DomainEvent<'a> {
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     MappingModificationRequested(MappingModificationRequestedEvent),
-    /// Only emitted for the instance owning the matrix.
-    #[cfg(feature = "playtime")]
-    ClipMatrixChanged {
-        matrix: &'a playtime_clip_engine::base::Matrix,
-        events: &'a [playtime_clip_engine::base::ClipMatrixEvent],
-        is_poll: bool,
-    },
-    #[cfg(feature = "playtime")]
-    ControlSurfaceChangeEventsForClipEngine(
-        &'a playtime_clip_engine::base::Matrix,
-        &'a [reaper_high::ChangeEvent],
-    ),
     TimeForCelebratingSuccess,
     ConditionsChanged,
 }

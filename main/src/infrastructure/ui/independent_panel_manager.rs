@@ -14,29 +14,24 @@ const MAX_PANEL_COUNT: u32 = 4;
 /// Responsible for managing the currently open top-level mapping panels.
 #[derive(Debug)]
 pub struct IndependentPanelManager {
-    session: WeakUnitModel,
-    main_panel: OnceCell<WeakView<UnitPanel>>,
+    unit_model: WeakUnitModel,
+    unit_panel: OnceCell<WeakView<UnitPanel>>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
     message_panel: SharedView<SessionMessagePanel>,
-    /// We have at most one app instance open per ReaLearn instance.
-    #[cfg(feature = "playtime")]
-    app_instance: crate::infrastructure::ui::SharedAppInstance,
 }
 
 impl IndependentPanelManager {
     pub fn new(session: WeakUnitModel) -> IndependentPanelManager {
         Self {
-            session: session.clone(),
-            main_panel: OnceCell::new(),
+            unit_model: session.clone(),
+            unit_panel: OnceCell::new(),
             mapping_panels: Default::default(),
-            #[cfg(feature = "playtime")]
-            app_instance: crate::infrastructure::ui::create_shared_app_instance(session.clone()),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
     }
 
     pub fn set_main_panel(&mut self, main_panel: WeakView<UnitPanel>) {
-        self.main_panel.set(main_panel).expect("can set only once")
+        self.unit_panel.set(main_panel).expect("can set only once")
     }
 
     pub fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
@@ -49,11 +44,6 @@ impl IndependentPanelManager {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
             p.handle_matched_mapping();
         });
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn app_instance(&self) -> &crate::infrastructure::ui::SharedAppInstance {
-        &self.app_instance
     }
 
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
@@ -103,39 +93,6 @@ impl IndependentPanelManager {
         self.message_panel.clone().open(reaper_main_window());
     }
 
-    #[cfg(feature = "playtime")]
-    pub fn start_or_show_app_instance(&self) {
-        let result = self
-            .app_instance
-            .borrow_mut()
-            .start_or_show(reaper_main_window());
-        crate::base::notification::notify_user_on_anyhow_error(result);
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn start_show_or_hide_app_instance(&self) {
-        if self.app_instance.borrow_mut().is_visible() {
-            self.hide_app_instance();
-        } else {
-            self.start_or_show_app_instance();
-        }
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn hide_app_instance(&self) {
-        let _ = self.app_instance.borrow_mut().hide();
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn stop_app_instance(&self) {
-        let _ = self.app_instance.borrow_mut().stop();
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn app_instance_is_running(&self) -> bool {
-        self.app_instance.borrow().is_running()
-    }
-
     pub fn close_message_panel(&self) {
         self.message_panel.clone().close();
     }
@@ -159,7 +116,7 @@ impl IndependentPanelManager {
 
     /// Hides panels of mappings which don't exist anymore.
     pub fn close_orphan_panels(&mut self) {
-        let shared_session = self.session.upgrade().expect("session gone");
+        let shared_session = self.unit_model.upgrade().expect("session gone");
         let session = shared_session.borrow();
         for p in &self.mapping_panels {
             if !session.has_mapping(p.mapping_ptr()) {
@@ -175,8 +132,6 @@ impl IndependentPanelManager {
             p.close()
         }
         self.mapping_panels.clear();
-        #[cfg(feature = "playtime")]
-        let _ = self.app_instance.borrow_mut().stop();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {
@@ -198,12 +153,12 @@ impl IndependentPanelManager {
     }
 
     fn main_panel(&self) -> &WeakView<UnitPanel> {
-        self.main_panel.get().expect("main panel not set")
+        self.unit_panel.get().expect("main panel not set")
     }
 
     fn create_new_panel(&mut self) -> SharedView<MappingPanel> {
         let panel = SharedView::new(MappingPanel::new(
-            self.session.clone(),
+            self.unit_model.clone(),
             self.main_panel().clone(),
         ));
         let panel_clone_1 = panel.clone();

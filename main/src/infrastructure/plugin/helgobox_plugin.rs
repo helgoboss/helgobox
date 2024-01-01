@@ -90,16 +90,19 @@ unsafe impl Send for HelgoboxPlugin {}
 
 impl Plugin for HelgoboxPlugin {
     fn new(host: HostCallback) -> Self {
-        firewall(|| Self {
-            instance_id: InstanceId::next(),
-            host,
-            _reaper_guard: None,
-            param_container: Arc::new(InstanceParameterContainer::new()),
-            was_playing_in_last_cycle: false,
-            sample_rate: Default::default(),
-            is_plugin_scan: false,
-            lazy_data: OnceLock::new(),
-            instance_panel: Rc::new(InstancePanel::new()),
+        firewall(|| {
+            let instance_id = InstanceId::next();
+            Self {
+                instance_id,
+                host,
+                _reaper_guard: None,
+                param_container: Arc::new(InstanceParameterContainer::new()),
+                was_playing_in_last_cycle: false,
+                sample_rate: Default::default(),
+                is_plugin_scan: false,
+                lazy_data: OnceLock::new(),
+                instance_panel: Rc::new(InstancePanel::new(instance_id)),
+            }
         })
         .unwrap_or_default()
     }

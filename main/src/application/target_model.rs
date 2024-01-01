@@ -3416,7 +3416,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                                     let session = self
                                         .context
                                         .control_context()
-                                        .instance_container
+                                        .unit_container
                                         .find_session_by_id(session_id);
                                     if let Some(session) = session {
                                         let session = session.borrow();

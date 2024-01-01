@@ -367,7 +367,7 @@ impl MappingProp for MappingNameProp {
     }
 
     fn get_value(&self, input: PropGetValueArgs<&MainMapping>) -> Option<PropValue> {
-        let instance_state = input.control_context.instance_state.borrow();
+        let instance_state = input.control_context.unit.borrow();
         let info = instance_state.get_mapping_info(input.object.qualified_id())?;
         Some(PropValue::Text(info.name.clone().into()))
     }

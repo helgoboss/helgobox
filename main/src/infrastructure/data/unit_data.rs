@@ -200,13 +200,14 @@ pub struct UnitData {
     )]
     clip_slots: Vec<crate::infrastructure::data::clip_legacy::QualifiedSlotDescriptor>,
     // New since 2.12.0-pre.5
+    #[deprecated(note = "Moved to InstanceData")]
     #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    clip_matrix: Option<ClipMatrixRefData>,
+    pub clip_matrix: Option<ClipMatrixRefData>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -263,12 +264,13 @@ pub struct UnitData {
         skip_serializing_if = "is_default"
     )]
     controller_mapping_snapshots: Vec<MappingSnapshot>,
+    #[deprecated(note = "Moved to InstanceData")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pot_state: pot::PersistentState,
+    pub pot_state: pot::PersistentState,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -284,7 +286,7 @@ fn focused_fx_descriptor() -> FxDescriptor {
 #[cfg(feature = "playtime")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-enum ClipMatrixRefData {
+pub enum ClipMatrixRefData {
     Own(Box<playtime_api::persistence::FlexibleMatrix>),
     Foreign(String),
 }
@@ -499,7 +501,7 @@ impl UnitData {
                         }
                         crate::domain::ClipMatrixRef::Foreign(instance_id) => {
                             let foreign_session = BackboneShell::get()
-                                .find_session_by_instance_id_ignoring_borrowed_ones(*instance_id)?;
+                                .find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
                             let foreign_id = foreign_session.borrow().id().to_owned();
                             Some(ClipMatrixRefData::Foreign(foreign_id))
                         }
@@ -821,7 +823,7 @@ impl UnitData {
                             let foreign_instance_id = BackboneShell::get()
                                 .find_session_by_id_ignoring_borrowed_ones(session_id)
                                 .and_then(|session| {
-                                    session.try_borrow().map(|s| *s.instance_id()).ok()
+                                    session.try_borrow().map(|s| *s.unit_id()).ok()
                                 });
                             if let Some(id) = foreign_instance_id {
                                 // Referenced ReaLearn instance exists already.
@@ -854,7 +856,7 @@ impl UnitData {
                         playtime_api::persistence::FlexibleMatrix::Unsigned(Box::new(matrix)),
                     )?;
                 } else {
-                    Backbone::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                    Backbone::get().clear_clip_matrix_from_instance(&mut instance_state);
                 }
             }
             instance_state
@@ -893,7 +895,7 @@ impl UnitData {
             use crate::domain::Backbone;
             // Gather other sessions that have a foreign clip matrix ID set.
             let relevant_other_sessions = instances.iter().filter_map(|other_session| {
-                let other_session = other_session.session.upgrade()?;
+                let other_session = other_session.unit_model.upgrade()?;
                 let other_session_foreign_clip_matrix_id = other_session
                     .try_borrow()
                     .ok()?
@@ -913,7 +915,7 @@ impl UnitData {
                 let other_instance_state = other_session.unit();
                 Backbone::get().set_instance_clip_matrix_to_foreign_matrix(
                     &mut other_instance_state.borrow_mut(),
-                    *session.instance_id(),
+                    *session.unit_id(),
                 );
                 other_session.notify_foreign_clip_matrix_resolved();
             }
@@ -999,7 +1001,7 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
     }
 
     fn instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
-        BackboneShell::get().find_instance_id_by_session_id(session_id)
+        BackboneShell::get().find_unit_id_by_unit_key(session_id)
     }
 }
 
@@ -1102,7 +1104,7 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
     }
 
     fn instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
-        BackboneShell::get().find_instance_id_by_session_id(session_id)
+        BackboneShell::get().find_unit_id_by_unit_key(session_id)
     }
 }
 

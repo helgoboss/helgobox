@@ -94,48 +94,48 @@ pub fn format_control_input_with_match_result(
     format!("{msg} ({match_result})")
 }
 
-pub fn log_virtual_control_input(instance_id: &UnitId, msg: impl Display) {
-    log(instance_id, "Virtual control", msg);
+pub fn log_virtual_control_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Virtual control", msg);
 }
 
-pub fn log_real_control_input(instance_id: &UnitId, msg: impl Display) {
-    log(instance_id, "Real control", msg);
+pub fn log_real_control_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Real control", msg);
 }
 
-pub fn log_real_learn_input(instance_id: &UnitId, msg: impl Display) {
-    log(instance_id, "Real learn", msg);
+pub fn log_real_learn_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Real learn", msg);
 }
 
-pub fn log_target_control(instance_id: &UnitId, msg: impl Display) {
-    log(instance_id, "Target control", msg);
+pub fn log_target_control(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Target control", msg);
 }
 
-pub fn log_virtual_feedback_output(instance_id: &UnitId, msg: impl Display) {
-    log_output(instance_id, OutputReason::VirtualFeedback, msg);
+pub fn log_virtual_feedback_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::VirtualFeedback, msg);
 }
 
 pub fn log_real_feedback_output(
-    instance_id: &UnitId,
+    unit_id: UnitId,
     feedback_reason: FeedbackReason,
     msg: impl Display,
 ) {
     log_output(
-        instance_id,
+        unit_id,
         OutputReason::RealFeedback,
         format!("{msg} ({feedback_reason:?})"),
     );
 }
 
-pub fn log_lifecycle_output(instance_id: &UnitId, msg: impl Display) {
-    log_output(instance_id, OutputReason::Lifecycle, msg);
+pub fn log_lifecycle_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::Lifecycle, msg);
 }
 
-pub fn log_target_output(instance_id: &UnitId, msg: impl Display) {
-    log_output(instance_id, OutputReason::TargetOutput, msg);
+pub fn log_target_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::TargetOutput, msg);
 }
 
-pub fn log_output(instance_id: &UnitId, reason: OutputReason, msg: impl Display) {
-    log(instance_id, reason, msg);
+pub fn log_output(unit_id: UnitId, reason: OutputReason, msg: impl Display) {
+    log(unit_id, reason, msg);
 }
 
 #[derive(Copy, Clone, Debug, Display)]
@@ -216,12 +216,12 @@ pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {
     }
 }
 
-fn log(instance_id: &UnitId, label: impl Display, msg: impl Display) {
+fn log(unit_id: UnitId, label: impl Display, msg: impl Display) {
     let reaper = Reaper::get();
     reaper.show_console_msg(format!(
         "{:.3} | ReaLearn {} | {:<16} | {}\n",
         reaper.medium_reaper().low().time_precise(),
-        instance_id,
+        unit_id,
         label,
         msg
     ));

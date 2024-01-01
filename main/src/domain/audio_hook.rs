@@ -1,7 +1,7 @@
 use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
-    IncomingMidiMessage, MidiControlInput, MidiEvent, MidiMessageClassification, MidiScanResult,
-    MidiScanner, RealTimeProcessor, UnitId,
+    IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, RealTimeProcessor, SharedRealTimeInstance, UnitId,
 };
 use base::metrics_util::record_duration;
 use base::non_blocking_lock;
@@ -32,6 +32,8 @@ pub type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
 // also send them when audio is not running.
 #[derive(Debug)]
 pub enum NormalAudioHookTask {
+    AddRealTimeInstance(InstanceId, SharedRealTimeInstance),
+    RemoveRealTimeInstance(InstanceId),
     /// First parameter is the ID.
     //
     // Having the ID saves us from unnecessarily blocking the audio thread by looking into the
@@ -57,6 +59,7 @@ pub enum FeedbackAudioHookTask {
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
+    real_time_instances: SmallVec<[(InstanceId, SharedRealTimeInstance); 256]>,
     real_time_processors: SmallVec<[(UnitId, SharedRealTimeProcessor); 256]>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
@@ -84,6 +87,7 @@ impl RealearnAudioHook {
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
+            real_time_instances: Default::default(),
             real_time_processors: Default::default(),
             normal_task_receiver,
             feedback_task_receiver,
@@ -142,6 +146,7 @@ impl RealearnAudioHook {
         };
         // Do some ReaLearn things. The order probably matters here!
         self.process_feedback_commands();
+        self.call_real_time_instances(block_props);
         self.call_real_time_processors(block_props, might_be_rebirth);
         // Process incoming commands, including Playtime commands
         self.process_normal_commands(block_props);
@@ -212,6 +217,12 @@ impl RealearnAudioHook {
                     });
                 }
             }
+        }
+    }
+
+    fn call_real_time_instances(&self, block_props: AudioBlockProps) {
+        for (_, i) in self.real_time_instances.iter() {
+            non_blocking_lock(i, "RealTimeInstance").poll(block_props);
         }
     }
 
@@ -345,6 +356,14 @@ impl RealearnAudioHook {
         {
             use NormalAudioHookTask::*;
             match task {
+                AddRealTimeInstance(id, p) => {
+                    self.real_time_instances.push((id, p));
+                }
+                RemoveRealTimeInstance(id) => {
+                    if let Some(pos) = self.real_time_instances.iter().position(|(i, _)| i == &id) {
+                        self.real_time_instances.swap_remove(pos);
+                    }
+                }
                 AddRealTimeProcessor(id, p) => {
                     self.real_time_processors.push((id, p));
                 }

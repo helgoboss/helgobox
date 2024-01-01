@@ -49,7 +49,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         context: ControlContext,
     ) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<None>" is also a possible value.
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = match instance_state.pot_unit() {
             Ok(u) => u,
             Err(_) => return (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
@@ -87,7 +87,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         value: UnitValue,
         context: ControlContext,
     ) -> Result<u32, &'static str> {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 2");
         let value = self
@@ -102,7 +102,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         let shared_pot_unit = instance_state.pot_unit()?;
         let mut pot_unit = blocking_lock_arc(
             &shared_pot_unit,
@@ -128,7 +128,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let Ok(shared_pot_unit) = instance_state.pot_unit() else {
             return false;
         };
@@ -148,7 +148,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
             CompoundChangeEvent::Instance(InstanceStateChanged::PotStateChanged(
                 PotStateChangedEvent::FilterItemChanged { kind, filter: id },
             )) if *kind == self.settings.kind => {
-                let mut instance_state = context.instance_state.borrow_mut();
+                let mut instance_state = context.unit.borrow_mut();
                 let pot_unit = match instance_state.pot_unit() {
                     Ok(u) => u,
                     Err(_) => return (false, None),
@@ -171,7 +171,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
         context: ControlContext,
     ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 4");
         let uv = convert_discrete_to_unit_value_with_none(index, self.item_count(&pot_unit));
@@ -179,7 +179,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     }
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 5");
         let item_id = match self.current_item_id(&pot_unit) {
@@ -194,7 +194,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     }
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 6");
         let item_id = self.current_item_id(&pot_unit)?;
@@ -207,7 +207,7 @@ impl RealearnTarget for BrowsePotFilterItemsTarget {
     }
 
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 7");
         let item_id = self.current_item_id(&pot_unit)?;
@@ -224,7 +224,7 @@ impl<'a> Target<'a> for BrowsePotFilterItemsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.unit.borrow_mut();
         let pot_unit = instance_state.pot_unit().ok()?;
         let pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from BrowsePotFilterItemsTarget 8");
         let item_id = self.current_item_id(&pot_unit);

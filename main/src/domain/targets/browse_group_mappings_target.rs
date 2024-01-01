@@ -46,7 +46,7 @@ pub struct BrowseGroupMappingsTarget {
 impl BrowseGroupMappingsTarget {
     fn count(&self, context: ControlContext) -> u32 {
         context
-            .instance_state
+            .unit
             .borrow()
             .get_on_mappings_within_group(self.compartment, self.group_id)
             .count() as _
@@ -76,7 +76,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let value = value.to_absolute_value()?;
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         let desired_mapping_id = {
             let mapping_ids: Vec<_> = instance_state
                 .get_on_mappings_within_group(self.compartment, self.group_id)
@@ -131,7 +131,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
                         context.processor_context,
                         ControlValue::AbsoluteContinuous(v),
                         context.basic_settings.target_control_logger(
-                            context.processor_context.control_context.instance_state,
+                            context.processor_context.control_context.unit,
                             ControlLogContext::GroupNavigation,
                             m.qualified_id(),
                         ),
@@ -185,7 +185,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
 
     fn is_available(&self, context: ControlContext) -> bool {
         context
-            .instance_state
+            .unit
             .borrow()
             .get_on_mappings_within_group(self.compartment, self.group_id)
             .count()
@@ -209,7 +209,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let (mapping_id, _) = self.current_mapping_with_position(context)?;
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         let info = instance_state
             .get_mapping_info(QualifiedMappingId::new(self.compartment, mapping_id))?;
         Some(info.name.clone().into())
@@ -230,7 +230,7 @@ impl BrowseGroupMappingsTarget {
         &self,
         context: ControlContext,
     ) -> Option<(MappingId, Fraction)> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         if let Some(mapping_id) =
             instance_state.get_active_mapping_within_group(self.compartment, self.group_id)
         {

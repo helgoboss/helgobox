@@ -140,7 +140,7 @@ impl RealearnTarget for OscSendTarget {
                 effective_dev_id.fmt_short(),
                 format_osc_message(&msg)
             );
-            log_target_output(context.control_context.instance_id, text);
+            log_target_output(context.control_context.unit_id, text);
         }
         context
             .control_context

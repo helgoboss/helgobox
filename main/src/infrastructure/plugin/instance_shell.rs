@@ -1,17 +1,28 @@
 use crate::domain::{
-    AudioBlockProps, ControlEvent, IncomingMidiMessage, MidiEvent, ProcessorContext, UnitId,
+    AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
+    MidiEvent, ProcessorContext, RealTimeInstance, SharedInstance, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, ensure, Context};
-use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
+use base::{
+    blocking_read_lock, blocking_write_lock, non_blocking_lock, non_blocking_try_read_lock,
+    tracing_debug, SenderToRealTimeThread,
+};
 use fragile::Fragile;
+use playtime_clip_engine::base::Matrix;
+use reaper_high::Project;
+use std::cell::RefCell;
 use std::iter::once;
-use std::sync::RwLock;
+use std::rc::Rc;
+use std::sync::{Arc, Mutex, RwLock};
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
+
+const REAL_TIME_INSTANCE_TASK_QUEUE_SIZE: usize = 200;
 
 /// Represents a Helgobox instance in the infrastructure layer.
 ///
@@ -24,6 +35,9 @@ pub struct InstanceShell {
     panel: Fragile<SharedView<InstancePanel>>,
     // TODO-low Not too cool that we need to make this fragile. Related to reaper-high cells.
     processor_context: Fragile<ProcessorContext>,
+    instance_id: InstanceId,
+    instance: Fragile<SharedInstance>,
+    rt_instance: SharedRealTimeInstance,
     main_unit_shell: UnitShell,
     /// Additional unit shells.
     ///
@@ -38,22 +52,106 @@ pub struct InstanceShell {
 
 impl Drop for InstanceShell {
     fn drop(&mut self) {
-        tracing_debug!("Dropping InstanceShell");
+        tracing_debug!("Dropping InstanceShell...");
+        BackboneShell::get().unregister_instance(self.instance_id);
+    }
+}
+
+#[derive(Debug)]
+struct CustomInstanceHandler {
+    project: Option<Project>,
+}
+
+impl InstanceHandler for CustomInstanceHandler {
+    #[cfg(feature = "playtime")]
+    fn clip_matrix_changed(
+        &self,
+        instance_id: InstanceId,
+        matrix: &Matrix,
+        events: &[playtime_clip_engine::base::ClipMatrixEvent],
+        is_poll: bool,
+    ) {
+        // TODO-medium If we would make the instance ID generic, we could save the string conversion
+        BackboneShell::get().clip_engine_hub().clip_matrix_changed(
+            &instance_id.to_string(),
+            matrix,
+            events,
+            is_poll,
+            self.project,
+        );
+    }
+
+    #[cfg(feature = "playtime")]
+    fn process_control_surface_change_event_for_clip_engine(
+        &self,
+        instance_id: InstanceId,
+        matrix: &Matrix,
+        events: &[reaper_high::ChangeEvent],
+    ) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .send_occasional_matrix_updates_caused_by_reaper(
+                &instance_id.to_string(),
+                matrix,
+                events,
+            );
     }
 }
 
 impl InstanceShell {
     /// Creates an instance shell with exactly one unit shell.
     pub fn new(processor_context: ProcessorContext, panel: SharedView<InstancePanel>) -> Self {
+        let main_unit_id = UnitId::next();
+        let instance_handler = CustomInstanceHandler {
+            project: processor_context.project(),
+        };
+        let (real_time_instance_task_sender, real_time_instance_task_receiver) =
+            SenderToRealTimeThread::new_channel(
+                "real-time instance tasks",
+                REAL_TIME_INSTANCE_TASK_QUEUE_SIZE,
+            );
+        let instance = Instance::new(
+            main_unit_id,
+            processor_context.clone(),
+            Box::new(instance_handler),
+            #[cfg(feature = "playtime")]
+            BackboneShell::get().clip_matrix_event_sender().clone(),
+            #[cfg(feature = "playtime")]
+            BackboneShell::get().normal_audio_hook_task_sender().clone(),
+            #[cfg(feature = "playtime")]
+            real_time_instance_task_sender,
+        );
+        let rt_instance = RealTimeInstance::new(real_time_instance_task_receiver);
+        let rt_instance = Arc::new(Mutex::new(rt_instance));
+        let instance_id = instance.id();
+        let instance = Rc::new(RefCell::new(instance));
+        BackboneShell::get().register_instance(
+            instance_id,
+            Rc::downgrade(&instance),
+            rt_instance.clone(),
+        );
+        let main_unit_shell = UnitShell::new(
+            main_unit_id,
+            instance_id,
+            processor_context.clone(),
+            Rc::downgrade(&instance),
+            Arc::downgrade(&rt_instance),
+            SharedView::downgrade(&panel),
+            true,
+        );
         Self {
-            main_unit_shell: UnitShell::new(
-                processor_context.clone(),
-                SharedView::downgrade(&panel),
-            ),
+            instance: Fragile::new(instance),
+            rt_instance,
+            main_unit_shell,
             additional_unit_shells: Default::default(),
             panel: Fragile::new(panel),
             processor_context: Fragile::new(processor_context),
+            instance_id,
         }
+    }
+
+    pub fn instance(&self) -> &SharedInstance {
+        self.instance.get()
     }
 
     pub fn main_unit_shell(&self) -> &UnitShell {
@@ -81,16 +179,21 @@ impl InstanceShell {
     }
 
     pub fn add_unit(&self) -> UnitId {
-        let unit_shell = self.create_unit_shell();
+        let unit_shell = self.create_additional_unit_shell();
         let id = unit_shell.id();
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
         id
     }
 
-    fn create_unit_shell(&self) -> UnitShell {
+    fn create_additional_unit_shell(&self) -> UnitShell {
         UnitShell::new(
+            UnitId::next(),
+            self.instance_id,
             self.processor_context.get().clone(),
+            Rc::downgrade(self.instance.get()),
+            Arc::downgrade(&self.rt_instance),
             SharedView::downgrade(self.panel.get()),
+            false,
         )
     }
 
@@ -163,7 +266,7 @@ impl InstanceShell {
             .additional_units
             .into_iter()
             .map(|ud| {
-                let unit_shell = self.create_unit_shell();
+                let unit_shell = self.create_additional_unit_shell();
                 unit_shell.apply_data(&ud)?;
                 Ok(unit_shell)
             })
@@ -200,18 +303,14 @@ impl InstanceShell {
         #[cfg(feature = "playtime")] block_props: AudioBlockProps,
         host: HostCallback,
     ) {
+        #[cfg(feature = "playtime")]
+        non_blocking_lock(&*self.rt_instance, "RealTimeInstance").run_from_vst(buffer, block_props);
         let Some(unit_shells) = non_blocking_try_read_lock(&self.additional_unit_shells) else {
             // Better miss one block than blocking the entire audio thread
             return;
         };
         for unit_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
-            unit_shell.run_from_vst(
-                #[cfg(feature = "playtime")]
-                buffer,
-                #[cfg(feature = "playtime")]
-                block_props,
-                host,
-            );
+            unit_shell.run_from_vst(host);
         }
     }
 

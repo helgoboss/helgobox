@@ -1,11 +1,12 @@
 use vst::plugin::HostCallback;
 
 use crate::domain::{
-    AudioBlockProps, Backbone, ControlEvent, IncomingMidiMessage, MainProcessor, MidiEvent,
-    ParameterManager, ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, UnitId,
+    ControlEvent, IncomingMidiMessage, InstanceId, MainProcessor, MidiEvent, ParameterManager,
+    ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, Unit, UnitId, WeakInstance,
+    WeakRealTimeInstance,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
-use crate::infrastructure::plugin::PluginInstanceInfo;
+use crate::infrastructure::plugin::UnitInfo;
 use crate::infrastructure::ui::UnitPanel;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use reaper_medium::Hz;
@@ -52,8 +53,13 @@ pub struct UnitShell {
 
 impl UnitShell {
     pub fn new(
+        unit_id: UnitId,
+        instance_id: InstanceId,
         processor_context: ProcessorContext,
+        parent_instance: WeakInstance,
+        parent_rt_instance: WeakRealTimeInstance,
         instance_panel: WeakView<InstancePanel>,
+        is_main_unit: bool,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -82,10 +88,10 @@ impl UnitShell {
                 "parameter main tasks",
                 PARAMETER_MAIN_TASK_QUEUE_SIZE,
             );
-        let instance_id = UnitId::next();
-        let logger = BackboneShell::logger().new(o!("instance" => instance_id.to_string()));
+        let logger = BackboneShell::logger().new(o!("instance" => unit_id.to_string()));
         let real_time_processor = RealTimeProcessor::new(
-            instance_id,
+            unit_id,
+            parent_rt_instance,
             &logger,
             normal_real_time_task_receiver,
             feedback_real_time_task_receiver,
@@ -104,21 +110,17 @@ impl UnitShell {
         let (instance_feedback_event_sender, instance_feedback_event_receiver) =
             SenderToNormalThread::new_unbounded_channel("instance state change events");
         let parameter_manager = ParameterManager::new(parameter_main_task_sender);
-        let instance_state = Backbone::get().create_unit(
-            instance_id,
+        let unit = Unit::new(
+            unit_id,
+            parent_instance.clone(),
             processor_context.clone(),
             instance_feedback_event_sender,
-            Arc::new(parameter_manager),
-            #[cfg(feature = "playtime")]
-            BackboneShell::get().clip_matrix_event_sender().clone(),
-            #[cfg(feature = "playtime")]
-            BackboneShell::get().normal_audio_hook_task_sender().clone(),
-            #[cfg(feature = "playtime")]
-            normal_real_time_task_sender.clone(),
+            parameter_manager,
         );
+        let unit = Rc::new(RefCell::new(unit));
         // Session (application - shared)
-        let session = UnitModel::new(
-            instance_id,
+        let unit_model = UnitModel::new(
+            unit_id,
             &logger,
             processor_context.clone(),
             normal_real_time_task_sender.clone(),
@@ -127,34 +129,27 @@ impl UnitShell {
             BackboneShell::get().controller_preset_manager(),
             BackboneShell::get().main_preset_manager(),
             BackboneShell::get().preset_link_manager(),
-            instance_state.clone(),
+            parent_instance.clone(),
+            unit.clone(),
             BackboneShell::get().feedback_audio_hook_task_sender(),
             feedback_real_time_task_sender.clone(),
             BackboneShell::get().osc_feedback_task_sender(),
             BackboneShell::get().control_surface_main_task_sender(),
         );
-        let shared_session = Rc::new(RefCell::new(session));
+        let shared_session = Rc::new(RefCell::new(unit_model));
         let weak_session = Rc::downgrade(&shared_session);
-        let unit_panel = UnitPanel::new(weak_session.clone(), instance_panel);
+        let unit_panel = UnitPanel::new(weak_session.clone(), instance_panel.clone());
         shared_session
             .borrow_mut()
             .set_ui(Rc::downgrade(&unit_panel));
         keep_informing_clients_about_session_events(&shared_session);
-        let plugin_instance_info = PluginInstanceInfo {
-            processor_context: processor_context.clone(),
-            instance_id,
-            instance_state: Rc::downgrade(&instance_state),
-            session: weak_session.clone(),
-            ui: Rc::downgrade(&unit_panel),
-        };
-        BackboneShell::get().register_plugin_instance(plugin_instance_info);
         // Main processor - (domain, owned by REAPER control surface)
         // Register the main processor with the global ReaLearn control surface. We let it
         // call by the control surface because it must be called regularly,
         // even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
         let main_processor = MainProcessor::new(
-            instance_id,
+            unit_id,
             &logger,
             normal_main_task_sender.clone(),
             normal_main_task_receiver,
@@ -172,19 +167,25 @@ impl UnitShell {
             BackboneShell::get().osc_feedback_task_sender().clone(),
             weak_session.clone(),
             processor_context,
-            instance_state,
+            parent_instance,
+            unit,
             BackboneShell::get(),
         );
-        BackboneShell::get().register_processor_couple(
+        let unit_info = UnitInfo {
+            unit_id,
+            processor_context: processor_context.clone(),
             instance_id,
-            real_time_processor.clone(),
-            main_processor,
-        );
+            instance: parent_instance.clone(),
+            unit_model: weak_session.clone(),
+            instance_panel,
+            is_main_unit,
+        };
+        BackboneShell::get().register_unit(unit_info, real_time_processor.clone(), main_processor);
         shared_session.borrow_mut().activate(weak_session.clone());
         shared_session.borrow().notify_realearn_instance_started();
         // End create session
         Self {
-            id: instance_id,
+            id: unit_id,
             logger: logger.clone(),
             // InstanceShell is the main owner of the InstanceModel. Everywhere else the InstanceModel is
             // just temporarily upgraded, never stored as Rc, only as Weak.
@@ -224,15 +225,8 @@ impl UnitShell {
             .process_incoming_midi_from_vst(event, is_transport_start, &host);
     }
 
-    pub fn run_from_vst(
-        &self,
-        #[cfg(feature = "playtime")] buffer: &mut vst::buffer::AudioBuffer<f64>,
-        #[cfg(feature = "playtime")] block_props: AudioBlockProps,
-        host: HostCallback,
-    ) {
-        self.real_time_processor
-            .lock_recover()
-            .run_from_vst(buffer, block_props, &host);
+    pub fn run_from_vst(&self, host: HostCallback) {
+        self.real_time_processor.lock_recover().run_from_vst(&host);
     }
 
     pub fn set_sample_rate(&self, rate: f32) {
@@ -249,8 +243,7 @@ impl Drop for UnitShell {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping UnitShell...");
         let session = self.model.get();
-        BackboneShell::get().unregister_processor_couple(self.id);
-        BackboneShell::get().unregister_session(session.as_ptr());
+        BackboneShell::get().unregister_unit(self.id, session.as_ptr());
         debug!(
             self.logger,
             "{} pointers are still referring to this session",

@@ -203,7 +203,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     //  source directly but update a session. This makes more sense because now ReaLearn treats
     //  custom data exactly like mappings - it's saved with the session.
     BackboneShell::get().with_instances(|instances| {
-        let sessions = instances.iter().filter_map(|s| s.session.upgrade());
+        let sessions = instances.iter().filter_map(|s| s.unit_model.upgrade());
         for session in sessions {
             let mut session = session.borrow_mut();
             session.update_custom_compartment_data(

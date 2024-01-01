@@ -149,3 +149,6 @@ pub use info_event::*;
 
 mod instance;
 pub use instance::*;
+
+mod real_time_instance;
+pub use real_time_instance::*;

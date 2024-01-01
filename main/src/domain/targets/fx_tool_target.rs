@@ -150,7 +150,7 @@ impl RealearnTarget for FxToolTarget {
         };
         context
             .control_context
-            .instance_container
+            .unit_container
             .change_instance_fx(args)?;
         Ok(HitResponse::processed_with_effect())
     }

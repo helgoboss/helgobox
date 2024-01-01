@@ -6,14 +6,14 @@ use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
     ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
-    GroupId, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest,
+    GroupId, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
     InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
     MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
     OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId,
     RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
-    ReaperTarget, ReaperTargetType, SharedMainProcessors, SharedRealTimeProcessor, Tag,
-    UnitContainer, UnitId, WeakInstanceState,
+    ReaperTarget, ReaperTargetType, SharedInstance, SharedMainProcessors, SharedRealTimeInstance,
+    SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -24,7 +24,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{MessagePanel, UnitPanel};
+use crate::infrastructure::ui::MessagePanel;
 #[allow(unused)]
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
@@ -40,6 +40,7 @@ use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::server::services::RealearnServices;
 use crate::infrastructure::test::run_test;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
@@ -151,8 +152,7 @@ pub struct BackboneShell {
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
-    instances: RefCell<Vec<PluginInstanceInfo>>,
-    instances_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    units: RefCell<Vec<UnitInfo>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
@@ -160,12 +160,14 @@ pub struct BackboneShell {
 }
 
 #[derive(Debug)]
-pub struct PluginInstanceInfo {
-    pub instance_id: UnitId,
+pub struct UnitInfo {
+    pub unit_id: UnitId,
+    pub is_main_unit: bool,
+    pub instance_id: InstanceId,
     pub processor_context: ProcessorContext,
-    pub instance_state: WeakInstanceState,
-    pub session: WeakUnitModel,
-    pub ui: Weak<UnitPanel>,
+    pub instance: WeakInstance,
+    pub instance_panel: Weak<InstancePanel>,
+    pub unit_model: WeakUnitModel,
 }
 
 #[derive(Debug)]
@@ -356,8 +358,7 @@ impl BackboneShell {
             feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
             audio_hook_task_sender,
-            instances: Default::default(),
-            instances_changed_subject: Default::default(),
+            units: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
@@ -609,27 +610,6 @@ impl BackboneShell {
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
 
-    pub fn register_processor_couple(
-        &self,
-        instance_id: UnitId,
-        real_time_processor: SharedRealTimeProcessor,
-        main_processor: MainProcessor<WeakUnitModel>,
-    ) {
-        self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
-                instance_id,
-                real_time_processor,
-            ));
-        self.control_surface_main_task_sender.0.send_complaining(
-            RealearnControlSurfaceMainTask::AddMainProcessor(main_processor),
-        );
-    }
-
-    pub fn unregister_processor_couple(&self, instance_id: UnitId) {
-        self.unregister_main_processor(&instance_id);
-        self.unregister_real_time_processor(instance_id);
-    }
-
     /// Attention: The real-time processor is removed *async*! That means it can still be called
     /// by the audio hook, even after this method has executed. The benefit is that it will still
     /// be able to do clean-up work after the plug-in instance is gone as long as another one is
@@ -681,9 +661,9 @@ impl BackboneShell {
     ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
     ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
     ///       output.
-    fn unregister_real_time_processor(&self, instance_id: UnitId) {
+    fn unregister_unit_real_time_processor(&self, unit_id: UnitId) {
         self.audio_hook_task_sender
-            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id));
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeProcessor(unit_id));
     }
 
     /// We remove the main processor synchronously because it allows us to keep its fail-fast
@@ -691,12 +671,12 @@ impl BackboneShell {
     /// receivers are gone because we know it's not supposed to happen. Also, unlike with
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
-    fn unregister_main_processor(&self, instance_id: &UnitId) {
+    fn unregister_unit_main_processor(&self, unit_id: UnitId) {
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             // Remove main processor.
             control_surface
                 .middleware_mut()
-                .remove_main_processor(instance_id);
+                .remove_main_processor(unit_id);
         });
     }
 
@@ -881,7 +861,7 @@ impl BackboneShell {
         - Module base address: {:?}\n\
         ",
             self.state.borrow(),
-            self.instances.borrow().len(),
+            self.units.borrow().len(),
             determine_module_base_address().map(|addr| format!("0x{addr:x}")),
         );
         Reaper::get().show_console_msg(msg);
@@ -1005,26 +985,25 @@ impl BackboneShell {
     }
 
     #[allow(dead_code)]
-    pub fn find_main_panel_by_session_id(&self, session_id: &str) -> Option<SharedView<UnitPanel>> {
-        self.instances.borrow().iter().find_map(|i| {
-            if i.session.upgrade()?.borrow().id() == session_id {
-                i.ui.upgrade()
-            } else {
-                None
-            }
-        })
+    pub fn find_instance_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedInstance> {
+        self.find_main_unit_info_by_instance_id(instance_id)
+            .and_then(|i| i.instance.upgrade())
     }
 
     #[allow(dead_code)]
-    pub fn find_main_panel_by_instance_id(
+    pub fn find_instance_panel_by_instance_id(
         &self,
-        instance_id: UnitId,
-    ) -> Option<SharedView<UnitPanel>> {
-        self.instances
+        instance_id: InstanceId,
+    ) -> Option<SharedView<InstancePanel>> {
+        self.find_main_unit_info_by_instance_id(instance_id)
+            .and_then(|i| i.instance_panel.upgrade())
+    }
+
+    fn find_main_unit_info_by_instance_id(&self, instance_id: InstanceId) -> Option<&UnitInfo> {
+        self.units
             .borrow()
             .iter()
-            .find(|i| i.instance_id == instance_id)
-            .and_then(|i| i.ui.upgrade())
+            .find(|i| i.is_main_unit == true && i.instance_id == instance_id)
     }
 
     #[cfg(feature = "playtime")]
@@ -1033,12 +1012,10 @@ impl BackboneShell {
         clip_matrix_id: &str,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        let session = self
-            .find_session_by_id(clip_matrix_id)
-            .context("session not found")?;
-        let session = session.borrow();
-        let instance_state = session.unit();
-        Backbone::get().with_clip_matrix(instance_state, f)
+        let instance = self
+            .find_instance_by_instance_id(clip_matrix_id.parse()?)
+            .context("instance not found")?;
+        Backbone::get().with_clip_matrix(&instance, f)
     }
 
     #[cfg(feature = "playtime")]
@@ -1047,23 +1024,21 @@ impl BackboneShell {
         clip_matrix_id: &str,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        let session = self
-            .find_session_by_id(clip_matrix_id)
-            .context("session not found")?;
-        let instance_state = session.borrow().unit().clone();
-        Backbone::get().with_clip_matrix_mut(&instance_state, f)
+        let instance = self
+            .find_instance_by_instance_id(clip_matrix_id.parse()?)
+            .context("instance not found")?;
+        Backbone::get().with_clip_matrix_mut(&instance, f)
     }
 
     #[cfg(feature = "playtime")]
     pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
-        let shared_session = self
-            .find_session_by_id(clip_matrix_id)
-            .context("session not found")?;
-        let session = shared_session.borrow();
-        let instance_state = session.unit();
+        let unit_info = self
+            .find_main_unit_info_by_instance_id(clip_matrix_id.parse()?)
+            .context("instance not found")?;
+        let instance = unit_info.instance.upgrade().context("instance gone")?;
         crate::application::get_or_insert_owned_clip_matrix(
-            Rc::downgrade(&shared_session),
-            &mut instance_state.borrow_mut(),
+            unit_info.unit_model.clone(),
+            &mut instance.borrow_mut(),
         );
         Ok(())
     }
@@ -1087,10 +1062,10 @@ impl BackboneShell {
         Some(session.id().to_string())
     }
 
-    pub fn find_instance_id_by_session_id(&self, session_id: &str) -> Option<UnitId> {
+    pub fn find_unit_id_by_unit_key(&self, session_id: &str) -> Option<UnitId> {
         let session = self.find_session_by_id(session_id)?;
         let session = session.borrow();
-        Some(*session.instance_id())
+        Some(session.unit_id())
     }
 
     pub fn find_session_by_instance_id_ignoring_borrowed_ones(
@@ -1099,7 +1074,7 @@ impl BackboneShell {
     ) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             if let Ok(session) = session.try_borrow() {
-                *session.instance_id() == instance_id
+                session.unit_id() == instance_id
             } else {
                 false
             }
@@ -1125,15 +1100,15 @@ impl BackboneShell {
         &self,
         predicate: impl FnMut(&SharedUnitModel) -> bool,
     ) -> Option<SharedUnitModel> {
-        self.instances
+        self.units
             .borrow()
             .iter()
-            .filter_map(|s| s.session.upgrade())
+            .filter_map(|s| s.unit_model.upgrade())
             .find(predicate)
     }
 
-    pub fn with_instances<R>(&self, f: impl FnOnce(&[PluginInstanceInfo]) -> R) -> R {
-        f(&self.instances.borrow())
+    pub fn with_instances<R>(&self, f: impl FnOnce(&[UnitInfo]) -> R) -> R {
+        f(&self.units.borrow())
     }
 
     pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedUnitModel> {
@@ -1143,39 +1118,76 @@ impl BackboneShell {
         })
     }
 
-    pub fn register_plugin_instance(&self, instance: PluginInstanceInfo) {
-        let mut instances = self.instances.borrow_mut();
-        debug!(Reaper::get().logger(), "Registering new session...");
-        instances.push(instance);
-        debug!(
-            Reaper::get().logger(),
-            "Session registered. Session count: {}",
-            instances.len()
-        );
-        self.notify_instances_changed();
+    pub fn register_instance(
+        &self,
+        id: InstanceId,
+        instance: WeakInstance,
+        rt_instance: SharedRealTimeInstance,
+    ) {
+        debug!(Reaper::get().logger(), "Registering new instance...");
+        Backbone::get().register_instance(id, instance.clone());
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::AddRealTimeInstance(id, rt_instance));
+        self.control_surface_main_task_sender
+            .0
+            .send_complaining(RealearnControlSurfaceMainTask::AddInstance(instance));
     }
 
-    pub fn unregister_session(&self, session: *const UnitModel) {
-        let mut instances = self.instances.borrow_mut();
-        debug!(Reaper::get().logger(), "Unregistering session...");
-        instances.retain(|i| {
-            match i.session.upgrade() {
+    pub fn unregister_instance(&self, instance_id: InstanceId) {
+        debug!(Reaper::get().logger(), "Unregistering instance...");
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            // Remove main processor.
+            control_surface
+                .middleware_mut()
+                .remove_instance(instance_id);
+        });
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::RemoveRealTimeInstance(instance_id));
+    }
+
+    pub fn register_unit(
+        &self,
+        unit_info: UnitInfo,
+        real_time_processor: SharedRealTimeProcessor,
+        main_processor: MainProcessor<WeakUnitModel>,
+    ) {
+        let unit_id = unit_info.unit_id;
+        let mut units = self.units.borrow_mut();
+        debug!(Reaper::get().logger(), "Registering new unit...");
+        units.push(unit_info);
+        debug!(
+            Reaper::get().logger(),
+            "Unit registered. Unit count: {}",
+            units.len()
+        );
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
+                unit_id,
+                real_time_processor,
+            ));
+        self.control_surface_main_task_sender.0.send_complaining(
+            RealearnControlSurfaceMainTask::AddMainProcessor(main_processor),
+        );
+    }
+
+    pub fn unregister_unit(&self, unit_id: UnitId, unit_model_ptr: *const UnitModel) {
+        self.unregister_unit_main_processor(unit_id);
+        self.unregister_unit_real_time_processor(unit_id);
+        let mut units = self.units.borrow_mut();
+        debug!(Reaper::get().logger(), "Unregistering unit...");
+        units.retain(|i| {
+            match i.unit_model.upgrade() {
                 // Already gone, for whatever reason. Time to throw out!
                 None => false,
                 // Not gone yet.
-                Some(shared_session) => shared_session.as_ptr() != session as _,
+                Some(shared_session) => shared_session.as_ptr() != unit_model_ptr as _,
             }
         });
         debug!(
             Reaper::get().logger(),
-            "Session unregistered. Remaining count of managed sessions: {}",
-            instances.len()
+            "Unit unregistered. Remaining count of units: {}",
+            units.len()
         );
-        self.notify_instances_changed();
-    }
-
-    fn notify_instances_changed(&self) {
-        self.instances_changed_subject.borrow_mut().next(());
     }
 
     pub fn show_message_panel(
@@ -1580,8 +1592,8 @@ impl BackboneShell {
         compartment: Compartment,
         target: &ReaperTarget,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
-        self.instances.borrow().iter().find_map(|session| {
-            let session = session.session.upgrade()?;
+        self.units.borrow().iter().find_map(|session| {
+            let session = session.unit_model.upgrade()?;
             let mapping = {
                 let s = session.borrow();
                 if s.processor_context().project() != project {
@@ -1660,8 +1672,8 @@ impl BackboneShell {
         compartment: Compartment,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
-        self.instances.borrow().iter().find_map(|session| {
-            let session = session.session.upgrade()?;
+        self.units.borrow().iter().find_map(|session| {
+            let session = session.unit_model.upgrade()?;
             let mapping = {
                 let s = session.borrow();
                 if s.processor_context().project() != project {
@@ -1693,8 +1705,8 @@ impl BackboneShell {
     ) -> Result<(), &'static str> {
         if common_args.scope.has_tags() {
             // Modify all sessions whose tags match.
-            for instance in self.instances.borrow().iter() {
-                if let Some(session) = instance.session.upgrade() {
+            for instance in self.units.borrow().iter() {
+                if let Some(session) = instance.unit_model.upgrade() {
                     let mut session = session.borrow_mut();
                     // Don't leave the context (project if in project, FX chain if monitoring FX).
                     let context = session.processor_context();
@@ -1706,7 +1718,7 @@ impl BackboneShell {
                     if !common_args.scope.any_tag_matches(session_tags) {
                         continue;
                     }
-                    f(&mut session, instance.session.clone())
+                    f(&mut session, instance.unit_model.clone())
                 }
             }
         } else {
@@ -1939,11 +1951,11 @@ impl UnitContainer for BackboneShell {
 
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
         let mut activated_inverse_tags = HashSet::new();
-        for session in self.instances.borrow().iter() {
-            if let Some(session) = session.session.upgrade() {
+        for session in self.units.borrow().iter() {
+            if let Some(session) = session.unit_model.upgrade() {
                 let session = session.borrow();
                 // Don't touch ourselves.
-                if *session.instance_id() == args.common.initiator_instance_id {
+                if session.unit_id() == args.common.initiator_instance_id {
                     continue;
                 }
                 // Don't leave the context (project if in project, FX chain if monitoring FX).

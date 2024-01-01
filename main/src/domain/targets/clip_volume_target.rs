@@ -79,7 +79,7 @@ impl RealearnTarget for ClipVolumeTarget {
         let api_db = playtime_api::persistence::Db::new(db.get())?;
         Backbone::get()
             .with_clip_matrix_mut(
-                context.control_context.instance_state,
+                context.control_context.instance,
                 |matrix| -> anyhow::Result<HitResponse> {
                     matrix.set_slot_volume(self.slot_coordinates, api_db)?;
                     Ok(HitResponse::processed_with_effect())
@@ -132,7 +132,7 @@ impl RealearnTarget for ClipVolumeTarget {
 impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         Backbone::get()
-            .with_clip_matrix(context.instance_state, |matrix| {
+            .with_clip_matrix(context.instance, |matrix| {
                 let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
                 Some(Volume::from_db(Db::new(db.get())))
             })

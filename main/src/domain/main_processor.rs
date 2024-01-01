@@ -7,18 +7,18 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
     FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
-    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceOrchestrationEvent,
-    InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
-    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
-    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
-    RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
+    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceId,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
+    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
+    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
+    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedUnit,
-    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedInstance,
+    SharedUnit, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
     TargetValueChangedEvent, UnitContainer, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue,
+    VirtualControlElement, VirtualSourceValue, WeakInstance,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -72,9 +72,9 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
-    instance_id: UnitId,
+    unit_id: UnitId,
     source_context: SourceContext,
-    instance_container: &'static dyn UnitContainer,
+    unit_container: &'static dyn UnitContainer,
     logger: slog::Logger,
     settings: BasicSettings,
     control_is_globally_enabled: bool,
@@ -84,7 +84,8 @@ struct Basics<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
-    instance_state: SharedUnit,
+    instance: WeakInstance,
+    unit: SharedUnit,
     channels: Channels,
     // Using RefCell in the processing layer is an exception. We do it here because we can't
     // safely make feedback processing mutable. I tried (see branch
@@ -249,7 +250,7 @@ struct Channels {
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: UnitId,
+        unit_id: UnitId,
         parent_logger: &slog::Logger,
         self_normal_sender: SenderToNormalThread<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
@@ -267,7 +268,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
-        instance_state: SharedUnit,
+        instance: WeakInstance,
+        unit: SharedUnit,
         instance_container: &'static dyn UnitContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
@@ -278,7 +280,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             basics: Basics {
-                instance_id,
+                unit_id,
                 source_context: SourceContext,
                 logger: logger.clone(),
                 settings: Default::default(),
@@ -287,8 +289,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 event_handler,
                 context,
                 control_mode: ControlMode::Controlling,
-                instance_state,
-                instance_container,
+                instance,
+                unit,
+                unit_container: instance_container,
                 channels: Channels {
                     self_feedback_sender,
                     self_normal_sender,
@@ -322,8 +325,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn instance_id(&self) -> &UnitId {
-        &self.basics.instance_id
+    pub fn unit_id(&self) -> UnitId {
+        self.basics.unit_id
     }
 
     /// This is the chance to take over a source from another instance (send our feedback).
@@ -427,7 +430,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 match_outcome: match_result,
             } => {
                 log_virtual_control_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     format_control_input_with_match_result(value, match_result),
                 );
             }
@@ -437,7 +440,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             } => {
                 let timestamp = event.timestamp();
                 log_real_control_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     format_control_input_with_match_result(
                         ControlEvent::new(
                             format_midi_source_value(&event.into_payload()),
@@ -450,7 +453,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             LogRealLearnInput { event } => {
                 let timestamp = event.timestamp();
                 log_real_learn_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     ControlEvent::new(
                         format_incoming_midi_message(event.into_payload()),
                         timestamp,
@@ -458,7 +461,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
             }
             LogTargetOutput { event } => {
-                log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
+                log_target_output(self.unit_id(), format_raw_midi(event.bytes()));
             }
             LogTargetControl { mapping_id, entry } => {
                 let logger = self
@@ -733,7 +736,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // Propagate to other instances if necessary
             if event.is_interesting_for_other_instances() {
                 let global_event = AdditionalFeedbackEvent::Instance {
-                    instance_id: self.basics.instance_id,
+                    instance_id: self.basics.unit_id,
                     instance_event: event.clone(),
                 };
                 self.basics
@@ -752,38 +755,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
-    /// (not borrowed from another instance).
-    #[cfg(feature = "playtime")]
-    pub fn poll_owned_clip_matrix(&self) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
-        let mut instance_state = self.basics.instance_state.borrow_mut();
-        let matrix = match instance_state.owned_clip_matrix_mut() {
-            Some(m) => m,
-            _ => return vec![],
-        };
-        matrix.poll(self.basics.context.project())
-    }
-
-    /// Processes the given clip matrix events if they are relevant to this instance.
+    /// Processes the given clip matrix events if they are relevant to this unit.
     #[cfg(feature = "playtime")]
     pub fn process_polled_clip_matrix_events(
         &self,
-        instance_id: UnitId,
+        instance_id: InstanceId,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
     ) {
-        let instance_state = self.basics.instance_state.borrow();
-        let Some(relevance) = instance_state.clip_matrix_relevance(instance_id) else {
+        let instance = self.basics.instance();
+        if instance
+            .borrow()
+            .clip_matrix_relevance(instance_id)
+            .is_none()
+        {
             return;
         };
-        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
-            self.basics
-                .event_handler
-                .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
-                    matrix,
-                    events,
-                    is_poll: true,
-                });
-        }
         for event in events {
             self.process_clip_matrix_event_for_feedback(event);
         }
@@ -795,19 +781,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         event: &crate::domain::QualifiedClipMatrixEvent,
     ) {
-        let instance_state = self.basics.instance_state.borrow();
-        let Some(relevance) = instance_state.clip_matrix_relevance(event.instance_id) else {
+        if self
+            .basics
+            .instance()
+            .borrow()
+            .clip_matrix_relevance(event.instance_id)
+            .is_none()
+        {
             return;
         };
-        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
-            self.basics
-                .event_handler
-                .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
-                    matrix,
-                    events: std::slice::from_ref(&event.event),
-                    is_poll: false,
-                });
-        }
         self.process_clip_matrix_event_for_feedback(&event.event)
     }
 
@@ -1457,7 +1439,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect();
         // Update instance state
         {
-            let mut instance_state = self.basics.instance_state.borrow_mut();
+            let mut instance_state = self.basics.unit.borrow_mut();
             instance_state.set_mappings_by_group(compartment, mappings_by_group);
             instance_state.set_mapping_infos(mapping_infos);
         }
@@ -1527,10 +1509,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         .handle_event_ignoring_error(DomainEvent::FullResyncRequested);
                 }
                 LogLifecycleOutput { value } => {
-                    log_lifecycle_output(
-                        &self.basics.instance_id,
-                        format_midi_source_value(&value),
-                    );
+                    log_lifecycle_output(self.basics.unit_id, format_midi_source_value(&value));
                 }
                 LogToConsole(msg) => {
                     Reaper::get().show_console_msg(msg);
@@ -1653,6 +1632,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_control_surface_change_events(&self, events: &[ChangeEvent]) {
+        if events.is_empty() {
+            return;
+        }
         // Potentially enable/disable control/feedback
         let influences_global_control_and_feedback = events.iter().any(|event| {
             match event {
@@ -1722,19 +1704,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.basics.control_context(),
                 )
             });
-        }
-        // Process for clip engine
-        #[cfg(feature = "playtime")]
-        {
-            let mut instance_state = self.basics.instance_state.borrow_mut();
-            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
-                // Let matrix react to track changes etc.
-                matrix.process_reaper_change_events(events);
-                // Process for GUI
-                self.basics.event_handler.handle_event_ignoring_error(
-                    DomainEvent::ControlSurfaceChangeEventsForClipEngine(matrix, events),
-                );
-            }
         }
     }
 
@@ -1825,7 +1794,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         if self.basics.settings.real_input_logging_enabled {
-            log_real_control_input(&self.basics.instance_id, evt);
+            log_real_control_input(self.basics.unit_id, evt);
         }
         if !self.basics.instance_control_is_effectively_enabled() {
             return;
@@ -1854,10 +1823,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn log_incoming_message<T: Display>(&self, msg: T) {
         match self.basics.control_mode {
             ControlMode::Controlling => {
-                log_real_control_input(&self.basics.instance_id, msg);
+                log_real_control_input(self.basics.unit_id, msg);
             }
             ControlMode::LearningSource { .. } => {
-                log_real_learn_input(&self.basics.instance_id, msg);
+                log_real_learn_input(self.basics.unit_id, msg);
             }
             ControlMode::Disabled => {}
         }
@@ -2479,7 +2448,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Important to do this before calculating diff feedback (because we might have
         // a textual feedback expression that contains the mapping name property).
         self.basics
-            .instance_state
+            .unit
             .borrow_mut()
             .update_mapping_info(id, mapping.take_mapping_info());
         let diff_feedback = self.calc_diff_feedback_complicated(
@@ -2852,7 +2821,7 @@ impl BasicSettings {
                 "<unknown>"
             };
             log_target_control(
-                &instance_state.instance_id(),
+                instance_state.id(),
                 format!("Mapping {mapping_name}: {entry} ({context})"),
             );
         }
@@ -3033,6 +3002,10 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn instance(&self) -> SharedInstance {
+        self.instance.upgrade().expect("instance gone")
+    }
+
     pub fn celebrate_success(&self) {
         self.event_handler
             .handle_event_ignoring_error(DomainEvent::TimeForCelebratingSuccess);
@@ -3043,9 +3016,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
         context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + '_ {
-        let console_logger =
-            self.settings
-                .target_control_logger(&self.instance_state, context, mapping_id);
+        let console_logger = self
+            .settings
+            .target_control_logger(&self.unit, context, mapping_id);
         move |entry| {
             // Handle logging to mapping panel
             if context != ControlLogContext::Polling {
@@ -3195,7 +3168,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         settings: &ControlFeedbackSettings,
     ) -> IoUpdatedEvent {
         IoUpdatedEvent {
-            instance_id: self.instance_id,
+            unit_id: self.unit_id,
             control_input: settings.control_input.device_input(),
             control_input_used: settings.control_is_globally_enabled
                 && any_main_mapping_is_effectively_on,
@@ -3216,9 +3189,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
             feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
-            instance_container: self.instance_container,
-            instance_state: &self.instance_state,
-            instance_id: &self.instance_id,
+            unit_container: self.unit_container,
+            instance: &self.instance(),
+            unit: &self.unit,
+            unit_id: self.unit_id,
             output_logging_enabled: self.settings.real_output_logging_enabled,
             source_context: &self.source_context,
             processor_context: &self.context,
@@ -3534,7 +3508,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 match_outcome.upgrade_from(child_match_outcome);
                 if self.settings.virtual_input_logging_enabled {
                     log_virtual_control_input(
-                        &self.instance_id,
+                        self.unit_id,
                         format_control_input_with_match_result(
                             virtual_source_value,
                             child_match_outcome,
@@ -3575,7 +3549,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     // is explicitly not enabled (not supported by controller) in order to
                     // support at least projection feedback (#414)!
                     if self.settings.virtual_output_logging_enabled {
-                        log_virtual_feedback_output(&self.instance_id, &value);
+                        log_virtual_feedback_output(self.unit_id, &value);
                     }
                     // Iterate over (controller) mappings with virtual targets.
                     for m in mappings_with_virtual_targets
@@ -3694,7 +3668,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
-                                    &self.instance_id,
+                                    self.unit_id,
                                     feedback_reason,
                                     format_midi_source_value(&v),
                                 );
@@ -3716,7 +3690,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // in the order of instance instantiation.
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
-                                    &self.instance_id,
+                                    self.unit_id,
                                     feedback_reason,
                                     format_midi_source_value(&v),
                                 );
@@ -3732,7 +3706,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
                         log_real_feedback_output(
-                            &self.instance_id,
+                            self.unit_id,
                             feedback_reason,
                             format_osc_message(&msg),
                         );
@@ -3790,7 +3764,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     // Possible interference with other instances. Don't switch off yet!
                     // Give other instances the chance to take over.
                     let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
-                        instance_id: self.instance_id.to_owned(),
+                        unit_id: self.unit_id.to_owned(),
                         feedback_output,
                         feedback_value: source_feedback_value,
                     });
@@ -3812,13 +3786,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn instance_control_is_effectively_enabled(&self) -> bool {
         self.control_is_globally_enabled
-            && Backbone::get().control_is_allowed(&self.instance_id, self.settings.control_input)
+            && Backbone::get().control_is_allowed(&self.unit_id, self.settings.control_input)
     }
 
     pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
         if let Some(fo) = self.settings.feedback_output {
             self.feedback_is_globally_enabled
-                && Backbone::get().feedback_is_allowed(&self.instance_id, fo)
+                && Backbone::get().feedback_is_allowed(&self.unit_id, fo)
         } else {
             // Pointless but allowed
             true
