@@ -999,11 +999,14 @@ impl BackboneShell {
             .and_then(|i| i.instance_panel.upgrade())
     }
 
-    fn find_main_unit_info_by_instance_id(&self, instance_id: InstanceId) -> Option<&UnitInfo> {
-        self.units
-            .borrow()
-            .iter()
-            .find(|i| i.is_main_unit == true && i.instance_id == instance_id)
+    fn find_main_unit_info_by_instance_id(&self, instance_id: InstanceId) -> Option<Ref<UnitInfo>> {
+        let units = self.units.borrow();
+        Ref::filter_map(units, |units| {
+            units
+                .iter()
+                .find(|i| i.is_main_unit && i.instance_id == instance_id)
+        })
+        .ok()
     }
 
     #[cfg(feature = "playtime")]
@@ -1057,7 +1060,7 @@ impl BackboneShell {
     }
 
     pub fn find_session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
-        let session = self.find_session_by_instance_id_ignoring_borrowed_ones(instance_id)?;
+        let session = self.find_unit_model_by_unit_id_ignoring_borrowed_ones(instance_id)?;
         let session = session.borrow();
         Some(session.id().to_string())
     }
@@ -1068,7 +1071,7 @@ impl BackboneShell {
         Some(session.unit_id())
     }
 
-    pub fn find_session_by_instance_id_ignoring_borrowed_ones(
+    pub fn find_unit_model_by_unit_id_ignoring_borrowed_ones(
         &self,
         instance_id: UnitId,
     ) -> Option<SharedUnitModel> {
@@ -1087,7 +1090,7 @@ impl BackboneShell {
         id: QualifiedMappingId,
     ) -> Result<SharedMapping, &'static str> {
         let session = self
-            .find_session_by_instance_id_ignoring_borrowed_ones(initiator_instance_id)
+            .find_unit_model_by_unit_id_ignoring_borrowed_ones(initiator_instance_id)
             .ok_or("initiator session not found")?;
         let session = session.borrow();
         let mapping = session
@@ -1130,7 +1133,7 @@ impl BackboneShell {
             .send_complaining(NormalAudioHookTask::AddRealTimeInstance(id, rt_instance));
         self.control_surface_main_task_sender
             .0
-            .send_complaining(RealearnControlSurfaceMainTask::AddInstance(instance));
+            .send_complaining(RealearnControlSurfaceMainTask::AddInstance(id, instance));
     }
 
     pub fn unregister_instance(&self, instance_id: InstanceId) {
@@ -1724,7 +1727,7 @@ impl BackboneShell {
         } else {
             // Modify the initiator session only.
             let shared_session = self
-                .find_session_by_instance_id_ignoring_borrowed_ones(
+                .find_unit_model_by_unit_id_ignoring_borrowed_ones(
                     common_args.initiator_instance_id,
                 )
                 .ok_or("initiator session not found")?;
@@ -1946,7 +1949,7 @@ impl UnitContainer for BackboneShell {
     }
 
     fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedUnitModel> {
-        BackboneShell::get().find_session_by_instance_id_ignoring_borrowed_ones(instance_id)
+        BackboneShell::get().find_unit_model_by_unit_id_ignoring_borrowed_ones(instance_id)
     }
 
     fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {

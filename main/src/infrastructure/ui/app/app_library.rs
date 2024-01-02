@@ -586,9 +586,8 @@ fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
 fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
     let instance = BackboneShell::get()
         .find_instance_panel_by_instance_id(session_id.parse()?)
-        .context("instance not found")?
-        .app_instance();
-    Ok(instance.clone())
+        .context("instance not found")?;
+    Ok(instance.app_instance().clone())
 }
 
 fn to_status(err: anyhow::Error) -> Status {

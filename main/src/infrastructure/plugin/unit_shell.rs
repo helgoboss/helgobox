@@ -149,6 +149,7 @@ impl UnitShell {
         // even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
         let main_processor = MainProcessor::new(
+            instance_id,
             unit_id,
             &logger,
             normal_main_task_sender.clone(),
@@ -166,16 +167,16 @@ impl UnitShell {
             BackboneShell::get().instance_orchestration_event_sender(),
             BackboneShell::get().osc_feedback_task_sender().clone(),
             weak_session.clone(),
-            processor_context,
-            parent_instance,
+            processor_context.clone(),
+            parent_instance.clone(),
             unit,
             BackboneShell::get(),
         );
         let unit_info = UnitInfo {
             unit_id,
-            processor_context: processor_context.clone(),
+            processor_context,
             instance_id,
-            instance: parent_instance.clone(),
+            instance: parent_instance,
             unit_model: weak_session.clone(),
             instance_panel,
             is_main_unit,

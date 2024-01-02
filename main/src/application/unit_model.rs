@@ -136,9 +136,6 @@ pub struct UnitModel {
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
     control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
-    /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
-    /// instance but this instance is not yet loaded.
-    unresolved_foreign_clip_matrix_session_id: Option<String>,
     instance_track_descriptor: TrackDescriptor,
     instance_fx_descriptor: FxDescriptor,
     memorized_main_compartment: Option<CompartmentModel>,
@@ -289,7 +286,6 @@ impl UnitModel {
             feedback_real_time_task_sender,
             global_osc_feedback_task_sender,
             control_surface_main_task_sender,
-            unresolved_foreign_clip_matrix_session_id: None,
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
@@ -316,21 +312,6 @@ impl UnitModel {
 
     pub fn instance_fx_descriptor(&self) -> &FxDescriptor {
         &self.instance_fx_descriptor
-    }
-
-    pub fn unresolved_foreign_clip_matrix_session_id(&self) -> Option<&String> {
-        self.unresolved_foreign_clip_matrix_session_id.as_ref()
-    }
-
-    pub fn memorize_unresolved_foreign_clip_matrix_session_id(
-        &mut self,
-        foreign_session_id: String,
-    ) {
-        self.unresolved_foreign_clip_matrix_session_id = Some(foreign_session_id);
-    }
-
-    pub fn notify_foreign_clip_matrix_resolved(&mut self) {
-        self.unresolved_foreign_clip_matrix_session_id = None;
     }
 
     pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {
@@ -749,7 +730,7 @@ impl UnitModel {
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
             unit_container: self.unit_container,
-            instance: &self.instance(),
+            instance: &self.instance,
             unit: self.unit(),
             unit_id: self.unit_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),

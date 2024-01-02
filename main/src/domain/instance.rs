@@ -1,5 +1,6 @@
 use crate::domain::{Backbone, ProcessorContext, UnitId};
 use base::{NamedChannelSender, SenderToNormalThread};
+use playtime_clip_engine::base::Matrix;
 use reaper_high::ChangeEvent;
 use std::cell::RefCell;
 use std::fmt;
@@ -21,7 +22,7 @@ pub struct Instance {
     main_unit_id: UnitId,
     handler: Box<dyn InstanceHandler>,
     #[cfg(feature = "playtime")]
-    clip_matrix_ref: Option<ClipMatrixRef>,
+    clip_matrix: Option<playtime_clip_engine::base::Matrix>,
     #[cfg(feature = "playtime")]
     pub clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
     #[cfg(feature = "playtime")]
@@ -53,13 +54,6 @@ impl Drop for Instance {
     fn drop(&mut self) {
         Backbone::get().unregister_instance(&self.id);
     }
-}
-
-#[cfg(feature = "playtime")]
-#[derive(Debug)]
-pub enum ClipMatrixRef {
-    Own(Box<playtime_clip_engine::base::Matrix>),
-    Foreign(InstanceId),
 }
 
 #[cfg(feature = "playtime")]
@@ -104,6 +98,7 @@ impl From<InstanceId> for u32 {
 
 impl Instance {
     pub fn new(
+        id: InstanceId,
         main_unit_id: UnitId,
         processor_context: ProcessorContext,
         handler: Box<dyn InstanceHandler>,
@@ -118,12 +113,12 @@ impl Instance {
         >,
     ) -> Self {
         Self {
-            id: InstanceId::next(),
+            id,
             main_unit_id,
             handler,
             processor_context,
             #[cfg(feature = "playtime")]
-            clip_matrix_ref: None,
+            clip_matrix: None,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
             #[cfg(feature = "playtime")]
@@ -145,7 +140,7 @@ impl Instance {
     /// (not borrowed from another instance).
     #[cfg(feature = "playtime")]
     pub fn poll_owned_clip_matrix(&mut self) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
-        let Some(matrix) = self.owned_clip_matrix_mut() else {
+        let Some(matrix) = self.clip_matrix.as_mut() else {
             return vec![];
         };
         let events = matrix.poll(self.processor_context.project());
@@ -162,7 +157,7 @@ impl Instance {
         if event.instance_id != self.id {
             return;
         }
-        let Some(matrix) = self.owned_clip_matrix() else {
+        let Some(matrix) = self.clip_matrix() else {
             return;
         };
         self.handler.clip_matrix_changed(
@@ -179,7 +174,7 @@ impl Instance {
         }
         #[cfg(feature = "playtime")]
         {
-            if let Some(matrix) = self.owned_clip_matrix_mut() {
+            if let Some(matrix) = self.clip_matrix.as_mut() {
                 // Let matrix react to track changes etc.
                 matrix.process_reaper_change_events(events);
                 // Process for GUI
@@ -189,19 +184,10 @@ impl Instance {
         }
     }
 
-    #[cfg(feature = "playtime")]
-    pub fn clip_matrix_relevance(&self, instance_id: InstanceId) -> Option<ClipMatrixRelevance> {
-        match self.clip_matrix_ref.as_ref()? {
-            ClipMatrixRef::Own(m) if instance_id == self.id => Some(ClipMatrixRelevance::Owns(m)),
-            ClipMatrixRef::Foreign(id) if instance_id == *id => Some(ClipMatrixRelevance::Borrows),
-            _ => None,
-        }
-    }
-
     pub fn notify_mappings_in_unit_changed(&self, unit_id: UnitId) {
         #[cfg(feature = "playtime")]
         if unit_id == self.main_unit_id {
-            if let Some(matrix) = self.owned_clip_matrix() {
+            if let Some(matrix) = self.clip_matrix() {
                 matrix.notify_simple_mappings_changed();
             }
         }
@@ -210,47 +196,29 @@ impl Instance {
     pub fn notify_learning_target_in_unit_changed(&self, unit_id: UnitId) {
         #[cfg(feature = "playtime")]
         if unit_id == self.main_unit_id {
-            if let Some(matrix) = self.owned_clip_matrix() {
+            if let Some(matrix) = self.clip_matrix() {
                 matrix.notify_learning_target_changed();
             }
         }
     }
 
     #[cfg(feature = "playtime")]
-    pub fn owned_clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
-        use crate::domain::ClipMatrixRef::*;
-        match self.clip_matrix_ref.as_ref()? {
-            Own(m) => Some(m),
-            Foreign(_) => None,
-        }
+    pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
+        self.clip_matrix.as_ref()
     }
 
     #[cfg(feature = "playtime")]
-    pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
-        use crate::domain::ClipMatrixRef::*;
-        match self.clip_matrix_ref.as_mut()? {
-            Own(m) => Some(m),
-            Foreign(_) => None,
-        }
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn clip_matrix_ref(&self) -> Option<&ClipMatrixRef> {
-        self.clip_matrix_ref.as_ref()
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn clip_matrix_ref_mut(&mut self) -> Option<&mut ClipMatrixRef> {
-        self.clip_matrix_ref.as_mut()
+    pub fn clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
+        self.clip_matrix.as_mut()
     }
 
     /// Returns `true` if it installed a clip matrix.
     #[cfg(feature = "playtime")]
-    pub(super) fn create_and_install_owned_clip_matrix_if_necessary(
+    pub(super) fn create_and_install_clip_matrix_if_necessary(
         &mut self,
         create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> bool {
-        if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Own(_))) {
+        if self.clip_matrix.is_some() {
             return false;
         }
         let matrix = playtime_clip_engine::base::Matrix::new(
@@ -258,7 +226,7 @@ impl Instance {
             self.processor_context.track().cloned(),
         );
         self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), true);
-        self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(Box::new(matrix))));
+        self.set_clip_matrix(Some(matrix));
         self.clip_matrix_event_sender
             .send_complaining(QualifiedClipMatrixEvent {
                 instance_id: self.id,
@@ -268,12 +236,12 @@ impl Instance {
     }
 
     #[cfg(feature = "playtime")]
-    pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
-        if self.clip_matrix_ref.is_some() {
+    pub fn set_clip_matrix(&mut self, matrix: Option<Matrix>) {
+        if self.clip_matrix.is_some() {
             base::tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
             self.update_real_time_clip_matrix(None, false);
         }
-        self.clip_matrix_ref = matrix_ref;
+        self.clip_matrix = matrix;
     }
 
     #[cfg(feature = "playtime")]
@@ -289,12 +257,4 @@ impl Instance {
         self.real_time_instance_task_sender
             .send_complaining(rt_task);
     }
-}
-
-#[cfg(feature = "playtime")]
-pub enum ClipMatrixRelevance<'a> {
-    /// This instance owns the clip matrix with the given ID.
-    Owns(&'a playtime_clip_engine::base::Matrix),
-    /// This instance borrows the clip matrix with the given ID.
-    Borrows,
 }

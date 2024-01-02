@@ -1437,7 +1437,7 @@ impl VirtualTrack {
                     .resolve(context, compartment)
                     .map_err(|_| generic_error())?;
                 let track = Backbone::get()
-                    .with_clip_matrix(context.control_context.instance, |matrix| {
+                    .with_clip_matrix(&context.control_context.instance(), |matrix| {
                         let column = matrix.get_column(clip_column_index)?;
                         match track_context {
                             realearn_api::persistence::ClipColumnTrackContext::Playback => {

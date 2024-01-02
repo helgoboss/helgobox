@@ -50,7 +50,7 @@ impl RealearnTarget for ClipMatrixTarget {
     ) -> Result<HitResponse, &'static str> {
         Backbone::get()
             .with_clip_matrix_mut(
-                context.control_context.instance,
+                &context.control_context.instance(),
                 |matrix| -> anyhow::Result<HitResponse> {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
@@ -153,7 +153,7 @@ impl<'a> Target<'a> for ClipMatrixTarget {
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         Backbone::get()
-            .with_clip_matrix(context.instance, |matrix| {
+            .with_clip_matrix(&context.instance(), |matrix| {
                 let bool_value = match self.action {
                     ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => matrix.is_stoppable(),
                     ClipMatrixAction::Undo => matrix.can_undo(),

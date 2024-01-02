@@ -292,7 +292,7 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             #[cfg(feature = "playtime")]
-            let has_clip_matrix = session.instance().borrow().owned_clip_matrix().is_some();
+            let has_clip_matrix = session.instance().borrow().clip_matrix().is_some();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
@@ -1197,7 +1197,7 @@ impl HeaderPanel {
             let instance = { shared_session.borrow().instance() };
             instance
                 .borrow_mut()
-                .owned_clip_matrix_mut()
+                .clip_matrix_mut()
                 .expect("this instance has no clip matrix")
                 .freeze()
                 .await;
@@ -2046,16 +2046,9 @@ impl HeaderPanel {
             #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 use playtime_api::persistence::FlexibleMatrix;
-                let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix_ref() {
+                let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(r) => match r {
-                        crate::domain::ClipMatrixRef::Own(m) => {
-                            get_clip_matrix_label(m.column_count())
-                        }
-                        crate::domain::ClipMatrixRef::Foreign(instance_id) => {
-                            format!("clip matrix reference (to instance {instance_id})")
-                        }
-                    },
+                    Some(matrix) => get_clip_matrix_label(matrix.column_count())
                 };
                 let new_matrix_label = match &*value {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
@@ -2078,7 +2071,7 @@ impl HeaderPanel {
                     if let Some(matrix) = *value {
                         crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance).load(matrix)?;
                     } else {
-                        Backbone::get().clear_clip_matrix_from_instance(&mut instance);
+                        instance.set_clip_matrix(None);
                     }
                 }
             }
@@ -2228,7 +2221,7 @@ impl HeaderPanel {
                     .borrow()
                     .instance()
                     .borrow()
-                    .owned_clip_matrix()
+                    .clip_matrix()
                     .map(|matrix| matrix.save());
                 let envelope = BackboneShell::create_envelope(Box::new(matrix));
                 let data_object = DataObject::ClipMatrix(envelope);

@@ -104,7 +104,7 @@ impl ClipManagementTarget {
         context: MappingControlContext,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
-        Backbone::get().with_clip_matrix_mut(context.control_context.instance, f)
+        Backbone::get().with_clip_matrix_mut(&context.control_context.instance(), f)
     }
 }
 
@@ -142,7 +142,7 @@ impl RealearnTarget for ClipManagementTarget {
     fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         match key {
             "clip.name" => Backbone::get()
-                .with_clip_matrix_mut(context.instance, |matrix| {
+                .with_clip_matrix_mut(&context.instance(), |matrix| {
                     let clip = matrix.find_slot(self.slot_coordinates)?.clips().next()?;
                     let name = clip.name()?;
                     Some(PropValue::Text(name.to_string().into()))
@@ -172,7 +172,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
             | A::CopyOrPasteClip
             | A::AdjustClipSectionLength(_) => Some(AbsoluteValue::default()),
             A::EditClip => Backbone::get()
-                .with_clip_matrix(context.instance, |matrix| {
+                .with_clip_matrix(&context.instance(), |matrix| {
                     let clip_address = ClipAddress::new(self.slot_coordinates, 0);
                     let is_editing = matrix.is_editing_clip(clip_address);
                     let value = convert_bool_to_unit_value(is_editing);

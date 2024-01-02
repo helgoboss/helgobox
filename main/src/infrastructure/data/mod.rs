@@ -60,8 +60,5 @@ mod license_management;
 #[cfg(feature = "playtime")]
 pub use license_management::*;
 
-#[cfg(feature = "playtime")]
-mod clip_legacy;
-
 mod common;
 pub use common::*;

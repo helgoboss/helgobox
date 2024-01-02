@@ -416,6 +416,7 @@ impl HelgoboxPlugin {
         let processor_context = ProcessorContext::from_host(self.host)
             .context("couldn't build processor context, called too early.")?;
         let instance_shell = Arc::new(InstanceShell::new(
+            self.instance_id,
             processor_context,
             self.instance_panel.clone(),
         ));

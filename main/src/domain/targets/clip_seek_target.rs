@@ -75,7 +75,7 @@ impl RealearnTarget for ClipSeekTarget {
         let value = value.to_unit_value()?;
         Backbone::get()
             .with_clip_matrix(
-                context.control_context.instance,
+                &context.control_context.instance(),
                 |matrix| -> anyhow::Result<HitResponse> {
                     matrix.seek_slot(self.slot_coordinates, value)?;
                     Ok(HitResponse::processed_with_effect())
@@ -154,7 +154,7 @@ impl RealearnTarget for ClipSeekTarget {
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         Backbone::get()
-            .with_clip_matrix(context.instance, |matrix| {
+            .with_clip_matrix(&context.instance(), |matrix| {
                 let slot = matrix.find_slot(self.slot_coordinates)?;
                 let timeline = matrix.timeline();
                 let tempo = timeline.next_block().tempo_entry.props.tempo;
@@ -171,7 +171,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let val = Backbone::get()
-            .with_clip_matrix(context.instance, |matrix| {
+            .with_clip_matrix(&context.instance(), |matrix| {
                 let relevant_content = matrix.find_slot(self.slot_coordinates)?.relevant_contents();
                 let val = relevant_content
                     .primary_logical_proportional_position()

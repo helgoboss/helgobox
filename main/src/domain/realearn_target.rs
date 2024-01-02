@@ -10,7 +10,7 @@ use crate::domain::{
     InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
     OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, ReaperTarget,
     SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity, UnitId,
-    WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
+    WeakInstance, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
     AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET,
     BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET,
     ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET,
@@ -422,7 +422,7 @@ pub struct ControlContext<'a> {
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub unit_container: &'a dyn UnitContainer,
-    pub instance: &'a SharedInstance,
+    pub instance: &'a WeakInstance,
     pub unit: &'a SharedUnit,
     pub unit_id: UnitId,
     pub output_logging_enabled: bool,
@@ -440,11 +440,12 @@ impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
         let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
-        non_blocking_lock(&*instance, "real-time instance")
+        let result = non_blocking_lock(&*instance, "real-time instance")
             .clip_matrix()
             .ok_or("real-time clip matrix not yet initialized")?
             .upgrade()
-            .ok_or("real-time clip matrix doesn't exist anymore")
+            .ok_or("real-time clip matrix doesn't exist anymore");
+        result
     }
 }
 
@@ -455,6 +456,10 @@ impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTime
 }
 
 impl<'a> ControlContext<'a> {
+    pub fn instance(&self) -> SharedInstance {
+        self.instance.upgrade().expect("instance gone")
+    }
+
     pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
         if self.output_logging_enabled {
             for e in events {

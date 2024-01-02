@@ -47,7 +47,7 @@ fn find_first_playtime_helgobox_instance_in_project(
             return false;
         };
         let instance_state = instance_state.borrow();
-        instance_state.owned_clip_matrix().is_some()
+        instance_state.clip_matrix().is_some()
     })
     .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
     Ok(u32::from(instance_id) as _)

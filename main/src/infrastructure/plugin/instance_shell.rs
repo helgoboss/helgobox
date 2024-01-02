@@ -100,7 +100,11 @@ impl InstanceHandler for CustomInstanceHandler {
 
 impl InstanceShell {
     /// Creates an instance shell with exactly one unit shell.
-    pub fn new(processor_context: ProcessorContext, panel: SharedView<InstancePanel>) -> Self {
+    pub fn new(
+        instance_id: InstanceId,
+        processor_context: ProcessorContext,
+        panel: SharedView<InstancePanel>,
+    ) -> Self {
         let main_unit_id = UnitId::next();
         let instance_handler = CustomInstanceHandler {
             project: processor_context.project(),
@@ -111,6 +115,7 @@ impl InstanceShell {
                 REAL_TIME_INSTANCE_TASK_QUEUE_SIZE,
             );
         let instance = Instance::new(
+            instance_id,
             main_unit_id,
             processor_context.clone(),
             Box::new(instance_handler),
@@ -216,15 +221,22 @@ impl InstanceShell {
     }
 
     pub fn create_data(&self) -> InstanceData {
+        let additional_unit_datas =
+            blocking_read_lock(&self.additional_unit_shells, "create_instance_data")
+                .iter()
+                .map(|us| UnitData::from_model(&us.model().borrow()))
+                .collect();
         InstanceData {
             main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
-            additional_units: blocking_read_lock(
-                &self.additional_unit_shells,
-                "create_instance_data",
-            )
-            .iter()
-            .map(|us| UnitData::from_model(&us.model().borrow()))
-            .collect(),
+            additional_units: additional_unit_datas,
+            pot_state: Default::default(),
+            #[cfg(feature = "playtime")]
+            clip_matrix: {
+                let instance = self.instance.get().borrow();
+                instance.clip_matrix().map(|matrix| {
+                    crate::infrastructure::data::ClipMatrixRefData::Own(Box::new(matrix.save()))
+                })
+            },
         }
     }
 
@@ -261,7 +273,31 @@ impl InstanceShell {
 
     fn apply_data_internal(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
         let instance_data = instance_data.into_instance_data();
+        // Clip matrix
+        #[cfg(feature = "playtime")]
+        {
+            let instance = self.instance();
+            let mut instance = instance.borrow_mut();
+            if let Some(matrix_ref) = instance_data.clip_matrix {
+                match matrix_ref {
+                    crate::infrastructure::data::ClipMatrixRefData::Own(m) => {
+                        crate::application::get_or_insert_owned_clip_matrix(
+                            Rc::downgrade(self.main_unit_shell.model()),
+                            &mut instance,
+                        )
+                        .load(*m.clone())?;
+                    }
+                    crate::infrastructure::data::ClipMatrixRefData::Foreign(_) => {
+                        bail!("Referring to the clip matrix of another instance is not supported anymore!");
+                    }
+                };
+            } else {
+                instance.set_clip_matrix(None);
+            }
+        }
+        // Main unit
         self.main_unit_shell.apply_data(&instance_data.main_unit)?;
+        // Additional units
         let additional_unit_shells: anyhow::Result<Vec<UnitShell>> = instance_data
             .additional_units
             .into_iter()

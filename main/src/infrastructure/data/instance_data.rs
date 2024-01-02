@@ -21,14 +21,14 @@ pub struct InstanceData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pot_state: pot::PersistentState,
+    pub pot_state: pot::PersistentState,
     #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    clip_matrix: Option<ClipMatrixRefData>,
+    pub clip_matrix: Option<ClipMatrixRefData>,
 }
 
 impl Default for InstanceOrUnitData {

@@ -15,8 +15,8 @@ use crate::domain::{
     PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
     QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedInstance,
-    SharedUnit, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedUnit,
+    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
     TargetValueChangedEvent, UnitContainer, UpdatedSingleMappingOnStateEvent,
     VirtualControlElement, VirtualSourceValue, WeakInstance,
 };
@@ -72,6 +72,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
+    instance_id: InstanceId,
     unit_id: UnitId,
     source_context: SourceContext,
     unit_container: &'static dyn UnitContainer,
@@ -250,6 +251,7 @@ struct Channels {
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        instance_id: InstanceId,
         unit_id: UnitId,
         parent_logger: &slog::Logger,
         self_normal_sender: SenderToNormalThread<NormalMainTask>,
@@ -280,6 +282,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             basics: Basics {
+                instance_id,
                 unit_id,
                 source_context: SourceContext,
                 logger: logger.clone(),
@@ -762,14 +765,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         instance_id: InstanceId,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
     ) {
-        let instance = self.basics.instance();
-        if instance
-            .borrow()
-            .clip_matrix_relevance(instance_id)
-            .is_none()
-        {
+        if instance_id != self.basics.instance_id {
             return;
-        };
+        }
         for event in events {
             self.process_clip_matrix_event_for_feedback(event);
         }
@@ -781,15 +779,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         event: &crate::domain::QualifiedClipMatrixEvent,
     ) {
-        if self
-            .basics
-            .instance()
-            .borrow()
-            .clip_matrix_relevance(event.instance_id)
-            .is_none()
-        {
+        if event.instance_id != self.basics.instance_id {
             return;
-        };
+        }
         self.process_clip_matrix_event_for_feedback(&event.event)
     }
 
@@ -3002,10 +2994,6 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
-    pub fn instance(&self) -> SharedInstance {
-        self.instance.upgrade().expect("instance gone")
-    }
-
     pub fn celebrate_success(&self) {
         self.event_handler
             .handle_event_ignoring_error(DomainEvent::TimeForCelebratingSuccess);
@@ -3190,7 +3178,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
             unit_container: self.unit_container,
-            instance: &self.instance(),
+            instance: &self.instance,
             unit: &self.unit,
             unit_id: self.unit_id,
             output_logging_enabled: self.settings.real_output_logging_enabled,

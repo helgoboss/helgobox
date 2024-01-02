@@ -71,7 +71,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
-    AddInstance(WeakInstance),
+    AddInstance(InstanceId, WeakInstance),
     // Removing instances and main processors is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
@@ -397,6 +397,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         {
             use RealearnControlSurfaceMainTask::*;
             match t {
+                AddInstance(id, instance) => {
+                    self.instances.insert(id, instance);
+                }
                 AddMainProcessor(p) => {
                     self.main_processors.borrow_mut().push(p);
                 }
