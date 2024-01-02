@@ -112,6 +112,7 @@ impl UnitShell {
         let parameter_manager = ParameterManager::new(parameter_main_task_sender);
         let unit = Unit::new(
             unit_id,
+            is_main_unit,
             Rc::downgrade(&parent_instance),
             unit_feedback_event_sender,
             parameter_manager,

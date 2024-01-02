@@ -225,7 +225,6 @@ struct Collections {
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
-    // TODO-high CONTINUE Use completely internal parameters if not main unit (build special target).
     parameters: PluginParams,
     previous_target_values: EnumMap<Compartment, HashMap<MappingId, AbsoluteValue>>,
 }

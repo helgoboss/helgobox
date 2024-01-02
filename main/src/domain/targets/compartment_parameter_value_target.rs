@@ -6,6 +6,7 @@ use crate::domain::{
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
+use reaper_medium::ReaperNormalizedFxParamValue;
 use std::num::NonZeroU32;
 
 #[derive(Debug)]
@@ -77,13 +78,28 @@ impl RealearnTarget for CompartmentParameterValueTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
+        let unit_value = value.to_unit_value()?;
         let plugin_param_index = self.plugin_param_index();
-        context
-            .control_context
-            .unit
-            .borrow()
-            .parameter_manager()
-            .set_single_parameter(plugin_param_index, value.to_unit_value()?.get() as _);
+        if context.control_context.unit.borrow().is_main_unit() {
+            // The main unit of an instance is special in that its compartment parameters are
+            // connected to the VST plug-in parameters. That's why we should change the VST plug-in
+            // parameter directly for reasons of unidirectional data flow.
+            context
+                .control_context
+                .processor_context
+                .containing_fx()
+                .parameter_by_index(plugin_param_index.get())
+                .set_reaper_normalized_value(ReaperNormalizedFxParamValue::new(unit_value.get()))?;
+        } else {
+            // Compartment parameters of additional units are purely internal, so we need to
+            // control them internally.
+            context
+                .control_context
+                .unit
+                .borrow()
+                .parameter_manager()
+                .set_single_parameter(plugin_param_index, unit_value.get() as _);
+        }
         Ok(HitResponse::processed_with_effect())
     }
 

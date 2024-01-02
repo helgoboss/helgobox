@@ -32,6 +32,7 @@ type _InstanceState = Unit;
 #[derive(Debug)]
 pub struct Unit {
     id: UnitId,
+    is_main_unit: bool,
     parent_instance: WeakInstance,
     feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
     /// Which mappings are in which group.
@@ -111,12 +112,14 @@ pub struct MappingInfo {
 impl Unit {
     pub(crate) fn new(
         id: UnitId,
+        is_main_unit: bool,
         parent_instance: WeakInstance,
         feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
         parameter_manager: ParameterManager,
     ) -> Self {
         Self {
             id,
+            is_main_unit,
             parent_instance,
             feedback_event_sender,
             mappings_by_group: Default::default(),
@@ -133,6 +136,10 @@ impl Unit {
             mapping_which_learns_target: Default::default(),
             parameter_manager: Arc::new(parameter_manager),
         }
+    }
+
+    pub fn is_main_unit(&self) -> bool {
+        self.is_main_unit
     }
 
     pub fn parameter_manager(&self) -> &Arc<ParameterManager> {
