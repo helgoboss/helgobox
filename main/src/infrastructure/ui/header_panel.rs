@@ -1194,7 +1194,7 @@ impl HeaderPanel {
         let weak_session = self.session.clone();
         base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
             let shared_session = weak_session.upgrade().expect("session gone");
-            let instance = { shared_session.borrow().instance() };
+            let instance = shared_session.borrow().instance().clone();
             instance
                 .borrow_mut()
                 .clip_matrix_mut()
@@ -2066,7 +2066,7 @@ impl HeaderPanel {
                     "ReaLearn",
                     format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
                 ) {
-                    let instance = self.session().borrow().instance();
+                    let instance = self.session().borrow().instance().clone();
                     let mut instance = instance.borrow_mut();
                     if let Some(matrix) = *value {
                         crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance).load(matrix)?;
@@ -2317,7 +2317,7 @@ impl HeaderPanel {
     #[cfg(feature = "egui")]
     fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
         let session = self.session();
-        let pot_unit = session.borrow().unit().borrow_mut().pot_unit()?;
+        let pot_unit = session.borrow().instance().borrow_mut().pot_unit()?;
         let panel = crate::infrastructure::ui::PotBrowserPanel::new(pot_unit);
         open_child_panel_dyn(
             &self.pot_browser_panel,

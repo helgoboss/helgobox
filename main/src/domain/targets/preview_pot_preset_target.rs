@@ -42,7 +42,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let mut instance_state = context.control_context.unit.borrow_mut();
+        let mut instance_state = context.control_context.instance().borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
         if value.is_on() {
@@ -58,7 +58,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let mut instance_state = context.unit.borrow_mut();
+        let mut instance_state = context.instance().borrow_mut();
         let pot_unit = match instance_state.pot_unit() {
             Ok(u) => u,
             Err(_) => return false,

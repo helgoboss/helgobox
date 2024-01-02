@@ -2,10 +2,10 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceStateChanged,
-    MappingControlContext, MappingId, MappingKey, MappingModificationRequestedEvent,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, Unit, UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
+    MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, Unit, UnitId, UnitStateChanged,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -156,9 +156,9 @@ impl RealearnTarget for ModifyMappingTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match &self.modification {
             MappingModification::LearnTarget(_) => match evt {
-                CompoundChangeEvent::Instance(
-                    InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
-                ) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
+                CompoundChangeEvent::Unit(UnitStateChanged::MappingWhichLearnsTargetChanged {
+                    ..
+                }) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
                 CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
                     if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
                 {

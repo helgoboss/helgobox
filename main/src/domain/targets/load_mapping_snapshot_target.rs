@@ -1,9 +1,9 @@
 use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
-    InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
-    MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
-    TargetTypeDef, Unit, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, MainMapping,
+    MappingControlContext, MappingControlResult, MappingSnapshotId, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, Unit, UnitStateChanged,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForLoad;
@@ -143,7 +143,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::MappingSnapshotActivated {
+            CompoundChangeEvent::Unit(UnitStateChanged::MappingSnapshotActivated {
                 compartment,
                 tag_scope,
                 ..

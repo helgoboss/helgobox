@@ -1,10 +1,10 @@
 use crate::domain::{
     Backbone, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
     DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
-    InstanceStateChanged, MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
-    OscDeviceId, OscInputDevice, OscScanResult, ReaperConfigChangeDetector, ReaperMessage,
-    ReaperTarget, SharedInstance, SharedMainProcessors, TargetTouchEvent,
-    TouchedTrackParameterType, UnitId, WeakInstance,
+    MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector, OscDeviceId,
+    OscInputDevice, OscScanResult, QualifiedInstanceEvent, ReaperConfigChangeDetector,
+    ReaperMessage, ReaperTarget, SharedInstance, SharedMainProcessors, TargetTouchEvent,
+    TouchedTrackParameterType, UnitId, UnitStateChanged, WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -35,6 +35,7 @@ type OscCaptureSender = async_channel::Sender<OscScanResult>;
 type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
+const INSTANCE_EVENT_BULK_SIZE: usize = 30;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 #[cfg(feature = "playtime")]
 const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
@@ -51,6 +52,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     instances: IndexMap<InstanceId, WeakInstance>,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+    instance_event_receiver: Receiver<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
     clip_matrix_event_receiver: Receiver<crate::domain::QualifiedClipMatrixEvent>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
@@ -111,7 +113,7 @@ pub enum AdditionalFeedbackEvent {
     /// instances.
     Instance {
         instance_id: UnitId,
-        instance_event: InstanceStateChanged,
+        instance_event: UnitStateChanged,
     },
     LastTouchedTargetChanged,
 }
@@ -181,6 +183,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     pub fn new(
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+        instance_event_receiver: Receiver<QualifiedInstanceEvent>,
         #[cfg(feature = "playtime")] clip_matrix_event_receiver: Receiver<
             crate::domain::QualifiedClipMatrixEvent,
         >,
@@ -204,6 +207,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             instances: Default::default(),
             main_processors,
             main_task_receiver,
+            instance_event_receiver,
             #[cfg(feature = "playtime")]
             clip_matrix_event_receiver,
             additional_feedback_event_receiver,
@@ -264,6 +268,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Inform ReaLearn about various changes that are not relevant for target learning
         self.detect_reaper_config_changes();
         self.emit_focus_switch_between_main_and_fx_as_feedback_event();
+        self.emit_instance_events();
         self.emit_beats_as_feedback_events();
         self.emit_device_changes_as_reaper_source_messages(timestamp);
         self.process_incoming_osc_messages(timestamp);
@@ -588,6 +593,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event);
+            }
+        }
+    }
+
+    fn emit_instance_events(&mut self) {
+        for event in self
+            .instance_event_receiver
+            .try_iter()
+            .take(INSTANCE_EVENT_BULK_SIZE)
+        {
+            for p in &mut *self.main_processors.borrow_mut() {
+                p.process_instance_event_for_feedback(&event)
             }
         }
     }

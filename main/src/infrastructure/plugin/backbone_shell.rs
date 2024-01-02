@@ -9,8 +9,8 @@ use crate::domain::{
     GroupId, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
     InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
     MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
-    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId,
-    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent,
+    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
     ReaperTarget, ReaperTargetType, SharedInstance, SharedMainProcessors, SharedRealTimeInstance,
     SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
@@ -145,6 +145,7 @@ pub struct BackboneShell {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
+    instance_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
     clip_matrix_event_sender: SenderToNormalThread<crate::domain::QualifiedClipMatrixEvent>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
@@ -244,6 +245,8 @@ impl BackboneShell {
                 "feedback audio hook tasks",
                 FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE,
             );
+        let (instance_event_sender, instance_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("instance state change events");
         let (audio_hook_task_sender, normal_audio_hook_task_receiver) =
             SenderToRealTimeThread::new_channel(
                 "normal audio hook tasks",
@@ -309,6 +312,7 @@ impl BackboneShell {
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             BackboneShell::logger(),
             control_surface_main_task_receiver,
+            instance_event_receiver,
             #[cfg(feature = "playtime")]
             clip_matrix_event_receiver,
             additional_feedback_event_receiver,
@@ -351,6 +355,7 @@ impl BackboneShell {
             sessions_changed_subject,
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender,
+            instance_event_sender,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
             osc_feedback_task_sender,
@@ -684,6 +689,10 @@ impl BackboneShell {
         &self,
     ) -> &SenderToRealTimeThread<FeedbackAudioHookTask> {
         &self.feedback_audio_hook_task_sender
+    }
+
+    pub fn instance_event_sender(&self) -> &SenderToNormalThread<QualifiedInstanceEvent> {
+        &self.instance_event_sender
     }
 
     #[cfg(feature = "playtime")]

@@ -1,9 +1,9 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, InstanceStateChanged, MappingControlContext, MappingData,
+    HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetTypeDef, UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -139,9 +139,8 @@ impl RealearnTarget for EnableMappingsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingTags {
-                compartment,
-                ..
+            CompoundChangeEvent::Unit(UnitStateChanged::ActiveMappingTags {
+                compartment, ..
             }) if *compartment == self.compartment => (true, None),
             _ => (false, None),
         }

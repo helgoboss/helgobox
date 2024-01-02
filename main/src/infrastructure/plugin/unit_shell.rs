@@ -2,8 +2,8 @@ use vst::plugin::HostCallback;
 
 use crate::domain::{
     ControlEvent, IncomingMidiMessage, InstanceId, MainProcessor, MidiEvent, ParameterManager,
-    ProcessorContext, RealTimeProcessorLocker, SharedRealTimeProcessor, Unit, UnitId, WeakInstance,
-    WeakRealTimeInstance,
+    ProcessorContext, RealTimeProcessorLocker, SharedInstance, SharedRealTimeProcessor, Unit,
+    UnitId, WeakRealTimeInstance,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::UnitInfo;
@@ -56,7 +56,7 @@ impl UnitShell {
         unit_id: UnitId,
         instance_id: InstanceId,
         processor_context: ProcessorContext,
-        parent_instance: WeakInstance,
+        parent_instance: SharedInstance,
         parent_rt_instance: WeakRealTimeInstance,
         instance_panel: WeakView<InstancePanel>,
         is_main_unit: bool,
@@ -107,14 +107,13 @@ impl UnitShell {
         drop(real_time_processor.lock_recover());
         // Start create session
         // Instance state (domain - shared)
-        let (instance_feedback_event_sender, instance_feedback_event_receiver) =
-            SenderToNormalThread::new_unbounded_channel("instance state change events");
+        let (unit_feedback_event_sender, unit_feedback_event_receiver) =
+            SenderToNormalThread::new_unbounded_channel("unit state change events");
         let parameter_manager = ParameterManager::new(parameter_main_task_sender);
         let unit = Unit::new(
             unit_id,
-            parent_instance.clone(),
-            processor_context.clone(),
-            instance_feedback_event_sender,
+            Rc::downgrade(&parent_instance),
+            unit_feedback_event_sender,
             parameter_manager,
         );
         let unit = Rc::new(RefCell::new(unit));
@@ -157,7 +156,7 @@ impl UnitShell {
             normal_rt_to_main_task_receiver,
             parameter_main_task_receiver,
             control_main_task_receiver,
-            instance_feedback_event_receiver,
+            unit_feedback_event_receiver,
             normal_real_time_task_sender.clone(),
             feedback_real_time_task_sender,
             BackboneShell::get()
@@ -176,7 +175,7 @@ impl UnitShell {
             unit_id,
             processor_context,
             instance_id,
-            instance: parent_instance,
+            instance: Rc::downgrade(&parent_instance),
             unit_model: weak_session.clone(),
             instance_panel,
             is_main_unit,

@@ -8,17 +8,17 @@ use crate::domain::{
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
     FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
     HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceId,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
-    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
-    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
-    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget, SharedUnit,
-    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UnitContainer, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue, WeakInstance,
+    InstanceOrchestrationEvent, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
+    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    QualifiedInstanceEvent, QualifiedMappingId, RawParamValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
+    ReaperTarget, SharedInstance, SharedUnit, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetControlEvent, TargetValueChangedEvent, UnitContainer, UnitStateChanged,
+    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -85,7 +85,9 @@ struct Basics<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
-    instance: WeakInstance,
+    // It's okay to not use a weak instance here because the main processor / unit lives shorter
+    // than the instance. It can't lead to the instance not being disposed.
+    instance: SharedInstance,
     unit: SharedUnit,
     channels: Channels,
     // Using RefCell in the processing layer is an exception. We do it here because we can't
@@ -237,7 +239,7 @@ struct Channels {
         crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
+    instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitStateChanged>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
@@ -261,7 +263,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         >,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitStateChanged>,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
@@ -270,7 +272,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
-        instance: WeakInstance,
+        instance: SharedInstance,
         unit: SharedUnit,
         instance_container: &'static dyn UnitContainer,
     ) -> MainProcessor<EH> {
@@ -737,7 +739,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
             // Propagate to other instances if necessary
-            if event.is_interesting_for_other_instances() {
+            if event.is_interesting_for_other_units() {
                 let global_event = AdditionalFeedbackEvent::Instance {
                     instance_id: self.basics.unit_id,
                     instance_event: event.clone(),
@@ -751,7 +753,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
-                    CompoundChangeEvent::Instance(&event),
+                    CompoundChangeEvent::Unit(&event),
                     self.basics.control_context(),
                 )
             });
@@ -783,6 +785,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         self.process_clip_matrix_event_for_feedback(&event.event)
+    }
+
+    pub fn process_instance_event_for_feedback(&self, event: &QualifiedInstanceEvent) {
+        if event.instance_id != self.basics.instance_id {
+            return;
+        }
+        self.process_feedback_related_reaper_event(|mapping, target| {
+            mapping.process_change_event(
+                target,
+                CompoundChangeEvent::Instance(&event.event),
+                self.basics.control_context(),
+            )
+        });
     }
 
     #[cfg(feature = "playtime")]

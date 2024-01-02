@@ -1,13 +1,19 @@
-use crate::domain::{Backbone, ProcessorContext, UnitId};
+use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, UnitId};
 use base::{NamedChannelSender, SenderToNormalThread};
 use playtime_clip_engine::base::Matrix;
-use reaper_high::ChangeEvent;
-use std::cell::RefCell;
+use pot::{
+    CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
+    SharedRuntimePotUnit,
+};
+use realearn_api::persistence::PotFilterKind;
+use reaper_high::{ChangeEvent, Fx};
+use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::num::ParseIntError;
 use std::rc::{Rc, Weak};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::RwLock;
 
 pub type SharedInstance = Rc<RefCell<Instance>>;
 pub type WeakInstance = Weak<RefCell<Instance>>;
@@ -19,8 +25,13 @@ pub struct InstanceId(u32);
 pub struct Instance {
     id: InstanceId,
     processor_context: ProcessorContext,
+    feedback_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     main_unit_id: UnitId,
     handler: Box<dyn InstanceHandler>,
+    /// Saves the current state for Pot preset navigation.
+    ///
+    /// Persistent.
+    pot_unit: PotUnit,
     #[cfg(feature = "playtime")]
     clip_matrix: Option<playtime_clip_engine::base::Matrix>,
     #[cfg(feature = "playtime")]
@@ -54,6 +65,12 @@ impl Drop for Instance {
     fn drop(&mut self) {
         Backbone::get().unregister_instance(&self.id);
     }
+}
+
+#[derive(Debug)]
+pub struct QualifiedInstanceEvent {
+    pub instance_id: InstanceId,
+    pub event: InstanceStateChanged,
 }
 
 #[cfg(feature = "playtime")]
@@ -101,6 +118,7 @@ impl Instance {
         id: InstanceId,
         main_unit_id: UnitId,
         processor_context: ProcessorContext,
+        feedback_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
         handler: Box<dyn InstanceHandler>,
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             QualifiedClipMatrixEvent,
@@ -115,8 +133,10 @@ impl Instance {
         Self {
             id,
             main_unit_id,
+            feedback_event_sender,
             handler,
             processor_context,
+            pot_unit: Default::default(),
             #[cfg(feature = "playtime")]
             clip_matrix: None,
             #[cfg(feature = "playtime")]
@@ -134,6 +154,35 @@ impl Instance {
 
     pub fn main_unit_id(&self) -> UnitId {
         self.main_unit_id
+    }
+
+    /// Returns the runtime pot unit associated with this instance.
+    ///
+    /// If the pot unit isn't loaded yet and loading has not been attempted yet, loads it.
+    ///
+    /// Returns an error if the necessary pot database is not available.
+    pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
+        let integration = RealearnPotIntegration::new(
+            self.id,
+            self.processor_context.containing_fx().clone(),
+            self.feedback_event_sender.clone(),
+        );
+        self.pot_unit.loaded(Box::new(integration))
+    }
+
+    /// Restores a pot unit state from persistent data.
+    ///
+    /// This doesn't load the pot unit yet. If the ReaLearn instance never accesses the pot unit,
+    /// it simply remains unloaded and its persistent state is kept. The persistent state is also
+    /// kept if loading of the pot unit fails (e.g. if the necessary pot database is not available
+    /// on the user's computer).
+    pub fn restore_pot_unit(&mut self, state: pot::PersistentState) {
+        self.pot_unit = PotUnit::unloaded(state);
+    }
+
+    /// Returns a pot unit state suitable to be saved by the persistence logic.
+    pub fn save_pot_unit(&self) -> pot::PersistentState {
+        self.pot_unit.persistent_state()
     }
 
     /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
@@ -257,4 +306,95 @@ impl Instance {
         self.real_time_instance_task_sender
             .send_complaining(rt_task);
     }
+}
+
+struct RealearnPotIntegration {
+    instance_id: InstanceId,
+    containing_fx: Fx,
+    sender: SenderToNormalThread<QualifiedInstanceEvent>,
+}
+
+impl RealearnPotIntegration {
+    fn new(
+        instance_id: InstanceId,
+        containing_fx: Fx,
+        sender: SenderToNormalThread<QualifiedInstanceEvent>,
+    ) -> Self {
+        Self {
+            instance_id,
+            containing_fx,
+            sender,
+        }
+    }
+
+    fn emit(&self, event: InstanceStateChanged) {
+        self.sender.send_complaining(QualifiedInstanceEvent {
+            instance_id: self.instance_id,
+            event,
+        })
+    }
+}
+
+impl PotIntegration for RealearnPotIntegration {
+    fn favorites(&self) -> &RwLock<PotFavorites> {
+        &AnyThreadBackboneState::get().pot_favorites
+    }
+
+    fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset) {
+        Backbone::target_state()
+            .borrow_mut()
+            .set_current_fx_preset(fx, preset);
+        self.emit(InstanceStateChanged::PotStateChanged(
+            PotStateChangedEvent::PresetLoaded,
+        ));
+    }
+
+    fn exclude_list(&self) -> Ref<PotFilterExcludes> {
+        Backbone::get().pot_filter_exclude_list()
+    }
+
+    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
+        Backbone::get().pot_filter_exclude_list_mut()
+    }
+
+    fn notify_preset_changed(&self, id: Option<PresetId>) {
+        self.emit(InstanceStateChanged::PotStateChanged(
+            PotStateChangedEvent::PresetChanged { id },
+        ));
+    }
+
+    fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter) {
+        self.emit(InstanceStateChanged::PotStateChanged(
+            PotStateChangedEvent::FilterItemChanged { kind, filter },
+        ));
+    }
+
+    fn notify_indexes_rebuilt(&self) {
+        self.emit(InstanceStateChanged::PotStateChanged(
+            PotStateChangedEvent::IndexesRebuilt,
+        ));
+    }
+
+    fn protected_fx(&self) -> &Fx {
+        &self.containing_fx
+    }
+}
+
+#[derive(Clone, Debug)]
+#[allow(clippy::enum_variant_names)]
+pub enum InstanceStateChanged {
+    PotStateChanged(PotStateChangedEvent),
+}
+
+#[derive(Clone, Debug)]
+pub enum PotStateChangedEvent {
+    FilterItemChanged {
+        kind: PotFilterKind,
+        filter: OptFilter,
+    },
+    PresetChanged {
+        id: Option<PresetId>,
+    },
+    IndexesRebuilt,
+    PresetLoaded,
 }

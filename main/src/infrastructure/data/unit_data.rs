@@ -262,7 +262,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub pot_state: pot::PersistentState,
+    pub pot_state: Option<pot::PersistentState>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -504,7 +504,7 @@ impl UnitData {
                 &instance_state,
                 Compartment::Controller,
             ),
-            pot_state: instance_state.save_pot_unit(),
+            pot_state: None,
             memorized_main_compartment: session
                 .memorized_main_compartment()
                 .map(CompartmentModelData::from_model),
@@ -807,8 +807,6 @@ impl UnitData {
                 Compartment::Controller,
                 controller_mapping_snapshot_container,
             );
-            // Pot state
-            instance_state.restore_pot_unit(self.pot_state.clone());
         }
         Ok(())
     }

@@ -346,6 +346,7 @@ impl ReaperTarget {
                 )
             }
             CompoundChangeEvent::Instance(_) => false,
+            CompoundChangeEvent::Unit(_) => false,
             #[cfg(feature = "playtime")]
             CompoundChangeEvent::ClipMatrix(_) => false,
         }

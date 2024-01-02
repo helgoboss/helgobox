@@ -118,6 +118,7 @@ impl InstanceShell {
             instance_id,
             main_unit_id,
             processor_context.clone(),
+            BackboneShell::get().instance_event_sender().clone(),
             Box::new(instance_handler),
             #[cfg(feature = "playtime")]
             BackboneShell::get().clip_matrix_event_sender().clone(),
@@ -139,7 +140,7 @@ impl InstanceShell {
             main_unit_id,
             instance_id,
             processor_context.clone(),
-            Rc::downgrade(&instance),
+            instance.clone(),
             Arc::downgrade(&rt_instance),
             SharedView::downgrade(&panel),
             true,
@@ -195,7 +196,7 @@ impl InstanceShell {
             UnitId::next(),
             self.instance_id,
             self.processor_context.get().clone(),
-            Rc::downgrade(self.instance.get()),
+            self.instance.get().clone(),
             Arc::downgrade(&self.rt_instance),
             SharedView::downgrade(self.panel.get()),
             false,
@@ -226,13 +227,13 @@ impl InstanceShell {
                 .iter()
                 .map(|us| UnitData::from_model(&us.model().borrow()))
                 .collect();
+        let instance = self.instance.get().borrow();
         InstanceData {
             main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
             additional_units: additional_unit_datas,
-            pot_state: Default::default(),
+            pot_state: instance.save_pot_unit(),
             #[cfg(feature = "playtime")]
             clip_matrix: {
-                let instance = self.instance.get().borrow();
                 instance.clip_matrix().map(|matrix| {
                     crate::infrastructure::data::ClipMatrixRefData::Own(Box::new(matrix.save()))
                 })
@@ -273,17 +274,20 @@ impl InstanceShell {
 
     fn apply_data_internal(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
         let instance_data = instance_data.into_instance_data();
+        let instance = self.instance();
+        // Pot state
+        instance
+            .borrow_mut()
+            .restore_pot_unit(instance_data.pot_state.clone());
         // Clip matrix
         #[cfg(feature = "playtime")]
         {
-            let instance = self.instance();
-            let mut instance = instance.borrow_mut();
             if let Some(matrix_ref) = instance_data.clip_matrix {
                 match matrix_ref {
                     crate::infrastructure::data::ClipMatrixRefData::Own(m) => {
                         crate::application::get_or_insert_owned_clip_matrix(
                             Rc::downgrade(self.main_unit_shell.model()),
-                            &mut instance,
+                            &mut instance.borrow_mut(),
                         )
                         .load(*m.clone())?;
                     }
@@ -292,7 +296,7 @@ impl InstanceShell {
                     }
                 };
             } else {
-                instance.set_clip_matrix(None);
+                instance.borrow_mut().set_clip_matrix(None);
             }
         }
         // Main unit

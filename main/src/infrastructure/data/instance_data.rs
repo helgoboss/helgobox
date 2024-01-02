@@ -1,7 +1,6 @@
 use crate::infrastructure::data::{ClipMatrixRefData, UnitData};
 use base::default_util::{deserialize_null_default, is_default};
 use serde::{Deserialize, Serialize};
-use std::mem;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -43,7 +42,9 @@ impl InstanceOrUnitData {
         match self {
             InstanceOrUnitData::InstanceData(d) => d,
             InstanceOrUnitData::UnitData(mut d) => InstanceData {
-                pot_state: mem::take(&mut d.pot_state),
+                // Migrate pot state from unit data
+                pot_state: d.pot_state.take().unwrap_or_default(),
+                // Migrate clip matrix state from unit data
                 clip_matrix: d.clip_matrix.take(),
                 main_unit: d,
                 additional_units: vec![],

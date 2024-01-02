@@ -18,7 +18,7 @@ use crate::domain::{
     QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
     ReaperTargetType, SharedInstance, SharedUnit, StayActiveWhenProjectInBackground, Tag,
     TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue, WeakInstance,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -130,7 +130,8 @@ pub struct UnitModel {
     global_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_preset_link_config: FxPresetLinkConfig,
     use_instance_preset_links_only: bool,
-    instance: WeakInstance,
+    // It's okay not to use Weak here because the instance lives longer than the unit.
+    instance: SharedInstance,
     unit: SharedUnit,
     global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<FeedbackAudioHookTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
@@ -215,7 +216,7 @@ impl UnitModel {
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
-        instance: WeakInstance,
+        instance: SharedInstance,
         unit: SharedUnit,
         global_feedback_audio_hook_task_sender: &'static SenderToRealTimeThread<
             FeedbackAudioHookTask,
@@ -2375,7 +2376,7 @@ impl UnitModel {
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
-        self.instance()
+        self.instance
             .borrow()
             .notify_mappings_in_unit_changed(self.unit_id);
         let group_data = self
@@ -2387,8 +2388,8 @@ impl UnitModel {
             .send_complaining(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)));
     }
 
-    pub fn instance(&self) -> SharedInstance {
-        self.instance.upgrade().expect("instance gone")
+    pub fn instance(&self) -> &SharedInstance {
+        &self.instance
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
@@ -2406,7 +2407,7 @@ impl UnitModel {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: Compartment) {
-        self.instance()
+        self.instance
             .borrow()
             .notify_mappings_in_unit_changed(self.unit_id);
         let main_mappings = self.create_main_mappings(compartment);

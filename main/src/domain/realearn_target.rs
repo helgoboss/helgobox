@@ -10,16 +10,16 @@ use crate::domain::{
     InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
     OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, ReaperTarget,
     SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity, UnitId,
-    WeakInstance, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
-    AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET,
-    BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET,
-    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET,
-    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET,
-    FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET,
-    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET,
-    MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET,
-    ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET,
-    ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
+    UnitStateChanged, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
+    ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
+    BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
+    DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET,
+    FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET,
+    FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET,
+    LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET,
+    LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET,
+    PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET, ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET,
+    ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET, ROUTE_TOUCH_STATE_TARGET, ROUTE_VOLUME_TARGET,
     SAVE_MAPPING_SNAPSHOT_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET,
     TRACK_ARM_TARGET, TRACK_AUTOMATION_MODE_TARGET, TRACK_MONITORING_MODE_TARGET,
     TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PARENT_SEND_TARGET, TRACK_PEAK_TARGET,
@@ -343,6 +343,7 @@ pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
+    Unit(&'a UnitStateChanged),
     #[cfg(feature = "playtime")]
     ClipMatrix(&'a playtime_clip_engine::base::ClipMatrixEvent),
 }
@@ -422,7 +423,7 @@ pub struct ControlContext<'a> {
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub unit_container: &'a dyn UnitContainer,
-    pub instance: &'a WeakInstance,
+    pub instance: &'a SharedInstance,
     pub unit: &'a SharedUnit,
     pub unit_id: UnitId,
     pub output_logging_enabled: bool,
@@ -456,8 +457,8 @@ impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTime
 }
 
 impl<'a> ControlContext<'a> {
-    pub fn instance(&self) -> SharedInstance {
-        self.instance.upgrade().expect("instance gone")
+    pub fn instance(&self) -> &SharedInstance {
+        &self.instance
     }
 
     pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {

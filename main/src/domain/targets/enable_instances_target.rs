@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, EnableInstancesArgs,
-    Exclusivity, ExtendedProcessorContext, HitResponse, InstanceStateChanged,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, UnitStateChanged,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -81,7 +81,7 @@ impl RealearnTarget for EnableInstancesTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveInstanceTags) => (true, None),
+            CompoundChangeEvent::Unit(UnitStateChanged::ActiveInstanceTags) => (true, None),
             _ => (false, None),
         }
     }

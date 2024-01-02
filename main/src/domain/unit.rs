@@ -1,26 +1,21 @@
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use enum_map::EnumMap;
-use reaper_high::Fx;
 use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    AnyThreadBackboneState, Backbone, Compartment, FxDescriptor, GlobalControlAndFeedbackState,
-    GroupId, MappingId, MappingSnapshotContainer, ParameterManager, ProcessorContext,
-    QualifiedMappingId, SharedInstance, Tag, TagScope, TrackDescriptor, UnitId,
-    VirtualMappingSnapshotIdForLoad, WeakInstance,
+    Compartment, FxDescriptor, GlobalControlAndFeedbackState, GroupId, MappingId,
+    MappingSnapshotContainer, ParameterManager, ProcessorContext, QualifiedMappingId,
+    SharedInstance, Tag, TagScope, TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad,
+    WeakInstance,
 };
 use base::{NamedChannelSender, SenderToNormalThread};
-use pot::{CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration};
-use pot::{PotUnit, PresetId, SharedRuntimePotUnit};
-use realearn_api::persistence::PotFilterKind;
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
-pub type WeakUnit = Weak<RefCell<Unit>>;
 
 /// Just the old term as alias for easier class search.
 type _InstanceState = Unit;
@@ -39,8 +34,7 @@ type _InstanceState = Unit;
 pub struct Unit {
     id: UnitId,
     parent_instance: WeakInstance,
-    processor_context: ProcessorContext,
-    instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+    feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
     /// Which mappings are in which group.
     ///
     /// - Not persistent
@@ -105,10 +99,6 @@ pub struct Unit {
     ///
     /// Persistent.
     mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
-    /// Saves the current state for Pot preset navigation.
-    ///
-    /// Persistent.
-    pot_unit: PotUnit,
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
@@ -123,15 +113,13 @@ impl Unit {
     pub(crate) fn new(
         id: UnitId,
         parent_instance: WeakInstance,
-        processor_context: ProcessorContext,
-        instance_feedback_event_sender: SenderToNormalThread<InstanceStateChanged>,
+        feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
         parameter_manager: ParameterManager,
     ) -> Self {
         Self {
             id,
             parent_instance,
-            processor_context,
-            instance_feedback_event_sender,
+            feedback_event_sender,
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
             mapping_infos: Default::default(),
@@ -142,7 +130,6 @@ impl Unit {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: Default::default(),
             mapping_snapshot_container: Default::default(),
-            pot_unit: Default::default(),
             mapping_which_learns_source: Default::default(),
             mapping_which_learns_target: Default::default(),
             parameter_manager: Arc::new(parameter_manager),
@@ -161,8 +148,8 @@ impl Unit {
         self.parent_instance()
             .borrow()
             .notify_learning_target_in_unit_changed(self.id);
-        self.instance_feedback_event_sender
-            .send_complaining(InstanceStateChanged::MappingWhichLearnsSourceChanged { mapping_id });
+        self.feedback_event_sender
+            .send_complaining(UnitStateChanged::MappingWhichLearnsSourceChanged { mapping_id });
         previous_value
     }
 
@@ -177,8 +164,8 @@ impl Unit {
         mapping_id: Option<QualifiedMappingId>,
     ) -> Option<QualifiedMappingId> {
         let previous_value = self.mapping_which_learns_target.replace(mapping_id);
-        self.instance_feedback_event_sender
-            .send_complaining(InstanceStateChanged::MappingWhichLearnsTargetChanged { mapping_id });
+        self.feedback_event_sender
+            .send_complaining(UnitStateChanged::MappingWhichLearnsTargetChanged { mapping_id });
         previous_value
     }
 
@@ -202,34 +189,6 @@ impl Unit {
             None => false,
             Some(i) => *i == id,
         }
-    }
-
-    /// Returns the runtime pot unit associated with this instance.
-    ///
-    /// If the pot unit isn't loaded yet and loading has not been attempted yet, loads it.
-    ///
-    /// Returns an error if the necessary pot database is not available.
-    pub fn pot_unit(&mut self) -> Result<SharedRuntimePotUnit, &'static str> {
-        let integration = RealearnPotIntegration::new(
-            self.processor_context.containing_fx().clone(),
-            self.instance_feedback_event_sender.clone(),
-        );
-        self.pot_unit.loaded(Box::new(integration))
-    }
-
-    /// Restores a pot unit state from persistent data.
-    ///
-    /// This doesn't load the pot unit yet. If the ReaLearn instance never accesses the pot unit,
-    /// it simply remains unloaded and its persistent state is kept. The persistent state is also
-    /// kept if loading of the pot unit fails (e.g. if the necessary pot database is not available
-    /// on the user's computer).
-    pub fn restore_pot_unit(&mut self, state: pot::PersistentState) {
-        self.pot_unit = PotUnit::unloaded(state);
-    }
-
-    /// Returns a pot unit state suitable to be saved by the persistence logic.
-    pub fn save_pot_unit(&self) -> pot::PersistentState {
-        self.pot_unit.persistent_state()
     }
 
     pub fn set_mapping_snapshot_container(
@@ -263,13 +222,12 @@ impl Unit {
         snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) {
         self.mapping_snapshot_container[compartment].mark_snapshot_active(tag_scope, snapshot_id);
-        self.instance_feedback_event_sender.send_complaining(
-            InstanceStateChanged::MappingSnapshotActivated {
+        self.feedback_event_sender
+            .send_complaining(UnitStateChanged::MappingSnapshotActivated {
                 compartment,
                 tag_scope: tag_scope.clone(),
                 snapshot_id: snapshot_id.clone(),
-            },
-        )
+            })
     }
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
@@ -340,9 +298,8 @@ impl Unit {
     }
 
     fn notify_active_mapping_tags_changed(&mut self, compartment: Compartment) {
-        let instance_event = InstanceStateChanged::ActiveMappingTags { compartment };
-        self.instance_feedback_event_sender
-            .send_complaining(instance_event);
+        let instance_event = UnitStateChanged::ActiveMappingTags { compartment };
+        self.feedback_event_sender.send_complaining(instance_event);
     }
 
     pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
@@ -376,8 +333,8 @@ impl Unit {
     }
 
     fn notify_active_instance_tags_changed(&mut self) {
-        self.instance_feedback_event_sender
-            .send_complaining(InstanceStateChanged::ActiveInstanceTags);
+        self.feedback_event_sender
+            .send_complaining(UnitStateChanged::ActiveInstanceTags);
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
@@ -445,13 +402,12 @@ impl Unit {
         mapping_id: MappingId,
     ) {
         self.active_mapping_by_group[compartment].insert(group_id, mapping_id);
-        let instance_event = InstanceStateChanged::ActiveMappingWithinGroup {
+        let instance_event = UnitStateChanged::ActiveMappingWithinGroup {
             compartment,
             group_id,
             mapping_id: Some(mapping_id),
         };
-        self.instance_feedback_event_sender
-            .send_complaining(instance_event);
+        self.feedback_event_sender.send_complaining(instance_event);
     }
 
     /// Gets the ID of the currently active mapping within the given group.
@@ -472,12 +428,12 @@ impl Unit {
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
             if !mappings_by_group.contains_key(group_id) {
-                let event = InstanceStateChanged::ActiveMappingWithinGroup {
+                let event = UnitStateChanged::ActiveMappingWithinGroup {
                     compartment,
                     group_id: *group_id,
                     mapping_id: None,
                 };
-                self.instance_feedback_event_sender.send_complaining(event);
+                self.feedback_event_sender.send_complaining(event);
             }
         }
         self.mappings_by_group[compartment] = mappings_by_group;
@@ -499,7 +455,7 @@ impl Unit {
 
 #[derive(Clone, Debug)]
 #[allow(clippy::enum_variant_names)]
-pub enum InstanceStateChanged {
+pub enum UnitStateChanged {
     /// For the "ReaLearn: Browse group mappings" target.
     ActiveMappingWithinGroup {
         compartment: Compartment,
@@ -507,9 +463,7 @@ pub enum InstanceStateChanged {
         mapping_id: Option<MappingId>,
     },
     /// For the "ReaLearn: Enable/disable mappings" target.
-    ActiveMappingTags {
-        compartment: Compartment,
-    },
+    ActiveMappingTags { compartment: Compartment },
     /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
     /// For the "ReaLearn: Load mapping snapshot" target.
@@ -518,7 +472,6 @@ pub enum InstanceStateChanged {
         tag_scope: TagScope,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
-    PotStateChanged(PotStateChangedEvent),
     MappingWhichLearnsSourceChanged {
         mapping_id: Option<QualifiedMappingId>,
     },
@@ -527,87 +480,11 @@ pub enum InstanceStateChanged {
     },
 }
 
-impl InstanceStateChanged {
-    pub fn is_interesting_for_other_instances(&self) -> bool {
+impl UnitStateChanged {
+    pub fn is_interesting_for_other_units(&self) -> bool {
         matches!(
             self,
-            InstanceStateChanged::MappingWhichLearnsTargetChanged { .. }
+            UnitStateChanged::MappingWhichLearnsTargetChanged { .. }
         )
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum PotStateChangedEvent {
-    FilterItemChanged {
-        kind: PotFilterKind,
-        filter: OptFilter,
-    },
-    PresetChanged {
-        id: Option<PresetId>,
-    },
-    IndexesRebuilt,
-    PresetLoaded,
-}
-
-struct RealearnPotIntegration {
-    containing_fx: Fx,
-    sender: SenderToNormalThread<InstanceStateChanged>,
-}
-
-impl RealearnPotIntegration {
-    fn new(containing_fx: Fx, sender: SenderToNormalThread<InstanceStateChanged>) -> Self {
-        Self {
-            containing_fx,
-            sender,
-        }
-    }
-}
-
-impl PotIntegration for RealearnPotIntegration {
-    fn favorites(&self) -> &RwLock<PotFavorites> {
-        &AnyThreadBackboneState::get().pot_favorites
-    }
-
-    fn set_current_fx_preset(&self, fx: Fx, preset: CurrentPreset) {
-        Backbone::target_state()
-            .borrow_mut()
-            .set_current_fx_preset(fx, preset);
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::PresetLoaded,
-            ));
-    }
-
-    fn exclude_list(&self) -> Ref<PotFilterExcludes> {
-        Backbone::get().pot_filter_exclude_list()
-    }
-
-    fn exclude_list_mut(&self) -> RefMut<PotFilterExcludes> {
-        Backbone::get().pot_filter_exclude_list_mut()
-    }
-
-    fn notify_preset_changed(&self, id: Option<PresetId>) {
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::PresetChanged { id },
-            ));
-    }
-
-    fn notify_filter_changed(&self, kind: PotFilterKind, filter: OptFilter) {
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::FilterItemChanged { kind, filter },
-            ));
-    }
-
-    fn notify_indexes_rebuilt(&self) {
-        self.sender
-            .send_complaining(InstanceStateChanged::PotStateChanged(
-                PotStateChangedEvent::IndexesRebuilt,
-            ));
-    }
-
-    fn protected_fx(&self) -> &Fx {
-        &self.containing_fx
     }
 }
