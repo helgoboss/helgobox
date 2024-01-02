@@ -20,21 +20,23 @@ use crate::application::{
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
-    Compartment, CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId, MappingId,
-    MappingKey, MappingRef, MappingSnapshotId, MouseActionType, OscDeviceId,
-    PotFilterItemsTargetSettings, ProcessorContext, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
-    TouchedRouteParameterType, TouchedTrackParameterType, TrackDescriptor, TrackExclusivity,
-    TrackGangBehavior, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    Compartment, CompartmentParamIndex, CompoundMappingTarget, Exclusivity, ExpressionEvaluator,
+    ExtendedProcessorContext, FeedbackResolution, FxDescriptor, FxDisplayType,
+    FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef, MappingSnapshotId,
+    MouseActionType, OscDeviceId, PotFilterItemsTargetSettings, ProcessorContext,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
-    UnresolvedBrowseTracksTarget, UnresolvedCompoundMappingTarget, UnresolvedDummyTarget,
-    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
-    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedBrowseTracksTarget, UnresolvedCompartmentParameterValueTarget,
+    UnresolvedCompoundMappingTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
+    UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget, UnresolvedReaperTarget,
@@ -741,9 +743,10 @@ pub struct TargetModel {
     fx_expression: String,
     enable_only_if_fx_has_focus: bool,
     fx_tool_action: FxToolAction,
+    // # For track FX or compartment parameter targets
+    param_index: u32,
     // # For track FX parameter targets
     param_type: VirtualFxParameterType,
-    param_index: u32,
     param_name: String,
     param_expression: String,
     retrigger: bool,
@@ -1106,6 +1109,10 @@ impl TargetModel {
 
     pub fn param_index(&self) -> u32 {
         self.param_index
+    }
+
+    pub fn compartment_param_index(&self) -> CompartmentParamIndex {
+        CompartmentParamIndex::try_from(self.param_index).unwrap_or_default()
     }
 
     pub fn param_name(&self) -> &str {
@@ -2309,6 +2316,12 @@ impl TargetModel {
                         axis: self.axis,
                         button: self.mouse_button,
                     }),
+                    CompartmentParameterValue => UnresolvedReaperTarget::CompartmentParameterValue(
+                        UnresolvedCompartmentParameterValueTarget {
+                            compartment,
+                            index: self.compartment_param_index(),
+                        },
+                    ),
                     Action => UnresolvedReaperTarget::Action(UnresolvedActionTarget {
                         action: self.resolved_action()?,
                         invocation_type: self.action_invocation_type,

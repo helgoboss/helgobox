@@ -6,11 +6,11 @@ use crate::domain::{
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
-    UnresolvedBrowseTracksTarget, UnresolvedDummyTarget, UnresolvedEnableInstancesTarget,
-    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxOnlineTarget,
-    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxParameterTouchStateTarget,
-    UnresolvedFxPresetTarget, UnresolvedFxToolTarget, UnresolvedGoToBookmarkTarget,
-    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedBrowseTracksTarget, UnresolvedCompartmentParameterValueTarget, UnresolvedDummyTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxOnlineTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxParameterTouchStateTarget, UnresolvedFxPresetTarget, UnresolvedFxToolTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
     UnresolvedLoadMappingSnapshotTarget, UnresolvedLoadPotPresetTarget, UnresolvedMidiSendTarget,
     UnresolvedModifyMappingTarget, UnresolvedMouseTarget, UnresolvedOscSendTarget,
     UnresolvedPlayrateTarget, UnresolvedPreviewPotPresetTarget,
@@ -121,6 +121,7 @@ pub enum UnresolvedReaperTarget {
     BrowsePotPresets(UnresolvedBrowsePotPresetsTarget),
     PreviewPotPreset(UnresolvedPreviewPotPresetTarget),
     LoadPotPreset(UnresolvedLoadPotPresetTarget),
+    CompartmentParameterValue(UnresolvedCompartmentParameterValueTarget),
 }
 
 impl UnresolvedReaperTarget {

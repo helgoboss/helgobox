@@ -1297,23 +1297,23 @@ pub struct FxParameterData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    r#type: Option<VirtualFxParameterType>,
+    pub r#type: Option<VirtualFxParameterType>,
     #[serde(
         rename = "paramIndex",
         default,
         deserialize_with = "f32_as_u32",
         skip_serializing_if = "is_default"
     )]
-    index: u32,
+    pub index: u32,
     #[serde(rename = "paramName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(
         rename = "paramExpression",
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    expression: Option<String>,
+    pub expression: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]

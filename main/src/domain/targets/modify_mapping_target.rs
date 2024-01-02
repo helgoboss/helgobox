@@ -159,7 +159,7 @@ impl RealearnTarget for ModifyMappingTarget {
                 CompoundChangeEvent::Unit(UnitStateChanged::MappingWhichLearnsTargetChanged {
                     ..
                 }) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
-                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
+                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Unit { .. })
                     if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
                 {
                     (true, None)

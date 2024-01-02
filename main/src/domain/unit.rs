@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use enum_map::EnumMap;
@@ -9,9 +9,8 @@ use rxrust::prelude::*;
 use crate::base::Prop;
 use crate::domain::{
     Compartment, FxDescriptor, GlobalControlAndFeedbackState, GroupId, MappingId,
-    MappingSnapshotContainer, ParameterManager, ProcessorContext, QualifiedMappingId,
-    SharedInstance, Tag, TagScope, TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad,
-    WeakInstance,
+    MappingSnapshotContainer, ParameterManager, QualifiedMappingId, SharedInstance, Tag, TagScope,
+    TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
 use base::{NamedChannelSender, SenderToNormalThread};
 

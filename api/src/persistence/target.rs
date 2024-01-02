@@ -159,6 +159,7 @@ pub enum Target {
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
     ModifyMapping(ModifyMappingTarget),
+    CompartmentParameterValue(CompartmentParameterValueTarget),
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
@@ -767,6 +768,13 @@ pub struct FxParameterValueTarget {
     pub poll_for_feedback: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retrigger: Option<bool>,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct CompartmentParameterValueTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub parameter: CompartmentParameterDescriptor,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -1894,6 +1902,12 @@ pub enum FxParameterDescriptor {
         fx: Option<FxDescriptor>,
         name: String,
     },
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "address")]
+pub enum CompartmentParameterDescriptor {
+    ById { index: u32 },
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize)]

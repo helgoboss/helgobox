@@ -67,6 +67,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::menus::get_param_name;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
     parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
@@ -464,6 +465,8 @@ impl MappingPanel {
                                             P::ParamIndex => {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
+                                                // This one is for compartment parameter target
+                                                view.invalidate_target_line_2_label_2();
                                             }
                                             P::ActionInvocationType => {
                                                 view.invalidate_target_line_3(None);
@@ -635,6 +638,9 @@ impl MappingPanel {
                     ReaperTargetType::ModifyMapping => {
                         self.open_learnable_targets_picker(mapping);
                     }
+                    ReaperTargetType::CompartmentParameterValue => {
+                        self.pick_compartment_parameter(mapping);
+                    }
                     _ => {
                         self.write(|p| p.handle_target_line_2_button_press_internal());
                     }
@@ -692,6 +698,27 @@ impl MappingPanel {
                 );
             });
             self.open_extra_panel(panel);
+        }
+    }
+
+    fn pick_compartment_parameter(&self, mapping: SharedMapping) {
+        let menu = {
+            let mapping = mapping.borrow();
+            let param_index = mapping.target_model.compartment_param_index();
+            menus::menu_containing_realearn_params(
+                &self.session,
+                mapping.compartment(),
+                param_index,
+            )
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(menu, Window::cursor_pos());
+        if let Some(param_index) = result {
+            self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetParamIndex(
+                param_index.get(),
+            )));
         }
     }
 
@@ -4502,6 +4529,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::LastTouched => Some("Targets"),
                 ReaperTargetType::BrowsePotFilterItems => Some("Kind"),
+                ReaperTargetType::CompartmentParameterValue => Some("Parameter"),
                 ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
@@ -4535,6 +4563,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let enabled_count = self.target.included_targets().len();
                     let total_count = LearnableTargetKind::into_enum_iter().count();
                     Some(format!("{enabled_count} of {total_count} targets enabled"))
+                }
+                ReaperTargetType::CompartmentParameterValue => {
+                    let param_index = self.target.compartment_param_index();
+                    let unit = self.session.unit().borrow();
+                    let params = unit.parameter_manager().params();
+                    let compartment_params = params.compartment_params(self.mapping.compartment());
+                    Some(get_param_name(compartment_params, param_index))
                 }
                 _ => None,
             },
@@ -4873,6 +4908,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => Some("Now!"),
                 ReaperTargetType::LastTouched => Some("Pick!"),
+                ReaperTargetType::CompartmentParameterValue => Some("Pick!"),
                 ReaperTargetType::ModifyMapping => match self.target.mapping_modification_kind() {
                     MappingModificationKind::LearnTarget
                     | MappingModificationKind::SetTargetToLastTouched => Some("..."),

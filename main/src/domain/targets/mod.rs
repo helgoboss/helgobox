@@ -200,3 +200,6 @@ pub use preview_pot_preset_target::*;
 
 mod load_pot_preset_target;
 pub use load_pot_preset_target::*;
+
+mod compartment_parameter_value_target;
+pub use compartment_parameter_value_target::*;

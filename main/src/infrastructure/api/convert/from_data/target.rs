@@ -22,7 +22,8 @@ use realearn_api::persistence::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
     BackwardCompatibleMappingSnapshotDescForTake, BookmarkDescriptor, BookmarkRef,
     BrowseFxChainTarget, BrowseFxPresetsTarget, BrowseGroupMappingsTarget,
-    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, DummyTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget,
+    CompartmentParameterDescriptor, CompartmentParameterValueTarget, DummyTarget,
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnTargetMappingModification,
@@ -229,6 +230,14 @@ fn convert_real_target(
                 .required_value_with_default(data.retrigger, defaults::TARGET_RETRIGGER),
             parameter: convert_fx_parameter_descriptor(data, style),
         }),
+        CompartmentParameterValue => {
+            T::CompartmentParameterValue(CompartmentParameterValueTarget {
+                commons,
+                parameter: CompartmentParameterDescriptor::ById {
+                    index: data.fx_parameter_data.index,
+                },
+            })
+        }
         FxParameterTouchState => {
             T::FxParameterAutomationTouchState(FxParameterAutomationTouchStateTarget {
                 commons,

@@ -740,7 +740,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         {
             // Propagate to other instances if necessary
             if event.is_interesting_for_other_units() {
-                let global_event = AdditionalFeedbackEvent::Instance {
+                let global_event = AdditionalFeedbackEvent::Unit {
                     instance_id: self.basics.unit_id,
                     instance_event: event.clone(),
                 };
@@ -1011,6 +1011,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let param = self.collections.parameters.at_mut(index);
         let previous_value = param.raw_value();
         param.set_raw_value(value);
+        // Let compartment parameter targets know
+        self.process_compartment_parameter_feedback(index);
         // Notify domain event handler
         self.basics
             .event_handler
@@ -1593,6 +1595,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+    }
+
+    fn process_compartment_parameter_feedback(&mut self, param_index: PluginParamIndex) {
+        let change_event = CompoundChangeEvent::CompartmentParameter(param_index);
+        if ReaperTarget::changes_conditions(change_event) {
+            self.basics
+                .channels
+                .self_normal_sender
+                .send_complaining(NormalMainTask::NotifyConditionsChanged);
+        }
+        self.process_feedback_related_reaper_event(|mapping, target| {
+            mapping.process_change_event(target, change_event, self.basics.control_context())
+        });
     }
 
     pub fn process_additional_feedback_event(&mut self, event: &AdditionalFeedbackEvent) {

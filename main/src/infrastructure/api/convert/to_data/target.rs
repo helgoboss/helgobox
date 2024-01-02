@@ -631,6 +631,19 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
+        Target::CompartmentParameterValue(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::CompartmentParameterValue,
+            fx_parameter_data: FxParameterData {
+                r#type: None,
+                index: match d.parameter {
+                    CompartmentParameterDescriptor::ById { index } => index,
+                },
+                name: None,
+                expression: None,
+            },
+            ..init(d.commons)
+        },
         Target::FxParameterAutomationTouchState(d) => {
             let fx_parameter_desc = convert_fx_parameter_desc(d.parameter)?;
             let fx_desc = fx_parameter_desc.fx_desc;

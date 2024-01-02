@@ -2417,6 +2417,14 @@ impl Compartment {
         (compartment, compartment.to_compartment_param_index(index))
     }
 
+    pub fn to_plugin_param_index(
+        self,
+        compartment_param_index: CompartmentParamIndex,
+    ) -> PluginParamIndex {
+        PluginParamIndex::try_from(self.plugin_param_offset().get() + compartment_param_index.get())
+            .unwrap()
+    }
+
     /// Returns the compartment-local parameter index corresponding to the given plug-in parameter
     /// index.
     pub fn to_compartment_param_index(

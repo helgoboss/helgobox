@@ -111,7 +111,7 @@ pub enum AdditionalFeedbackEvent {
     ///
     /// Not all instance state events are forwarded, only those that might matter for other
     /// instances.
-    Instance {
+    Unit {
         instance_id: UnitId,
         instance_event: UnitStateChanged,
     },

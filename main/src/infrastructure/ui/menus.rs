@@ -1,5 +1,7 @@
 use crate::application::{UnitModel, WeakUnitModel};
-use crate::domain::{compartment_param_index_iter, Compartment, CompartmentParamIndex, MappingId};
+use crate::domain::{
+    compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams, MappingId,
+};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
@@ -16,7 +18,7 @@ pub fn menu_containing_realearn_params(
     root_menu(
         compartment_param_index_iter()
             .map(|i| {
-                let param_name = get_param_name(&session, compartment, Some(i));
+                let param_name = get_optional_param_name(&session, compartment, Some(i));
                 item_with_opts(
                     param_name,
                     ItemOpts {
@@ -48,7 +50,7 @@ pub fn menu_containing_realearn_params_optional(
         ))
         .chain(compartment_param_index_iter().map(|i| {
             let value = Some(i);
-            let param_name = get_param_name(&session, compartment, value);
+            let param_name = get_optional_param_name(&session, compartment, value);
             item_with_opts(
                 param_name,
                 ItemOpts {
@@ -205,7 +207,7 @@ pub fn menu_containing_banks(
     root_menu(menu_items)
 }
 
-pub fn get_param_name(
+pub fn get_optional_param_name(
     session: &UnitModel,
     compartment: Compartment,
     index: Option<CompartmentParamIndex>,
@@ -213,13 +215,15 @@ pub fn get_param_name(
     match index {
         None => "<None>".to_owned(),
         Some(i) => {
-            let param_name = session
-                .params()
-                .compartment_params(compartment)
-                .get_parameter_name(i);
-            format!("{}. {}", i.get() + 1, param_name)
+            let params = session.params().compartment_params(compartment);
+            get_param_name(params, i)
         }
     }
+}
+
+pub fn get_param_name(params: &CompartmentParams, index: CompartmentParamIndex) -> String {
+    let param_name = params.get_parameter_name(index);
+    format!("{}. {}", index.get() + 1, param_name)
 }
 
 pub fn get_bank_name(

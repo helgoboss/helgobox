@@ -27,17 +27,17 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
     AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
-    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller, ControlContext,
-    DummyTarget, EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
-    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext,
-    MidiSendTarget, ModifyMappingTarget, OscSendTarget, PlayrateTarget, PreviewPotPresetTarget,
-    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
-    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller,
+    CompartmentParameterValueTarget, ControlContext, DummyTarget, EnigoMouseTarget, FxEnableTarget,
+    FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    LoadPotPresetTarget, MappingControlContext, MidiSendTarget, ModifyMappingTarget, OscSendTarget,
+    PlayrateTarget, PreviewPotPresetTarget, RealTimeControlContext, RealTimeFxParameterTarget,
+    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
+    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -162,6 +162,7 @@ pub enum ReaperTarget {
     BrowsePotPresets(BrowsePotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
+    CompartmentParameterValue(CompartmentParameterValueTarget),
 }
 
 #[derive(
@@ -335,6 +336,7 @@ impl ReaperTarget {
                     | TrackVisibilityChanged(_)
                 )
             }
+            CompoundChangeEvent::CompartmentParameter(_) => true,
             CompoundChangeEvent::Additional(evt) => {
                 use AdditionalFeedbackEvent::*;
                 matches!(
@@ -345,8 +347,7 @@ impl ReaperTarget {
                     | MappedFxParametersChanged
                 )
             }
-            CompoundChangeEvent::Instance(_) => false,
-            CompoundChangeEvent::Unit(_) => false,
+            CompoundChangeEvent::Instance(_) | CompoundChangeEvent::Unit(_) => false,
             #[cfg(feature = "playtime")]
             CompoundChangeEvent::ClipMatrix(_) => false,
         }
@@ -712,6 +713,7 @@ impl<'a> Target<'a> for ReaperTarget {
             BrowsePotPresets(t) => t.current_value(context),
             PreviewPotPreset(t) => t.current_value(context),
             LoadPotPreset(t) => t.current_value(context),
+            CompartmentParameterValue(t) => t.current_value(context),
         }
     }
 
