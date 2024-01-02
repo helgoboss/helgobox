@@ -1,4 +1,5 @@
 mod compartment;
+mod controller;
 mod glue;
 mod group;
 mod mapping;
