@@ -88,10 +88,10 @@ pub struct OscControllerConnection {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MidiInputPort(String);
+pub struct MidiInputPort(u32);
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MidiOutputPort(String);
+pub struct MidiOutputPort(u32);
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct OscDeviceId(String);
