@@ -38,7 +38,7 @@ use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, 
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
-use crate::infrastructure::server::services::RealearnServices;
+use crate::infrastructure::server::services::Services;
 use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
@@ -157,7 +157,7 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
-    clip_engine_hub: crate::infrastructure::proto::ClipEngineHub,
+    clip_engine_hub: crate::infrastructure::proto::ProtoHub,
 }
 
 #[derive(Debug)]
@@ -367,7 +367,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
-            clip_engine_hub: crate::infrastructure::proto::ClipEngineHub::new(),
+            clip_engine_hub: crate::infrastructure::proto::ProtoHub::new(),
         }
     }
 
@@ -469,10 +469,10 @@ impl BackboneShell {
         });
     }
 
-    fn create_services(&self) -> RealearnServices {
-        RealearnServices {
+    fn create_services(&self) -> Services {
+        Services {
             #[cfg(feature = "playtime")]
-            playtime_service: server::services::playtime_service::create_playtime_service(
+            helgobox_service: server::services::helgobox_service::create_server(
                 &self.clip_engine_hub,
             ),
         }
@@ -728,7 +728,7 @@ impl BackboneShell {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_engine_hub(&self) -> &crate::infrastructure::proto::ClipEngineHub {
+    pub fn clip_engine_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
         &self.clip_engine_hub
     }
 

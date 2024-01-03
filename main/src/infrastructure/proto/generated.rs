@@ -2376,7 +2376,7 @@ pub mod helgobox_service_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/helgobox_proto.HelgoboxService/GetHostInfo" => {
+                "/generated.HelgoboxService/GetHostInfo" => {
                     #[allow(non_camel_case_types)]
                     struct GetHostInfoSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2416,7 +2416,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/ProveAuthenticity" => {
+                "/generated.HelgoboxService/ProveAuthenticity" => {
                     #[allow(non_camel_case_types)]
                     struct ProveAuthenticitySvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2456,7 +2456,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetProjectDir" => {
+                "/generated.HelgoboxService/GetProjectDir" => {
                     #[allow(non_camel_case_types)]
                     struct GetProjectDirSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2496,7 +2496,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetArrangementInfo" => {
+                "/generated.HelgoboxService/GetArrangementInfo" => {
                     #[allow(non_camel_case_types)]
                     struct GetArrangementInfoSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2536,7 +2536,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetClipDetail" => {
+                "/generated.HelgoboxService/GetClipDetail" => {
                     #[allow(non_camel_case_types)]
                     struct GetClipDetailSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2576,7 +2576,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SaveController" => {
+                "/generated.HelgoboxService/SaveController" => {
                     #[allow(non_camel_case_types)]
                     struct SaveControllerSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2616,7 +2616,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/DeleteController" => {
+                "/generated.HelgoboxService/DeleteController" => {
                     #[allow(non_camel_case_types)]
                     struct DeleteControllerSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2656,7 +2656,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerMatrix" => {
+                "/generated.HelgoboxService/TriggerMatrix" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerMatrixSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2696,7 +2696,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetMatrixSettings" => {
+                "/generated.HelgoboxService/SetMatrixSettings" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixSettingsSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2736,7 +2736,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetMatrixTempo" => {
+                "/generated.HelgoboxService/SetMatrixTempo" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTempoSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2776,7 +2776,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetMatrixTimeSignature" => {
+                "/generated.HelgoboxService/SetMatrixTimeSignature" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTimeSignatureSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2816,7 +2816,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetMatrixVolume" => {
+                "/generated.HelgoboxService/SetMatrixVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixVolumeSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2856,7 +2856,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetMatrixPan" => {
+                "/generated.HelgoboxService/SetMatrixPan" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixPanSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2896,7 +2896,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerColumn" => {
+                "/generated.HelgoboxService/TriggerColumn" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerColumnSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2936,7 +2936,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetColumnSettings" => {
+                "/generated.HelgoboxService/SetColumnSettings" => {
                     #[allow(non_camel_case_types)]
                     struct SetColumnSettingsSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -2976,7 +2976,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetColumnTrack" => {
+                "/generated.HelgoboxService/SetColumnTrack" => {
                     #[allow(non_camel_case_types)]
                     struct SetColumnTrackSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3016,7 +3016,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/DragColumn" => {
+                "/generated.HelgoboxService/DragColumn" => {
                     #[allow(non_camel_case_types)]
                     struct DragColumnSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3054,7 +3054,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerTrack" => {
+                "/generated.HelgoboxService/TriggerTrack" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerTrackSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3094,7 +3094,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackName" => {
+                "/generated.HelgoboxService/SetTrackName" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackNameSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3134,7 +3134,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackColor" => {
+                "/generated.HelgoboxService/SetTrackColor" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackColorSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3174,7 +3174,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackInput" => {
+                "/generated.HelgoboxService/SetTrackInput" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackInputSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3214,7 +3214,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackInputMonitoring" => {
+                "/generated.HelgoboxService/SetTrackInputMonitoring" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackInputMonitoringSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3256,7 +3256,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackVolume" => {
+                "/generated.HelgoboxService/SetTrackVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackVolumeSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3296,7 +3296,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetTrackPan" => {
+                "/generated.HelgoboxService/SetTrackPan" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackPanSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3336,7 +3336,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerRow" => {
+                "/generated.HelgoboxService/TriggerRow" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerRowSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3374,7 +3374,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetRowData" => {
+                "/generated.HelgoboxService/SetRowData" => {
                     #[allow(non_camel_case_types)]
                     struct SetRowDataSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3414,7 +3414,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/DragRow" => {
+                "/generated.HelgoboxService/DragRow" => {
                     #[allow(non_camel_case_types)]
                     struct DragRowSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3452,7 +3452,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerSlot" => {
+                "/generated.HelgoboxService/TriggerSlot" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSlotSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3492,7 +3492,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/DragSlot" => {
+                "/generated.HelgoboxService/DragSlot" => {
                     #[allow(non_camel_case_types)]
                     struct DragSlotSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3530,7 +3530,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/ImportFiles" => {
+                "/generated.HelgoboxService/ImportFiles" => {
                     #[allow(non_camel_case_types)]
                     struct ImportFilesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3570,7 +3570,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerClip" => {
+                "/generated.HelgoboxService/TriggerClip" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerClipSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3610,7 +3610,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetClipName" => {
+                "/generated.HelgoboxService/SetClipName" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipNameSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3650,7 +3650,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetClipData" => {
+                "/generated.HelgoboxService/SetClipData" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipDataSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3690,7 +3690,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/DragClip" => {
+                "/generated.HelgoboxService/DragClip" => {
                     #[allow(non_camel_case_types)]
                     struct DragClipSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3728,7 +3728,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/TriggerSequence" => {
+                "/generated.HelgoboxService/TriggerSequence" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSequenceSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3768,7 +3768,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/SetSequenceInfo" => {
+                "/generated.HelgoboxService/SetSequenceInfo" => {
                     #[allow(non_camel_case_types)]
                     struct SetSequenceInfoSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3808,7 +3808,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalGlobalUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalGlobalUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalGlobalUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3852,7 +3852,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalMatrixUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalMatrixUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3896,7 +3896,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetContinuousMatrixUpdates" => {
+                "/generated.HelgoboxService/GetContinuousMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousMatrixUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3940,7 +3940,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalColumnUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalColumnUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -3984,7 +3984,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetContinuousColumnUpdates" => {
+                "/generated.HelgoboxService/GetContinuousColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousColumnUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4028,7 +4028,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalTrackUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalTrackUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalTrackUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4072,7 +4072,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalRowUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalRowUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalRowUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4116,7 +4116,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalSlotUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalSlotUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4160,7 +4160,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetContinuousSlotUpdates" => {
+                "/generated.HelgoboxService/GetContinuousSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousSlotUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4204,7 +4204,7 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/helgobox_proto.HelgoboxService/GetOccasionalClipUpdates" => {
+                "/generated.HelgoboxService/GetOccasionalClipUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalClipUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
                     impl<
@@ -4284,6 +4284,6 @@ pub mod helgobox_service_server {
         }
     }
     impl<T: HelgoboxService> tonic::server::NamedService for HelgoboxServiceServer<T> {
-        const NAME: &'static str = "helgobox_proto.HelgoboxService";
+        const NAME: &'static str = "generated.HelgoboxService";
     }
 }

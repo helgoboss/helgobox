@@ -10,7 +10,7 @@ use tokio::sync::broadcast::{Receiver, Sender};
 /// This must be a global object because it's responsible for supplying one gRPC endpoint with
 /// streaming data and we have only one endpoint for all matrices.
 #[derive(Clone, Debug)]
-pub struct ClipEngineSenders {
+pub struct ProtoSenders {
     pub occasional_global_update_sender: Sender<OccasionalGlobalUpdateBatch>,
     pub occasional_matrix_update_sender: Sender<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_sender: Sender<OccasionalTrackUpdateBatch>,
@@ -24,7 +24,7 @@ pub struct ClipEngineSenders {
 }
 
 #[derive(Debug)]
-pub struct ClipEngineReceivers {
+pub struct ProtoReceivers {
     pub occasional_global_update_receiver: Receiver<OccasionalGlobalUpdateBatch>,
     pub occasional_matrix_update_receiver: Receiver<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_receiver: Receiver<OccasionalTrackUpdateBatch>,
@@ -37,7 +37,7 @@ pub struct ClipEngineReceivers {
     pub continuous_slot_update_receiver: Receiver<ContinuousSlotUpdateBatch>,
 }
 
-impl ClipEngineReceivers {
+impl ProtoReceivers {
     pub async fn keep_processing_updates(
         &mut self,
         session_id: &str,
@@ -185,13 +185,13 @@ fn process_pending_updates<T>(
     }
 }
 
-impl Default for ClipEngineSenders {
+impl Default for ProtoSenders {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ClipEngineSenders {
+impl ProtoSenders {
     pub fn new() -> Self {
         Self {
             occasional_global_update_sender: tokio::sync::broadcast::channel(100).0,
@@ -207,8 +207,8 @@ impl ClipEngineSenders {
         }
     }
 
-    pub fn subscribe_to_all(&self) -> ClipEngineReceivers {
-        ClipEngineReceivers {
+    pub fn subscribe_to_all(&self) -> ProtoReceivers {
+        ProtoReceivers {
             occasional_global_update_receiver: self.occasional_global_update_sender.subscribe(),
             occasional_matrix_update_receiver: self.occasional_matrix_update_sender.subscribe(),
             occasional_track_update_receiver: self.occasional_track_update_sender.subscribe(),
@@ -221,8 +221,6 @@ impl ClipEngineSenders {
             continuous_slot_update_receiver: self.continuous_slot_update_sender.subscribe(),
         }
     }
-
-    pub fn send_initial_matrix_updates(&self) {}
 }
 
 #[derive(Clone)]

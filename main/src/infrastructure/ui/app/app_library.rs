@@ -3,10 +3,10 @@ use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     create_initial_clip_updates, create_initial_global_updates, create_initial_matrix_updates,
     create_initial_slot_updates, create_initial_track_updates, event_reply, query_result, reply,
-    request, ClipEngineRequestHandler, EventReply, MatrixProvider, QueryReply, QueryResult, Reply,
+    request, EventReply, MatrixProvider, ProtoRequestHandler, QueryReply, QueryResult, Reply,
     Request,
 };
-use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
+use crate::infrastructure::server::services::helgobox_service::BackboneMatrixProvider;
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
@@ -376,7 +376,7 @@ fn process_command_request(
 
 fn process_query_request(instance_id: String, id: u32, query: proto::query::Value) -> Result<()> {
     use proto::query::Value::*;
-    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
+    let handler = ProtoRequestHandler::new(BackboneMatrixProvider);
     match query {
         ProveAuthenticity(req) => {
             send_query_reply_to_app(instance_id, id, async move {
@@ -417,7 +417,7 @@ fn process_command(
     req: proto::command_request::Value,
 ) -> std::result::Result<(), Status> {
     // TODO-low This should be a more generic command handler in future (not just clip engine)
-    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
+    let handler = ProtoRequestHandler::new(BackboneMatrixProvider);
     use proto::command_request::Value::*;
     match req {
         // Embedding
@@ -578,7 +578,7 @@ fn send_initial_events_to_app<T: Into<event_reply::Value>>(
     create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
 ) -> Result<()> {
     let event_reply_value = if let Some(matrix_id) = matrix_id {
-        AppMatrixProvider
+        BackboneMatrixProvider
             .with_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
             .unwrap_or_else(|_| create_reply(None).into())
     } else {

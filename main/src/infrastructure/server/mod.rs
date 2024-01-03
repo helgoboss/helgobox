@@ -18,7 +18,7 @@ use url::Url;
 use crate::infrastructure::server::grpc::start_grpc_server;
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
-use crate::infrastructure::server::services::RealearnServices;
+use crate::infrastructure::server::services::Services;
 use derivative::Derivative;
 use tokio::runtime::Runtime;
 
@@ -132,7 +132,7 @@ impl RealearnServer {
     }
 
     /// Idempotent
-    pub fn start(&mut self, runtime: &Runtime, services: RealearnServices) -> Result<(), String> {
+    pub fn start(&mut self, runtime: &Runtime, services: Services) -> Result<(), String> {
         if self.state.is_starting_or_running() {
             return Ok(());
         }
@@ -294,7 +294,7 @@ async fn start_servers(
     clients: ServerClients,
     (key, cert): (String, String),
     metrics_reporter: MetricsReporter,
-    services: RealearnServices,
+    services: Services,
 ) {
     let http_server_future = start_http_server(
         http_port,

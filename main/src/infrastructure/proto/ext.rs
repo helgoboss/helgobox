@@ -8,12 +8,11 @@ use std::num::NonZeroU32;
 
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
-    clip_content_info, event_reply, helgobox_proto, occasional_global_update,
-    occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_column_update, qualified_occasional_row_update,
-    qualified_occasional_slot_update, ArrangementPlayState, AudioClipContentInfo,
-    AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo, ContinuousClipUpdate,
-    ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate,
+    clip_content_info, event_reply, generated, occasional_global_update, occasional_matrix_update,
+    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
+    qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
+    AudioClipContentInfo, AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo,
+    ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate,
     GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply,
@@ -152,12 +151,12 @@ impl occasional_matrix_update::Update {
     }
 }
 
-impl helgobox_proto::TrackList {
+impl generated::TrackList {
     pub fn from_engine(project: Project) -> Self {
         let mut level = 0i32;
         let tracks = project.tracks().map(|t| {
             let folder_depth_change = t.folder_depth_change();
-            let track = helgobox_proto::TrackInList::from_engine(t, level.unsigned_abs());
+            let track = generated::TrackInList::from_engine(t, level.unsigned_abs());
             level += folder_depth_change;
             track
         });
@@ -167,7 +166,7 @@ impl helgobox_proto::TrackList {
     }
 }
 
-impl helgobox_proto::TrackInList {
+impl generated::TrackInList {
     pub fn from_engine(track: reaper_high::Track, level: u32) -> Self {
         Self {
             id: track.guid().to_string_without_braces(),

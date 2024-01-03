@@ -30,11 +30,11 @@ use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
 #[derive(Debug)]
-pub struct ClipEngineRequestHandler<P> {
+pub struct ProtoRequestHandler<P> {
     matrix_provider: P,
 }
 
-impl<P: MatrixProvider> ClipEngineRequestHandler<P> {
+impl<P: MatrixProvider> ProtoRequestHandler<P> {
     pub fn new(matrix_provider: P) -> Self {
         Self { matrix_provider }
     }
@@ -56,7 +56,7 @@ pub trait MatrixProvider: Send + Sync + 'static {
     fn create_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()>;
 }
 
-impl<P: MatrixProvider> ClipEngineRequestHandler<P> {
+impl<P: MatrixProvider> ProtoRequestHandler<P> {
     pub fn trigger_slot(&self, req: TriggerSlotRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerSlotAction::from_i32(req.action)
             .ok_or_else(|| Status::invalid_argument("unknown trigger slot action"))?;

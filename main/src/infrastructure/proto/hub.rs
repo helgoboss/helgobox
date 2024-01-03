@@ -1,17 +1,16 @@
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::senders::{
-    ClipEngineSenders, ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch,
-    ContinuousSlotUpdateBatch, OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch,
-    OccasionalMatrixUpdateBatch, OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch,
-    OccasionalTrackUpdateBatch,
+    ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
+    OccasionalClipUpdateBatch, OccasionalColumnUpdateBatch, OccasionalMatrixUpdateBatch,
+    OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch, ProtoSenders,
 };
 use crate::infrastructure::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
     qualified_occasional_column_update, qualified_occasional_row_update,
-    qualified_occasional_slot_update, ClipEngineRequestHandler, ContinuousColumnUpdate,
-    ContinuousMatrixUpdate, ContinuousSlotUpdate, GrpcClipEngineService, MatrixProvider,
-    OccasionalMatrixUpdate, OccasionalTrackUpdate, QualifiedContinuousSlotUpdate,
+    qualified_occasional_slot_update, ContinuousColumnUpdate, ContinuousMatrixUpdate,
+    ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider, OccasionalMatrixUpdate,
+    OccasionalTrackUpdate, ProtoRequestHandler, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
@@ -28,34 +27,34 @@ use reaper_high::{
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct ClipEngineHub {
-    senders: ClipEngineSenders,
+pub struct ProtoHub {
+    senders: ProtoSenders,
 }
 
-impl Default for ClipEngineHub {
+impl Default for ProtoHub {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ClipEngineHub {
+impl ProtoHub {
     pub fn new() -> Self {
         Self {
-            senders: ClipEngineSenders::new(),
+            senders: ProtoSenders::new(),
         }
     }
 
-    pub fn senders(&self) -> &ClipEngineSenders {
+    pub fn senders(&self) -> &ProtoSenders {
         &self.senders
     }
 
     pub fn create_service<P: MatrixProvider + Clone>(
         &self,
         matrix_provider: P,
-    ) -> HelgoboxServiceServer<GrpcClipEngineService<P>> {
-        HelgoboxServiceServer::new(GrpcClipEngineService::new(
+    ) -> HelgoboxServiceServer<HelgoboxServiceImpl<P>> {
+        HelgoboxServiceServer::new(HelgoboxServiceImpl::new(
             matrix_provider.clone(),
-            ClipEngineRequestHandler::new(matrix_provider),
+            ProtoRequestHandler::new(matrix_provider),
             self.senders.clone(),
         ))
     }

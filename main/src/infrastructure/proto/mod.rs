@@ -1,11 +1,11 @@
-mod helgobox_proto;
-pub use helgobox_proto::*;
+mod generated;
+pub use generated::*;
 
-mod helgobox_proto_ext;
-pub use helgobox_proto_ext::*;
+mod ext;
+pub use ext::*;
 
-mod grpc_service;
-pub use grpc_service::*;
+mod service_impl;
+pub use service_impl::*;
 
 mod request_handler;
 pub use request_handler::*;

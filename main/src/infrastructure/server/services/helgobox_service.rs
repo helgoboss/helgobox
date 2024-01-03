@@ -1,18 +1,19 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
-use crate::infrastructure::proto::{ClipEngineHub, GrpcClipEngineService, MatrixProvider};
+use crate::infrastructure::proto::{HelgoboxServiceImpl, MatrixProvider, ProtoHub};
 use playtime_clip_engine::base::Matrix;
 
-pub type PlaytimeService = HelgoboxServiceServer<GrpcClipEngineService<AppMatrixProvider>>;
+pub type DefaultHelgoboxServiceServer =
+    HelgoboxServiceServer<HelgoboxServiceImpl<BackboneMatrixProvider>>;
 
-pub fn create_playtime_service(hub: &ClipEngineHub) -> PlaytimeService {
-    hub.create_service(AppMatrixProvider)
+pub fn create_server(hub: &ProtoHub) -> DefaultHelgoboxServiceServer {
+    hub.create_service(BackboneMatrixProvider)
 }
 
 #[derive(Clone, Debug)]
-pub struct AppMatrixProvider;
+pub struct BackboneMatrixProvider;
 
-impl MatrixProvider for AppMatrixProvider {
+impl MatrixProvider for BackboneMatrixProvider {
     fn with_matrix<R>(
         &self,
         clip_matrix_id: &str,

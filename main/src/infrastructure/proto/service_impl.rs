@@ -1,29 +1,28 @@
 use crate::infrastructure::proto::initial_events::{
     create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
 };
-use crate::infrastructure::proto::senders::{ClipEngineSenders, WithSessionId};
+use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
     create_initial_clip_updates, create_initial_global_updates, helgobox_service_server,
-    ClipEngineRequestHandler, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
-    DragRowRequest, DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest,
-    GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
-    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
-    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
-    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest,
+    Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
     GetOccasionalColumnUpdatesRequest, GetOccasionalGlobalUpdatesReply,
     GetOccasionalGlobalUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, MatrixProvider, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest, SetClipNameRequest,
-    SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
-    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
-    TriggerTrackRequest,
+    GetProjectDirRequest, ImportFilesRequest, MatrixProvider, ProtoRequestHandler,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -34,17 +33,17 @@ use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
 
 #[derive(Debug)]
-pub struct GrpcClipEngineService<P> {
+pub struct HelgoboxServiceImpl<P> {
     matrix_provider: P,
-    command_handler: ClipEngineRequestHandler<P>,
-    senders: ClipEngineSenders,
+    command_handler: ProtoRequestHandler<P>,
+    senders: ProtoSenders,
 }
 
-impl<P: MatrixProvider> GrpcClipEngineService<P> {
+impl<P: MatrixProvider> HelgoboxServiceImpl<P> {
     pub(crate) fn new(
         matrix_provider: P,
-        command_handler: ClipEngineRequestHandler<P>,
-        senders: ClipEngineSenders,
+        command_handler: ProtoRequestHandler<P>,
+        senders: ProtoSenders,
     ) -> Self {
         Self {
             matrix_provider,
@@ -55,7 +54,7 @@ impl<P: MatrixProvider> GrpcClipEngineService<P> {
 }
 
 #[tonic::async_trait]
-impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for GrpcClipEngineService<P> {
+impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxServiceImpl<P> {
     type GetContinuousMatrixUpdatesStream =
         SyncBoxStream<'static, Result<GetContinuousMatrixUpdatesReply, Status>>;
 

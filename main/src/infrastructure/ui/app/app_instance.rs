@@ -2,9 +2,7 @@
 use crate::application::WeakUnitModel;
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
-use crate::infrastructure::proto::{
-    event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
-};
+use crate::infrastructure::proto::{event_reply, reply, Empty, EventReply, ProtoReceivers, Reply};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, Context, Result};
@@ -265,7 +263,7 @@ pub struct AppPanel {
 #[derive(Debug)]
 struct ParentedAppRunningState {
     common_state: CommonAppRunningState,
-    event_receivers: Option<ClipEngineReceivers>,
+    event_receivers: Option<ProtoReceivers>,
 }
 
 impl ParentedAppRunningState {
@@ -499,7 +497,7 @@ fn send_to_app(app_callback: AppCallback, reply: &Reply) {
 /// Signature of the function that's used from the host in order to call the external app.
 pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
 
-fn subscribe_to_events() -> ClipEngineReceivers {
+fn subscribe_to_events() -> ProtoReceivers {
     BackboneShell::get()
         .clip_engine_hub()
         .senders()
