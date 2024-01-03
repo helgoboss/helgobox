@@ -157,7 +157,7 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
-    clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub,
+    clip_engine_hub: crate::infrastructure::proto::ClipEngineHub,
 }
 
 #[derive(Debug)]
@@ -367,7 +367,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
-            clip_engine_hub: playtime_clip_engine::proto::ClipEngineHub::new(),
+            clip_engine_hub: crate::infrastructure::proto::ClipEngineHub::new(),
         }
     }
 
@@ -728,7 +728,7 @@ impl BackboneShell {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_engine_hub(&self) -> &playtime_clip_engine::proto::ClipEngineHub {
+    pub fn clip_engine_hub(&self) -> &crate::infrastructure::proto::ClipEngineHub {
         &self.clip_engine_hub
     }
 

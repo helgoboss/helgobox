@@ -1,7 +1,7 @@
 use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
+use crate::infrastructure::proto::{ClipEngineHub, GrpcClipEngineService, MatrixProvider};
 use playtime_clip_engine::base::Matrix;
-use playtime_clip_engine::proto::helgobox_service_server::HelgoboxServiceServer;
-use playtime_clip_engine::proto::{ClipEngineHub, GrpcClipEngineService, MatrixProvider};
 
 pub type PlaytimeService = HelgoboxServiceServer<GrpcClipEngineService<AppMatrixProvider>>;
 

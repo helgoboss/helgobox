@@ -2,6 +2,18 @@
 //! not performance-critical and better expressed in a Rust-first manner.
 use serde::{Deserialize, Serialize};
 
+// We don't really need a tagged enum here but it's an easy way to transmit the event as a
+// JSON object (vs. just a string) ... which is better for some clients. Plus, we might want
+// to deliver some additional payloads in future.
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum InfoEvent {
+    RecordedMatrixSequence,
+    DiscardedMatrixSequenceBecauseEmpty,
+    RemovedMatrixSequence,
+    WroteMatrixSequenceToArrangement,
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct SimpleMappingContainer {
     pub mappings: Vec<SimpleMapping>,

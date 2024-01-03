@@ -2,12 +2,12 @@
 use crate::application::WeakUnitModel;
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::proto::{
+    event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, Context, Result};
-use playtime_clip_engine::proto::{
-    event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
-};
 use prost::Message;
 use std::cell::RefCell;
 use std::fmt::Debug;

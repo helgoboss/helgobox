@@ -1,17 +1,17 @@
 use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::proto;
+use crate::infrastructure::proto::{
+    create_initial_clip_updates, create_initial_global_updates, create_initial_matrix_updates,
+    create_initial_slot_updates, create_initial_track_updates, event_reply, query_result, reply,
+    request, ClipEngineRequestHandler, EventReply, MatrixProvider, QueryReply, QueryResult, Reply,
+    Request,
+};
 use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
 use playtime_clip_engine::base::Matrix;
-use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::{
-    create_initial_clip_updates, create_initial_global_updates, create_initial_matrix_updates,
-    create_initial_slot_updates, create_initial_track_updates, event_reply, query_result, reply,
-    request, ClipEngineRequestHandler, EventReply, MatrixProvider, QueryReply, QueryResult, Reply,
-    Request,
-};
 use prost::Message;
 use reaper_high::Reaper;
 use reaper_low::raw::HWND;
