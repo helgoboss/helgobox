@@ -1,3 +1,4 @@
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::{
     occasional_global_update, occasional_matrix_update, occasional_track_update,
     qualified_occasional_clip_update, qualified_occasional_slot_update, ClipAddress,
@@ -23,10 +24,8 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::midi_output_devices(),
         // TODO-high-ms3 Update when changed
         Update::audio_input_channels(),
-        // TODO-high-ms3 Update when changed
-        Update::controller_presets(),
-        // TODO-high-ms3 Update when changed
-        Update::main_presets(),
+        Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
+        Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
     ];
     create(global_updates.into_iter())
 }

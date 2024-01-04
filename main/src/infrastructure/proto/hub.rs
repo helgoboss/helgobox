@@ -1,3 +1,4 @@
+use crate::infrastructure::data::{FileBasedControllerPresetManager, FileBasedMainPresetManager};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::senders::{
@@ -68,12 +69,23 @@ impl ProtoHub {
         self.send_global_updates(|| [occasional_global_update::Update::midi_output_devices()]);
     }
 
-    pub fn notify_controller_presets_changed(&self) {
-        self.send_global_updates(|| [occasional_global_update::Update::controller_presets()]);
+    pub fn notify_controller_presets_changed(
+        &self,
+        preset_manager: &FileBasedControllerPresetManager,
+    ) {
+        self.send_global_updates(|| {
+            [occasional_global_update::Update::controller_presets(
+                preset_manager,
+            )]
+        });
     }
 
-    pub fn notify_main_presets_changed(&self) {
-        self.send_global_updates(|| [occasional_global_update::Update::main_presets()]);
+    pub fn notify_main_presets_changed(&self, preset_manager: &FileBasedMainPresetManager) {
+        self.send_global_updates(|| {
+            [occasional_global_update::Update::main_presets(
+                preset_manager,
+            )]
+        });
     }
 
     fn send_global_updates<F, I>(&self, create_updates: F)

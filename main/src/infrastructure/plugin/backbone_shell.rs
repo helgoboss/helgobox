@@ -2132,13 +2132,12 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
 pub struct BackboneMainPresetManagerEventHandler;
 
 impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
-    fn presets_changed(&self) {
-        spawn_in_main_thread(async {
-            BackboneShell::get()
-                .clip_engine_hub()
-                .notify_main_presets_changed();
-            Ok(())
-        });
+    type Source = FileBasedMainPresetManager;
+
+    fn presets_changed(&self, source: &Self::Source) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_main_presets_changed(source);
     }
 }
 
@@ -2146,13 +2145,12 @@ impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
 pub struct BackboneControllerPresetManagerEventHandler;
 
 impl PresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
-    fn presets_changed(&self) {
-        spawn_in_main_thread(async {
-            BackboneShell::get()
-                .clip_engine_hub()
-                .notify_controller_presets_changed();
-            Ok(())
-        });
+    type Source = FileBasedControllerPresetManager;
+
+    fn presets_changed(&self, source: &Self::Source) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_controller_presets_changed(source);
     }
 }
 

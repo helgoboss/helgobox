@@ -6,8 +6,9 @@ use reaper_medium::{
 };
 use std::num::NonZeroU32;
 
-use crate::infrastructure::data::{ExtendedPresetManager, PresetInfo};
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::data::{
+    ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, PresetInfo,
+};
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     clip_content_info, event_reply, generated, occasional_global_update, occasional_matrix_update,
@@ -59,20 +60,12 @@ impl occasional_global_update::Update {
         ))
     }
 
-    pub fn controller_presets() -> Self {
-        let infos = BackboneShell::get()
-            .controller_preset_manager()
-            .borrow()
-            .preset_infos();
-        Self::ControllerPresets(CompartmentPresets::from_engine(infos))
+    pub fn controller_presets(manager: &FileBasedControllerPresetManager) -> Self {
+        Self::ControllerPresets(CompartmentPresets::from_engine(manager.preset_infos()))
     }
 
-    pub fn main_presets() -> Self {
-        let infos = BackboneShell::get()
-            .main_preset_manager()
-            .borrow()
-            .preset_infos();
-        Self::MainPresets(CompartmentPresets::from_engine(infos))
+    pub fn main_presets(manager: &FileBasedMainPresetManager) -> Self {
+        Self::MainPresets(CompartmentPresets::from_engine(manager.preset_infos()))
     }
 }
 

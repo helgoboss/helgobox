@@ -20,12 +20,14 @@ pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
     preset_dir_path: PathBuf,
     presets: Vec<P>,
     changed_subject: LocalSubject<'static, (), ()>,
-    event_handler: Box<dyn PresetManagerEventHandler>,
+    event_handler: Box<dyn PresetManagerEventHandler<Source = Self>>,
     p: PhantomData<PD>,
 }
 
 pub trait PresetManagerEventHandler: Debug {
-    fn presets_changed(&self);
+    type Source;
+
+    fn presets_changed(&self, source: &Self::Source);
 }
 
 pub trait ExtendedPresetManager {
@@ -46,7 +48,7 @@ pub struct PresetInfo {
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     pub fn new(
         preset_dir_path: PathBuf,
-        event_handler: Box<dyn PresetManagerEventHandler>,
+        event_handler: Box<dyn PresetManagerEventHandler<Source = Self>>,
     ) -> FileBasedPresetManager<P, PD> {
         let mut manager = FileBasedPresetManager {
             preset_dir_path,
@@ -140,7 +142,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn notify_presets_changed(&mut self) {
-        self.event_handler.presets_changed();
+        self.event_handler.presets_changed(self);
         self.changed_subject.next(());
     }
 
