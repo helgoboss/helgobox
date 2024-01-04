@@ -10,6 +10,7 @@ mod source;
 mod target;
 
 pub use compartment::*;
+pub use controller::*;
 pub use glue::*;
 pub use group::*;
 pub use mapping::*;

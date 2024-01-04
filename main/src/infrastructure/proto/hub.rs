@@ -1,4 +1,6 @@
-use crate::infrastructure::data::{FileBasedControllerPresetManager, FileBasedMainPresetManager};
+use crate::infrastructure::data::{
+    ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::senders::{
@@ -84,6 +86,14 @@ impl ProtoHub {
         self.send_global_updates(|| {
             [occasional_global_update::Update::main_presets(
                 preset_manager,
+            )]
+        });
+    }
+
+    pub fn notify_controller_config_changed(&self, controller_manager: &ControllerManager) {
+        self.send_global_updates(|| {
+            [occasional_global_update::Update::controller_config(
+                controller_manager,
             )]
         });
     }

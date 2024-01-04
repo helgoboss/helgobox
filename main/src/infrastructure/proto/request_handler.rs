@@ -1,3 +1,4 @@
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     DeleteControllerRequest, DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest,
@@ -209,14 +210,25 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
     }
 
     pub fn save_controller(&self, req: SaveControllerRequest) -> Result<Response<Empty>, Status> {
-        todo!()
+        let controller = serde_json::from_str(&req.controller)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        BackboneShell::get()
+            .controller_manager()
+            .borrow_mut()
+            .save_controller(controller)
+            .map_err(|e| Status::unknown(e.to_string()))?;
+        Ok(Response::new(Empty {}))
     }
 
     pub fn delete_controller(
         &self,
         req: DeleteControllerRequest,
     ) -> Result<Response<Empty>, Status> {
-        todo!()
+        BackboneShell::get()
+            .controller_manager()
+            .borrow_mut()
+            .delete_controller(&req.controller_id);
+        Ok(Response::new(Empty {}))
     }
 
     pub fn trigger_matrix(&self, req: TriggerMatrixRequest) -> Result<Response<Empty>, Status> {

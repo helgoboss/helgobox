@@ -26,6 +26,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::audio_input_channels(),
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
+        Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
     ];
     create(global_updates.into_iter())
 }

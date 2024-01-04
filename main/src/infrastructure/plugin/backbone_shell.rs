@@ -17,8 +17,9 @@ use crate::domain::{
     SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
 };
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, PresetManagerEventHandler,
+    ControllerManager, ControllerManagerEventHandler, ExtendedPresetManager,
+    FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
+    OscDevice, OscDeviceManager, PresetManagerEventHandler, SharedControllerManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedOscDeviceManager,
     SharedPresetLinkManager,
 };
@@ -143,6 +144,7 @@ pub struct BackboneShell {
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
     osc_device_manager: SharedOscDeviceManager,
+    controller_manager: SharedControllerManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -298,6 +300,11 @@ impl BackboneShell {
         );
         let preset_link_manager =
             FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
+        // This loads controllers already
+        let controller_manager = ControllerManager::new(
+            Self::realearn_controller_config_file_path(),
+            Box::new(BackboneControllerManagerEventHandler),
+        );
         // This doesn't yet start listening for OSC messages (will happen on wake up)
         let osc_device_manager =
             OscDeviceManager::new(BackboneShell::realearn_osc_device_config_file_path());
@@ -358,6 +365,7 @@ impl BackboneShell {
             main_preset_manager: Rc::new(RefCell::new(main_preset_manager)),
             preset_link_manager: Rc::new(RefCell::new(preset_link_manager)),
             osc_device_manager: Rc::new(RefCell::new(osc_device_manager)),
+            controller_manager: Rc::new(RefCell::new(controller_manager)),
             server: Rc::new(RefCell::new(server)),
             config: RefCell::new(config),
             sessions_changed_subject,
@@ -808,6 +816,10 @@ impl BackboneShell {
         self.main_preset_manager.clone()
     }
 
+    pub fn controller_manager(&self) -> SharedControllerManager {
+        self.controller_manager.clone()
+    }
+
     pub fn preset_manager(&self, compartment: Compartment) -> Box<dyn ExtendedPresetManager> {
         match compartment {
             Compartment::Controller => Box::new(self.controller_preset_manager()),
@@ -964,6 +976,10 @@ impl BackboneShell {
 
     pub fn realearn_osc_device_config_file_path() -> PathBuf {
         BackboneShell::realearn_resource_dir_path().join("osc.json")
+    }
+
+    pub fn realearn_controller_config_file_path() -> PathBuf {
+        BackboneShell::realearn_resource_dir_path().join("controllers.json")
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have
@@ -2138,6 +2154,17 @@ impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
         BackboneShell::get()
             .clip_engine_hub()
             .notify_main_presets_changed(source);
+    }
+}
+
+#[derive(Debug)]
+pub struct BackboneControllerManagerEventHandler;
+
+impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
+    fn controller_config_changed(&self, source: &ControllerManager) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_controller_config_changed(source);
     }
 }
 

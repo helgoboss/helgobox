@@ -1,3 +1,6 @@
+mod controller_manager;
+pub use controller_manager::*;
+
 mod compartment_model_data;
 pub use compartment_model_data::*;
 
