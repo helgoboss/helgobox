@@ -20,7 +20,12 @@ pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
     preset_dir_path: PathBuf,
     presets: Vec<P>,
     changed_subject: LocalSubject<'static, (), ()>,
+    event_handler: Box<dyn PresetManagerEventHandler>,
     p: PhantomData<PD>,
+}
+
+pub trait PresetManagerEventHandler: Debug {
+    fn presets_changed(&self);
 }
 
 pub trait ExtendedPresetManager {
@@ -39,11 +44,15 @@ pub struct PresetInfo {
 }
 
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
-    pub fn new(preset_dir_path: PathBuf) -> FileBasedPresetManager<P, PD> {
+    pub fn new(
+        preset_dir_path: PathBuf,
+        event_handler: Box<dyn PresetManagerEventHandler>,
+    ) -> FileBasedPresetManager<P, PD> {
         let mut manager = FileBasedPresetManager {
             preset_dir_path,
             presets: vec![],
             changed_subject: Default::default(),
+            event_handler,
             p: PhantomData,
         };
         // Pre-loading all presets used to take lots of memory when we still used Rx Props, around
@@ -55,7 +64,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
 
     pub fn load_presets(&mut self) -> Result<(), String> {
         self.load_presets_internal()?;
-        self.notify_changed();
+        self.notify_presets_changed();
         Ok(())
     }
 
@@ -130,7 +139,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         Reaper::get().show_console_msg(msg);
     }
 
-    fn notify_changed(&mut self) {
+    fn notify_presets_changed(&mut self) {
+        self.event_handler.presets_changed();
         self.changed_subject.next(());
     }
 

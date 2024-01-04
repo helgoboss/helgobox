@@ -10,10 +10,10 @@ use crate::infrastructure::proto::{
     qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ContinuousColumnUpdate,
     ContinuousMatrixUpdate, ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider,
-    OccasionalGlobalUpdate, OccasionalGlobalUpdateBatch, OccasionalMatrixUpdate,
-    OccasionalTrackUpdate, ProtoRequestHandler, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
+    OccasionalGlobalUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate, ProtoRequestHandler,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    SlotAddress,
 };
 use base::peak_util;
 use playtime_api::persistence::EvenQuantization;
@@ -66,6 +66,14 @@ impl ProtoHub {
 
     pub fn notify_midi_output_devices_changed(&self) {
         self.send_global_updates(|| [occasional_global_update::Update::midi_output_devices()]);
+    }
+
+    pub fn notify_controller_presets_changed(&self) {
+        self.send_global_updates(|| [occasional_global_update::Update::controller_presets()]);
+    }
+
+    pub fn notify_main_presets_changed(&self) {
+        self.send_global_updates(|| [occasional_global_update::Update::main_presets()]);
     }
 
     fn send_global_updates<F, I>(&self, create_updates: F)

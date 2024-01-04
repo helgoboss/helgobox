@@ -4,12 +4,12 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 #[derive(Debug, Default)]
-pub struct DeviceChangeDetector {
+pub struct MidiDeviceChangeDetector {
     connected_midi_in_devs: HashSet<MidiInputDeviceId>,
     connected_midi_out_devs: HashSet<MidiOutputDeviceId>,
 }
 
-impl DeviceChangeDetector {
+impl MidiDeviceChangeDetector {
     pub fn new() -> Self {
         Default::default()
     }

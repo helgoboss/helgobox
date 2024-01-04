@@ -1,8 +1,8 @@
 use crate::domain::{
-    Backbone, ControlEvent, ControlEventTimestamp, DeviceChangeDetector, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
-    MainProcessor, MidiDeviceChangePayload, MonitoringFxChainChangeDetector, OscDeviceId,
-    OscInputDevice, OscScanResult, QualifiedInstanceEvent, ReaperConfigChangeDetector,
+    Backbone, ControlEvent, ControlEventTimestamp, DeviceControlInput, DeviceFeedbackOutput,
+    DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId, MainProcessor,
+    MidiDeviceChangeDetector, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
+    OscDeviceId, OscInputDevice, OscScanResult, QualifiedInstanceEvent, ReaperConfigChangeDetector,
     ReaperMessage, ReaperTarget, SharedInstance, SharedMainProcessors, TargetTouchEvent,
     TouchedTrackParameterType, UnitId, UnitStateChanged, WeakInstance,
 };
@@ -66,7 +66,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     target_capture_senders: HashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
-    device_change_detector: DeviceChangeDetector,
+    device_change_detector: MidiDeviceChangeDetector,
     reaper_config_change_detector: ReaperConfigChangeDetector,
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
@@ -200,7 +200,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         event_handler: Box<dyn ControlSurfaceEventHandler>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
-        let mut device_change_detector = DeviceChangeDetector::new();
+        let mut device_change_detector = MidiDeviceChangeDetector::new();
         // Prevent change messages to be sent on load by polling one time and ignoring result.
         device_change_detector.poll_for_midi_input_device_changes();
         device_change_detector.poll_for_midi_output_device_changes();

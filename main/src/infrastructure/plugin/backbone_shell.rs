@@ -18,8 +18,9 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
-    SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
+    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, PresetManagerEventHandler,
+    SharedControllerPresetManager, SharedMainPresetManager, SharedOscDeviceManager,
+    SharedPresetLinkManager,
 };
 use crate::infrastructure::server;
 use crate::infrastructure::server::{
@@ -30,8 +31,8 @@ use crate::infrastructure::ui::MessagePanel;
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
-    SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
+    NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 use enum_iterator::IntoEnumIterator;
 
@@ -289,9 +290,12 @@ impl BackboneShell {
         );
         let controller_preset_manager = FileBasedControllerPresetManager::new(
             BackboneShell::realearn_preset_dir_path().join("controller"),
+            Box::new(BackboneControllerPresetManagerEventHandler),
         );
-        let main_preset_manager =
-            FileBasedMainPresetManager::new(BackboneShell::realearn_preset_dir_path().join("main"));
+        let main_preset_manager = FileBasedMainPresetManager::new(
+            BackboneShell::realearn_preset_dir_path().join("main"),
+            Box::new(BackboneMainPresetManagerEventHandler),
+        );
         let preset_link_manager =
             FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
         // This doesn't yet start listening for OSC messages (will happen on wake up)
@@ -2121,6 +2125,34 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
         BackboneShell::get()
             .clip_engine_hub()
             .notify_midi_output_devices_changed();
+    }
+}
+
+#[derive(Debug)]
+pub struct BackboneMainPresetManagerEventHandler;
+
+impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
+    fn presets_changed(&self) {
+        spawn_in_main_thread(async {
+            BackboneShell::get()
+                .clip_engine_hub()
+                .notify_main_presets_changed();
+            Ok(())
+        });
+    }
+}
+
+#[derive(Debug)]
+pub struct BackboneControllerPresetManagerEventHandler;
+
+impl PresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
+    fn presets_changed(&self) {
+        spawn_in_main_thread(async {
+            BackboneShell::get()
+                .clip_engine_hub()
+                .notify_controller_presets_changed();
+            Ok(())
+        });
     }
 }
 
