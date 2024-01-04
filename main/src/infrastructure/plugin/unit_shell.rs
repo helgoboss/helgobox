@@ -20,7 +20,7 @@ use fragile::Fragile;
 use std::sync::{Arc, Mutex};
 use swell_ui::{SharedView, WeakView};
 
-use crate::application::{SharedUnitModel, UnitModel};
+use crate::application::{AutoUnitData, SharedUnitModel, UnitModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
 
 use crate::infrastructure::data::UnitData;
@@ -60,6 +60,7 @@ impl UnitShell {
         parent_rt_instance: WeakRealTimeInstance,
         instance_panel: WeakView<InstancePanel>,
         is_main_unit: bool,
+        auto_unit: Option<AutoUnitData>,
     ) -> Self {
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -135,6 +136,7 @@ impl UnitShell {
             feedback_real_time_task_sender.clone(),
             BackboneShell::get().osc_feedback_task_sender(),
             BackboneShell::get().control_surface_main_task_sender(),
+            auto_unit,
         );
         let shared_session = Rc::new(RefCell::new(unit_model));
         let weak_session = Rc::downgrade(&shared_session);

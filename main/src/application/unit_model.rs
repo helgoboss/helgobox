@@ -1,5 +1,5 @@
 use crate::application::{
-    get_track_label, share_group, share_mapping, Affected, Change, ChangeResult,
+    get_track_label, share_group, share_mapping, Affected, AutoUnitData, Change, ChangeResult,
     CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId,
     FxPresetLinkConfig, GroupCommand, GroupModel, MainPreset, MainPresetAutoLoadMode,
     MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager, PresetManager,
@@ -140,6 +140,8 @@ pub struct UnitModel {
     instance_track_descriptor: TrackDescriptor,
     instance_fx_descriptor: FxDescriptor,
     memorized_main_compartment: Option<CompartmentModel>,
+    /// Set if this unit was added automatically.
+    auto_unit: Option<AutoUnitData>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -224,8 +226,17 @@ impl UnitModel {
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         global_osc_feedback_task_sender: &'static SenderToNormalThread<OscFeedbackTask>,
         control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
+        auto_unit: Option<AutoUnitData>,
     ) -> UnitModel {
-        Self {
+        let initial_input = auto_unit
+            .as_ref()
+            .and_then(|u| Some(ControlInput::from_device_input(u.controller.input?)))
+            .unwrap_or_default();
+        let initial_output = auto_unit
+            .as_ref()
+            .and_then(|u| Some(FeedbackOutput::from_device_output(u.controller.output?)));
+        let initial_preset_id = auto_unit.as_ref().map(|u| u.preset_id.clone());
+        let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
             unit_id: instance_id,
             logger: parent_logger.clone(),
@@ -244,8 +255,8 @@ impl UnitModel {
             reset_feedback_when_releasing_source: prop(
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             ),
-            control_input: prop(Default::default()),
-            feedback_output: prop(None),
+            control_input: prop(initial_input),
+            feedback_output: prop(initial_output),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             lives_on_upper_floor: prop(false),
             tags: Default::default(),
@@ -290,7 +301,16 @@ impl UnitModel {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
+            auto_unit,
+        };
+        if let Some(id) = initial_preset_id {
+            model.activate_main_preset(Some(id));
         }
+        model
+    }
+
+    pub fn auto_unit(&self) -> Option<&AutoUnitData> {
+        self.auto_unit.as_ref()
     }
 
     pub fn set_ui(&mut self, ui: impl SessionUi + 'static) {
@@ -1976,10 +1996,7 @@ impl UnitModel {
             // <None> preset
             None
         };
-        let compartment = Compartment::Main;
-        self.active_main_preset_id = id;
-        self.replace_compartment(compartment, model);
-        self.compartment_is_dirty[compartment].set(false);
+        self.activate_main_preset_internal(id, model);
     }
 
     fn activate_main_preset_for_auto_load(&mut self, id: Option<String>) {
@@ -1994,6 +2011,14 @@ impl UnitModel {
         } else {
             self.memorized_main_compartment.take()
         };
+        self.activate_main_preset_internal(id, model);
+    }
+
+    fn activate_main_preset_internal(
+        &mut self,
+        id: Option<String>,
+        model: Option<CompartmentModel>,
+    ) {
         let compartment = Compartment::Main;
         self.active_main_preset_id = id;
         self.replace_compartment(compartment, model);

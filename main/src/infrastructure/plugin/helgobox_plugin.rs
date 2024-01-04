@@ -415,11 +415,13 @@ impl HelgoboxPlugin {
     fn init_instance_shell(&self) -> anyhow::Result<()> {
         let processor_context = ProcessorContext::from_host(self.host)
             .context("couldn't build processor context, called too early.")?;
-        let instance_shell = Arc::new(InstanceShell::new(
+        let (instance_shell, rt_instance) = InstanceShell::new(
             self.instance_id,
             processor_context,
             self.instance_panel.clone(),
-        ));
+        );
+        let instance_shell = Arc::new(instance_shell);
+        BackboneShell::get().register_instance(self.instance_id, &instance_shell, rt_instance);
         self.instance_panel
             .notify_shell_available(instance_shell.clone());
         instance_shell.set_sample_rate(self.sample_rate.get() as _);

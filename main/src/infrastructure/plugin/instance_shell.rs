@@ -1,6 +1,7 @@
+use crate::application::AutoUnitData;
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
-    MidiEvent, ProcessorContext, RealTimeInstance, SharedInstance, SharedRealTimeInstance, UnitId,
+    MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
@@ -10,7 +11,7 @@ use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, ensure, Context};
 use base::{
     blocking_read_lock, blocking_write_lock, non_blocking_lock, non_blocking_try_read_lock,
-    tracing_debug, SenderToRealTimeThread,
+    tracing_debug,
 };
 use fragile::Fragile;
 use playtime_clip_engine::base::Matrix;
@@ -18,11 +19,13 @@ use reaper_high::Project;
 use std::cell::RefCell;
 use std::iter::once;
 use std::rc::Rc;
+use std::sync;
 use std::sync::{Arc, Mutex, RwLock};
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
-const REAL_TIME_INSTANCE_TASK_QUEUE_SIZE: usize = 200;
+pub type SharedInstanceShell = Arc<InstanceShell>;
+pub type WeakInstanceShell = sync::Weak<InstanceShell>;
 
 /// Represents a Helgobox instance in the infrastructure layer.
 ///
@@ -106,17 +109,12 @@ impl InstanceShell {
         instance_id: InstanceId,
         processor_context: ProcessorContext,
         panel: SharedView<InstancePanel>,
-    ) -> Self {
+    ) -> (Self, SharedRealTimeInstance) {
         let main_unit_id = UnitId::next();
         let instance_handler = CustomInstanceHandler {
             project: processor_context.project(),
         };
-        let (real_time_instance_task_sender, real_time_instance_task_receiver) =
-            SenderToRealTimeThread::new_channel(
-                "real-time instance tasks",
-                REAL_TIME_INSTANCE_TASK_QUEUE_SIZE,
-            );
-        let instance = Instance::new(
+        let (instance, rt_instance) = Instance::new(
             instance_id,
             main_unit_id,
             processor_context.clone(),
@@ -126,18 +124,10 @@ impl InstanceShell {
             BackboneShell::get().clip_matrix_event_sender().clone(),
             #[cfg(feature = "playtime")]
             BackboneShell::get().normal_audio_hook_task_sender().clone(),
-            #[cfg(feature = "playtime")]
-            real_time_instance_task_sender,
         );
-        let rt_instance = RealTimeInstance::new(real_time_instance_task_receiver);
         let rt_instance = Arc::new(Mutex::new(rt_instance));
         let instance_id = instance.id();
         let instance = Rc::new(RefCell::new(instance));
-        BackboneShell::get().register_instance(
-            instance_id,
-            Rc::downgrade(&instance),
-            rt_instance.clone(),
-        );
         let main_unit_shell = UnitShell::new(
             main_unit_id,
             instance_id,
@@ -146,16 +136,18 @@ impl InstanceShell {
             Arc::downgrade(&rt_instance),
             SharedView::downgrade(&panel),
             true,
+            None,
         );
-        Self {
+        let shell = Self {
             instance: Fragile::new(instance),
-            rt_instance,
+            rt_instance: rt_instance.clone(),
             main_unit_shell,
             additional_unit_shells: Default::default(),
             panel: Fragile::new(panel),
             processor_context: Fragile::new(processor_context),
             instance_id,
-        }
+        };
+        (shell, rt_instance)
     }
 
     pub fn instance(&self) -> &SharedInstance {
@@ -187,13 +179,13 @@ impl InstanceShell {
     }
 
     pub fn add_unit(&self) -> UnitId {
-        let unit_shell = self.create_additional_unit_shell();
+        let unit_shell = self.create_additional_unit_shell(None);
         let id = unit_shell.id();
-        blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+        self.add_unit_internal(unit_shell);
         id
     }
 
-    fn create_additional_unit_shell(&self) -> UnitShell {
+    fn create_additional_unit_shell(&self, auto_unit: Option<AutoUnitData>) -> UnitShell {
         UnitShell::new(
             UnitId::next(),
             self.instance_id,
@@ -202,13 +194,46 @@ impl InstanceShell {
             Arc::downgrade(&self.rt_instance),
             SharedView::downgrade(self.panel.get()),
             false,
+            auto_unit,
         )
     }
 
+    fn add_unit_internal(&self, unit_shell: UnitShell) {
+        blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+    }
+
     pub fn remove_unit(&self, index: usize) -> anyhow::Result<()> {
-        let mut guard = blocking_write_lock(&self.additional_unit_shells, "remove_unit");
-        ensure!(index < guard.len(), "unit doesn't exist");
-        guard.remove(index);
+        let mut additional_unit_shells =
+            blocking_write_lock(&self.additional_unit_shells, "remove_unit");
+        ensure!(index < additional_unit_shells.len(), "unit doesn't exist");
+        additional_unit_shells.remove(index);
+        Ok(())
+    }
+
+    pub fn apply_auto_units(&self, auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
+        for auto_unit in auto_units {
+            self.apply_auto_unit(auto_unit)?;
+        }
+        Ok(())
+    }
+
+    fn apply_auto_unit(&self, auto_unit: &AutoUnitData) -> anyhow::Result<()> {
+        let auto_unit_already_applied = {
+            let additional_unit_shells =
+                blocking_read_lock(&self.additional_unit_shells, "apply_auto_unit");
+            additional_unit_shells.iter().any(|unit_shell| {
+                unit_shell
+                    .model()
+                    .borrow()
+                    .auto_unit()
+                    .is_some_and(|u| u.matches_installed(auto_unit))
+            })
+        };
+        if !auto_unit_already_applied {
+            tracing_debug!("Creating auto-unit shell");
+            let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
+            self.add_unit_internal(unit_shell);
+        }
         Ok(())
     }
 
@@ -227,7 +252,14 @@ impl InstanceShell {
         let additional_unit_datas =
             blocking_read_lock(&self.additional_unit_shells, "create_instance_data")
                 .iter()
-                .map(|us| UnitData::from_model(&us.model().borrow()))
+                .filter_map(|us| {
+                    let model = us.model().borrow();
+                    if model.auto_unit().is_some() {
+                        // Auto units are not saved
+                        return None;
+                    }
+                    Some(UnitData::from_model(&model))
+                })
                 .collect();
         let instance = self.instance.get().borrow();
         InstanceData {
@@ -308,7 +340,7 @@ impl InstanceShell {
             .additional_units
             .into_iter()
             .map(|ud| {
-                let unit_shell = self.create_additional_unit_shell();
+                let unit_shell = self.create_additional_unit_shell(None);
                 unit_shell.apply_data(&ud)?;
                 Ok(unit_shell)
             })

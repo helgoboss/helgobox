@@ -1,5 +1,5 @@
-use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, UnitId};
-use base::{NamedChannelSender, SenderToNormalThread};
+use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
+use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use playtime_clip_engine::base::Matrix;
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
@@ -113,6 +113,8 @@ impl From<InstanceId> for u32 {
     }
 }
 
+const REAL_TIME_INSTANCE_TASK_QUEUE_SIZE: usize = 200;
+
 impl Instance {
     pub fn new(
         id: InstanceId,
@@ -126,11 +128,14 @@ impl Instance {
         #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
             crate::domain::NormalAudioHookTask,
         >,
-        #[cfg(feature = "playtime")] real_time_instance_task_sender: base::SenderToRealTimeThread<
-            crate::domain::RealTimeInstanceTask,
-        >,
-    ) -> Self {
-        Self {
+    ) -> (Self, RealTimeInstance) {
+        let (real_time_instance_task_sender, real_time_instance_task_receiver) =
+            SenderToRealTimeThread::new_channel(
+                "real-time instance tasks",
+                REAL_TIME_INSTANCE_TASK_QUEUE_SIZE,
+            );
+        let rt_instance = RealTimeInstance::new(real_time_instance_task_receiver);
+        let instance = Self {
             id,
             main_unit_id,
             feedback_event_sender,
@@ -145,7 +150,8 @@ impl Instance {
             audio_hook_task_sender,
             #[cfg(feature = "playtime")]
             real_time_instance_task_sender,
-        }
+        };
+        (instance, rt_instance)
     }
 
     pub fn id(&self) -> InstanceId {

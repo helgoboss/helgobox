@@ -48,10 +48,6 @@ pub struct ControllerRole {
     pub main_preset: Option<PresetId>,
 }
 
-/// ID of a controller or main preset (which one depends on the context).
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct PresetId(String);
-
 /// The way a controller is connected to ReaLearn.
 ///
 /// Protocol-specific.
@@ -87,11 +83,39 @@ pub struct OscControllerConnection {
     pub osc_device_id: Option<OscDeviceId>,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MidiInputPort(u32);
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+impl MidiInputPort {
+    pub fn get(&self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MidiOutputPort(u32);
+
+impl MidiOutputPort {
+    pub fn get(&self) -> u32 {
+        self.0
+    }
+}
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct OscDeviceId(String);
+
+impl OscDeviceId {
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}
+
+/// ID of a controller or main preset (which one depends on the context).
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct PresetId(String);
+
+impl PresetId {
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}

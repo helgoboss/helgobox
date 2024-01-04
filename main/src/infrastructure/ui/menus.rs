@@ -121,7 +121,7 @@ pub fn menu_containing_sessions(
         },
         || None,
     );
-    let items: Vec<_> = BackboneShell::get().with_instances(|sessions| {
+    let items: Vec<_> = BackboneShell::get().with_units(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
             let other_session = session.unit_model.upgrade()?;
             let other_session = other_session.try_borrow().ok()?;

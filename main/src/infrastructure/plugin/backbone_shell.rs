@@ -1,6 +1,6 @@
 use crate::application::{
-    RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping, SharedUnitModel,
-    UnitModel, VirtualControlElementType, WeakUnitModel,
+    determine_auto_units, RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping,
+    SharedUnitModel, UnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -32,15 +32,17 @@ use crate::infrastructure::ui::MessagePanel;
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
-    NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
+    SenderToNormalThread, SenderToRealTimeThread,
 };
 use enum_iterator::IntoEnumIterator;
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
+use crate::base::notification::notify_user_on_anyhow_error;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
+use crate::infrastructure::plugin::{InstanceShell, WeakInstanceShell};
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -67,12 +69,13 @@ use serde::{Deserialize, Serialize};
 use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
-use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use std::{fs, sync};
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -158,11 +161,18 @@ pub struct BackboneShell {
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
+    instance_infos: RefCell<Vec<InstanceShellInfo>>,
     units: RefCell<Vec<UnitInfo>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
     clip_engine_hub: crate::infrastructure::proto::ProtoHub,
+}
+
+#[derive(Debug)]
+pub struct InstanceShellInfo {
+    pub instance_id: InstanceId,
+    pub instance_shell: WeakInstanceShell,
 }
 
 #[derive(Debug)]
@@ -379,6 +389,7 @@ impl BackboneShell {
             feedback_audio_hook_task_sender,
             instance_orchestration_event_sender,
             audio_hook_task_sender,
+            instance_infos: RefCell::new(vec![]),
             units: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
@@ -465,6 +476,20 @@ impl BackboneShell {
             integration: Box::new(RealearnClipEngineIntegration),
         };
         ClipEngine::make_available_globally(|| ClipEngine::new(args));
+    }
+
+    /// To be called whenever some event might lead to addition/removal of auto units.
+    fn update_auto_units(&self) {
+        let controller_manager = self.controller_manager.borrow();
+        let controllers = &controller_manager.controller_config().controllers;
+        let auto_units = determine_auto_units(controllers);
+        let instance_infos = self.instance_infos.borrow();
+        for instance_shell in instance_infos
+            .iter()
+            .filter_map(|i| i.instance_shell.upgrade())
+        {
+            notify_user_on_anyhow_error(instance_shell.apply_auto_units(&auto_units));
+        }
     }
 
     fn reconnect_osc_devices(&self) {
@@ -816,8 +841,8 @@ impl BackboneShell {
         self.main_preset_manager.clone()
     }
 
-    pub fn controller_manager(&self) -> SharedControllerManager {
-        self.controller_manager.clone()
+    pub fn controller_manager(&self) -> &SharedControllerManager {
+        &self.controller_manager
     }
 
     pub fn preset_manager(&self, compartment: Compartment) -> Box<dyn ExtendedPresetManager> {
@@ -1143,7 +1168,7 @@ impl BackboneShell {
             .find(predicate)
     }
 
-    pub fn with_instances<R>(&self, f: impl FnOnce(&[UnitInfo]) -> R) -> R {
+    pub fn with_units<R>(&self, f: impl FnOnce(&[UnitInfo]) -> R) -> R {
         f(&self.units.borrow())
     }
 
@@ -1157,10 +1182,16 @@ impl BackboneShell {
     pub fn register_instance(
         &self,
         id: InstanceId,
-        instance: WeakInstance,
+        instance_shell: &Arc<InstanceShell>,
         rt_instance: SharedRealTimeInstance,
     ) {
         debug!(Reaper::get().logger(), "Registering new instance...");
+        let info = InstanceShellInfo {
+            instance_id: id,
+            instance_shell: Arc::downgrade(instance_shell),
+        };
+        self.instance_infos.borrow_mut().push(info);
+        let instance = Rc::downgrade(instance_shell.instance());
         Backbone::get().register_instance(id, instance.clone());
         self.audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::AddRealTimeInstance(id, rt_instance));
@@ -1171,6 +1202,9 @@ impl BackboneShell {
 
     pub fn unregister_instance(&self, instance_id: InstanceId) {
         debug!(Reaper::get().logger(), "Unregistering instance...");
+        self.instance_infos
+            .borrow_mut()
+            .retain(|i| i.instance_id != instance_id);
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             // Remove main processor.
             control_surface
@@ -1188,8 +1222,8 @@ impl BackboneShell {
         main_processor: MainProcessor<WeakUnitModel>,
     ) {
         let unit_id = unit_info.unit_id;
-        let mut units = self.units.borrow_mut();
         debug!(Reaper::get().logger(), "Registering new unit...");
+        let mut units = self.units.borrow_mut();
         units.push(unit_info);
         debug!(
             Reaper::get().logger(),
@@ -1209,8 +1243,8 @@ impl BackboneShell {
     pub fn unregister_unit(&self, unit_id: UnitId, unit_model_ptr: *const UnitModel) {
         self.unregister_unit_main_processor(unit_id);
         self.unregister_unit_real_time_processor(unit_id);
-        let mut units = self.units.borrow_mut();
         debug!(Reaper::get().logger(), "Unregistering unit...");
+        let mut units = self.units.borrow_mut();
         units.retain(|i| {
             match i.unit_model.upgrade() {
                 // Already gone, for whatever reason. Time to throw out!
@@ -2135,12 +2169,14 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
         BackboneShell::get()
             .clip_engine_hub()
             .notify_midi_input_devices_changed();
+        update_auto_units_async();
     }
 
     fn midi_output_devices_changed(&self) {
         BackboneShell::get()
             .clip_engine_hub()
             .notify_midi_output_devices_changed();
+        update_auto_units_async();
     }
 }
 
@@ -2165,7 +2201,16 @@ impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
         BackboneShell::get()
             .clip_engine_hub()
             .notify_controller_config_changed(source);
+        update_auto_units_async();
     }
+}
+
+fn update_auto_units_async() {
+    Global::task_support()
+        .do_later_in_main_thread_from_main_thread_asap(|| {
+            BackboneShell::get().update_auto_units();
+        })
+        .unwrap();
 }
 
 #[derive(Debug)]

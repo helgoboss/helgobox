@@ -9,6 +9,13 @@ pub enum ControlInput {
 }
 
 impl ControlInput {
+    pub fn from_device_input(input: DeviceControlInput) -> Self {
+        match input {
+            DeviceControlInput::Midi(id) => Self::Midi(MidiControlInput::Device(id)),
+            DeviceControlInput::Osc(id) => Self::Osc(id),
+        }
+    }
+
     pub fn midi_control_input(self) -> Option<MidiControlInput> {
         if let ControlInput::Midi(i) = self {
             Some(i)
@@ -50,6 +57,13 @@ pub enum FeedbackOutput {
 }
 
 impl FeedbackOutput {
+    pub fn from_device_output(output: DeviceFeedbackOutput) -> Self {
+        match output {
+            DeviceFeedbackOutput::Midi(id) => Self::Midi(MidiDestination::Device(id)),
+            DeviceFeedbackOutput::Osc(id) => Self::Osc(id),
+        }
+    }
+
     pub fn midi_destination(&self) -> Option<MidiDestination> {
         if let Self::Midi(dest) = self {
             Some(*dest)

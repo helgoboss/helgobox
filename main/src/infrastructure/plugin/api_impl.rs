@@ -70,7 +70,7 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
 fn find_first_helgobox_instance_matching(
     meets_criteria: impl Fn(&UnitInfo) -> bool,
 ) -> Option<InstanceId> {
-    BackboneShell::get().with_instances(|instances| {
+    BackboneShell::get().with_units(|instances| {
         instances
             .iter()
             .filter_map(|instance| {
@@ -89,7 +89,7 @@ fn find_first_helgobox_instance_matching(
 #[cfg(feature = "playtime")]
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
-    BackboneShell::get().with_instances(|instances| {
+    BackboneShell::get().with_units(|instances| {
         let instance = instances
             .iter()
             .find(|i| i.instance_id == instance_id)
