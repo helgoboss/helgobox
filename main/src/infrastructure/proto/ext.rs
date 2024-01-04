@@ -6,23 +6,26 @@ use reaper_medium::{
 };
 use std::num::NonZeroU32;
 
+use crate::infrastructure::data::{ExtendedPresetManager, PresetInfo};
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     clip_content_info, event_reply, generated, occasional_global_update, occasional_matrix_update,
     occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
     AudioClipContentInfo, AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo,
-    ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate,
-    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
-    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
-    GetOccasionalGlobalUpdatesReply, GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply,
-    GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply, HistoryState, LearnState,
-    MidiClipContentInfo, MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice,
-    MidiOutputDevices, OccasionalGlobalUpdate, OccasionalMatrixUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput,
-    TrackInputMonitoring, TrackList, TrackMidiInput,
+    CompartmentPreset, CompartmentPresets, ContinuousClipUpdate, ContinuousColumnUpdate,
+    ContinuousMatrixUpdate, ContinuousSlotUpdate, GetContinuousColumnUpdatesReply,
+    GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
+    GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
+    GetOccasionalTrackUpdatesReply, HistoryState, LearnState, MidiClipContentInfo,
+    MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices,
+    OccasionalGlobalUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SequencerPlayState, SlotAddress,
+    SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring, TrackList,
+    TrackMidiInput,
 };
 use playtime_clip_engine::base::{
     Clip, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer, SaveOptions,
@@ -54,6 +57,22 @@ impl occasional_global_update::Update {
         Self::AudioInputChannels(AudioInputChannels::from_engine(
             Reaper::get().input_channels(),
         ))
+    }
+
+    pub fn controller_presets() -> Self {
+        let infos = BackboneShell::get()
+            .controller_preset_manager()
+            .borrow()
+            .preset_infos();
+        Self::ControllerPresets(CompartmentPresets::from_engine(infos))
+    }
+
+    pub fn main_presets() -> Self {
+        let infos = BackboneShell::get()
+            .main_preset_manager()
+            .borrow()
+            .preset_infos();
+        Self::MainPresets(CompartmentPresets::from_engine(infos))
     }
 }
 
@@ -553,6 +572,26 @@ impl AudioInputChannels {
                     name: name.into_string(),
                 })
                 .collect(),
+        }
+    }
+}
+
+impl CompartmentPresets {
+    pub fn from_engine(preset_infos: Vec<PresetInfo>) -> Self {
+        Self {
+            compartment_presets: preset_infos
+                .into_iter()
+                .map(CompartmentPreset::from_engine)
+                .collect(),
+        }
+    }
+}
+
+impl CompartmentPreset {
+    pub fn from_engine(preset_info: PresetInfo) -> Self {
+        Self {
+            id: preset_info.id,
+            name: preset_info.name,
         }
     }
 }

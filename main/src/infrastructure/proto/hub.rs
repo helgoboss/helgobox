@@ -6,10 +6,11 @@ use crate::infrastructure::proto::senders::{
     OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch, ProtoSenders,
 };
 use crate::infrastructure::proto::{
-    occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_column_update, qualified_occasional_row_update,
-    qualified_occasional_slot_update, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-    ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider, OccasionalMatrixUpdate,
+    occasional_global_update, occasional_matrix_update, occasional_track_update,
+    qualified_occasional_clip_update, qualified_occasional_column_update,
+    qualified_occasional_row_update, qualified_occasional_slot_update, ContinuousColumnUpdate,
+    ContinuousMatrixUpdate, ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider,
+    OccasionalGlobalUpdate, OccasionalGlobalUpdateBatch, OccasionalMatrixUpdate,
     OccasionalTrackUpdate, ProtoRequestHandler, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
@@ -59,7 +60,30 @@ impl ProtoHub {
         ))
     }
 
-    pub fn clip_matrix_changed(
+    pub fn notify_midi_input_devices_changed(&self) {
+        self.send_global_updates(|| [occasional_global_update::Update::midi_input_devices()]);
+    }
+
+    pub fn notify_midi_output_devices_changed(&self) {
+        self.send_global_updates(|| [occasional_global_update::Update::midi_output_devices()]);
+    }
+
+    fn send_global_updates<F, I>(&self, create_updates: F)
+    where
+        F: FnOnce() -> I,
+        I: IntoIterator<Item = occasional_global_update::Update>,
+    {
+        let sender = &self.senders.occasional_global_update_sender;
+        if sender.receiver_count() == 0 {
+            return;
+        }
+        let wrapped_updates = create_updates()
+            .into_iter()
+            .map(|u| OccasionalGlobalUpdate { update: Some(u) });
+        let _ = sender.send(wrapped_updates.collect());
+    }
+
+    pub fn notify_clip_matrix_changed(
         &self,
         matrix_id: &str,
         matrix: &Matrix,

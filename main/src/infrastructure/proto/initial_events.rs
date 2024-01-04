@@ -19,12 +19,14 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
             .collect()
     }
     let global_updates = [
-        // TODO-high-ms3 Update when changed
         Update::midi_input_devices(),
-        // TODO-high-ms3 Update when changed
         Update::midi_output_devices(),
         // TODO-high-ms3 Update when changed
         Update::audio_input_channels(),
+        // TODO-high-ms3 Update when changed
+        Update::controller_presets(),
+        // TODO-high-ms3 Update when changed
+        Update::main_presets(),
     ];
     create(global_updates.into_iter())
 }

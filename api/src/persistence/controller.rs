@@ -45,7 +45,7 @@ pub struct ControllerRoles {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ControllerRole {
     /// The main preset to load for a controller if used in that role.
-    pub main_preset: PresetId,
+    pub main_preset: Option<PresetId>,
 }
 
 /// ID of a controller or main preset (which one depends on the context).

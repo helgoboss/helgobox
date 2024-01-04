@@ -72,13 +72,15 @@ impl InstanceHandler for CustomInstanceHandler {
         is_poll: bool,
     ) {
         // TODO-medium If we would make the instance ID generic, we could save the string conversion
-        BackboneShell::get().clip_engine_hub().clip_matrix_changed(
-            &instance_id.to_string(),
-            matrix,
-            events,
-            is_poll,
-            self.project,
-        );
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_clip_matrix_changed(
+                &instance_id.to_string(),
+                matrix,
+                events,
+                is_poll,
+                self.project,
+            );
     }
 
     #[cfg(feature = "playtime")]

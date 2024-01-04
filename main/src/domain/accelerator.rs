@@ -10,7 +10,7 @@ use reaper_medium::{
 };
 use swell_ui::{SharedView, View, Window};
 
-pub trait RealearnWindowSnitch {
+pub trait HelgoboxWindowSnitch {
     /// Goes up the window hierarchy trying to find an associated ReaLearn view, starting with
     /// the given window.
     fn find_closest_realearn_view(&self, window: Window) -> Option<SharedView<dyn View>>;
@@ -34,7 +34,7 @@ impl<EH: DomainEventHandler, S> RealearnAccelerator<EH, S> {
 impl<EH, S> RealearnAccelerator<EH, S>
 where
     EH: DomainEventHandler,
-    S: RealearnWindowSnitch,
+    S: HelgoboxWindowSnitch,
 {
     /// Sends the message to all main processors as control events.
     ///
@@ -118,7 +118,7 @@ where
 impl<EH, S> TranslateAccel for RealearnAccelerator<EH, S>
 where
     EH: DomainEventHandler,
-    S: RealearnWindowSnitch,
+    S: HelgoboxWindowSnitch,
 {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
         if args.msg.message() != AccelMsgKind::Char {

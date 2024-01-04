@@ -49,4 +49,8 @@ impl<T: Eq + Hash + Copy> DeviceDiff<T> {
             removed_devices: old_devs.difference(new_devs).copied().collect(),
         }
     }
+
+    pub fn devices_changed(&self) -> bool {
+        !self.added_devices.is_empty() || !self.removed_devices.is_empty()
+    }
 }

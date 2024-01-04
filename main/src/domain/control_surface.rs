@@ -29,6 +29,7 @@ use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::mem;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
@@ -70,6 +71,12 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
     last_undesired_allocation_count: u32,
+    event_handler: Box<dyn ControlSurfaceEventHandler>,
+}
+
+pub trait ControlSurfaceEventHandler: Debug {
+    fn midi_input_devices_changed(&self);
+    fn midi_output_devices_changed(&self);
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -190,6 +197,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         main_processors: SharedMainProcessors<EH>,
+        event_handler: Box<dyn ControlSurfaceEventHandler>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         let mut device_change_detector = DeviceChangeDetector::new();
@@ -225,6 +233,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             control_surface_event_sender,
             control_surface_event_receiver,
             last_undesired_allocation_count: 0,
+            event_handler,
         }
     }
 
@@ -270,7 +279,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_focus_switch_between_main_and_fx_as_feedback_event();
         self.emit_instance_events();
         self.emit_beats_as_feedback_events();
-        self.emit_device_changes_as_reaper_source_messages(timestamp);
+        self.detect_device_changes(timestamp);
         self.process_incoming_osc_messages(timestamp);
         // Drive clip matrix
         #[cfg(feature = "playtime")]
@@ -628,7 +637,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn emit_device_changes_as_reaper_source_messages(&mut self, timestamp: ControlEventTimestamp) {
+    fn detect_device_changes(&mut self, timestamp: ControlEventTimestamp) {
         // Check roughly every 2 seconds
         if self.counter % (30 * 2) == 0 {
             let midi_in_diff = self
@@ -642,6 +651,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 midi_in_diff.added_devices.iter().copied(),
                 midi_out_diff.added_devices.iter().copied(),
             );
+            // Handle events
+            if midi_in_diff.devices_changed() {
+                self.event_handler.midi_input_devices_changed();
+            }
+            if midi_out_diff.devices_changed() {
+                self.event_handler.midi_output_devices_changed();
+            }
+            // Emit as REAPER source messages
             let mut msgs = Vec::with_capacity(2);
             if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
                 let payload = MidiDeviceChangePayload {

@@ -867,7 +867,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalGlobalUpdate {
-    #[prost(oneof = "occasional_global_update::Update", tags = "1, 2, 3, 4, 5")]
+    #[prost(oneof = "occasional_global_update::Update", tags = "1, 2, 3, 4, 5, 6")]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
 /// Nested message and enum types in `OccasionalGlobalUpdate`.
@@ -884,11 +884,14 @@ pub mod occasional_global_update {
         /// MIDI output devices (= REAPER MIDI output devices)
         #[prost(message, tag = "3")]
         MidiOutputDevices(super::MidiOutputDevices),
-        /// Compartment presets
+        /// Controller presets
         #[prost(message, tag = "4")]
-        CompartmentPresets(super::CompartmentPresets),
-        /// Audio input channels (= REAPER hardware input channels)
+        ControllerPresets(super::CompartmentPresets),
+        /// Main presets
         #[prost(message, tag = "5")]
+        MainPresets(super::CompartmentPresets),
+        /// Audio input channels (= REAPER hardware input channels)
+        #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
     }
 }
@@ -901,11 +904,9 @@ pub struct CompartmentPresets {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CompartmentPreset {
-    #[prost(enumeration = "CompartmentPresetKind", tag = "1")]
-    pub kind: i32,
-    #[prost(string, tag = "2")]
+    #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
+    #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1783,35 +1784,6 @@ impl DragClipAction {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "DRAG_CLIP_ACTION_MOVE" => Some(Self::Move),
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum CompartmentPresetKind {
-    Unknown = 0,
-    Controller = 1,
-    Main = 2,
-}
-impl CompartmentPresetKind {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            CompartmentPresetKind::Unknown => "COMPARTMENT_PRESET_KIND_UNKNOWN",
-            CompartmentPresetKind::Controller => "COMPARTMENT_PRESET_KIND_CONTROLLER",
-            CompartmentPresetKind::Main => "COMPARTMENT_PRESET_KIND_MAIN",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "COMPARTMENT_PRESET_KIND_UNKNOWN" => Some(Self::Unknown),
-            "COMPARTMENT_PRESET_KIND_CONTROLLER" => Some(Self::Controller),
-            "COMPARTMENT_PRESET_KIND_MAIN" => Some(Self::Main),
             _ => None,
         }
     }

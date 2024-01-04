@@ -5,14 +5,15 @@ use crate::application::{
 use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
-    ChangeInstanceTrackArgs, Compartment, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask,
-    GroupId, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
-    InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
-    MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
-    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent,
-    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, RealearnWindowSnitch,
-    ReaperTarget, ReaperTargetType, SharedInstance, SharedMainProcessors, SharedRealTimeInstance,
+    ChangeInstanceTrackArgs, Compartment, ControlSurfaceEventHandler, EnableInstancesArgs,
+    Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch, InputDescriptor,
+    InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent,
+    InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
+    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
+    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
+    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
+    ReaperTargetType, SharedInstance, SharedMainProcessors, SharedRealTimeInstance,
     SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
 };
 use crate::infrastructure::data::{
@@ -121,7 +122,8 @@ make_available_globally_in_main_thread_on_demand!(BackboneShell);
 static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui::AppLibrary>> =
     std::sync::OnceLock::new();
 
-pub type RealearnSessionAccelerator = RealearnAccelerator<WeakUnitModel, RealearnSnitch>;
+pub type RealearnSessionAccelerator =
+    RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
 
 pub type RealearnControlSurface =
     MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
@@ -318,6 +320,7 @@ impl BackboneShell {
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
             shared_main_processors.clone(),
+            Box::new(BackboneControlSurfaceEventHandler),
         ));
         // This doesn't yet activate the audio hook (will happen on wake up)
         let audio_hook = RealearnAudioHook::new(
@@ -325,7 +328,8 @@ impl BackboneShell {
             feedback_audio_hook_task_receiver,
         );
         // This doesn't yet activate the accelerator (will happen on wake up)
-        let accelerator = RealearnAccelerator::new(shared_main_processors, RealearnSnitch);
+        let accelerator =
+            RealearnAccelerator::new(shared_main_processors, BackboneHelgoboxWindowSnitch);
         // Silently decompress app and load library in background so it's ready when needed
         #[cfg(feature = "playtime")]
         let _ = std::thread::Builder::new()
@@ -2086,9 +2090,9 @@ fn convert_optional_guid_to_api_track_descriptor(guid: Option<Guid>) -> TrackDes
 }
 
 #[derive(Debug)]
-pub struct RealearnSnitch;
+pub struct BackboneHelgoboxWindowSnitch;
 
-impl RealearnWindowSnitch for RealearnSnitch {
+impl HelgoboxWindowSnitch for BackboneHelgoboxWindowSnitch {
     fn find_closest_realearn_view(&self, window: Window) -> Option<SharedView<dyn View>> {
         let view_manager = ViewManager::get().borrow();
         let mut current_window = Some(window);
@@ -2100,6 +2104,23 @@ impl RealearnWindowSnitch for RealearnSnitch {
             current_window = w.parent();
         }
         None
+    }
+}
+
+#[derive(Debug)]
+pub struct BackboneControlSurfaceEventHandler;
+
+impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
+    fn midi_input_devices_changed(&self) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_midi_input_devices_changed();
+    }
+
+    fn midi_output_devices_changed(&self) {
+        BackboneShell::get()
+            .clip_engine_hub()
+            .notify_midi_output_devices_changed();
     }
 }
 
