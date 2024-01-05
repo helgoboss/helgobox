@@ -4,7 +4,7 @@ use std::error::Error;
 
 use crate::base::notification;
 use crate::infrastructure::plugin::BackboneShell;
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, bail, ensure, Context};
 use base::file_util;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
@@ -46,13 +46,20 @@ pub trait ExtendedPresetManager {
 pub struct PresetInfo {
     pub id: String,
     pub name: String,
+    pub file_type: PresetFileType,
     /// The ID should actually be equal to the path, but to not run into any
     /// breaking change in edge cases, we keep track of the actual path here.
     pub absolute_path: PathBuf,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Deserialize)]
-pub struct PresetInfoData {
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum PresetFileType {
+    Json,
+    Lua,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
+struct PresetMetaData {
     pub name: String,
     // Since ReaLearn 1.12.0-pre18
     #[serde(
@@ -60,7 +67,35 @@ pub struct PresetInfoData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub version: Option<Version>,
+    #[serde(alias = "version")]
+    pub realearn_version: Option<Version>,
+}
+
+impl PresetMetaData {
+    pub fn from_json(json: &str) -> anyhow::Result<Self> {
+        Ok(serde_json::from_str(json)?)
+    }
+
+    pub fn from_lua(lua: &str) -> anyhow::Result<Self> {
+        let mut md = PresetMetaData::default();
+        const PREFIX: &str = "--- ";
+        for line in lua.lines() {
+            let Some(meta_data_pair) = line.strip_prefix(PREFIX) else {
+                break;
+            };
+            if let Some(name) = meta_data_pair.strip_prefix("name: ") {
+                md.name = name.trim().to_string();
+            }
+            if let Some(realearn_version) = meta_data_pair.strip_prefix("realearn_version: ") {
+                md.realearn_version = Some(Version::parse(realearn_version.trim())?);
+            }
+        }
+        ensure!(
+            !md.name.is_empty(),
+            "Lua presets need at least a \"{PREFIX}name: ...\" line at the very top!"
+        );
+        Ok(md)
+    }
 }
 
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
@@ -96,13 +131,18 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 if !entry.file_type().is_file() {
                     return None;
                 }
-                if entry.path().extension() != Some(std::ffi::OsStr::new("json")) {
+                let extension = entry.path().extension()?;
+                let file_type = if extension == "json" {
+                    PresetFileType::Json
+                } else if extension == "lua" {
+                    PresetFileType::Lua
+                } else {
                     return None;
-                }
-                Some(entry.into_path())
+                };
+                Some((entry.into_path(), file_type))
             });
         self.preset_infos = preset_file_paths
-            .filter_map(|p| match self.load_preset_info(p) {
+            .filter_map(|(p, file_type)| match self.load_preset_info(p, file_type) {
                 Ok(p) => Some(p),
                 Err(e) => {
                     notification::warn(e.to_string());
@@ -157,7 +197,11 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.changed_subject.next(());
     }
 
-    fn load_preset_info(&self, path: PathBuf) -> anyhow::Result<PresetInfo> {
+    fn load_preset_info(
+        &self,
+        path: PathBuf,
+        file_type: PresetFileType,
+    ) -> anyhow::Result<PresetInfo> {
         let relative_path = path
             .parent()
             .unwrap()
@@ -179,19 +223,23 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
             format!("{relative_path_with_slashes}/{leaf_id}")
         };
-        let json = fs::read_to_string(&path)
+        let file_content = fs::read_to_string(&path)
             .map_err(|_| anyhow!("Couldn't read preset file \"{}\".", path.display()))?;
-        let data: PresetInfoData = serde_json::from_str(&json).map_err(|e| {
+        let preset_meta_data_result = match file_type {
+            PresetFileType::Json => PresetMetaData::from_json(&file_content),
+            PresetFileType::Lua => PresetMetaData::from_lua(&file_content),
+        };
+        let preset_meta_data = preset_meta_data_result.map_err(|e| {
             anyhow!(
-                "Preset file {} isn't valid. Details:\n\n{}",
+                "Couldn't read preset meta data from file \"{}\". Details:\n\n{}",
                 path.display(),
                 e
             )
         })?;
-        if let Some(v) = data.version.as_ref() {
+        if let Some(v) = preset_meta_data.realearn_version.as_ref() {
             if BackboneShell::version() < v {
                 bail!(
-                    "Skipped loading of preset \"{}\" because it has been saved with \
+                    "Skipped loading of preset \"{}\" because it has been created with \
                          ReaLearn {}, which is newer than the installed version {}. \
                          Please update your ReaLearn version. If this is not an option for you and \
                          it's a factory preset installed from ReaPack, go back to an older version \
@@ -206,7 +254,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         }
         let preset_info = PresetInfo {
             id,
-            name: data.name,
+            name: preset_meta_data.name,
+            file_type,
             absolute_path: path,
         };
         Ok(preset_info)
