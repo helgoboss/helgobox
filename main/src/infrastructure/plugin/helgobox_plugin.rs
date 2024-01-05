@@ -420,6 +420,8 @@ impl HelgoboxPlugin {
             processor_context,
             self.instance_panel.clone(),
         );
+        let auto_units = BackboneShell::get().determine_auto_units();
+        instance_shell.apply_auto_units(&auto_units)?;
         let instance_shell = Arc::new(instance_shell);
         BackboneShell::get().register_instance(self.instance_id, &instance_shell, rt_instance);
         self.instance_panel

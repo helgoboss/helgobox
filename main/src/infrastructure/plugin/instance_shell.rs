@@ -401,6 +401,9 @@ impl InstanceShell {
             .collect();
         *blocking_write_lock(&self.additional_unit_shells, "InstanceShell apply_data") =
             additional_unit_shells?;
+        // Apply auto units
+        let auto_units = BackboneShell::get().determine_auto_units();
+        self.apply_auto_units(&auto_units)?;
         Ok(())
     }
 

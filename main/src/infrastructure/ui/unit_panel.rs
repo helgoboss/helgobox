@@ -300,6 +300,9 @@ impl UnitPanel {
     }
 
     fn handle_info_event(self: SharedView<Self>, event: &InfoEvent) {
+        if !self.is_open() {
+            return;
+        }
         match event {
             InfoEvent::UndesiredAllocationCountChanged => {
                 self.invalidate_status_2_text();

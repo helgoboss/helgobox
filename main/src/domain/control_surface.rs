@@ -241,6 +241,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let timestamp = ControlEventTimestamp::now();
         #[cfg(debug_assertions)]
         {
+            // TODO-high This is propagated using main processors but it's a global event. We
+            //  should use the global control surface event handler for this!
             let current_undesired_allocation_count =
                 helgoboss_allocator::undesired_allocation_count();
             if current_undesired_allocation_count != self.last_undesired_allocation_count {
