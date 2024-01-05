@@ -200,6 +200,10 @@ impl InstanceShell {
 
     fn add_unit_internal(&self, unit_shell: UnitShell) {
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+        self.main_unit_shell.panel().notify_units_changed();
+        for unit_shell in blocking_read_lock(&self.additional_unit_shells, "add_unit").iter() {
+            unit_shell.panel().notify_units_changed();
+        }
     }
 
     pub fn remove_unit(&self, index: usize) -> anyhow::Result<()> {

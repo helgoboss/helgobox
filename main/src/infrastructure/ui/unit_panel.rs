@@ -208,6 +208,12 @@ impl UnitPanel {
         self.invalidate_status_2_text();
     }
 
+    pub fn notify_units_changed(&self) {
+        if self.view.window().is_some() {
+            self.invalidate_unit_button();
+        }
+    }
+
     fn invalidate_unit_button(&self) {
         let instance_panel = self.instance_panel();
         let instance_shell = instance_panel.shell().unwrap();
