@@ -499,7 +499,7 @@ pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
 
 fn subscribe_to_events() -> ProtoReceivers {
     BackboneShell::get()
-        .clip_engine_hub()
+        .proto_hub()
         .senders()
         .subscribe_to_all()
 }

@@ -33,7 +33,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
-use anyhow::Context;
 use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
@@ -42,8 +41,8 @@ use realearn_api::persistence::{
 };
 use reaper_medium::RecordingInput;
 use std::error::Error;
+use std::fmt;
 use std::rc::{Rc, Weak};
-use std::{fmt, mem};
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);

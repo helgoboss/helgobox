@@ -42,7 +42,7 @@ use crate::base::notification::notify_user_on_anyhow_error;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
-use crate::infrastructure::plugin::{InstanceShell, WeakInstanceShell};
+use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell, WeakInstanceShell};
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -69,13 +69,13 @@ use serde::{Deserialize, Serialize};
 use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
+use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use std::{fs, sync};
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -166,7 +166,7 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
-    clip_engine_hub: crate::infrastructure::proto::ProtoHub,
+    proto_hub: crate::infrastructure::proto::ProtoHub,
 }
 
 #[derive(Debug)]
@@ -394,7 +394,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
-            clip_engine_hub: crate::infrastructure::proto::ProtoHub::new(),
+            proto_hub: crate::infrastructure::proto::ProtoHub::new(),
         }
     }
 
@@ -517,9 +517,7 @@ impl BackboneShell {
     fn create_services(&self) -> Services {
         Services {
             #[cfg(feature = "playtime")]
-            helgobox_service: server::services::helgobox_service::create_server(
-                &self.clip_engine_hub,
-            ),
+            helgobox_service: server::services::helgobox_service::create_server(&self.proto_hub),
         }
     }
 
@@ -773,8 +771,8 @@ impl BackboneShell {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_engine_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
-        &self.clip_engine_hub
+    pub fn proto_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
+        &self.proto_hub
     }
 
     fn temporarily_reclaim_control_surface_ownership(
@@ -1044,6 +1042,25 @@ impl BackboneShell {
             };
             session.id() == session_id
         })
+    }
+
+    pub fn find_instance_shell_by_instance_id_str(
+        &self,
+        instance_id: &str,
+    ) -> anyhow::Result<SharedInstanceShell> {
+        self.find_instance_shell_by_instance_id(instance_id.parse()?)
+            .context("couldn't find instance")
+    }
+
+    pub fn find_instance_shell_by_instance_id(
+        &self,
+        instance_id: InstanceId,
+    ) -> Option<SharedInstanceShell> {
+        self.instance_infos
+            .borrow()
+            .iter()
+            .find(|info| info.instance_id == instance_id)
+            .and_then(|info| info.instance_shell.upgrade())
     }
 
     #[allow(dead_code)]
@@ -2171,14 +2188,14 @@ pub struct BackboneControlSurfaceEventHandler;
 impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
     fn midi_input_devices_changed(&self) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .notify_midi_input_devices_changed();
         update_auto_units_async();
     }
 
     fn midi_output_devices_changed(&self) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .notify_midi_output_devices_changed();
         update_auto_units_async();
     }
@@ -2192,7 +2209,7 @@ impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
 
     fn presets_changed(&self, source: &Self::Source) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .notify_main_presets_changed(source);
     }
 }
@@ -2203,7 +2220,7 @@ pub struct BackboneControllerManagerEventHandler;
 impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
     fn controller_config_changed(&self, source: &ControllerManager) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .notify_controller_config_changed(source);
         update_auto_units_async();
     }
@@ -2225,7 +2242,7 @@ impl PresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
 
     fn presets_changed(&self, source: &Self::Source) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .notify_controller_presets_changed(source);
     }
 }

@@ -1,10 +1,9 @@
 use crate::domain::{
     ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, OscDeviceId,
 };
-use realearn_api::persistence::{Controller, ControllerConnection, PresetId};
+use realearn_api::persistence::{Controller, ControllerConnection, ControllerRoleKind, PresetId};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
-use std::collections::HashMap;
 use std::str::FromStr;
 
 pub fn determine_auto_units(controllers: &[Controller]) -> Vec<AutoUnitData> {
@@ -78,12 +77,6 @@ pub struct AutoControllerData {
     pub controller_preset: Option<PresetId>,
     pub input: Option<DeviceControlInput>,
     pub output: Option<DeviceFeedbackOutput>,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub enum ControllerRoleKind {
-    Clip,
-    Daw,
 }
 
 impl AutoControllerData {

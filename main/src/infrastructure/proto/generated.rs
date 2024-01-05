@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -104,9 +104,11 @@ pub mod command_request {
         SetClipName(super::SetClipNameRequest),
         #[prost(message, tag = "24")]
         SetClipData(super::SetClipDataRequest),
-        /// Event resubscription commands (only for occasional aggregate events, the rest will be sent anyway)
+        /// Event re-subscription commands (only for occasional aggregate events, the rest will be sent anyway)
         #[prost(message, tag = "37")]
         GetOccasionalGlobalUpdates(super::GetOccasionalGlobalUpdatesRequest),
+        #[prost(message, tag = "40")]
+        GetOccasionalInstanceUpdates(super::GetOccasionalInstanceUpdatesRequest),
         #[prost(message, tag = "25")]
         GetOccasionalMatrixUpdates(super::GetOccasionalMatrixUpdatesRequest),
         #[prost(message, tag = "26")]
@@ -133,6 +135,8 @@ pub mod command_request {
         SaveController(super::SaveControllerRequest),
         #[prost(message, tag = "39")]
         DeleteController(super::DeleteControllerRequest),
+        #[prost(message, tag = "41")]
+        SetInstanceSettings(super::SetInstanceSettingsRequest),
     }
 }
 /// Envelope for queries.
@@ -223,7 +227,7 @@ pub mod query_result {
 pub struct EventReply {
     #[prost(
         oneof = "event_reply::Value",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
+        tags = "1, 13, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
     )]
     pub value: ::core::option::Option<event_reply::Value>,
 }
@@ -235,6 +239,8 @@ pub mod event_reply {
         /// Normal events
         #[prost(message, tag = "1")]
         OccasionalGlobalUpdatesReply(super::GetOccasionalGlobalUpdatesReply),
+        #[prost(message, tag = "13")]
+        OccasionalInstanceUpdatesReply(super::GetOccasionalInstanceUpdatesReply),
         #[prost(message, tag = "2")]
         OccasionalMatrixUpdatesReply(super::GetOccasionalMatrixUpdatesReply),
         #[prost(message, tag = "3")]
@@ -534,6 +540,15 @@ pub struct SetColumnSettingsRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetInstanceSettingsRequest {
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// Instance settings as JSON
+    #[prost(string, tag = "2")]
+    pub settings: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerRowRequest {
     #[prost(message, optional, tag = "1")]
     pub row_address: ::core::option::Option<FullRowAddress>,
@@ -672,6 +687,12 @@ pub struct GetClipDetailReply {
 pub struct GetOccasionalGlobalUpdatesRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalInstanceUpdatesRequest {
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
@@ -730,6 +751,29 @@ pub struct GetOccasionalGlobalUpdatesReply {
     /// For each global updated property
     #[prost(message, repeated, tag = "1")]
     pub global_updates: ::prost::alloc::vec::Vec<OccasionalGlobalUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalInstanceUpdatesReply {
+    /// For each updated instance property
+    #[prost(message, repeated, tag = "1")]
+    pub instance_updates: ::prost::alloc::vec::Vec<OccasionalInstanceUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OccasionalInstanceUpdate {
+    #[prost(oneof = "occasional_instance_update::Update", tags = "1")]
+    pub update: ::core::option::Option<occasional_instance_update::Update>,
+}
+/// Nested message and enum types in `OccasionalInstanceUpdate`.
+pub mod occasional_instance_update {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Update {
+        /// Settings data as JSON.
+        #[prost(string, tag = "1")]
+        Settings(::prost::alloc::string::String),
+    }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2030,6 +2074,11 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DeleteControllerRequest>,
         ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        /// Instance commands
+        async fn set_instance_settings(
+            &self,
+            request: tonic::Request<super::SetInstanceSettingsRequest>,
+        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Matrix commands
         async fn trigger_matrix(
             &self,
@@ -2166,6 +2215,20 @@ pub mod helgobox_service_server {
             request: tonic::Request<super::GetOccasionalGlobalUpdatesRequest>,
         ) -> Result<
             tonic::Response<Self::GetOccasionalGlobalUpdatesStream>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the GetOccasionalInstanceUpdates method.
+        type GetOccasionalInstanceUpdatesStream: futures_core::Stream<
+                Item = Result<super::GetOccasionalInstanceUpdatesReply, tonic::Status>,
+            >
+            + Send
+            + 'static;
+        /// Instance events
+        async fn get_occasional_instance_updates(
+            &self,
+            request: tonic::Request<super::GetOccasionalInstanceUpdatesRequest>,
+        ) -> Result<
+            tonic::Response<Self::GetOccasionalInstanceUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalMatrixUpdates method.
@@ -2617,6 +2680,46 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DeleteControllerSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/SetInstanceSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetInstanceSettingsSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetInstanceSettingsRequest>
+                    for SetInstanceSettingsSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetInstanceSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).set_instance_settings(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetInstanceSettingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -3813,6 +3916,52 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetOccasionalGlobalUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/GetOccasionalInstanceUpdates" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetOccasionalInstanceUpdatesSvc<T: HelgoboxService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalInstanceUpdatesRequest,
+                    > for GetOccasionalInstanceUpdatesSvc<T> {
+                        type Response = super::GetOccasionalInstanceUpdatesReply;
+                        type ResponseStream = T::GetOccasionalInstanceUpdatesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetOccasionalInstanceUpdatesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_occasional_instance_updates(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetOccasionalInstanceUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

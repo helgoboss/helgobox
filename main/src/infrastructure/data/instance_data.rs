@@ -1,5 +1,6 @@
 use crate::infrastructure::data::{ClipMatrixRefData, UnitData};
 use base::default_util::{deserialize_null_default, is_default};
+use realearn_api::persistence::InstanceSettings;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -15,6 +16,12 @@ pub enum InstanceOrUnitData {
 pub struct InstanceData {
     pub main_unit: UnitData,
     pub additional_units: Vec<UnitData>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub settings: InstanceSettings,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -48,6 +55,7 @@ impl InstanceOrUnitData {
                 clip_matrix: d.clip_matrix.take(),
                 main_unit: d,
                 additional_units: vec![],
+                settings: Default::default(),
             },
         }
     }

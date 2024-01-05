@@ -1930,6 +1930,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19be8061a06ab6f3a6cf21106c873578bf01bd42ad15e0311a9c76161cb1c753"
 dependencies = [
  "enumset_derive",
+ "serde",
 ]
 
 [[package]]
@@ -4920,6 +4921,7 @@ dependencies = [
  "enum-map",
  "enum_dispatch",
  "enumflags2",
+ "enumset",
  "env_logger",
  "fasteval",
  "fragile",

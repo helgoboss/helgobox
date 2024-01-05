@@ -10,20 +10,23 @@ use crate::infrastructure::data::{
     ControllerManager, ExtendedPresetManager, FileBasedControllerPresetManager,
     FileBasedMainPresetManager, PresetInfo,
 };
+use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
-    clip_content_info, event_reply, generated, occasional_global_update, occasional_matrix_update,
-    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
+    clip_content_info, event_reply, generated, occasional_global_update,
+    occasional_instance_update, occasional_matrix_update, occasional_track_update,
+    qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
     AudioClipContentInfo, AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo,
     CompartmentPreset, CompartmentPresets, ContinuousClipUpdate, ContinuousColumnUpdate,
     ContinuousMatrixUpdate, ContinuousSlotUpdate, GetContinuousColumnUpdatesReply,
     GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
     GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply, HistoryState, LearnState, MidiClipContentInfo,
-    MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices,
-    OccasionalGlobalUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
+    GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
+    HistoryState, LearnState, MidiClipContentInfo, MidiDeviceStatus, MidiInputDevice,
+    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SequencerPlayState, SlotAddress,
     SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring, TrackList,
@@ -37,6 +40,15 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents, InternalClipPlayState,
 };
 use playtime_clip_engine::{base, clip_timeline, Timeline};
+
+impl occasional_instance_update::Update {
+    pub fn settings(instance_shell: &InstanceShell) -> Self {
+        let settings = instance_shell.settings();
+        let json =
+            serde_json::to_string(&settings).expect("couldn't represent instance settings as JSON");
+        Self::Settings(json)
+    }
+}
 
 impl occasional_global_update::Update {
     pub fn midi_input_devices() -> Self {
@@ -600,6 +612,14 @@ impl From<Vec<OccasionalGlobalUpdate>> for event_reply::Value {
     fn from(value: Vec<OccasionalGlobalUpdate>) -> Self {
         event_reply::Value::OccasionalGlobalUpdatesReply(GetOccasionalGlobalUpdatesReply {
             global_updates: value,
+        })
+    }
+}
+
+impl From<Vec<OccasionalInstanceUpdate>> for event_reply::Value {
+    fn from(value: Vec<OccasionalInstanceUpdate>) -> Self {
+        event_reply::Value::OccasionalInstanceUpdatesReply(GetOccasionalInstanceUpdatesReply {
+            instance_updates: value,
         })
     }
 }

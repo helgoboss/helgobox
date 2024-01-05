@@ -1,10 +1,11 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
+use crate::infrastructure::proto::command_request::Value;
 use crate::infrastructure::proto::{
-    create_initial_clip_updates, create_initial_global_updates, create_initial_matrix_updates,
-    create_initial_slot_updates, create_initial_track_updates, event_reply, query_result, reply,
-    request, EventReply, MatrixProvider, ProtoRequestHandler, QueryReply, QueryResult, Reply,
-    Request,
+    create_initial_clip_updates, create_initial_global_updates, create_initial_instance_updates,
+    create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
+    event_reply, query_result, reply, request, EventReply, MatrixProvider, ProtoRequestHandler,
+    QueryReply, QueryResult, Reply, Request,
 };
 use crate::infrastructure::server::services::helgobox_service::BackboneMatrixProvider;
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
@@ -435,6 +436,15 @@ fn process_command(
             send_initial_events_to_app(instance_id, None, |_| create_initial_global_updates())
                 .map_err(to_status)?;
         }
+        GetOccasionalInstanceUpdates(req) => {
+            send_initial_events_to_app(instance_id, None, |_| {
+                let instance_shell = BackboneShell::get()
+                    .find_instance_shell_by_instance_id_str(instance_id)
+                    .unwrap();
+                create_initial_instance_updates(&instance_shell)
+            })
+            .map_err(to_status)?;
+        }
         GetOccasionalMatrixUpdates(req) => {
             send_initial_events_to_app(
                 instance_id,
@@ -563,6 +573,9 @@ fn process_command(
         }
         SetSequenceInfo(req) => {
             handler.set_sequence_info(req)?;
+        }
+        SetInstanceSettings(req) => {
+            handler.set_instance_settings(req)?;
         }
     }
     Ok(())

@@ -1,10 +1,10 @@
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_clip_update, qualified_occasional_slot_update, ClipAddress,
-    OccasionalGlobalUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotAddress,
+    occasional_global_update, occasional_instance_update, occasional_matrix_update,
+    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_slot_update,
+    ClipAddress, OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
+    OccasionalTrackUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
 use reaper_high::{Guid, OrCurrentProject, Track};
@@ -29,6 +29,20 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
     ];
     create(global_updates.into_iter())
+}
+
+pub fn create_initial_instance_updates(
+    instance_shell: &InstanceShell,
+) -> Vec<OccasionalInstanceUpdate> {
+    use occasional_instance_update::Update;
+    fn create(updates: impl Iterator<Item = Update>) -> Vec<OccasionalInstanceUpdate> {
+        updates
+            .into_iter()
+            .map(|u| OccasionalInstanceUpdate { update: Some(u) })
+            .collect()
+    }
+    let instance_updates = [Update::settings(instance_shell)];
+    create(instance_updates.into_iter())
 }
 
 pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalMatrixUpdate> {

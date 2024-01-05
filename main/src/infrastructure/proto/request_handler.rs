@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     DeleteControllerRequest, DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest,
@@ -8,14 +8,14 @@ use crate::infrastructure::proto::{
     GetHostInfoReply, GetHostInfoRequest, GetProjectDirReply, GetProjectDirRequest,
     ImportFilesRequest, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
     SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
-    TriggerTrackAction, TriggerTrackRequest, HOST_API_VERSION,
+    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
+    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
+    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
+    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest, HOST_API_VERSION,
 };
 use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
@@ -229,6 +229,17 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
             .borrow_mut()
             .delete_controller(&req.controller_id);
         Ok(Response::new(Empty {}))
+    }
+
+    pub fn set_instance_settings(
+        &self,
+        req: SetInstanceSettingsRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let settings = serde_json::from_str(&req.settings)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        self.handle_instance_command(&req.instance_id, |instance_shell| {
+            instance_shell.set_settings(settings)
+        })
     }
 
     pub fn trigger_matrix(&self, req: TriggerMatrixRequest) -> Result<Response<Empty>, Status> {
@@ -641,6 +652,15 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
         Ok(Response::new(reply))
     }
 
+    fn handle_instance_command(
+        &self,
+        instance_id: &str,
+        handler: impl FnOnce(&InstanceShell) -> anyhow::Result<()>,
+    ) -> Result<Response<Empty>, Status> {
+        self.handle_instance_internal(instance_id, handler)?;
+        Ok(Response::new(Empty {}))
+    }
+
     fn handle_matrix_command(
         &self,
         matrix_id: &str,
@@ -648,6 +668,18 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
     ) -> Result<Response<Empty>, Status> {
         self.handle_matrix_internal(matrix_id, handler)?;
         Ok(Response::new(Empty {}))
+    }
+
+    fn handle_instance_internal<R>(
+        &self,
+        instance_id: &str,
+        handler: impl FnOnce(&InstanceShell) -> anyhow::Result<R>,
+    ) -> Result<R, Status> {
+        let instance_shell = BackboneShell::get()
+            .find_instance_shell_by_instance_id_str(instance_id)
+            .map_err(|e| Status::not_found(format!("{e:#}")))?;
+        let r = handler(&instance_shell).map_err(|e| Status::unknown(format!("{e:#}")))?;
+        Ok(r)
     }
 
     fn handle_matrix_internal<R>(

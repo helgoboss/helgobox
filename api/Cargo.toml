@@ -21,7 +21,7 @@ derive_more.workspace = true
 enum-iterator.workspace = true
 num_enum.workspace = true
 enum-map.workspace = true
-enumset.workspace = true
+enumset = { workspace = true, features = ["serde", "alloc"]}
 
 [dev-dependencies]
 mlua.workspace = true

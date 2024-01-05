@@ -1,28 +1,32 @@
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::initial_events::{
     create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
 };
 use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
-    create_initial_clip_updates, create_initial_global_updates, helgobox_service_server,
-    DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest,
-    Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
-    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    create_initial_clip_updates, create_initial_global_updates, create_initial_instance_updates,
+    helgobox_service_server, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
+    DragRowRequest, DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest,
+    GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
+    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
+    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
+    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
     GetOccasionalColumnUpdatesRequest, GetOccasionalGlobalUpdatesReply,
-    GetOccasionalGlobalUpdatesRequest, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalGlobalUpdatesRequest, GetOccasionalInstanceUpdatesReply,
+    GetOccasionalInstanceUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, GetProjectDirReply,
     GetProjectDirRequest, ImportFilesRequest, MatrixProvider, ProtoRequestHandler,
     ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
+    TriggerColumnRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
+    TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -231,6 +235,29 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
             |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
             Some(GetOccasionalMatrixUpdatesReply {
                 matrix_updates: initial_updates,
+            })
+            .into_iter(),
+        )
+    }
+
+    type GetOccasionalInstanceUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalInstanceUpdatesReply, Status>>;
+
+    async fn get_occasional_instance_updates(
+        &self,
+        request: Request<GetOccasionalInstanceUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalInstanceUpdatesStream>, Status> {
+        let instance_shell = BackboneShell::get()
+            .find_instance_shell_by_instance_id_str(&request.get_ref().instance_id)
+            .map_err(|e| Status::not_found(e.to_string()))?;
+        let initial_updates = create_initial_instance_updates(&instance_shell);
+        let receiver = self.senders.occasional_instance_update_sender.subscribe();
+        stream_by_session_id(
+            request.into_inner().instance_id,
+            receiver,
+            |instance_updates| GetOccasionalInstanceUpdatesReply { instance_updates },
+            Some(GetOccasionalInstanceUpdatesReply {
+                instance_updates: initial_updates,
             })
             .into_iter(),
         )
@@ -525,12 +552,20 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.delete_controller(request.into_inner())
     }
+
+    async fn set_instance_settings(
+        &self,
+        request: Request<SetInstanceSettingsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .set_instance_settings(request.into_inner())
+    }
 }
 
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
 
 fn stream_by_session_id<T, R, F, I>(
-    requested_clip_matrix_id: String,
+    requested_session_id: String,
     receiver: Receiver<WithSessionId<T>>,
     create_result: F,
     initial: I,
@@ -544,7 +579,7 @@ where
     stream(
         receiver,
         move |v| create_result(v.value),
-        move |v| v.session_id == requested_clip_matrix_id,
+        move |v| v.session_id == requested_session_id,
         initial,
     )
 }

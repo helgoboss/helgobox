@@ -1,8 +1,8 @@
 use crate::infrastructure::proto::{
     event_reply, ContinuousColumnUpdate, ContinuousMatrixUpdate, EventReply,
-    OccasionalGlobalUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
 };
 use futures::future;
 use tokio::sync::broadcast::{Receiver, Sender};
@@ -12,6 +12,7 @@ use tokio::sync::broadcast::{Receiver, Sender};
 #[derive(Clone, Debug)]
 pub struct ProtoSenders {
     pub occasional_global_update_sender: Sender<OccasionalGlobalUpdateBatch>,
+    pub occasional_instance_update_sender: Sender<OccasionalInstanceUpdateBatch>,
     pub occasional_matrix_update_sender: Sender<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_sender: Sender<OccasionalTrackUpdateBatch>,
     pub occasional_column_update_sender: Sender<OccasionalColumnUpdateBatch>,
@@ -26,6 +27,7 @@ pub struct ProtoSenders {
 #[derive(Debug)]
 pub struct ProtoReceivers {
     pub occasional_global_update_receiver: Receiver<OccasionalGlobalUpdateBatch>,
+    pub occasional_instance_update_receiver: Receiver<OccasionalInstanceUpdateBatch>,
     pub occasional_matrix_update_receiver: Receiver<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_receiver: Receiver<OccasionalTrackUpdateBatch>,
     pub occasional_column_update_receiver: Receiver<OccasionalColumnUpdateBatch>,
@@ -195,6 +197,7 @@ impl ProtoSenders {
     pub fn new() -> Self {
         Self {
             occasional_global_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_instance_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_column_update_sender: tokio::sync::broadcast::channel(100).0,
@@ -210,6 +213,7 @@ impl ProtoSenders {
     pub fn subscribe_to_all(&self) -> ProtoReceivers {
         ProtoReceivers {
             occasional_global_update_receiver: self.occasional_global_update_sender.subscribe(),
+            occasional_instance_update_receiver: self.occasional_instance_update_sender.subscribe(),
             occasional_matrix_update_receiver: self.occasional_matrix_update_sender.subscribe(),
             occasional_track_update_receiver: self.occasional_track_update_sender.subscribe(),
             occasional_column_update_receiver: self.occasional_column_update_sender.subscribe(),
@@ -230,6 +234,7 @@ pub struct WithSessionId<T> {
 }
 
 pub type OccasionalGlobalUpdateBatch = Vec<OccasionalGlobalUpdate>;
+pub type OccasionalInstanceUpdateBatch = WithSessionId<Vec<OccasionalInstanceUpdate>>;
 pub type OccasionalMatrixUpdateBatch = WithSessionId<Vec<OccasionalMatrixUpdate>>;
 pub type OccasionalTrackUpdateBatch = WithSessionId<Vec<QualifiedOccasionalTrackUpdate>>;
 pub type OccasionalColumnUpdateBatch = WithSessionId<Vec<QualifiedOccasionalColumnUpdate>>;

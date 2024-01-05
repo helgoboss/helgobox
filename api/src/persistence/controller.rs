@@ -1,3 +1,4 @@
+use enumset::EnumSetType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -39,6 +40,15 @@ pub struct ControllerRoles {
     pub daw: Option<ControllerRole>,
     /// Configuration of the "Clip control" role.
     pub clip: Option<ControllerRole>,
+}
+
+/// Popular roles a controller can take.
+#[derive(Hash, Debug, Serialize, Deserialize, EnumSetType)]
+pub enum ControllerRoleKind {
+    /// DAW control.
+    Daw,
+    // Clip control.
+    Clip,
 }
 
 /// Particular configuration of a controller role.

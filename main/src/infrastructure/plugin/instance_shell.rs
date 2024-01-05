@@ -1,4 +1,4 @@
-use crate::application::{AutoUnitData, AutoUnitId, SharedUnitModel};
+use crate::application::{AutoUnitData, SharedUnitModel};
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
     MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
@@ -8,13 +8,15 @@ use crate::infrastructure::plugin::unit_shell::UnitShell;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
-use anyhow::{bail, ensure, Context};
+use anyhow::{bail, Context};
 use base::{
     blocking_read_lock, blocking_write_lock, non_blocking_lock, non_blocking_try_read_lock,
     tracing_debug,
 };
+use enumset::EnumSet;
 use fragile::Fragile;
 use playtime_clip_engine::base::Matrix;
+use realearn_api::persistence::{ControllerRoleKind, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -43,6 +45,7 @@ pub struct InstanceShell {
     instance: Fragile<SharedInstance>,
     rt_instance: SharedRealTimeInstance,
     main_unit_shell: UnitShell,
+    settings: Fragile<RefCell<InstanceSettings>>,
     /// Additional unit shells.
     ///
     /// This needs to be protected because we might add/remove/set instances in the main
@@ -76,15 +79,13 @@ impl InstanceHandler for CustomInstanceHandler {
         is_poll: bool,
     ) {
         // TODO-medium If we would make the instance ID generic, we could save the string conversion
-        BackboneShell::get()
-            .clip_engine_hub()
-            .notify_clip_matrix_changed(
-                &instance_id.to_string(),
-                matrix,
-                events,
-                is_poll,
-                self.project,
-            );
+        BackboneShell::get().proto_hub().notify_clip_matrix_changed(
+            &instance_id.to_string(),
+            matrix,
+            events,
+            is_poll,
+            self.project,
+        );
     }
 
     #[cfg(feature = "playtime")]
@@ -95,7 +96,7 @@ impl InstanceHandler for CustomInstanceHandler {
         events: &[reaper_high::ChangeEvent],
     ) {
         BackboneShell::get()
-            .clip_engine_hub()
+            .proto_hub()
             .send_occasional_matrix_updates_caused_by_reaper(
                 &instance_id.to_string(),
                 matrix,
@@ -143,12 +144,31 @@ impl InstanceShell {
             instance: Fragile::new(instance),
             rt_instance: rt_instance.clone(),
             main_unit_shell,
+            settings: Default::default(),
             additional_unit_shells: Default::default(),
             panel: Fragile::new(panel),
             processor_context: Fragile::new(processor_context),
             instance_id,
         };
         (shell, rt_instance)
+    }
+
+    pub fn settings(&self) -> InstanceSettings {
+        self.settings.get().borrow().clone()
+    }
+
+    pub fn set_settings(&self, settings: InstanceSettings) -> anyhow::Result<()> {
+        *self.settings.get().borrow_mut() = settings;
+        let auto_units = BackboneShell::get().determine_auto_units();
+        self.apply_auto_units(&auto_units)?;
+        BackboneShell::get()
+            .proto_hub()
+            .notify_instance_settings_changed(self);
+        Ok(())
+    }
+
+    pub fn instance_id(&self) -> InstanceId {
+        self.instance_id
     }
 
     pub fn instance(&self) -> &SharedInstance {
@@ -203,7 +223,7 @@ impl InstanceShell {
         )
         .iter()
         .enumerate()
-        .find(|(i, u)| u.id() == id)
+        .find(|(_, u)| u.id() == id)
         .map(|(i, u)| f(Some(i), u))
     }
 
@@ -213,6 +233,18 @@ impl InstanceShell {
         blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
         self.notify_units_changed();
         id
+    }
+
+    pub fn set_auto_loaded_controller_roles(
+        &self,
+        roles: EnumSet<ControllerRoleKind>,
+    ) -> anyhow::Result<()> {
+        self.settings
+            .get()
+            .borrow_mut()
+            .auto_loaded_controller_roles = roles.iter().collect();
+        let auto_units = BackboneShell::get().determine_auto_units();
+        self.apply_auto_units(&auto_units)
     }
 
     fn create_additional_unit_shell(&self, auto_unit: Option<AutoUnitData>) -> UnitShell {
@@ -252,7 +284,7 @@ impl InstanceShell {
         Ok(())
     }
 
-    pub fn apply_auto_units(&self, mut required_auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
+    pub fn apply_auto_units(&self, required_auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
         {
             let mut required_auto_units: HashMap<_, _> = required_auto_units
                 .iter()
@@ -265,14 +297,26 @@ impl InstanceShell {
                 let mut unit_model = unit_shell.model().borrow_mut();
                 if let Some(existing_auto_unit) = unit_model.auto_unit() {
                     // This is an existing auto unit
-                    if let Some(matching_auto_unit) =
-                        required_auto_units.remove(&existing_auto_unit.extract_id())
+                    if self
+                        .settings
+                        .get()
+                        .borrow()
+                        .auto_loaded_controller_roles
+                        .contains(&existing_auto_unit.role_kind)
                     {
-                        // The existing auto unit must be updated
-                        unit_model.update_auto_unit(matching_auto_unit.clone());
-                        true
+                        // This kind of auto unit is still desirable in terms of the role kind.
+                        if let Some(matching_auto_unit) =
+                            required_auto_units.remove(&existing_auto_unit.extract_id())
+                        {
+                            // The existing auto unit must be updated
+                            unit_model.update_auto_unit(matching_auto_unit.clone());
+                            true
+                        } else {
+                            // The existing auto unit is obsolete
+                            false
+                        }
                     } else {
-                        // The existing auto unit is obsolete
+                        // This kind of auto unit is not desirable anymore in terms of role kind.
                         false
                     }
                 } else {
@@ -282,9 +326,17 @@ impl InstanceShell {
             });
             // All required auto units that are still left must be added
             for auto_unit in required_auto_units.into_values() {
-                tracing_debug!("Creating auto-unit shell");
-                let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
-                additional_unit_shells.push(unit_shell);
+                if self
+                    .settings
+                    .get()
+                    .borrow()
+                    .auto_loaded_controller_roles
+                    .contains(&auto_unit.role_kind)
+                {
+                    tracing_debug!("Creating auto-unit shell");
+                    let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
+                    additional_unit_shells.push(unit_shell);
+                }
             }
         }
         self.notify_units_changed();
@@ -319,6 +371,7 @@ impl InstanceShell {
         InstanceData {
             main_unit: UnitData::from_model(&self.main_unit_shell.model().borrow()),
             additional_units: additional_unit_datas,
+            settings: self.settings.get().borrow().clone(),
             pot_state: instance.save_pot_unit(),
             #[cfg(feature = "playtime")]
             clip_matrix: {
@@ -363,6 +416,8 @@ impl InstanceShell {
     fn apply_data_internal(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
         let instance_data = instance_data.into_instance_data();
         let instance = self.instance();
+        // General properties
+        *self.settings.get().borrow_mut() = instance_data.settings;
         // Pot state
         instance
             .borrow_mut()

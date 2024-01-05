@@ -1,6 +1,7 @@
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
 };
+use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::senders::{
@@ -9,11 +10,12 @@ use crate::infrastructure::proto::senders::{
     OccasionalRowUpdateBatch, OccasionalSlotUpdateBatch, OccasionalTrackUpdateBatch, ProtoSenders,
 };
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_clip_update, qualified_occasional_column_update,
+    occasional_global_update, occasional_instance_update, occasional_matrix_update,
+    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ContinuousColumnUpdate,
     ContinuousMatrixUpdate, ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider,
-    OccasionalGlobalUpdate, OccasionalMatrixUpdate, OccasionalTrackUpdate, ProtoRequestHandler,
+    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch,
+    OccasionalMatrixUpdate, OccasionalTrackUpdate, ProtoRequestHandler,
     QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
     QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
     SlotAddress,
@@ -64,18 +66,22 @@ impl ProtoHub {
     }
 
     pub fn notify_midi_input_devices_changed(&self) {
-        self.send_global_updates(|| [occasional_global_update::Update::midi_input_devices()]);
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::midi_input_devices()]
+        });
     }
 
     pub fn notify_midi_output_devices_changed(&self) {
-        self.send_global_updates(|| [occasional_global_update::Update::midi_output_devices()]);
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::midi_output_devices()]
+        });
     }
 
     pub fn notify_controller_presets_changed(
         &self,
         preset_manager: &FileBasedControllerPresetManager,
     ) {
-        self.send_global_updates(|| {
+        self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::controller_presets(
                 preset_manager,
             )]
@@ -83,7 +89,7 @@ impl ProtoHub {
     }
 
     pub fn notify_main_presets_changed(&self, preset_manager: &FileBasedMainPresetManager) {
-        self.send_global_updates(|| {
+        self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::main_presets(
                 preset_manager,
             )]
@@ -91,14 +97,14 @@ impl ProtoHub {
     }
 
     pub fn notify_controller_config_changed(&self, controller_manager: &ControllerManager) {
-        self.send_global_updates(|| {
+        self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::controller_config(
                 controller_manager,
             )]
         });
     }
 
-    fn send_global_updates<F, I>(&self, create_updates: F)
+    fn send_occasional_global_updates<F, I>(&self, create_updates: F)
     where
         F: FnOnce() -> I,
         I: IntoIterator<Item = occasional_global_update::Update>,
@@ -111,6 +117,25 @@ impl ProtoHub {
             .into_iter()
             .map(|u| OccasionalGlobalUpdate { update: Some(u) });
         let _ = sender.send(wrapped_updates.collect());
+    }
+
+    fn send_occasional_instance_updates<F, I>(&self, instance_id: &str, create_updates: F)
+    where
+        F: FnOnce() -> I,
+        I: IntoIterator<Item = occasional_instance_update::Update>,
+    {
+        let sender = &self.senders.occasional_instance_update_sender;
+        if sender.receiver_count() == 0 {
+            return;
+        }
+        let wrapped_updates = create_updates()
+            .into_iter()
+            .map(|u| OccasionalInstanceUpdate { update: Some(u) });
+        let batch_event = OccasionalInstanceUpdateBatch {
+            session_id: instance_id.to_string(),
+            value: wrapped_updates.collect(),
+        };
+        let _ = sender.send(batch_event);
     }
 
     pub fn notify_clip_matrix_changed(
@@ -132,6 +157,12 @@ impl ProtoHub {
             self.send_continuous_matrix_updates(matrix_id, project);
             self.send_continuous_column_updates(matrix_id, matrix);
         }
+    }
+
+    pub fn notify_instance_settings_changed(&self, instance_shell: &InstanceShell) {
+        self.send_occasional_instance_updates(&instance_shell.instance_id().to_string(), || {
+            [occasional_instance_update::Update::settings(instance_shell)]
+        });
     }
 
     fn send_occasional_matrix_updates_caused_by_matrix(
