@@ -4,7 +4,7 @@ use std::error::Error;
 
 use crate::base::notification;
 use crate::infrastructure::plugin::BackboneShell;
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use base::file_util;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
@@ -38,7 +38,7 @@ pub trait ExtendedPresetManager {
     }
     fn find_index_by_id(&self, id: &str) -> Option<usize>;
     fn find_id_by_index(&self, index: usize) -> Option<String>;
-    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
+    fn remove_preset(&mut self, id: &str) -> anyhow::Result<()>;
     fn preset_infos(&self) -> &[PresetInfo];
 }
 
@@ -120,7 +120,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
-        let path = self.get_preset_file_path(preset.id());
+        let path = self.preset_dir_path.join(format!("{}.json", preset.id()));
         fs::create_dir_all(&self.preset_dir_path)
             .map_err(|_| "couldn't create preset directory")?;
         let mut data = PD::from_model(&preset);
@@ -155,10 +155,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     fn notify_presets_changed(&mut self) {
         self.event_handler.presets_changed(self);
         self.changed_subject.next(());
-    }
-
-    fn get_preset_file_path(&self, id: &str) -> PathBuf {
-        self.preset_dir_path.join(format!("{id}.json"))
     }
 
     fn load_preset_info(&self, path: PathBuf) -> anyhow::Result<PresetInfo> {
@@ -244,9 +240,13 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
         Some(preset_info.id.clone())
     }
 
-    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
-        let path = self.get_preset_file_path(id);
-        fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
+    fn remove_preset(&mut self, id: &str) -> anyhow::Result<()> {
+        let preset_info = self
+            .preset_infos
+            .iter()
+            .find(|info| info.id == id)
+            .context("preset to be removed not found")?;
+        fs::remove_file(&preset_info.absolute_path).context("couldn't delete preset file")?;
         let _ = self.load_preset_infos();
         Ok(())
     }

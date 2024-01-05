@@ -2267,7 +2267,7 @@ impl HeaderPanel {
         self.view.require_window().alert("ReaLearn", e.to_string());
     }
 
-    fn delete_active_preset(&self) -> Result<(), &'static str> {
+    fn delete_active_preset(&self) -> anyhow::Result<()> {
         if !self
             .view
             .require_window()
@@ -2281,7 +2281,7 @@ impl HeaderPanel {
         let preset_manager = BackboneShell::get().preset_manager(compartment);
         let active_preset_id = session
             .active_preset_id(compartment)
-            .ok_or("no preset selected")?
+            .context("no preset selected")?
             .to_string();
         match compartment {
             Compartment::Controller => session.activate_controller_preset(None),
