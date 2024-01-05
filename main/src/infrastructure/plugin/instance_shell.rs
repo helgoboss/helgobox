@@ -1,4 +1,4 @@
-use crate::application::AutoUnitData;
+use crate::application::{AutoUnitData, SharedUnitModel};
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
     MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
@@ -162,20 +162,36 @@ impl InstanceShell {
         blocking_read_lock(&self.additional_unit_shells, "additional_unit_panel_count").len()
     }
 
+    pub fn find_unit_model_by_index(&self, index: Option<usize>) -> Option<SharedUnitModel> {
+        self.find_unit_prop_by_index(index, |unit_shell| unit_shell.model().clone())
+    }
+
     pub fn find_unit_panel_by_index(&self, index: Option<usize>) -> Option<SharedView<UnitPanel>> {
+        self.find_unit_prop_by_index(index, |unit_shell| unit_shell.panel().clone())
+    }
+
+    pub fn find_unit_prop_by_index<R>(
+        &self,
+        index: Option<usize>,
+        f: impl FnOnce(&UnitShell) -> R,
+    ) -> Option<R> {
         match index {
-            None => Some(self.main_unit_shell.panel().clone()),
-            Some(i) => self.find_additional_unit_panel_by_index(i),
+            None => Some(f(&self.main_unit_shell)),
+            Some(i) => self.find_additional_unit_prop_by_index(i, f),
         }
     }
 
-    fn find_additional_unit_panel_by_index(&self, index: usize) -> Option<SharedView<UnitPanel>> {
+    fn find_additional_unit_prop_by_index<R>(
+        &self,
+        index: usize,
+        f: impl FnOnce(&UnitShell) -> R,
+    ) -> Option<R> {
         blocking_read_lock(
             &self.additional_unit_shells,
-            "find_additional_unit_panel_by_index",
+            "find_additional_unit_prop_by_index",
         )
         .get(index)
-        .map(|unit_shell| unit_shell.panel().clone())
+        .map(|unit_shell| f(unit_shell))
     }
 
     pub fn add_unit(&self) -> UnitId {

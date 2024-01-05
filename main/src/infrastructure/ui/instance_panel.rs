@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::util;
+use crate::infrastructure::ui::{build_unit_label, util};
 use anyhow::Context;
 use base::tracing_debug;
 use reaper_high::Reaper;
@@ -124,8 +124,10 @@ impl InstancePanel {
         }
         let menu = {
             use swell_ui::menu_tree::*;
-            let additional_unit_count = self.shell().unwrap().additional_unit_count();
+            let shell = self.shell().unwrap();
+            let additional_unit_count = shell.additional_unit_count();
             let displayed_unit_index = self.displayed_unit_index.get();
+            let main_unit_model = shell.main_unit_shell().model().borrow();
             root_menu(
                 [
                     item_with_opts(
@@ -138,7 +140,7 @@ impl InstancePanel {
                     ),
                     separator(),
                     item_with_opts(
-                        "Unit 1 (main)",
+                        build_unit_label(&main_unit_model, None, None),
                         ItemOpts {
                             enabled: true,
                             checked: displayed_unit_index == None,
@@ -148,8 +150,12 @@ impl InstancePanel {
                 ]
                 .into_iter()
                 .chain((0..additional_unit_count).map(|i| {
+                    let unit_model = shell
+                        .find_unit_model_by_index(Some(i))
+                        .expect("unit model not found");
+                    let unit_model = unit_model.borrow();
                     item_with_opts(
-                        format!("Unit {}", i + 2),
+                        build_unit_label(&unit_model, Some(i), None),
                         ItemOpts {
                             enabled: true,
                             checked: displayed_unit_index == Some(i),

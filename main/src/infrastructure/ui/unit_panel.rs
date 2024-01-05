@@ -6,6 +6,7 @@ use crate::infrastructure::ui::{
 use reaper_high::Reaper;
 
 use std::cell::RefCell;
+use std::fmt;
 
 use crate::application::{
     get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionProp,
@@ -23,6 +24,7 @@ use crate::infrastructure::server::http::{
 };
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
+use anyhow::Context;
 use base::SoundPlayer;
 use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
@@ -202,7 +204,7 @@ impl UnitPanel {
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_unit_button();
+        self.invalidate_unit_button().unwrap();
         self.invalidate_version_text();
         self.invalidate_status_1_text();
         self.invalidate_status_2_text();
@@ -210,22 +212,23 @@ impl UnitPanel {
 
     pub fn notify_units_changed(&self) {
         if self.view.window().is_some() {
-            self.invalidate_unit_button();
+            self.invalidate_unit_button().unwrap();
         }
     }
 
-    fn invalidate_unit_button(&self) {
+    fn invalidate_unit_button(&self) -> anyhow::Result<()> {
         let instance_panel = self.instance_panel();
         let instance_shell = instance_panel.shell().unwrap();
         let unit_count = instance_shell.additional_unit_count() + 1;
         let unit_index = instance_panel.displayed_unit_index();
-        let label = match unit_index {
-            None => format!("Unit 1/{unit_count} (main)"),
-            Some(i) => format!("Unit {}/{unit_count}", i + 2),
-        };
+        let unit_model = instance_shell
+            .find_unit_model_by_index(unit_index)
+            .context("unit not found")?;
+        let label = build_unit_label(&unit_model.borrow(), unit_index, Some(unit_count));
         self.view
             .require_control(root::IDC_UNIT_BUTTON)
             .set_text(label);
+        Ok(())
     }
 
     fn invalidate_version_text(&self) {
@@ -530,4 +533,32 @@ impl SessionUi for Weak<UnitPanel> {
 
 fn upgrade_panel(panel: &Weak<UnitPanel>) -> Rc<UnitPanel> {
     panel.upgrade().expect("unit panel not existing anymore")
+}
+
+pub fn build_unit_label(
+    unit_model: &UnitModel,
+    index: Option<usize>,
+    count: Option<usize>,
+) -> String {
+    build_unit_label_internal(unit_model, index, count).unwrap_or_default()
+}
+
+fn build_unit_label_internal(
+    unit_model: &UnitModel,
+    index: Option<usize>,
+    count: Option<usize>,
+) -> Result<String, fmt::Error> {
+    use std::fmt::Write;
+    let mut s = String::new();
+    let pos = index.map(|i| i + 2).unwrap_or(1);
+    write!(&mut s, "Unit {pos}")?;
+    if let Some(c) = count {
+        write!(&mut s, "/{c}")?;
+    }
+    if index.is_none() {
+        write!(&mut s, " (main)")?;
+    } else if unit_model.auto_unit().is_some() {
+        write!(&mut s, " (auto)")?;
+    }
+    Ok(s)
 }
