@@ -1,6 +1,5 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
-use crate::infrastructure::proto::command_request::Value;
 use crate::infrastructure::proto::{
     create_initial_clip_updates, create_initial_global_updates, create_initial_instance_updates,
     create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
@@ -439,7 +438,7 @@ fn process_command(
         GetOccasionalInstanceUpdates(req) => {
             send_initial_events_to_app(instance_id, None, |_| {
                 let instance_shell = BackboneShell::get()
-                    .find_instance_shell_by_instance_id_str(instance_id)
+                    .find_instance_shell_by_instance_id_str(&req.instance_id)
                     .unwrap();
                 create_initial_instance_updates(&instance_shell)
             })

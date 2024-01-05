@@ -47,8 +47,6 @@ pub struct AutoUnitId {
     pub role_kind: ControllerRoleKind,
 }
 
-pub struct AutoUnitApplication {}
-
 impl AutoUnitData {
     pub fn extract_id(&self) -> AutoUnitId {
         AutoUnitId {

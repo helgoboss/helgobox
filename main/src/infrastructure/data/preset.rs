@@ -1,24 +1,26 @@
 use crate::application::{Preset, PresetManager};
+use base::default_util::deserialize_null_default;
 use std::error::Error;
 
 use crate::base::notification;
 use crate::infrastructure::plugin::BackboneShell;
+use anyhow::{anyhow, bail};
 use base::file_util;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use semver::Version;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
     preset_dir_path: PathBuf,
-    presets: Vec<P>,
+    preset_infos: Vec<PresetInfo>,
     changed_subject: LocalSubject<'static, (), ()>,
     event_handler: Box<dyn PresetManagerEventHandler<Source = Self>>,
     p: PhantomData<PD>,
@@ -37,12 +39,28 @@ pub trait ExtendedPresetManager {
     fn find_index_by_id(&self, id: &str) -> Option<usize>;
     fn find_id_by_index(&self, index: usize) -> Option<String>;
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
-    fn preset_infos(&self) -> Vec<PresetInfo>;
+    fn preset_infos(&self) -> &[PresetInfo];
 }
 
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PresetInfo {
     pub id: String,
     pub name: String,
+    /// The ID should actually be equal to the path, but to not run into any
+    /// breaking change in edge cases, we keep track of the actual path here.
+    pub absolute_path: PathBuf,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Deserialize)]
+pub struct PresetInfoData {
+    pub name: String,
+    // Since ReaLearn 1.12.0-pre18
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub version: Option<Version>,
 }
 
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
@@ -52,25 +70,22 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     ) -> FileBasedPresetManager<P, PD> {
         let mut manager = FileBasedPresetManager {
             preset_dir_path,
-            presets: vec![],
+            preset_infos: vec![],
             changed_subject: Default::default(),
             event_handler,
             p: PhantomData,
         };
-        // Pre-loading all presets used to take lots of memory when we still used Rx Props, around
-        // 70 MB with my preset collection. But now the same takes just 5 MB, so this alone is not
-        // an urgent reason anymore to move to lazy preset loading.
-        let _ = manager.load_presets_internal();
+        let _ = manager.load_preset_infos_internal();
         manager
     }
 
-    pub fn load_presets(&mut self) -> Result<(), String> {
-        self.load_presets_internal()?;
+    pub fn load_preset_infos(&mut self) -> Result<(), String> {
+        self.load_preset_infos_internal()?;
         self.notify_presets_changed();
         Ok(())
     }
 
-    fn load_presets_internal(&mut self) -> Result<(), String> {
+    fn load_preset_infos_internal(&mut self) -> Result<(), String> {
         let preset_file_paths = WalkDir::new(&self.preset_dir_path)
             .follow_links(true)
             .max_depth(2)
@@ -86,8 +101,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 }
                 Some(entry.into_path())
             });
-        self.presets = preset_file_paths
-            .filter_map(|p| match self.load_preset(&p) {
+        self.preset_infos = preset_file_paths
+            .filter_map(|p| match self.load_preset_info(p) {
                 Ok(p) => Some(p),
                 Err(e) => {
                     notification::warn(e.to_string());
@@ -95,17 +110,13 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 }
             })
             .collect();
-        self.presets
-            .sort_unstable_by_key(|p| p.name().to_lowercase());
+        self.preset_infos
+            .sort_unstable_by_key(|p| p.name.to_lowercase());
         Ok(())
     }
 
-    pub fn preset_iter(&self) -> impl Iterator<Item = &P> + ExactSizeIterator {
-        self.presets.iter()
-    }
-
-    pub fn find_by_index(&self, index: usize) -> Option<&P> {
-        self.presets.get(index)
+    pub fn find_preset_info_by_index(&self, index: usize) -> Option<&PresetInfo> {
+        self.preset_infos.get(index)
     }
 
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
@@ -117,7 +128,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize preset")?;
         fs::write(path, json).map_err(|_| "couldn't write preset file")?;
-        let _ = self.load_presets();
+        let _ = self.load_preset_infos();
         Ok(())
     }
 
@@ -136,7 +147,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             \n\
             - Preset count: {}\n\
             ",
-            self.presets.len(),
+            self.preset_infos.len(),
         );
         Reaper::get().show_console_msg(msg);
     }
@@ -150,14 +161,14 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.preset_dir_path.join(format!("{id}.json"))
     }
 
-    fn load_preset(&self, path: &Path) -> Result<P, Box<dyn Error>> {
+    fn load_preset_info(&self, path: PathBuf) -> anyhow::Result<PresetInfo> {
         let relative_path = path
             .parent()
             .unwrap()
             .strip_prefix(&self.preset_dir_path)
             .unwrap();
         let file_stem = path.file_stem().ok_or_else(|| {
-            format!(
+            anyhow!(
                 "Preset file \"{}\" only has an extension but not a name. \
                     The name is necessary because it makes up the preset ID.",
                 path.display()
@@ -172,18 +183,18 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
             format!("{relative_path_with_slashes}/{leaf_id}")
         };
-        let json = fs::read_to_string(path)
-            .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
-        let data: PD = serde_json::from_str(&json).map_err(|e| {
-            format!(
+        let json = fs::read_to_string(&path)
+            .map_err(|_| anyhow!("Couldn't read preset file \"{}\".", path.display()))?;
+        let data: PresetInfoData = serde_json::from_str(&json).map_err(|e| {
+            anyhow!(
                 "Preset file {} isn't valid. Details:\n\n{}",
                 path.display(),
                 e
             )
         })?;
-        if let Some(v) = data.version() {
+        if let Some(v) = data.version.as_ref() {
             if BackboneShell::version() < v {
-                let msg = format!(
+                bail!(
                     "Skipped loading of preset \"{}\" because it has been saved with \
                          ReaLearn {}, which is newer than the installed version {}. \
                          Please update your ReaLearn version. If this is not an option for you and \
@@ -195,38 +206,53 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                     v,
                     BackboneShell::version()
                 );
-                return Err(msg.into());
             }
         }
-        data.to_model(id)
+        let preset_info = PresetInfo {
+            id,
+            name: data.name,
+            absolute_path: path,
+        };
+        Ok(preset_info)
+    }
+
+    fn load_full_preset(&self, preset_info: &PresetInfo) -> Result<P, Box<dyn Error>> {
+        let json = fs::read_to_string(&preset_info.absolute_path).map_err(|_| {
+            format!(
+                "Couldn't read preset file \"{}\" anymore.",
+                preset_info.absolute_path.display()
+            )
+        })?;
+        let data: PD = serde_json::from_str(&json).map_err(|e| {
+            format!(
+                "Preset file {} isn't valid anymore. Details:\n\n{}",
+                preset_info.absolute_path.display(),
+                e
+            )
+        })?;
+        data.to_model(preset_info.id.clone())
     }
 }
 
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
     fn find_index_by_id(&self, id: &str) -> Option<usize> {
-        self.presets.iter().position(|p| p.id() == id)
+        self.preset_infos.iter().position(|p| &p.id == id)
     }
 
     fn find_id_by_index(&self, index: usize) -> Option<String> {
-        let preset = self.find_by_index(index)?;
-        Some(preset.id().to_string())
+        let preset_info = self.find_preset_info_by_index(index)?;
+        Some(preset_info.id.clone())
     }
 
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
         let path = self.get_preset_file_path(id);
         fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
-        let _ = self.load_presets();
+        let _ = self.load_preset_infos();
         Ok(())
     }
 
-    fn preset_infos(&self) -> Vec<PresetInfo> {
-        self.presets
-            .iter()
-            .map(|p| PresetInfo {
-                id: p.id().to_owned(),
-                name: p.name().to_owned(),
-            })
-            .collect()
+    fn preset_infos(&self) -> &[PresetInfo] {
+        &self.preset_infos
     }
 }
 
@@ -234,7 +260,8 @@ impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPreset
     type PresetType = P;
 
     fn find_by_id(&self, id: &str) -> Option<P> {
-        self.presets.iter().find(|c| c.id() == id).cloned()
+        let preset_info = self.preset_infos.iter().find(|info| info.id == id)?;
+        self.load_full_preset(preset_info).ok()
     }
 }
 

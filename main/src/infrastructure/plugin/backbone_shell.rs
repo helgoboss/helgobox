@@ -833,24 +833,25 @@ impl BackboneShell {
         Ok(f(&state.async_runtime))
     }
 
-    // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
-    //  this into a weak one.
-    pub fn controller_preset_manager(&self) -> SharedControllerPresetManager {
-        self.controller_preset_manager.clone()
+    pub fn controller_preset_manager(&self) -> &SharedControllerPresetManager {
+        &self.controller_preset_manager
     }
 
-    pub fn main_preset_manager(&self) -> SharedMainPresetManager {
-        self.main_preset_manager.clone()
+    pub fn main_preset_manager(&self) -> &SharedMainPresetManager {
+        &self.main_preset_manager
     }
 
     pub fn controller_manager(&self) -> &SharedControllerManager {
         &self.controller_manager
     }
 
-    pub fn preset_manager(&self, compartment: Compartment) -> Box<dyn ExtendedPresetManager> {
+    pub fn preset_manager(
+        &self,
+        compartment: Compartment,
+    ) -> Rc<RefCell<dyn ExtendedPresetManager>> {
         match compartment {
-            Compartment::Controller => Box::new(self.controller_preset_manager()),
-            Compartment::Main => Box::new(self.main_preset_manager()),
+            Compartment::Controller => self.controller_preset_manager().clone(),
+            Compartment::Main => self.main_preset_manager().clone(),
         }
     }
 

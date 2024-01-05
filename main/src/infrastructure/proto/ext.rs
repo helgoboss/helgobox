@@ -589,10 +589,10 @@ impl AudioInputChannels {
 }
 
 impl CompartmentPresets {
-    pub fn from_engine(preset_infos: Vec<PresetInfo>) -> Self {
+    pub fn from_engine(preset_infos: &[PresetInfo]) -> Self {
         Self {
             compartment_presets: preset_infos
-                .into_iter()
+                .iter()
                 .map(CompartmentPreset::from_engine)
                 .collect(),
         }
@@ -600,10 +600,10 @@ impl CompartmentPresets {
 }
 
 impl CompartmentPreset {
-    pub fn from_engine(preset_info: PresetInfo) -> Self {
+    pub fn from_engine(preset_info: &PresetInfo) -> Self {
         Self {
-            id: preset_info.id,
-            name: preset_info.name,
+            id: preset_info.id.clone(),
+            name: preset_info.name.clone(),
         }
     }
 }

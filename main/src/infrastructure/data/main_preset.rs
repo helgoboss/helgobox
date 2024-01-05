@@ -1,8 +1,6 @@
 use crate::application::{MainPreset, Preset, PresetManager};
 use crate::domain::Compartment;
-use crate::infrastructure::data::{
-    CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
-};
+use crate::infrastructure::data::{CompartmentModelData, FileBasedPresetManager, PresetData};
 use base::default_util::{deserialize_null_default, is_default};
 
 use crate::infrastructure::plugin::BackboneShell;
@@ -21,24 +19,6 @@ impl PresetManager for SharedMainPresetManager {
 
     fn find_by_id(&self, id: &str) -> Option<MainPreset> {
         self.borrow().find_by_id(id)
-    }
-}
-
-impl ExtendedPresetManager for SharedMainPresetManager {
-    fn find_index_by_id(&self, id: &str) -> Option<usize> {
-        self.borrow().find_index_by_id(id)
-    }
-
-    fn find_id_by_index(&self, index: usize) -> Option<String> {
-        self.borrow().find_id_by_index(index)
-    }
-
-    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
-        self.borrow_mut().remove_preset(id)
-    }
-
-    fn preset_infos(&self) -> Vec<PresetInfo> {
-        self.borrow().preset_infos()
     }
 }
 

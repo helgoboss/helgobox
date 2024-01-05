@@ -18,8 +18,8 @@ use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
     ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
-    MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
-    SharedMapping, SharedUnitModel, VirtualControlElementType, WeakUnitModel,
+    MappingModel, PresetLinkMutator, PresetManager, SessionCommand, SessionProp, SharedMapping,
+    SharedUnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -1495,6 +1495,7 @@ impl HeaderPanel {
                     if let Some(preset_id) = session.active_preset_id(compartment) {
                         BackboneShell::get()
                             .preset_manager(compartment)
+                            .borrow()
                             .exists(preset_id)
                     } else {
                         false
@@ -1515,14 +1516,15 @@ impl HeaderPanel {
     fn fill_preset_combo_box(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
         let preset_manager = BackboneShell::get().preset_manager(self.active_compartment());
+        let preset_manager = preset_manager.borrow();
         let all_entries = [(-1isize, "<None>".to_string())].into_iter().chain(
             preset_manager
                 .preset_infos()
-                .into_iter()
+                .iter()
                 .enumerate()
                 .map(|(i, info)| {
                     let label = if info.name == info.id {
-                        info.name
+                        info.name.clone()
                     } else {
                         format!("{} ({})", info.name, info.id)
                     };
@@ -1541,7 +1543,7 @@ impl HeaderPanel {
         let preset_manager = BackboneShell::get().preset_manager(compartment);
         let data = match session.active_preset_id(compartment) {
             None => -1isize,
-            Some(id) => match preset_manager.find_index_by_id(id) {
+            Some(id) => match preset_manager.borrow().find_index_by_id(id) {
                 None => {
                     combo.select_new_combo_box_item(format!("<Not present> ({id})"));
                     return;
@@ -1917,7 +1919,7 @@ impl HeaderPanel {
             .selected_combo_box_item_data()
         {
             -1 => None,
-            i if i >= 0 => preset_manager.find_id_by_index(i as usize),
+            i if i >= 0 => preset_manager.borrow().find_id_by_index(i as usize),
             _ => unreachable!(),
         };
         let mut session = session.borrow_mut();
@@ -2276,7 +2278,7 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let mut preset_manager = BackboneShell::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().preset_manager(compartment);
         let active_preset_id = session
             .active_preset_id(compartment)
             .ok_or("no preset selected")?
@@ -2285,7 +2287,9 @@ impl HeaderPanel {
             Compartment::Controller => session.activate_controller_preset(None),
             Compartment::Main => session.activate_main_preset(None),
         };
-        preset_manager.remove_preset(&active_preset_id)?;
+        preset_manager
+            .borrow_mut()
+            .remove_preset(&active_preset_id)?;
         Ok(())
     }
 
@@ -2293,11 +2297,11 @@ impl HeaderPanel {
         let _ = BackboneShell::get()
             .controller_preset_manager()
             .borrow_mut()
-            .load_presets();
+            .load_preset_infos();
         let _ = BackboneShell::get()
             .main_preset_manager()
             .borrow_mut()
-            .load_presets();
+            .load_preset_infos();
     }
 
     pub fn show_pot_browser(&self) {
@@ -3104,11 +3108,12 @@ fn generate_fx_to_preset_links_menu_entries(
         menu(
             format!("<Add link from FX \"{fx_id}\" to ...>"),
             main_preset_manager
-                .preset_iter()
+                .preset_infos()
+                .iter()
                 .map(move |p| {
                     let fx_id = fx_id.clone();
-                    let preset_id = p.id().to_owned();
-                    item(p.name(), move || {
+                    let preset_id = p.id.clone();
+                    item(&p.name, move || {
                         MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
                     })
                 })
@@ -3130,14 +3135,14 @@ fn generate_fx_to_preset_links_menu_entries(
             .chain(once(item("<Remove link>", move || {
                 MainMenuAction::RemovePresetLink(scope, fx_id_1)
             })))
-            .chain(main_preset_manager.preset_iter().map(move |p| {
+            .chain(main_preset_manager.preset_infos().iter().map(move |p| {
                 let fx_id = fx_id_2.clone();
-                let preset_id = p.id().to_owned();
+                let preset_id = p.id.clone();
                 item_with_opts(
-                    p.name(),
+                    &p.name,
                     ItemOpts {
                         enabled: true,
-                        checked: p.id() == preset_id_0,
+                        checked: p.id == preset_id_0,
                     },
                     move || MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
                 )
