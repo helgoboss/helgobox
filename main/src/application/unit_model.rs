@@ -33,6 +33,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
+use anyhow::Context;
 use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
@@ -41,8 +42,8 @@ use realearn_api::persistence::{
 };
 use reaper_medium::RecordingInput;
 use std::error::Error;
-use std::fmt;
 use std::rc::{Rc, Weak};
+use std::{fmt, mem};
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId);
@@ -230,11 +231,9 @@ impl UnitModel {
     ) -> UnitModel {
         let initial_input = auto_unit
             .as_ref()
-            .and_then(|u| Some(ControlInput::from_device_input(u.controller.input?)))
+            .map(|au| au.control_input())
             .unwrap_or_default();
-        let initial_output = auto_unit
-            .as_ref()
-            .and_then(|u| Some(FeedbackOutput::from_device_output(u.controller.output?)));
+        let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
         let initial_preset_id = auto_unit.as_ref().map(|u| u.preset_id.clone());
         let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
@@ -311,6 +310,27 @@ impl UnitModel {
 
     pub fn auto_unit(&self) -> Option<&AutoUnitData> {
         self.auto_unit.as_ref()
+    }
+
+    /// # Preconditions
+    ///
+    /// This unit model must have an auto unit whose ID matches the given one.
+    pub fn update_auto_unit(&mut self, new_data: AutoUnitData) {
+        // Check preconditions
+        let old_data = self.auto_unit.as_ref().expect("auto unit must be set");
+        assert_eq!(old_data.extract_id(), new_data.extract_id());
+        // Update actual properties of unit
+        if new_data.controller.input != old_data.controller.input {
+            self.control_input.set(new_data.control_input());
+        }
+        if new_data.controller.output != old_data.controller.output {
+            self.feedback_output.set(new_data.feedback_output());
+        }
+        if &new_data.preset_id != &old_data.preset_id {
+            self.activate_main_preset(Some(new_data.preset_id.clone()))
+        }
+        // Update unit data itself
+        self.auto_unit.replace(new_data);
     }
 
     pub fn set_ui(&mut self, ui: impl SessionUi + 'static) {

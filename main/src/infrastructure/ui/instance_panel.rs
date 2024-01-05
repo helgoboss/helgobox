@@ -1,14 +1,14 @@
-use crate::infrastructure::ui::{build_unit_label, util};
+use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
 use anyhow::Context;
 use base::tracing_debug;
 use reaper_high::Reaper;
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Debug;
 use std::sync;
 use std::sync::Arc;
 
-use crate::domain::{InstanceId, SharedInstance};
-use crate::infrastructure::plugin::InstanceShell;
+use crate::domain::{InstanceId, SharedInstance, UnitId};
+use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell};
 use crate::infrastructure::ui::bindings::root;
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
@@ -17,7 +17,11 @@ pub struct InstancePanel {
     view: ViewContext,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     shell: OnceCell<sync::Weak<InstanceShell>>,
-    displayed_unit_index: Cell<Option<usize>>,
+    /// This is necessary *only* to keep the currently displayed view in memory shortly after its
+    /// unit has been removed. Without that, the view manager would not be able to upgrade the
+    /// weak view for the last few dispatched calls.
+    displayed_unit_panel: RefCell<Option<SharedView<UnitPanel>>>,
+    displayed_unit_id: Cell<Option<UnitId>>,
     /// We have at most one app instance open per ReaLearn instance.
     #[cfg(feature = "playtime")]
     app_instance: crate::infrastructure::ui::SharedAppInstance,
@@ -37,9 +41,10 @@ impl InstancePanel {
             view: Default::default(),
             shell: OnceCell::new(),
             dimensions: None.into(),
-            displayed_unit_index: Default::default(),
+            displayed_unit_id: Default::default(),
             #[cfg(feature = "playtime")]
             app_instance: crate::infrastructure::ui::create_shared_app_instance(instance_id),
+            displayed_unit_panel: RefCell::new(None),
         }
     }
 
@@ -101,7 +106,7 @@ impl InstancePanel {
     }
 
     pub fn notify_shell_available(&self, shell: Arc<InstanceShell>) {
-        self.displayed_unit_index.set(None);
+        self.displayed_unit_id.set(None);
         self.shell
             .set(sync::Arc::downgrade(&shell))
             .expect("instance shell already set");
@@ -112,28 +117,28 @@ impl InstancePanel {
         }
     }
 
-    pub fn displayed_unit_index(&self) -> Option<usize> {
-        self.displayed_unit_index.get()
+    pub fn displayed_unit_id(&self) -> Option<UnitId> {
+        self.displayed_unit_id.get()
     }
 
     pub fn open_unit_popup_menu(&self) {
         enum MenuAction {
             RemoveCurrentUnit,
-            ShowUnit(Option<usize>),
+            ShowUnit(Option<UnitId>),
             AddUnit,
         }
         let menu = {
             use swell_ui::menu_tree::*;
             let shell = self.shell().unwrap();
-            let additional_unit_count = shell.additional_unit_count();
-            let displayed_unit_index = self.displayed_unit_index.get();
+            let additional_unit_models = shell.additional_unit_models();
+            let displayed_unit_id = self.displayed_unit_id.get();
             let main_unit_model = shell.main_unit_shell().model().borrow();
             root_menu(
                 [
                     item_with_opts(
                         "Remove current unit",
                         ItemOpts {
-                            enabled: displayed_unit_index.is_some(),
+                            enabled: displayed_unit_id.is_some(),
                             checked: false,
                         },
                         || MenuAction::RemoveCurrentUnit,
@@ -143,26 +148,29 @@ impl InstancePanel {
                         build_unit_label(&main_unit_model, None, None),
                         ItemOpts {
                             enabled: true,
-                            checked: displayed_unit_index == None,
+                            checked: displayed_unit_id == None,
                         },
                         || MenuAction::ShowUnit(None),
                     ),
                 ]
                 .into_iter()
-                .chain((0..additional_unit_count).map(|i| {
-                    let unit_model = shell
-                        .find_unit_model_by_index(Some(i))
-                        .expect("unit model not found");
-                    let unit_model = unit_model.borrow();
-                    item_with_opts(
-                        build_unit_label(&unit_model, Some(i), None),
-                        ItemOpts {
-                            enabled: true,
-                            checked: displayed_unit_index == Some(i),
-                        },
-                        move || MenuAction::ShowUnit(Some(i)),
-                    )
-                }))
+                .chain(
+                    additional_unit_models
+                        .iter()
+                        .enumerate()
+                        .map(|(i, unit_model)| {
+                            let unit_model = unit_model.borrow();
+                            let unit_id = unit_model.unit_id();
+                            item_with_opts(
+                                build_unit_label(&unit_model, Some(i), None),
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: displayed_unit_id == Some(unit_id),
+                                },
+                                move || MenuAction::ShowUnit(Some(unit_id)),
+                            )
+                        }),
+                )
                 .chain([separator(), item("Add unit", || MenuAction::AddUnit)])
                 .collect(),
             )
@@ -174,7 +182,7 @@ impl InstancePanel {
         if let Some(action) = action {
             match action {
                 MenuAction::RemoveCurrentUnit => self.remove_current_unit(),
-                MenuAction::ShowUnit(i) => self.show_unit(i),
+                MenuAction::ShowUnit(id) => self.show_unit(id),
                 MenuAction::AddUnit => {
                     self.add_unit();
                 }
@@ -184,33 +192,54 @@ impl InstancePanel {
 
     fn add_unit(&self) {
         let shell = self.shell().unwrap();
-        shell.add_unit();
-        let index_of_new_unit = shell.additional_unit_count() - 1;
-        self.show_unit(Some(index_of_new_unit));
+        let id = shell.add_unit();
+        self.show_unit(Some(id));
+    }
+
+    pub fn notify_units_changed(&self) {
+        // The currently displayed unit might have been removed.
+        if self.view.window().is_none() {
+            // Window not open, nothing to worry
+            return;
+        }
+        let Some(id) = self.displayed_unit_id.get() else {
+            // The main unit can't be removed, we are safe
+            return;
+        };
+        if !self.shell().unwrap().unit_exists(id) {
+            // The currently displayed unit doesn't exist anymore. Show main unit.
+            self.show_unit(None);
+        }
     }
 
     fn remove_current_unit(&self) {
-        let Some(index) = self.displayed_unit_index.get() else {
+        let Some(id) = self.displayed_unit_id.get() else {
+            // The main unit can't be removed
             return;
         };
-        let new_index = index.checked_sub(1);
-        self.show_unit(new_index);
-        let _ = self.shell().unwrap().remove_unit(index);
+        let _ = self.shell().unwrap().remove_unit(id);
     }
 
-    pub fn show_unit(&self, unit_index: Option<usize>) {
-        self.displayed_unit_index.set(unit_index);
+    pub fn show_unit(&self, unit_id: Option<UnitId>) {
+        self.displayed_unit_id.set(unit_id);
         if let Some(window) = self.view.window() {
             if let Some(child_window) = window.first_child() {
+                tracing::debug!("Closing previous unit window");
                 child_window.close();
             }
-            let panel = self
-                .shell()
-                .unwrap()
-                .find_unit_panel_by_index(self.displayed_unit_index.get())
-                .expect("couldn't find unit panel");
-            panel.clone().open(window);
+            let shell = self.shell().expect("shell gone");
+            self.open_unit_panel_as_child(&shell, window);
         }
+    }
+
+    fn open_unit_panel_as_child(&self, shell: &SharedInstanceShell, parent_window: Window) {
+        let panel = shell
+            .find_unit_panel_by_id(self.displayed_unit_id.get())
+            .expect("couldn't find unit panel");
+        self.displayed_unit_panel
+            .borrow_mut()
+            .replace(panel.clone());
+        panel.clone().open(parent_window);
     }
 
     /// # Errors
@@ -257,12 +286,14 @@ impl View for InstancePanel {
             return false;
         }
         if let Ok(shell) = self.shell() {
-            shell
-                .find_unit_panel_by_index(self.displayed_unit_index.get())
-                .expect("couldn't find unit panel")
-                .open(window);
+            self.open_unit_panel_as_child(&shell, window);
         }
         true
+    }
+
+    fn closed(self: SharedView<Self>, _window: Window) {
+        // No need to keep currently displayed unit panel in memory when window closed
+        self.displayed_unit_panel.borrow_mut().take();
     }
 }
 

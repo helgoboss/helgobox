@@ -12,6 +12,7 @@ rxrust.workspace = true
 rx-util.workspace = true
 scopeguard.workspace = true
 raw-window-handle.workspace = true
+tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true

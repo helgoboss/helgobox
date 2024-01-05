@@ -1,4 +1,4 @@
-use crate::application::{AutoUnitData, SharedUnitModel};
+use crate::application::{AutoUnitData, AutoUnitId, SharedUnitModel};
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
     MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
@@ -17,6 +17,7 @@ use fragile::Fragile;
 use playtime_clip_engine::base::Matrix;
 use reaper_high::Project;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::iter::once;
 use std::rc::Rc;
 use std::sync;
@@ -158,46 +159,59 @@ impl InstanceShell {
         &self.main_unit_shell
     }
 
+    pub fn additional_unit_models(&self) -> Vec<SharedUnitModel> {
+        blocking_read_lock(&self.additional_unit_shells, "additional_unit_models")
+            .iter()
+            .map(|s| s.model().clone())
+            .collect()
+    }
+
     pub fn additional_unit_count(&self) -> usize {
         blocking_read_lock(&self.additional_unit_shells, "additional_unit_panel_count").len()
     }
 
-    pub fn find_unit_model_by_index(&self, index: Option<usize>) -> Option<SharedUnitModel> {
-        self.find_unit_prop_by_index(index, |unit_shell| unit_shell.model().clone())
-    }
-
-    pub fn find_unit_panel_by_index(&self, index: Option<usize>) -> Option<SharedView<UnitPanel>> {
-        self.find_unit_prop_by_index(index, |unit_shell| unit_shell.panel().clone())
-    }
-
-    pub fn find_unit_prop_by_index<R>(
+    pub fn find_unit_index_and_model_by_id(
         &self,
-        index: Option<usize>,
-        f: impl FnOnce(&UnitShell) -> R,
+        id: Option<UnitId>,
+    ) -> Option<(Option<usize>, SharedUnitModel)> {
+        self.find_unit_prop_by_id(id, |i, unit_shell| (i, unit_shell.model().clone()))
+    }
+
+    pub fn find_unit_panel_by_id(&self, id: Option<UnitId>) -> Option<SharedView<UnitPanel>> {
+        self.find_unit_prop_by_id(id, |_, unit_shell| unit_shell.panel().clone())
+    }
+
+    pub fn find_unit_prop_by_id<R>(
+        &self,
+        id: Option<UnitId>,
+        f: impl FnOnce(Option<usize>, &UnitShell) -> R,
     ) -> Option<R> {
-        match index {
-            None => Some(f(&self.main_unit_shell)),
-            Some(i) => self.find_additional_unit_prop_by_index(i, f),
+        match id {
+            None => Some(f(None, &self.main_unit_shell)),
+            Some(i) => self.find_additional_unit_prop_by_id(i, f),
         }
     }
 
-    fn find_additional_unit_prop_by_index<R>(
+    fn find_additional_unit_prop_by_id<R>(
         &self,
-        index: usize,
-        f: impl FnOnce(&UnitShell) -> R,
+        id: UnitId,
+        f: impl FnOnce(Option<usize>, &UnitShell) -> R,
     ) -> Option<R> {
         blocking_read_lock(
             &self.additional_unit_shells,
             "find_additional_unit_prop_by_index",
         )
-        .get(index)
-        .map(|unit_shell| f(unit_shell))
+        .iter()
+        .enumerate()
+        .find(|(i, u)| u.id() == id)
+        .map(|(i, u)| f(Some(i), u))
     }
 
     pub fn add_unit(&self) -> UnitId {
         let unit_shell = self.create_additional_unit_shell(None);
         let id = unit_shell.id();
-        self.add_unit_internal(unit_shell);
+        blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+        self.notify_units_changed();
         id
     }
 
@@ -214,46 +228,66 @@ impl InstanceShell {
         )
     }
 
-    fn add_unit_internal(&self, unit_shell: UnitShell) {
-        blocking_write_lock(&self.additional_unit_shells, "add_unit").push(unit_shell);
+    fn notify_units_changed(&self) {
+        self.panel.get().notify_units_changed();
         self.main_unit_shell.panel().notify_units_changed();
         for unit_shell in blocking_read_lock(&self.additional_unit_shells, "add_unit").iter() {
             unit_shell.panel().notify_units_changed();
         }
     }
 
-    pub fn remove_unit(&self, index: usize) -> anyhow::Result<()> {
-        let mut additional_unit_shells =
-            blocking_write_lock(&self.additional_unit_shells, "remove_unit");
-        ensure!(index < additional_unit_shells.len(), "unit doesn't exist");
-        additional_unit_shells.remove(index);
+    pub fn unit_exists(&self, id: UnitId) -> bool {
+        blocking_read_lock(&self.additional_unit_shells, "unit_exists")
+            .iter()
+            .any(|u| u.id() == id)
+    }
+
+    pub fn remove_unit(&self, id: UnitId) -> anyhow::Result<()> {
+        {
+            let mut additional_unit_shells =
+                blocking_write_lock(&self.additional_unit_shells, "remove_unit");
+            additional_unit_shells.retain(|u| u.id() != id);
+        }
+        self.notify_units_changed();
         Ok(())
     }
 
-    pub fn apply_auto_units(&self, auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
-        for auto_unit in auto_units {
-            self.apply_auto_unit(auto_unit)?;
+    pub fn apply_auto_units(&self, mut required_auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
+        {
+            let mut required_auto_units: HashMap<_, _> = required_auto_units
+                .iter()
+                .map(|au| (au.extract_id(), au))
+                .collect();
+            let mut additional_unit_shells =
+                blocking_write_lock(&self.additional_unit_shells, "apply_auto_units");
+            // At first we update or remove any existing auto units
+            additional_unit_shells.retain_mut(|unit_shell| {
+                let mut unit_model = unit_shell.model().borrow_mut();
+                if let Some(existing_auto_unit) = unit_model.auto_unit() {
+                    // This is an existing auto unit
+                    if let Some(matching_auto_unit) =
+                        required_auto_units.remove(&existing_auto_unit.extract_id())
+                    {
+                        // The existing auto unit must be updated
+                        unit_model.update_auto_unit(matching_auto_unit.clone());
+                        true
+                    } else {
+                        // The existing auto unit is obsolete
+                        false
+                    }
+                } else {
+                    // This is a manual unit
+                    true
+                }
+            });
+            // All required auto units that are still left must be added
+            for auto_unit in required_auto_units.into_values() {
+                tracing_debug!("Creating auto-unit shell");
+                let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
+                additional_unit_shells.push(unit_shell);
+            }
         }
-        Ok(())
-    }
-
-    fn apply_auto_unit(&self, auto_unit: &AutoUnitData) -> anyhow::Result<()> {
-        let auto_unit_already_applied = {
-            let additional_unit_shells =
-                blocking_read_lock(&self.additional_unit_shells, "apply_auto_unit");
-            additional_unit_shells.iter().any(|unit_shell| {
-                unit_shell
-                    .model()
-                    .borrow()
-                    .auto_unit()
-                    .is_some_and(|u| u.matches_installed(auto_unit))
-            })
-        };
-        if !auto_unit_already_applied {
-            tracing_debug!("Creating auto-unit shell");
-            let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
-            self.add_unit_internal(unit_shell);
-        }
+        self.notify_units_changed();
         Ok(())
     }
 

@@ -1,7 +1,10 @@
-use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
+use crate::domain::{
+    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, OscDeviceId,
+};
 use realearn_api::persistence::{Controller, ControllerConnection, PresetId};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 pub fn determine_auto_units(controllers: &[Controller]) -> Vec<AutoUnitData> {
@@ -39,10 +42,33 @@ pub struct AutoUnitData {
     pub preset_id: String,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct AutoUnitId {
+    pub controller_id: String,
+    pub role_kind: ControllerRoleKind,
+}
+
+pub struct AutoUnitApplication {}
+
 impl AutoUnitData {
-    pub fn matches_installed(&self, installed: &Self) -> bool {
-        self.controller.controller_id == installed.controller.controller_id
-            && self.role_kind == installed.role_kind
+    pub fn extract_id(&self) -> AutoUnitId {
+        AutoUnitId {
+            controller_id: self.controller.controller_id.clone(),
+            role_kind: self.role_kind,
+        }
+    }
+
+    pub fn control_input(&self) -> ControlInput {
+        self.controller
+            .input
+            .map(ControlInput::from_device_input)
+            .unwrap_or_default()
+    }
+
+    pub fn feedback_output(&self) -> Option<FeedbackOutput> {
+        self.controller
+            .output
+            .map(FeedbackOutput::from_device_output)
     }
 }
 
@@ -54,7 +80,7 @@ pub struct AutoControllerData {
     pub output: Option<DeviceFeedbackOutput>,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum ControllerRoleKind {
     Clip,
     Daw,
