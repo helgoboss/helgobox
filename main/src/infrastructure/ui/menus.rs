@@ -2,6 +2,7 @@ use crate::application::{UnitModel, WeakUnitModel};
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams, MappingId,
 };
+use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
@@ -269,24 +270,36 @@ pub fn menu_containing_compartment_presets(
             },
             || None,
         ))
-        .chain(preset_manager.preset_infos().iter().map(|info| {
-            let id = info.id.clone();
-            let label = if info.name == info.id {
-                info.name.clone()
-            } else {
-                format!("{} ({})", info.name, info.id)
-            };
-            item_with_opts(
-                label,
-                ItemOpts {
-                    enabled: true,
-                    checked: current_value.is_some_and(|id| &info.id == id),
-                },
-                move || Some(id),
-            )
-        }))
+        .chain(build_compartment_preset_menu_entries(
+            preset_manager.preset_infos(),
+            |info| Some(info.id.clone()),
+            |info| current_value.is_some_and(|id| id == &info.id),
+        ))
         .collect(),
     )
+}
+
+pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
+    preset_infos: &'a [PresetInfo],
+    build_id: impl Fn(&PresetInfo) -> T + 'a,
+    is_current_value: impl Fn(&PresetInfo) -> bool + 'a,
+) -> impl Iterator<Item = Entry<T>> + 'a {
+    preset_infos.iter().map(move |info| {
+        let id = build_id(info);
+        let label = if info.name == info.id {
+            info.name.clone()
+        } else {
+            format!("{} ({})", info.name, info.id)
+        };
+        item_with_opts(
+            label,
+            ItemOpts {
+                enabled: true,
+                checked: is_current_value(info),
+            },
+            move || id,
+        )
+    })
 }
 
 pub const NONE: &str = "<None>";

@@ -40,7 +40,9 @@ use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
-use crate::infrastructure::ui::menus::menu_containing_compartment_presets;
+use crate::infrastructure::ui::menus::{
+    build_compartment_preset_menu_entries, menu_containing_compartment_presets,
+};
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
     open_in_file_manager,
@@ -3117,18 +3119,15 @@ fn generate_fx_to_preset_links_menu_entries(
             .chain(once(item("<Remove link>", move || {
                 MainMenuAction::RemovePresetLink(scope, fx_id_1)
             })))
-            .chain(main_preset_manager.preset_infos().iter().map(move |p| {
-                let fx_id = fx_id_2.clone();
-                let preset_id = p.id.clone();
-                item_with_opts(
-                    &p.name,
-                    ItemOpts {
-                        enabled: true,
-                        checked: p.id == preset_id_0,
-                    },
-                    move || MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
-                )
-            }))
+            .chain(build_compartment_preset_menu_entries(
+                main_preset_manager.preset_infos(),
+                move |info| {
+                    let fx_id = fx_id_2.clone();
+                    let preset_id = info.id.clone();
+                    MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
+                },
+                |info| info.id == preset_id_0,
+            ))
             .chain(once(
                 if main_preset_manager.find_by_id(&link.preset_id).is_some() {
                     Entry::Nothing
