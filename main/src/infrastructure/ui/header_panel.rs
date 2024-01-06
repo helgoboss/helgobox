@@ -2399,8 +2399,25 @@ impl HeaderPanel {
         self.view.require_window().confirm("ReaLearn", msg)
     }
 
+    fn get_name_of_active_preset(&self, compartment: Compartment) -> Option<String> {
+        let session = self.session();
+        let session = session.borrow();
+        let preset_id = session.active_preset_id(compartment)?;
+        let name = BackboneShell::get()
+            .preset_manager(compartment)
+            .borrow()
+            .preset_info_by_id(preset_id)?
+            .name
+            .to_string();
+        Some(name)
+    }
+
     fn save_as_preset(&self) -> Result<(), &'static str> {
-        let preset_name = match dialog_util::prompt_for("Preset name", "") {
+        let compartment = self.active_compartment();
+        let current_preset_name = self
+            .get_name_of_active_preset(compartment)
+            .unwrap_or_default();
+        let preset_name = match dialog_util::prompt_for("Preset name", &current_preset_name) {
             None => return Ok(()),
             Some(n) => n,
         };
@@ -2410,7 +2427,6 @@ impl HeaderPanel {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let compartment = self.active_compartment();
         let preset_id = slug::slugify(&preset_name);
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
