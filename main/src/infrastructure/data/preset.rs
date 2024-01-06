@@ -209,8 +209,21 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 if !entry.file_type().is_file() {
                     return None;
                 }
+                let relative_file_path = entry
+                    .path()
+                    .strip_prefix(&self.preset_dir_path)
+                    .unwrap()
+                    .to_path_buf();
+                if relative_file_path.iter().next().is_some_and(|component| {
+                    component.to_string_lossy().eq_ignore_ascii_case("factory")
+                }) {
+                    // User presets must not get mixed up with factory presets. Most importantly,
+                    // it's not allowed to override factory presets. That could create mess.
+                    return None;
+                }
                 let file_type = PresetFileType::from_path(entry.path())?;
-                match self.build_user_preset_info(entry, file_type) {
+                match self.build_user_preset_info(entry.into_path(), &relative_file_path, file_type)
+                {
                     Ok(p) => Some(p),
                     Err(e) => {
                         notification::warn(e.to_string());
@@ -226,16 +239,19 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
 
     fn build_user_preset_info(
         &mut self,
-        entry: walkdir::DirEntry,
+        absolute_file_path: PathBuf,
+        relative_file_path: &Path,
         file_type: PresetFileType,
     ) -> anyhow::Result<PresetInfo> {
-        let absolute_path = entry.into_path();
         let origin = PresetOrigin::User {
-            absolute_file_path: absolute_path.clone(),
+            absolute_file_path: absolute_file_path.clone(),
         };
-        let relative_file_path = absolute_path.strip_prefix(&self.preset_dir_path).unwrap();
-        let file_content = fs::read_to_string(&absolute_path)
-            .map_err(|_| anyhow!("Couldn't read preset file \"{}\".", absolute_path.display()))?;
+        let file_content = fs::read_to_string(&absolute_file_path).map_err(|_| {
+            anyhow!(
+                "Couldn't read preset file \"{}\".",
+                absolute_file_path.display()
+            )
+        })?;
         load_preset_info(origin, relative_file_path, file_type, "", &file_content)
     }
 
