@@ -40,6 +40,7 @@ use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
+use crate::infrastructure::ui::menus::menu_containing_compartment_presets;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
     open_in_file_manager,
@@ -244,6 +245,46 @@ impl HeaderPanel {
         self.view
             .require_window()
             .open_simple_popup_menu(menu, Window::cursor_pos())
+    }
+
+    fn browse_presets(&self) {
+        let menu = {
+            let compartment = self.active_compartment();
+            let session = self.session();
+            let session = session.borrow();
+            let active_preset_id = session.active_preset_id(compartment);
+            menu_containing_compartment_presets(compartment, active_preset_id)
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_simple_popup_menu(menu, Window::cursor_pos());
+        if let Some(selected_preset_id) = result {
+            self.update_preset(selected_preset_id);
+        }
+    }
+
+    fn update_preset(&self, preset_id: Option<String>) {
+        self.main_state.borrow_mut().stop_filter_learning();
+        let session = self.session();
+        let compartment = self.active_compartment();
+        let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
+        if compartment_is_dirty
+            && !self
+                .view
+                .require_window()
+                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
+        {
+            self.invalidate_preset_browse_button();
+            return;
+        }
+        let mut session = session.borrow_mut();
+        match compartment {
+            Compartment::Controller => {
+                session.activate_controller_preset(preset_id);
+            }
+            Compartment::Main => session.activate_main_preset(preset_id),
+        };
     }
 
     fn add_group(&self) {
@@ -1460,7 +1501,7 @@ impl HeaderPanel {
 
     fn invalidate_preset_controls(&self) {
         self.invalidate_preset_label_text();
-        self.invalidate_preset_combo_box();
+        self.invalidate_preset_browse_button();
         self.invalidate_preset_buttons();
         self.invalidate_preset_auto_load_mode_combo_box();
     }
@@ -1473,11 +1514,6 @@ impl HeaderPanel {
         self.view
             .require_control(root::ID_PRESET_LABEL_TEXT)
             .set_text(text);
-    }
-
-    fn invalidate_preset_combo_box(&self) {
-        self.fill_preset_combo_box();
-        self.invalidate_preset_combo_box_value();
     }
 
     fn invalidate_preset_buttons(&self) {
@@ -1496,7 +1532,8 @@ impl HeaderPanel {
                         BackboneShell::get()
                             .preset_manager(compartment)
                             .borrow()
-                            .exists(preset_id)
+                            .preset_info_by_id(preset_id)
+                            .is_some()
                     } else {
                         false
                     };
@@ -1513,46 +1550,24 @@ impl HeaderPanel {
         delete_button.set_enabled(delete_button_enabled);
     }
 
-    fn fill_preset_combo_box(&self) {
-        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
-        let preset_manager = BackboneShell::get().preset_manager(self.active_compartment());
-        let preset_manager = preset_manager.borrow();
-        let all_entries = [(-1isize, "<None>".to_string())].into_iter().chain(
-            preset_manager
-                .preset_infos()
-                .iter()
-                .enumerate()
-                .map(|(i, info)| {
-                    let label = if info.name == info.id {
-                        info.name.clone()
-                    } else {
-                        format!("{} ({})", info.name, info.id)
-                    };
-                    (i as isize, label)
-                }),
-        );
-        combo.fill_combo_box_with_data_small(all_entries);
-    }
-
-    fn invalidate_preset_combo_box_value(&self) {
-        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+    fn invalidate_preset_browse_button(&self) {
+        let button = self.view.require_control(root::ID_PRESET_BROWSE_BUTTON);
         let enabled = !self.mappings_are_read_only();
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
         let preset_manager = BackboneShell::get().preset_manager(compartment);
-        let data = match session.active_preset_id(compartment) {
-            None => -1isize,
-            Some(id) => match preset_manager.borrow().find_index_by_id(id) {
+        let text = match session.active_preset_id(compartment) {
+            None => "<None>".to_string(),
+            Some(id) => match preset_manager.borrow().preset_info_by_id(id) {
                 None => {
-                    combo.select_new_combo_box_item(format!("<Not present> ({id})"));
-                    return;
+                    format!("<Not present> ({id})")
                 }
-                Some(i) => i as isize,
+                Some(info) => info.name.clone(),
             },
         };
-        combo.select_combo_box_item_by_data(data).unwrap();
-        combo.set_enabled(enabled);
+        button.set_text(text);
+        button.set_enabled(enabled);
     }
 
     fn fill_preset_auto_load_mode_combo_box(&self) {
@@ -1896,39 +1911,6 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .activate_main_preset_auto_load_mode(mode);
-    }
-
-    fn update_preset(&self) {
-        self.main_state.borrow_mut().stop_filter_learning();
-        let session = self.session();
-        let compartment = self.active_compartment();
-        let preset_manager = BackboneShell::get().preset_manager(compartment);
-        let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
-        if compartment_is_dirty
-            && !self
-                .view
-                .require_window()
-                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
-        {
-            self.invalidate_preset_combo_box_value();
-            return;
-        }
-        let preset_id = match self
-            .view
-            .require_control(root::ID_PRESET_COMBO_BOX)
-            .selected_combo_box_item_data()
-        {
-            -1 => None,
-            i if i >= 0 => preset_manager.borrow().find_id_by_index(i as usize),
-            _ => unreachable!(),
-        };
-        let mut session = session.borrow_mut();
-        match compartment {
-            Compartment::Controller => {
-                session.activate_controller_preset(preset_id);
-            }
-            Compartment::Main => session.activate_main_preset(preset_id),
-        };
     }
 
     fn mappings_are_read_only(&self) -> bool {
@@ -2654,6 +2636,7 @@ impl View for HeaderPanel {
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            root::ID_PRESET_BROWSE_BUTTON => self.browse_presets(),
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
             root::ID_GROUP_EDIT_BUTTON => self.edit_group(),
@@ -2712,7 +2695,6 @@ impl View for HeaderPanel {
             root::ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
             root::ID_GROUP_COMBO_BOX => self.update_group(),
             root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
-            root::ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }
@@ -3148,10 +3130,7 @@ fn generate_fx_to_preset_links_menu_entries(
                 )
             }))
             .chain(once(
-                if main_preset_manager
-                    .find_index_by_id(&link.preset_id)
-                    .is_some()
-                {
+                if main_preset_manager.find_by_id(&link.preset_id).is_some() {
                     Entry::Nothing
                 } else {
                     disabled_item(format!("<Not present> ({})", link.preset_id))

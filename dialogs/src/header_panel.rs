@@ -106,11 +106,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_PRESET_LABEL_TEXT"),
             context.rect(7, 69, 57, 9),
         ),
-        dropdown(
-            ids.named_id("ID_PRESET_COMBO_BOX"),
-            context.rect(68, 67, 135, 16),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        pushbutton(
+            "<None>",
+            ids.named_id("ID_PRESET_BROWSE_BUTTON"),
+            context.rect(68, 66, 135, 14),
+        ) + WS_GROUP,
         // Preset actions
         pushbutton(
             "Save as...",

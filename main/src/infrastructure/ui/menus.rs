@@ -254,5 +254,40 @@ fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<
     )
 }
 
+pub fn menu_containing_compartment_presets(
+    compartment: Compartment,
+    current_value: Option<&str>,
+) -> swell_ui::menu_tree::Menu<Option<String>> {
+    let preset_manager = BackboneShell::get().preset_manager(compartment);
+    let preset_manager = preset_manager.borrow();
+    root_menu(
+        iter::once(item_with_opts(
+            NONE,
+            ItemOpts {
+                enabled: true,
+                checked: current_value.is_none(),
+            },
+            || None,
+        ))
+        .chain(preset_manager.preset_infos().iter().map(|info| {
+            let id = info.id.clone();
+            let label = if info.name == info.id {
+                info.name.clone()
+            } else {
+                format!("{} ({})", info.name, info.id)
+            };
+            item_with_opts(
+                label,
+                ItemOpts {
+                    enabled: true,
+                    checked: current_value.is_some_and(|id| &info.id == id),
+                },
+                move || Some(id),
+            )
+        }))
+        .collect(),
+    )
+}
+
 pub const NONE: &str = "<None>";
 pub const THIS: &str = "<This>";

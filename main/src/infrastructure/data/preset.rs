@@ -38,13 +38,9 @@ pub trait PresetManagerEventHandler: fmt::Debug {
 }
 
 pub trait ExtendedPresetManager {
-    fn exists(&self, id: &str) -> bool {
-        self.find_index_by_id(id).is_some()
-    }
-    fn find_index_by_id(&self, id: &str) -> Option<usize>;
-    fn find_id_by_index(&self, index: usize) -> Option<String>;
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()>;
     fn preset_infos(&self) -> &[PresetInfo];
+    fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo>;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -242,10 +238,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         load_preset_info(origin, relative_file_path, file_type, "", &file_content)
     }
 
-    pub fn find_preset_info_by_index(&self, index: usize) -> Option<&PresetInfo> {
-        self.preset_infos.get(index)
-    }
-
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
         let path = self.preset_dir_path.join(format!("{}.json", preset.id()));
         fs::create_dir_all(&self.preset_dir_path)
@@ -349,15 +341,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
 }
 
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
-    fn find_index_by_id(&self, id: &str) -> Option<usize> {
-        self.preset_infos.iter().position(|p| &p.id == id)
-    }
-
-    fn find_id_by_index(&self, index: usize) -> Option<String> {
-        let preset_info = self.find_preset_info_by_index(index)?;
-        Some(preset_info.id.clone())
-    }
-
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()> {
         let preset_info = self
             .preset_infos
@@ -377,6 +360,10 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
 
     fn preset_infos(&self) -> &[PresetInfo] {
         &self.preset_infos
+    }
+
+    fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo> {
+        self.preset_infos.iter().find(|info| &info.id == id)
     }
 }
 
