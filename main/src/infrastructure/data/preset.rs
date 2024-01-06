@@ -1,11 +1,13 @@
 use crate::application::{Preset, PresetManager};
 use base::default_util::deserialize_null_default;
-use std::error::Error;
 
 use crate::base::notification;
+use crate::domain::SafeLua;
+use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::plugin::BackboneShell;
 use anyhow::{anyhow, bail, ensure, Context};
 use base::file_util;
+use mlua::LuaSerdeExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use semver::Version;
@@ -15,6 +17,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
 use std::path::PathBuf;
+use std::time::Duration;
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -45,6 +48,7 @@ pub trait ExtendedPresetManager {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PresetInfo {
     pub id: String,
+    pub realearn_version: Option<Version>,
     pub name: String,
     pub file_type: PresetFileType,
     /// The ID should actually be equal to the path, but to not run into any
@@ -254,6 +258,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         }
         let preset_info = PresetInfo {
             id,
+            realearn_version: preset_meta_data.realearn_version,
             name: preset_meta_data.name,
             file_type,
             absolute_path: path,
@@ -261,21 +266,49 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         Ok(preset_info)
     }
 
-    fn load_full_preset(&self, preset_info: &PresetInfo) -> Result<P, Box<dyn Error>> {
-        let json = fs::read_to_string(&preset_info.absolute_path).map_err(|_| {
-            format!(
+    fn load_full_preset(&self, preset_info: &PresetInfo) -> anyhow::Result<P> {
+        let file_content = fs::read_to_string(&preset_info.absolute_path).map_err(|_| {
+            anyhow!(
                 "Couldn't read preset file \"{}\" anymore.",
                 preset_info.absolute_path.display()
             )
         })?;
-        let data: PD = serde_json::from_str(&json).map_err(|e| {
-            format!(
-                "Preset file {} isn't valid anymore. Details:\n\n{}",
-                preset_info.absolute_path.display(),
-                e
-            )
-        })?;
-        data.to_model(preset_info.id.clone())
+        match preset_info.file_type {
+            PresetFileType::Json => {
+                let data: PD = serde_json::from_str(&file_content).map_err(|e| {
+                    anyhow!(
+                        "Preset file {} isn't valid anymore. Details:\n\n{}",
+                        preset_info.absolute_path.display(),
+                        e
+                    )
+                })?;
+                data.to_model(preset_info.id.clone())
+            }
+            PresetFileType::Lua => {
+                let lua = SafeLua::new()?;
+                let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
+                let env = lua.create_fresh_environment(true)?;
+                let value = lua.compile_and_execute(
+                    preset_info.absolute_path.to_string_lossy().as_ref(),
+                    &file_content,
+                    env,
+                )?;
+                let api_compartment: realearn_api::persistence::Compartment =
+                    lua.as_ref().from_value(value)?;
+                let compartment_data = convert_compartment(api_compartment)?;
+                let compartment_model = compartment_data.to_model(
+                    preset_info.realearn_version.as_ref(),
+                    P::compartment(),
+                    None,
+                )?;
+                let preset_model = P::from_parts(
+                    preset_info.id.to_string(),
+                    preset_info.name.to_string(),
+                    compartment_model,
+                );
+                Ok(preset_model)
+            }
+        }
     }
 }
 
@@ -310,7 +343,13 @@ impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPreset
 
     fn find_by_id(&self, id: &str) -> Option<P> {
         let preset_info = self.preset_infos.iter().find(|info| info.id == id)?;
-        self.load_full_preset(preset_info).ok()
+        match self.load_full_preset(preset_info) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                notification::warn(e.to_string());
+                None
+            }
+        }
     }
 }
 
@@ -319,7 +358,7 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn from_model(preset: &Self::P) -> Self;
 
-    fn to_model(&self, id: String) -> Result<Self::P, Box<dyn Error>>;
+    fn to_model(&self, id: String) -> anyhow::Result<Self::P>;
 
     fn clear_id(&mut self);
 

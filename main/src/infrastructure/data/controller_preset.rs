@@ -7,7 +7,6 @@ use base::default_util::{deserialize_null_default, is_default};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::error::Error;
 use std::rc::Rc;
 
 pub type FileBasedControllerPresetManager =
@@ -52,7 +51,7 @@ impl PresetData for ControllerPresetData {
         }
     }
 
-    fn to_model(&self, id: String) -> Result<ControllerPreset, Box<dyn Error>> {
+    fn to_model(&self, id: String) -> anyhow::Result<ControllerPreset> {
         let preset = ControllerPreset::new(
             id,
             self.name.clone(),

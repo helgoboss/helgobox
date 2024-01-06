@@ -1,4 +1,5 @@
 use crate::application::{CompartmentModel, Preset, SharedMapping};
+use crate::domain::Compartment;
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -19,6 +20,18 @@ impl MainPreset {
 }
 
 impl Preset for MainPreset {
+    fn from_parts(id: String, name: String, compartment_model: CompartmentModel) -> Self {
+        Self {
+            id,
+            name,
+            data: compartment_model,
+        }
+    }
+
+    fn compartment() -> Compartment {
+        Compartment::Main
+    }
+
     fn id(&self) -> &str {
         &self.id
     }

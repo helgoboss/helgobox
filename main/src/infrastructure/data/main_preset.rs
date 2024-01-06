@@ -7,7 +7,6 @@ use crate::infrastructure::plugin::BackboneShell;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::error::Error;
 use std::rc::Rc;
 
 pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
@@ -51,7 +50,7 @@ impl PresetData for MainPresetData {
         }
     }
 
-    fn to_model(&self, id: String) -> Result<MainPreset, Box<dyn Error>> {
+    fn to_model(&self, id: String) -> anyhow::Result<MainPreset> {
         let preset = MainPreset::new(
             id,
             self.name.clone(),

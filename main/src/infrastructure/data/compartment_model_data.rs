@@ -13,7 +13,6 @@ use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,7 +105,7 @@ impl CompartmentModelData {
         version: Option<&Version>,
         compartment: Compartment,
         session: Option<&UnitModel>,
-    ) -> Result<CompartmentModel, Box<dyn Error>> {
+    ) -> anyhow::Result<CompartmentModel> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
@@ -128,7 +127,7 @@ impl CompartmentModelData {
             .iter()
             .map(|g| g.to_model(compartment, false, &conversion_context))
             .collect();
-        let mappings: Result<Vec<_>, _> = self
+        let mappings: anyhow::Result<Vec<_>> = self
             .mappings
             .iter()
             .map(|m| {
@@ -138,7 +137,7 @@ impl CompartmentModelData {
                     version,
                     &conversion_context,
                 )
-                .map_err(|e| e.to_owned())
+                .map_err(anyhow::Error::msg)
             })
             .collect();
         let model = CompartmentModel {

@@ -1,4 +1,5 @@
 use crate::application::{CompartmentModel, Preset};
+use crate::domain::Compartment;
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -23,6 +24,18 @@ impl ControllerPreset {
 }
 
 impl Preset for ControllerPreset {
+    fn from_parts(id: String, name: String, compartment_model: CompartmentModel) -> Self {
+        Self {
+            id,
+            name,
+            data: compartment_model,
+        }
+    }
+
+    fn compartment() -> Compartment {
+        Compartment::Controller
+    }
+
     fn id(&self) -> &str {
         &self.id
     }

@@ -144,7 +144,7 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         conversion_context: &impl DataToModelConversionContext,
-    ) -> Result<MappingModel, &'static str> {
+    ) -> anyhow::Result<MappingModel, &'static str> {
         self.to_model_flexible(
             compartment,
             migration_descriptor,
