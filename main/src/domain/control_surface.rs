@@ -443,9 +443,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     #[cfg(feature = "playtime")]
     fn poll_clip_matrixes(&mut self) {
         for instance in self.instances() {
-            let mut instance = instance.borrow_mut();
-            let instance_id = instance.id();
-            let events = instance.poll_owned_clip_matrix();
+            let (instance_id, events) = {
+                let mut instance = instance.borrow_mut();
+                (instance.id(), instance.poll_owned_clip_matrix())
+            };
             for processor in &*self.main_processors.borrow() {
                 processor.process_polled_clip_matrix_events(instance_id, &events);
             }

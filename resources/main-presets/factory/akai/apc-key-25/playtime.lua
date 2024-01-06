@@ -1,3 +1,6 @@
+--- name: APC Key 25
+--- realearn_version: 2.16.0-pre.8
+
 -- Configuration
 
 local use_column_stop_buttons = false

@@ -2,22 +2,24 @@ use crate::application::{Preset, PresetManager};
 use base::default_util::deserialize_null_default;
 
 use crate::base::notification;
-use crate::domain::SafeLua;
+use crate::domain::{Compartment, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::plugin::BackboneShell;
 use anyhow::{anyhow, bail, ensure, Context};
 use base::file_util;
+use include_dir::{include_dir, Dir};
 use mlua::LuaSerdeExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use semver::Version;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-use std::fs;
+use std::borrow::Cow;
+use std::fmt::Formatter;
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{fmt, fs};
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -29,7 +31,7 @@ pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
     p: PhantomData<PD>,
 }
 
-pub trait PresetManagerEventHandler: Debug {
+pub trait PresetManagerEventHandler: fmt::Debug {
     type Source;
 
     fn presets_changed(&self, source: &Self::Source);
@@ -51,15 +53,64 @@ pub struct PresetInfo {
     pub realearn_version: Option<Version>,
     pub name: String,
     pub file_type: PresetFileType,
-    /// The ID should actually be equal to the path, but to not run into any
-    /// breaking change in edge cases, we keep track of the actual path here.
-    pub absolute_path: PathBuf,
+    pub origin: PresetOrigin,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum PresetOrigin {
+    User {
+        /// The ID should actually be equal to the path, but to not run into any
+        /// breaking change in edge cases, we keep track of the actual path here.
+        absolute_file_path: PathBuf,
+    },
+    Factory {
+        compartment: Compartment,
+        relative_file_path: PathBuf,
+    },
+}
+
+impl fmt::Display for PresetOrigin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PresetOrigin::User {
+                absolute_file_path: absolute_path,
+            } => absolute_path.display().fmt(f),
+            PresetOrigin::Factory {
+                compartment,
+                relative_file_path,
+            } => {
+                let compartment_id = match compartment {
+                    Compartment::Controller => "controller",
+                    Compartment::Main => "main",
+                };
+                write!(
+                    f,
+                    "factory:/{compartment_id}/{}",
+                    relative_file_path.display()
+                )
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum PresetFileType {
     Json,
     Lua,
+}
+
+impl PresetFileType {
+    pub fn from_path(path: &Path) -> Option<Self> {
+        let extension = path.extension()?;
+        let file_type = if extension == "json" {
+            PresetFileType::Json
+        } else if extension == "lua" {
+            PresetFileType::Lua
+        } else {
+            return None;
+        };
+        Some(file_type)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
@@ -125,7 +176,33 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn load_preset_infos_internal(&mut self) -> Result<(), String> {
-        let preset_file_paths = WalkDir::new(&self.preset_dir_path)
+        // Load factory preset infos
+        let compartment = P::compartment();
+        let factory_preset_dir = get_factory_preset_dir(compartment);
+        let mut all_preset_infos = vec![];
+        walk_included_dir(factory_preset_dir, &mut |file| {
+            let relative_file_path = file.path();
+            let file_type = PresetFileType::from_path(relative_file_path)
+                .context("Factory preset has unsupported file type")?;
+            let file_content = file
+                .contents_utf8()
+                .context("Factory preset not UTF-8 encoded")?;
+            let origin = PresetOrigin::Factory {
+                compartment,
+                relative_file_path: relative_file_path.to_path_buf(),
+            };
+            let preset_info = load_preset_info(
+                origin,
+                relative_file_path,
+                file_type,
+                "factory/",
+                file_content,
+            )?;
+            all_preset_infos.push(preset_info);
+            Ok(())
+        });
+        // Load user preset infos
+        let user_preset_infos = WalkDir::new(&self.preset_dir_path)
             .follow_links(true)
             .max_depth(2)
             .into_iter()
@@ -135,28 +212,34 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 if !entry.file_type().is_file() {
                     return None;
                 }
-                let extension = entry.path().extension()?;
-                let file_type = if extension == "json" {
-                    PresetFileType::Json
-                } else if extension == "lua" {
-                    PresetFileType::Lua
-                } else {
-                    return None;
-                };
-                Some((entry.into_path(), file_type))
-            });
-        self.preset_infos = preset_file_paths
-            .filter_map(|(p, file_type)| match self.load_preset_info(p, file_type) {
-                Ok(p) => Some(p),
-                Err(e) => {
-                    notification::warn(e.to_string());
-                    None
+                let file_type = PresetFileType::from_path(entry.path())?;
+                match self.build_user_preset_info(entry, file_type) {
+                    Ok(p) => Some(p),
+                    Err(e) => {
+                        notification::warn(e.to_string());
+                        None
+                    }
                 }
-            })
-            .collect();
-        self.preset_infos
-            .sort_unstable_by_key(|p| p.name.to_lowercase());
+            });
+        // Combine them
+        all_preset_infos.extend(user_preset_infos);
+        self.preset_infos = all_preset_infos;
         Ok(())
+    }
+
+    fn build_user_preset_info(
+        &mut self,
+        entry: walkdir::DirEntry,
+        file_type: PresetFileType,
+    ) -> anyhow::Result<PresetInfo> {
+        let absolute_path = entry.into_path();
+        let origin = PresetOrigin::User {
+            absolute_file_path: absolute_path.clone(),
+        };
+        let relative_file_path = absolute_path.strip_prefix(&self.preset_dir_path).unwrap();
+        let file_content = fs::read_to_string(&absolute_path)
+            .map_err(|_| anyhow!("Couldn't read preset file \"{}\".", absolute_path.display()))?;
+        load_preset_info(origin, relative_file_path, file_type, "", &file_content)
     }
 
     pub fn find_preset_info_by_index(&self, index: usize) -> Option<&PresetInfo> {
@@ -201,84 +284,37 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.changed_subject.next(());
     }
 
-    fn load_preset_info(
-        &self,
-        path: PathBuf,
-        file_type: PresetFileType,
-    ) -> anyhow::Result<PresetInfo> {
-        let relative_path = path
-            .parent()
-            .unwrap()
-            .strip_prefix(&self.preset_dir_path)
-            .unwrap();
-        let file_stem = path.file_stem().ok_or_else(|| {
-            anyhow!(
-                "Preset file \"{}\" only has an extension but not a name. \
-                    The name is necessary because it makes up the preset ID.",
-                path.display()
-            )
-        })?;
-        let leaf_id = file_stem.to_string_lossy();
-        let id = if relative_path.parent().is_none() {
-            // Preset is in root
-            leaf_id.to_string()
-        } else {
-            // Preset is in sub directory
-            let relative_path_with_slashes = relative_path.to_string_lossy().replace('\\', "/");
-            format!("{relative_path_with_slashes}/{leaf_id}")
-        };
-        let file_content = fs::read_to_string(&path)
-            .map_err(|_| anyhow!("Couldn't read preset file \"{}\".", path.display()))?;
-        let preset_meta_data_result = match file_type {
-            PresetFileType::Json => PresetMetaData::from_json(&file_content),
-            PresetFileType::Lua => PresetMetaData::from_lua(&file_content),
-        };
-        let preset_meta_data = preset_meta_data_result.map_err(|e| {
-            anyhow!(
-                "Couldn't read preset meta data from file \"{}\". Details:\n\n{}",
-                path.display(),
-                e
-            )
-        })?;
-        if let Some(v) = preset_meta_data.realearn_version.as_ref() {
-            if BackboneShell::version() < v {
-                bail!(
-                    "Skipped loading of preset \"{}\" because it has been created with \
-                         ReaLearn {}, which is newer than the installed version {}. \
-                         Please update your ReaLearn version. If this is not an option for you and \
-                         it's a factory preset installed from ReaPack, go back to an older version \
-                         of that preset and pin it so that future ReaPack synchronization won't \
-                         automatically update that preset. Alternatively, make your own copy of \
-                         the preset and uninstall the factory preset.",
-                    path.display(),
-                    v,
-                    BackboneShell::version()
-                );
-            }
-        }
-        let preset_info = PresetInfo {
-            id,
-            realearn_version: preset_meta_data.realearn_version,
-            name: preset_meta_data.name,
-            file_type,
-            absolute_path: path,
-        };
-        Ok(preset_info)
-    }
-
     fn load_full_preset(&self, preset_info: &PresetInfo) -> anyhow::Result<P> {
-        let file_content = fs::read_to_string(&preset_info.absolute_path).map_err(|_| {
-            anyhow!(
-                "Couldn't read preset file \"{}\" anymore.",
-                preset_info.absolute_path.display()
-            )
-        })?;
+        let file_content: Cow<str> = match &preset_info.origin {
+            PresetOrigin::User {
+                absolute_file_path: absolute_path,
+            } => fs::read_to_string(absolute_path)
+                .map_err(|_| {
+                    anyhow!(
+                        "Couldn't read preset file \"{}\" anymore.",
+                        &preset_info.origin
+                    )
+                })?
+                .into(),
+            PresetOrigin::Factory {
+                compartment,
+                relative_file_path: relative_path,
+            } => {
+                let factory_preset_dir = get_factory_preset_dir(*compartment);
+                let file = factory_preset_dir
+                    .get_file(relative_path)
+                    .context("Couldn't find factory preset anymore")?;
+                file.contents_utf8()
+                    .context("Factory preset not UTF-8 anymore!?")?
+                    .into()
+            }
+        };
         match preset_info.file_type {
             PresetFileType::Json => {
                 let data: PD = serde_json::from_str(&file_content).map_err(|e| {
                     anyhow!(
                         "Preset file {} isn't valid anymore. Details:\n\n{}",
-                        preset_info.absolute_path.display(),
+                        &preset_info.origin,
                         e
                     )
                 })?;
@@ -289,7 +325,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
                 let env = lua.create_fresh_environment(true)?;
                 let value = lua.compile_and_execute(
-                    preset_info.absolute_path.to_string_lossy().as_ref(),
+                    preset_info.origin.to_string().as_ref(),
                     &file_content,
                     env,
                 )?;
@@ -328,7 +364,13 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
             .iter()
             .find(|info| info.id == id)
             .context("preset to be removed not found")?;
-        fs::remove_file(&preset_info.absolute_path).context("couldn't delete preset file")?;
+        let PresetOrigin::User {
+            absolute_file_path: absolute_path,
+        } = &preset_info.origin
+        else {
+            bail!("can't delete factory presets");
+        };
+        fs::remove_file(absolute_path).context("couldn't delete preset file")?;
         let _ = self.load_preset_infos();
         Ok(())
     }
@@ -353,7 +395,7 @@ impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPreset
     }
 }
 
-pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
+pub trait PresetData: Sized + Serialize + DeserializeOwned + fmt::Debug {
     type P: Preset;
 
     fn from_model(preset: &Self::P) -> Self;
@@ -363,4 +405,98 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
     fn clear_id(&mut self);
 
     fn version(&self) -> Option<&Version>;
+}
+
+static FACTORY_CONTROLLER_PRESETS_DIR: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/../resources/controller-presets/factory");
+static FACTORY_MAIN_PRESETS_DIR: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/../resources/main-presets/factory");
+
+fn walk_included_dir(
+    dir: &Dir,
+    on_file: &mut impl FnMut(&include_dir::File) -> anyhow::Result<()>,
+) {
+    use include_dir::DirEntry;
+    for entry in dir.entries() {
+        match entry {
+            DirEntry::Dir(dir) => {
+                walk_included_dir(dir, on_file);
+            }
+            DirEntry::File(file) => {
+                on_file(file).unwrap();
+            }
+        }
+    }
+}
+
+fn load_preset_info(
+    origin: PresetOrigin,
+    relative_file_path: &Path,
+    file_type: PresetFileType,
+    id_prefix: &str,
+    file_content: &str,
+) -> anyhow::Result<PresetInfo> {
+    let id = build_id(relative_file_path, id_prefix, &origin)?;
+    let preset_meta_data_result = match file_type {
+        PresetFileType::Json => PresetMetaData::from_json(&file_content),
+        PresetFileType::Lua => PresetMetaData::from_lua(&file_content),
+    };
+    let preset_meta_data = preset_meta_data_result.map_err(|e| {
+        anyhow!("Couldn't read preset meta data from \"{origin}\". Details:\n\n{e}",)
+    })?;
+    if let Some(v) = preset_meta_data.realearn_version.as_ref() {
+        if BackboneShell::version() < v {
+            bail!(
+                "Skipped loading of preset \"{origin}\" because it has been created with \
+                         ReaLearn {v}, which is newer than the installed version {}. \
+                         Please update your ReaLearn version. If this is not an option for you and \
+                         it's a factory preset installed from ReaPack, go back to an older version \
+                         of that preset and pin it so that future ReaPack synchronization won't \
+                         automatically update that preset. Alternatively, make your own copy of \
+                         the preset and uninstall the factory preset.",
+                BackboneShell::version()
+            );
+        }
+    }
+    let preset_info = PresetInfo {
+        id,
+        realearn_version: preset_meta_data.realearn_version,
+        name: preset_meta_data.name,
+        file_type,
+        origin,
+    };
+    Ok(preset_info)
+}
+
+fn build_id(
+    relative_file_path: &Path,
+    prefix: &str,
+    origin: &PresetOrigin,
+) -> anyhow::Result<String> {
+    let file_stem = relative_file_path.file_stem().ok_or_else(|| {
+        anyhow!(
+            "Preset file \"{origin}\" only has an extension but not a name. \
+                    The name is necessary because it makes up the preset ID.",
+        )
+    })?;
+    let leaf_id = file_stem.to_string_lossy();
+    let relative_dir_path = relative_file_path
+        .parent()
+        .context("relative file was a dir actually")?;
+    let id = if relative_dir_path.parent().is_none() {
+        // Preset is in root
+        format!("{prefix}{leaf_id}")
+    } else {
+        // Preset is in sub directory
+        let relative_dir_path_with_slashes = relative_dir_path.to_string_lossy().replace('\\', "/");
+        format!("{prefix}{relative_dir_path_with_slashes}/{leaf_id}")
+    };
+    Ok(id)
+}
+
+fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
+    match compartment {
+        Compartment::Controller => &FACTORY_CONTROLLER_PRESETS_DIR,
+        Compartment::Main => &FACTORY_MAIN_PRESETS_DIR,
+    }
 }
