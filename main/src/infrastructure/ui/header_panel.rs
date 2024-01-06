@@ -1533,21 +1533,21 @@ impl HeaderPanel {
                 let session = self.session();
                 let session = session.borrow();
                 let compartment = self.active_compartment();
-                let preset_is_active_and_exists =
+                let user_preset_is_active_and_exists =
                     if let Some(preset_id) = session.active_preset_id(compartment) {
                         BackboneShell::get()
                             .preset_manager(compartment)
                             .borrow()
                             .preset_info_by_id(preset_id)
-                            .is_some()
+                            .is_some_and(|info| info.origin.is_user())
                     } else {
                         false
                     };
                 let preset_is_dirty = session.compartment_or_preset_is_dirty(compartment);
                 (
-                    preset_is_active_and_exists && preset_is_dirty,
+                    user_preset_is_active_and_exists && preset_is_dirty,
                     true,
-                    preset_is_active_and_exists,
+                    user_preset_is_active_and_exists,
                 )
             }
         };
