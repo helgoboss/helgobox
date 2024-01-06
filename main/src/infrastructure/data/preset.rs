@@ -20,6 +20,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{fmt, fs};
+use strum::EnumIs;
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -52,7 +53,7 @@ pub struct PresetInfo {
     pub origin: PresetOrigin,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, EnumIs)]
 pub enum PresetOrigin {
     User {
         /// The ID should actually be equal to the path, but to not run into any

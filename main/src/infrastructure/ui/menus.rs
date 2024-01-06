@@ -284,7 +284,33 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
     build_id: impl Fn(&PresetInfo) -> T + 'a,
     is_current_value: impl Fn(&PresetInfo) -> bool + 'a,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
-    preset_infos.iter().map(move |info| {
+    let (user_preset_infos, factory_preset_infos): (Vec<_>, Vec<_>) =
+        preset_infos.iter().partition(|info| info.origin.is_user());
+    [
+        ("User presets", user_preset_infos),
+        ("Factory presets", factory_preset_infos),
+    ]
+    .into_iter()
+    .map(move |(label, mut infos)| {
+        infos.sort_by_key(|info| &info.name);
+        menu(
+            label,
+            build_compartment_preset_menu_entries_internal(
+                infos.into_iter(),
+                &build_id,
+                &is_current_value,
+            )
+            .collect(),
+        )
+    })
+}
+
+fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
+    preset_infos: impl Iterator<Item = &'a PresetInfo> + 'a,
+    build_id: &'a (impl Fn(&PresetInfo) -> T + 'a),
+    is_current_value: &'a (impl Fn(&PresetInfo) -> bool + 'a),
+) -> impl Iterator<Item = Entry<T>> + 'a {
+    preset_infos.map(move |info| {
         let id = build_id(info);
         let label = if info.name == info.id {
             info.name.clone()
