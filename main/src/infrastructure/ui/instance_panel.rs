@@ -141,7 +141,7 @@ impl InstancePanel {
                             enabled: displayed_unit_id.is_some(),
                             checked: false,
                         },
-                        || MenuAction::RemoveCurrentUnit,
+                        MenuAction::RemoveCurrentUnit,
                     ),
                     separator(),
                     item_with_opts(
@@ -150,7 +150,7 @@ impl InstancePanel {
                             enabled: true,
                             checked: displayed_unit_id == None,
                         },
-                        || MenuAction::ShowUnit(None),
+                        MenuAction::ShowUnit(None),
                     ),
                 ]
                 .into_iter()
@@ -167,11 +167,11 @@ impl InstancePanel {
                                     enabled: true,
                                     checked: displayed_unit_id == Some(unit_id),
                                 },
-                                move || MenuAction::ShowUnit(Some(unit_id)),
+                                MenuAction::ShowUnit(Some(unit_id)),
                             )
                         }),
                 )
-                .chain([separator(), item("Add unit", || MenuAction::AddUnit)])
+                .chain([separator(), item("Add unit", MenuAction::AddUnit)])
                 .collect(),
             )
         };

@@ -70,22 +70,8 @@ impl<R> Menu<R> {
 pub struct Item<R> {
     pub id: u32,
     pub text: String,
-    handler: Handler<R>,
+    pub result: R,
     pub opts: ItemOpts,
-}
-
-impl<R> Item<R> {
-    pub fn invoke_handler(self) -> R {
-        (self.handler.0)()
-    }
-}
-
-struct Handler<R>(Box<dyn FnOnce() -> R>);
-
-impl<R> Debug for Handler<R> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Handler")
-    }
 }
 
 pub fn root_menu<R>(entries: Vec<Entry<R>>) -> Menu<R> {
@@ -104,11 +90,11 @@ pub fn menu<R>(text: impl Into<String>, entries: Vec<Entry<R>>) -> Entry<R> {
     })
 }
 
-pub fn item<R>(text: impl Into<String>, handler: impl FnOnce() -> R + 'static) -> Entry<R> {
+pub fn item<R>(text: impl Into<String>, result: R) -> Entry<R> {
     Entry::Item(Item {
         id: 0,
         text: text.into(),
-        handler: Handler(Box::new(handler)),
+        result,
         opts: Default::default(),
     })
 }
@@ -117,15 +103,11 @@ pub fn separator<R>() -> Entry<R> {
     Entry::Separator
 }
 
-pub fn item_with_opts<R>(
-    text: impl Into<String>,
-    opts: ItemOpts,
-    handler: impl FnOnce() -> R + 'static,
-) -> Entry<R> {
+pub fn item_with_opts<R>(text: impl Into<String>, opts: ItemOpts, result: R) -> Entry<R> {
     Entry::Item(Item {
         id: 0,
         text: text.into(),
-        handler: Handler(Box::new(handler)),
+        result,
         opts,
     })
 }
@@ -138,7 +120,7 @@ pub fn disabled_item<R: Default>(text: impl Into<String>) -> Entry<R> {
             enabled: false,
             checked: false,
         },
-        || R::default(),
+        R::default(),
     )
 }
 

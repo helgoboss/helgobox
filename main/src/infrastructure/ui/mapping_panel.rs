@@ -758,9 +758,39 @@ impl MappingPanel {
             ReaperTargetType::SendMidi => {
                 if let Some(action) = open_send_midi_menu(self.view.require_window()) {
                     match action {
-                        SendMidiMenuAction::Preset(preset) => {
+                        SendMidiMenuAction::PitchBendChangePreset { channel } => {
+                            let status_byte: u8 = ShortMessageType::PitchBendChange.into();
+                            let msg =
+                                format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + channel);
                             self.change_mapping(MappingCommand::ChangeTarget(
-                                TargetCommand::SetRawMidiPattern(preset),
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::DoubleDataBytePreset {
+                            channel,
+                            msg_type,
+                            i,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg =
+                                format!("{:02X} {:02X} [0gfe dcba]", status_byte + channel, i);
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::SingleDataBytePreset {
+                            channel,
+                            msg_type,
+                            last_byte,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg = format!(
+                                "{:02X} [0gfe dcba] {:02X}",
+                                status_byte + channel,
+                                last_byte
+                            );
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
                             ));
                         }
                         SendMidiMenuAction::EditMultiLine => {
@@ -1670,7 +1700,7 @@ impl<'a> MutableMappingPanel<'a> {
                     // let target_type_label = ReaperTargetType::from_target(&t);
                     let target_label = TargetModelFormatVeryShort(&target_model);
                     // let label = format!("{target_type_label} / {target_label}");
-                    item(target_label.to_string(), move || MenuAction::SetTarget(t))
+                    item(target_label.to_string(), MenuAction::SetTarget(t))
                 })
                 .collect();
             root_menu(vec![
@@ -1678,7 +1708,7 @@ impl<'a> MutableMappingPanel<'a> {
                     "Pick recently touched target (by type)",
                     recently_touched_items,
                 ),
-                item("Go to target (if supported)", || MenuAction::GoToTarget),
+                item("Go to target (if supported)", MenuAction::GoToTarget),
             ])
         };
         let menu_action = self
@@ -7552,7 +7582,7 @@ fn prompt_for_predefined_control_element_name(
                             }
                         }
                     };
-                    item(label, move || (i + 1).to_string())
+                    item(label, (i + 1).to_string())
                 }),
             ),
         ];
@@ -7613,7 +7643,7 @@ fn show_feedback_popup_menu(
                             enabled: true,
                             checked: relevant_color.is_none(),
                         },
-                        move || ControllerDefault(color_target),
+                        ControllerDefault(color_target),
                     ),
                     item_with_opts(
                         "<Pick color...>",
@@ -7621,7 +7651,7 @@ fn show_feedback_popup_menu(
                             enabled: true,
                             checked: matches!(relevant_color, Some(VirtualColor::Rgb(_))),
                         },
-                        move || OpenColorPicker(color_target),
+                        OpenColorPicker(color_target),
                     ),
                 ].into_iter()
                     .chain(["target.track.color", "target.bookmark.color"].into_iter().map(|key| {
@@ -7633,14 +7663,14 @@ fn show_feedback_popup_menu(
                                     matches!(relevant_color, Some(VirtualColor::Prop{prop}) if key == prop)
                                 },
                             },
-                            move || UseColorProp(color_target, key),
+                            UseColorProp(color_target, key),
                         )
                     }))
                     .collect(),
             )
         };
         let entries = vec![
-            item("Edit multi-line...", || MenuAction::EditMultiLine),
+            item("Edit multi-line...", MenuAction::EditMultiLine),
             create_color_target_menu(ColorTarget::Color),
             create_color_target_menu(ColorTarget::BackgroundColor),
         ];
@@ -7685,7 +7715,19 @@ fn show_feedback_popup_menu(
 
 enum SendMidiMenuAction {
     EditMultiLine,
-    Preset(String),
+    SingleDataBytePreset {
+        channel: u8,
+        msg_type: ShortMessageType,
+        last_byte: u8,
+    },
+    DoubleDataBytePreset {
+        channel: u8,
+        msg_type: ShortMessageType,
+        i: u32,
+    },
+    PitchBendChangePreset {
+        channel: u8,
+    },
 }
 
 fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
@@ -7704,14 +7746,14 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
                 menu(
                     fmt_ch(ch),
                     chunked_number_menu(128, 8, false, |i| {
-                        item(format!("{label} {i}"), move || {
-                            let status_byte: u8 = msg_type.into();
-                            SendMidiMenuAction::Preset(format!(
-                                "{:02X} {:02X} [0gfe dcba]",
-                                status_byte + ch,
-                                i
-                            ))
-                        })
+                        item(
+                            format!("{label} {i}"),
+                            SendMidiMenuAction::DoubleDataBytePreset {
+                                channel: ch,
+                                msg_type,
+                                i,
+                            },
+                        )
                     }),
                 )
             }),
@@ -7727,14 +7769,14 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
         menu(
             source_type.to_string(),
             channel_menu(|ch| {
-                item(fmt_ch(ch), move || {
-                    let status_byte: u8 = msg_type.into();
-                    SendMidiMenuAction::Preset(format!(
-                        "{:02X} [0gfe dcba] {:02X}",
-                        status_byte + ch,
-                        last_byte
-                    ))
-                })
+                item(
+                    fmt_ch(ch),
+                    SendMidiMenuAction::SingleDataBytePreset {
+                        channel: ch,
+                        msg_type,
+                        last_byte,
+                    },
+                )
             }),
         )
     }
@@ -7744,7 +7786,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
 
         use SendMidiMenuAction::*;
         let entries = vec![
-            item("Edit multi-line...", || EditMultiLine),
+            item("Edit multi-line...", EditMultiLine),
             double_data_byte_msg_menu(
                 MidiSourceType::ControlChangeValue,
                 ShortMessageType::ControlChange,
@@ -7759,10 +7801,10 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
             menu(
                 MidiSourceType::PitchBendChangeValue.to_string(),
                 channel_menu(|ch| {
-                    item(fmt_ch(ch), move || {
-                        let status_byte: u8 = ShortMessageType::PitchBendChange.into();
-                        Preset(format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + ch))
-                    })
+                    item(
+                        fmt_ch(ch),
+                        SendMidiMenuAction::PitchBendChangePreset { channel: ch },
+                    )
                 }),
             ),
             single_data_byte_msg_menu(
@@ -7805,7 +7847,7 @@ fn build_slash_menu_entries(
                 } else {
                     format!("{prefix}/{name}")
                 };
-                entries.push(item(*name, move || full_name));
+                entries.push(item(*name, full_name));
             }
         } else {
             // A nested entry (menu).

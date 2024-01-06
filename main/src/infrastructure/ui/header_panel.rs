@@ -238,10 +238,11 @@ impl HeaderPanel {
         let menu = {
             use swell_ui::menu_tree::*;
             root_menu(vec![
-                item("Multis (faders, knobs, encoders, ...)", || {
-                    VirtualControlElementType::Multi
-                }),
-                item("Buttons", || VirtualControlElementType::Button),
+                item(
+                    "Multis (faders, knobs, encoders, ...)",
+                    VirtualControlElementType::Multi,
+                ),
+                item("Buttons", VirtualControlElementType::Button),
             ])
         };
         self.view
@@ -348,36 +349,42 @@ impl HeaderPanel {
                     }
                 });
             let entries = vec![
-                item("Copy listed mappings", || {
-                    MainMenuAction::CopyListedMappingsAsJson
-                }),
+                item(
+                    "Copy listed mappings",
+                    MainMenuAction::CopyListedMappingsAsJson,
+                ),
                 {
                     if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
                             format!("Paste {} mappings (replace all in group)", env.value.len()),
-                            move || MainMenuAction::PasteReplaceAllInGroup(env),
+                            MainMenuAction::PasteReplaceAllInGroup(env),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
                     }
                 },
-                item("Auto-name listed mappings", || {
-                    MainMenuAction::AutoNameListedMappings
-                }),
-                item("Name listed mappings after source", || {
-                    MainMenuAction::NameListedMappingsAfterSource
-                }),
-                item("Make sources of all main mappings virtual", || {
-                    MainMenuAction::MakeSourcesOfMainMappingsVirtual
-                }),
-                item("Make targets of listed mappings sticky", || {
-                    MainMenuAction::MakeTargetsOfListedMappingsSticky
-                }),
+                item(
+                    "Auto-name listed mappings",
+                    MainMenuAction::AutoNameListedMappings,
+                ),
+                item(
+                    "Name listed mappings after source",
+                    MainMenuAction::NameListedMappingsAfterSource,
+                ),
+                item(
+                    "Make sources of all main mappings virtual",
+                    MainMenuAction::MakeSourcesOfMainMappingsVirtual,
+                ),
+                item(
+                    "Make targets of listed mappings sticky",
+                    MainMenuAction::MakeTargetsOfListedMappingsSticky,
+                ),
                 menu(
                     "Move listed mappings to group",
-                    iter::once(item("<New group>", || {
-                        MainMenuAction::MoveListedMappingsToGroup(None)
-                    }))
+                    iter::once(item(
+                        "<New group>",
+                        MainMenuAction::MoveListedMappingsToGroup(None),
+                    ))
                     .chain(session.groups_sorted(compartment).map(move |g| {
                         let g = g.borrow();
                         let g_id = g.id();
@@ -387,7 +394,7 @@ impl HeaderPanel {
                                 enabled: group_id != Some(g_id),
                                 checked: false,
                             },
-                            move || MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
+                            MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
                         )
                     }))
                     .collect(),
@@ -395,16 +402,15 @@ impl HeaderPanel {
                 menu(
                     "Advanced",
                     vec![
-                        item("Copy listed mappings as Lua", || {
-                            MainMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
-                        }),
+                        item(
+                            "Copy listed mappings as Lua",
+                            MainMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal),
+                        ),
                         item(
                             "Copy listed mappings as Lua (include default values)",
-                            || {
-                                MainMenuAction::CopyListedMappingsAsLua(
-                                    ConversionStyle::IncludeDefaultValues,
-                                )
-                            },
+                            MainMenuAction::CopyListedMappingsAsLua(
+                                ConversionStyle::IncludeDefaultValues,
+                            ),
                         ),
                         item_with_opts(
                             "Paste from Lua (replace all in group)",
@@ -412,9 +418,7 @@ impl HeaderPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || {
-                                MainMenuAction::PasteFromLuaReplaceAllInGroup(text_from_clipboard)
-                            },
+                            MainMenuAction::PasteFromLuaReplaceAllInGroup(text_from_clipboard),
                         ),
                         item_with_opts(
                             "Dry-run Lua script from clipboard",
@@ -422,7 +426,7 @@ impl HeaderPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
+                            MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
                         #[cfg(feature = "playtime")]
                         item_with_opts(
@@ -431,7 +435,7 @@ impl HeaderPanel {
                                 enabled: has_clip_matrix,
                                 checked: false,
                             },
-                            || MainMenuAction::FreezeClipMatrix,
+                            MainMenuAction::FreezeClipMatrix,
                         ),
                     ],
                 ),
@@ -445,7 +449,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.auto_correct_settings.get(),
                             },
-                            || MainMenuAction::ToggleAutoCorrectSettings,
+                            MainMenuAction::ToggleAutoCorrectSettings,
                         ),
                         item_with_opts(
                             "Send feedback only if track armed",
@@ -460,7 +464,7 @@ impl HeaderPanel {
                                     checked: session.send_feedback_only_if_armed.get(),
                                 }
                             },
-                            || MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
+                            MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
                             "Reset feedback when releasing source",
@@ -468,7 +472,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.reset_feedback_when_releasing_source.get(),
                             },
-                            || MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
+                            MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
                         ),
                         item_with_opts(
                             "Make unit superior",
@@ -476,7 +480,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
                             },
-                            || MainMenuAction::ToggleUpperFloorMembership,
+                            MainMenuAction::ToggleUpperFloorMembership,
                         ),
                         item_with_opts(
                             "Use unit-wide FX-to-preset links only",
@@ -484,7 +488,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.use_instance_preset_links_only(),
                             },
-                            || MainMenuAction::ToggleUseInstancePresetLinksOnly,
+                            MainMenuAction::ToggleUseInstancePresetLinksOnly,
                         ),
                         menu(
                             "Stay active when project in background",
@@ -499,11 +503,9 @@ impl HeaderPanel {
                                                 .get()
                                                 == option,
                                         },
-                                        move || {
-                                            MainMenuAction::SetStayActiveWhenProjectInBackground(
-                                                option,
-                                            )
-                                        },
+                                        MainMenuAction::SetStayActiveWhenProjectInBackground(
+                                            option,
+                                        ),
                                     )
                                 })
                                 .collect(),
@@ -532,12 +534,13 @@ impl HeaderPanel {
                                             .compartment_params(compartment)
                                             .get_parameter_name(i);
                                         let range = range.clone();
-                                        item(format!("{param_name}..."), move || {
+                                        item(
+                                            format!("{param_name}..."),
                                             MainMenuAction::EditCompartmentParameter(
                                                 compartment,
                                                 range,
-                                            )
-                                        })
+                                            ),
+                                        )
                                     })
                                     .collect(),
                             )
@@ -565,31 +568,29 @@ impl HeaderPanel {
                             } else {
                                 "Enable and start!"
                             },
-                            || MainMenuAction::ToggleServer,
+                            MainMenuAction::ToggleServer,
                         ),
-                        item("Add firewall rule", || MainMenuAction::AddFirewallRule),
-                        item("Change unit ID...", || MainMenuAction::ChangeSessionId),
+                        item("Add firewall rule", MainMenuAction::AddFirewallRule),
+                        item("Change unit ID...", MainMenuAction::ChangeSessionId),
                     ],
                 ),
                 menu(
                     "OSC devices",
-                    once(item("<New>", || MainMenuAction::EditNewOscDevice))
+                    once(item("<New>", MainMenuAction::EditNewOscDevice))
                         .chain(dev_manager.devices().map(|dev| {
                             let dev_id = *dev.id();
                             menu(
                                 dev.name(),
                                 vec![
-                                    item("Edit...", move || {
-                                        MainMenuAction::EditExistingOscDevice(dev_id)
-                                    }),
-                                    item("Remove", move || MainMenuAction::RemoveOscDevice(dev_id)),
+                                    item("Edit...", MainMenuAction::EditExistingOscDevice(dev_id)),
+                                    item("Remove", MainMenuAction::RemoveOscDevice(dev_id)),
                                     item_with_opts(
                                         "Enabled for control",
                                         ItemOpts {
                                             enabled: true,
                                             checked: dev.is_enabled_for_control(),
                                         },
-                                        move || MainMenuAction::ToggleOscDeviceControl(dev_id),
+                                        MainMenuAction::ToggleOscDeviceControl(dev_id),
                                     ),
                                     item_with_opts(
                                         "Enabled for feedback",
@@ -597,7 +598,7 @@ impl HeaderPanel {
                                             enabled: true,
                                             checked: dev.is_enabled_for_feedback(),
                                         },
-                                        move || MainMenuAction::ToggleOscDeviceFeedback(dev_id),
+                                        MainMenuAction::ToggleOscDeviceFeedback(dev_id),
                                     ),
                                     item_with_opts(
                                         "Can deal with OSC bundles",
@@ -605,7 +606,7 @@ impl HeaderPanel {
                                             enabled: true,
                                             checked: dev.can_deal_with_bundles(),
                                         },
-                                        move || MainMenuAction::ToggleOscDeviceBundles(dev_id),
+                                        MainMenuAction::ToggleOscDeviceBundles(dev_id),
                                     ),
                                 ],
                             )
@@ -621,13 +622,14 @@ impl HeaderPanel {
                         PresetLinkScope::Global,
                     ),
                 ),
-                item("Open preset folder", || MainMenuAction::OpenPresetFolder),
-                item("Reload all presets from disk", || {
-                    MainMenuAction::ReloadAllPresets
-                }),
-                item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
+                item("Open preset folder", MainMenuAction::OpenPresetFolder),
+                item(
+                    "Reload all presets from disk",
+                    MainMenuAction::ReloadAllPresets,
+                ),
+                item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
                 #[cfg(feature = "playtime")]
-                item("Show App (not usable yet)", || MainMenuAction::ShowApp),
+                item("Show App (not usable yet)", MainMenuAction::ShowApp),
                 #[cfg(feature = "playtime")]
                 item_with_opts(
                     "Close App (not usable yet)",
@@ -635,20 +637,20 @@ impl HeaderPanel {
                         enabled: app_is_open,
                         checked: false,
                     },
-                    || MainMenuAction::CloseApp,
+                    MainMenuAction::CloseApp,
                 ),
                 separator(),
                 menu(
                     "Logging",
                     vec![
-                        item("Log debug info (now)", || MainMenuAction::LogDebugInfo),
+                        item("Log debug info (now)", MainMenuAction::LogDebugInfo),
                         item_with_opts(
                             "Log real control messages",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.real_input_logging_enabled.get(),
                             },
-                            || MainMenuAction::ToggleRealInputLogging,
+                            MainMenuAction::ToggleRealInputLogging,
                         ),
                         item_with_opts(
                             "Log virtual control messages",
@@ -656,7 +658,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.virtual_input_logging_enabled.get(),
                             },
-                            || MainMenuAction::ToggleVirtualInputLogging,
+                            MainMenuAction::ToggleVirtualInputLogging,
                         ),
                         item_with_opts(
                             "Log target control",
@@ -664,7 +666,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.target_control_logging_enabled.get(),
                             },
-                            || MainMenuAction::ToggleTargetControlLogging,
+                            MainMenuAction::ToggleTargetControlLogging,
                         ),
                         item_with_opts(
                             "Log virtual feedback messages",
@@ -672,7 +674,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.virtual_output_logging_enabled.get(),
                             },
-                            || MainMenuAction::ToggleVirtualOutputLogging,
+                            MainMenuAction::ToggleVirtualOutputLogging,
                         ),
                         item_with_opts(
                             "Log real feedback messages",
@@ -680,11 +682,11 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.real_output_logging_enabled.get(),
                             },
-                            || MainMenuAction::ToggleRealOutputLogging,
+                            MainMenuAction::ToggleRealOutputLogging,
                         ),
                     ],
                 ),
-                item("Send feedback now", || MainMenuAction::SendFeedbackNow),
+                item("Send feedback now", MainMenuAction::SendFeedbackNow),
             ];
             root_menu(entries)
         };
@@ -834,17 +836,19 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item("User guide for this version (PDF, offline)", || {
-                    HelpMenuAction::OpenOfflineUserGuide
-                }),
-                item("User guide for latest version (HTML, online)", || {
-                    HelpMenuAction::OpenOnlineUserGuide
-                }),
-                item("List of controllers", || HelpMenuAction::OpenControllerList),
-                item("Forum", || HelpMenuAction::OpenForum),
-                item("Contact developer", || HelpMenuAction::ContactDeveloper),
-                item("Website", || HelpMenuAction::OpenWebsite),
-                item("Donate", || HelpMenuAction::Donate),
+                item(
+                    "User guide for this version (PDF, offline)",
+                    HelpMenuAction::OpenOfflineUserGuide,
+                ),
+                item(
+                    "User guide for latest version (HTML, online)",
+                    HelpMenuAction::OpenOnlineUserGuide,
+                ),
+                item("List of controllers", HelpMenuAction::OpenControllerList),
+                item("Forum", HelpMenuAction::OpenForum),
+                item("Contact developer", HelpMenuAction::ContactDeveloper),
+                item("Website", HelpMenuAction::OpenWebsite),
+                item("Donate", HelpMenuAction::Donate),
             ];
             root_menu(entries)
         };
@@ -2133,39 +2137,43 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item("Export instance as JSON", || {
-                    MenuAction::ExportInstance(SerializationFormat::JsonDataObject)
-                }),
-                item("Export unit as JSON", || {
-                    MenuAction::ExportUnit(SerializationFormat::JsonDataObject)
-                }),
-                item(format!("Export {compartment} as JSON"), || {
-                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
-                }),
-                item(format!("Export {compartment} as Lua"), || {
+                item(
+                    "Export instance as JSON",
+                    MenuAction::ExportInstance(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    "Export unit as JSON",
+                    MenuAction::ExportUnit(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    format!("Export {compartment} as JSON"),
+                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    format!("Export {compartment} as Lua"),
                     MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
-                    ))
-                }),
+                    )),
+                ),
                 item(
                     format!("Export {compartment} as Lua (include default values)"),
-                    || {
-                        MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
-                            ConversionStyle::IncludeDefaultValues,
-                        ))
-                    },
+                    MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                        ConversionStyle::IncludeDefaultValues,
+                    )),
                 ),
                 separator(),
                 #[cfg(feature = "playtime")]
-                item("Export clip matrix as JSON", || {
-                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
-                }),
+                item(
+                    "Export clip matrix as JSON",
+                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject),
+                ),
                 #[cfg(feature = "playtime")]
-                item("Export clip matrix as Lua", || {
+                item(
+                    "Export clip matrix as Lua",
                     MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
-                    ))
-                }),
+                    )),
+                ),
             ];
             root_menu(entries)
         };
@@ -3097,9 +3105,10 @@ fn generate_fx_to_preset_links_menu_entries(
                 .map(move |p| {
                     let fx_id = fx_id.clone();
                     let preset_id = p.id.clone();
-                    item(&p.name, move || {
-                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
-                    })
+                    item(
+                        &p.name,
+                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
+                    )
                 })
                 .collect(),
         )
@@ -3113,12 +3122,14 @@ fn generate_fx_to_preset_links_menu_entries(
         let preset_id_0 = link.preset_id.clone();
         menu(
             link.fx_id.to_string(),
-            once(item("<Edit FX ID...>", move || {
-                MainMenuAction::EditPresetLinkFxId(scope, fx_id_0)
-            }))
-            .chain(once(item("<Remove link>", move || {
-                MainMenuAction::RemovePresetLink(scope, fx_id_1)
-            })))
+            once(item(
+                "<Edit FX ID...>",
+                MainMenuAction::EditPresetLinkFxId(scope, fx_id_0),
+            ))
+            .chain(once(item(
+                "<Remove link>",
+                MainMenuAction::RemovePresetLink(scope, fx_id_1),
+            )))
             .chain(build_compartment_preset_menu_entries(
                 main_preset_manager.preset_infos(),
                 move |info| {

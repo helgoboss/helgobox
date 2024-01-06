@@ -18,6 +18,7 @@ use crate::application::{
     Affected, SessionProp, SharedMapping, SharedUnitModel, UnitModel, WeakUnitModel,
 };
 use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
+use crate::infrastructure::data::MappingModelData;
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -533,17 +534,16 @@ impl MappingRowsPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        #[derive(Default)]
+        enum MenuAction {
+            #[default]
+            None,
+            PasteMappings(Vec<MappingModelData>),
+        }
         let pure_menu = {
             use swell_ui::menu_tree::*;
-            let shared_session = self.session();
             let data_object_from_clipboard = get_text_from_clipboard()
                 .and_then(|text| deserialize_data_object_from_json(&text).ok());
-            let main_state = self.main_state.borrow();
-            let group_id = main_state
-                .displayed_group_for_active_compartment()
-                .map(|f| f.group_id())
-                .unwrap_or_default();
-            let compartment = main_state.active_compartment.get();
             let entries = vec![{
                 let desc = match data_object_from_clipboard {
                     Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
@@ -556,25 +556,37 @@ impl MappingRowsPanel {
                     _ => None,
                 };
                 if let Some((label, datas)) = desc {
-                    item(label, move || {
-                        let _ = paste_mappings(
-                            Envelope::new(None, datas),
-                            shared_session,
-                            compartment,
-                            None,
-                            group_id,
-                        );
-                    })
+                    item(label, MenuAction::PasteMappings(datas))
                 } else {
                     disabled_item("Paste")
                 }
             }];
             root_menu(entries)
         };
-        self.view
+        let menu_action = self
+            .view
             .require_window()
             .open_simple_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
+        match menu_action {
+            MenuAction::None => {}
+            MenuAction::PasteMappings(datas) => {
+                let shared_session = self.session();
+                let main_state = self.main_state.borrow();
+                let group_id = main_state
+                    .displayed_group_for_active_compartment()
+                    .map(|f| f.group_id())
+                    .unwrap_or_default();
+                let compartment = main_state.active_compartment.get();
+                let _ = paste_mappings(
+                    Envelope::new(None, datas),
+                    shared_session,
+                    compartment,
+                    None,
+                    group_id,
+                );
+            }
+        }
         Ok(())
     }
 

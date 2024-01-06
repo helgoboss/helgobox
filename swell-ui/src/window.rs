@@ -696,7 +696,7 @@ impl Window {
         let res = pure_menu
             .find_item_by_id(result_index)
             .expect("selected menu item not found")
-            .invoke_handler();
+            .result;
         Some(res)
     }
 

@@ -657,7 +657,7 @@ impl MappingRowPanel {
             let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
             let group_id = mapping.group_id();
             let entries = vec![
-                item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
+                item("Copy", MenuAction::CopyPart(ObjectType::Mapping)),
                 {
                     let desc = match data_object_from_clipboard {
                         Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
@@ -685,7 +685,7 @@ impl MappingRowPanel {
                         _ => None,
                     };
                     if let Some((label, obj)) = desc {
-                        item(label, move || MenuAction::PasteObjectInPlace(obj))
+                        item(label, MenuAction::PasteObjectInPlace(obj))
                     } else {
                         disabled_item("Paste (replace)")
                     }
@@ -706,7 +706,7 @@ impl MappingRowPanel {
                         _ => None,
                     };
                     if let Some((label, datas)) = desc {
-                        item(label, move || MenuAction::PasteMappings(datas))
+                        item(label, MenuAction::PasteMappings(datas))
                     } else {
                         disabled_item("Paste (insert below)")
                     }
@@ -714,17 +714,18 @@ impl MappingRowPanel {
                 menu(
                     "Copy part",
                     vec![
-                        item("Copy activation condition", || {
-                            MenuAction::CopyPart(ObjectType::ActivationCondition)
-                        }),
-                        item("Copy source", || MenuAction::CopyPart(ObjectType::Source)),
-                        item("Copy glue", || MenuAction::CopyPart(ObjectType::Glue)),
-                        item("Copy target", || MenuAction::CopyPart(ObjectType::Target)),
+                        item(
+                            "Copy activation condition",
+                            MenuAction::CopyPart(ObjectType::ActivationCondition),
+                        ),
+                        item("Copy source", MenuAction::CopyPart(ObjectType::Source)),
+                        item("Copy glue", MenuAction::CopyPart(ObjectType::Glue)),
+                        item("Copy target", MenuAction::CopyPart(ObjectType::Target)),
                     ],
                 ),
                 menu(
                     "Move to group",
-                    iter::once(item("<New group>", || MenuAction::MoveMappingToGroup(None)))
+                    iter::once(item("<New group>", MenuAction::MoveMappingToGroup(None)))
                         .chain(session.groups_sorted(compartment).map(move |g| {
                             let g = g.borrow();
                             let g_id = g.id();
@@ -734,7 +735,7 @@ impl MappingRowPanel {
                                     enabled: group_id != g_id,
                                     checked: false,
                                 },
-                                move || MenuAction::MoveMappingToGroup(Some(g_id)),
+                                MenuAction::MoveMappingToGroup(Some(g_id)),
                             )
                         }))
                         .collect(),
@@ -742,19 +743,21 @@ impl MappingRowPanel {
                 menu(
                     "Advanced",
                     vec![
-                        item("Copy as Lua", || {
-                            MenuAction::CopyMappingAsLua(ConversionStyle::Minimal)
-                        }),
-                        item("Copy as Lua (include default values)", || {
-                            MenuAction::CopyMappingAsLua(ConversionStyle::IncludeDefaultValues)
-                        }),
+                        item(
+                            "Copy as Lua",
+                            MenuAction::CopyMappingAsLua(ConversionStyle::Minimal),
+                        ),
+                        item(
+                            "Copy as Lua (include default values)",
+                            MenuAction::CopyMappingAsLua(ConversionStyle::IncludeDefaultValues),
+                        ),
                         item_with_opts(
                             "Paste from Lua (replace)",
                             ItemOpts {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
+                            MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
                         ),
                         item_with_opts(
                             "Paste from Lua (insert below)",
@@ -762,13 +765,9 @@ impl MappingRowPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || {
-                                MenuAction::PasteFromLuaInsertBelow(
-                                    text_from_clipboard_clone.unwrap(),
-                                )
-                            },
+                            MenuAction::PasteFromLuaInsertBelow(text_from_clipboard_clone.unwrap()),
                         ),
-                        item("Log debug info (now)", || MenuAction::LogDebugInfo),
+                        item("Log debug info (now)", MenuAction::LogDebugInfo),
                     ],
                 ),
             ];

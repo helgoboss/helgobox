@@ -26,7 +26,7 @@ pub fn menu_containing_realearn_params(
                         enabled: true,
                         checked: i == current_value,
                     },
-                    move || i,
+                    i,
                 )
             })
             .collect(),
@@ -47,7 +47,7 @@ pub fn menu_containing_realearn_params_optional(
                 enabled: true,
                 checked: current_value.is_none(),
             },
-            || None,
+            None,
         ))
         .chain(compartment_param_index_iter().map(|i| {
             let value = Some(i);
@@ -58,7 +58,7 @@ pub fn menu_containing_realearn_params_optional(
                     enabled: true,
                     checked: value == current_value,
                 },
-                move || value,
+                value,
             )
         }))
         .collect(),
@@ -78,7 +78,7 @@ pub fn menu_containing_mappings(
             enabled: true,
             checked: current_value.is_none(),
         },
-        || None,
+        None,
     );
     let group_items = session.groups_sorted(compartment).map(|group| {
         let group = group.borrow();
@@ -100,7 +100,7 @@ pub fn menu_containing_mappings(
                             enabled: true,
                             checked: Some(mapping_id) == current_value,
                         },
-                        move || Some(mapping_id),
+                        Some(mapping_id),
                     );
                     Some(menu_item)
                 })
@@ -120,7 +120,7 @@ pub fn menu_containing_sessions(
             enabled: true,
             checked: current_other_session_id.is_none(),
         },
-        || None,
+        None,
     );
     let items: Vec<_> = BackboneShell::get().with_units(|sessions| {
         let instance_items = sessions.iter().filter_map(|session| {
@@ -169,7 +169,7 @@ pub fn menu_containing_sessions(
                     enabled: true,
                     checked: Some(other_session_id.as_str()) == current_other_session_id,
                 },
-                move || Some(other_session_id),
+                Some(other_session_id),
             );
             Some(item)
         });
@@ -251,7 +251,7 @@ fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<
             enabled: true,
             checked: bank_index == current_bank_index as usize,
         },
-        move || bank_index as u32,
+        bank_index as u32,
     )
 }
 
@@ -268,7 +268,7 @@ pub fn menu_containing_compartment_presets(
                 enabled: true,
                 checked: current_value.is_none(),
             },
-            || None,
+            None,
         ))
         .chain(build_compartment_preset_menu_entries(
             preset_manager.preset_infos(),
@@ -297,7 +297,7 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
                 enabled: true,
                 checked: is_current_value(info),
             },
-            move || id,
+            id,
         )
     })
 }
