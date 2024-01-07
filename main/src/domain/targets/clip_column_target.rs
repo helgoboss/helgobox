@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::runtime::ColumnAddress;
@@ -188,6 +188,7 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
 }
 
 pub const CLIP_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip column",
     short_name: "Clip column",
     supports_real_time_control: true,

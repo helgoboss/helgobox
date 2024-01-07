@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, get_track_routes, mute_unit_value, Compartment, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     DEFAULT_TARGET,
 };
@@ -118,7 +118,8 @@ impl<'a> Target<'a> for RouteMuteTarget {
 }
 
 pub const ROUTE_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Mute/unmute",
+    section: TargetSection::Send,
+    name: "Mute/unmute",
     short_name: "(Un)mute send",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

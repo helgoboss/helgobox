@@ -247,7 +247,7 @@ impl HeaderPanel {
         };
         self.view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos())
+            .open_popup_menu(menu, Window::cursor_pos())
     }
 
     fn browse_presets(&self) {
@@ -261,7 +261,7 @@ impl HeaderPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         if let Some(selected_preset_id) = result {
             self.update_preset(selected_preset_id);
         }
@@ -693,7 +693,7 @@ impl HeaderPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .context("no entry selected")?;
         match result {
             MainMenuAction::None => {}
@@ -855,7 +855,7 @@ impl HeaderPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match result {
             HelpMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
@@ -2180,7 +2180,7 @@ impl HeaderPanel {
         let result = match self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, Window::cursor_pos())
+            .open_popup_menu(pure_menu, Window::cursor_pos())
         {
             None => return Ok(()),
             Some(i) => i,

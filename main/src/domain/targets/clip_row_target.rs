@@ -1,8 +1,8 @@
 use crate::domain::{
     Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    VirtualClipRow, DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use playtime_api::runtime::RowAddress;
@@ -213,6 +213,7 @@ impl<'a> Target<'a> for RealTimeClipRowTarget {
 }
 
 pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip row",
     short_name: "Clip row",
     supports_real_time_control: true,

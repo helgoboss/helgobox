@@ -4,7 +4,7 @@ use crate::domain::{
     get_track_by_scoped_index, get_track_name, scoped_track_index, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -244,7 +244,8 @@ enum ScopedTrack {
 }
 
 pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Browse tracks",
+    section: TargetSection::Project,
+    name: "Browse tracks",
     short_name: "Browse tracks",
     supports_track_scrolling: true,
     ..DEFAULT_TARGET

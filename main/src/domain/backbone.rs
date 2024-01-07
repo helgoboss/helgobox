@@ -9,7 +9,6 @@ use crate::domain::{
 };
 #[allow(unused)]
 use anyhow::{anyhow, Context};
-use enum_iterator::IntoEnumIterator;
 use pot::{PotFavorites, PotFilterExcludes};
 
 use once_cell::sync::Lazy;
@@ -21,6 +20,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
 use std::time::{Duration, Instant};
+use strum::EnumCount;
 
 make_available_globally_in_main_thread_on_demand!(Backbone);
 
@@ -79,7 +79,7 @@ struct TargetTouch {
 impl Default for LastTouchedTargetsContainer {
     fn default() -> Self {
         // Each target type can be there twice: Once touched via ReaLearn, once touched in other way
-        let max_count = ReaperTargetType::into_enum_iter().count() * 2;
+        let max_count = ReaperTargetType::COUNT * 2;
         Self {
             last_target_touches: Vec::with_capacity(max_count),
         }

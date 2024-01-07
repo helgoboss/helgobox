@@ -4,8 +4,8 @@ use crate::domain::{
     track_solo_unit_value, with_gang_behavior, with_solo_behavior, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoloBehavior,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -146,7 +146,8 @@ impl<'a> Target<'a> for TrackSoloTarget {
 }
 
 pub const TRACK_SOLO_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Solo/unsolo",
+    section: TargetSection::Track,
+    name: "Solo/unsolo",
     short_name: "(Un)solo track",
     supports_track: true,
     supports_track_exclusivity: true,

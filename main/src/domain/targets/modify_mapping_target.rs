@@ -4,8 +4,8 @@ use crate::domain::{
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
     MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, Unit, UnitId, UnitStateChanged,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitId,
+    UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -242,7 +242,8 @@ fn bool_to_current_value(on: bool) -> Option<AbsoluteValue> {
 }
 
 pub const LEARN_MAPPING_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Modify mapping",
+    section: TargetSection::ReaLearn,
+    name: "Modify mapping",
     short_name: "Modify mapping",
     supports_included_targets: true,
     ..DEFAULT_TARGET

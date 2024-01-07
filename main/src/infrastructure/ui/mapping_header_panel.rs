@@ -464,7 +464,7 @@ impl MappingHeaderPanel {
                 let result = self
                     .view
                     .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                    .open_popup_menu(menu, Window::cursor_pos());
                 if let Some(param_index) = result {
                     item.borrow_mut()
                         .set_bank_condition(session, bank_condition.with_param_index(param_index));
@@ -478,7 +478,7 @@ impl MappingHeaderPanel {
                 let result = self
                     .view
                     .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                    .open_popup_menu(menu, Window::cursor_pos());
                 if let Some(mapping_id) = result {
                     item.borrow_mut().set_mapping_id(session, mapping_id);
                 }
@@ -512,7 +512,7 @@ impl MappingHeaderPanel {
                 let result = self
                     .view
                     .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                    .open_popup_menu(menu, Window::cursor_pos());
                 if let Some(bank_index) = result {
                     item.borrow_mut()
                         .set_bank_condition(session, bank_condition.with_bank_index(bank_index));
@@ -542,7 +542,7 @@ impl MappingHeaderPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         if let Some(param_index) = result {
             set(
                 session,

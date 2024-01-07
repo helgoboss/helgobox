@@ -4,7 +4,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -135,7 +136,8 @@ impl<'a> Target<'a> for TrackShowTarget {
 }
 
 pub const TRACK_SHOW_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Show/hide",
+    section: TargetSection::Track,
+    name: "Show/hide",
     short_name: "Show/hide track",
     supports_track: true,
     supports_track_exclusivity: true,

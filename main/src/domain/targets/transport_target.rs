@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
@@ -214,7 +214,8 @@ impl<'a> Target<'a> for TransportTarget {
 }
 
 pub const TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Invoke transport action",
+    section: TargetSection::Project,
+    name: "Invoke transport action",
     short_name: "Transport",
     ..DEFAULT_TARGET
 };

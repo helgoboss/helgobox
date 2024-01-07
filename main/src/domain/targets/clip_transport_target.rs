@@ -3,7 +3,7 @@ use crate::domain::{
     transport_is_enabled_unit_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -460,6 +460,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
 }
 
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip: Invoke transport action",
     short_name: "Clip transport",
     supports_track: false,

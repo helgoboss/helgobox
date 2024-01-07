@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     get_track_routes, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
@@ -157,7 +157,8 @@ impl<'a> Target<'a> for RouteVolumeTarget {
 }
 
 pub const ROUTE_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Set volume",
+    section: TargetSection::Send,
+    name: "Set volume",
     short_name: "Send volume",
     supports_track: true,
     supports_send: true,

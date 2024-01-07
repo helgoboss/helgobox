@@ -1,7 +1,7 @@
 use crate::domain::{
     get_fx_name, ChangeInstanceFxArgs, Compartment, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target};
@@ -183,6 +183,7 @@ impl<'a> Target<'a> for FxToolTarget {
 }
 
 pub const FX_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Fx,
     name: "FX",
     short_name: "FX",
     supports_fx: true,

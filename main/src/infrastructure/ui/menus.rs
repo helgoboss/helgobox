@@ -1,13 +1,52 @@
-use crate::application::{UnitModel, WeakUnitModel};
+use crate::application::{UnitModel, VirtualControlElementType, WeakUnitModel};
 use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams, MappingId,
+    ReaperTargetType, TargetSection,
 };
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
 use std::iter;
+use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
+
+pub fn reaper_target_type_menu(
+    current_value: ReaperTargetType,
+) -> swell_ui::menu_tree::Menu<ReaperTargetType> {
+    let entries = TargetSection::iter().map(|section| {
+        let sub_entries = ReaperTargetType::iter()
+            .filter(|t| t.definition().section == section)
+            .map(|t| {
+                item_with_opts(
+                    t.definition().name,
+                    ItemOpts {
+                        enabled: true,
+                        checked: t == current_value,
+                    },
+                    t,
+                )
+            });
+        menu(section.to_string(), sub_entries.collect())
+    });
+    root_menu(entries.collect())
+}
+
+pub fn virtual_control_element_type_menu(
+    current_value: VirtualControlElementType,
+) -> swell_ui::menu_tree::Menu<VirtualControlElementType> {
+    let entries = VirtualControlElementType::iter().map(|t| {
+        item_with_opts(
+            t.to_string(),
+            ItemOpts {
+                enabled: true,
+                checked: t == current_value,
+            },
+            t,
+        )
+    });
+    root_menu(entries.collect())
+}
 
 pub fn menu_containing_realearn_params(
     session: &WeakUnitModel,

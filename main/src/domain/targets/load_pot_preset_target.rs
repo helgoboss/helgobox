@@ -1,7 +1,7 @@
 use crate::domain::{
     Backbone, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
@@ -165,7 +165,8 @@ impl LoadPotPresetTarget {
 }
 
 pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Load preset",
+    section: TargetSection::Pot,
+    name: "Load preset",
     short_name: "Load Pot preset",
     supports_track: true,
     supports_fx: true,

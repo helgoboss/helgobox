@@ -137,7 +137,7 @@ pub mod root {
     pub const ID_TARGET_MENU_BUTTON: u32 = 30076;
     pub const ID_TARGET_HINT: u32 = 30077;
     pub const ID_TARGET_CATEGORY_COMBO_BOX: u32 = 30079;
-    pub const ID_TARGET_TYPE_COMBO_BOX: u32 = 30080;
+    pub const ID_TARGET_TYPE_BUTTON: u32 = 30080;
     pub const ID_TARGET_LINE_2_LABEL_2: u32 = 30081;
     pub const ID_TARGET_LINE_2_LABEL_3: u32 = 30082;
     pub const ID_TARGET_LINE_2_LABEL_1: u32 = 30083;

@@ -1,8 +1,8 @@
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingSnapshot, MappingSnapshotId,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForTake;
@@ -135,7 +135,8 @@ impl<'a> Target<'a> for TakeMappingSnapshotTarget {
 }
 
 pub const SAVE_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Take mapping snapshot",
+    section: TargetSection::ReaLearn,
+    name: "Take mapping snapshot",
     short_name: "Take mapping snapshot",
     supports_tags: true,
     ..DEFAULT_TARGET

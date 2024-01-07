@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     convert_count_to_step_size, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
@@ -231,7 +231,8 @@ fn get_pos_on_axis(pos: MouseCursorPosition, axis: Axis) -> u32 {
 }
 
 pub const MOUSE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Global: Mouse",
+    section: TargetSection::Global,
+    name: "Mouse",
     short_name: "Mouse",
     supports_axis: true,
     supports_mouse_button: true,

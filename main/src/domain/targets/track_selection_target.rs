@@ -3,8 +3,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
     track_selected_unit_value, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
@@ -158,7 +158,8 @@ impl<'a> Target<'a> for TrackSelectionTarget {
 }
 
 pub const TRACK_SELECTION_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Select/unselect",
+    section: TargetSection::Track,
+    name: "Select/unselect",
     short_name: "(Un)select track",
     supports_track: true,
     if_so_supports_track_must_be_selected: false,

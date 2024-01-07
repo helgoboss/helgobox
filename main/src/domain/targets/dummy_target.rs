@@ -1,7 +1,7 @@
 use crate::domain::{
     Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
@@ -93,7 +93,8 @@ impl<'a> Target<'a> for DummyTarget {
 }
 
 pub const DUMMY_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Dummy target",
+    section: TargetSection::ReaLearn,
+    name: "Dummy target",
     short_name: "Dummy",
     supports_real_time_control: true,
     ..DEFAULT_TARGET

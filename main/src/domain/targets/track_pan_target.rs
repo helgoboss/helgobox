@@ -2,8 +2,8 @@ use crate::domain::{
     format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
     with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackGangBehavior, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -183,7 +183,8 @@ impl<'a> Target<'a> for TrackPanTarget {
 }
 
 pub const TRACK_PAN_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Set pan",
+    section: TargetSection::Track,
+    name: "Set pan",
     short_name: "Track pan",
     supports_track: true,
     supports_gang_selected: true,

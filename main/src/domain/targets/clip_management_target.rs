@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_api::runtime::SlotAddress;
@@ -188,6 +188,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
 }
 
 pub const CLIP_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip: Management",
     short_name: "Clip management",
     supports_clip_slot: true,

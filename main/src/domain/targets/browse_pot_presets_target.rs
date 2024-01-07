@@ -3,8 +3,8 @@ use crate::domain::{
     convert_unit_to_discrete_value_with_none, get_preset_property, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::{blocking_lock, blocking_lock_arc};
 use helgoboss_learn::{
@@ -237,7 +237,8 @@ impl BrowsePotPresetsTarget {
 }
 
 pub const BROWSE_POT_PRESETS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Browse presets",
+    section: TargetSection::Pot,
+    name: "Browse presets",
     short_name: "Browse Pot presets",
     ..DEFAULT_TARGET
 };

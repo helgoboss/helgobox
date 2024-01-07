@@ -3,7 +3,7 @@ use crate::domain::{
     convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, InstanceStateChanged, MappingControlContext,
     PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use helgoboss_learn::{
@@ -279,7 +279,8 @@ impl BrowsePotFilterItemsTarget {
 }
 
 pub const BROWSE_POT_FILTER_ITEMS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Browse filter items",
+    section: TargetSection::Pot,
+    name: "Browse filter items",
     short_name: "Browse Pot filter items",
     ..DEFAULT_TARGET
 };

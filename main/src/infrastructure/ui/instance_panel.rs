@@ -178,7 +178,7 @@ impl InstancePanel {
         let action = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         if let Some(action) = action {
             match action {
                 MenuAction::RemoveCurrentUnit => self.remove_current_unit(),

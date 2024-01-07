@@ -4,7 +4,7 @@ use crate::domain::{
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
@@ -147,7 +147,8 @@ impl<'a> Target<'a> for PlayrateTarget {
 }
 
 pub const PLAYRATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Set playrate",
+    section: TargetSection::Project,
+    name: "Set playrate",
     short_name: "Playrate",
     ..DEFAULT_TARGET
 };

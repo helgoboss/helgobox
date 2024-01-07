@@ -566,7 +566,7 @@ impl MappingRowsPanel {
         let menu_action = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match menu_action {
             MenuAction::None => {}

@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, get_track_routes, Compartment, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackRouteDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -120,7 +120,8 @@ impl<'a> Target<'a> for RouteTouchStateTarget {
 }
 
 pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Set automation touch state",
+    section: TargetSection::Send,
+    name: "Set automation touch state",
     short_name: "Send touch state",
     supports_track: true,
     supports_send: true,

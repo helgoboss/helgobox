@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, Backbone, Compartment, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::hash_util;
@@ -142,7 +142,8 @@ impl<'a> Target<'a> for LoadFxSnapshotTarget {
 }
 
 pub const LOAD_FX_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Load snapshot",
+    section: TargetSection::Fx,
+    name: "Load snapshot",
     short_name: "Load FX snapshot",
     supports_track: true,
     supports_fx: true,

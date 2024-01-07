@@ -35,7 +35,6 @@ use base::{
     make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
     SenderToNormalThread, SenderToRealTimeThread,
 };
-use enum_iterator::IntoEnumIterator;
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use crate::base::notification::notify_user_on_anyhow_error;
@@ -76,6 +75,7 @@ use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use strum::IntoEnumIterator;
 use swell_ui::{SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -1305,7 +1305,7 @@ impl BackboneShell {
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
-                let included_target_types = ReaperTargetType::into_enum_iter().collect();
+                let included_target_types = ReaperTargetType::iter().collect();
                 let filter = LastTouchedTargetFilter {
                     included_target_types: &included_target_types,
                     touch_cause: TargetTouchCause::Any,

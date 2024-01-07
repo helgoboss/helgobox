@@ -1,7 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -180,7 +181,8 @@ impl Default for AnyOnParameter {
 }
 
 pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Any on (solo/mute/...)",
+    section: TargetSection::Project,
+    name: "Any on (solo/mute/...)",
     short_name: "Any on",
     ..DEFAULT_TARGET
 };

@@ -5,7 +5,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     get_effective_tracks, width_unit_value, with_gang_behavior, Compartment, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -178,7 +178,8 @@ impl<'a> Target<'a> for TrackWidthTarget {
 }
 
 pub const TRACK_WIDTH_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Set stereo pan width",
+    section: TargetSection::Track,
+    name: "Set stereo pan width",
     short_name: "Track pan width",
     supports_track: true,
     supports_gang_selected: true,

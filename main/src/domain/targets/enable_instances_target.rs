@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, EnableInstancesArgs,
     Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, UnitStateChanged,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
+    UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -123,7 +123,8 @@ impl<'a> Target<'a> for EnableInstancesTarget {
 }
 
 pub const ENABLE_INSTANCES_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Enable/disable instances",
+    section: TargetSection::ReaLearn,
+    name: "Enable/disable instances",
     short_name: "Enable/disable instances",
     supports_tags: true,
     supports_exclusivity: true,

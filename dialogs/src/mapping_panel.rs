@@ -158,8 +158,9 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_TARGET_CATEGORY_COMBO_BOX"),
             context.rect(220, 96, 58, 15),
         ) + WS_TABSTOP,
-        dropdown(
-            ids.named_id("ID_TARGET_TYPE_COMBO_BOX"),
+        pushbutton(
+            "Target type",
+            ids.named_id("ID_TARGET_TYPE_BUTTON"),
             context.rect(283, 96, 155, 15),
         ) + WS_VSCROLL
             + WS_TABSTOP,

@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     get_effective_tracks, Compartment, ControlContext, ExtendedProcessorContext,
     FeedbackResolution, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::peak_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
@@ -119,7 +119,8 @@ impl RealearnTarget for TrackPeakTarget {
 }
 
 pub const TRACK_PEAK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Peak",
+    section: TargetSection::Track,
+    name: "Peak",
     short_name: "Track peak",
     hint: "Feedback only, no control",
     supports_track: true,

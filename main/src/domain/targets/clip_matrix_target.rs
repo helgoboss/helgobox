@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::persistence::{EvenQuantization, RecordLength};
@@ -235,6 +235,7 @@ impl<'a> Target<'a> for RealTimeClipMatrixTarget {
 }
 
 pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip matrix",
     short_name: "Clip matrix",
     supports_real_time_control: true,

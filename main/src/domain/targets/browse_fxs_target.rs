@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, get_fx_name,
     shown_fx_unit_value, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FxDisplayType, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -253,7 +253,8 @@ impl<'a> Target<'a> for BrowseFxsTarget {
 }
 
 pub const BROWSE_FXS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX chain: Browse FXs",
+    section: TargetSection::FxChain,
+    name: "Browse FXs",
     short_name: "Browse FXs",
     supports_track: true,
     supports_fx_chain: true,

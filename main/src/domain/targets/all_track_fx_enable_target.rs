@@ -3,7 +3,7 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -124,7 +124,8 @@ impl<'a> Target<'a> for AllTrackFxEnableTarget {
 }
 
 pub const ALL_TRACK_FX_ENABLE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Enable/disable all FX",
+    section: TargetSection::Track,
+    name: "Enable/disable all FX",
     short_name: "Enable/disable all track FX",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

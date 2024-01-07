@@ -1,8 +1,8 @@
 use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
@@ -110,7 +110,8 @@ impl PreviewPotPresetTarget {
     }
 }
 pub const PREVIEW_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Preview preset",
+    section: TargetSection::Pot,
+    name: "Preview preset",
     short_name: "Preview Pot preset",
     ..DEFAULT_TARGET
 };

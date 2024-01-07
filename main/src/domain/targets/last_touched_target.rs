@@ -1,7 +1,7 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
     Backbone, Compartment, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
-    ReaperTargetType, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use realearn_api::persistence::TargetTouchCause;
 use std::collections::HashSet;
@@ -33,7 +33,8 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
 }
 
 pub const LAST_TOUCHED_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Global: Last touched",
+    section: TargetSection::Global,
+    name: "Last touched",
     short_name: "Last touched",
     supports_included_targets: true,
     ..DEFAULT_TARGET

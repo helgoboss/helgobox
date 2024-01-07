@@ -3,7 +3,7 @@ use crate::domain::{
     get_fx_params, AdditionalFeedbackEvent, Backbone, Caller, Compartment, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
     HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -370,7 +370,8 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
 }
 
 pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX parameter: Set value",
+    section: TargetSection::FxParameter,
+    name: "Set value",
     short_name: "FX parameter value",
     supports_poll_for_feedback: true,
     supports_track: true,

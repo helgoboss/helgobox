@@ -29,7 +29,6 @@ use crate::domain::{
 };
 use base::{non_blocking_lock, SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
     SourceContext, TransformationInputProvider, UnitValue,
@@ -42,6 +41,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
+use strum::IntoEnumIterator;
 
 #[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
@@ -608,7 +608,8 @@ pub struct HitInstructionContext<'a> {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    strum::EnumIter,
+    strum::EnumCount,
     TryFromPrimitive,
     IntoPrimitive,
 )]
@@ -719,7 +720,8 @@ pub enum ReaperTargetType {
 
 impl Display for ReaperTargetType {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.write_str(self.definition().name())
+        let def = self.definition();
+        write!(f, "{}: {}", def.section, def.name)
     }
 }
 
@@ -764,7 +766,7 @@ impl ReaperTargetType {
     }
 
     pub fn all() -> HashSet<ReaperTargetType> {
-        ReaperTargetType::into_enum_iter().collect()
+        ReaperTargetType::iter().collect()
     }
 
     pub fn supports_feedback_resolution(self) -> bool {
@@ -930,7 +932,33 @@ impl ReaperTargetType {
     }
 }
 
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Debug, strum::AsRefStr, strum::Display, strum::EnumIter,
+)]
+pub enum TargetSection {
+    Global,
+    Project,
+    #[strum(serialize = "Marker/region")]
+    Bookmark,
+    Track,
+    #[strum(serialize = "FX chain")]
+    FxChain,
+    #[strum(serialize = "FX")]
+    Fx,
+    #[strum(serialize = "FX parameter")]
+    FxParameter,
+    Pot,
+    Send,
+    Playtime,
+    #[strum(serialize = "MIDI")]
+    Midi,
+    #[strum(serialize = "OSC")]
+    Osc,
+    ReaLearn,
+}
+
 pub struct TargetTypeDef {
+    pub section: TargetSection,
     pub name: &'static str,
     pub short_name: &'static str,
     pub hint: &'static str,
@@ -961,6 +989,9 @@ pub struct TargetTypeDef {
 }
 
 impl TargetTypeDef {
+    pub const fn section(&self) -> TargetSection {
+        self.section
+    }
     pub const fn name(&self) -> &'static str {
         self.name
     }
@@ -1046,6 +1077,7 @@ impl TargetTypeDef {
 }
 
 pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Global,
     name: "",
     short_name: "",
     hint: "",

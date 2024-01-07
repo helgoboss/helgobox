@@ -5,8 +5,8 @@ use crate::domain::ui_util::{
 use crate::domain::{
     interpret_current_clip_slot_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot,
-    DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::runtime::SlotAddress;
@@ -157,6 +157,7 @@ impl<'a> Target<'a> for ClipVolumeTarget {
 }
 
 pub const CLIP_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip: Volume",
     short_name: "Clip volume",
     supports_clip_slot: true,

@@ -3,7 +3,7 @@ use crate::domain::{
     convert_count_to_step_size, Compartment, CompartmentParamIndex, CompoundChangeEvent,
     ControlContext, EffectiveParamValue, ExtendedProcessorContext, HitResponse,
     MappingControlContext, PluginParamIndex, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -186,7 +186,8 @@ impl<'a> Target<'a> for CompartmentParameterValueTarget {
 }
 
 pub const COMPARTMENT_PARAMETER_VALUE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Set compartment parameter value",
+    section: TargetSection::ReaLearn,
+    name: "Set compartment parameter value",
     short_name: "Set compartment parameter value",
     ..DEFAULT_TARGET
 };

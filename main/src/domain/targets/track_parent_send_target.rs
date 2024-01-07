@@ -4,7 +4,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -125,7 +126,8 @@ impl<'a> Target<'a> for TrackParentSendTarget {
 }
 
 pub const TRACK_PARENT_SEND_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Enable/disable parent send",
+    section: TargetSection::Track,
+    name: "Enable/disable parent send",
     short_name: "Enable/disable parent send",
     supports_track: true,
     supports_track_exclusivity: true,

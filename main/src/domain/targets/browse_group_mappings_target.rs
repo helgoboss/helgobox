@@ -3,8 +3,8 @@ use crate::domain::{
     Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
     GroupId, HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
     MappingControlContext, MappingId, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef, UnitStateChanged,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetSection, TargetTypeDef,
+    UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -265,7 +265,8 @@ impl<'a> Target<'a> for BrowseGroupMappingsTarget {
 }
 
 pub const BROWSE_GROUP_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Browse group mappings",
+    section: TargetSection::ReaLearn,
+    name: "Browse group mappings",
     short_name: "Browse group mappings",
     supports_exclusivity: true,
     ..DEFAULT_TARGET

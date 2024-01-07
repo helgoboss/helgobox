@@ -1,8 +1,8 @@
 use crate::domain::{
     with_seek_behavior, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -380,7 +380,8 @@ impl SeekInfo {
 }
 
 pub const SEEK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Seek",
+    section: TargetSection::Project,
+    name: "Seek",
     short_name: "Seek",
     supports_feedback_resolution: true,
     supports_seek_behavior: true,

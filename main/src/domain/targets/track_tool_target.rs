@@ -2,7 +2,7 @@ use crate::domain::{
     get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project,
     ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
@@ -180,6 +180,7 @@ impl<'a> Target<'a> for TrackToolTarget {
 }
 
 pub const TRACK_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Track,
     name: "Track",
     short_name: "Track",
     supports_track: true,

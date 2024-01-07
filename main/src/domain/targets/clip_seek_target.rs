@@ -8,7 +8,7 @@ use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
@@ -188,6 +188,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
 }
 
 pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Playtime,
     name: "Clip: Seek",
     short_name: "Clip seek",
     supports_feedback_resolution: true,

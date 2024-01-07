@@ -4,8 +4,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -130,7 +130,8 @@ impl<'a> Target<'a> for TrackPhaseTarget {
 }
 
 pub const TRACK_PHASE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Phase invert/normal",
+    section: TargetSection::Track,
+    name: "Phase invert/normal",
     short_name: "Track phase",
     hint: "Ganging/grouping support from REAPER v6.70",
     supports_track: true,

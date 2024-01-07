@@ -3,8 +3,8 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, mute_unit_value,
     with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -138,7 +138,8 @@ impl<'a> Target<'a> for TrackMuteTarget {
 }
 
 pub const TRACK_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Mute/unmute",
+    section: TargetSection::Track,
+    name: "Mute/unmute",
     short_name: "(Un)mute track",
     supports_track: true,
     supports_track_exclusivity: true,

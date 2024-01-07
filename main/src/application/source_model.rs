@@ -1170,7 +1170,7 @@ impl MidiSourceType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

@@ -3,7 +3,8 @@ use crate::domain::{
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnitStateChanged, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -181,7 +182,8 @@ impl<'a> Target<'a> for EnableMappingsTarget {
 }
 
 pub const ENABLE_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Enable/disable mappings",
+    section: TargetSection::ReaLearn,
+    name: "Enable/disable mappings",
     short_name: "Enable/disable mappings",
     supports_tags: true,
     supports_exclusivity: true,

@@ -714,7 +714,7 @@ impl MappingPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         if let Some(param_index) = result {
             self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetParamIndex(
                 param_index.get(),
@@ -737,7 +737,7 @@ impl MappingPanel {
                 let new_other_session_id = self
                     .view
                     .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                    .open_popup_menu(menu, Window::cursor_pos());
                 if let Some(new_other_session_id) = new_other_session_id {
                     // Chosen something in the menu
                     let new_mapping_ref = if let Some(session_id) = new_other_session_id {
@@ -974,7 +974,7 @@ impl MappingPanel {
                         let mapping_id = self
                             .view
                             .require_window()
-                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                            .open_popup_menu(menu, Window::cursor_pos());
                         mapping_id.map(|mapping_id| MappingRefModel::OwnMapping { mapping_id })
                     }
                     MappingRefModel::ForeignMapping {
@@ -997,7 +997,7 @@ impl MappingPanel {
                         let mapping_id = self
                             .view
                             .require_window()
-                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                            .open_popup_menu(menu, Window::cursor_pos());
                         mapping_id.map(|mapping_id| {
                             let mapping_key = mapping_id.map(|mapping_id| {
                                 let session = session.borrow();
@@ -1553,6 +1553,37 @@ impl MappingPanel {
         Ok(op(&p))
     }
 
+    fn show_target_type_menu(&self) {
+        let window = self.view.require_window();
+        let (target_category, target_type, control_element_type) = {
+            let mapping = self.mapping();
+            let mapping = mapping.borrow();
+            (
+                mapping.target_model.category(),
+                mapping.target_model.target_type(),
+                mapping.target_model.control_element_type(),
+            )
+        };
+        match target_category {
+            TargetCategory::Reaper => {
+                let menu = menus::reaper_target_type_menu(target_type);
+                if let Some(t) = window.open_popup_menu(menu, Window::cursor_pos()) {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTargetType(t),
+                    ));
+                }
+            }
+            TargetCategory::Virtual => {
+                let menu = menus::virtual_control_element_type_menu(control_element_type);
+                if let Some(t) = window.open_popup_menu(menu, Window::cursor_pos()) {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetControlElementType(t),
+                    ));
+                }
+            }
+        }
+    }
+
     fn write<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
@@ -1718,7 +1749,7 @@ impl<'a> MutableMappingPanel<'a> {
         let menu_action = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         let Some(menu_action) = menu_action else {
             return;
         };
@@ -2882,29 +2913,6 @@ impl<'a> MutableMappingPanel<'a> {
         self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetCategory(
             category,
         )));
-    }
-
-    fn update_target_type(&mut self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        use TargetCategory::*;
-        match self.mapping.target_model.category() {
-            Reaper => {
-                let data = b.selected_combo_box_item_data() as usize;
-                let v = data.try_into().expect("invalid REAPER target type");
-                self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetTargetType(
-                    v,
-                )));
-            }
-            Virtual => {
-                let v = b
-                    .selected_combo_box_item_index()
-                    .try_into()
-                    .expect("invalid virtual target type");
-                self.change_mapping(MappingCommand::ChangeTarget(
-                    TargetCommand::SetControlElementType(v),
-                ));
-            }
-        };
     }
 
     fn handle_target_line_2_combo_box_1_change(&mut self) {
@@ -4488,7 +4496,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_category_combo_box();
-        self.invalidate_target_type_combo_box();
+        self.invalidate_target_type_button();
         self.invalidate_target_line_2(initiator);
         self.invalidate_target_line_3(initiator);
         self.invalidate_target_line_4(initiator);
@@ -4507,20 +4515,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_check_box_6();
     }
 
-    fn invalidate_target_type_combo_box(&self) {
-        self.fill_target_type_combo_box();
-        self.invalidate_target_type_combo_box_value();
-    }
-
-    fn invalidate_target_type_combo_box_value(&self) {
-        let combo = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+    fn invalidate_target_type_button(&self) {
         use TargetCategory::*;
-        let hint = match self.target.category() {
+        let (label, hint) = match self.target.category() {
             Reaper => {
-                let item_data: usize = self.target.target_type().into();
-                combo
-                    .select_combo_box_item_by_data(item_data as isize)
-                    .unwrap();
+                let label = self.target.target_type().to_string();
                 let real_time_hint = if self
                     .target
                     .target_type()
@@ -4532,21 +4531,23 @@ impl<'a> ImmutableMappingPanel<'a> {
                     ""
                 };
                 let custom_hint = self.target.target_type().hint();
-                let mut text = real_time_hint.to_string();
+                let mut hint = real_time_hint.to_string();
                 if !custom_hint.is_empty() {
-                    if !text.is_empty() {
-                        text.push_str(" | ");
+                    if !hint.is_empty() {
+                        hint.push_str(" | ");
                     }
-                    text.push_str(custom_hint);
+                    hint.push_str(custom_hint);
                 }
-                text
+                (label, hint)
             }
             Virtual => {
-                let item_index = self.target.control_element_type().into();
-                combo.select_combo_box_item_by_index(item_index).unwrap();
-                "".to_owned()
+                let label = self.target.control_element_type().to_string();
+                (label, "".to_owned())
             }
         };
+        self.view
+            .require_control(root::ID_TARGET_TYPE_BUTTON)
+            .set_text(label);
         self.view
             .require_control(root::ID_TARGET_HINT)
             .set_text(hint);
@@ -6716,7 +6717,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category() {
             Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
-            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
+            Virtual => {
+                use strum::IntoEnumIterator;
+                b.fill_combo_box_indexed(VirtualControlElementType::iter())
+            }
             Osc | Never | Keyboard => {}
         };
     }
@@ -6780,19 +6784,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
             .fill_combo_box_indexed(EncoderUsage::into_enum_iter());
-    }
-
-    fn fill_target_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        use TargetCategory::*;
-        match self.target.category() {
-            Reaper => {
-                let items =
-                    ReaperTargetType::into_enum_iter().map(|t| (usize::from(t) as isize, t));
-                b.fill_combo_box_with_data(items);
-            }
-            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
-        }
     }
 
     fn resolved_targets(&self) -> Vec<CompoundMappingTarget> {
@@ -6885,6 +6876,7 @@ impl View for MappingPanel {
                 let _ = self.feedback_type_button_pressed();
             }
             // Target
+            root::ID_TARGET_TYPE_BUTTON => self.show_target_type_menu(),
             root::ID_TARGET_CHECK_BOX_1 => self.write(|p| p.handle_target_check_box_1_change()),
             root::ID_TARGET_CHECK_BOX_2 => self.write(|p| p.handle_target_check_box_2_change()),
             root::ID_TARGET_CHECK_BOX_3 => self.write(|p| p.handle_target_check_box_3_change()),
@@ -6954,7 +6946,6 @@ impl View for MappingPanel {
             root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX => self.write(|p| p.update_mode_feedback_type()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
-            root::ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             root::ID_TARGET_LINE_2_COMBO_BOX_1 => {
                 self.write(|p| p.handle_target_line_2_combo_box_1_change())
             }
@@ -7594,7 +7585,7 @@ fn prompt_for_predefined_control_element_name(
         ];
         root_menu(entries)
     };
-    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
+    window.open_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 #[derive(Copy, Clone, Display)]
@@ -7683,7 +7674,7 @@ fn show_feedback_popup_menu(
         root_menu(entries)
     };
     let item = window
-        .open_simple_popup_menu(pure_menu, Window::cursor_pos())
+        .open_popup_menu(pure_menu, Window::cursor_pos())
         .ok_or("color selection cancelled")?;
     let result = match item {
         MenuAction::EditMultiLine => FeedbackPopupMenuResult::EditMultiLine,
@@ -7831,7 +7822,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
         ];
         root_menu(entries)
     };
-    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
+    window.open_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 fn build_slash_menu_entries(

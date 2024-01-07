@@ -3,7 +3,7 @@ use crate::domain::{
     current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior,
     AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -236,7 +236,8 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
 }
 
 pub const GO_TO_BOOKMARK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Marker/region: Go to",
+    section: TargetSection::Bookmark,
+    name: "Go to",
     short_name: "Go to bookmark",
     supports_seek_behavior: true,
     ..DEFAULT_TARGET

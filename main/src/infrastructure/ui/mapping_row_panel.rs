@@ -776,7 +776,7 @@ impl MappingRowPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         let triple = self.mapping_triple()?;
         match result {
