@@ -11,7 +11,7 @@ use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
     ActivationConditionData, CompartmentModelData, InstanceData, MappingModelData, ModeModelData,
-    SourceModelData, TargetModelData, UnitData,
+    PresetMetaData, SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
@@ -25,12 +25,44 @@ use semver::Version;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
+pub enum UntaggedApiObject {
+    Tagged(ApiObject),
+    LuaPresetLike(Box<persistence::Compartment>),
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
 pub enum UntaggedDataObject {
     Tagged(DataObject),
     PresetLike(CommonPresetData),
 }
 
 impl UntaggedDataObject {
+    pub fn try_from_untagged_api_object(
+        api_object: UntaggedApiObject,
+        conversion_context: &impl ApiToDataConversionContext,
+        preset_meta_data: Option<PresetMetaData>,
+    ) -> anyhow::Result<Self> {
+        match api_object {
+            UntaggedApiObject::Tagged(o) => {
+                let data_object = DataObject::try_from_api_object(o, conversion_context)?;
+                Ok(Self::Tagged(data_object))
+            }
+            UntaggedApiObject::LuaPresetLike(compartment) => {
+                let preset_meta_data = preset_meta_data.context(
+                    "not a real Lua preset because it doesn't contain meta data (at least name)",
+                )?;
+                let compartment_data = to_data::convert_compartment(*compartment)?;
+                let common_preset_data = CommonPresetData {
+                    version: preset_meta_data.realearn_version,
+                    name: preset_meta_data.name,
+                    data: Box::new(compartment_data),
+                };
+                Ok(UntaggedDataObject::PresetLike(common_preset_data))
+            }
+        }
+    }
+
     pub fn version(&self) -> Option<&Version> {
         match self {
             UntaggedDataObject::Tagged(o) => o.version(),
@@ -42,19 +74,30 @@ impl UntaggedDataObject {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum DataObject {
+    /// A complete Helgobox instance.
     Instance(Envelope<Box<InstanceData>>),
+    /// A Helgobox unit (within an instance).
     #[serde(alias = "Session")]
     Unit(Envelope<Box<UnitData>>),
+    /// A Playtime clip matrix.
     #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
+    /// Main compartment.
     MainCompartment(Envelope<Box<CompartmentModelData>>),
+    /// Controller compartment.
     ControllerCompartment(Envelope<Box<CompartmentModelData>>),
+    /// Flat list of mappings.
     Mappings(Envelope<Vec<MappingModelData>>),
+    /// Single mapping.
     Mapping(Envelope<Box<MappingModelData>>),
+    /// Mapping source.
     Source(Envelope<Box<SourceModelData>>),
+    /// Mapping glue.
     #[serde(alias = "Mode")]
     Glue(Envelope<Box<ModeModelData>>),
+    /// Mapping target.
     Target(Envelope<Box<TargetModelData>>),
+    /// Mapping activation condition.
     ActivationCondition(Envelope<Box<ActivationConditionData>>),
 }
 
@@ -182,11 +225,9 @@ pub fn deserialize_data_object(
         }
         Err(e) => e,
     };
-    let lua_err = match deserialize_data_object_from_lua(text, conversion_context) {
+    let lua_err = match deserialize_untagged_data_object_from_lua(text, conversion_context) {
         Ok(o) => {
-            return Ok(AnnotatedResult::without_annotations(
-                UntaggedDataObject::Tagged(o),
-            ));
+            return Ok(AnnotatedResult::without_annotations(o));
         }
         Err(e) => e,
     };
@@ -236,13 +277,17 @@ pub fn deserialize_data_object_from_csi(
     Ok(res)
 }
 
-pub fn deserialize_data_object_from_lua(
+pub fn deserialize_untagged_data_object_from_lua(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> anyhow::Result<DataObject> {
-    let api_object = deserialize_api_object_from_lua(text)?;
-    let data_object = DataObject::try_from_api_object(api_object, conversion_context)?;
-    Ok(data_object)
+) -> anyhow::Result<UntaggedDataObject> {
+    let untagged_api_object: UntaggedApiObject = deserialize_from_lua(text)?;
+    let preset_meta_data = PresetMetaData::from_lua(text).ok();
+    UntaggedDataObject::try_from_untagged_api_object(
+        untagged_api_object,
+        conversion_context,
+        preset_meta_data,
+    )
 }
 
 pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<String> {
@@ -293,6 +338,13 @@ pub fn serialize_data_object_to_lua(
 }
 
 pub fn deserialize_api_object_from_lua(text: &str) -> anyhow::Result<ApiObject> {
+    deserialize_from_lua(text)
+}
+
+fn deserialize_from_lua<T>(text: &str) -> anyhow::Result<T>
+where
+    T: for<'a> Deserialize<'a> + 'static,
+{
     let lua = SafeLua::new()?;
     let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
     let value = execute_lua_import_script(&lua, text)?;

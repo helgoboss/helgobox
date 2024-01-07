@@ -7,7 +7,7 @@ use crate::provider_database::{
 use crate::{
     Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
-    PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetadata, ProductId, SearchEvaluator,
+    PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetaData, ProductId, SearchEvaluator,
     SearchField, SearchOptions,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
@@ -820,7 +820,7 @@ impl PresetDb {
                     db_specific_preview_file: preview_file,
                     is_supported: SUPPORTED_FILE_EXTENSIONS.contains(&file_ext.as_str()),
                     is_available: content_path_state == Some(1),
-                    metadata: PresetMetadata {
+                    metadata: PresetMetaData {
                         author: row.get(6).ok(),
                         vendor: row.get(7).ok(),
                         comment: row.get(8).ok(),

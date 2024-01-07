@@ -791,10 +791,7 @@ for col = 0, column_count - 1 do
 end
 
 return {
-    kind = "MainCompartment",
-    value = {
-        parameters = sorted_by_index(params),
-        groups = to_array(groups),
-        mappings = mappings,
-    },
+    parameters = sorted_by_index(params),
+    groups = to_array(groups),
+    mappings = mappings,
 }

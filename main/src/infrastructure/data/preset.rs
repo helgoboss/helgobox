@@ -116,7 +116,7 @@ impl PresetFileType {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
-struct PresetMetaData {
+pub struct PresetMetaData {
     pub name: String,
     // Since ReaLearn 1.12.0-pre18
     #[serde(

@@ -1257,7 +1257,7 @@ pub struct Preset {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct PresetMetadata {
+pub struct PresetMetaData {
     pub author: Option<String>,
     pub vendor: Option<String>,
     pub comment: Option<String>,
@@ -1322,7 +1322,7 @@ pub struct PresetCommon {
     pub db_specific_preview_file: Option<PathBuf>,
     pub is_supported: bool,
     pub is_available: bool,
-    pub metadata: PresetMetadata,
+    pub metadata: PresetMetaData,
 }
 
 impl PresetCommon {

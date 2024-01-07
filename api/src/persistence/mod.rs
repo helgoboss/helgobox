@@ -41,11 +41,16 @@ impl<T> Envelope<T> {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
+    /// A Playtime clip matrix.
     #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
+    /// Main compartment.
     MainCompartment(Envelope<Box<Compartment>>),
+    /// Controller compartment.
     ControllerCompartment(Envelope<Box<Compartment>>),
+    /// A flat list of mappings.
     Mappings(Envelope<Vec<Mapping>>),
+    /// A single mapping.
     Mapping(Envelope<Box<Mapping>>),
 }
 
