@@ -256,9 +256,9 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
-        let path = self.preset_dir_path.join(format!("{}.json", preset.id()));
-        fs::create_dir_all(&self.preset_dir_path)
-            .map_err(|_| "couldn't create preset directory")?;
+        let user_preset_dir = self.preset_dir_path.join(whoami::username());
+        let path = user_preset_dir.join(format!("{}.json", preset.id()));
+        fs::create_dir_all(user_preset_dir).map_err(|_| "couldn't create preset directory")?;
         let mut data = PD::from_model(&preset);
         // We don't want to have the ID in the file - because the file name itself is the ID
         data.clear_id();

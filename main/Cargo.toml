@@ -196,6 +196,8 @@ libloading.workspace = true
 enumset.workspace = true
 # For embedding factory presets into the binary
 include_dir = "0.7.3"
+# For prefixing preset IDs with the user name
+whoami = "1.4.1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
