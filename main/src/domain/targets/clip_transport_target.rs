@@ -69,8 +69,11 @@ impl ClipTransportTarget {
         &self,
         matrix: &playtime_clip_engine::base::Matrix,
     ) -> Option<InternalClipPlayState> {
-        let play_state = matrix.find_slot(self.basics.slot_coordinates)?.play_state();
-        Some(play_state)
+        let slot = matrix.find_slot(self.basics.slot_coordinates)?;
+        if slot.is_empty() {
+            return None;
+        }
+        Some(slot.play_state())
     }
 
     fn hit_internal(
