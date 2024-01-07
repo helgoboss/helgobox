@@ -464,7 +464,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
 
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Playtime,
-    name: "Clip: Invoke transport action",
+    name: "Clip - Invoke transport action",
     short_name: "Clip transport",
     supports_track: false,
     supports_clip_slot: true,

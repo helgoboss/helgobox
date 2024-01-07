@@ -44,9 +44,10 @@ use crate::application::{
     MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp, SharedMapping,
     SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory,
-    TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
-    TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
+    TargetCommand, TargetModel, TargetModelFormatMultiLine, TargetModelFormatVeryShort,
+    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -56,7 +57,8 @@ use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
     ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
-    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    TargetControlEvent, TargetSection, TouchedRouteParameterType, TrackGangBehavior,
+    WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -4608,6 +4610,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let compartment_params = params.compartment_params(self.mapping.compartment());
                     Some(get_param_name(compartment_params, param_index))
                 }
+                t if t.definition().section == TargetSection::Playtime => {
+                    Some("Use Lua to configure this target!".to_string())
+                }
                 _ => None,
             },
             _ => None,
@@ -4987,6 +4992,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_line_5(&self, initiator: Option<u32>) {
         self.invalidate_target_line_5_label_1();
+        self.invalidate_target_line_5_label_2();
         self.invalidate_target_line_5_edit_control(initiator);
     }
 
@@ -5208,6 +5214,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
+    fn invalidate_target_line_5_label_2(&self) {
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.definition().section == TargetSection::Playtime => {
+                    self.get_target_label_line(2)
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_5_LABEL_2)
+            .set_text_or_hide(text);
+    }
+
     fn invalidate_target_line_4_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -5238,6 +5259,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
+    fn get_target_label_line(&self, line: usize) -> Option<String> {
+        let multi_line_label =
+            TargetModelFormatMultiLine::new(self.target, self.session, self.mapping.compartment())
+                .to_string();
+        multi_line_label
+            .lines()
+            .skip(line)
+            .next()
+            .map(|l| l.to_string())
+    }
+
     fn invalidate_target_line_3_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -5251,6 +5283,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         }
                     }
                 },
+                t if t.definition().section == TargetSection::Playtime => {
+                    self.get_target_label_line(0)
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5307,6 +5342,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         },
                     };
                     Some(label)
+                }
+                t if t.definition().section == TargetSection::Playtime => {
+                    self.get_target_label_line(1)
                 }
                 _ => None,
             },

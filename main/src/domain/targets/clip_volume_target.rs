@@ -158,7 +158,7 @@ impl<'a> Target<'a> for ClipVolumeTarget {
 
 pub const CLIP_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Playtime,
-    name: "Clip: Volume",
+    name: "Clip - Volume",
     short_name: "Clip volume",
     supports_clip_slot: true,
     ..DEFAULT_TARGET

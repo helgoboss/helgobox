@@ -189,7 +189,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
 
 pub const CLIP_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Playtime,
-    name: "Clip: Management",
+    name: "Clip - Management",
     short_name: "Clip management",
     supports_clip_slot: true,
     ..DEFAULT_TARGET
