@@ -7,6 +7,7 @@ use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
 #[derive(
     Copy,
@@ -914,13 +915,18 @@ pub struct ClipManagementTarget {
 }
 
 #[cfg(feature = "playtime")]
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Display)]
 #[serde(tag = "kind")]
 pub enum ClipManagementAction {
+    #[display(fmt = "Clear slot")]
     ClearSlot,
+    #[display(fmt = "Fill slot with selected item")]
     FillSlotWithSelectedItem,
+    #[display(fmt = "Edit first clip")]
     EditClip,
+    #[display(fmt = "Copy or paste clip")]
     CopyOrPasteClip,
+    #[display(fmt = "Adjust section length")]
     AdjustClipSectionLength(AdjustClipSectionLengthAction),
 }
 
@@ -1962,11 +1968,22 @@ impl Default for TrackRouteKind {
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
     Selected,
+    // TODO-high CONTINUE SlotAddress should be in persistence!
     ByIndex(playtime_api::runtime::SlotAddress),
     Dynamic {
         column_expression: String,
         row_expression: String,
     },
+}
+
+impl Display for ClipSlotDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClipSlotDescriptor::Selected => f.write_str("Selected slot"),
+            ClipSlotDescriptor::ByIndex(address) => address.fmt(f),
+            ClipSlotDescriptor::Dynamic { .. } => f.write_str("Dynamic slot"),
+        }
+    }
 }
 
 #[cfg(feature = "playtime")]
@@ -1992,8 +2009,11 @@ impl ClipSlotDescriptor {
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
     Selected,
+    /// TODO-high CONTINUE This should be in persistence!
     ByIndex(playtime_api::runtime::ColumnAddress),
-    Dynamic { expression: String },
+    Dynamic {
+        expression: String,
+    },
 }
 
 #[cfg(feature = "playtime")]
@@ -2014,13 +2034,34 @@ impl ClipColumnDescriptor {
     }
 }
 
+impl Display for ClipColumnDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClipColumnDescriptor::Selected => f.write_str("Selected column"),
+            ClipColumnDescriptor::ByIndex(address) => address.fmt(f),
+            ClipColumnDescriptor::Dynamic { .. } => f.write_str("Dynamic column"),
+        }
+    }
+}
+
 #[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
     Selected,
+    // TODO-high CONTINUE This should be in persistence!
     ByIndex(playtime_api::runtime::RowAddress),
     Dynamic { expression: String },
+}
+
+impl Display for ClipRowDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClipRowDescriptor::Selected => f.write_str("Selected row"),
+            ClipRowDescriptor::ByIndex(address) => address.fmt(f),
+            ClipRowDescriptor::Dynamic { .. } => f.write_str("Dynamic row"),
+        }
+    }
 }
 
 #[cfg(feature = "playtime")]

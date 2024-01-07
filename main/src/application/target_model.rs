@@ -3296,8 +3296,43 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type;
                 match tt {
                     #[cfg(feature = "playtime")]
-                    ClipTransport | ClipSeek | ClipVolume => {
-                        write!(f, "{tt}")
+                    ClipTransport => {
+                        let slot = &self.target.clip_slot;
+                        let action = &self.target.clip_transport_action;
+                        write!(f, "{tt}\n{slot}\n{action}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipSeek => {
+                        let slot = &self.target.clip_slot;
+                        write!(f, "{tt}\n{slot}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipVolume => {
+                        let slot = &self.target.clip_slot;
+                        write!(f, "{tt}\n{slot}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipColumn => {
+                        let column = &self.target.clip_column;
+                        let action = &self.target.clip_column_action;
+                        write!(f, "{tt}\n{column}\n{action}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipRow => {
+                        let row = &self.target.clip_row;
+                        let action = &self.target.clip_row_action;
+                        write!(f, "{tt}\n{row}\n{action}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipMatrix => {
+                        let action = &self.target.clip_matrix_action;
+                        write!(f, "{tt}\n{action}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    ClipManagement => {
+                        let slot = &self.target.clip_slot;
+                        let action = &self.target.clip_management_action;
+                        write!(f, "{tt}\n{slot}\n{action}")
                     }
                     Action => write!(
                         f,

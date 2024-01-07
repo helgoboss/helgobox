@@ -1,6 +1,7 @@
 //! Usually we use Protocol Buffers for the runtime app API but there are a few things that are
 //! not performance-critical and better expressed in a Rust-first manner.
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a
 // JSON object (vs. just a string) ... which is better for some clients. Plus, we might want
@@ -52,6 +53,12 @@ pub struct ColumnAddress {
     pub index: usize,
 }
 
+impl Display for ColumnAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Column {}", self.index + 1)
+    }
+}
+
 impl ColumnAddress {
     pub fn new(index: usize) -> Self {
         Self { index }
@@ -61,6 +68,12 @@ impl ColumnAddress {
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct RowAddress {
     pub index: usize,
+}
+
+impl Display for RowAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Row {}", self.index + 1)
+    }
 }
 
 impl RowAddress {
@@ -89,5 +102,11 @@ impl SlotAddress {
 
     pub fn row(&self) -> usize {
         self.row_index
+    }
+}
+
+impl Display for SlotAddress {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Slot {}/{}", self.column_index + 1, self.row_index + 1)
     }
 }
