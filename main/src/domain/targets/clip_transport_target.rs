@@ -7,8 +7,8 @@ use crate::domain::{
 };
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
+use playtime_api::persistence::SlotAddress;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-use playtime_api::runtime::SlotAddress;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{
     ClipChangeEvent, ColumnPlaySlotOptions, InternalClipPlayState, QualifiedClipChangeEvent,

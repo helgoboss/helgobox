@@ -1968,8 +1968,7 @@ impl Default for TrackRouteKind {
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
     Selected,
-    // TODO-high CONTINUE SlotAddress should be in persistence!
-    ByIndex(playtime_api::runtime::SlotAddress),
+    ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
         column_expression: String,
         row_expression: String,
@@ -1995,7 +1994,7 @@ impl Default for ClipSlotDescriptor {
 
 #[cfg(feature = "playtime")]
 impl ClipSlotDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {
@@ -2009,11 +2008,8 @@ impl ClipSlotDescriptor {
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
     Selected,
-    /// TODO-high CONTINUE This should be in persistence!
-    ByIndex(playtime_api::runtime::ColumnAddress),
-    Dynamic {
-        expression: String,
-    },
+    ByIndex(playtime_api::persistence::ColumnAddress),
+    Dynamic { expression: String },
 }
 
 #[cfg(feature = "playtime")]
@@ -2025,7 +2021,7 @@ impl Default for ClipColumnDescriptor {
 
 #[cfg(feature = "playtime")]
 impl ClipColumnDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {
@@ -2049,8 +2045,7 @@ impl Display for ClipColumnDescriptor {
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
     Selected,
-    // TODO-high CONTINUE This should be in persistence!
-    ByIndex(playtime_api::runtime::RowAddress),
+    ByIndex(playtime_api::persistence::RowAddress),
     Dynamic { expression: String },
 }
 
@@ -2066,7 +2061,7 @@ impl Display for ClipRowDescriptor {
 
 #[cfg(feature = "playtime")]
 impl ClipRowDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {

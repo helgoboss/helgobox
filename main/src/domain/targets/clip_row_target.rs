@@ -5,7 +5,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use playtime_api::runtime::RowAddress;
+use playtime_api::persistence::RowAddress;
 use realearn_api::persistence::ClipRowAction;
 
 #[derive(Debug)]

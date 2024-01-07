@@ -243,15 +243,15 @@ pub trait RealearnTarget {
         None
     }
     #[cfg(feature = "playtime")]
-    fn clip_slot_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+    fn clip_slot_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         None
     }
     #[cfg(feature = "playtime")]
-    fn clip_column_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+    fn clip_column_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         None
     }
     #[cfg(feature = "playtime")]
-    fn clip_row_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+    fn clip_row_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         None
     }
 

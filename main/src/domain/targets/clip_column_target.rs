@@ -5,7 +5,7 @@ use crate::domain::{
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_api::runtime::ColumnAddress;
+use playtime_api::persistence::ColumnAddress;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipColumnAction;

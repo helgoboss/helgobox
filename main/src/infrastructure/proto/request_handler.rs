@@ -19,9 +19,11 @@ use crate::infrastructure::proto::{
 };
 use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
-use playtime_api::persistence::{MatrixSequenceId, TrackId};
+use playtime_api::persistence::{
+    ColumnAddress, MatrixSequenceId, RowAddress, SlotAddress, TrackId,
+};
 use playtime_api::runtime;
-use playtime_api::runtime::{SimpleMappingTarget, SlotAddress};
+use playtime_api::runtime::SimpleMappingTarget;
 use playtime_clip_engine::base::ClipAddress;
 use playtime_clip_engine::base::Matrix;
 use playtime_clip_engine::rt::ColumnPlaySlotOptions;
@@ -372,7 +374,7 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
             TriggerColumnAction::Panic => matrix.panic_column(column_index),
             TriggerColumnAction::ToggleLearnSimpleMapping => {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerColumn(
-                    runtime::ColumnAddress {
+                    ColumnAddress {
                         index: column_index,
                     },
                 ));
@@ -380,7 +382,7 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
             }
             TriggerColumnAction::RemoveSimpleMapping => {
                 matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerColumn(
-                    runtime::ColumnAddress {
+                    ColumnAddress {
                         index: column_index,
                     },
                 ));
@@ -453,15 +455,15 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
             TriggerRowAction::Insert => matrix.insert_row(row_index),
             TriggerRowAction::Panic => matrix.panic_row(row_index),
             TriggerRowAction::ToggleLearnSimpleMapping => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerRow(
-                    runtime::RowAddress { index: row_index },
-                ));
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerRow(RowAddress {
+                    index: row_index,
+                }));
                 Ok(())
             }
             TriggerRowAction::RemoveSimpleMapping => {
-                matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerRow(
-                    runtime::RowAddress { index: row_index },
-                ));
+                matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerRow(RowAddress {
+                    index: row_index,
+                }));
                 Ok(())
             }
         })

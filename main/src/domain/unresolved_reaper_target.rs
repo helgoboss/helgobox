@@ -758,7 +758,7 @@ impl Default for TrackRouteType {
 #[derive(Debug)]
 pub enum VirtualClipSlot {
     Selected,
-    ByIndex(playtime_api::runtime::SlotAddress),
+    ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
         column_evaluator: Box<ExpressionEvaluator>,
         row_evaluator: Box<ExpressionEvaluator>,
@@ -771,8 +771,8 @@ impl VirtualClipSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
-    ) -> Result<playtime_api::runtime::SlotAddress, &'static str> {
-        use playtime_api::runtime::SlotAddress;
+    ) -> Result<playtime_api::persistence::SlotAddress, &'static str> {
+        use playtime_api::persistence::SlotAddress;
         use VirtualClipSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),

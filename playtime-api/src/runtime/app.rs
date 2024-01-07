@@ -1,7 +1,8 @@
 //! Usually we use Protocol Buffers for the runtime app API but there are a few things that are
 //! not performance-critical and better expressed in a Rust-first manner.
+use crate::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a
 // JSON object (vs. just a string) ... which is better for some clients. Plus, we might want
@@ -46,67 +47,4 @@ pub enum SimpleMappingTarget {
     TriggerColumn(ColumnAddress),
     TriggerRow(RowAddress),
     TriggerSlot(SlotAddress),
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct ColumnAddress {
-    pub index: usize,
-}
-
-impl Display for ColumnAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Column {}", self.index + 1)
-    }
-}
-
-impl ColumnAddress {
-    pub fn new(index: usize) -> Self {
-        Self { index }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct RowAddress {
-    pub index: usize,
-}
-
-impl Display for RowAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Row {}", self.index + 1)
-    }
-}
-
-impl RowAddress {
-    pub fn new(index: usize) -> Self {
-        Self { index }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
-pub struct SlotAddress {
-    pub column_index: usize,
-    pub row_index: usize,
-}
-
-impl SlotAddress {
-    pub fn new(column: usize, row: usize) -> Self {
-        Self {
-            column_index: column,
-            row_index: row,
-        }
-    }
-
-    pub fn column(&self) -> usize {
-        self.column_index
-    }
-
-    pub fn row(&self) -> usize {
-        self.row_index
-    }
-}
-
-impl Display for SlotAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Slot {}/{}", self.column_index + 1, self.row_index + 1)
-    }
 }

@@ -4274,9 +4274,9 @@ impl TrackPropValues {
                 use realearn_api::persistence::ClipColumnDescriptor;
                 match track.clip_column().unwrap_or(&Default::default()) {
                     VirtualClipColumn::Selected => ClipColumnDescriptor::Selected,
-                    VirtualClipColumn::ByIndex(i) => {
-                        ClipColumnDescriptor::ByIndex(playtime_api::runtime::ColumnAddress::new(*i))
-                    }
+                    VirtualClipColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex(
+                        playtime_api::persistence::ColumnAddress::new(*i),
+                    ),
                     VirtualClipColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
                         expression: Default::default(),
                     },

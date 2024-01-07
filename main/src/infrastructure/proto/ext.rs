@@ -346,15 +346,15 @@ impl HistoryState {
 }
 
 impl SlotAddress {
-    pub fn from_engine(address: playtime_api::runtime::SlotAddress) -> Self {
+    pub fn from_engine(address: playtime_api::persistence::SlotAddress) -> Self {
         Self {
             column_index: address.column() as _,
             row_index: address.row() as _,
         }
     }
 
-    pub fn to_engine(&self) -> playtime_api::runtime::SlotAddress {
-        playtime_api::runtime::SlotAddress::new(self.column_index as _, self.row_index as _)
+    pub fn to_engine(&self) -> playtime_api::persistence::SlotAddress {
+        playtime_api::persistence::SlotAddress::new(self.column_index as _, self.row_index as _)
     }
 }
 

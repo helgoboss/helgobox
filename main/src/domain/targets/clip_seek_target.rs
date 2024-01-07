@@ -2,7 +2,7 @@ use reaper_medium::PositionInSeconds;
 use std::borrow::Cow;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use playtime_api::runtime::SlotAddress;
+use playtime_api::persistence::SlotAddress;
 
 use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, Compartment,

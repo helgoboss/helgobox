@@ -9,7 +9,7 @@ use crate::domain::{
     VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use playtime_api::runtime::SlotAddress;
+use playtime_api::persistence::SlotAddress;
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use reaper_high::Volume;
