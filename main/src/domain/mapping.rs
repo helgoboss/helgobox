@@ -7,9 +7,9 @@ use crate::domain::{
     Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
     PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
     RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, SourceFeedbackEvent,
-    Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
+    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
+    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;

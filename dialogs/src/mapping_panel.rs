@@ -643,14 +643,6 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_MAPPING_HELP_SUBJECT_LABEL"),
             context.rect(7, 475, 183, 9),
         ) + NOT_WS_GROUP,
-        static_text(
-            "•",
-            ids.named_id("IDC_MAPPING_MATCHED_INDICATOR_TEXT"),
-            context.rect(223, 475, 8, 8),
-        ) + SS_LEFTNOWORDWRAP
-            + WS_DISABLED
-            + WS_GROUP
-            + WS_TABSTOP,
         ltext(
             "If source is a",
             ids.named_id("ID_MAPPING_HELP_APPLICABLE_TO_LABEL"),
@@ -661,8 +653,22 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(281, 473, 161, 15),
         ) + WS_TABSTOP,
         edittext(
-            ids.named_id("ID_MAPPING_HELP_CONTENT_LABEL"),
-            context.rect(7, 488, 435, 22),
+            ids.named_id("ID_MAPPING_HELP_LEFT_CONTENT_LABEL"),
+            context.rect(7, 488, 210, 22),
+        ) + ES_MULTILINE
+            + ES_READONLY
+            + WS_VSCROLL,
+        static_text(
+            "•",
+            ids.named_id("IDC_MAPPING_MATCHED_INDICATOR_TEXT"),
+            context.rect(220, 495, 8, 8),
+        ) + SS_LEFTNOWORDWRAP
+            + WS_DISABLED
+            + WS_GROUP
+            + WS_TABSTOP,
+        edittext(
+            ids.named_id("ID_MAPPING_HELP_RIGHT_CONTENT_LABEL"),
+            context.rect(7 + 225, 488, 210, 22),
         ) + ES_MULTILINE
             + ES_READONLY
             + WS_VSCROLL,

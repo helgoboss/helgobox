@@ -1336,25 +1336,19 @@ impl MappingPanel {
 
     pub fn handle_target_control_event(self: SharedView<Self>, event: TargetControlEvent) {
         self.invoke_programmatically(|| {
-            let title = if event.log_entry.error.is_empty() {
-                "Target control info"
-            } else {
-                "Target control error"
-            };
-            let body = format!("{} ({})", event.log_entry, event.log_context);
-            self.set_simple_help_text(title, &body);
+            let body = format!("Control: {} ({})", event.log_entry, event.log_context);
+            self.set_simple_help_text(Side::Left, ACTIVITY_INFO, &body);
         });
     }
 
     pub fn handle_source_feedback_event(self: SharedView<Self>, event: SourceFeedbackEvent) {
         self.invoke_programmatically(|| {
-            let title = "Source feedback info";
-            let body = format!("{}", event.log_entry);
-            self.set_simple_help_text(title, &body);
+            let body = format!("Feedback: {}", event.log_entry);
+            self.set_simple_help_text(Side::Right, ACTIVITY_INFO, &body);
         });
     }
 
-    fn set_simple_help_text(&self, title: &str, body: &str) {
+    fn set_simple_help_text(&self, side: Side, title: &str, body: &str) {
         self.view
             .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
             .hide();
@@ -1364,9 +1358,11 @@ impl MappingPanel {
         self.view
             .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
             .set_text(title);
-        self.view
-            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-            .set_text(body);
+        let label_control_id = match side {
+            Side::Left => root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL,
+            Side::Right => root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL,
+        };
+        self.view.require_control(label_control_id).set_text(body);
     }
 
     pub fn handle_changed_target_value(
@@ -3319,6 +3315,7 @@ impl<'a> MutableMappingPanel<'a> {
                         ));
                         if self.mapping.target_model.fx_type() == VirtualFxType::Focused {
                             self.panel.set_simple_help_text(
+                                Side::Right,
                                 "Target warning",
                                 r#"ATTENTION: You just picked a parameter for the last focused FX. This is okay but you should know that as soon as you focus another type of FX, the parameter list will change and your mapping will control a completely different parameter! You probably want to use this in combination with the "Auto-load" feature, which lets you link FX types to mapping presets. See https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#using-auto-load-to-control-whatever-plug-in-is-currently-in-focus."#
                             );
@@ -3734,24 +3731,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             {
                 let (control_hint, feedback_hint) =
                     self.get_control_and_feedback_hint(source_character, mode_parameter);
-                let mut content = String::new();
-                if let Some(hint) = control_hint {
-                    content.push_str("- Control: ");
-                    content.push_str(hint);
-                    content.push('\n');
-                }
-                if let Some(hint) = feedback_hint {
-                    content.push_str("- Feedback: ");
-                    content.push_str(hint);
-                    content.push('\n');
-                }
+                let control_hint_content = control_hint
+                    .map(|hint| format!("Control: {hint}"))
+                    .unwrap_or_default();
+                let feedback_hint_content = feedback_hint
+                    .map(|hint| format!("Feedback: {hint}"))
+                    .unwrap_or_default();
                 let subject = format!("Help: {mode_parameter}");
                 self.view
                     .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
                     .set_text(subject);
                 self.view
-                    .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-                    .set_multi_line_text(content);
+                    .require_control(root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL)
+                    .set_multi_line_text(control_hint_content);
+                self.view
+                    .require_control(root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL)
+                    .set_multi_line_text(feedback_hint_content);
                 true
             } else {
                 false
@@ -3788,18 +3783,21 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn clear_help(&self) {
-        self.view
-            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
-            .hide();
-        self.view
-            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
-            .hide();
+        for id in [
+            root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL,
+            root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX,
+        ] {
+            self.view.require_control(id).hide();
+        }
         self.view
             .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
             .set_text("Help");
-        self.view
-            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-            .set_text("");
+        for id in [
+            root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL,
+            root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL,
+        ] {
+            self.view.require_control(id).set_text("");
+        }
     }
 
     fn invalidate_window_title(&self) {
@@ -7944,4 +7942,11 @@ fn get_relevant_target_fx(mapping: &MappingModel, session: &UnitModel) -> Option
             .first_fx()
             .ok()
     }
+}
+
+const ACTIVITY_INFO: &str = "Activity info";
+
+enum Side {
+    Left,
+    Right,
 }
