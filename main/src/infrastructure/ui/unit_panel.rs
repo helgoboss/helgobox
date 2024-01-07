@@ -16,7 +16,7 @@ use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
     Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
-    QualifiedMappingId, TargetControlEvent, TargetValueChangedEvent,
+    QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::http::{
@@ -285,6 +285,12 @@ impl UnitPanel {
             .handle_target_control_event(event);
     }
 
+    fn handle_source_feedback_event(&self, event: SourceFeedbackEvent) {
+        self.panel_manager
+            .borrow()
+            .handle_source_feedback_event(event);
+    }
+
     fn handle_affected(
         self: SharedView<Self>,
         affected: Affected<SessionProp>,
@@ -505,8 +511,12 @@ impl SessionUi for Weak<UnitPanel> {
         upgrade_panel(self).handle_matched_mapping(event);
     }
 
-    fn target_controlled(&self, event: TargetControlEvent) {
+    fn handle_target_control(&self, event: TargetControlEvent) {
         upgrade_panel(self).handle_target_control_event(event);
+    }
+
+    fn handle_source_feedback(&self, event: SourceFeedbackEvent) {
+        upgrade_panel(self).handle_source_feedback_event(event);
     }
 
     fn handle_affected(

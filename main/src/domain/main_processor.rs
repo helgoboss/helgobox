@@ -5,20 +5,21 @@ use crate::domain::{
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
     ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
-    FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
-    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceId,
-    InstanceOrchestrationEvent, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
-    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, PluginParamIndex,
-    PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedInstanceEvent, QualifiedMappingId, RawParamValue, RealTimeMappingUpdate,
-    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
+    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
+    InfoEvent, InstanceId, InstanceOrchestrationEvent, IoUpdatedEvent, KeyMessage, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
+    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
+    NoopLogger, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
+    OscFeedbackTask, PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions,
+    ProjectionFeedbackValue, QualifiedInstanceEvent, QualifiedMappingId, RawParamValue,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
-    ReaperTarget, SharedInstance, SharedUnit, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetControlEvent, TargetValueChangedEvent, UnitContainer, UnitStateChanged,
-    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
+    ReaperTarget, SharedInstance, SharedUnit, SourceFeedbackEvent, SourceFeedbackLogger,
+    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    TargetValueChangedEvent, UnitContainer, UnitStateChanged, UpdatedSingleMappingOnStateEvent,
+    VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -2288,7 +2289,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // if one of the main mappings with virtual sources are connected to them.
         self.all_mappings_without_virtual_targets()
             .filter(|m| m.feedback_is_effectively_on())
-            .filter_map(|m| m.off_feedback(&self.basics.source_context))
+            .filter_map(|m| {
+                let logger = self.basics.source_feedback_logger(m.qualified_id());
+                m.off_feedback(&self.basics.source_context, logger)
+            })
             .collect()
     }
 
@@ -2308,7 +2312,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(&self.basics.source_context, NoopLogger)?,
                     ))
                 })
                 .collect()
@@ -2319,7 +2323,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(&self.basics.source_context, NoopLogger)?,
                     ))
                 })
                 .collect()
@@ -2550,7 +2554,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let fb = if is_on_now {
                     Fb::normal(self.get_mapping_feedback_follow_virtual(m))
                 } else {
-                    Fb::unused(m.off_feedback(&self.basics.source_context))
+                    Fb::unused(m.off_feedback(&self.basics.source_context, NoopLogger))
                 };
                 self.send_feedback(fb.0, fb.1);
             }
@@ -2584,15 +2588,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         // Lights should now be off.
                         (
-                            Fb::unused(mapping.off_feedback(&self.basics.source_context)),
+                            Fb::unused(
+                                mapping.off_feedback(&self.basics.source_context, NoopLogger),
+                            ),
                             Fb::none(),
                         )
                     }
                 } else {
                     // Source has changed.
                     // Switch previous source light off.
-                    let fb1 =
-                        Fb::unused(previous_mapping.off_feedback(&self.basics.source_context));
+                    let fb1 = Fb::unused(
+                        previous_mapping.off_feedback(&self.basics.source_context, NoopLogger),
+                    );
                     let fb2 = if mapping.feedback_is_effectively_on() {
                         // Lights should be on. Send new lights.
                         Fb::normal(self.get_mapping_feedback_follow_virtual(mapping))
@@ -3022,6 +3029,23 @@ impl FeedbackReason {
     }
 }
 
+pub struct BasicSourceFeedbackLogger<'a, EH: DomainEventHandler> {
+    basics: &'a Basics<EH>,
+    mapping_id: QualifiedMappingId,
+}
+
+impl<'a, EH: DomainEventHandler> SourceFeedbackLogger for BasicSourceFeedbackLogger<'a, EH> {
+    fn log(&self, entry: FeedbackLogEntry) {
+        let event = SourceFeedbackEvent {
+            id: self.mapping_id,
+            log_entry: entry,
+        };
+        self.basics
+            .event_handler
+            .handle_event_ignoring_error(DomainEvent::HandleSourceFeedback(event));
+    }
+}
+
 impl<EH: DomainEventHandler> Basics<EH> {
     pub fn celebrate_success(&self) {
         self.event_handler
@@ -3041,10 +3065,20 @@ impl<EH: DomainEventHandler> Basics<EH> {
             if context != ControlLogContext::Polling {
                 let event = TargetControlEvent::new(mapping_id, context, entry);
                 self.event_handler
-                    .handle_event_ignoring_error(DomainEvent::TargetControlled(event));
+                    .handle_event_ignoring_error(DomainEvent::HandleTargetControl(event));
             }
             // Handle logging to console
             console_logger(entry);
+        }
+    }
+
+    pub fn source_feedback_logger(
+        &self,
+        mapping_id: QualifiedMappingId,
+    ) -> impl SourceFeedbackLogger + '_ {
+        BasicSourceFeedbackLogger {
+            basics: self,
+            mapping_id,
         }
     }
 
@@ -3416,12 +3450,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         let with_projection_feedback = mapping_feedback_is_effectively_on;
         let with_source_feedback =
             self.instance_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
+        let logger = self.source_feedback_logger(m.qualified_id());
         let feedback_value = m
             .feedback_entry_point(
                 with_projection_feedback,
                 with_source_feedback,
                 new_target_value,
                 self.control_context(),
+                logger,
             )
             .map(CompoundFeedbackValue::normal);
         self.send_feedback(
@@ -3590,6 +3626,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         ..destinations
                                     },
                                     &self.source_context,
+                                    self.source_feedback_logger(m.qualified_id()),
                                 );
                                 if let Some(SpecificCompoundFeedbackValue::Real(
                                     preliminary_feedback_value,

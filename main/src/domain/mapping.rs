@@ -7,9 +7,9 @@ use crate::domain::{
     Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
     PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
     RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, SourceFeedbackEvent,
+    Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -1078,7 +1078,7 @@ impl MainMapping {
         new_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
-        self.feedback_entry_point(true, true, new_target_value, control_context)
+        self.feedback_entry_point(true, true, new_target_value, control_context, NoopLogger)
             .map(CompoundFeedbackValue::normal)
     }
 
@@ -1093,6 +1093,7 @@ impl MainMapping {
             true,
             self.current_aggregated_target_value(context),
             context,
+            NoopLogger,
         )
         .map(CompoundFeedbackValue::normal)
     }
@@ -1106,6 +1107,7 @@ impl MainMapping {
         with_source_feedback: bool,
         combined_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
+        logger: impl SourceFeedbackLogger,
     ) -> Option<SpecificCompoundFeedbackValue> {
         // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
         //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
@@ -1136,6 +1138,7 @@ impl MainMapping {
                 with_source_feedback: with_source_feedback && source_feedback_is_okay,
             },
             control_context.source_context,
+            logger,
         )
     }
 
@@ -1165,6 +1168,7 @@ impl MainMapping {
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
         source_context: &SourceContext,
+        logger: impl SourceFeedbackLogger,
     ) -> Option<SpecificCompoundFeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
@@ -1175,6 +1179,9 @@ impl MainMapping {
             options,
             Default::default(),
         )?;
+        logger.log(FeedbackLogEntry {
+            feedback_value: mode_value.as_ref(),
+        });
         self.feedback_given_mode_value(mode_value, destinations, source_context)
     }
 
@@ -1197,11 +1204,19 @@ impl MainMapping {
     /// This returns a "lights off" feedback.
     ///
     /// Used when mappings get inactive.
-    pub fn off_feedback(&self, source_context: &SourceContext) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(
+        &self,
+        source_context: &SourceContext,
+        logger: impl SourceFeedbackLogger,
+    ) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
+        let feedback_value = FeedbackValue::Off;
+        logger.log(FeedbackLogEntry {
+            feedback_value: &feedback_value,
+        });
         self.feedback_given_mode_value(
-            Cow::Owned(FeedbackValue::Off),
+            Cow::Owned(feedback_value),
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -1227,6 +1242,7 @@ impl MainMapping {
                     true,
                     self.current_aggregated_target_value(context),
                     context,
+                    NoopLogger,
                 )
                 .map(CompoundFeedbackValue::feedback_after_control)
             } else {
@@ -2660,6 +2676,29 @@ pub enum ControlLogContext {
     GroupInteraction,
     #[display(fmt = "loading mapping snapshot")]
     LoadingMappingSnapshot,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct FeedbackLogEntry<'a> {
+    feedback_value: &'a FeedbackValue<'a>,
+}
+
+impl<'a> Display for FeedbackLogEntry<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.feedback_value.fmt(f)
+    }
+}
+
+pub trait SourceFeedbackLogger {
+    fn log(&self, entry: FeedbackLogEntry);
+}
+
+pub struct NoopLogger;
+
+impl SourceFeedbackLogger for NoopLogger {
+    fn log(&self, entry: FeedbackLogEntry) {
+        let _ = entry;
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

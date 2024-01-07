@@ -55,8 +55,8 @@ use crate::domain::ui_util::{
 use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, TargetControlEvent,
-    TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
+    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -1342,6 +1342,14 @@ impl MappingPanel {
                 "Target control error"
             };
             let body = format!("{} ({})", event.log_entry, event.log_context);
+            self.set_simple_help_text(title, &body);
+        });
+    }
+
+    pub fn handle_source_feedback_event(self: SharedView<Self>, event: SourceFeedbackEvent) {
+        self.invoke_programmatically(|| {
+            let title = "Source feedback info";
+            let body = format!("{}", event.log_entry);
             self.set_simple_help_text(title, &body);
         });
     }

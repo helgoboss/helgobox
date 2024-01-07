@@ -3,7 +3,7 @@
 
 -- Configuration
 
-local use_column_stop_buttons = false
+local use_column_stop_buttons = true
 
 -- Utility functions
 

@@ -16,9 +16,10 @@ use crate::domain::{
     MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
     OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedInstance, SharedUnit, StayActiveWhenProjectInBackground, Tag,
-    TargetControlEvent, TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
+    TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
+    VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -54,7 +55,8 @@ pub trait SessionUi {
     fn conditions_changed(&self);
     fn send_projection_feedback(&self, session: &UnitModel, value: ProjectionFeedbackValue);
     fn mapping_matched(&self, event: MappingMatchedEvent);
-    fn target_controlled(&self, event: TargetControlEvent);
+    fn handle_target_control(&self, event: TargetControlEvent);
+    fn handle_source_feedback(&self, event: SourceFeedbackEvent);
     fn handle_info_event(&self, event: &InfoEvent);
     fn handle_affected(
         &self,
@@ -2636,9 +2638,13 @@ impl DomainEventHandler for WeakUnitModel {
                 let s = session.try_borrow()?;
                 s.ui().mapping_matched(event);
             }
-            TargetControlled(event) => {
+            HandleTargetControl(event) => {
                 let s = session.try_borrow()?;
-                s.ui().target_controlled(event);
+                s.ui().handle_target_control(event);
+            }
+            HandleSourceFeedback(event) => {
+                let s = session.try_borrow()?;
+                s.ui().handle_source_feedback(event);
             }
             MappingEnabledChangeRequested(event) => {
                 let mut s = session.try_borrow_mut()?;

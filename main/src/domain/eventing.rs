@@ -1,7 +1,7 @@
 use crate::domain::{
-    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, InfoEvent, MappingId,
-    MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue,
+    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, FeedbackLogEntry,
+    InfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
+    ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
 use helgoboss_learn::{AbsoluteValue, ControlValue};
 use realearn_api::persistence::MappingModification;
@@ -25,7 +25,8 @@ pub enum DomainEvent<'a> {
     Info(&'a InfoEvent),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
-    TargetControlled(TargetControlEvent),
+    HandleTargetControl(TargetControlEvent),
+    HandleSourceFeedback(SourceFeedbackEvent<'a>),
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
@@ -88,6 +89,12 @@ pub struct TargetControlEvent {
     pub id: QualifiedMappingId,
     pub log_context: ControlLogContext,
     pub log_entry: ControlLogEntry,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct SourceFeedbackEvent<'a> {
+    pub id: QualifiedMappingId,
+    pub log_entry: FeedbackLogEntry<'a>,
 }
 
 impl TargetControlEvent {

@@ -5,7 +5,8 @@ use std::cell::OnceCell;
 
 use crate::application::{Affected, SessionProp, SharedMapping, UnitModel, WeakUnitModel};
 use crate::domain::{
-    Compartment, MappingId, MappingMatchedEvent, TargetControlEvent, TargetValueChangedEvent,
+    Compartment, MappingId, MappingMatchedEvent, SourceFeedbackEvent, TargetControlEvent,
+    TargetValueChangedEvent,
 };
 use swell_ui::{SharedView, View, WeakView, Window};
 
@@ -49,6 +50,12 @@ impl IndependentPanelManager {
     pub fn handle_target_control_event(&self, event: TargetControlEvent) {
         self.do_with_mapping_panel(event.id.compartment, event.id.id, |p| {
             p.handle_target_control_event(event);
+        });
+    }
+
+    pub fn handle_source_feedback_event(&self, event: SourceFeedbackEvent) {
+        self.do_with_mapping_panel(event.id.compartment, event.id.id, |p| {
+            p.handle_source_feedback_event(event);
         });
     }
 
