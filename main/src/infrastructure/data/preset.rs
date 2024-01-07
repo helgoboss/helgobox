@@ -5,6 +5,7 @@ use crate::base::notification;
 use crate::domain::{Compartment, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::ui::util::open_in_file_manager;
 use anyhow::{anyhow, bail, ensure, Context};
 use base::file_util;
 use include_dir::{include_dir, Dir};
@@ -42,6 +43,10 @@ pub trait ExtendedPresetManager {
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()>;
     fn preset_infos(&self) -> &[PresetInfo];
     fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo>;
+    fn save_original_factory_preset_as_user_preset(
+        &mut self,
+        relative_file_path: &Path,
+    ) -> anyhow::Result<String>;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -201,7 +206,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         // Load user preset infos
         let user_preset_infos = WalkDir::new(&self.preset_dir_path)
             .follow_links(true)
-            .max_depth(2)
+            .max_depth(4)
             .into_iter()
             .filter_entry(|e| !file_util::is_hidden(e))
             .filter_map(|entry| {
@@ -255,20 +260,20 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         load_preset_info(origin, relative_file_path, file_type, "", &file_content)
     }
 
-    pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
-        let user_preset_dir = self.preset_dir_path.join(whoami::username());
-        let path = user_preset_dir.join(format!("{}.json", preset.id()));
-        fs::create_dir_all(user_preset_dir).map_err(|_| "couldn't create preset directory")?;
+    pub fn add_preset(&mut self, preset: P) -> anyhow::Result<()> {
+        let path = self.preset_dir_path.join(format!("{}.json", preset.id()));
+        fs::create_dir_all(path.parent().context("impossible")?)
+            .context("couldn't create preset directory")?;
         let mut data = PD::from_model(&preset);
         // We don't want to have the ID in the file - because the file name itself is the ID
         data.clear_id();
-        let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize preset")?;
-        fs::write(path, json).map_err(|_| "couldn't write preset file")?;
+        let json = serde_json::to_string_pretty(&data).context("couldn't serialize preset")?;
+        fs::write(path, json).context("couldn't write preset file")?;
         let _ = self.load_preset_infos();
         Ok(())
     }
 
-    pub fn update_preset(&mut self, preset: P) -> Result<(), &'static str> {
+    pub fn update_preset(&mut self, preset: P) -> anyhow::Result<()> {
         self.add_preset(preset)
     }
 
@@ -307,16 +312,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 .into(),
             PresetOrigin::Factory {
                 compartment,
-                relative_file_path: relative_path,
-            } => {
-                let factory_preset_dir = get_factory_preset_dir(*compartment);
-                let file = factory_preset_dir
-                    .get_file(relative_path)
-                    .context("Couldn't find factory preset anymore")?;
-                file.contents_utf8()
-                    .context("Factory preset not UTF-8 anymore!?")?
-                    .into()
-            }
+                relative_file_path,
+            } => get_factory_preset_content(*compartment, relative_file_path)?.into(),
         };
         match preset_info.file_type {
             PresetFileType::Json => {
@@ -357,6 +354,18 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 }
 
+fn get_factory_preset_content(
+    compartment: Compartment,
+    relative_file_path: &Path,
+) -> anyhow::Result<&'static str> {
+    let factory_preset_dir = get_factory_preset_dir(compartment);
+    let file = factory_preset_dir
+        .get_file(relative_file_path)
+        .context("Couldn't find factory preset anymore")?;
+    file.contents_utf8()
+        .context("Factory preset not UTF-8 anymore!?")
+}
+
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()> {
         let preset_info = self
@@ -381,6 +390,23 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
 
     fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo> {
         self.preset_infos.iter().find(|info| &info.id == id)
+    }
+
+    fn save_original_factory_preset_as_user_preset(
+        &mut self,
+        relative_file_path: &Path,
+    ) -> anyhow::Result<String> {
+        let relative_user_file_path = PathBuf::from(whoami::username()).join(relative_file_path);
+        let dest_file_path = self.preset_dir_path.join(&relative_user_file_path);
+        let preset_content = get_factory_preset_content(P::compartment(), relative_file_path)?;
+        fs::create_dir_all(dest_file_path.parent().context("impossible")?)?;
+        fs::write(&dest_file_path, preset_content)?;
+        let _ = self.load_preset_infos();
+        let _ = open_in_file_manager(&dest_file_path);
+        let origin = PresetOrigin::User {
+            absolute_file_path: dest_file_path.clone(),
+        };
+        build_id(&relative_user_file_path, "", &origin)
     }
 }
 

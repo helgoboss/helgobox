@@ -30,7 +30,7 @@ use crate::domain::{
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, InstanceOrUnitData,
-    MappingModelData, OscDevice, UnitData,
+    MappingModelData, OscDevice, PresetFileType, PresetInfo, PresetOrigin, UnitData,
 };
 use crate::infrastructure::plugin::{warn_about_failed_server_start, BackboneShell};
 
@@ -2353,21 +2353,21 @@ impl HeaderPanel {
         }
     }
 
-    fn save_active_preset(&self) -> Result<(), &'static str> {
+    fn save_active_preset(&self) -> anyhow::Result<()> {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
         let preset_id = session
             .active_preset_id(compartment)
-            .ok_or("no active preset")?;
+            .context("no active preset")?;
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             Compartment::Controller => {
                 let preset_manager = BackboneShell::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
-                    .ok_or("controller preset not found")?;
+                    .context("controller preset not found")?;
                 controller_preset.update_realearn_data(compartment_model);
                 preset_manager
                     .borrow_mut()
@@ -2377,7 +2377,7 @@ impl HeaderPanel {
                 let preset_manager = BackboneShell::get().main_preset_manager();
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
-                    .ok_or("main preset not found")?;
+                    .context("main preset not found")?;
                 main_preset.update_data(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
@@ -2399,24 +2399,43 @@ impl HeaderPanel {
         self.view.require_window().confirm("ReaLearn", msg)
     }
 
-    fn get_name_of_active_preset(&self, compartment: Compartment) -> Option<String> {
+    fn get_active_preset_info(&self, compartment: Compartment) -> Option<PresetInfo> {
         let session = self.session();
         let session = session.borrow();
         let preset_id = session.active_preset_id(compartment)?;
-        let name = BackboneShell::get()
+        BackboneShell::get()
             .preset_manager(compartment)
             .borrow()
-            .preset_info_by_id(preset_id)?
-            .name
-            .to_string();
-        Some(name)
+            .preset_info_by_id(preset_id)
+            .cloned()
     }
 
-    fn save_as_preset(&self) -> Result<(), &'static str> {
+    fn save_as_preset(&self) -> anyhow::Result<()> {
         let compartment = self.active_compartment();
-        let current_preset_name = self
-            .get_name_of_active_preset(compartment)
-            .unwrap_or_default();
+        let active_preset_info = self.get_active_preset_info(compartment);
+        if let Some(info) = &active_preset_info {
+            if let PresetOrigin::Factory {
+                compartment,
+                relative_file_path,
+            } = &info.origin
+            {
+                if info.file_type == PresetFileType::Lua {
+                    if self.view.require_window().confirm(
+                        "ReaLearn",
+                        "This factory preset is written in Lua. Are you familiar with Lua and want to customize the Lua code to your own needs?\n\
+                        \n\
+                        If you press yes, ReaLearn will copy the factory Lua file to your personal preset directory.\n\
+                        \n\
+                        If you press no, ReaLearn will save your current mappings as JSON preset as usual.",
+                    ) {
+                        let new_preset_id = BackboneShell::get().preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
+                        self.session().borrow_mut().activate_preset(*compartment, Some(new_preset_id));
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        let current_preset_name = active_preset_info.map(|info| info.name).unwrap_or_default();
         let preset_name = match dialog_util::prompt_for("Preset name", &current_preset_name) {
             None => return Ok(()),
             Some(n) => n,
@@ -2427,7 +2446,7 @@ impl HeaderPanel {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let preset_id = slug::slugify(&preset_name);
+        let preset_id = format!("{}/{}", whoami::username(), slug::slugify(&preset_name));
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             Compartment::Controller => {

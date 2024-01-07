@@ -2006,6 +2006,13 @@ impl UnitModel {
         self.memorized_main_compartment = model;
     }
 
+    pub fn activate_preset(&mut self, compartment: Compartment, id: Option<String>) {
+        match compartment {
+            Compartment::Controller => self.activate_controller_preset(id),
+            Compartment::Main => self.activate_main_preset(id),
+        }
+    }
+
     pub fn activate_main_preset(&mut self, id: Option<String>) {
         let model = if let Some(id) = id.as_ref() {
             self.main_preset_manager
