@@ -188,6 +188,7 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
 }
 
 pub const CLIP_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip column",
     short_name: "Clip column",

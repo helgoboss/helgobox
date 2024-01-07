@@ -271,11 +271,6 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_TARGET_LINE_5_LABEL_1"),
             context.rect(181, 178, 35, 9),
         ) + NOT_WS_GROUP,
-        ltext(
-            "Line 5",
-            ids.named_id("ID_TARGET_LINE_5_LABEL_2"),
-            context.rect(220, 178, 189, 9),
-        ) + NOT_WS_GROUP,
         edittext(
             ids.named_id("ID_TARGET_LINE_5_EDIT_CONTROL"),
             context.rect(282, 175, 127, 14),

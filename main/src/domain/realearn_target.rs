@@ -958,6 +958,7 @@ pub enum TargetSection {
 }
 
 pub struct TargetTypeDef {
+    pub lua_only: bool,
     pub section: TargetSection,
     pub name: &'static str,
     pub short_name: &'static str,
@@ -1077,6 +1078,7 @@ impl TargetTypeDef {
 }
 
 pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: false,
     section: TargetSection::Global,
     name: "",
     short_name: "",

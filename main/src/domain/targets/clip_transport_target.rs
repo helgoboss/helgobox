@@ -463,6 +463,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
 }
 
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip - Invoke transport action",
     short_name: "Clip transport",

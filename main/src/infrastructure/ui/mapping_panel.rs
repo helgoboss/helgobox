@@ -44,10 +44,9 @@ use crate::application::{
     MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp, SharedMapping,
     SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory,
-    TargetCommand, TargetModel, TargetModelFormatMultiLine, TargetModelFormatVeryShort,
-    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakUnitModel, KEY_UNDEFINED_LABEL,
+    TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -57,8 +56,7 @@ use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
     ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
-    TargetControlEvent, TargetSection, TouchedRouteParameterType, TrackGangBehavior,
-    WithControlContext,
+    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -4522,25 +4520,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         let (label, hint) = match self.target.category() {
             Reaper => {
                 let label = self.target.target_type().to_string();
-                let real_time_hint = if self
-                    .target
-                    .target_type()
-                    .definition()
-                    .supports_real_time_control()
-                {
-                    "Supports MIDI real-time control"
-                } else {
-                    ""
+                let hint = match self.target.target_type().definition() {
+                    d if d.lua_only => "Use Lua to configure this target!",
+                    d if d.supports_real_time_control => "Supports MIDI real-time control!",
+                    d => d.hint,
                 };
-                let custom_hint = self.target.target_type().hint();
-                let mut hint = real_time_hint.to_string();
-                if !custom_hint.is_empty() {
-                    if !hint.is_empty() {
-                        hint.push_str(" | ");
-                    }
-                    hint.push_str(custom_hint);
-                }
-                (label, hint)
+                (label, hint.to_string())
             }
             Virtual => {
                 let label = self.target.control_element_type().to_string();
@@ -4584,6 +4569,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
                 ReaperTargetType::ModifyMapping => Some("Kind"),
+                ReaperTargetType::ClipMatrix => Some("Action"),
+                ReaperTargetType::ClipRow => Some("Row"),
+                ReaperTargetType::ClipColumn => Some("Column"),
+                ReaperTargetType::ClipManagement
+                | ReaperTargetType::ClipSeek
+                | ReaperTargetType::ClipTransport
+                | ReaperTargetType::ClipVolume => Some("Slot"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4610,9 +4602,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let compartment_params = params.compartment_params(self.mapping.compartment());
                     Some(get_param_name(compartment_params, param_index))
                 }
-                t if t.definition().section == TargetSection::Playtime => {
-                    Some("Use Lua to configure this target!".to_string())
-                }
+                ReaperTargetType::ClipMatrix => Some(self.target.clip_matrix_action().to_string()),
+                ReaperTargetType::ClipRow => Some(self.target.clip_row().to_string()),
+                ReaperTargetType::ClipColumn => Some(self.target.clip_column().to_string()),
+                ReaperTargetType::ClipManagement
+                | ReaperTargetType::ClipSeek
+                | ReaperTargetType::ClipTransport
+                | ReaperTargetType::ClipVolume => Some(self.target.clip_slot().to_string()),
                 _ => None,
             },
             _ => None,
@@ -4675,7 +4671,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                t if t.supports_feedback_resolution() => {
+                t if t.supports_feedback_resolution() && t != ReaperTargetType::ClipSeek => {
                     combo.show();
                     combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
                     combo
@@ -4992,7 +4988,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_line_5(&self, initiator: Option<u32>) {
         self.invalidate_target_line_5_label_1();
-        self.invalidate_target_line_5_label_2();
         self.invalidate_target_line_5_edit_control(initiator);
     }
 
@@ -5186,6 +5181,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 ReaperTargetType::ModifyMapping => Some("Unit"),
+                ReaperTargetType::ClipTransport
+                | ReaperTargetType::ClipColumn
+                | ReaperTargetType::ClipRow
+                | ReaperTargetType::ClipManagement => Some("Action"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -5211,21 +5210,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         self.view
             .require_control(root::ID_TARGET_LINE_5_LABEL_1)
-            .set_text_or_hide(text);
-    }
-
-    fn invalidate_target_line_5_label_2(&self) {
-        let text = match self.target_category() {
-            TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.definition().section == TargetSection::Playtime => {
-                    self.get_target_label_line(2)
-                }
-                _ => None,
-            },
-            TargetCategory::Virtual => None,
-        };
-        self.view
-            .require_control(root::ID_TARGET_LINE_5_LABEL_2)
             .set_text_or_hide(text);
     }
 
@@ -5259,17 +5243,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    fn get_target_label_line(&self, line: usize) -> Option<String> {
-        let multi_line_label =
-            TargetModelFormatMultiLine::new(self.target, self.session, self.mapping.compartment())
-                .to_string();
-        multi_line_label
-            .lines()
-            .skip(line)
-            .next()
-            .map(|l| l.to_string())
-    }
-
     fn invalidate_target_line_3_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -5283,8 +5256,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         }
                     }
                 },
-                t if t.definition().section == TargetSection::Playtime => {
-                    self.get_target_label_line(0)
+                ReaperTargetType::ClipTransport => {
+                    Some(self.target.clip_transport_action().to_string())
+                }
+                ReaperTargetType::ClipColumn => Some(self.target.clip_column_action().to_string()),
+                ReaperTargetType::ClipRow => Some(self.target.clip_row_action().to_string()),
+                ReaperTargetType::ClipManagement => {
+                    Some(self.target.clip_management_action().to_string())
                 }
                 _ => None,
             },
@@ -5342,9 +5320,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                         },
                     };
                     Some(label)
-                }
-                t if t.definition().section == TargetSection::Playtime => {
-                    self.get_target_label_line(1)
                 }
                 _ => None,
             },

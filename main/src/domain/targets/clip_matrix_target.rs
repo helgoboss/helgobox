@@ -235,6 +235,7 @@ impl<'a> Target<'a> for RealTimeClipMatrixTarget {
 }
 
 pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip matrix",
     short_name: "Clip matrix",

@@ -188,6 +188,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
 }
 
 pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip - Seek",
     short_name: "Clip seek",

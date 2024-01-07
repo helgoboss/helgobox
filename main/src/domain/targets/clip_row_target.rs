@@ -213,6 +213,7 @@ impl<'a> Target<'a> for RealTimeClipRowTarget {
 }
 
 pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip row",
     short_name: "Clip row",

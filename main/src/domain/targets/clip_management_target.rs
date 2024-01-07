@@ -188,6 +188,7 @@ impl<'a> Target<'a> for ClipManagementTarget {
 }
 
 pub const CLIP_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: true,
     section: TargetSection::Playtime,
     name: "Clip - Management",
     short_name: "Clip management",
