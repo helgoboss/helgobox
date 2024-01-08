@@ -16,9 +16,9 @@ use slog::debug;
 use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
-    ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
-    MappingModel, PresetLinkMutator, PresetManager, SessionCommand, SessionProp, SharedMapping,
+    reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentPresetManager,
+    CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig, MainPresetAutoLoadMode,
+    MappingCommand, MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping,
     SharedUnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
@@ -29,8 +29,9 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, InstanceOrUnitData,
-    MappingModelData, OscDevice, PresetFileType, PresetInfo, PresetOrigin, UnitData,
+    CommonCompartmentPresetManager, CommonPresetInfo, CompartmentModelData,
+    FileBasedMainPresetManager, InstanceOrUnitData, MappingModelData, OscDevice, PresetFileType,
+    PresetOrigin, UnitData,
 };
 use crate::infrastructure::plugin::{warn_about_failed_server_start, BackboneShell};
 
@@ -1536,9 +1537,9 @@ impl HeaderPanel {
                 let user_preset_is_active_and_exists =
                     if let Some(preset_id) = session.active_preset_id(compartment) {
                         BackboneShell::get()
-                            .preset_manager(compartment)
+                            .compartment_preset_manager(compartment)
                             .borrow()
-                            .preset_info_by_id(preset_id)
+                            .common_preset_info_by_id(preset_id)
                             .is_some_and(|info| info.origin.is_user())
                     } else {
                         false
@@ -1562,14 +1563,14 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
-        let preset_manager = BackboneShell::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
         let text = match session.active_preset_id(compartment) {
             None => "<None>".to_string(),
-            Some(id) => match preset_manager.borrow().preset_info_by_id(id) {
+            Some(id) => match preset_manager.borrow().common_preset_info_by_id(id) {
                 None => {
                     format!("<Not present> ({id})")
                 }
-                Some(info) => info.name.clone(),
+                Some(info) => info.meta_data.name.clone(),
             },
         };
         button.set_text(text);
@@ -2270,7 +2271,7 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let preset_manager = BackboneShell::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
         let active_preset_id = session
             .active_preset_id(compartment)
             .context("no preset selected")?
@@ -2366,9 +2367,10 @@ impl HeaderPanel {
             Compartment::Controller => {
                 let preset_manager = BackboneShell::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
+                    .borrow()
                     .find_by_id(preset_id)
                     .context("controller preset not found")?;
-                controller_preset.update_realearn_data(compartment_model);
+                controller_preset.set_model(compartment_model);
                 preset_manager
                     .borrow_mut()
                     .update_preset(controller_preset)?;
@@ -2376,9 +2378,10 @@ impl HeaderPanel {
             Compartment::Main => {
                 let preset_manager = BackboneShell::get().main_preset_manager();
                 let mut main_preset = preset_manager
+                    .borrow()
                     .find_by_id(preset_id)
                     .context("main preset not found")?;
-                main_preset.update_data(compartment_model);
+                main_preset.set_model(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -2399,14 +2402,14 @@ impl HeaderPanel {
         self.view.require_window().confirm("ReaLearn", msg)
     }
 
-    fn get_active_preset_info(&self, compartment: Compartment) -> Option<PresetInfo> {
+    fn get_active_preset_info(&self, compartment: Compartment) -> Option<CommonPresetInfo> {
         let session = self.session();
         let session = session.borrow();
         let preset_id = session.active_preset_id(compartment)?;
         BackboneShell::get()
-            .preset_manager(compartment)
+            .compartment_preset_manager(compartment)
             .borrow()
-            .preset_info_by_id(preset_id)
+            .common_preset_info_by_id(preset_id)
             .cloned()
     }
 
@@ -2428,14 +2431,16 @@ impl HeaderPanel {
                         \n\
                         If you press no, ReaLearn will save your current mappings as JSON preset as usual.",
                     ) {
-                        let new_preset_id = BackboneShell::get().preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
+                        let new_preset_id = BackboneShell::get().compartment_preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
                         self.session().borrow_mut().activate_preset(*compartment, Some(new_preset_id));
                         return Ok(());
                     }
                 }
             }
         }
-        let current_preset_name = active_preset_info.map(|info| info.name).unwrap_or_default();
+        let current_preset_name = active_preset_info
+            .map(|info| info.meta_data.name)
+            .unwrap_or_default();
         let preset_name = match dialog_util::prompt_for("Preset name", &current_preset_name) {
             None => return Ok(()),
             Some(n) => n,
@@ -2450,8 +2455,12 @@ impl HeaderPanel {
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             Compartment::Controller => {
-                let controller =
-                    ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
+                let controller = CompartmentPresetModel::new(
+                    preset_id.clone(),
+                    preset_name,
+                    Compartment::Controller,
+                    compartment_model,
+                );
                 BackboneShell::get()
                     .controller_preset_manager()
                     .borrow_mut()
@@ -2459,8 +2468,12 @@ impl HeaderPanel {
                 session.activate_controller_preset(Some(preset_id));
             }
             Compartment::Main => {
-                let main_preset =
-                    MainPreset::new(preset_id.clone(), preset_name, compartment_model);
+                let main_preset = CompartmentPresetModel::new(
+                    preset_id.clone(),
+                    preset_name,
+                    Compartment::Main,
+                    compartment_model,
+                );
                 BackboneShell::get()
                     .main_preset_manager()
                     .borrow_mut()
@@ -3139,9 +3152,9 @@ fn generate_fx_to_preset_links_menu_entries(
                 .iter()
                 .map(move |p| {
                     let fx_id = fx_id.clone();
-                    let preset_id = p.id.clone();
+                    let preset_id = p.common.id.clone();
                     item(
-                        &p.name,
+                        &p.common.meta_data.name,
                         MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
                     )
                 })
@@ -3166,7 +3179,7 @@ fn generate_fx_to_preset_links_menu_entries(
                 MainMenuAction::RemovePresetLink(scope, fx_id_1),
             )))
             .chain(build_compartment_preset_menu_entries(
-                main_preset_manager.preset_infos(),
+                main_preset_manager.common_preset_infos(),
                 move |info| {
                     let fx_id = fx_id_2.clone();
                     let preset_id = info.id.clone();

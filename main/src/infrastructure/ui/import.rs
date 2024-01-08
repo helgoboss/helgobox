@@ -10,8 +10,8 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    ActivationConditionData, CompartmentModelData, InstanceData, MappingModelData, ModeModelData,
-    PresetMetaData, SourceModelData, TargetModelData, UnitData,
+    ActivationConditionData, CommonPresetMetaData, CompartmentModelData, InstanceData,
+    MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
@@ -41,7 +41,7 @@ impl UntaggedDataObject {
     pub fn try_from_untagged_api_object(
         api_object: UntaggedApiObject,
         conversion_context: &impl ApiToDataConversionContext,
-        preset_meta_data: Option<PresetMetaData>,
+        preset_meta_data: Option<CommonPresetMetaData>,
     ) -> anyhow::Result<Self> {
         match api_object {
             UntaggedApiObject::Tagged(o) => {
@@ -282,7 +282,7 @@ pub fn deserialize_untagged_data_object_from_lua(
     conversion_context: &impl ApiToDataConversionContext,
 ) -> anyhow::Result<UntaggedDataObject> {
     let untagged_api_object: UntaggedApiObject = deserialize_from_lua(text)?;
-    let preset_meta_data = PresetMetaData::from_lua(text).ok();
+    let preset_meta_data = CommonPresetMetaData::from_lua_code(text).ok();
     UntaggedDataObject::try_from_untagged_api_object(
         untagged_api_object,
         conversion_context,

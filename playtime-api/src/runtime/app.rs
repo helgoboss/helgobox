@@ -2,7 +2,6 @@
 //! not performance-critical and better expressed in a Rust-first manner.
 use crate::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a
 // JSON object (vs. just a string) ... which is better for some clients. Plus, we might want

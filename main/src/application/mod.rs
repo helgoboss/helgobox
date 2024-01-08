@@ -19,14 +19,8 @@ pub use group_model::*;
 mod activation_condition_model;
 pub use activation_condition_model::*;
 
-mod preset;
-pub use preset::*;
-
-mod controller_preset;
-pub use controller_preset::*;
-
-mod main_preset;
-pub use main_preset::*;
+mod compartment_preset;
+pub use compartment_preset::*;
 
 mod conditional_activation_model;
 pub use conditional_activation_model::*;

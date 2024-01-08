@@ -1,4 +1,4 @@
-use crate::infrastructure::data::ControllerPresetData;
+use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::server::data::{
     get_controller_preset_data, get_controller_routing_by_session_id, patch_controller,
     ControllerRouting, DataError, DataErrorCategory, PatchRequest, SessionResponseData, Topics,
@@ -34,7 +34,7 @@ pub async fn session_handler(
 /// Needs to be executed in the main thread!
 pub async fn session_controller_handler(
     Path(session_id): Path<String>,
-) -> Result<Json<ControllerPresetData>, SimpleResponse> {
+) -> Result<Json<CompartmentPresetData>, SimpleResponse> {
     let controller_data = get_controller_preset_data(session_id).map_err(translate_data_error)?;
     Ok(Json(controller_data))
 }

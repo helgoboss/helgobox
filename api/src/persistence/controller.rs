@@ -22,7 +22,15 @@ pub struct Controller {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connection: Option<ControllerConnection>,
-    /// Optional controller preset to use with this controller.
+    /// Controller preset to load whenever an auto unit with this controller is created.
+    ///
+    /// This might be overridden if the controller role main preset uses a virtual control
+    /// scheme that is not provided by this controller preset.
+    ///
+    /// The controller preset is especially important if one of the controller role main
+    /// presets is a **reusable main preset**. In that case, a controller preset should be chosen
+    /// that supports at least one of the virtual control schemes supported by the main preset,
+    /// otherwise the main preset will not have any effect at all!
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller_preset: Option<PresetId>,
     #[serde(default)]
@@ -43,11 +51,21 @@ pub struct ControllerRoles {
 }
 
 /// Popular roles a controller can take.
+///
+/// This sounds like it's similar to *virtual control schemes* but it's clearly different.
+/// A virtual control scheme (e.g. DAW, grid or numbered) is about declaring the capabilities of a
+/// controller whereas the controller role kind is about a specific employment/usage of a
+/// controller ... so it's about mappings in the main compartment!
+///
+/// The two concepts are orthogonal to each other. Example: The virtual control scheme "grid"
+/// suites itself very much to the role "clip control", but it doesn't have to! A "grid" controller
+/// can also be used for "DAW" control! Likewise, the virtual control scheme "DAW" suites itself
+/// very much to the role "DAW control", but a "DAW" controller can also be used for "clip control".
 #[derive(Hash, Debug, Serialize, Deserialize, EnumSetType)]
 pub enum ControllerRoleKind {
     /// DAW control.
     Daw,
-    // Clip control.
+    /// Clip control.
     Clip,
 }
 
@@ -55,6 +73,11 @@ pub enum ControllerRoleKind {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ControllerRole {
     /// The main preset to load for a controller if used in that role.
+    ///
+    /// It's possible to override the default controller preset defined in the controller, but this
+    /// is not something the user does manually. The main preset itself can declare that it depends
+    /// on a specific controller preset, in which case that one is used instead of the default
+    /// controller preset.
     pub main_preset: Option<PresetId>,
 }
 

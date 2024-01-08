@@ -7,8 +7,8 @@ use reaper_medium::{
 use std::num::NonZeroU32;
 
 use crate::infrastructure::data::{
-    ControllerManager, ExtendedPresetManager, FileBasedControllerPresetManager,
-    FileBasedMainPresetManager, PresetInfo,
+    CommonPresetInfo, ControllerManager, ControllerPresetMetaData,
+    FileBasedControllerPresetManager, FileBasedMainPresetManager, MainPresetMetaData, PresetInfo,
 };
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::track_input::Input;
@@ -18,19 +18,19 @@ use crate::infrastructure::proto::{
     qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
     AudioClipContentInfo, AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo,
-    CompartmentPreset, CompartmentPresets, ContinuousClipUpdate, ContinuousColumnUpdate,
-    ContinuousMatrixUpdate, ContinuousSlotUpdate, GetContinuousColumnUpdatesReply,
-    GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
-    GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
-    GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
-    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    HistoryState, LearnState, MidiClipContentInfo, MidiDeviceStatus, MidiInputDevice,
-    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SequencerPlayState, SlotAddress,
-    SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring, TrackList,
-    TrackMidiInput,
+    CompartmentPresetCommons, ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate,
+    ContinuousSlotUpdate, ControllerPreset, ControllerPresetSpecifics, ControllerPresets,
+    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
+    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
+    GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
+    GetOccasionalTrackUpdatesReply, HistoryState, LearnState, MainPreset, MainPresetSpecifics,
+    MainPresets, MidiClipContentInfo, MidiDeviceStatus, MidiInputDevice, MidiInputDevices,
+    MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
+    OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
+    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
+    TrackColor, TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
 };
 use playtime_clip_engine::base::{
     Clip, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer, SaveOptions,
@@ -74,11 +74,11 @@ impl occasional_global_update::Update {
     }
 
     pub fn controller_presets(manager: &FileBasedControllerPresetManager) -> Self {
-        Self::ControllerPresets(CompartmentPresets::from_engine(manager.preset_infos()))
+        Self::ControllerPresets(ControllerPresets::from_engine(manager.preset_infos()))
     }
 
     pub fn main_presets(manager: &FileBasedMainPresetManager) -> Self {
-        Self::MainPresets(CompartmentPresets::from_engine(manager.preset_infos()))
+        Self::MainPresets(MainPresets::from_engine(manager.preset_infos()))
     }
 
     pub fn controller_config(manager: &ControllerManager) -> Self {
@@ -588,23 +588,64 @@ impl AudioInputChannels {
     }
 }
 
-impl CompartmentPresets {
-    pub fn from_engine(preset_infos: &[PresetInfo]) -> Self {
+impl ControllerPresets {
+    pub fn from_engine(preset_infos: &[PresetInfo<ControllerPresetMetaData>]) -> Self {
         Self {
-            compartment_presets: preset_infos
+            controller_presets: preset_infos
                 .iter()
-                .map(CompartmentPreset::from_engine)
+                .map(ControllerPreset::from_engine)
                 .collect(),
         }
     }
 }
 
-impl CompartmentPreset {
-    pub fn from_engine(preset_info: &PresetInfo) -> Self {
+impl ControllerPreset {
+    pub fn from_engine(preset_info: &PresetInfo<ControllerPresetMetaData>) -> Self {
+        Self {
+            commons: Some(CompartmentPresetCommons::from_engine(&preset_info.common)),
+            specifics: Some(ControllerPresetSpecifics::from_engine(
+                &preset_info.specific_meta_data,
+            )),
+        }
+    }
+}
+
+impl CompartmentPresetCommons {
+    pub fn from_engine(preset_info: &CommonPresetInfo) -> Self {
         Self {
             id: preset_info.id.clone(),
-            name: preset_info.name.clone(),
+            name: preset_info.meta_data.name.clone(),
         }
+    }
+}
+
+impl ControllerPresetSpecifics {
+    pub fn from_engine(preset_info: &ControllerPresetMetaData) -> Self {
+        Self {}
+    }
+}
+
+impl MainPresets {
+    pub fn from_engine(preset_infos: &[PresetInfo<MainPresetMetaData>]) -> Self {
+        Self {
+            main_presets: preset_infos.iter().map(MainPreset::from_engine).collect(),
+        }
+    }
+}
+
+impl MainPreset {
+    pub fn from_engine(preset_info: &PresetInfo<MainPresetMetaData>) -> Self {
+        Self {
+            commons: Some(CompartmentPresetCommons::from_engine(&preset_info.common)),
+            specifics: Some(MainPresetSpecifics::from_engine(
+                &preset_info.specific_meta_data,
+            )),
+        }
+    }
+}
+impl MainPresetSpecifics {
+    pub fn from_engine(preset_info: &MainPresetMetaData) -> Self {
+        Self {}
     }
 }
 

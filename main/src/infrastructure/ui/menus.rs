@@ -3,7 +3,7 @@ use crate::domain::{
     compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams, MappingId,
     ReaperTargetType, TargetSection,
 };
-use crate::infrastructure::data::PresetInfo;
+use crate::infrastructure::data::CommonPresetInfo;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
 use reaper_high::FxChainContext;
@@ -298,7 +298,7 @@ pub fn menu_containing_compartment_presets(
     compartment: Compartment,
     current_value: Option<&str>,
 ) -> swell_ui::menu_tree::Menu<Option<String>> {
-    let preset_manager = BackboneShell::get().preset_manager(compartment);
+    let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
     let preset_manager = preset_manager.borrow();
     root_menu(
         iter::once(item_with_opts(
@@ -310,7 +310,7 @@ pub fn menu_containing_compartment_presets(
             None,
         ))
         .chain(build_compartment_preset_menu_entries(
-            preset_manager.preset_infos(),
+            preset_manager.common_preset_infos(),
             |info| Some(info.id.clone()),
             |info| current_value.is_some_and(|id| id == &info.id),
         ))
@@ -319,19 +319,19 @@ pub fn menu_containing_compartment_presets(
 }
 
 pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
-    preset_infos: &'a [PresetInfo],
-    build_id: impl Fn(&PresetInfo) -> T + 'a,
-    is_current_value: impl Fn(&PresetInfo) -> bool + 'a,
+    preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+    build_id: impl Fn(&CommonPresetInfo) -> T + 'a,
+    is_current_value: impl Fn(&CommonPresetInfo) -> bool + 'a,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     let (user_preset_infos, factory_preset_infos): (Vec<_>, Vec<_>) =
-        preset_infos.iter().partition(|info| info.origin.is_user());
+        preset_infos.partition(|info| info.origin.is_user());
     [
         ("User presets", user_preset_infos),
         ("Factory presets", factory_preset_infos),
     ]
     .into_iter()
     .map(move |(label, mut infos)| {
-        infos.sort_by_key(|info| &info.name);
+        infos.sort_by_key(|info| &info.meta_data.name);
         menu(
             label,
             build_compartment_preset_menu_entries_internal(
@@ -345,16 +345,16 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
 }
 
 fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
-    preset_infos: impl Iterator<Item = &'a PresetInfo> + 'a,
-    build_id: &'a (impl Fn(&PresetInfo) -> T + 'a),
-    is_current_value: &'a (impl Fn(&PresetInfo) -> bool + 'a),
+    preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
+    build_id: &'a (impl Fn(&CommonPresetInfo) -> T + 'a),
+    is_current_value: &'a (impl Fn(&CommonPresetInfo) -> bool + 'a),
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     preset_infos.map(move |info| {
         let id = build_id(info);
-        let label = if info.name == info.id {
-            info.name.clone()
+        let label = if info.meta_data.name == info.id {
+            info.meta_data.name.clone()
         } else {
-            format!("{} ({})", info.name, info.id)
+            format!("{} ({})", info.meta_data.name, info.id)
         };
         item_with_opts(
             label,

@@ -1,10 +1,10 @@
 use crate::application::{
     get_track_label, share_group, share_mapping, Affected, AutoUnitData, Change, ChangeResult,
-    CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId,
-    FxPresetLinkConfig, GroupCommand, GroupModel, MainPreset, MainPresetAutoLoadMode,
-    MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager, PresetManager,
-    ProcessingRelevance, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
-    TargetProp, VirtualControlElementType, MASTER_TRACK_LABEL,
+    CompartmentCommand, CompartmentModel, CompartmentPresetManager, CompartmentPresetModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel, MainPresetAutoLoadMode,
+    MappingCommand, MappingModel, MappingProp, PresetLinkManager, ProcessingRelevance, SharedGroup,
+    SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
+    MASTER_TRACK_LABEL,
 };
 use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -127,8 +127,8 @@ pub struct UnitModel {
     unit_container: &'static dyn UnitContainer,
     /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
     params: PluginParams,
-    controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
-    main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
+    controller_preset_manager: Box<dyn CompartmentPresetManager>,
+    main_preset_manager: Box<dyn CompartmentPresetManager>,
     global_preset_link_manager: Box<dyn PresetLinkManager>,
     instance_preset_link_config: FxPresetLinkConfig,
     use_instance_preset_links_only: bool,
@@ -217,8 +217,8 @@ impl UnitModel {
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         instance_container: &'static dyn UnitContainer,
-        controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
-        main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
+        controller_manager: impl CompartmentPresetManager + 'static,
+        main_preset_manager: impl CompartmentPresetManager + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance: SharedInstance,
         unit: SharedUnit,
@@ -1965,7 +1965,7 @@ impl UnitModel {
         &self.compartment_notes[compartment]
     }
 
-    pub fn active_main_preset(&self) -> Option<MainPreset> {
+    pub fn active_main_preset(&self) -> Option<CompartmentPresetModel> {
         let id = self.active_preset_id(Compartment::Main)?;
         self.main_preset_manager.find_by_id(id)
     }
@@ -1987,7 +1987,7 @@ impl UnitModel {
         let model = if let Some(id) = id.as_ref() {
             self.controller_preset_manager
                 .find_by_id(id)
-                .map(|preset| preset.data().clone())
+                .map(|preset| preset.model().clone())
         } else {
             // <None> preset
             None
@@ -2019,7 +2019,7 @@ impl UnitModel {
         let model = if let Some(id) = id.as_ref() {
             self.main_preset_manager
                 .find_by_id(id)
-                .map(|preset| preset.data().clone())
+                .map(|preset| preset.model().clone())
         } else {
             // <None> preset
             None
@@ -2035,7 +2035,7 @@ impl UnitModel {
             }
             self.main_preset_manager
                 .find_by_id(id)
-                .map(|preset| preset.data().clone())
+                .map(|preset| preset.model().clone())
         } else {
             self.memorized_main_compartment.take()
         };

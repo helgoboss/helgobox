@@ -17,9 +17,9 @@ use crate::domain::{
     SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
 };
 use crate::infrastructure::data::{
-    ControllerManager, ControllerManagerEventHandler, ExtendedPresetManager,
-    FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    OscDevice, OscDeviceManager, PresetManagerEventHandler, SharedControllerManager,
+    CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
+    ControllerManagerEventHandler, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedOscDeviceManager,
     SharedPresetLinkManager,
 };
@@ -301,10 +301,12 @@ impl BackboneShell {
             sessions_changed_subject.borrow().clone(),
         );
         let controller_preset_manager = FileBasedControllerPresetManager::new(
+            Compartment::Controller,
             BackboneShell::realearn_preset_dir_path().join("controller"),
             Box::new(BackboneControllerPresetManagerEventHandler),
         );
         let main_preset_manager = FileBasedMainPresetManager::new(
+            Compartment::Main,
             BackboneShell::realearn_preset_dir_path().join("main"),
             Box::new(BackboneMainPresetManagerEventHandler),
         );
@@ -845,10 +847,10 @@ impl BackboneShell {
         &self.controller_manager
     }
 
-    pub fn preset_manager(
+    pub fn compartment_preset_manager(
         &self,
         compartment: Compartment,
-    ) -> Rc<RefCell<dyn ExtendedPresetManager>> {
+    ) -> Rc<RefCell<dyn CommonCompartmentPresetManager>> {
         match compartment {
             Compartment::Controller => self.controller_preset_manager().clone(),
             Compartment::Main => self.main_preset_manager().clone(),
@@ -2205,7 +2207,7 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
 #[derive(Debug)]
 pub struct BackboneMainPresetManagerEventHandler;
 
-impl PresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
+impl CompartmentPresetManagerEventHandler for BackboneMainPresetManagerEventHandler {
     type Source = FileBasedMainPresetManager;
 
     fn presets_changed(&self, source: &Self::Source) {
@@ -2238,7 +2240,7 @@ fn update_auto_units_async() {
 #[derive(Debug)]
 pub struct BackboneControllerPresetManagerEventHandler;
 
-impl PresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
+impl CompartmentPresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
     type Source = FileBasedControllerPresetManager;
 
     fn presets_changed(&self, source: &Self::Source) {

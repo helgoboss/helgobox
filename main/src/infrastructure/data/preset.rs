@@ -1,9 +1,10 @@
-use crate::application::{Preset, PresetManager};
+use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 use base::default_util::deserialize_null_default;
 
 use crate::base::notification;
 use crate::domain::{Compartment, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
+use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::util::open_in_file_manager;
 use anyhow::{anyhow, bail, ensure, Context};
@@ -13,36 +14,44 @@ use mlua::LuaSerdeExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use semver::Version;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt::Formatter;
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::time::Duration;
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
 
+pub type SharedControllerPresetManager = Rc<RefCell<FileBasedControllerPresetManager>>;
+pub type FileBasedControllerPresetManager =
+    FileBasedCompartmentPresetManager<ControllerPresetMetaData>;
+
+pub type SharedMainPresetManager = Rc<RefCell<FileBasedMainPresetManager>>;
+pub type FileBasedMainPresetManager = FileBasedCompartmentPresetManager<MainPresetMetaData>;
+
 #[derive(Debug)]
-pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
+pub struct FileBasedCompartmentPresetManager<M> {
+    compartment: Compartment,
     preset_dir_path: PathBuf,
-    preset_infos: Vec<PresetInfo>,
+    preset_infos: Vec<PresetInfo<M>>,
     changed_subject: LocalSubject<'static, (), ()>,
-    event_handler: Box<dyn PresetManagerEventHandler<Source = Self>>,
-    p: PhantomData<PD>,
+    event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
 }
 
-pub trait PresetManagerEventHandler: fmt::Debug {
+pub trait CompartmentPresetManagerEventHandler: fmt::Debug {
     type Source;
 
     fn presets_changed(&self, source: &Self::Source);
 }
 
-pub trait ExtendedPresetManager {
+pub trait CommonCompartmentPresetManager {
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()>;
-    fn preset_infos(&self) -> &[PresetInfo];
-    fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo>;
+    fn common_preset_infos(&self) -> Box<dyn Iterator<Item = &CommonPresetInfo> + '_>;
+    fn common_preset_info_by_id(&self, id: &str) -> Option<&CommonPresetInfo>;
     fn save_original_factory_preset_as_user_preset(
         &mut self,
         relative_file_path: &Path,
@@ -50,12 +59,17 @@ pub trait ExtendedPresetManager {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct PresetInfo {
+pub struct PresetInfo<S> {
+    pub common: CommonPresetInfo,
+    pub specific_meta_data: S,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct CommonPresetInfo {
     pub id: String,
-    pub realearn_version: Option<Version>,
-    pub name: String,
     pub file_type: PresetFileType,
     pub origin: PresetOrigin,
+    pub meta_data: CommonPresetMetaData,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, EnumIs)]
@@ -115,10 +129,31 @@ impl PresetFileType {
     }
 }
 
+#[derive(Deserialize)]
+struct CombinedPresetMetaData<S> {
+    #[serde(flatten)]
+    common: CommonPresetMetaData,
+    #[serde(flatten)]
+    specific: S,
+}
+
+/// Meta data that is common to both main and controller presets.
+///
+/// Preset meta data is everything that is loaded right at startup in order to be able to
+/// display a list of preset, do certain validations etc. It doesn't include the preset
+/// content which is necessary to actually use the preset (e.g. it doesn't include the mappings).
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
-pub struct PresetMetaData {
+pub struct CommonPresetMetaData {
+    /// Display name of the preset.
     pub name: String,
     // Since ReaLearn 1.12.0-pre18
+    /// The ReaLearn version for which this preset was built.
+    ///
+    /// This can effect the way the preset is loaded, e.g. it can lead to different interpretation
+    /// or migration of properties. So care should be taken to set this correctly!
+    ///
+    /// If `None`, it's assumed that it was built for a very old version that didn't have the
+    /// versioning concept yet.
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -128,13 +163,13 @@ pub struct PresetMetaData {
     pub realearn_version: Option<Version>,
 }
 
-impl PresetMetaData {
-    pub fn from_json(json: &str) -> anyhow::Result<Self> {
-        Ok(serde_json::from_str(json)?)
-    }
+pub trait SpecificPresetMetaData: fmt::Debug + for<'a> Deserialize<'a> {
+    fn from_lua_code(lua: &str) -> anyhow::Result<Self>;
+}
 
-    pub fn from_lua(lua: &str) -> anyhow::Result<Self> {
-        let mut md = PresetMetaData::default();
+impl CommonPresetMetaData {
+    pub fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
+        let mut md = CommonPresetMetaData::default();
         const PREFIX: &str = "--- ";
         for line in lua.lines() {
             let Some(meta_data_pair) = line.strip_prefix(PREFIX) else {
@@ -155,17 +190,65 @@ impl PresetMetaData {
     }
 }
 
-impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
+/// Meta data that is specific to controller presets.
+#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
+pub struct ControllerPresetMetaData {
+    #[serde(default)]
+    pub provided_schemes: HashSet<VirtualControlSchemeId>,
+}
+
+impl SpecificPresetMetaData for ControllerPresetMetaData {
+    fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
+        Ok(Self {
+            provided_schemes: Default::default(),
+        })
+    }
+}
+
+/// Meta data that is specific to main presets.
+#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
+pub struct MainPresetMetaData {
+    #[serde(default)]
+    pub used_schemes: HashSet<VirtualControlSchemeId>,
+}
+
+impl SpecificPresetMetaData for MainPresetMetaData {
+    fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
+        Ok(Self {
+            used_schemes: Default::default(),
+        })
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub struct VirtualControlSchemeId(String);
+
+impl<S: SpecificPresetMetaData> CombinedPresetMetaData<S> {
+    pub fn from_json(json: &str) -> anyhow::Result<Self> {
+        Ok(serde_json::from_str(json)?)
+    }
+
+    pub fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
+        let meta_data = Self {
+            common: CommonPresetMetaData::from_lua_code(lua)?,
+            specific: S::from_lua_code(lua)?,
+        };
+        Ok(meta_data)
+    }
+}
+
+impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
     pub fn new(
+        compartment: Compartment,
         preset_dir_path: PathBuf,
-        event_handler: Box<dyn PresetManagerEventHandler<Source = Self>>,
-    ) -> FileBasedPresetManager<P, PD> {
-        let mut manager = FileBasedPresetManager {
+        event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
+    ) -> FileBasedCompartmentPresetManager<S> {
+        let mut manager = FileBasedCompartmentPresetManager {
+            compartment,
             preset_dir_path,
             preset_infos: vec![],
             changed_subject: Default::default(),
             event_handler,
-            p: PhantomData,
         };
         let _ = manager.load_preset_infos_internal();
         manager
@@ -179,7 +262,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
 
     fn load_preset_infos_internal(&mut self) -> Result<(), String> {
         // Load factory preset infos
-        let compartment = P::compartment();
+        let compartment = self.compartment;
         let factory_preset_dir = get_factory_preset_dir(compartment);
         let mut all_preset_infos = vec![];
         walk_included_dir(factory_preset_dir, &mut |file| {
@@ -247,7 +330,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         absolute_file_path: PathBuf,
         relative_file_path: &Path,
         file_type: PresetFileType,
-    ) -> anyhow::Result<PresetInfo> {
+    ) -> anyhow::Result<PresetInfo<S>> {
         let origin = PresetOrigin::User {
             absolute_file_path: absolute_file_path.clone(),
         };
@@ -260,11 +343,11 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         load_preset_info(origin, relative_file_path, file_type, "", &file_content)
     }
 
-    pub fn add_preset(&mut self, preset: P) -> anyhow::Result<()> {
+    pub fn add_preset(&mut self, preset: CompartmentPresetModel) -> anyhow::Result<()> {
         let path = self.preset_dir_path.join(format!("{}.json", preset.id()));
         fs::create_dir_all(path.parent().context("impossible")?)
             .context("couldn't create preset directory")?;
-        let mut data = PD::from_model(&preset);
+        let mut data = CompartmentPresetData::from_model(&preset);
         // We don't want to have the ID in the file - because the file name itself is the ID
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).context("couldn't serialize preset")?;
@@ -273,7 +356,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         Ok(())
     }
 
-    pub fn update_preset(&mut self, preset: P) -> anyhow::Result<()> {
+    pub fn update_preset(&mut self, preset: CompartmentPresetModel) -> anyhow::Result<()> {
         self.add_preset(preset)
     }
 
@@ -293,20 +376,27 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         Reaper::get().show_console_msg(msg);
     }
 
+    pub fn preset_infos(&self) -> &[PresetInfo<S>] {
+        &self.preset_infos
+    }
+
     fn notify_presets_changed(&mut self) {
         self.event_handler.presets_changed(self);
         self.changed_subject.next(());
     }
 
-    fn load_full_preset(&self, preset_info: &PresetInfo) -> anyhow::Result<P> {
-        let file_content: Cow<str> = match &preset_info.origin {
+    fn load_full_preset(
+        &self,
+        preset_info: &PresetInfo<S>,
+    ) -> anyhow::Result<CompartmentPresetModel> {
+        let file_content: Cow<str> = match &preset_info.common.origin {
             PresetOrigin::User {
                 absolute_file_path: absolute_path,
             } => fs::read_to_string(absolute_path)
                 .map_err(|_| {
                     anyhow!(
                         "Couldn't read preset file \"{}\" anymore.",
-                        &preset_info.origin
+                        &preset_info.common.origin
                     )
                 })?
                 .into(),
@@ -315,23 +405,24 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 relative_file_path,
             } => get_factory_preset_content(*compartment, relative_file_path)?.into(),
         };
-        match preset_info.file_type {
+        match preset_info.common.file_type {
             PresetFileType::Json => {
-                let data: PD = serde_json::from_str(&file_content).map_err(|e| {
-                    anyhow!(
-                        "Preset file {} isn't valid anymore. Details:\n\n{}",
-                        &preset_info.origin,
-                        e
-                    )
-                })?;
-                data.to_model(preset_info.id.clone())
+                let data: CompartmentPresetData =
+                    serde_json::from_str(&file_content).map_err(|e| {
+                        anyhow!(
+                            "Preset file {} isn't valid anymore. Details:\n\n{}",
+                            &preset_info.common.origin,
+                            e
+                        )
+                    })?;
+                data.to_model(preset_info.common.id.clone(), self.compartment)
             }
             PresetFileType::Lua => {
                 let lua = SafeLua::new()?;
                 let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
                 let env = lua.create_fresh_environment(true)?;
                 let value = lua.compile_and_execute(
-                    preset_info.origin.to_string().as_ref(),
+                    preset_info.common.origin.to_string().as_ref(),
                     &file_content,
                     env,
                 )?;
@@ -339,13 +430,14 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(api_compartment)?;
                 let compartment_model = compartment_data.to_model(
-                    preset_info.realearn_version.as_ref(),
-                    P::compartment(),
+                    preset_info.common.meta_data.realearn_version.as_ref(),
+                    self.compartment,
                     None,
                 )?;
-                let preset_model = P::from_parts(
-                    preset_info.id.to_string(),
-                    preset_info.name.to_string(),
+                let preset_model = CompartmentPresetModel::new(
+                    preset_info.common.id.to_string(),
+                    preset_info.common.meta_data.name.to_string(),
+                    self.compartment,
                     compartment_model,
                 );
                 Ok(preset_model)
@@ -366,16 +458,18 @@ fn get_factory_preset_content(
         .context("Factory preset not UTF-8 anymore!?")
 }
 
-impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
+impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
+    for FileBasedCompartmentPresetManager<M>
+{
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()> {
         let preset_info = self
             .preset_infos
             .iter()
-            .find(|info| info.id == id)
+            .find(|info| info.common.id == id)
             .context("preset to be removed not found")?;
         let PresetOrigin::User {
             absolute_file_path: absolute_path,
-        } = &preset_info.origin
+        } = &preset_info.common.origin
         else {
             bail!("can't delete factory presets");
         };
@@ -384,12 +478,15 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
         Ok(())
     }
 
-    fn preset_infos(&self) -> &[PresetInfo] {
-        &self.preset_infos
+    fn common_preset_infos(&self) -> Box<dyn Iterator<Item = &CommonPresetInfo> + '_> {
+        Box::new(self.preset_infos.iter().map(|info| &info.common))
     }
 
-    fn preset_info_by_id(&self, id: &str) -> Option<&PresetInfo> {
-        self.preset_infos.iter().find(|info| &info.id == id)
+    fn common_preset_info_by_id(&self, id: &str) -> Option<&CommonPresetInfo> {
+        self.preset_infos
+            .iter()
+            .find(|info| &info.common.id == id)
+            .map(|info| &info.common)
     }
 
     fn save_original_factory_preset_as_user_preset(
@@ -398,7 +495,7 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
     ) -> anyhow::Result<String> {
         let relative_user_file_path = PathBuf::from(whoami::username()).join(relative_file_path);
         let dest_file_path = self.preset_dir_path.join(&relative_user_file_path);
-        let preset_content = get_factory_preset_content(P::compartment(), relative_file_path)?;
+        let preset_content = get_factory_preset_content(self.compartment, relative_file_path)?;
         fs::create_dir_all(dest_file_path.parent().context("impossible")?)?;
         fs::write(&dest_file_path, preset_content)?;
         let _ = self.load_preset_infos();
@@ -410,11 +507,9 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
     }
 }
 
-impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<P, PD> {
-    type PresetType = P;
-
-    fn find_by_id(&self, id: &str) -> Option<P> {
-        let preset_info = self.preset_infos.iter().find(|info| info.id == id)?;
+impl<M: SpecificPresetMetaData> CompartmentPresetManager for FileBasedCompartmentPresetManager<M> {
+    fn find_by_id(&self, id: &str) -> Option<CompartmentPresetModel> {
+        let preset_info = self.preset_infos.iter().find(|info| info.common.id == id)?;
         match self.load_full_preset(preset_info) {
             Ok(p) => Some(p),
             Err(e) => {
@@ -425,16 +520,10 @@ impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPreset
     }
 }
 
-pub trait PresetData: Sized + Serialize + DeserializeOwned + fmt::Debug {
-    type P: Preset;
-
-    fn from_model(preset: &Self::P) -> Self;
-
-    fn to_model(&self, id: String) -> anyhow::Result<Self::P>;
-
-    fn clear_id(&mut self);
-
-    fn version(&self) -> Option<&Version>;
+impl<T: CompartmentPresetManager> CompartmentPresetManager for Rc<RefCell<T>> {
+    fn find_by_id(&self, id: &str) -> Option<CompartmentPresetModel> {
+        self.borrow().find_by_id(id)
+    }
 }
 
 static FACTORY_CONTROLLER_PRESETS_DIR: Dir<'_> =
@@ -459,41 +548,39 @@ fn walk_included_dir(
     }
 }
 
-fn load_preset_info(
+fn load_preset_info<M: SpecificPresetMetaData>(
     origin: PresetOrigin,
     relative_file_path: &Path,
     file_type: PresetFileType,
     id_prefix: &str,
     file_content: &str,
-) -> anyhow::Result<PresetInfo> {
+) -> anyhow::Result<PresetInfo<M>> {
     let id = build_id(relative_file_path, id_prefix, &origin)?;
     let preset_meta_data_result = match file_type {
-        PresetFileType::Json => PresetMetaData::from_json(&file_content),
-        PresetFileType::Lua => PresetMetaData::from_lua(&file_content),
+        PresetFileType::Json => CombinedPresetMetaData::from_json(&file_content),
+        PresetFileType::Lua => CombinedPresetMetaData::from_lua_code(&file_content),
     };
     let preset_meta_data = preset_meta_data_result.map_err(|e| {
         anyhow!("Couldn't read preset meta data from \"{origin}\". Details:\n\n{e}",)
     })?;
-    if let Some(v) = preset_meta_data.realearn_version.as_ref() {
+    if let Some(v) = preset_meta_data.common.realearn_version.as_ref() {
         if BackboneShell::version() < v {
             bail!(
                 "Skipped loading of preset \"{origin}\" because it has been created with \
                          ReaLearn {v}, which is newer than the installed version {}. \
-                         Please update your ReaLearn version. If this is not an option for you and \
-                         it's a factory preset installed from ReaPack, go back to an older version \
-                         of that preset and pin it so that future ReaPack synchronization won't \
-                         automatically update that preset. Alternatively, make your own copy of \
-                         the preset and uninstall the factory preset.",
+                         Please update your ReaLearn version.",
                 BackboneShell::version()
             );
         }
     }
     let preset_info = PresetInfo {
-        id,
-        realearn_version: preset_meta_data.realearn_version,
-        name: preset_meta_data.name,
-        file_type,
-        origin,
+        common: CommonPresetInfo {
+            id,
+            file_type,
+            origin,
+            meta_data: preset_meta_data.common,
+        },
+        specific_meta_data: preset_meta_data.specific,
     };
     Ok(preset_info)
 }

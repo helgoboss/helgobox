@@ -1,10 +1,10 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
 use crate::application::{
-    ControllerPreset, Preset, PresetManager, SourceCategory, TargetCategory, UnitModel,
+    CompartmentPresetManager, CompartmentPresetModel, SourceCategory, TargetCategory, UnitModel,
 };
 use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
-use crate::infrastructure::data::{ControllerPresetData, PresetData};
+use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
 use helgoboss_learn::UnitValue;
 use maplit::hashmap;
@@ -112,7 +112,7 @@ pub fn get_controller_routing_by_session_id(
     Ok(routing)
 }
 
-pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPresetData, DataError> {
+pub fn get_controller_preset_data(session_id: String) -> Result<CompartmentPresetData, DataError> {
     let session = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
@@ -191,7 +191,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     let mut controller_preset = controller_manager
         .find_by_id(&controller_id)
         .ok_or(DataError::ControllerNotFound)?;
-    controller_preset.update_custom_data(custom_data_key.to_string(), req.value.clone());
+    controller_preset.patch_custom_data(custom_data_key.to_string(), req.value.clone());
     controller_manager
         .update_preset(controller_preset)
         .map_err(|_| DataError::ControllerUpdateFailed)?;
@@ -270,7 +270,7 @@ pub fn send_initial_feedback(session_id: &str) {
 pub fn get_active_controller_updated_event(
     session_id: &str,
     session: Option<&UnitModel>,
-) -> Event<Option<ControllerPresetData>> {
+) -> Event<Option<CompartmentPresetData>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller"),
         session.and_then(get_controller),
@@ -345,13 +345,13 @@ enum EventType {
     Patch,
 }
 
-fn get_controller(session: &UnitModel) -> Option<ControllerPresetData> {
+fn get_controller(session: &UnitModel) -> Option<CompartmentPresetData> {
     get_controller_preset_data_internal(session).ok()
 }
 
 fn get_controller_preset_data_internal(
     session: &UnitModel,
-) -> Result<ControllerPresetData, DataError> {
+) -> Result<CompartmentPresetData, DataError> {
     let data = session.extract_compartment_model(Compartment::Controller);
     if data.mappings.is_empty() {
         return Err(DataError::SessionHasNoActiveController);
@@ -365,10 +365,11 @@ fn get_controller_preset_data_internal(
                 .find_by_id(id)
         })
         .map(|preset| preset.name().to_string());
-    let preset = ControllerPreset::new(
+    let preset = CompartmentPresetModel::new(
         id.map(|id| id.to_string()).unwrap_or_default(),
         name.unwrap_or_else(|| "<Not saved>".to_string()),
+        Compartment::Controller,
         data,
     );
-    Ok(ControllerPresetData::from_model(&preset))
+    Ok(CompartmentPresetData::from_model(&preset))
 }

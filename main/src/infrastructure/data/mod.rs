@@ -37,11 +37,8 @@ pub use enabled_data::*;
 mod preset;
 pub use preset::*;
 
-mod controller_preset;
-pub use controller_preset::*;
-
-mod main_preset;
-pub use main_preset::*;
+mod compartment_preset_data;
+pub use compartment_preset_data::*;
 
 mod preset_link;
 pub use preset_link::*;
