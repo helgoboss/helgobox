@@ -235,7 +235,10 @@ impl UnitModel {
             .map(|au| au.control_input())
             .unwrap_or_default();
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
-        let initial_preset_id = auto_unit.as_ref().map(|u| u.preset_id.clone());
+        let initial_controller_preset_id = auto_unit
+            .as_ref()
+            .and_then(|u| u.controller_preset_id.clone());
+        let initial_main_preset_id = auto_unit.as_ref().map(|u| u.main_preset_id.clone());
         let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
             unit_id: instance_id,
@@ -303,7 +306,10 @@ impl UnitModel {
             memorized_main_compartment: None,
             auto_unit,
         };
-        if let Some(id) = initial_preset_id {
+        if let Some(id) = initial_controller_preset_id {
+            model.activate_controller_preset(Some(id));
+        }
+        if let Some(id) = initial_main_preset_id {
             model.activate_main_preset(Some(id));
         }
         model
@@ -316,22 +322,25 @@ impl UnitModel {
     /// # Preconditions
     ///
     /// This unit model must have an auto unit whose ID matches the given one.
-    pub fn update_auto_unit(&mut self, new_data: AutoUnitData) {
+    pub fn update_auto_unit(&mut self, new_unit: AutoUnitData) {
         // Check preconditions
-        let old_data = self.auto_unit.as_ref().expect("auto unit must be set");
-        assert_eq!(old_data.extract_id(), new_data.extract_id());
+        let old_auto_unit = self.auto_unit.take().expect("auto unit must be set");
+        assert_eq!(old_auto_unit.controller_id, new_unit.controller_id);
         // Update actual properties of unit
-        if new_data.controller.input != old_data.controller.input {
-            self.control_input.set(new_data.control_input());
+        if new_unit.input != old_auto_unit.input {
+            self.control_input.set(new_unit.control_input());
         }
-        if new_data.controller.output != old_data.controller.output {
-            self.feedback_output.set(new_data.feedback_output());
+        if new_unit.output != old_auto_unit.output {
+            self.feedback_output.set(new_unit.feedback_output());
         }
-        if &new_data.preset_id != &old_data.preset_id {
-            self.activate_main_preset(Some(new_data.preset_id.clone()))
+        if &new_unit.controller_preset_id != &old_auto_unit.controller_preset_id {
+            self.activate_controller_preset(new_unit.controller_preset_id.clone())
+        }
+        if &new_unit.main_preset_id != &old_auto_unit.main_preset_id {
+            self.activate_main_preset(Some(new_unit.main_preset_id.clone()))
         }
         // Update unit data itself
-        self.auto_unit.replace(new_data);
+        self.auto_unit.replace(new_unit);
     }
 
     pub fn set_ui(&mut self, ui: impl SessionUi + 'static) {

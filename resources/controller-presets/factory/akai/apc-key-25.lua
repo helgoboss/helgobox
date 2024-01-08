@@ -1,3 +1,6 @@
+--- name: APC Key 25
+--- realearn_version: 2.16.0-pre.8
+
 -- Configuration
 local resolve_shift = false
 
@@ -1673,12 +1676,9 @@ local companion_data = {
 }
 
 return {
-    kind = "ControllerCompartment",
-    value = {
-        parameters = parameters,
-        mappings = mappings,
-        custom_data = {
-            companion = companion_data,
-        },
+    parameters = parameters,
+    mappings = mappings,
+    custom_data = {
+        companion = companion_data,
     },
 }

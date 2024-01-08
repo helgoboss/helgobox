@@ -1,4 +1,3 @@
-use enumset::EnumSetType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -12,7 +11,7 @@ pub struct ControllerConfig {
 pub struct Controller {
     /// ID of the controller.
     ///
-    /// Should be unique on a particular machine and ideally globally unique (in potential
+    /// Should be unique on a particular machine and ideally globally unique (good for potential
     /// merging scenarios).
     pub id: String,
     /// Descriptive name of the controller.
@@ -22,63 +21,19 @@ pub struct Controller {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connection: Option<ControllerConnection>,
-    /// Controller preset to load whenever an auto unit with this controller is created.
+    /// Default controller preset to load whenever an auto unit with this controller is created.
     ///
-    /// This might be overridden if the controller role main preset uses a virtual control
-    /// scheme that is not provided by this controller preset.
-    ///
-    /// The controller preset is especially important if one of the controller role main
-    /// presets is a **reusable main preset**. In that case, a controller preset should be chosen
-    /// that supports at least one of the virtual control schemes supported by the main preset,
-    /// otherwise the main preset will not have any effect at all!
+    /// ReaLearn has mechanisms to automatically identify and load a suitable controller preset
+    /// depending on which main preset is loaded. If it has to choose between multiple
+    /// candidates and no default controller preset is set, it will prefer a factory controller
+    /// preset. If a default controller preset is set and it satisfies the needs of the main preset,
+    /// it will use this one instead. It will also use the default controller preset if it can't
+    /// automatically identify the correct one.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub controller_preset: Option<PresetId>,
-    #[serde(default)]
-    pub roles: ControllerRoles,
-}
-
-/// Configuration of different roles that a controller can automatically exercise when
-/// triggered by the user.
-///
-/// The concrete trigger such as "Use this controller for DAW control now" is separate from
-/// this configuration. Without a trigger, ReaLearn won't do anything.
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct ControllerRoles {
-    /// Configuration of the "DAW control" role.
-    pub daw: Option<ControllerRole>,
-    /// Configuration of the "Clip control" role.
-    pub clip: Option<ControllerRole>,
-}
-
-/// Popular roles a controller can take.
-///
-/// This sounds like it's similar to *virtual control schemes* but it's clearly different.
-/// A virtual control scheme (e.g. DAW, grid or numbered) is about declaring the capabilities of a
-/// controller whereas the controller role kind is about a specific employment/usage of a
-/// controller ... so it's about mappings in the main compartment!
-///
-/// The two concepts are orthogonal to each other. Example: The virtual control scheme "grid"
-/// suites itself very much to the role "clip control", but it doesn't have to! A "grid" controller
-/// can also be used for "DAW" control! Likewise, the virtual control scheme "DAW" suites itself
-/// very much to the role "DAW control", but a "DAW" controller can also be used for "clip control".
-#[derive(Hash, Debug, Serialize, Deserialize, EnumSetType)]
-pub enum ControllerRoleKind {
-    /// DAW control.
-    Daw,
-    /// Clip control.
-    Clip,
-}
-
-/// Particular configuration of a controller role.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct ControllerRole {
-    /// The main preset to load for a controller if used in that role.
-    ///
-    /// It's possible to override the default controller preset defined in the controller, but this
-    /// is not something the user does manually. The main preset itself can declare that it depends
-    /// on a specific controller preset, in which case that one is used instead of the default
-    /// controller preset.
-    pub main_preset: Option<PresetId>,
+    pub default_controller_preset: Option<CompartmentPresetId>,
+    /// Default main preset to load whenever an auto unit with this controller is created.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_main_preset: Option<CompartmentPresetId>,
 }
 
 /// The way a controller is connected to ReaLearn.
@@ -145,9 +100,9 @@ impl OscDeviceId {
 
 /// ID of a controller or main preset (which one depends on the context).
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct PresetId(String);
+pub struct CompartmentPresetId(String);
 
-impl PresetId {
+impl CompartmentPresetId {
     pub fn get(&self) -> &str {
         &self.0
     }

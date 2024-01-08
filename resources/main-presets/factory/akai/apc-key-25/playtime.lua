@@ -1,4 +1,4 @@
---- name: APC Key 25
+--- name: APC Key 25 - Playtime
 --- realearn_version: 2.16.0-pre.8
 
 -- Configuration
@@ -551,7 +551,7 @@ function scroll(param_index, amount)
             },
         },
         target = {
-            kind = "FxParameterValue",
+            kind = "CompartmentParameterValue",
             parameter = {
                 address = "ById",
                 index = param_index,
@@ -563,7 +563,7 @@ end
 function set_param(index)
     return PartialMapping {
         target = {
-            kind = "FxParameterValue",
+            kind = "CompartmentParameterValue",
             parameter = {
                 address = "ById",
                 index = index,
@@ -593,7 +593,7 @@ function set_mode(mode, mode_count, mode_param_index)
             out_of_range_behavior = "Min",
         },
         target = {
-            kind = "FxParameterValue",
+            kind = "CompartmentParameterValue",
             parameter = {
                 address = "ById",
                 index = mode_param_index,

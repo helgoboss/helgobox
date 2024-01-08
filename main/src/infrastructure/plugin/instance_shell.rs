@@ -13,10 +13,9 @@ use base::{
     blocking_read_lock, blocking_write_lock, non_blocking_lock, non_blocking_try_read_lock,
     tracing_debug,
 };
-use enumset::EnumSet;
 use fragile::Fragile;
 use playtime_clip_engine::base::Matrix;
-use realearn_api::persistence::{ControllerRoleKind, InstanceSettings};
+use realearn_api::persistence::InstanceSettings;
 use reaper_high::Project;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -234,18 +233,18 @@ impl InstanceShell {
         self.notify_units_changed();
         id
     }
-
-    pub fn set_auto_loaded_controller_roles(
-        &self,
-        roles: EnumSet<ControllerRoleKind>,
-    ) -> anyhow::Result<()> {
-        self.settings
-            .get()
-            .borrow_mut()
-            .auto_loaded_controller_roles = roles.iter().collect();
-        let auto_units = BackboneShell::get().determine_auto_units();
-        self.apply_auto_units(&auto_units)
-    }
+    //
+    // pub fn set_auto_loaded_controller_roles(
+    //     &self,
+    //     roles: EnumSet<ControllerRoleKind>,
+    // ) -> anyhow::Result<()> {
+    //     self.settings
+    //         .get()
+    //         .borrow_mut()
+    //         .auto_loaded_controller_roles = roles.iter().collect();
+    //     let auto_units = BackboneShell::get().determine_auto_units();
+    //     self.apply_auto_units(&auto_units)
+    // }
 
     fn create_additional_unit_shell(&self, auto_unit: Option<AutoUnitData>) -> UnitShell {
         UnitShell::new(
@@ -285,10 +284,16 @@ impl InstanceShell {
     }
 
     pub fn apply_auto_units(&self, required_auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
+        if !self.settings.get().borrow().control.global_control_enabled {
+            // Global control is not enabled. Remove auto units if some exist.
+            blocking_write_lock(&self.additional_unit_shells, "apply_auto_units")
+                .retain(|u| u.model().borrow().auto_unit().is_none());
+            return Ok(());
+        }
         {
             let mut required_auto_units: HashMap<_, _> = required_auto_units
                 .iter()
-                .map(|au| (au.extract_id(), au))
+                .map(|au| (&au.controller_id, au))
                 .collect();
             let mut additional_unit_shells =
                 blocking_write_lock(&self.additional_unit_shells, "apply_auto_units");
@@ -297,26 +302,14 @@ impl InstanceShell {
                 let mut unit_model = unit_shell.model().borrow_mut();
                 if let Some(existing_auto_unit) = unit_model.auto_unit() {
                     // This is an existing auto unit
-                    if self
-                        .settings
-                        .get()
-                        .borrow()
-                        .auto_loaded_controller_roles
-                        .contains(&existing_auto_unit.role_kind)
+                    if let Some(matching_auto_unit) =
+                        required_auto_units.remove(&existing_auto_unit.controller_id)
                     {
-                        // This kind of auto unit is still desirable in terms of the role kind.
-                        if let Some(matching_auto_unit) =
-                            required_auto_units.remove(&existing_auto_unit.extract_id())
-                        {
-                            // The existing auto unit must be updated
-                            unit_model.update_auto_unit(matching_auto_unit.clone());
-                            true
-                        } else {
-                            // The existing auto unit is obsolete
-                            false
-                        }
+                        // The existing auto unit must be updated
+                        unit_model.update_auto_unit(matching_auto_unit.clone());
+                        true
                     } else {
-                        // This kind of auto unit is not desirable anymore in terms of role kind.
+                        // The existing auto unit is obsolete
                         false
                     }
                 } else {
@@ -326,17 +319,9 @@ impl InstanceShell {
             });
             // All required auto units that are still left must be added
             for auto_unit in required_auto_units.into_values() {
-                if self
-                    .settings
-                    .get()
-                    .borrow()
-                    .auto_loaded_controller_roles
-                    .contains(&auto_unit.role_kind)
-                {
-                    tracing_debug!("Creating auto-unit shell");
-                    let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
-                    additional_unit_shells.push(unit_shell);
-                }
+                tracing_debug!("Creating auto-unit shell");
+                let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
+                additional_unit_shells.push(unit_shell);
             }
         }
         self.notify_units_changed();

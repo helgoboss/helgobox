@@ -1,7 +1,7 @@
 use crate::domain::{
     ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, OscDeviceId,
 };
-use realearn_api::persistence::{Controller, ControllerConnection, ControllerRoleKind, PresetId};
+use realearn_api::persistence::{Controller, ControllerConnection};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::str::FromStr;
@@ -9,78 +9,24 @@ use std::str::FromStr;
 pub fn determine_auto_units(controllers: &[Controller]) -> Vec<AutoUnitData> {
     controllers
         .iter()
-        .filter_map(|controller| {
-            let auto_data = AutoControllerData::from_controller(&controller)?;
-            Some((controller, auto_data))
-        })
-        .flat_map(|(controller, auto_data)| {
-            // Translate roles into auto units
-            [
-                (ControllerRoleKind::Daw, &controller.roles.daw),
-                (ControllerRoleKind::Clip, &controller.roles.clip),
-            ]
-            .into_iter()
-            .filter_map(move |(role_kind, role)| {
-                let role = role.as_ref()?;
-                let preset_id = role.main_preset.as_ref().map(|id| id.get().to_string())?;
-                let u = AutoUnitData {
-                    controller: auto_data.clone(),
-                    role_kind,
-                    preset_id,
-                };
-                Some(u)
-            })
-        })
+        .filter_map(AutoUnitData::from_controller)
         .collect()
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct AutoUnitData {
-    pub controller: AutoControllerData,
-    pub role_kind: ControllerRoleKind,
-    pub preset_id: String,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct AutoUnitId {
     pub controller_id: String,
-    pub role_kind: ControllerRoleKind,
+    pub input: Option<DeviceControlInput>,
+    pub output: Option<DeviceFeedbackOutput>,
+    pub controller_preset_id: Option<String>,
+    pub main_preset_id: String,
 }
 
 impl AutoUnitData {
-    pub fn extract_id(&self) -> AutoUnitId {
-        AutoUnitId {
-            controller_id: self.controller.controller_id.clone(),
-            role_kind: self.role_kind,
-        }
-    }
-
-    pub fn control_input(&self) -> ControlInput {
-        self.controller
-            .input
-            .map(ControlInput::from_device_input)
-            .unwrap_or_default()
-    }
-
-    pub fn feedback_output(&self) -> Option<FeedbackOutput> {
-        self.controller
-            .output
-            .map(FeedbackOutput::from_device_output)
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct AutoControllerData {
-    pub controller_id: String,
-    pub controller_preset: Option<PresetId>,
-    pub input: Option<DeviceControlInput>,
-    pub output: Option<DeviceFeedbackOutput>,
-}
-
-impl AutoControllerData {
-    pub fn from_controller(controller: &Controller) -> Option<AutoControllerData> {
-        // Ignore if no connection info
+    pub fn from_controller(controller: &Controller) -> Option<Self> {
+        // Ignore if no connection info or no main preset
         let connection = controller.connection.as_ref()?;
+        let main_preset = controller.default_main_preset.as_ref()?;
         // Translate connection info
         let (input, output) = match connection {
             ControllerConnection::Midi(c) => {
@@ -126,11 +72,25 @@ impl AutoControllerData {
         // Build data
         let data = Self {
             controller_id: controller.id.clone(),
-            controller_preset: controller.controller_preset.clone(),
+            controller_preset_id: controller
+                .default_controller_preset
+                .as_ref()
+                .map(|id| id.get().to_string()),
             input,
             output,
+            main_preset_id: main_preset.get().to_string(),
         };
         Some(data)
+    }
+
+    pub fn control_input(&self) -> ControlInput {
+        self.input
+            .map(ControlInput::from_device_input)
+            .unwrap_or_default()
+    }
+
+    pub fn feedback_output(&self) -> Option<FeedbackOutput> {
+        self.output.map(FeedbackOutput::from_device_output)
     }
 }
 
