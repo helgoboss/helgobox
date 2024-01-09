@@ -1,13 +1,17 @@
 //! We have a raw MIDI pattern in helgoboss-learn already (raw MIDI source), however this is more
 //! complicated than this one as it also allows single bits to be variable.
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct BytePattern<const N: usize> {
-    bytes: [PatternByte; N],
+use logos::{Lexer, Logos};
+use std::num::ParseIntError;
+use std::str::FromStr;
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct BytePattern {
+    bytes: Vec<PatternByte>,
 }
 
-impl<const N: usize> BytePattern<N> {
-    pub const fn new(bytes: [PatternByte; N]) -> Self {
+impl BytePattern {
+    pub const fn new(bytes: Vec<PatternByte>) -> Self {
         Self { bytes }
     }
 
@@ -48,24 +52,54 @@ impl<const N: usize> BytePattern<N> {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Logos)]
+#[logos(skip r"[ \t\n\f]+")]
+#[logos(error = ParseBytePatternError)]
 pub enum PatternByte {
+    #[regex(r"[0-9a-fA-F][0-9a-fA-F]?", parse_as_byte)]
     Fixed(u8),
+    #[token("?")]
     Single,
+    #[token("*")]
     Multi,
+}
+
+#[derive(Clone, PartialEq, Debug, Default, thiserror::Error)]
+#[error("{msg}")]
+pub struct ParseBytePatternError {
+    msg: &'static str,
+}
+
+impl From<ParseIntError> for ParseBytePatternError {
+    fn from(_: ParseIntError) -> Self {
+        Self {
+            msg: "problem parsing fixed byte",
+        }
+    }
+}
+
+fn parse_as_byte(lex: &mut Lexer<PatternByte>) -> Result<u8, ParseIntError> {
+    u8::from_str_radix(lex.slice(), 16)
+}
+
+impl FromStr for BytePattern {
+    type Err = ParseBytePatternError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lex: Lexer<PatternByte> = PatternByte::lexer(s);
+        let entries: Result<Vec<_>, _> = lex.collect();
+        Ok(BytePattern::new(entries?))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Fixed as F;
-    use PatternByte::*;
 
     #[test]
     fn basics() {
         // Given
-        let pattern =
-            BytePattern::new([F(0xF0), F(0x7E), Single, F(0x06), F(0x02), Multi, F(0xF7)]);
+        let pattern: BytePattern = "F0 7E ? 06 02 * F7".parse().unwrap();
         // When
         assert!(!pattern.matches(&[]));
         assert!(!pattern.matches(&[0xF0]));

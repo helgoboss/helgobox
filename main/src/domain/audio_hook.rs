@@ -1,8 +1,9 @@
 use crate::domain::{
-    classify_midi_message, AudioBlockProps, BytePattern, ControlEvent, ControlEventTimestamp,
+    classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
     IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, PatternByte, RealTimeProcessor, SharedRealTimeInstance, UnitId,
+    MidiScanResult, MidiScanner, RealTimeProcessor, SharedRealTimeInstance, UnitId,
 };
+use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::record_duration;
 use base::{non_blocking_lock, tracing_debug};
 use helgoboss_allocator::*;
@@ -13,7 +14,7 @@ use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tinyvec::ArrayVec;
 
@@ -553,8 +554,10 @@ impl MidiDeviceInquiryTask {
             for evt in mi.get_read_buf() {
                 let msg = evt.message();
                 if msg.r#type() == ShortMessageType::SystemExclusiveStart {
-                    let is_identity_reply =
-                        MIDI_DEVICE_INQUIRY_REPLY_PATTERN.matches(msg.as_slice());
+                    let reply_pattern = MIDI_DEVICE_INQUIRY_REPLY_PATTERN;
+                    let reply_pattern =
+                        reply_pattern.get_or_init(create_device_inquiry_reply_pattern);
+                    let is_identity_reply = reply_pattern.matches(msg.as_slice());
                     let Ok(message) = ArrayVec::try_from(msg.as_slice()) else {
                         // Couldn't store the reply in the array. Shouldn't happen here because
                         // we set the ArrayVec's capacity to the max size of the raw event.
@@ -578,8 +581,19 @@ impl MidiDeviceInquiryTask {
 }
 
 const MIDI_DEVICE_INQUIRY_REQUEST: &[u8] = &[0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
-const MIDI_DEVICE_INQUIRY_REPLY_PATTERN: BytePattern<7> = {
+
+const MIDI_DEVICE_INQUIRY_REPLY_PATTERN: OnceLock<BytePattern> = OnceLock::new();
+
+fn create_device_inquiry_reply_pattern() -> BytePattern {
     use Fixed as F;
     use PatternByte::*;
-    BytePattern::new([F(0xF0), F(0x7E), Single, F(0x06), F(0x02), Multi, F(0xF7)])
-};
+    BytePattern::new(vec![
+        F(0xF0),
+        F(0x7E),
+        Single,
+        F(0x06),
+        F(0x02),
+        Multi,
+        F(0xF7),
+    ])
+}
