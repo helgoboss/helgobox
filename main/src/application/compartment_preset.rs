@@ -1,4 +1,4 @@
-use crate::application::{CompartmentModel, SharedMapping};
+use crate::application::CompartmentModel;
 use crate::domain::Compartment;
 use std::fmt;
 
@@ -58,10 +58,4 @@ impl fmt::Display for CompartmentPresetModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
     }
-}
-
-pub trait MainPresetManager: fmt::Debug {
-    fn find_by_id(&self, id: &str) -> Option<CompartmentPresetModel>;
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool;
 }

@@ -8,7 +8,8 @@ mod helgobox_plugin;
 mod instance_parameter_container;
 mod instance_shell;
 pub use instance_shell::*;
-
+mod auto_units;
+pub use auto_units::*;
 mod unit_shell;
 
 pub use instance_parameter_container::*;

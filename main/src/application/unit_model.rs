@@ -237,7 +237,8 @@ impl UnitModel {
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
         let initial_controller_preset_id = auto_unit
             .as_ref()
-            .and_then(|u| u.controller_preset_id.clone());
+            .and_then(|u| u.controller_preset_usage.as_ref())
+            .map(|u| u.controller_preset_id.clone());
         let initial_main_preset_id = auto_unit.as_ref().map(|u| u.main_preset_id.clone());
         let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
@@ -333,8 +334,12 @@ impl UnitModel {
         if new_unit.output != old_auto_unit.output {
             self.feedback_output.set(new_unit.feedback_output());
         }
-        if &new_unit.controller_preset_id != &old_auto_unit.controller_preset_id {
-            self.activate_controller_preset(new_unit.controller_preset_id.clone())
+        if &new_unit.controller_preset_usage != &old_auto_unit.controller_preset_usage {
+            let controller_preset_id = new_unit
+                .controller_preset_usage
+                .as_ref()
+                .map(|usage| usage.controller_preset_id.clone());
+            self.activate_controller_preset(controller_preset_id)
         }
         if &new_unit.main_preset_id != &old_auto_unit.main_preset_id {
             self.activate_main_preset(Some(new_unit.main_preset_id.clone()))

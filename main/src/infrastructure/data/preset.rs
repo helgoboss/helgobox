@@ -294,6 +294,10 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         Reaper::get().show_console_msg(msg);
     }
 
+    pub fn find_preset_info_by_id(&self, id: &str) -> Option<&PresetInfo<S>> {
+        self.preset_infos.iter().find(|info| &info.common.id == id)
+    }
+
     pub fn preset_infos(&self) -> &[PresetInfo<S>] {
         &self.preset_infos
     }

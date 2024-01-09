@@ -1,6 +1,6 @@
 use crate::application::{
-    determine_auto_units, AutoUnitData, RealearnControlSurfaceMainTaskSender, SessionCommand,
-    SharedMapping, SharedUnitModel, UnitModel, VirtualControlElementType, WeakUnitModel,
+    RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping, SharedUnitModel,
+    UnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -41,7 +41,9 @@ use crate::base::notification::notify_user_on_anyhow_error;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
-use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell, WeakInstanceShell};
+use crate::infrastructure::plugin::{
+    determine_auto_units, InstanceShell, SharedInstanceShell, WeakInstanceShell,
+};
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -482,7 +484,7 @@ impl BackboneShell {
 
     /// To be called whenever some event might lead to addition/removal of auto units.
     fn update_auto_units(&self) {
-        let auto_units = self.determine_auto_units();
+        let auto_units = determine_auto_units();
         let instance_infos = self.instance_infos.borrow();
         for instance_shell in instance_infos
             .iter()
@@ -490,12 +492,6 @@ impl BackboneShell {
         {
             notify_user_on_anyhow_error(instance_shell.apply_auto_units(&auto_units));
         }
-    }
-
-    pub fn determine_auto_units(&self) -> Vec<AutoUnitData> {
-        let controller_manager = self.controller_manager.borrow();
-        let controllers = &controller_manager.controller_config().controllers;
-        determine_auto_units(controllers)
     }
 
     fn reconnect_osc_devices(&self) {

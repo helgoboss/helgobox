@@ -5,7 +5,7 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{determine_auto_units, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
@@ -158,8 +158,7 @@ impl InstanceShell {
 
     pub fn set_settings(&self, settings: InstanceSettings) -> anyhow::Result<()> {
         *self.settings.get().borrow_mut() = settings;
-        let auto_units = BackboneShell::get().determine_auto_units();
-        self.apply_auto_units(&auto_units)?;
+        self.apply_auto_units(&determine_auto_units())?;
         BackboneShell::get()
             .proto_hub()
             .notify_instance_settings_changed(self);
@@ -288,6 +287,7 @@ impl InstanceShell {
             // Global control is not enabled. Remove auto units if some exist.
             blocking_write_lock(&self.additional_unit_shells, "apply_auto_units")
                 .retain(|u| u.model().borrow().auto_unit().is_none());
+            self.notify_units_changed();
             return Ok(());
         }
         {
@@ -319,7 +319,7 @@ impl InstanceShell {
             });
             // All required auto units that are still left must be added
             for auto_unit in required_auto_units.into_values() {
-                tracing_debug!("Creating auto-unit shell");
+                tracing_debug!(msg = "Creating auto-unit shell", ?auto_unit);
                 let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
                 additional_unit_shells.push(unit_shell);
             }
@@ -442,8 +442,7 @@ impl InstanceShell {
         *blocking_write_lock(&self.additional_unit_shells, "InstanceShell apply_data") =
             additional_unit_shells?;
         // Apply auto units
-        let auto_units = BackboneShell::get().determine_auto_units();
-        self.apply_auto_units(&auto_units)?;
+        self.apply_auto_units(&determine_auto_units())?;
         Ok(())
     }
 
