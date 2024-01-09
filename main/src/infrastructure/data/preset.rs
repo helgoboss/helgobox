@@ -2,14 +2,16 @@ use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 use base::default_util::deserialize_null_default;
 
 use crate::base::notification;
+use crate::base::notification::warn_user_on_anyhow_error;
 use crate::domain::{Compartment, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::util::open_in_file_manager;
-use anyhow::{anyhow, bail, ensure, Context};
+use anyhow::{anyhow, bail, Context};
 use base::file_util;
 use include_dir::{include_dir, Dir};
+use itertools::Itertools;
 use mlua::LuaSerdeExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
@@ -163,32 +165,13 @@ pub struct CommonPresetMetaData {
     pub realearn_version: Option<Version>,
 }
 
-pub trait SpecificPresetMetaData: fmt::Debug + for<'a> Deserialize<'a> {
-    fn from_lua_code(lua: &str) -> anyhow::Result<Self>;
-}
-
 impl CommonPresetMetaData {
-    pub fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
-        let mut md = CommonPresetMetaData::default();
-        const PREFIX: &str = "--- ";
-        for line in lua.lines() {
-            let Some(meta_data_pair) = line.strip_prefix(PREFIX) else {
-                break;
-            };
-            if let Some(name) = meta_data_pair.strip_prefix("name: ") {
-                md.name = name.trim().to_string();
-            }
-            if let Some(realearn_version) = meta_data_pair.strip_prefix("realearn_version: ") {
-                md.realearn_version = Some(Version::parse(realearn_version.trim())?);
-            }
-        }
-        ensure!(
-            !md.name.is_empty(),
-            "Lua presets need at least a \"{PREFIX}name: ...\" line at the very top!"
-        );
-        Ok(md)
+    pub fn from_lua_code(lua_code: &str) -> anyhow::Result<Self> {
+        parse_lua_frontmatter(lua_code)
     }
 }
+
+pub trait SpecificPresetMetaData: fmt::Debug + for<'a> Deserialize<'a> {}
 
 /// Meta data that is specific to controller presets.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
@@ -197,43 +180,35 @@ pub struct ControllerPresetMetaData {
     pub provided_schemes: HashSet<VirtualControlSchemeId>,
 }
 
-impl SpecificPresetMetaData for ControllerPresetMetaData {
-    fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
-        Ok(Self {
-            provided_schemes: Default::default(),
-        })
-    }
-}
+impl SpecificPresetMetaData for ControllerPresetMetaData {}
 
 /// Meta data that is specific to main presets.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
 pub struct MainPresetMetaData {
     #[serde(default)]
     pub used_schemes: HashSet<VirtualControlSchemeId>,
+    #[serde(default)]
+    pub provided_roles: HashSet<String>,
 }
 
-impl SpecificPresetMetaData for MainPresetMetaData {
-    fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
-        Ok(Self {
-            used_schemes: Default::default(),
-        })
-    }
-}
+impl SpecificPresetMetaData for MainPresetMetaData {}
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct VirtualControlSchemeId(String);
+
+impl VirtualControlSchemeId {
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}
 
 impl<S: SpecificPresetMetaData> CombinedPresetMetaData<S> {
     pub fn from_json(json: &str) -> anyhow::Result<Self> {
         Ok(serde_json::from_str(json)?)
     }
 
-    pub fn from_lua_code(lua: &str) -> anyhow::Result<Self> {
-        let meta_data = Self {
-            common: CommonPresetMetaData::from_lua_code(lua)?,
-            specific: S::from_lua_code(lua)?,
-        };
-        Ok(meta_data)
+    pub fn from_lua_code(lua_code: &str) -> anyhow::Result<Self> {
+        parse_lua_frontmatter(lua_code)
     }
 }
 
@@ -542,7 +517,7 @@ fn walk_included_dir(
                 walk_included_dir(dir, on_file);
             }
             DirEntry::File(file) => {
-                on_file(file).unwrap();
+                warn_user_on_anyhow_error(on_file(file));
             }
         }
     }
@@ -616,4 +591,19 @@ fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
         Compartment::Controller => &FACTORY_CONTROLLER_PRESETS_DIR,
         Compartment::Main => &FACTORY_MAIN_PRESETS_DIR,
     }
+}
+
+fn parse_lua_frontmatter<T: for<'a> Deserialize<'a>>(lua_code: &str) -> anyhow::Result<T> {
+    const PREFIX: &str = "--- ";
+    let frontmatter = lua_code
+        .lines()
+        .map_while(|line| line.strip_prefix(PREFIX))
+        .join("\n");
+    if frontmatter.is_empty() {
+        bail!("Lua presets need at least a \"{PREFIX} name: ...\" line at the very top!");
+    }
+    let value: T = serde_yaml::from_str(&frontmatter).map_err(|e| {
+        anyhow!("Error while parsing Lua preset frontmatter:\n\n{e}\n\nFrontmatter was:\n===\n{frontmatter}\n===\n")
+    })?;
+    Ok(value)
 }

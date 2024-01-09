@@ -282,6 +282,8 @@ pub fn deserialize_untagged_data_object_from_lua(
     conversion_context: &impl ApiToDataConversionContext,
 ) -> anyhow::Result<UntaggedDataObject> {
     let untagged_api_object: UntaggedApiObject = deserialize_from_lua(text)?;
+    // We don't need the full metadata here (controller/main-preset specific), just the common one.
+    // Actually only the version is important because it might influence import behavior.
     let preset_meta_data = CommonPresetMetaData::from_lua_code(text).ok();
     UntaggedDataObject::try_from_untagged_api_object(
         untagged_api_object,

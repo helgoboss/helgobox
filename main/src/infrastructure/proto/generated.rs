@@ -977,10 +977,18 @@ pub struct CompartmentPresetCommons {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ControllerPresetSpecifics {}
+pub struct ControllerPresetSpecifics {
+    #[prost(string, repeated, tag = "1")]
+    pub provided_schemes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MainPresetSpecifics {}
+pub struct MainPresetSpecifics {
+    #[prost(string, repeated, tag = "1")]
+    pub used_schemes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag = "2")]
+    pub provided_roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalMatrixUpdate {

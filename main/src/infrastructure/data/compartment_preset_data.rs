@@ -52,8 +52,4 @@ impl CompartmentPresetData {
     pub fn clear_id(&mut self) {
         self.id = None;
     }
-
-    pub fn version(&self) -> Option<&Version> {
-        self.version.as_ref()
-    }
 }

@@ -1,5 +1,6 @@
 --- name: APC Key 25
 --- realearn_version: 2.16.0-pre.8
+--- provided_schemes: [akai/apc-key-25]
 
 -- Configuration
 local resolve_shift = false

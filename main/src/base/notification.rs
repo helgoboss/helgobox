@@ -15,6 +15,12 @@ pub fn notify_processing_result(heading: &str, msgs: Vec<String>) {
     Reaper::get().show_console_msg(msg);
 }
 
+pub fn warn_user_on_anyhow_error(result: anyhow::Result<()>) {
+    if let Err(e) = result {
+        warn(format!("{e:#}"));
+    }
+}
+
 pub fn warn(msg: String) {
     static PREV_MSG: Lazy<Mutex<String>> = Lazy::new(Default::default);
     let mut prev_msg = PREV_MSG.lock().unwrap();

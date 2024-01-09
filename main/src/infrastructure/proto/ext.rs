@@ -621,7 +621,13 @@ impl CompartmentPresetCommons {
 
 impl ControllerPresetSpecifics {
     pub fn from_engine(preset_info: &ControllerPresetMetaData) -> Self {
-        Self {}
+        Self {
+            provided_schemes: preset_info
+                .provided_schemes
+                .iter()
+                .map(|s| s.get().to_string())
+                .collect(),
+        }
     }
 }
 
@@ -645,7 +651,14 @@ impl MainPreset {
 }
 impl MainPresetSpecifics {
     pub fn from_engine(preset_info: &MainPresetMetaData) -> Self {
-        Self {}
+        Self {
+            used_schemes: preset_info
+                .used_schemes
+                .iter()
+                .map(|s| s.get().to_string())
+                .collect(),
+            provided_roles: preset_info.provided_roles.iter().cloned().collect(),
+        }
     }
 }
 
