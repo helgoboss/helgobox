@@ -10,7 +10,7 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    ActivationConditionData, CommonPresetMetaData, CompartmentModelData, InstanceData,
+    parse_lua_frontmatter, ActivationConditionData, CompartmentModelData, InstanceData,
     MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
@@ -18,7 +18,7 @@ use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
 use mlua::{Lua, LuaSerdeExt, Value};
 use realearn_api::persistence;
-use realearn_api::persistence::{ApiObject, Envelope};
+use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 use reaper_high::Reaper;
 use semver::Version;
@@ -284,7 +284,7 @@ pub fn deserialize_untagged_data_object_from_lua(
     let untagged_api_object: UntaggedApiObject = deserialize_from_lua(text)?;
     // We don't need the full metadata here (controller/main-preset specific), just the common one.
     // Actually only the version is important because it might influence import behavior.
-    let preset_meta_data = CommonPresetMetaData::from_lua_code(text).ok();
+    let preset_meta_data = parse_lua_frontmatter(text).ok();
     UntaggedDataObject::try_from_untagged_api_object(
         untagged_api_object,
         conversion_context,

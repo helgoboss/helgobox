@@ -928,66 +928,16 @@ pub mod occasional_global_update {
         /// MIDI output devices (= REAPER MIDI output devices)
         #[prost(message, tag = "3")]
         MidiOutputDevices(super::MidiOutputDevices),
-        /// Controller presets
-        #[prost(message, tag = "4")]
-        ControllerPresets(super::ControllerPresets),
-        /// Main presets
-        #[prost(message, tag = "5")]
-        MainPresets(super::MainPresets),
+        /// Controller presets as JSON
+        #[prost(string, tag = "4")]
+        ControllerPresets(::prost::alloc::string::String),
+        /// Main presets as JSON
+        #[prost(string, tag = "5")]
+        MainPresets(::prost::alloc::string::String),
         /// Audio input channels (= REAPER hardware input channels)
         #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
     }
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ControllerPresets {
-    #[prost(message, repeated, tag = "1")]
-    pub controller_presets: ::prost::alloc::vec::Vec<ControllerPreset>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MainPresets {
-    #[prost(message, repeated, tag = "1")]
-    pub main_presets: ::prost::alloc::vec::Vec<MainPreset>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ControllerPreset {
-    #[prost(message, optional, tag = "1")]
-    pub commons: ::core::option::Option<CompartmentPresetCommons>,
-    #[prost(message, optional, tag = "2")]
-    pub specifics: ::core::option::Option<ControllerPresetSpecifics>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MainPreset {
-    #[prost(message, optional, tag = "1")]
-    pub commons: ::core::option::Option<CompartmentPresetCommons>,
-    #[prost(message, optional, tag = "2")]
-    pub specifics: ::core::option::Option<MainPresetSpecifics>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CompartmentPresetCommons {
-    #[prost(string, tag = "1")]
-    pub id: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub name: ::prost::alloc::string::String,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ControllerPresetSpecifics {
-    #[prost(string, repeated, tag = "1")]
-    pub provided_schemes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct MainPresetSpecifics {
-    #[prost(string, repeated, tag = "1")]
-    pub used_schemes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    #[prost(string, repeated, tag = "2")]
-    pub provided_roles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

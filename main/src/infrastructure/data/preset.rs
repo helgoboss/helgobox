@@ -1,5 +1,4 @@
 use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
-use base::default_util::deserialize_null_default;
 
 use crate::base::notification;
 use crate::base::notification::warn_user_on_anyhow_error;
@@ -13,13 +12,14 @@ use base::file_util;
 use include_dir::{include_dir, Dir};
 use itertools::Itertools;
 use mlua::LuaSerdeExt;
+use realearn_api::persistence::{
+    CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData,
+};
 use reaper_high::Reaper;
 use rxrust::prelude::*;
-use semver::Version;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -139,68 +139,11 @@ struct CombinedPresetMetaData<S> {
     specific: S,
 }
 
-/// Meta data that is common to both main and controller presets.
-///
-/// Preset meta data is everything that is loaded right at startup in order to be able to
-/// display a list of preset, do certain validations etc. It doesn't include the preset
-/// content which is necessary to actually use the preset (e.g. it doesn't include the mappings).
-#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
-pub struct CommonPresetMetaData {
-    /// Display name of the preset.
-    pub name: String,
-    // Since ReaLearn 1.12.0-pre18
-    /// The ReaLearn version for which this preset was built.
-    ///
-    /// This can effect the way the preset is loaded, e.g. it can lead to different interpretation
-    /// or migration of properties. So care should be taken to set this correctly!
-    ///
-    /// If `None`, it's assumed that it was built for a very old version that didn't have the
-    /// versioning concept yet.
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
-    #[serde(alias = "version")]
-    pub realearn_version: Option<Version>,
-}
-
-impl CommonPresetMetaData {
-    pub fn from_lua_code(lua_code: &str) -> anyhow::Result<Self> {
-        parse_lua_frontmatter(lua_code)
-    }
-}
-
 pub trait SpecificPresetMetaData: fmt::Debug + for<'a> Deserialize<'a> {}
-
-/// Meta data that is specific to controller presets.
-#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
-pub struct ControllerPresetMetaData {
-    #[serde(default)]
-    pub provided_schemes: HashSet<VirtualControlSchemeId>,
-}
 
 impl SpecificPresetMetaData for ControllerPresetMetaData {}
 
-/// Meta data that is specific to main presets.
-#[derive(Clone, Eq, PartialEq, Debug, Default, Deserialize)]
-pub struct MainPresetMetaData {
-    #[serde(default)]
-    pub used_schemes: HashSet<VirtualControlSchemeId>,
-    #[serde(default)]
-    pub provided_roles: HashSet<String>,
-}
-
 impl SpecificPresetMetaData for MainPresetMetaData {}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-pub struct VirtualControlSchemeId(String);
-
-impl VirtualControlSchemeId {
-    pub fn get(&self) -> &str {
-        &self.0
-    }
-}
 
 impl<S: SpecificPresetMetaData> CombinedPresetMetaData<S> {
     pub fn from_json(json: &str) -> anyhow::Result<Self> {
@@ -593,7 +536,7 @@ fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
     }
 }
 
-fn parse_lua_frontmatter<T: for<'a> Deserialize<'a>>(lua_code: &str) -> anyhow::Result<T> {
+pub fn parse_lua_frontmatter<T: for<'a> Deserialize<'a>>(lua_code: &str) -> anyhow::Result<T> {
     const PREFIX: &str = "--- ";
     let frontmatter = lua_code
         .lines()
