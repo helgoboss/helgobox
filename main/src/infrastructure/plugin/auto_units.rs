@@ -1,10 +1,13 @@
 use crate::application::{
-    AutoUnitData, ControllerPresetUsage, ControllerSuitability, MainPresetSuitability,
+    parse_hex_string, AutoUnitData, ControllerPresetUsage, ControllerSuitability,
+    MainPresetSuitability,
 };
 use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::BackboneShell;
 use anyhow::Context;
+use base::byte_pattern::BytePattern;
+use base::{tracing_debug, tracing_warn};
 use realearn_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
 };
@@ -171,11 +174,33 @@ fn get_suitability_of_controller_preset_for_controller(
                 ControllerConnection::Midi(c) => match &c.identity_response {
                     None => ControllerSuitability::MaybeSuitable,
                     Some(identity_response) => {
-                        // TODO-high CONTINUE This should be a pattern, not an exact match
-                        if identity_response == pattern {
-                            ControllerSuitability::Suitable
-                        } else {
-                            ControllerSuitability::NotSuitable
+                        match BytePattern::from_str(pattern) {
+                            Ok(byte_pattern) => {
+                                match parse_hex_string(identity_response) {
+                                    Ok(identity_response_bytes) => {
+                                        if byte_pattern.matches(&identity_response_bytes) {
+                                            tracing_debug!("Pattern matches identity response");
+                                            ControllerSuitability::Suitable
+                                        } else {
+                                            ControllerSuitability::NotSuitable
+                                        }
+                                    }
+                                    Err(_) => {
+                                        // Invalid response
+                                        tracing_warn!(
+                                            "Invalid MIDI identity response in controller: {identity_response}",
+                                        );
+                                        ControllerSuitability::NotSuitable
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                // Invalid pattern
+                                tracing_warn!(
+                                    "Invalid MIDI identity pattern in controller preset: {pattern}",
+                                );
+                                ControllerSuitability::NotSuitable
+                            }
                         }
                     }
                 },
