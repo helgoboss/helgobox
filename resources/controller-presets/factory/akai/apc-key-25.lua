@@ -1,4 +1,8 @@
 --- name: APC Key 25
+--- author: helgoboss
+--- device_manufacturer: Akai
+--- device_name: APC Key 25
+--- midi_identity_pattern: F0 7E 01 06 02 47 27 00 19 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 F7
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25]
 

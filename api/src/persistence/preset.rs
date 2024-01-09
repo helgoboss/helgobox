@@ -12,6 +12,13 @@ use std::collections::HashSet;
 pub struct CommonPresetMetaData {
     /// Display name of the preset.
     pub name: String,
+    /// Author of the preset.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub author: Option<String>,
     /// The ReaLearn version for which this preset was built.
     ///
     /// This can effect the way the preset is loaded, e.g. it can lead to different interpretation
@@ -31,6 +38,28 @@ pub struct CommonPresetMetaData {
 /// Meta data that is specific to controller presets.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ControllerPresetMetaData {
+    /// Device manufacturer.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub device_manufacturer: Option<String>,
+    /// Device name.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub device_name: Option<String>,
+    /// MIDI identity compatibility pattern.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub midi_identity_pattern: Option<String>,
+    /// Provided virtual control schemes.
     #[serde(default)]
     pub provided_schemes: HashSet<VirtualControlSchemeId>,
 }
@@ -38,6 +67,7 @@ pub struct ControllerPresetMetaData {
 /// Meta data that is specific to main presets.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MainPresetMetaData {
+    /// Used virtual control schemes.
     #[serde(default)]
     pub used_schemes: HashSet<VirtualControlSchemeId>,
     #[serde(default)]
