@@ -1,13 +1,13 @@
 use crate::domain::{
-    classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
+    classify_midi_message, AudioBlockProps, BytePattern, ControlEvent, ControlEventTimestamp,
     IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, RealTimeProcessor, SharedRealTimeInstance, UnitId,
+    MidiScanResult, MidiScanner, PatternByte, RealTimeProcessor, SharedRealTimeInstance, UnitId,
 };
 use base::metrics_util::record_duration;
-use base::non_blocking_lock;
+use base::{non_blocking_lock, tracing_debug};
 use helgoboss_allocator::*;
-use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvents};
-use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
+use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
+use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage, ShortMessageType};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
@@ -15,6 +15,7 @@ use reaper_medium::{
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+use tinyvec::ArrayVec;
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
 const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
@@ -24,6 +25,30 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
 pub type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
+
+#[derive(Debug)]
+pub struct RequestMidiDeviceIdentityCommand {
+    pub output_device_id: MidiOutputDeviceId,
+    pub input_device_id: Option<MidiInputDeviceId>,
+    pub sender: async_channel::Sender<RequestMidiDeviceIdentityReply>,
+}
+
+#[derive(Debug)]
+struct MidiDeviceInquiryTask {
+    command: RequestMidiDeviceIdentityCommand,
+    inquiry_sent_at: Instant,
+}
+
+#[derive(Debug)]
+pub struct RequestMidiDeviceIdentityReply {
+    pub input_device_id: MidiInputDeviceId,
+    pub device_inquiry_reply: MidiDeviceInquiryReply,
+}
+
+#[derive(Debug)]
+pub struct MidiDeviceInquiryReply {
+    pub message: ArrayVec<[u8; RawMidiEvent::MAX_LENGTH]>,
+}
 
 // This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.
 // have already accumulated. Because at the moment there's no way to request a full resync of all
@@ -42,6 +67,12 @@ pub enum NormalAudioHookTask {
     RemoveRealTimeProcessor(UnitId),
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
+    /// Instructs the audio hook to send a MIDI device inquiry to the given output device.
+    ///
+    /// Gives up after about one second if no response received (by dropping the sender).
+    ///
+    /// Gives up immediately if the output device or optional input device is not open.
+    RequestMidiDeviceIdentity(RequestMidiDeviceIdentityCommand),
     #[cfg(feature = "playtime")]
     PlaytimeClipEngineCommand(playtime_clip_engine::rt::audio_hook::ClipEngineAudioHookCommand),
 }
@@ -59,6 +90,7 @@ pub enum FeedbackAudioHookTask {
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
+    midi_device_inquiry_task: Option<MidiDeviceInquiryTask>,
     real_time_instances: SmallVec<[(InstanceId, SharedRealTimeInstance); 256]>,
     real_time_processors: SmallVec<[(UnitId, SharedRealTimeProcessor); 256]>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
@@ -87,6 +119,7 @@ impl RealearnAudioHook {
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
+            midi_device_inquiry_task: None,
             real_time_instances: Default::default(),
             real_time_processors: Default::default(),
             normal_task_receiver,
@@ -156,6 +189,8 @@ impl RealearnAudioHook {
             self.clip_engine_audio_hook
                 .on_pre_poll_2(block_props.to_playtime(), args.reg);
         }
+        // Process some tasks
+        self.check_for_midi_device_inquiry_response();
     }
 
     fn on_post(&mut self, args: OnAudioBufferArgs) {
@@ -348,13 +383,42 @@ impl RealearnAudioHook {
         }
     }
 
+    fn process_midi_device_inquiry_command(
+        &mut self,
+        command: RequestMidiDeviceIdentityCommand,
+    ) -> Result<(), &'static str> {
+        let output_dev_id = command.output_device_id;
+        let output_dev = Reaper::get().midi_output_device_by_id(output_dev_id);
+        output_dev.with_midi_output(|output| -> Result<(), &'static str> {
+            let output = output.ok_or("MIDI output device not open")?;
+            let inquiry = RawMidiEvent::try_from_slice(0, MIDI_DEVICE_INQUIRY_REQUEST)?;
+            tracing_debug!(msg = "Sending MIDI device inquiry...", ?output_dev_id);
+            output.send_msg(inquiry, SendMidiTime::Instantly);
+            Ok(())
+        })?;
+        let task = MidiDeviceInquiryTask {
+            command,
+            inquiry_sent_at: Instant::now(),
+        };
+        self.midi_device_inquiry_task = Some(task);
+        Ok(())
+    }
+
+    fn check_for_midi_device_inquiry_response(&mut self) {
+        let Some(task) = self.midi_device_inquiry_task.as_ref() else {
+            // No task
+            return;
+        };
+        if !task.check_for_midi_device_inquiry_response() {
+            // Task done
+            self.midi_device_inquiry_task = None;
+        }
+    }
+
     fn process_normal_commands(&mut self, block_props: AudioBlockProps) {
-        for task in self
-            .normal_task_receiver
-            .try_iter()
-            .take(AUDIO_HOOK_TASK_BULK_SIZE)
-        {
-            use NormalAudioHookTask::*;
+        use NormalAudioHookTask::*;
+        let mut count = 0;
+        while let Ok(task) = self.normal_task_receiver.try_recv() {
             match task {
                 AddRealTimeInstance(id, p) => {
                     self.real_time_instances.push((id, p));
@@ -382,12 +446,20 @@ impl RealearnAudioHook {
                 StopCapturingMidi => {
                     self.state = AudioHookState::Normal;
                 }
+                RequestMidiDeviceIdentity(command) => {
+                    let _ = self.process_midi_device_inquiry_command(command);
+                }
                 #[cfg(feature = "playtime")]
                 PlaytimeClipEngineCommand(command) => {
                     let _ = self
                         .clip_engine_audio_hook
                         .on_pre_process_command(command, block_props.to_playtime());
                 }
+            }
+            // Don't take too much at once
+            count += 1;
+            if count == AUDIO_HOOK_TASK_BULK_SIZE {
+                break;
             }
         }
         let _ = block_props;
@@ -444,3 +516,70 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
         non_blocking_lock(self, "RealTimeProcessor")
     }
 }
+
+impl MidiDeviceInquiryTask {
+    /// Returns `false` if task not necessary anymore.
+    pub fn check_for_midi_device_inquiry_response(&self) -> bool {
+        // Give up if waited too long for response.
+        if self.inquiry_sent_at.elapsed() > Duration::from_secs(1) {
+            tracing_debug!(msg = "Gave up waiting for MIDI device identity reply after timeout");
+            return false;
+        }
+        // Check MIDI devices in question for response
+        if let Some(id) = self.command.input_device_id {
+            // Check user-defined input device for possible response
+            let dev = Reaper::get().midi_input_device_by_id(id);
+            if !self.process_input_dev(dev) {
+                return false;
+            }
+        } else {
+            // Check all input devices for possible response
+            for dev in Reaper::get().midi_input_devices() {
+                if !self.process_input_dev(dev) {
+                    return false;
+                }
+            }
+        }
+        // Return true as long as we haven't got a response yet.
+        true
+    }
+
+    /// Returns `false` if task not necessary anymore.
+    fn process_input_dev(&self, dev: MidiInputDevice) -> bool {
+        dev.with_midi_input(|mi| {
+            let Some(mi) = mi else {
+                return true;
+            };
+            for evt in mi.get_read_buf() {
+                let msg = evt.message();
+                if msg.r#type() == ShortMessageType::SystemExclusiveStart {
+                    let is_identity_reply =
+                        MIDI_DEVICE_INQUIRY_REPLY_PATTERN.matches(msg.as_slice());
+                    let Ok(message) = ArrayVec::try_from(msg.as_slice()) else {
+                        // Couldn't store the reply in the array. Shouldn't happen here because
+                        // we set the ArrayVec's capacity to the max size of the raw event.
+                        // So at a maximum it will be cropped.
+                        return false;
+                    };
+                    if is_identity_reply {
+                        let reply = RequestMidiDeviceIdentityReply {
+                            input_device_id: dev.id(),
+                            device_inquiry_reply: MidiDeviceInquiryReply { message },
+                        };
+                        tracing_debug!(msg = "Received MIDI device identity reply", ?reply);
+                        let _ = self.command.sender.try_send(reply);
+                        return false;
+                    }
+                }
+            }
+            true
+        })
+    }
+}
+
+const MIDI_DEVICE_INQUIRY_REQUEST: &[u8] = &[0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
+const MIDI_DEVICE_INQUIRY_REPLY_PATTERN: BytePattern<7> = {
+    use Fixed as F;
+    use PatternByte::*;
+    BytePattern::new([F(0xF0), F(0x7E), Single, F(0x06), F(0x02), Multi, F(0xF7)])
+};

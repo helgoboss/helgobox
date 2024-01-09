@@ -13,8 +13,9 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
     RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
-    ReaperTargetType, SharedInstance, SharedMainProcessors, SharedRealTimeInstance,
-    SharedRealTimeProcessor, Tag, UnitContainer, UnitId, WeakInstance,
+    ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
+    SharedInstance, SharedMainProcessors, SharedRealTimeInstance, SharedRealTimeProcessor, Tag,
+    UnitContainer, UnitId, WeakInstance,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -61,7 +62,8 @@ use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
     AcceleratorPosition, ActionValueChange, CommandId, HookPostCommand, HookPostCommand2,
-    ReaProject, RegistrationHandle, SectionContext, WindowContext,
+    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, RegistrationHandle, SectionContext,
+    WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -1619,6 +1621,35 @@ impl BackboneShell {
         receiver
     }
 
+    pub async fn request_midi_device_identity(
+        &self,
+        output_device_id: MidiOutputDeviceId,
+        input_device_id: Option<MidiInputDeviceId>,
+    ) -> Result<RequestMidiDeviceIdentityReply, &'static str> {
+        let reply_receiver =
+            self.request_midi_device_identity_internal(output_device_id, input_device_id);
+        reply_receiver
+            .recv()
+            .await
+            .map_err(|_| "no device reply received")
+    }
+
+    fn request_midi_device_identity_internal(
+        &self,
+        output_device_id: MidiOutputDeviceId,
+        input_device_id: Option<MidiInputDeviceId>,
+    ) -> async_channel::Receiver<RequestMidiDeviceIdentityReply> {
+        let (sender, receiver) = async_channel::bounded(10);
+        let command = RequestMidiDeviceIdentityCommand {
+            output_device_id,
+            input_device_id,
+            sender,
+        };
+        self.audio_hook_task_sender
+            .send_complaining(NormalAudioHookTask::RequestMidiDeviceIdentity(command));
+        receiver
+    }
+
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
             BackboneShell::get()
@@ -2218,6 +2249,7 @@ pub struct BackboneControllerManagerEventHandler;
 
 impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
     fn controller_config_changed(&self, source: &ControllerManager) {
+        tracing::debug!("Controller config changed");
         BackboneShell::get()
             .proto_hub()
             .notify_controller_config_changed(source);

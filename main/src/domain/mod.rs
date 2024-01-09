@@ -152,3 +152,6 @@ pub use instance::*;
 
 mod real_time_instance;
 pub use real_time_instance::*;
+
+mod byte_pattern;
+pub use byte_pattern::*;

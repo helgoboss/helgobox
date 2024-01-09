@@ -75,6 +75,10 @@ pub struct OscControllerConnection {
 pub struct MidiInputPort(u32);
 
 impl MidiInputPort {
+    pub fn new(raw: u32) -> Self {
+        Self(raw)
+    }
+
     pub fn get(&self) -> u32 {
         self.0
     }
@@ -84,6 +88,10 @@ impl MidiInputPort {
 pub struct MidiOutputPort(u32);
 
 impl MidiOutputPort {
+    pub fn new(raw: u32) -> Self {
+        Self(raw)
+    }
+
     pub fn get(&self) -> u32 {
         self.0
     }

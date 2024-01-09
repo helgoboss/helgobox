@@ -198,6 +198,8 @@ enumset.workspace = true
 include_dir = "0.7.3"
 # For prefixing preset IDs with the user name
 whoami = "1.4.1"
+# For passing MIDI device inquiry replies from audio thread to main thread
+tinyvec.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

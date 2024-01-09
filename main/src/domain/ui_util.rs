@@ -169,6 +169,7 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
     }
 }
 
+/// Attention: This is not just used for UI purposes anymore! Move!
 pub struct DisplayRawMidi<'a>(pub &'a [u8]);
 
 impl<'a> Display for DisplayRawMidi<'a> {

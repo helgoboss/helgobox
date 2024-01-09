@@ -17,8 +17,8 @@ use crate::infrastructure::proto::{
     TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
     TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest, HOST_API_VERSION,
 };
-use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
+use base::{future_util, spawn_in_main_thread};
 use playtime_api::persistence::{
     ColumnAddress, MatrixSequenceId, RowAddress, SlotAddress, TrackId,
 };
@@ -213,11 +213,25 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
     pub fn save_controller(&self, req: SaveControllerRequest) -> Result<Response<Empty>, Status> {
         let controller = serde_json::from_str(&req.controller)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        BackboneShell::get()
+        let outcome = BackboneShell::get()
             .controller_manager()
             .borrow_mut()
             .save_controller(controller)
             .map_err(|e| Status::unknown(e.to_string()))?;
+        if outcome.connection_changed {
+            if let Some(dev_id) = outcome.new_midi_output_device_id {
+                spawn_in_main_thread(async move {
+                    let reply = BackboneShell::get()
+                        .request_midi_device_identity(dev_id, None)
+                        .await;
+                    let _ = BackboneShell::get()
+                        .controller_manager()
+                        .borrow_mut()
+                        .update_controller_device_identity(&outcome.id, reply.ok());
+                    Ok(())
+                })
+            }
+        }
         Ok(Response::new(Empty {}))
     }
 
