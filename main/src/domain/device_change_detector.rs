@@ -37,6 +37,7 @@ impl MidiDeviceChangeDetector {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct DeviceDiff<T> {
     pub added_devices: HashSet<T>,
     pub removed_devices: HashSet<T>,

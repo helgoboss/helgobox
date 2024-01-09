@@ -3,9 +3,9 @@ use crate::domain::RequestMidiDeviceIdentityReply;
 use anyhow::Context;
 use nanoid::nanoid;
 use realearn_api::persistence::{
-    Controller, ControllerConfig, ControllerConnection, MidiInputPort,
+    Controller, ControllerConfig, ControllerConnection, MidiControllerConnection, MidiInputPort,
 };
-use reaper_medium::MidiOutputDeviceId;
+use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -41,6 +41,39 @@ impl ControllerManager {
 
     pub fn controller_config(&self) -> &ControllerConfig {
         &self.controller_config
+    }
+
+    pub fn find_controller_connected_to_midi_input(
+        &self,
+        dev_id: MidiInputDeviceId,
+    ) -> Option<&Controller> {
+        self.find_controller_by_midi_connection(|con| {
+            con.input_port
+                .is_some_and(|p| p.get() == dev_id.get() as u32)
+        })
+    }
+
+    pub fn find_controller_connected_to_midi_output(
+        &self,
+        dev_id: MidiOutputDeviceId,
+    ) -> Option<&Controller> {
+        self.find_controller_by_midi_connection(|con| {
+            con.output_port
+                .is_some_and(|p| p.get() == dev_id.get() as u32)
+        })
+    }
+
+    pub fn find_controller_by_midi_connection(
+        &self,
+        f: impl Fn(&MidiControllerConnection) -> bool,
+    ) -> Option<&Controller> {
+        self.controller_config
+            .controllers
+            .iter()
+            .find(|controller| match &controller.connection {
+                Some(ControllerConnection::Midi(con)) => f(con),
+                _ => false,
+            })
     }
 
     pub fn save_controller(

@@ -1,10 +1,11 @@
 use crate::domain::{
-    Backbone, ControlEvent, ControlEventTimestamp, DeviceControlInput, DeviceFeedbackOutput,
-    DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId, MainProcessor,
-    MidiDeviceChangeDetector, MidiDeviceChangePayload, MonitoringFxChainChangeDetector,
-    OscDeviceId, OscInputDevice, OscScanResult, QualifiedInstanceEvent, ReaperConfigChangeDetector,
-    ReaperMessage, ReaperTarget, SharedInstance, SharedMainProcessors, TargetTouchEvent,
-    TouchedTrackParameterType, UnitId, UnitStateChanged, WeakInstance,
+    Backbone, ControlEvent, ControlEventTimestamp, DeviceControlInput, DeviceDiff,
+    DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput, FinalSourceFeedbackValue, InstanceId,
+    MainProcessor, MidiDeviceChangeDetector, MidiDeviceChangePayload,
+    MonitoringFxChainChangeDetector, OscDeviceId, OscInputDevice, OscScanResult,
+    QualifiedInstanceEvent, ReaperConfigChangeDetector, ReaperMessage, ReaperTarget,
+    SharedInstance, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType, UnitId,
+    UnitStateChanged, WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -75,8 +76,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub trait ControlSurfaceEventHandler: Debug {
-    fn midi_input_devices_changed(&self);
-    fn midi_output_devices_changed(&self);
+    fn midi_input_devices_changed(&self, diff: &DeviceDiff<MidiInputDeviceId>);
+    fn midi_output_devices_changed(&self, diff: &DeviceDiff<MidiOutputDeviceId>);
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -656,10 +657,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             );
             // Handle events
             if midi_in_diff.devices_changed() {
-                self.event_handler.midi_input_devices_changed();
+                self.event_handler.midi_input_devices_changed(&midi_in_diff);
             }
             if midi_out_diff.devices_changed() {
-                self.event_handler.midi_output_devices_changed();
+                self.event_handler
+                    .midi_output_devices_changed(&midi_out_diff);
             }
             // Emit as REAPER source messages
             let mut msgs = Vec::with_capacity(2);

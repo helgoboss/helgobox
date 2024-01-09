@@ -5,13 +5,13 @@ use crate::application::{
 use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
-    ChangeInstanceTrackArgs, Compartment, ControlSurfaceEventHandler, EnableInstancesArgs,
-    Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch, InputDescriptor,
-    InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId, InstanceOrchestrationEvent,
-    InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
-    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    ChangeInstanceTrackArgs, Compartment, ControlSurfaceEventHandler, DeviceDiff,
+    EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch,
+    InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
+    InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
+    MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
+    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent,
+    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
     ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
     SharedInstance, SharedMainProcessors, SharedRealTimeInstance, SharedRealTimeProcessor, Tag,
@@ -33,12 +33,13 @@ use crate::infrastructure::ui::MessagePanel;
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, Global, NamedChannelSender,
-    SenderToNormalThread, SenderToRealTimeThread,
+    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
+    NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use crate::base::notification::notify_user_on_anyhow_error;
+use crate::domain::ui_util::format_raw_midi;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
@@ -53,7 +54,9 @@ use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
-    Envelope, FxChainDescriptor, FxDescriptor, TargetTouchCause, TrackDescriptor, TrackFxChain,
+    Controller, ControllerConnection, Envelope, FxChainDescriptor, FxDescriptor,
+    MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause, TrackDescriptor,
+    TrackFxChain,
 };
 use reaper_high::{
     ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
@@ -72,6 +75,7 @@ use serde::{Deserialize, Serialize};
 use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
+use std::error::Error;
 use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -2216,18 +2220,21 @@ impl HelgoboxWindowSnitch for BackboneHelgoboxWindowSnitch {
 pub struct BackboneControlSurfaceEventHandler;
 
 impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
-    fn midi_input_devices_changed(&self) {
+    fn midi_input_devices_changed(&self, _diff: &DeviceDiff<MidiInputDeviceId>) {
         BackboneShell::get()
             .proto_hub()
             .notify_midi_input_devices_changed();
         update_auto_units_async();
     }
 
-    fn midi_output_devices_changed(&self) {
+    fn midi_output_devices_changed(&self, diff: &DeviceDiff<MidiOutputDeviceId>) {
         BackboneShell::get()
             .proto_hub()
             .notify_midi_output_devices_changed();
         update_auto_units_async();
+        for out_dev_id in diff.added_devices.iter().copied() {
+            maybe_create_controller_for_device(out_dev_id);
+        }
     }
 }
 
@@ -2330,5 +2337,68 @@ fn decompress_app() -> anyhow::Result<()> {
         .context("Couldn't unpack app archive.")?;
     fs::write(archive_id_file, archive_id)?;
     tracing::info!("App decompressed successfully");
+    Ok(())
+}
+
+fn maybe_create_controller_for_device(out_dev_id: MidiOutputDeviceId) {
+    let device = Reaper::get().midi_output_device_by_id(out_dev_id);
+    if !device.is_open() {
+        return;
+    }
+    let output_used_already = BackboneShell::get()
+        .controller_manager
+        .borrow()
+        .find_controller_connected_to_midi_output(out_dev_id)
+        .is_some();
+    if output_used_already {
+        return;
+    }
+    spawn_in_main_thread(maybe_create_controller_for_device_internal(out_dev_id));
+}
+
+async fn maybe_create_controller_for_device_internal(
+    out_dev_id: MidiOutputDeviceId,
+) -> Result<(), Box<dyn Error>> {
+    let identity_reply = BackboneShell::get()
+        .request_midi_device_identity(out_dev_id, None)
+        .await?;
+    let input_used_already = BackboneShell::get()
+        .controller_manager
+        .borrow()
+        .find_controller_connected_to_midi_input(identity_reply.input_device_id)
+        .is_some();
+    if input_used_already {
+        return Ok(());
+    }
+    // Neither output nor input used already. Maybe this is a known controller!
+    let controller_preset_manager = BackboneShell::get().controller_preset_manager().borrow();
+    let controller_preset = controller_preset_manager
+        .find_preset_compatible_with_device(&identity_reply.device_inquiry_reply.message)
+        .ok_or("no controller preset matching device")?;
+    let device_name = controller_preset
+        .specific_meta_data
+        .device_name
+        .as_ref()
+        .ok_or("controller preset doesn't have device name")?;
+    // Auto-create controller
+    let controller = Controller {
+        id: "".to_string(),
+        name: device_name.clone(),
+        connection: Some(ControllerConnection::Midi(MidiControllerConnection {
+            identity_response: Some(format_raw_midi(
+                &identity_reply.device_inquiry_reply.message,
+            )),
+            input_port: Some(MidiInputPort::new(
+                identity_reply.input_device_id.get() as u32
+            )),
+            output_port: Some(MidiOutputPort::new(out_dev_id.get() as u32)),
+        })),
+        default_controller_preset: None,
+        default_main_preset: None,
+    };
+    let _ = BackboneShell::get()
+        .controller_manager
+        .borrow_mut()
+        .save_controller(controller);
     Ok(())
 }

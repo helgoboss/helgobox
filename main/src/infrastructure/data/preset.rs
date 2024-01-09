@@ -8,6 +8,7 @@ use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::util::open_in_file_manager;
 use anyhow::{anyhow, bail, Context};
+use base::byte_pattern::BytePattern;
 use base::file_util;
 use include_dir::{include_dir, Dir};
 use itertools::Itertools;
@@ -23,6 +24,7 @@ use std::cell::RefCell;
 use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::Duration;
 use std::{fmt, fs};
 use strum::EnumIs;
@@ -42,6 +44,25 @@ pub struct FileBasedCompartmentPresetManager<M> {
     preset_infos: Vec<PresetInfo<M>>,
     changed_subject: LocalSubject<'static, (), ()>,
     event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
+}
+
+impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
+    pub fn find_preset_compatible_with_device(
+        &self,
+        midi_identity_reply: &[u8],
+    ) -> Option<&PresetInfo<ControllerPresetMetaData>> {
+        self.preset_infos.iter().find(|info| {
+            let Some(midi_identity_pattern) =
+                info.specific_meta_data.midi_identity_pattern.as_ref()
+            else {
+                return false;
+            };
+            let Ok(byte_pattern) = BytePattern::from_str(midi_identity_pattern) else {
+                return false;
+            };
+            byte_pattern.matches(midi_identity_reply)
+        })
+    }
 }
 
 pub trait CompartmentPresetManagerEventHandler: fmt::Debug {
