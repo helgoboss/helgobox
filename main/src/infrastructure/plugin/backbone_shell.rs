@@ -58,6 +58,7 @@ use realearn_api::persistence::{
     MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause, TrackDescriptor,
     TrackFxChain,
 };
+use realearn_api::runtime::{AutoAddedControllerEvent, InfoEvent};
 use reaper_high::{
     ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
@@ -2396,9 +2397,14 @@ async fn maybe_create_controller_for_device_internal(
         default_controller_preset: None,
         default_main_preset: None,
     };
-    let _ = BackboneShell::get()
+    let outcome = BackboneShell::get()
         .controller_manager
         .borrow_mut()
-        .save_controller(controller);
+        .save_controller(controller)?;
+    BackboneShell::get()
+        .proto_hub()
+        .notify_about_info_event(InfoEvent::AutoAddedController(AutoAddedControllerEvent {
+            controller_id: outcome.id,
+        }));
     Ok(())
 }

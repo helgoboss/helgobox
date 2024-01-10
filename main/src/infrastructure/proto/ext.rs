@@ -1,5 +1,4 @@
 use helgoboss_midi::Channel;
-use playtime_api::runtime::InfoEvent;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     Bpm, Db, MidiInputDeviceId, PlayState, ReaperPanValue, ReaperString, RecordingInput, RgbColor,
@@ -50,6 +49,12 @@ impl occasional_instance_update::Update {
 }
 
 impl occasional_global_update::Update {
+    pub fn info_event(event: realearn_api::runtime::InfoEvent) -> Self {
+        let json =
+            serde_json::to_string(&event).expect("couldn't represent main info event as JSON");
+        Self::InfoEvent(json)
+    }
+
     pub fn midi_input_devices() -> Self {
         Self::MidiInputDevices(MidiInputDevices::from_engine(
             Reaper::get()
@@ -143,7 +148,7 @@ impl occasional_matrix_update::Update {
         Self::Sequencer(json)
     }
 
-    pub fn info_event(event: InfoEvent) -> Self {
+    pub fn info_event(event: playtime_api::runtime::InfoEvent) -> Self {
         let json = serde_json::to_string(&event).expect("couldn't represent info event as JSON");
         Self::InfoEvent(json)
     }

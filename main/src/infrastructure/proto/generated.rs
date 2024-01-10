@@ -911,7 +911,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalGlobalUpdate {
-    #[prost(oneof = "occasional_global_update::Update", tags = "1, 2, 3, 4, 5, 6")]
+    #[prost(oneof = "occasional_global_update::Update", tags = "1, 2, 3, 4, 5, 6, 7")]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
 /// Nested message and enum types in `OccasionalGlobalUpdate`.
@@ -937,6 +937,9 @@ pub mod occasional_global_update {
         /// Audio input channels (= REAPER hardware input channels)
         #[prost(message, tag = "6")]
         AudioInputChannels(super::AudioInputChannels),
+        /// Info event as JSON.
+        #[prost(string, tag = "7")]
+        InfoEvent(::prost::alloc::string::String),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

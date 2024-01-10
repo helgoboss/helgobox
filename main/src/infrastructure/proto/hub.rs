@@ -27,6 +27,7 @@ use playtime_clip_engine::rt::{
     ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
 };
 use playtime_clip_engine::{clip_timeline, Laziness, Timeline};
+use realearn_api::runtime::InfoEvent;
 use reaper_high::{
     AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, PanExt, Project, Track, Volume,
 };
@@ -63,6 +64,12 @@ impl ProtoHub {
             ProtoRequestHandler::new(matrix_provider),
             self.senders.clone(),
         ))
+    }
+
+    pub fn notify_about_info_event(&self, info_event: InfoEvent) {
+        self.send_occasional_global_updates(|| {
+            [occasional_global_update::Update::info_event(info_event)]
+        });
     }
 
     pub fn notify_midi_input_devices_changed(&self) {
