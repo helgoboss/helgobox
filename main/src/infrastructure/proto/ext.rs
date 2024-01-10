@@ -1,4 +1,5 @@
 use helgoboss_midi::Channel;
+use playtime_api::runtime::ControlUnitConfig;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     Bpm, Db, MidiInputDeviceId, PlayState, ReaperPanValue, ReaperString, RecordingInput, RgbColor,
@@ -172,6 +173,15 @@ impl occasional_matrix_update::Update {
     pub fn active_slot(matrix: &Matrix) -> Self {
         let active_slot = matrix.active_slot();
         Self::ActiveSlot(SlotAddress::from_engine(active_slot))
+    }
+
+    pub fn control_unit_config(matrix: &Matrix) -> Self {
+        let config = ControlUnitConfig {
+            control_units: matrix.get_control_units(),
+        };
+        let json =
+            serde_json::to_string(&config).expect("couldn't represent control unit config as JSON");
+        Self::ControlUnitConfig(json)
     }
 
     pub fn complete_persistent_data(matrix: &Matrix) -> Self {

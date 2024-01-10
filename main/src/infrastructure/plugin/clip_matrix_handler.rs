@@ -1,27 +1,12 @@
 use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::domain::{
-    Backbone, Compartment, Instance, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask,
-    ReaperTarget,
+    Compartment, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask, ReaperTarget,
+    SharedInstance,
 };
+use crate::infrastructure::plugin::WeakInstanceShell;
+use anyhow::Context;
 use base::{Global, NamedChannelSender};
-use playtime_api::runtime::{SimpleMappingContainer, SimpleMappingTarget};
-
-#[cfg(feature = "playtime")]
-pub fn get_or_insert_owned_clip_matrix(
-    main_unit_model: WeakUnitModel,
-    instance: &mut Instance,
-) -> &mut playtime_clip_engine::base::Matrix {
-    Backbone::get().get_or_insert_owned_clip_matrix_from_instance(instance, move |instance| {
-        let handler = MatrixHandler::new(
-            instance.id(),
-            instance.audio_hook_task_sender.clone(),
-            instance.real_time_instance_task_sender.clone(),
-            instance.clip_matrix_event_sender.clone(),
-            main_unit_model,
-        );
-        Box::new(handler)
-    })
-}
+use playtime_api::runtime::{ControlUnit, SimpleMappingContainer, SimpleMappingTarget};
 
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
@@ -31,6 +16,7 @@ pub struct MatrixHandler {
     real_time_instance_task_sender:
         base::SenderToRealTimeThread<crate::domain::RealTimeInstanceTask>,
     event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
+    weak_instance_shell: WeakInstanceShell,
     main_unit_model: WeakUnitModel,
 }
 
@@ -43,6 +29,7 @@ impl MatrixHandler {
             crate::domain::RealTimeInstanceTask,
         >,
         event_sender: base::SenderToNormalThread<QualifiedClipMatrixEvent>,
+        weak_instance_shell: WeakInstanceShell,
         main_unit_model: WeakUnitModel,
     ) -> Self {
         Self {
@@ -50,6 +37,7 @@ impl MatrixHandler {
             audio_hook_task_sender,
             real_time_instance_task_sender,
             event_sender,
+            weak_instance_shell,
             main_unit_model,
         }
     }
@@ -62,6 +50,16 @@ impl MatrixHandler {
                 f(shared_session);
             })
             .unwrap();
+    }
+
+    fn instance(&self) -> anyhow::Result<SharedInstance> {
+        Ok(self
+            .main_unit_model
+            .upgrade()
+            .context("unit model gone")?
+            .borrow()
+            .instance()
+            .clone())
     }
 }
 
@@ -104,6 +102,15 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         SimpleMappingContainer {
             mappings: simple_mappings.collect(),
         }
+    }
+
+    fn get_control_units(&self) -> Vec<ControlUnit> {
+        let Ok(instance) = self.instance() else {
+            return vec![];
+        };
+        // let instance = instance.borrow();
+        // instance.unit
+        vec![]
     }
 
     fn get_currently_learning_target(&self) -> Option<SimpleMappingTarget> {

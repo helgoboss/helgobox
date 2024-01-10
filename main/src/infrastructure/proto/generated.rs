@@ -947,7 +947,7 @@ pub mod occasional_global_update {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21"
+        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -1014,6 +1014,9 @@ pub mod occasional_matrix_update {
         /// Active slot
         #[prost(message, tag = "21")]
         ActiveSlot(super::SlotAddress),
+        /// Control units as JSON.
+        #[prost(string, tag = "22")]
+        ControlUnitConfig(::prost::alloc::string::String),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

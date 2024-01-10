@@ -14,6 +14,7 @@ use base::{
     tracing_debug,
 };
 use fragile::Fragile;
+use playtime_api::persistence::FlexibleMatrix;
 use playtime_clip_engine::base::Matrix;
 use realearn_api::persistence::InstanceSettings;
 use reaper_high::Project;
@@ -105,12 +106,16 @@ impl InstanceHandler for CustomInstanceHandler {
 }
 
 impl InstanceShell {
+    pub fn rt_instance(&self) -> SharedRealTimeInstance {
+        self.rt_instance.clone()
+    }
+
     /// Creates an instance shell with exactly one unit shell.
     pub fn new(
         instance_id: InstanceId,
         processor_context: ProcessorContext,
         panel: SharedView<InstancePanel>,
-    ) -> (Self, SharedRealTimeInstance) {
+    ) -> Self {
         let main_unit_id = UnitId::next();
         let instance_handler = CustomInstanceHandler {
             project: processor_context.project(),
@@ -139,7 +144,7 @@ impl InstanceShell {
             true,
             None,
         );
-        let shell = Self {
+        Self {
             instance: Fragile::new(instance),
             rt_instance: rt_instance.clone(),
             main_unit_shell,
@@ -148,8 +153,11 @@ impl InstanceShell {
             panel: Fragile::new(panel),
             processor_context: Fragile::new(processor_context),
             instance_id,
-        };
-        (shell, rt_instance)
+        }
+    }
+
+    pub fn processor_context(&self) -> ProcessorContext {
+        self.processor_context.get().clone()
     }
 
     pub fn settings(&self) -> InstanceSettings {
@@ -372,7 +380,7 @@ impl InstanceShell {
     /// This must not lock any data that's accessed from real-time threads.
     ///
     /// To be called from main thread.
-    pub fn load(&self, data: &[u8]) -> anyhow::Result<()> {
+    pub fn load(self: SharedInstanceShell, data: &[u8]) -> anyhow::Result<()> {
         let left_json_object_brace = data
             .iter()
             .position(|b| *b == 0x7b)
@@ -394,11 +402,17 @@ impl InstanceShell {
         Ok(())
     }
 
-    pub fn apply_data(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
+    pub fn apply_data(
+        self: SharedInstanceShell,
+        instance_data: InstanceOrUnitData,
+    ) -> anyhow::Result<()> {
         self.apply_data_internal(instance_data)
     }
 
-    fn apply_data_internal(&self, instance_data: InstanceOrUnitData) -> anyhow::Result<()> {
+    fn apply_data_internal(
+        self: SharedInstanceShell,
+        instance_data: InstanceOrUnitData,
+    ) -> anyhow::Result<()> {
         let instance_data = instance_data.into_instance_data();
         let instance = self.instance();
         // General properties
@@ -413,11 +427,10 @@ impl InstanceShell {
             if let Some(matrix_ref) = instance_data.clip_matrix {
                 match matrix_ref {
                     crate::infrastructure::data::ClipMatrixRefData::Own(m) => {
-                        crate::application::get_or_insert_owned_clip_matrix(
-                            Rc::downgrade(self.main_unit_shell.model()),
-                            &mut instance.borrow_mut(),
-                        )
-                        .load(*m.clone())?;
+                        let mut instance = self.instance().borrow_mut();
+                        self.clone()
+                            .get_or_insert_owned_clip_matrix(&mut instance)
+                            .load(*m)?;
                     }
                     crate::infrastructure::data::ClipMatrixRefData::Foreign(_) => {
                         bail!("Referring to the clip matrix of another instance is not supported anymore!");
@@ -494,5 +507,55 @@ impl InstanceShell {
         for unit_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
             unit_shell.set_sample_rate(rate);
         }
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) {
+        let mut instance = self.instance.get().borrow_mut();
+        self.clone().get_or_insert_owned_clip_matrix(&mut instance);
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn load_clip_matrix(
+        self: SharedInstanceShell,
+        matrix: Option<FlexibleMatrix>,
+    ) -> anyhow::Result<()> {
+        let mut instance = self.instance().borrow_mut();
+        if let Some(matrix) = matrix {
+            self.clone()
+                .get_or_insert_owned_clip_matrix(&mut instance)
+                .load(matrix)?;
+        } else {
+            instance.set_clip_matrix(None);
+        }
+        Ok(())
+    }
+
+    /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
+    ///
+    /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    /// and installs one, removing a possibly existing foreign matrix reference.
+    #[cfg(feature = "playtime")]
+    pub fn get_or_insert_owned_clip_matrix(
+        self: SharedInstanceShell,
+        instance: &mut Instance,
+    ) -> &mut playtime_clip_engine::base::Matrix {
+        let main_unit_model = Rc::downgrade(self.main_unit_shell.model());
+        let weak_instance_shell = Arc::downgrade(&self);
+        let create_handler =
+            move |instance: &Instance| -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler> {
+                let handler = crate::infrastructure::plugin::MatrixHandler::new(
+                    instance.id(),
+                    instance.audio_hook_task_sender.clone(),
+                    instance.real_time_instance_task_sender.clone(),
+                    instance.clip_matrix_event_sender.clone(),
+                    weak_instance_shell,
+                    main_unit_model,
+                );
+                Box::new(handler)
+            };
+        instance.create_and_install_clip_matrix_if_necessary(create_handler);
+        let matrix = instance.clip_matrix_mut().unwrap();
+        matrix
     }
 }

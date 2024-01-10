@@ -4,7 +4,7 @@ use base::{
 
 use crate::domain::{
     AdditionalFeedbackEvent, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, Instance, InstanceId, RealearnSourceState, RealearnTargetState, ReaperTarget,
+    FeedbackOutput, InstanceId, RealearnSourceState, RealearnTargetState, ReaperTarget,
     ReaperTargetType, SafeLua, SharedInstance, UnitId, WeakInstance,
 };
 #[allow(unused)]
@@ -262,24 +262,8 @@ impl Backbone {
     //     self.owned_clip_matrix_mut().unwrap()
     // }
 
-    /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
-    ///
-    /// If this instance already contains an owned clip matrix, returns it. If not, creates
-    /// and installs one, removing a possibly existing foreign matrix reference.
-    ///
-    /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
-    /// to this one.
-    #[cfg(feature = "playtime")]
-    pub fn get_or_insert_owned_clip_matrix_from_instance<'a>(
-        &self,
-        instance: &'a mut Instance,
-        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
-    ) -> &'a mut playtime_clip_engine::base::Matrix {
-        instance.create_and_install_clip_matrix_if_necessary(create_handler);
-        let matrix = instance.clip_matrix_mut().unwrap();
-        matrix
-    }
-
+    // TODO-high-ms5 Woah, ugly. This shouldn't be here anymore, the design involved and this dirt
+    //  stayed. self is not used. Same with _mut.
     /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
     /// if one is defined.
     ///

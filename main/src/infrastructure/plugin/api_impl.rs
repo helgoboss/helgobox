@@ -1,5 +1,5 @@
 use crate::domain::InstanceId;
-use crate::infrastructure::plugin::{BackboneShell, UnitInfo};
+use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
 use itertools::Itertools;
 use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
@@ -39,14 +39,14 @@ fn find_first_playtime_helgobox_instance_in_project(
     let project = reaper_medium::ReaProject::new(project)
         .map(Project::new)
         .or_current_project();
-    let instance_id = find_first_helgobox_instance_matching(|instance| {
-        if instance.processor_context.project() != Some(project) {
+    let instance_id = find_first_helgobox_instance_matching(|info| {
+        if info.processor_context.project() != Some(project) {
             return false;
         }
-        let Some(instance_state) = instance.instance.upgrade() else {
+        let Some(instance) = info.instance.upgrade() else {
             return false;
         };
-        let instance_state = instance_state.borrow();
+        let instance_state = instance.borrow();
         instance_state.clip_matrix().is_some()
     })
     .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
@@ -68,17 +68,17 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
 }
 
 fn find_first_helgobox_instance_matching(
-    meets_criteria: impl Fn(&UnitInfo) -> bool,
+    meets_criteria: impl Fn(&InstanceShellInfo) -> bool,
 ) -> Option<InstanceId> {
-    BackboneShell::get().with_units(|instances| {
-        instances
+    BackboneShell::get().with_instance_shell_infos(|infos| {
+        infos
             .iter()
-            .filter_map(|instance| {
-                if !meets_criteria(instance) {
+            .filter_map(|info| {
+                if !meets_criteria(info) {
                     return None;
                 }
-                let track_index = instance.processor_context.track()?.index()?;
-                Some((track_index, instance))
+                let track_index = info.processor_context.track()?.index()?;
+                Some((track_index, info))
             })
             .sorted_by_key(|(track_index, _)| *track_index)
             .next()
@@ -89,18 +89,11 @@ fn find_first_helgobox_instance_matching(
 #[cfg(feature = "playtime")]
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
-    BackboneShell::get().with_units(|instances| {
-        let instance = instances
-            .iter()
-            .find(|i| i.instance_id == instance_id)
-            .context("Instance not found")?;
-        let instance_state = instance.instance.upgrade().context("instance state gone")?;
-        crate::application::get_or_insert_owned_clip_matrix(
-            instance.unit_model.clone(),
-            &mut instance_state.borrow_mut(),
-        );
-        Ok(())
-    })
+    let instance_shell = BackboneShell::get()
+        .find_instance_shell_by_instance_id(instance_id)
+        .context("instance not found")?;
+    instance_shell.insert_owned_clip_matrix_if_necessary();
+    Ok(())
 }
 
 #[cfg(feature = "playtime")]

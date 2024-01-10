@@ -202,7 +202,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     // TODO-low In future versions of the Companion app, we should not update the controller
     //  source directly but update a session. This makes more sense because now ReaLearn treats
     //  custom data exactly like mappings - it's saved with the session.
-    BackboneShell::get().with_units(|instances| {
+    BackboneShell::get().with_unit_infos(|instances| {
         let sessions = instances.iter().filter_map(|s| s.unit_model.upgrade());
         for session in sessions {
             let mut session = session.borrow_mut();

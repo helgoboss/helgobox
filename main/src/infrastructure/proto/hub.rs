@@ -215,6 +215,11 @@ impl ProtoHub {
                 ClipMatrixEvent::ActiveSlotChanged => Some(OccasionalMatrixUpdate {
                     update: Some(occasional_matrix_update::Update::active_slot(matrix)),
                 }),
+                ClipMatrixEvent::ControlUnitsChanged => Some(OccasionalMatrixUpdate {
+                    update: Some(occasional_matrix_update::Update::control_unit_config(
+                        matrix,
+                    )),
+                }),
                 ClipMatrixEvent::TimeSignatureChanged => Some(OccasionalMatrixUpdate {
                     update: Some(occasional_matrix_update::Update::time_signature(
                         matrix.temporary_project(),

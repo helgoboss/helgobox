@@ -171,9 +171,11 @@ impl UnitShell {
             weak_session.clone(),
             processor_context.clone(),
             parent_instance.clone(),
-            unit,
+            unit.clone(),
             BackboneShell::get(),
         );
+        // TODO-high-ms5 We should register this like the instance - one layer higher and only
+        //  by passing the UnitShell (the root for everything unit-related).
         let unit_info = UnitInfo {
             unit_id,
             processor_context,
@@ -182,6 +184,7 @@ impl UnitShell {
             unit_model: weak_session.clone(),
             instance_panel,
             is_main_unit,
+            unit: Rc::downgrade(&unit),
         };
         BackboneShell::get().register_unit(unit_info, real_time_processor.clone(), main_processor);
         shared_session.borrow_mut().activate(weak_session.clone());

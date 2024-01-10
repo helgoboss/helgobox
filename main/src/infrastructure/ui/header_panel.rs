@@ -2057,13 +2057,7 @@ impl HeaderPanel {
                     "ReaLearn",
                     format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
                 ) {
-                    let instance = self.session().borrow().instance().clone();
-                    let mut instance = instance.borrow_mut();
-                    if let Some(matrix) = *value {
-                        crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance).load(matrix)?;
-                    } else {
-                        instance.set_clip_matrix(None);
-                    }
+                    self.instance_panel().shell()?.load_clip_matrix(*value)?;
                 }
             }
             Tagged(DataObject::MainCompartment(Envelope {value, version })) => {

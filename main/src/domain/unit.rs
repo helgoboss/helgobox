@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 use enum_map::EnumMap;
@@ -15,6 +15,7 @@ use crate::domain::{
 use base::{NamedChannelSender, SenderToNormalThread};
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
+pub type WeakUnit = Weak<RefCell<Unit>>;
 
 /// Just the old term as alias for easier class search.
 type _InstanceState = Unit;

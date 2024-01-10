@@ -75,6 +75,7 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
         Update::simple_mappings(matrix),
         Update::learn_state(matrix),
         Update::active_slot(matrix),
+        Update::control_unit_config(matrix),
     ];
     create(updates.into_iter())
 }

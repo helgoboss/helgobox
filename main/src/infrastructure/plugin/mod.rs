@@ -12,6 +12,12 @@ mod auto_units;
 pub use auto_units::*;
 mod unit_shell;
 
+#[cfg(feature = "playtime")]
+mod clip_matrix_handler;
+
+#[cfg(feature = "playtime")]
+pub use clip_matrix_handler::*;
+
 pub use instance_parameter_container::*;
 
 #[allow(unused)]

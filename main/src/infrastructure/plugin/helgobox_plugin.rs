@@ -405,7 +405,7 @@ impl HelgoboxPlugin {
                 let data: InstanceOrUnitData = serde_json::from_str(rust_str)
                     .context("couldn't deserialize instance or unit data")?;
                 let lazy_data = self.lazy_data.get().context("lazy data not yet set")?;
-                lazy_data.instance_shell.apply_data(data)?;
+                lazy_data.instance_shell.clone().apply_data(data)?;
                 Ok(())
             }
             _ => Err(anyhow!("unhandled config param")),
@@ -415,7 +415,7 @@ impl HelgoboxPlugin {
     fn init_instance_shell(&self) -> anyhow::Result<()> {
         let processor_context = ProcessorContext::from_host(self.host)
             .context("couldn't build processor context, called too early.")?;
-        let (instance_shell, rt_instance) = InstanceShell::new(
+        let instance_shell = InstanceShell::new(
             self.instance_id,
             processor_context,
             self.instance_panel.clone(),
@@ -423,7 +423,7 @@ impl HelgoboxPlugin {
         let auto_units = determine_auto_units();
         instance_shell.apply_auto_units(&auto_units)?;
         let instance_shell = Arc::new(instance_shell);
-        BackboneShell::get().register_instance(self.instance_id, &instance_shell, rt_instance);
+        BackboneShell::get().register_instance(&instance_shell);
         self.instance_panel
             .notify_shell_available(instance_shell.clone());
         instance_shell.set_sample_rate(self.sample_rate.get() as _);

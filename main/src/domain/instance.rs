@@ -269,7 +269,7 @@ impl Instance {
 
     /// Returns `true` if it installed a clip matrix.
     #[cfg(feature = "playtime")]
-    pub(super) fn create_and_install_clip_matrix_if_necessary(
+    pub(crate) fn create_and_install_clip_matrix_if_necessary(
         &mut self,
         create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
     ) -> bool {
