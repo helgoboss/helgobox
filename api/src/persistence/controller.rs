@@ -19,6 +19,9 @@ pub struct Controller {
     /// If one uses multiple controllers of the same kind, this should make clear which
     /// particular controller instance we are talking about.
     pub name: String,
+    /// If not enabled, no auto units will be created for that controller.
+    #[serde(default)]
+    pub enabled: bool,
     /// Controller color.
     ///
     /// Used e.g. for the control unit rectangle.

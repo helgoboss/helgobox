@@ -25,6 +25,9 @@ pub fn determine_auto_units() -> Vec<AutoUnitData> {
 }
 
 fn build_auto_unit_from_controller(controller: &Controller) -> Option<AutoUnitData> {
+    if !controller.enabled {
+        return None;
+    }
     // Ignore if no connection info or no main preset
     let connection = controller.connection.as_ref()?;
     let main_preset_id = controller.default_main_preset.as_ref()?;
