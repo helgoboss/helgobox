@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipColumn, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::persistence::ColumnAddress;
@@ -12,36 +12,36 @@ use realearn_api::persistence::ClipColumnAction;
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedClipColumnTarget {
-    pub column: VirtualClipColumn,
+pub struct UnresolvedPlaytimeColumnActionTarget {
+    pub column: VirtualPlaytimeColumn,
     pub action: ClipColumnAction,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipColumnTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeColumnActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipColumnTarget {
+        let target = PlaytimeColumnActionTarget {
             column_index: self.column.resolve(context, compartment)?,
             action: self.action,
         };
-        Ok(vec![ReaperTarget::ClipColumn(target)])
+        Ok(vec![ReaperTarget::PlaytimeColumnAction(target)])
     }
 
-    fn clip_column_descriptor(&self) -> Option<&VirtualClipColumn> {
+    fn clip_column_descriptor(&self) -> Option<&VirtualPlaytimeColumn> {
         Some(&self.column)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ClipColumnTarget {
+pub struct PlaytimeColumnActionTarget {
     pub column_index: usize,
     pub action: ClipColumnAction,
 }
 
-impl RealearnTarget for ClipColumnTarget {
+impl RealearnTarget for PlaytimeColumnActionTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.action)
     }
@@ -107,7 +107,7 @@ impl RealearnTarget for ClipColumnTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipColumn)
+        Some(ReaperTargetType::PlaytimeColumnAction)
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
@@ -126,7 +126,7 @@ impl RealearnTarget for ClipColumnTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipColumnTarget {
+impl<'a> Target<'a> for PlaytimeColumnActionTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -187,11 +187,11 @@ impl<'a> Target<'a> for RealTimeClipColumnTarget {
     }
 }
 
-pub const CLIP_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip column",
-    short_name: "Clip column",
+    name: "Column action",
+    short_name: "Playtime column action",
     supports_real_time_control: true,
     ..DEFAULT_TARGET
 };

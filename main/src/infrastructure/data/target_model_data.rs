@@ -29,7 +29,7 @@ use base::default_util::{
 };
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use realearn_api::persistence::{
-    BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
+    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
     PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
@@ -383,6 +383,13 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub clip_management_action: ClipManagementAction,
+    #[cfg(feature = "playtime")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub axis: Axis,
     /// Not supported anymore since v2.12.0-pre.5
     #[serde(
         default,
@@ -648,7 +655,9 @@ impl TargetModelData {
             #[cfg(feature = "playtime")]
             clip_row: model.clip_row().clone(),
             #[cfg(feature = "playtime")]
-            clip_transport_action: if model.target_type() == ReaperTargetType::ClipTransport {
+            clip_transport_action: if model.target_type()
+                == ReaperTargetType::PlaytimeSlotTransportAction
+            {
                 Some(model.clip_transport_action())
             } else {
                 None
@@ -667,6 +676,8 @@ impl TargetModelData {
             clip_play_start_timing: model.clip_play_start_timing(),
             #[cfg(feature = "playtime")]
             clip_play_stop_timing: model.clip_play_stop_timing(),
+            #[cfg(feature = "playtime")]
+            axis: model.axis(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
             mapping_modification_kind: model.mapping_modification_kind(),
@@ -944,6 +955,13 @@ impl TargetModelData {
                 self.record_only_if_track_armed,
             ));
             model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
+            if self.category == TargetCategory::Reaper
+                && self.r#type == ReaperTargetType::PlaytimeControlUnitScroll
+            {
+                // We set this only when we actually have the control unit scroll target. Because
+                // the axis model property is also used for other things.
+                model.change(C::SetAxis(self.axis));
+            }
         }
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
@@ -991,7 +1009,11 @@ impl TargetModelData {
         model.change(C::SetMappingSnapshotId(
             mapping_snapshot_id_for_load.or(mapping_snapshot_id_for_take),
         ));
-        model.set_mouse_action_without_notification(self.mouse_action);
+        if self.category == TargetCategory::Reaper && self.r#type == ReaperTargetType::Mouse {
+            // We set this only when we actually have the mouse target. Because the axis model
+            // property is also used for other things.
+            model.set_mouse_action_without_notification(self.mouse_action);
+        }
         model.change(C::SetPotFilterItemKind(self.pot_filter_item_kind));
         model.change(C::SetMappingModificationKind(
             self.mapping_modification_kind,

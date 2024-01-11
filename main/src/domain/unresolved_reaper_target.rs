@@ -2,8 +2,8 @@ use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
     scoped_track_index, Backbone, Compartment, CompartmentParamIndex, CompartmentParams,
-    ExtendedProcessorContext, FeedbackResolution, ReaperTarget, UnresolvedActionTarget,
-    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, ReaperTarget,
+    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
     UnresolvedBrowsePotFilterItemsTarget, UnresolvedBrowsePotPresetsTarget,
     UnresolvedBrowseTracksTarget, UnresolvedCompartmentParameterValueTarget, UnresolvedDummyTarget,
@@ -96,19 +96,21 @@ pub enum UnresolvedReaperTarget {
     SendOsc(UnresolvedOscSendTarget),
     Dummy(UnresolvedDummyTarget),
     #[cfg(feature = "playtime")]
-    ClipTransport(crate::domain::UnresolvedClipTransportTarget),
+    PlaytimeSlotTransportAction(crate::domain::UnresolvedPlaytimeSlotTransportTarget),
     #[cfg(feature = "playtime")]
-    ClipColumn(crate::domain::UnresolvedClipColumnTarget),
+    PlaytimeColumnAction(crate::domain::UnresolvedPlaytimeColumnActionTarget),
     #[cfg(feature = "playtime")]
-    ClipRow(crate::domain::UnresolvedClipRowTarget),
+    PlaytimeRowAction(crate::domain::UnresolvedPlaytimeRowActionTarget),
     #[cfg(feature = "playtime")]
-    ClipSeek(crate::domain::UnresolvedClipSeekTarget),
+    PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
     #[cfg(feature = "playtime")]
-    ClipVolume(crate::domain::UnresolvedClipVolumeTarget),
+    PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
     #[cfg(feature = "playtime")]
-    ClipManagement(crate::domain::UnresolvedClipManagementTarget),
+    PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
     #[cfg(feature = "playtime")]
-    ClipMatrix(crate::domain::UnresolvedClipMatrixTarget),
+    PlaytimeMatrixAction(crate::domain::UnresolvedPlaytimeMatrixActionTarget),
+    #[cfg(feature = "playtime")]
+    PlaytimeControlUnitScroll(crate::domain::UnresolvedPlaytimeControlUnitScrollTarget),
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
     TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
     EnableMappings(UnresolvedEnableMappingsTarget),
@@ -353,7 +355,7 @@ impl TrackDescriptor {
                 context,
                 commons,
             } => {
-                let column = VirtualClipColumn::from_descriptor(&column)?;
+                let column = VirtualPlaytimeColumn::from_descriptor(&column)?;
                 (VirtualTrack::FromClipColumn { column, context }, commons)
             }
         };
@@ -756,7 +758,7 @@ impl Default for TrackRouteType {
 
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
-pub enum VirtualClipSlot {
+pub enum VirtualPlaytimeSlot {
     Selected,
     ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
@@ -766,14 +768,14 @@ pub enum VirtualClipSlot {
 }
 
 #[cfg(feature = "playtime")]
-impl VirtualClipSlot {
+impl VirtualPlaytimeSlot {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<playtime_api::persistence::SlotAddress, &'static str> {
         use playtime_api::persistence::SlotAddress;
-        use VirtualClipSlot::*;
+        use VirtualPlaytimeSlot::*;
         let coordinates = match self {
             Selected => return Err("the concept of a selected slot is not yet supported"),
             ByIndex(address) => *address,
@@ -783,9 +785,15 @@ impl VirtualClipSlot {
             } => {
                 let compartment_params = context.params().compartment_params(compartment);
                 let column_index =
-                    to_slot_coordinate(column_evaluator.evaluate_with_params(compartment_params))?;
+                    to_slot_coordinate(column_evaluator.evaluate_with_params_and_additional_vars(
+                        compartment_params,
+                        additional_playtime_vars(context.control_context),
+                    ))?;
                 let row_index =
-                    to_slot_coordinate(row_evaluator.evaluate_with_params(compartment_params))?;
+                    to_slot_coordinate(row_evaluator.evaluate_with_params_and_additional_vars(
+                        compartment_params,
+                        additional_playtime_vars(context.control_context),
+                    ))?;
                 SlotAddress::new(column_index, row_index)
             }
         };
@@ -800,40 +808,40 @@ impl VirtualClipSlot {
     }
 
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        matches!(self, VirtualClipSlot::Dynamic { .. })
+        matches!(self, VirtualPlaytimeSlot::Dynamic { .. })
     }
 }
 
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
-pub enum VirtualClipColumn {
+pub enum VirtualPlaytimeColumn {
     Selected,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
 
 #[cfg(feature = "playtime")]
-impl Default for VirtualClipColumn {
+impl Default for VirtualPlaytimeColumn {
     fn default() -> Self {
         Self::Selected
     }
 }
 
 #[cfg(feature = "playtime")]
-impl VirtualClipColumn {
+impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
         descriptor: &realearn_api::persistence::ClipColumnDescriptor,
-    ) -> Result<VirtualClipColumn, &'static str> {
+    ) -> Result<VirtualPlaytimeColumn, &'static str> {
         use realearn_api::persistence::ClipColumnDescriptor::*;
         let column = match descriptor {
-            Selected => VirtualClipColumn::Selected,
-            ByIndex(address) => VirtualClipColumn::ByIndex(address.index),
+            Selected => VirtualPlaytimeColumn::Selected,
+            ByIndex(address) => VirtualPlaytimeColumn::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
             } => {
                 let index_evaluator = ExpressionEvaluator::compile(index_expression)
                     .map_err(|_| "couldn't evaluate column index")?;
-                VirtualClipColumn::Dynamic(Box::new(index_evaluator))
+                VirtualPlaytimeColumn::Dynamic(Box::new(index_evaluator))
             }
         };
         Ok(column)
@@ -844,13 +852,16 @@ impl VirtualClipColumn {
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<usize, &'static str> {
-        use VirtualClipColumn::*;
+        use VirtualPlaytimeColumn::*;
         let index = match self {
             Selected => return Err("the concept of a selected column is not yet supported"),
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
-                to_slot_coordinate(evaluator.evaluate_with_params(compartment_params))?
+                to_slot_coordinate(evaluator.evaluate_with_params_and_additional_vars(
+                    compartment_params,
+                    additional_playtime_vars(context.control_context),
+                ))?
             }
         };
         // let column_exists = BackboneState::get()
@@ -864,39 +875,42 @@ impl VirtualClipColumn {
     }
 
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        matches!(self, VirtualClipColumn::Dynamic { .. })
+        matches!(self, VirtualPlaytimeColumn::Dynamic { .. })
     }
 }
 
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
-pub enum VirtualClipRow {
+pub enum VirtualPlaytimeRow {
     Selected,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
 
 #[cfg(feature = "playtime")]
-impl Default for VirtualClipRow {
+impl Default for VirtualPlaytimeRow {
     fn default() -> Self {
         Self::Selected
     }
 }
 
 #[cfg(feature = "playtime")]
-impl VirtualClipRow {
+impl VirtualPlaytimeRow {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<usize, &'static str> {
-        use VirtualClipRow::*;
+        use VirtualPlaytimeRow::*;
         let index = match self {
             Selected => return Err("the concept of a selected row is not yet supported"),
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
-                to_slot_coordinate(evaluator.evaluate_with_params(compartment_params))?
+                to_slot_coordinate(evaluator.evaluate_with_params_and_additional_vars(
+                    compartment_params,
+                    additional_playtime_vars(context.control_context),
+                ))?
             }
         };
         // let row_exists = BackboneState::get()
@@ -910,7 +924,7 @@ impl VirtualClipRow {
     }
 
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        matches!(self, VirtualClipRow::Dynamic { .. })
+        matches!(self, VirtualPlaytimeRow::Dynamic { .. })
     }
 }
 
@@ -961,7 +975,7 @@ pub enum VirtualTrack {
     /// Uses the track from the given clip column.
     #[cfg(feature = "playtime")]
     FromClipColumn {
-        column: VirtualClipColumn,
+        column: VirtualPlaytimeColumn,
         context: realearn_api::persistence::ClipColumnTrackContext,
     },
     /// Unit track
@@ -1038,7 +1052,7 @@ impl VirtualFxParameter {
     ) -> Result<u32, FxParameterResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
+            .evaluate_with_params_and_additional_vars(compartment_params, |name, args| match name {
                 "mapped_fx_parameter_indexes" => {
                     let slot_index = extract_first_arg_as_positive_integer(args)?;
                     let target_state = Backbone::target_state().borrow();
@@ -1128,19 +1142,19 @@ impl ExpressionEvaluator {
         self.evaluate_internal(Some(params), |_, _| None)
     }
 
-    pub fn evaluate_with_vars(
+    pub fn evaluate_with_additional_vars(
         &self,
         vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(None, vars)
     }
 
-    pub fn evaluate_with_params_and_vars(
+    pub fn evaluate_with_params_and_additional_vars(
         &self,
         parameters: &CompartmentParams,
-        vars: impl Fn(&str, &[f64]) -> Option<f64>,
+        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(Some(parameters), vars)
+        self.evaluate_internal(Some(parameters), additional_vars)
     }
 
     fn evaluate_internal(
@@ -1463,7 +1477,7 @@ impl VirtualTrack {
             VirtualTrack::Dynamic { .. } => true,
             #[cfg(feature = "playtime")]
             VirtualTrack::FromClipColumn {
-                column: VirtualClipColumn::Dynamic(_),
+                column: VirtualPlaytimeColumn::Dynamic(_),
                 ..
             } => true,
             _ => false,
@@ -1493,7 +1507,7 @@ impl VirtualTrack {
     ) -> Result<i32, TrackResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_params_and_vars(compartment_params, |name, args| {
+            .evaluate_with_params_and_additional_vars(compartment_params, |name, args| {
                 match name {
                     "this_track_index" => {
                         let track = context.context().track()?;
@@ -1610,7 +1624,7 @@ impl VirtualTrack {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn clip_column(&self) -> Option<&VirtualClipColumn> {
+    pub fn clip_column(&self) -> Option<&VirtualPlaytimeColumn> {
         if let VirtualTrack::FromClipColumn { column, .. } = self {
             Some(column)
         } else {
@@ -1837,7 +1851,7 @@ impl VirtualChainFx {
     ) -> Result<u32, FxResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
-            .evaluate_with_params_and_vars(compartment_params, |name, args| match name {
+            .evaluate_with_params_and_additional_vars(compartment_params, |name, args| match name {
                 "this_fx_index" => {
                     let fx = context.context().containing_fx();
                     Some(fx.index() as f64)
@@ -2149,11 +2163,11 @@ struct Descriptors<'a> {
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
     #[cfg(feature = "playtime")]
-    clip_slot: Option<&'a VirtualClipSlot>,
+    clip_slot: Option<&'a VirtualPlaytimeSlot>,
     #[cfg(feature = "playtime")]
-    clip_column: Option<&'a VirtualClipColumn>,
+    clip_column: Option<&'a VirtualPlaytimeColumn>,
     #[cfg(feature = "playtime")]
-    clip_row: Option<&'a VirtualClipRow>,
+    clip_row: Option<&'a VirtualPlaytimeRow>,
 }
 
 #[enum_dispatch(UnresolvedReaperTarget)]
@@ -2202,17 +2216,17 @@ pub trait UnresolvedReaperTargetDef {
     }
 
     #[cfg(feature = "playtime")]
-    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+    fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         None
     }
 
     #[cfg(feature = "playtime")]
-    fn clip_column_descriptor(&self) -> Option<&VirtualClipColumn> {
+    fn clip_column_descriptor(&self) -> Option<&VirtualPlaytimeColumn> {
         None
     }
 
     #[cfg(feature = "playtime")]
-    fn clip_row_descriptor(&self) -> Option<&VirtualClipRow> {
+    fn clip_row_descriptor(&self) -> Option<&VirtualPlaytimeRow> {
         None
     }
 }
@@ -2286,5 +2300,26 @@ fn first_selected_track_scoped(
                 .selected_tracks(master_track_behavior)
                 .find(|t| t.is_shown(track_area))
         }
+    }
+}
+
+#[cfg(feature = "playtime")]
+fn additional_playtime_vars(context: ControlContext) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
+    |name, args| match name {
+        "control_unit_column_index" => Some(
+            context
+                .unit
+                .borrow()
+                .control_unit_top_left_corner()
+                .column_index as f64,
+        ),
+        "control_unit_row_index" => Some(
+            context
+                .unit
+                .borrow()
+                .control_unit_top_left_corner()
+                .row_index as f64,
+        ),
+        _ => None,
     }
 }

@@ -37,7 +37,7 @@ use crate::domain::{
     TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
     TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
     TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget, UnitEvent,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -47,6 +47,7 @@ use crate::domain::{
 };
 use base::default_util::is_default;
 use base::Global;
+use playtime_clip_engine::base::ClipMatrixEvent;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
@@ -139,19 +140,21 @@ pub enum ReaperTarget {
     SendOsc(OscSendTarget),
     Dummy(DummyTarget),
     #[cfg(feature = "playtime")]
-    ClipMatrix(crate::domain::ClipMatrixTarget),
+    PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget),
     #[cfg(feature = "playtime")]
-    ClipTransport(crate::domain::ClipTransportTarget),
+    PlaytimeControlUnitScroll(crate::domain::PlaytimeControlUnitScrollTarget),
     #[cfg(feature = "playtime")]
-    ClipColumn(crate::domain::ClipColumnTarget),
+    PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget),
     #[cfg(feature = "playtime")]
-    ClipRow(crate::domain::ClipRowTarget),
+    PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget),
     #[cfg(feature = "playtime")]
-    ClipSeek(crate::domain::ClipSeekTarget),
+    PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget),
     #[cfg(feature = "playtime")]
-    ClipVolume(crate::domain::ClipVolumeTarget),
+    PlaytimeSlotSeek(crate::domain::PlaytimeSlotSeekTarget),
     #[cfg(feature = "playtime")]
-    ClipManagement(crate::domain::ClipManagementTarget),
+    PlaytimeSlotVolume(crate::domain::PlaytimeSlotVolumeTarget),
+    #[cfg(feature = "playtime")]
+    PlaytimeSlotManagementAction(crate::domain::PlaytimeSlotManagementActionTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
@@ -283,27 +286,33 @@ impl ReaperTarget {
     pub fn from_simple_target(simple_target: playtime_api::runtime::SimpleMappingTarget) -> Self {
         use playtime_api::runtime::SimpleMappingTarget::*;
         match simple_target {
-            TriggerMatrix => Self::ClipMatrix(crate::domain::ClipMatrixTarget {
-                action: realearn_api::persistence::ClipMatrixAction::Stop,
-            }),
-            TriggerColumn(t) => Self::ClipColumn(crate::domain::ClipColumnTarget {
-                column_index: t.index,
-                action: realearn_api::persistence::ClipColumnAction::Stop,
-            }),
-            TriggerRow(t) => Self::ClipRow(crate::domain::ClipRowTarget {
+            TriggerMatrix => {
+                Self::PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget {
+                    action: realearn_api::persistence::ClipMatrixAction::Stop,
+                })
+            }
+            TriggerColumn(t) => {
+                Self::PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget {
+                    column_index: t.index,
+                    action: realearn_api::persistence::ClipColumnAction::Stop,
+                })
+            }
+            TriggerRow(t) => Self::PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget {
                 basics: crate::domain::ClipRowTargetBasics {
                     row_index: t.index,
                     action: realearn_api::persistence::ClipRowAction::PlayScene,
                 },
             }),
-            TriggerSlot(t) => Self::ClipTransport(crate::domain::ClipTransportTarget {
-                project: Reaper::get().current_project(),
-                basics: crate::domain::ClipTransportTargetBasics {
-                    slot_coordinates: t,
-                    action: realearn_api::persistence::ClipTransportAction::Trigger,
-                    options: Default::default(),
-                },
-            }),
+            TriggerSlot(t) => {
+                Self::PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget {
+                    project: Reaper::get().current_project(),
+                    basics: crate::domain::ClipTransportTargetBasics {
+                        slot_coordinates: t,
+                        action: realearn_api::persistence::ClipTransportAction::Trigger,
+                        options: Default::default(),
+                    },
+                })
+            }
         }
     }
 
@@ -347,9 +356,14 @@ impl ReaperTarget {
                     | MappedFxParametersChanged
                 )
             }
-            CompoundChangeEvent::Instance(_) | CompoundChangeEvent::Unit(_) => false,
+            CompoundChangeEvent::Unit(e) => {
+                matches!(e, UnitEvent::ControlUnitTopLeftCornerChanged(_))
+            }
+            CompoundChangeEvent::Instance(_) => false,
             #[cfg(feature = "playtime")]
-            CompoundChangeEvent::ClipMatrix(_) => false,
+            CompoundChangeEvent::ClipMatrix(e) => {
+                matches!(e, ClipMatrixEvent::EverythingChanged)
+            }
         }
     }
 
@@ -690,19 +704,21 @@ impl<'a> Target<'a> for ReaperTarget {
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipTransport(t) => t.current_value(context),
+            PlaytimeSlotTransportAction(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipColumn(t) => t.current_value(context),
+            PlaytimeColumnAction(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipRow(t) => t.current_value(context),
+            PlaytimeRowAction(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipSeek(t) => t.current_value(context),
+            PlaytimeSlotSeek(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipVolume(t) => t.current_value(context),
+            PlaytimeSlotVolume(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipManagement(t) => t.current_value(context),
+            PlaytimeSlotManagementAction(t) => t.current_value(context),
             #[cfg(feature = "playtime")]
-            ClipMatrix(t) => t.current_value(context),
+            PlaytimeMatrixAction(t) => t.current_value(context),
+            #[cfg(feature = "playtime")]
+            PlaytimeControlUnitScroll(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             TakeMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),

@@ -1,12 +1,12 @@
 use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::domain::{
     Compartment, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask, ReaperTarget,
-    SharedInstance,
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
-use anyhow::Context;
 use base::{Global, NamedChannelSender};
-use playtime_api::runtime::{ControlUnit, SimpleMappingContainer, SimpleMappingTarget};
+use playtime_api::runtime::{
+    ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
+};
 
 #[cfg(feature = "playtime")]
 #[derive(Debug)]
@@ -50,16 +50,6 @@ impl MatrixHandler {
                 f(shared_session);
             })
             .unwrap();
-    }
-
-    fn instance(&self) -> anyhow::Result<SharedInstance> {
-        Ok(self
-            .main_unit_model
-            .upgrade()
-            .context("unit model gone")?
-            .borrow()
-            .instance()
-            .clone())
     }
 }
 
@@ -105,12 +95,45 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     }
 
     fn get_control_units(&self) -> Vec<ControlUnit> {
-        let Ok(instance) = self.instance() else {
+        let Some(instance_shell) = self.weak_instance_shell.upgrade() else {
             return vec![];
         };
-        // let instance = instance.borrow();
-        // instance.unit
-        vec![]
+        instance_shell
+            .additional_unit_models()
+            .into_iter()
+            .filter_map(|unit_model| {
+                let unit_model = unit_model.borrow();
+                let control_unit = ControlUnit {
+                    id: ControlUnitId::new(unit_model.unit_id().into()),
+                    // TODO-high CONTINUE Introduce unit naming, makes sense anyway
+                    name: "".to_string(),
+                    // TODO-high CONTINUE The palette color will be provided by the controller if
+                    //  we use one. But things should also work without controllers (controllers
+                    //  are only a mechanism on top of everything existing). So another part of
+                    //  Helgobox should be responsible for keeping that color. It should be on unit
+                    //  level. And that means it would make sense to put it in the unit (just like
+                    //  the top-left corner). But where to persist it? Putting it into
+                    //  CompartmentModelData as dedicated field would leak Playtime-specific stuff
+                    //  in there. But: Putting it in custom_data, that sounds good!
+                    //
+                    // Take from unit and (or even only!) keep in custom main compartment data.
+                    //  custom_data.playtime.control_unit.palette_color (number)
+                    palette_color: None,
+                    top_left_corner: unit_model.unit().borrow().control_unit_top_left_corner(),
+                    // TODO-high CONTINUE Column and row count are NOT provided by the controller
+                    // definition because how many columns an rows are available depends on the
+                    // particular usage.
+                    //
+                    // Take from custom main compartment data.
+                    //  custom_data.playtime.control_unit.column_count (number)
+                    column_count: 8,
+                    // TODO-high CONTINUE Take from custom main compartment data.
+                    //  custom_data.playtime.control_unit.row_count (number)
+                    row_count: 8,
+                };
+                Some(control_unit)
+            })
+            .collect()
     }
 
     fn get_currently_learning_target(&self) -> Option<SimpleMappingTarget> {

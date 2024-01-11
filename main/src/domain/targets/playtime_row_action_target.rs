@@ -2,44 +2,44 @@ use crate::domain::{
     Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, VirtualClipRow, DEFAULT_TARGET,
+    UnresolvedReaperTargetDef, VirtualPlaytimeRow, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use playtime_api::persistence::RowAddress;
 use realearn_api::persistence::ClipRowAction;
 
 #[derive(Debug)]
-pub struct UnresolvedClipRowTarget {
-    pub row: VirtualClipRow,
+pub struct UnresolvedPlaytimeRowActionTarget {
+    pub row: VirtualPlaytimeRow,
     pub action: ClipRowAction,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipRowTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeRowActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipRowTarget {
+        let target = PlaytimeRowActionTarget {
             basics: ClipRowTargetBasics {
                 row_index: self.row.resolve(context, compartment)?,
                 action: self.action,
             },
         };
-        Ok(vec![ReaperTarget::ClipRow(target)])
+        Ok(vec![ReaperTarget::PlaytimeRowAction(target)])
     }
 
-    fn clip_row_descriptor(&self) -> Option<&VirtualClipRow> {
+    fn clip_row_descriptor(&self) -> Option<&VirtualPlaytimeRow> {
         Some(&self.row)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ClipRowTarget {
+pub struct PlaytimeRowActionTarget {
     pub basics: ClipRowTargetBasics,
 }
 
-impl ClipRowTarget {
+impl PlaytimeRowActionTarget {
     fn hit_internal(
         &mut self,
         value: ControlValue,
@@ -104,7 +104,7 @@ pub struct ClipRowTargetBasics {
     pub action: ClipRowAction,
 }
 
-impl RealearnTarget for ClipRowTarget {
+impl RealearnTarget for PlaytimeRowActionTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.basics.action)
     }
@@ -123,7 +123,7 @@ impl RealearnTarget for ClipRowTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipRow)
+        Some(ReaperTargetType::PlaytimeRowAction)
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
@@ -150,7 +150,7 @@ impl RealearnTarget for ClipRowTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipRowTarget {
+impl<'a> Target<'a> for PlaytimeRowActionTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -212,11 +212,11 @@ impl<'a> Target<'a> for RealTimeClipRowTarget {
     }
 }
 
-pub const CLIP_ROW_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_ROW_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip row",
-    short_name: "Clip row",
+    name: "Row action",
+    short_name: "Playtime row action",
     supports_real_time_control: true,
     ..DEFAULT_TARGET
 };

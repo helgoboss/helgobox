@@ -269,6 +269,9 @@ impl InstanceShell {
     fn notify_units_changed(&self) {
         self.panel.get().notify_units_changed();
         self.main_unit_shell.panel().notify_units_changed();
+        if let Some(m) = self.instance().borrow().clip_matrix() {
+            m.notify_control_units_changed();
+        }
         for unit_shell in blocking_read_lock(&self.additional_unit_shells, "add_unit").iter() {
             unit_shell.panel().notify_units_changed();
         }

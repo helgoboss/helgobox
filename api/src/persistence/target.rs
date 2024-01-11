@@ -141,19 +141,28 @@ pub enum Target {
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
     #[cfg(feature = "playtime")]
-    ClipTransportAction(ClipTransportActionTarget),
+    #[serde(alias = "ClipTransportAction")]
+    PlaytimeSlotTransportAction(PlaytimeSlotTransportActionTarget),
     #[cfg(feature = "playtime")]
-    ClipColumnAction(ClipColumnTarget),
+    #[serde(alias = "ClipColumnAction")]
+    PlaytimeColumnAction(PlaytimeColumnActionTarget),
     #[cfg(feature = "playtime")]
-    ClipRowAction(ClipRowTarget),
+    #[serde(alias = "ClipRowAction")]
+    PlaytimeRowAction(PlaytimeRowActionTarget),
     #[cfg(feature = "playtime")]
-    ClipMatrixAction(ClipMatrixTarget),
+    #[serde(alias = "ClipMatrixAction")]
+    PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
     #[cfg(feature = "playtime")]
-    ClipSeek(ClipSeekTarget),
+    PlaytimeControlUnitScroll(PlaytimeControlUnitScrollTarget),
     #[cfg(feature = "playtime")]
-    ClipVolume(ClipVolumeTarget),
+    #[serde(alias = "ClipSeek")]
+    PlaytimeSlotSeek(PlaytimeSlotSeekTarget),
     #[cfg(feature = "playtime")]
-    ClipManagement(ClipManagementTarget),
+    #[serde(alias = "ClipVolume")]
+    PlaytimeSlotVolume(PlaytimeSlotVolumeTarget),
+    #[cfg(feature = "playtime")]
+    #[serde(alias = "ClipManagement")]
+    PlaytimeSlotManagementAction(PlaytimeSlotManagementActionTarget),
     SendMidi(SendMidiTarget),
     SendOsc(SendOscTarget),
     Dummy(DummyTarget),
@@ -587,6 +596,7 @@ impl Default for MouseAction {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
@@ -596,16 +606,11 @@ impl Default for MouseAction {
 )]
 #[repr(usize)]
 pub enum Axis {
+    #[default]
     #[display(fmt = "X (horizontal)")]
     X,
     #[display(fmt = "Y (vertical)")]
     Y,
-}
-
-impl Default for Axis {
-    fn default() -> Self {
-        Self::Y
-    }
 }
 
 #[derive(
@@ -846,7 +851,7 @@ pub struct RouteTouchStateTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipTransportActionTarget {
+pub struct PlaytimeSlotTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
@@ -863,7 +868,7 @@ pub struct ClipTransportActionTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipColumnTarget {
+pub struct PlaytimeColumnActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub column: ClipColumnDescriptor,
@@ -872,7 +877,7 @@ pub struct ClipColumnTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipRowTarget {
+pub struct PlaytimeRowActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub row: ClipRowDescriptor,
@@ -881,7 +886,7 @@ pub struct ClipRowTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipMatrixTarget {
+pub struct PlaytimeMatrixActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub action: ClipMatrixAction,
@@ -889,7 +894,15 @@ pub struct ClipMatrixTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipSeekTarget {
+pub struct PlaytimeControlUnitScrollTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub axis: Axis,
+}
+
+#[cfg(feature = "playtime")]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeSlotSeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
@@ -899,7 +912,7 @@ pub struct ClipSeekTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipVolumeTarget {
+pub struct PlaytimeSlotVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,
@@ -907,7 +920,7 @@ pub struct ClipVolumeTarget {
 
 #[cfg(feature = "playtime")]
 #[derive(PartialEq, Serialize, Deserialize)]
-pub struct ClipManagementTarget {
+pub struct PlaytimeSlotManagementActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub slot: ClipSlotDescriptor,

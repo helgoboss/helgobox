@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
 use playtime_api::persistence::SlotAddress;
@@ -10,36 +10,36 @@ use playtime_clip_engine::base::ClipAddress;
 use realearn_api::persistence::ClipManagementAction;
 
 #[derive(Debug)]
-pub struct UnresolvedClipManagementTarget {
-    pub slot: VirtualClipSlot,
+pub struct UnresolvedPlaytimeSlotManagementActionTarget {
+    pub slot: VirtualPlaytimeSlot,
     pub action: ClipManagementAction,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipManagementTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotManagementActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipManagementTarget {
+        let target = PlaytimeSlotManagementActionTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
             action: self.action.clone(),
         };
-        Ok(vec![ReaperTarget::ClipManagement(target)])
+        Ok(vec![ReaperTarget::PlaytimeSlotManagementAction(target)])
     }
 
-    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+    fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ClipManagementTarget {
+pub struct PlaytimeSlotManagementActionTarget {
     pub slot_coordinates: SlotAddress,
     pub action: ClipManagementAction,
 }
 
-impl ClipManagementTarget {
+impl PlaytimeSlotManagementActionTarget {
     fn hit_internal(
         &mut self,
         value: ControlValue,
@@ -108,7 +108,7 @@ impl ClipManagementTarget {
     }
 }
 
-impl RealearnTarget for ClipManagementTarget {
+impl RealearnTarget for PlaytimeSlotManagementActionTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use ClipManagementAction as A;
         match self.action {
@@ -133,7 +133,7 @@ impl RealearnTarget for ClipManagementTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipManagement)
+        Some(ReaperTargetType::PlaytimeSlotManagementAction)
     }
 
     // TODO-high-clip-engine Return clip as result of clip() function for all clip targets (just like track())
@@ -161,7 +161,7 @@ impl RealearnTarget for ClipManagementTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipManagementTarget {
+impl<'a> Target<'a> for PlaytimeSlotManagementActionTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -187,11 +187,11 @@ impl<'a> Target<'a> for ClipManagementTarget {
     }
 }
 
-pub const CLIP_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_SLOT_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip - Management",
-    short_name: "Clip management",
+    name: "Slot management action",
+    short_name: "Playtime slot management action",
     supports_clip_slot: true,
     ..DEFAULT_TARGET
 };

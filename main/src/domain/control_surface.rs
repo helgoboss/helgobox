@@ -4,8 +4,8 @@ use crate::domain::{
     MainProcessor, MidiDeviceChangeDetector, MidiDeviceChangePayload,
     MonitoringFxChainChangeDetector, OscDeviceId, OscInputDevice, OscScanResult,
     QualifiedInstanceEvent, ReaperConfigChangeDetector, ReaperMessage, ReaperTarget,
-    SharedInstance, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType, UnitId,
-    UnitStateChanged, WeakInstance,
+    SharedInstance, SharedMainProcessors, TargetTouchEvent, TouchedTrackParameterType, UnitEvent,
+    UnitId, WeakInstance,
 };
 use base::{metrics_util, Global, NamedChannelSender, SenderToNormalThread};
 use crossbeam_channel::Receiver;
@@ -58,7 +58,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     #[cfg(feature = "playtime")]
     clip_matrix_event_receiver: Receiver<crate::domain::QualifiedClipMatrixEvent>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
-    instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
+    instance_orchestration_event_receiver: Receiver<UnitOrchestrationEvent>,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
@@ -115,19 +115,19 @@ pub enum AdditionalFeedbackEvent {
     ///
     /// REAPER itself doesn't fire any change event in this case.
     FocusSwitchedBetweenMainAndFx,
-    /// Forwarded instance state event
+    /// Forwarded unit state event
     ///
-    /// Not all instance state events are forwarded, only those that might matter for other
-    /// instances.
+    /// Not all unit events are forwarded, only those that might matter for other
+    /// units.
     Unit {
-        instance_id: UnitId,
-        instance_event: UnitStateChanged,
+        unit_id: UnitId,
+        unit_event: UnitEvent,
     },
     LastTouchedTargetChanged,
 }
 
 #[derive(Debug)]
-pub enum InstanceOrchestrationEvent {
+pub enum UnitOrchestrationEvent {
     /// Sent by a ReaLearn instance X if it releases control over a source.
     ///
     /// This enables other instances to take over control of that source before X finally "switches
@@ -196,7 +196,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             crate::domain::QualifiedClipMatrixEvent,
         >,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
-        instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
+        instance_orchestration_event_receiver: Receiver<UnitOrchestrationEvent>,
         main_processors: SharedMainProcessors<EH>,
         event_handler: Box<dyn ControlSurfaceEventHandler>,
     ) -> Self {
@@ -511,7 +511,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             .try_iter()
             .take(INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE)
         {
-            use InstanceOrchestrationEvent::*;
+            use UnitOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
                     debug!(self.logger, "Source of unit {} released", e.unit_id);

@@ -85,7 +85,7 @@ impl ActivationCondition {
                     None => EXPRESSION_NONE_VALUE,
                     Some(v) => v.to_unit_value().get(),
                 };
-                let result = condition.evaluate_with_vars(|name, _| match name {
+                let result = condition.evaluate_with_additional_vars(|name, _| match name {
                     "none" => Some(EXPRESSION_NONE_VALUE),
                     "y" => Some(y),
                     _ => None,

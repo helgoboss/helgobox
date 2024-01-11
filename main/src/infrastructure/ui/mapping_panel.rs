@@ -4569,13 +4569,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
                 ReaperTargetType::ModifyMapping => Some("Kind"),
-                ReaperTargetType::ClipMatrix => Some("Action"),
-                ReaperTargetType::ClipRow => Some("Row"),
-                ReaperTargetType::ClipColumn => Some("Column"),
-                ReaperTargetType::ClipManagement
-                | ReaperTargetType::ClipSeek
-                | ReaperTargetType::ClipTransport
-                | ReaperTargetType::ClipVolume => Some("Slot"),
+                ReaperTargetType::PlaytimeMatrixAction => Some("Action"),
+                ReaperTargetType::PlaytimeControlUnitScroll => Some("Axis"),
+                ReaperTargetType::PlaytimeRowAction => Some("Row"),
+                ReaperTargetType::PlaytimeColumnAction => Some("Column"),
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4602,13 +4603,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let compartment_params = params.compartment_params(self.mapping.compartment());
                     Some(get_param_name(compartment_params, param_index))
                 }
-                ReaperTargetType::ClipMatrix => Some(self.target.clip_matrix_action().to_string()),
-                ReaperTargetType::ClipRow => Some(self.target.clip_row().to_string()),
-                ReaperTargetType::ClipColumn => Some(self.target.clip_column().to_string()),
-                ReaperTargetType::ClipManagement
-                | ReaperTargetType::ClipSeek
-                | ReaperTargetType::ClipTransport
-                | ReaperTargetType::ClipVolume => Some(self.target.clip_slot().to_string()),
+                ReaperTargetType::PlaytimeMatrixAction => {
+                    Some(self.target.clip_matrix_action().to_string())
+                }
+                ReaperTargetType::PlaytimeControlUnitScroll => Some(self.target.axis().to_string()),
+                ReaperTargetType::PlaytimeRowAction => Some(self.target.clip_row().to_string()),
+                ReaperTargetType::PlaytimeColumnAction => {
+                    Some(self.target.clip_column().to_string())
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume => Some(self.target.clip_slot().to_string()),
                 _ => None,
             },
             _ => None,
@@ -4671,7 +4677,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                t if t.supports_feedback_resolution() && t != ReaperTargetType::ClipSeek => {
+                t if t.supports_feedback_resolution()
+                    && t != ReaperTargetType::PlaytimeSlotSeek =>
+                {
                     combo.show();
                     combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
                     combo
@@ -5181,10 +5189,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 ReaperTargetType::ModifyMapping => Some("Unit"),
-                ReaperTargetType::ClipTransport
-                | ReaperTargetType::ClipColumn
-                | ReaperTargetType::ClipRow
-                | ReaperTargetType::ClipManagement => Some("Action"),
+                ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeColumnAction
+                | ReaperTargetType::PlaytimeRowAction
+                | ReaperTargetType::PlaytimeSlotManagementAction => Some("Action"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -5256,12 +5264,16 @@ impl<'a> ImmutableMappingPanel<'a> {
                         }
                     }
                 },
-                ReaperTargetType::ClipTransport => {
+                ReaperTargetType::PlaytimeSlotTransportAction => {
                     Some(self.target.clip_transport_action().to_string())
                 }
-                ReaperTargetType::ClipColumn => Some(self.target.clip_column_action().to_string()),
-                ReaperTargetType::ClipRow => Some(self.target.clip_row_action().to_string()),
-                ReaperTargetType::ClipManagement => {
+                ReaperTargetType::PlaytimeColumnAction => {
+                    Some(self.target.clip_column_action().to_string())
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    Some(self.target.clip_row_action().to_string())
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction => {
                     Some(self.target.clip_management_action().to_string())
                 }
                 _ => None,

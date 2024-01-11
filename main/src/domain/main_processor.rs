@@ -8,18 +8,18 @@ use crate::domain::{
     FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
     GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
-    InfoEvent, InstanceId, InstanceOrchestrationEvent, IoUpdatedEvent, KeyMessage, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
-    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
-    NoopLogger, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
-    OscFeedbackTask, PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions,
-    ProjectionFeedbackValue, QualifiedInstanceEvent, QualifiedMappingId, RawParamValue,
-    RealTimeMappingUpdate, RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    InfoEvent, InstanceId, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NoopLogger,
+    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
+    PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
+    QualifiedInstanceEvent, QualifiedMappingId, RawParamValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue,
     ReaperTarget, SharedInstance, SharedUnit, SourceFeedbackEvent, SourceFeedbackLogger,
     SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UnitContainer, UnitStateChanged, UpdatedSingleMappingOnStateEvent,
-    VirtualControlElement, VirtualSourceValue,
+    TargetValueChangedEvent, UnitContainer, UnitEvent, UnitOrchestrationEvent,
+    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -239,14 +239,14 @@ struct Channels {
         crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitStateChanged>,
+    unit_event_receiver: crossbeam_channel::Receiver<UnitEvent>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
-    instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+    unit_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
     integration_test_feedback_sender: Option<SenderToNormalThread<FinalSourceFeedbackValue>>,
 }
 
@@ -263,12 +263,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         >,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitStateChanged>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitEvent>,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
-        instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+        instance_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
         osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
@@ -304,14 +304,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     normal_real_time_to_main_thread_task_receiver,
                     feedback_task_receiver,
                     parameter_task_receiver,
-                    instance_feedback_event_receiver,
+                    unit_event_receiver: instance_feedback_event_receiver,
                     control_task_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     feedback_audio_hook_task_sender,
                     osc_feedback_task_sender,
                     additional_feedback_event_sender,
-                    instance_orchestration_event_sender,
+                    unit_orchestration_event_sender: instance_orchestration_event_sender,
                     integration_test_feedback_sender: None,
                 },
                 last_feedback_checksum_by_address: Default::default(),
@@ -636,7 +636,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_normal_tasks_from_session(timestamp);
         self.process_parameter_tasks();
         self.process_feedback_tasks();
-        self.process_instance_feedback_events();
+        self.process_unit_events();
         self.poll_for_feedback();
     }
 
@@ -730,19 +730,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_instance_feedback_events(&mut self) {
+    fn process_unit_events(&mut self) {
+        let mut changes_conditions = false;
         for event in self
             .basics
             .channels
-            .instance_feedback_event_receiver
+            .unit_event_receiver
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
             // Propagate to other instances if necessary
             if event.is_interesting_for_other_units() {
                 let global_event = AdditionalFeedbackEvent::Unit {
-                    instance_id: self.basics.unit_id,
-                    instance_event: event.clone(),
+                    unit_id: self.basics.unit_id,
+                    unit_event: event.clone(),
                 };
                 self.basics
                     .channels
@@ -757,6 +758,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.basics.control_context(),
                 )
             });
+            // Check if this event changes conditions
+            if ReaperTarget::changes_conditions(CompoundChangeEvent::Unit(&event)) {
+                changes_conditions = true;
+            }
+        }
+        if changes_conditions {
+            self.basics
+                .channels
+                .self_normal_sender
+                .send_complaining(NormalMainTask::NotifyConditionsChanged);
         }
     }
 
@@ -1552,8 +1563,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn send_io_update_if_space(&self, event: IoUpdatedEvent) {
         self.basics
             .channels
-            .instance_orchestration_event_sender
-            .send_if_space(InstanceOrchestrationEvent::IoUpdated(event));
+            .unit_orchestration_event_sender
+            .send_if_space(UnitOrchestrationEvent::IoUpdated(event));
     }
 
     fn get_normal_or_virtual_target_mapping(
@@ -3178,8 +3189,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
         self.channels
-            .instance_orchestration_event_sender
-            .send_complaining(InstanceOrchestrationEvent::IoUpdated(event));
+            .unit_orchestration_event_sender
+            .send_complaining(UnitOrchestrationEvent::IoUpdated(event));
     }
 
     fn io_released_event(&self, any_main_mapping_is_effectively_on: bool) -> IoUpdatedEvent {
@@ -3817,13 +3828,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 if feedback_reason.is_source_release() {
                     // Possible interference with other instances. Don't switch off yet!
                     // Give other instances the chance to take over.
-                    let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
+                    let event = UnitOrchestrationEvent::SourceReleased(SourceReleasedEvent {
                         unit_id: self.unit_id.to_owned(),
                         feedback_output,
                         feedback_value: source_feedback_value,
                     });
                     self.channels
-                        .instance_orchestration_event_sender
+                        .unit_orchestration_event_sender
                         .send_complaining(event);
                 } else {
                     // Send feedback right now.

@@ -185,16 +185,16 @@ local params = {
 
 -- Domain functions
 
-function create_coordinate_expression(param, index)
-    return "p[" .. param .. "] + " .. index
+function create_index_expression(variable_name, index)
+    return variable_name .. " + " .. index
 end
 
 function create_col_expression(col)
-    return create_coordinate_expression(params.column_offset.index, col)
+    return create_index_expression("control_unit_column_index", col)
 end
 
 function create_row_expression(row)
-    return create_coordinate_expression(params.row_offset.index, row)
+    return create_index_expression("control_unit_row_index", row)
 end
 
 function create_slot_selector(col, row)
@@ -534,14 +534,14 @@ function feedback_disabled()
 end
 
 function scroll_horizontally(amount)
-    return scroll(params.column_offset.index, amount)
+    return scroll("X", amount)
 end
 
 function scroll_vertically(amount)
-    return scroll(params.row_offset.index, amount)
+    return scroll("Y", amount)
 end
 
-function scroll(param_index, amount)
+function scroll(axis, amount)
     local abs_amount = math.abs(amount)
     return {
         glue = {
@@ -554,11 +554,8 @@ function scroll(param_index, amount)
             },
         },
         target = {
-            kind = "CompartmentParameterValue",
-            parameter = {
-                address = "ById",
-                index = param_index,
-            },
+            kind = "PlaytimeControlUnitScroll",
+            axis = axis,
         },
     }
 end

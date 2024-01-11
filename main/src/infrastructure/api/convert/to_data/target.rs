@@ -777,9 +777,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             }
         }
         #[cfg(feature = "playtime")]
-        Target::ClipTransportAction(d) => TargetModelData {
+        Target::PlaytimeSlotTransportAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipTransport,
+            r#type: ReaperTargetType::PlaytimeSlotTransportAction,
             clip_slot: Some(d.slot),
             clip_transport_action: Some(d.action),
             record_only_if_track_armed: d
@@ -793,25 +793,25 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipColumnAction(d) => TargetModelData {
+        Target::PlaytimeColumnAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipColumn,
+            r#type: ReaperTargetType::PlaytimeColumnAction,
             clip_column: d.column,
             clip_column_action: d.action,
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipRowAction(d) => TargetModelData {
+        Target::PlaytimeRowAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipRow,
+            r#type: ReaperTargetType::PlaytimeRowAction,
             clip_row: d.row,
             clip_row_action: d.action,
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipSeek(d) => TargetModelData {
+        Target::PlaytimeSlotSeek(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipSeek,
+            r#type: ReaperTargetType::PlaytimeSlotSeek,
             clip_slot: Some(d.slot),
             seek_options: SeekOptions {
                 feedback_resolution: convert_feedback_resolution(
@@ -822,25 +822,32 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipVolume(d) => TargetModelData {
+        Target::PlaytimeSlotVolume(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipVolume,
+            r#type: ReaperTargetType::PlaytimeSlotVolume,
             clip_slot: Some(d.slot),
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipManagement(d) => TargetModelData {
+        Target::PlaytimeSlotManagementAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipManagement,
+            r#type: ReaperTargetType::PlaytimeSlotManagementAction,
             clip_slot: Some(d.slot),
             clip_management_action: d.action,
             ..init(d.commons)
         },
         #[cfg(feature = "playtime")]
-        Target::ClipMatrixAction(d) => TargetModelData {
+        Target::PlaytimeMatrixAction(d) => TargetModelData {
             category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::ClipMatrix,
+            r#type: ReaperTargetType::PlaytimeMatrixAction,
             clip_matrix_action: d.action,
+            ..init(d.commons)
+        },
+        #[cfg(feature = "playtime")]
+        Target::PlaytimeControlUnitScroll(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PlaytimeControlUnitScroll,
+            axis: d.axis,
             ..init(d.commons)
         },
         Target::SendMidi(d) => TargetModelData {

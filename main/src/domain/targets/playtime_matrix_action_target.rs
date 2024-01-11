@@ -6,35 +6,70 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_api::persistence::{EvenQuantization, RecordLength};
-use playtime_clip_engine::base::ClipMatrixEvent;
+use playtime_clip_engine::base::{ClipMatrixEvent, Matrix};
 use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
 use realearn_api::persistence::ClipMatrixAction;
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedClipMatrixTarget {
+pub struct UnresolvedPlaytimeMatrixActionTarget {
     pub action: ClipMatrixAction,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipMatrixTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeMatrixActionTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
         _: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipMatrixTarget {
+        let target = PlaytimeMatrixActionTarget {
             action: self.action,
         };
-        Ok(vec![ReaperTarget::ClipMatrix(target)])
+        Ok(vec![ReaperTarget::PlaytimeMatrixAction(target)])
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ClipMatrixTarget {
+pub struct PlaytimeMatrixActionTarget {
     pub action: ClipMatrixAction,
 }
 
-impl RealearnTarget for ClipMatrixTarget {
+impl PlaytimeMatrixActionTarget {
+    fn trigger(&self, matrix: &mut Matrix) -> anyhow::Result<()> {
+        match self.action {
+            ClipMatrixAction::Stop => {
+                matrix.stop();
+            }
+            ClipMatrixAction::Undo => {
+                let _ = matrix.undo();
+            }
+            ClipMatrixAction::Redo => {
+                let _ = matrix.redo();
+            }
+            ClipMatrixAction::BuildScene => {
+                matrix.build_scene_in_first_empty_row()?;
+            }
+            ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                matrix.set_record_duration(RecordLength::OpenEnd);
+            }
+            ClipMatrixAction::SetRecordDurationToOneBar => {
+                matrix.set_record_duration(record_duration_in_bars(1));
+            }
+            ClipMatrixAction::SetRecordDurationToTwoBars => {
+                matrix.set_record_duration(record_duration_in_bars(2));
+            }
+            ClipMatrixAction::SetRecordDurationToFourBars => {
+                matrix.set_record_duration(record_duration_in_bars(4));
+            }
+            ClipMatrixAction::SetRecordDurationToEightBars => {
+                matrix.set_record_duration(record_duration_in_bars(8));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl RealearnTarget for PlaytimeMatrixActionTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.action)
     }
@@ -48,47 +83,16 @@ impl RealearnTarget for ClipMatrixTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        Backbone::get()
-            .with_clip_matrix_mut(
-                &context.control_context.instance(),
-                |matrix| -> anyhow::Result<HitResponse> {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    match self.action {
-                        ClipMatrixAction::Stop => {
-                            matrix.stop();
-                        }
-                        ClipMatrixAction::Undo => {
-                            let _ = matrix.undo();
-                        }
-                        ClipMatrixAction::Redo => {
-                            let _ = matrix.redo();
-                        }
-                        ClipMatrixAction::BuildScene => {
-                            matrix.build_scene_in_first_empty_row()?;
-                        }
-                        ClipMatrixAction::SetRecordDurationToOpenEnd => {
-                            matrix.set_record_duration(RecordLength::OpenEnd);
-                        }
-                        ClipMatrixAction::SetRecordDurationToOneBar => {
-                            matrix.set_record_duration(record_duration_in_bars(1));
-                        }
-                        ClipMatrixAction::SetRecordDurationToTwoBars => {
-                            matrix.set_record_duration(record_duration_in_bars(2));
-                        }
-                        ClipMatrixAction::SetRecordDurationToFourBars => {
-                            matrix.set_record_duration(record_duration_in_bars(4));
-                        }
-                        ClipMatrixAction::SetRecordDurationToEightBars => {
-                            matrix.set_record_duration(record_duration_in_bars(8));
-                        }
-                    }
-                    Ok(HitResponse::processed_with_effect())
-                },
-            )
-            .map_err(|_| "couldn't acquire matrix")?
-            .map_err(|_| "couldn't carry out matrix action")
+        let mut instance = context.control_context.instance().borrow_mut();
+        let matrix = instance
+            .clip_matrix_mut()
+            .ok_or("couldn't acquire matrix")?;
+        if !value.is_on() {
+            return Ok(HitResponse::ignored());
+        }
+        self.trigger(matrix)
+            .map_err(|_| "couldn't carry out matrix action")?;
+        Ok(HitResponse::processed_with_effect())
     }
 
     fn process_change_event(
@@ -130,7 +134,7 @@ impl RealearnTarget for ClipMatrixTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipMatrix)
+        Some(ReaperTargetType::PlaytimeMatrixAction)
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
@@ -148,7 +152,7 @@ impl RealearnTarget for ClipMatrixTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipMatrixTarget {
+impl<'a> Target<'a> for PlaytimeMatrixActionTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -234,11 +238,11 @@ impl<'a> Target<'a> for RealTimeClipMatrixTarget {
     }
 }
 
-pub const CLIP_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip matrix",
-    short_name: "Clip matrix",
+    name: "Matrix action",
+    short_name: "Playtime matrix action",
     supports_real_time_control: true,
     ..DEFAULT_TARGET
 };

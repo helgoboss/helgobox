@@ -3,7 +3,7 @@ use crate::domain::{
     transport_is_enabled_unit_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -19,8 +19,8 @@ use reaper_high::Project;
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedClipTransportTarget {
-    pub slot: VirtualClipSlot,
+pub struct UnresolvedPlaytimeSlotTransportTarget {
+    pub slot: VirtualPlaytimeSlot,
     pub action: ClipTransportAction,
     pub options: ClipTransportOptions,
 }
@@ -35,14 +35,14 @@ pub struct ClipTransportOptions {
     pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotTransportTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context.project_or_current_project();
-        let target = ClipTransportTarget {
+        let target = PlaytimeSlotTransportTarget {
             project,
             basics: ClipTransportTargetBasics {
                 slot_coordinates: self.slot.resolve(context, compartment)?,
@@ -50,21 +50,21 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
                 options: self.options,
             },
         };
-        Ok(vec![ReaperTarget::ClipTransport(target)])
+        Ok(vec![ReaperTarget::PlaytimeSlotTransportAction(target)])
     }
 
-    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+    fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ClipTransportTarget {
+pub struct PlaytimeSlotTransportTarget {
     pub project: Project,
     pub basics: ClipTransportTargetBasics,
 }
 
-impl ClipTransportTarget {
+impl PlaytimeSlotTransportTarget {
     pub fn clip_play_state(
         &self,
         matrix: &playtime_clip_engine::base::Matrix,
@@ -218,7 +218,7 @@ impl ClipTransportTargetBasics {
 
 const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
 
-impl RealearnTarget for ClipTransportTarget {
+impl RealearnTarget for PlaytimeSlotTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         control_type_and_character(self.basics.action)
     }
@@ -306,7 +306,7 @@ impl RealearnTarget for ClipTransportTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipTransport)
+        Some(ReaperTargetType::PlaytimeSlotTransportAction)
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
@@ -338,7 +338,7 @@ impl RealearnTarget for ClipTransportTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipTransportTarget {
+impl<'a> Target<'a> for PlaytimeSlotTransportTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -462,11 +462,11 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
     }
 }
 
-pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_SLOT_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip - Invoke transport action",
-    short_name: "Clip transport",
+    name: "Slot transport action",
+    short_name: "Playtime slot transport action",
     supports_track: false,
     supports_clip_slot: true,
     supports_real_time_control: true,

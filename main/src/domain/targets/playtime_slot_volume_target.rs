@@ -6,7 +6,7 @@ use crate::domain::{
     interpret_current_clip_slot_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    VirtualClipSlot, DEFAULT_TARGET,
+    VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::persistence::SlotAddress;
@@ -17,33 +17,33 @@ use reaper_medium::Db;
 use std::borrow::Cow;
 
 #[derive(Debug)]
-pub struct UnresolvedClipVolumeTarget {
-    pub slot: VirtualClipSlot,
+pub struct UnresolvedPlaytimeSlotVolumeTarget {
+    pub slot: VirtualPlaytimeSlot,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipVolumeTarget {
+        let target = PlaytimeSlotVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
         };
-        Ok(vec![ReaperTarget::ClipVolume(target)])
+        Ok(vec![ReaperTarget::PlaytimeSlotVolume(target)])
     }
 
-    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+    fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ClipVolumeTarget {
+pub struct PlaytimeSlotVolumeTarget {
     pub slot_coordinates: SlotAddress,
 }
 
-impl RealearnTarget for ClipVolumeTarget {
+impl RealearnTarget for PlaytimeSlotVolumeTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
@@ -125,11 +125,11 @@ impl RealearnTarget for ClipVolumeTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipVolume)
+        Some(ReaperTargetType::PlaytimeSlotVolume)
     }
 }
 
-impl ClipVolumeTarget {
+impl PlaytimeSlotVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         Backbone::get()
             .with_clip_matrix(&context.instance(), |matrix| {
@@ -140,7 +140,7 @@ impl ClipVolumeTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipVolumeTarget {
+impl<'a> Target<'a> for PlaytimeSlotVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -156,11 +156,11 @@ impl<'a> Target<'a> for ClipVolumeTarget {
     }
 }
 
-pub const CLIP_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_SLOT_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip - Volume",
-    short_name: "Clip volume",
+    name: "Slot volume",
+    short_name: "Playtime slot volume",
     supports_clip_slot: true,
     ..DEFAULT_TARGET
 };

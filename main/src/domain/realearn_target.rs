@@ -10,7 +10,7 @@ use crate::domain::{
     InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
     OscFeedbackTask, PluginParamIndex, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget,
     ReaperTarget, SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity,
-    UnitId, UnitStateChanged, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
+    UnitEvent, UnitId, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
     ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
     BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
     COMPARTMENT_PARAMETER_VALUE_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
@@ -343,7 +343,7 @@ pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
-    Unit(&'a UnitStateChanged),
+    Unit(&'a UnitEvent),
     CompartmentParameter(PluginParamIndex),
     #[cfg(feature = "playtime")]
     ClipMatrix(&'a playtime_clip_engine::base::ClipMatrixEvent),
@@ -683,25 +683,26 @@ pub enum ReaperTargetType {
 
     // Clip targets
     #[cfg(feature = "playtime")]
-    ClipManagement = 46,
+    PlaytimeSlotManagementAction = 46,
     #[cfg(feature = "playtime")]
-    ClipTransport = 31,
+    PlaytimeSlotTransportAction = 31,
     #[cfg(feature = "playtime")]
-    ClipSeek = 32,
+    PlaytimeSlotSeek = 32,
     #[cfg(feature = "playtime")]
-    ClipVolume = 33,
+    PlaytimeSlotVolume = 33,
 
     // Clip column targets
     #[cfg(feature = "playtime")]
-    ClipColumn = 50,
+    PlaytimeColumnAction = 50,
 
     // Clip row targets
     #[cfg(feature = "playtime")]
-    ClipRow = 52,
+    PlaytimeRowAction = 52,
 
     // Clip matrix
     #[cfg(feature = "playtime")]
-    ClipMatrix = 51,
+    PlaytimeMatrixAction = 51,
+    PlaytimeControlUnitScroll = 64,
 
     // Misc
     SendMidi = 29,
@@ -773,7 +774,7 @@ impl ReaperTargetType {
         use ReaperTargetType::*;
         match self {
             #[cfg(feature = "playtime")]
-            ClipSeek => true,
+            PlaytimeSlotSeek => true,
             Seek => true,
             _ => false,
         }
@@ -830,19 +831,21 @@ impl ReaperTargetType {
             RouteVolume => &ROUTE_VOLUME_TARGET,
             RouteTouchState => &ROUTE_TOUCH_STATE_TARGET,
             #[cfg(feature = "playtime")]
-            ClipTransport => &crate::domain::CLIP_TRANSPORT_TARGET,
+            PlaytimeSlotTransportAction => &crate::domain::PLAYTIME_SLOT_TRANSPORT_TARGET,
             #[cfg(feature = "playtime")]
-            ClipColumn => &crate::domain::CLIP_COLUMN_TARGET,
+            PlaytimeColumnAction => &crate::domain::PLAYTIME_COLUMN_TARGET,
             #[cfg(feature = "playtime")]
-            ClipRow => &crate::domain::CLIP_ROW_TARGET,
+            PlaytimeRowAction => &crate::domain::PLAYTIME_ROW_TARGET,
             #[cfg(feature = "playtime")]
-            ClipSeek => &crate::domain::CLIP_SEEK_TARGET,
+            PlaytimeSlotSeek => &crate::domain::PLAYTIME_SLOT_SEEK_TARGET,
             #[cfg(feature = "playtime")]
-            ClipVolume => &crate::domain::CLIP_VOLUME_TARGET,
+            PlaytimeSlotVolume => &crate::domain::PLAYTIME_SLOT_VOLUME_TARGET,
             #[cfg(feature = "playtime")]
-            ClipManagement => &crate::domain::CLIP_MANAGEMENT_TARGET,
+            PlaytimeSlotManagementAction => &crate::domain::PLAYTIME_SLOT_MANAGEMENT_TARGET,
             #[cfg(feature = "playtime")]
-            ClipMatrix => &crate::domain::CLIP_MATRIX_TARGET,
+            PlaytimeMatrixAction => &crate::domain::PLAYTIME_MATRIX_TARGET,
+            #[cfg(feature = "playtime")]
+            PlaytimeControlUnitScroll => &crate::domain::PLAYTIME_CONTROL_UNIT_SCROLL_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,
             Dummy => &DUMMY_TARGET,

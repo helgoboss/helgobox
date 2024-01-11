@@ -54,7 +54,7 @@ use crate::domain::{
 };
 
 #[cfg(feature = "playtime")]
-use crate::domain::{VirtualClipColumn, VirtualClipRow, VirtualClipSlot};
+use crate::domain::{VirtualPlaytimeColumn, VirtualPlaytimeRow, VirtualPlaytimeSlot};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -1850,7 +1850,7 @@ impl TargetModel {
                 }
             },
             #[cfg(feature = "playtime")]
-            ClipTransport(t) => {
+            PlaytimeSlotTransportAction(t) => {
                 self.clip_transport_action = t.basics.action;
             }
             _ => {}
@@ -2205,11 +2205,11 @@ impl TargetModel {
     }
 
     #[cfg(feature = "playtime")]
-    fn virtual_clip_slot(&self) -> Result<VirtualClipSlot, &'static str> {
+    fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
         use realearn_api::persistence::ClipSlotDescriptor::*;
         let slot = match &self.clip_slot {
-            Selected => VirtualClipSlot::Selected,
-            ByIndex(address) => VirtualClipSlot::ByIndex(*address),
+            Selected => VirtualPlaytimeSlot::Selected,
+            ByIndex(address) => VirtualPlaytimeSlot::ByIndex(*address),
             Dynamic {
                 column_expression,
                 row_expression,
@@ -2218,7 +2218,7 @@ impl TargetModel {
                     .map_err(|_| "couldn't evaluate row")?;
                 let row_evaluator = ExpressionEvaluator::compile(row_expression)
                     .map_err(|_| "couldn't evaluate row")?;
-                VirtualClipSlot::Dynamic {
+                VirtualPlaytimeSlot::Dynamic {
                     column_evaluator: Box::new(column_evaluator),
                     row_evaluator: Box::new(row_evaluator),
                 }
@@ -2228,22 +2228,22 @@ impl TargetModel {
     }
 
     #[cfg(feature = "playtime")]
-    fn virtual_clip_column(&self) -> Result<VirtualClipColumn, &'static str> {
-        VirtualClipColumn::from_descriptor(&self.clip_column)
+    fn virtual_clip_column(&self) -> Result<VirtualPlaytimeColumn, &'static str> {
+        VirtualPlaytimeColumn::from_descriptor(&self.clip_column)
     }
 
     #[cfg(feature = "playtime")]
-    fn virtual_clip_row(&self) -> Result<VirtualClipRow, &'static str> {
+    fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
         use realearn_api::persistence::ClipRowDescriptor::*;
         let row = match &self.clip_row {
-            Selected => VirtualClipRow::Selected,
-            ByIndex(address) => VirtualClipRow::ByIndex(address.index),
+            Selected => VirtualPlaytimeRow::Selected,
+            ByIndex(address) => VirtualPlaytimeRow::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
             } => {
                 let index_evaluator = ExpressionEvaluator::compile(index_expression)
                     .map_err(|_| "couldn't evaluate row index")?;
-                VirtualClipRow::Dynamic(Box::new(index_evaluator))
+                VirtualPlaytimeRow::Dynamic(Box::new(index_evaluator))
             }
         };
         Ok(row)
@@ -2567,51 +2567,61 @@ impl TargetModel {
                         device_id: self.osc_dev_id,
                     }),
                     #[cfg(feature = "playtime")]
-                    ClipTransport => UnresolvedReaperTarget::ClipTransport(
-                        crate::domain::UnresolvedClipTransportTarget {
-                            slot: self.virtual_clip_slot()?,
-                            action: self.clip_transport_action,
-                            options: self.clip_transport_options(),
-                        },
-                    ),
+                    PlaytimeSlotTransportAction => {
+                        UnresolvedReaperTarget::PlaytimeSlotTransportAction(
+                            crate::domain::UnresolvedPlaytimeSlotTransportTarget {
+                                slot: self.virtual_clip_slot()?,
+                                action: self.clip_transport_action,
+                                options: self.clip_transport_options(),
+                            },
+                        )
+                    }
                     #[cfg(feature = "playtime")]
-                    ClipColumn => UnresolvedReaperTarget::ClipColumn(
-                        crate::domain::UnresolvedClipColumnTarget {
+                    PlaytimeColumnAction => UnresolvedReaperTarget::PlaytimeColumnAction(
+                        crate::domain::UnresolvedPlaytimeColumnActionTarget {
                             column: self.virtual_clip_column()?,
                             action: self.clip_column_action,
                         },
                     ),
                     #[cfg(feature = "playtime")]
-                    ClipRow => {
-                        UnresolvedReaperTarget::ClipRow(crate::domain::UnresolvedClipRowTarget {
+                    PlaytimeRowAction => UnresolvedReaperTarget::PlaytimeRowAction(
+                        crate::domain::UnresolvedPlaytimeRowActionTarget {
                             row: self.virtual_clip_row()?,
                             action: self.clip_row_action,
-                        })
-                    }
+                        },
+                    ),
                     #[cfg(feature = "playtime")]
-                    ClipSeek => {
-                        UnresolvedReaperTarget::ClipSeek(crate::domain::UnresolvedClipSeekTarget {
+                    PlaytimeSlotSeek => UnresolvedReaperTarget::PlaytimeSlotSeek(
+                        crate::domain::UnresolvedPlaytimeSlotSeekTarget {
                             slot: self.virtual_clip_slot()?,
                             feedback_resolution: self.feedback_resolution,
-                        })
+                        },
+                    ),
+                    #[cfg(feature = "playtime")]
+                    PlaytimeSlotVolume => UnresolvedReaperTarget::PlaytimeSlotVolume(
+                        crate::domain::UnresolvedPlaytimeSlotVolumeTarget {
+                            slot: self.virtual_clip_slot()?,
+                        },
+                    ),
+                    #[cfg(feature = "playtime")]
+                    PlaytimeSlotManagementAction => {
+                        UnresolvedReaperTarget::PlaytimeSlotManagementAction(
+                            crate::domain::UnresolvedPlaytimeSlotManagementActionTarget {
+                                slot: self.virtual_clip_slot()?,
+                                action: self.clip_management_action.clone(),
+                            },
+                        )
                     }
                     #[cfg(feature = "playtime")]
-                    ClipVolume => UnresolvedReaperTarget::ClipVolume(
-                        crate::domain::UnresolvedClipVolumeTarget {
-                            slot: self.virtual_clip_slot()?,
-                        },
-                    ),
-                    #[cfg(feature = "playtime")]
-                    ClipManagement => UnresolvedReaperTarget::ClipManagement(
-                        crate::domain::UnresolvedClipManagementTarget {
-                            slot: self.virtual_clip_slot()?,
-                            action: self.clip_management_action.clone(),
-                        },
-                    ),
-                    #[cfg(feature = "playtime")]
-                    ClipMatrix => UnresolvedReaperTarget::ClipMatrix(
-                        crate::domain::UnresolvedClipMatrixTarget {
+                    PlaytimeMatrixAction => UnresolvedReaperTarget::PlaytimeMatrixAction(
+                        crate::domain::UnresolvedPlaytimeMatrixActionTarget {
                             action: self.clip_matrix_action,
+                        },
+                    ),
+                    #[cfg(feature = "playtime")]
+                    PlaytimeControlUnitScroll => UnresolvedReaperTarget::PlaytimeControlUnitScroll(
+                        crate::domain::UnresolvedPlaytimeControlUnitScrollTarget {
+                            axis: self.axis,
                         },
                     ),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
@@ -2750,16 +2760,18 @@ impl TargetModel {
             return None;
         }
         let t = match self.r#type {
-            ClipTransport if self.clip_transport_action() == ClipTransportAction::Trigger => {
+            PlaytimeSlotTransportAction
+                if self.clip_transport_action() == ClipTransportAction::Trigger =>
+            {
                 SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
             }
-            ClipColumn if self.clip_column_action() == ClipColumnAction::Stop => {
+            PlaytimeColumnAction if self.clip_column_action() == ClipColumnAction::Stop => {
                 SimpleMappingTarget::TriggerColumn(self.clip_column.fixed_address()?)
             }
-            ClipRow if self.clip_row_action() == ClipRowAction::PlayScene => {
+            PlaytimeRowAction if self.clip_row_action() == ClipRowAction::PlayScene => {
                 SimpleMappingTarget::TriggerRow(self.clip_row.fixed_address()?)
             }
-            ClipMatrix if self.clip_matrix_action() == ClipMatrixAction::Stop => {
+            PlaytimeMatrixAction if self.clip_matrix_action() == ClipMatrixAction::Stop => {
                 SimpleMappingTarget::TriggerMatrix
             }
             _ => return None,
@@ -2962,7 +2974,7 @@ impl TargetModel {
     fn uses_track_apart_from_type(&self) -> bool {
         match self.r#type {
             #[cfg(feature = "playtime")]
-            ReaperTargetType::ClipTransport => {
+            ReaperTargetType::PlaytimeSlotTransportAction => {
                 use TransportAction::*;
                 matches!(self.transport_action, PlayStop | PlayPause)
             }
@@ -3296,40 +3308,45 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type;
                 match tt {
                     #[cfg(feature = "playtime")]
-                    ClipTransport => {
+                    PlaytimeSlotTransportAction => {
                         let slot = &self.target.clip_slot;
                         let action = &self.target.clip_transport_action;
                         write!(f, "{tt}\n{slot}\n{action}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipSeek => {
+                    PlaytimeSlotSeek => {
                         let slot = &self.target.clip_slot;
                         write!(f, "{tt}\n{slot}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipVolume => {
+                    PlaytimeSlotVolume => {
                         let slot = &self.target.clip_slot;
                         write!(f, "{tt}\n{slot}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipColumn => {
+                    PlaytimeColumnAction => {
                         let column = &self.target.clip_column;
                         let action = &self.target.clip_column_action;
                         write!(f, "{tt}\n{column}\n{action}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipRow => {
+                    PlaytimeRowAction => {
                         let row = &self.target.clip_row;
                         let action = &self.target.clip_row_action;
                         write!(f, "{tt}\n{row}\n{action}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipMatrix => {
+                    PlaytimeMatrixAction => {
                         let action = &self.target.clip_matrix_action;
                         write!(f, "{tt}\n{action}")
                     }
                     #[cfg(feature = "playtime")]
-                    ClipManagement => {
+                    PlaytimeControlUnitScroll => {
+                        let axis = &self.target.axis;
+                        write!(f, "{tt}\n{axis}")
+                    }
+                    #[cfg(feature = "playtime")]
+                    PlaytimeSlotManagementAction => {
                         let slot = &self.target.clip_slot;
                         let action = &self.target.clip_management_action;
                         write!(f, "{tt}\n{slot}\n{action}")
@@ -4273,11 +4290,11 @@ impl TrackPropValues {
             clip_column: {
                 use realearn_api::persistence::ClipColumnDescriptor;
                 match track.clip_column().unwrap_or(&Default::default()) {
-                    VirtualClipColumn::Selected => ClipColumnDescriptor::Selected,
-                    VirtualClipColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex(
+                    VirtualPlaytimeColumn::Selected => ClipColumnDescriptor::Selected,
+                    VirtualPlaytimeColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex(
                         playtime_api::persistence::ColumnAddress::new(*i),
                     ),
-                    VirtualClipColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
+                    VirtualPlaytimeColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
                         expression: Default::default(),
                     },
                 }

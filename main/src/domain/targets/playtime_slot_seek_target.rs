@@ -8,7 +8,7 @@ use crate::domain::{
     interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, Compartment,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use playtime_clip_engine::base::ClipMatrixEvent;
 use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
@@ -17,22 +17,22 @@ use playtime_clip_engine::rt::{
 };
 
 #[derive(Debug)]
-pub struct UnresolvedClipSeekTarget {
-    pub slot: VirtualClipSlot,
+pub struct UnresolvedPlaytimeSlotSeekTarget {
+    pub slot: VirtualPlaytimeSlot,
     pub feedback_resolution: FeedbackResolution,
 }
 
-impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
+impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotSeekTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
         compartment: Compartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
-        let target = ClipSeekTarget {
+        let target = PlaytimeSlotSeekTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
             feedback_resolution: self.feedback_resolution,
         };
-        Ok(vec![ReaperTarget::ClipSeek(target)])
+        Ok(vec![ReaperTarget::PlaytimeSlotSeek(target)])
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {
@@ -47,18 +47,18 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
         Some(FeedbackResolution::Beat)
     }
 
-    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+    fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         Some(&self.slot)
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ClipSeekTarget {
+pub struct PlaytimeSlotSeekTarget {
     pub slot_coordinates: SlotAddress,
     pub feedback_resolution: FeedbackResolution,
 }
 
-impl RealearnTarget for ClipSeekTarget {
+impl RealearnTarget for PlaytimeSlotSeekTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
@@ -147,11 +147,11 @@ impl RealearnTarget for ClipSeekTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::ClipSeek)
+        Some(ReaperTargetType::PlaytimeSlotSeek)
     }
 }
 
-impl ClipSeekTarget {
+impl PlaytimeSlotSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         Backbone::get()
             .with_clip_matrix(&context.instance(), |matrix| {
@@ -166,7 +166,7 @@ impl ClipSeekTarget {
     }
 }
 
-impl<'a> Target<'a> for ClipSeekTarget {
+impl<'a> Target<'a> for PlaytimeSlotSeekTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
@@ -187,11 +187,11 @@ impl<'a> Target<'a> for ClipSeekTarget {
     }
 }
 
-pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
+pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
-    name: "Clip - Seek",
-    short_name: "Clip seek",
+    name: "Slot seek",
+    short_name: "Playtime slot seek",
     supports_feedback_resolution: true,
     supports_clip_slot: true,
     ..DEFAULT_TARGET

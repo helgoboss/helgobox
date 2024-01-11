@@ -295,8 +295,8 @@ fn convert_real_target(
             route: convert_route_descriptor(data, style),
         }),
         #[cfg(feature = "playtime")]
-        ClipTransport => {
-            T::ClipTransportAction(realearn_api::persistence::ClipTransportActionTarget {
+        PlaytimeSlotTransportAction => T::PlaytimeSlotTransportAction(
+            realearn_api::persistence::PlaytimeSlotTransportActionTarget {
                 commons,
                 slot: data.clip_slot.unwrap_or_default(),
                 action: data.clip_transport_action.unwrap_or_default(),
@@ -310,45 +310,64 @@ fn convert_real_target(
                 ),
                 play_start_timing: data.clip_play_start_timing,
                 play_stop_timing: data.clip_play_stop_timing,
+            },
+        ),
+        #[cfg(feature = "playtime")]
+        PlaytimeColumnAction => {
+            T::PlaytimeColumnAction(realearn_api::persistence::PlaytimeColumnActionTarget {
+                commons,
+                column: data.clip_column,
+                action: data.clip_column_action,
             })
         }
         #[cfg(feature = "playtime")]
-        ClipColumn => T::ClipColumnAction(realearn_api::persistence::ClipColumnTarget {
-            commons,
-            column: data.clip_column,
-            action: data.clip_column_action,
-        }),
+        PlaytimeRowAction => {
+            T::PlaytimeRowAction(realearn_api::persistence::PlaytimeRowActionTarget {
+                commons,
+                row: data.clip_row,
+                action: data.clip_row_action,
+            })
+        }
         #[cfg(feature = "playtime")]
-        ClipRow => T::ClipRowAction(realearn_api::persistence::ClipRowTarget {
-            commons,
-            row: data.clip_row,
-            action: data.clip_row_action,
-        }),
+        PlaytimeMatrixAction => {
+            T::PlaytimeMatrixAction(realearn_api::persistence::PlaytimeMatrixActionTarget {
+                commons,
+                action: data.clip_matrix_action,
+            })
+        }
         #[cfg(feature = "playtime")]
-        ClipMatrix => T::ClipMatrixAction(realearn_api::persistence::ClipMatrixTarget {
-            commons,
-            action: data.clip_matrix_action,
-        }),
+        PlaytimeControlUnitScroll => T::PlaytimeControlUnitScroll(
+            realearn_api::persistence::PlaytimeControlUnitScrollTarget {
+                commons,
+                axis: data.axis,
+            },
+        ),
         #[cfg(feature = "playtime")]
-        ClipSeek => T::ClipSeek(realearn_api::persistence::ClipSeekTarget {
-            commons,
-            slot: data.clip_slot.unwrap_or_default(),
-            feedback_resolution: convert_feedback_resolution(
-                data.seek_options.feedback_resolution,
-                style,
-            ),
-        }),
+        PlaytimeSlotSeek => {
+            T::PlaytimeSlotSeek(realearn_api::persistence::PlaytimeSlotSeekTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                feedback_resolution: convert_feedback_resolution(
+                    data.seek_options.feedback_resolution,
+                    style,
+                ),
+            })
+        }
         #[cfg(feature = "playtime")]
-        ClipVolume => T::ClipVolume(realearn_api::persistence::ClipVolumeTarget {
-            commons,
-            slot: data.clip_slot.unwrap_or_default(),
-        }),
+        PlaytimeSlotVolume => {
+            T::PlaytimeSlotVolume(realearn_api::persistence::PlaytimeSlotVolumeTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+            })
+        }
         #[cfg(feature = "playtime")]
-        ClipManagement => T::ClipManagement(realearn_api::persistence::ClipManagementTarget {
-            commons,
-            slot: data.clip_slot.unwrap_or_default(),
-            action: data.clip_management_action,
-        }),
+        PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
+            realearn_api::persistence::PlaytimeSlotManagementActionTarget {
+                commons,
+                slot: data.clip_slot.unwrap_or_default(),
+                action: data.clip_management_action,
+            },
+        ),
         SendMidi => T::SendMidi(SendMidiTarget {
             commons,
             message: style.required_value(data.raw_midi_pattern),

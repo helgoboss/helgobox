@@ -4,8 +4,8 @@ use crate::domain::{
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
     MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitId,
-    UnitStateChanged, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitEvent,
+    UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -156,7 +156,7 @@ impl RealearnTarget for ModifyMappingTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match &self.modification {
             MappingModification::LearnTarget(_) => match evt {
-                CompoundChangeEvent::Unit(UnitStateChanged::MappingWhichLearnsTargetChanged {
+                CompoundChangeEvent::Unit(UnitEvent::MappingWhichLearnsTargetChanged {
                     ..
                 }) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
                 CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Unit { .. })

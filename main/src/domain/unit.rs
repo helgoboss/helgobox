@@ -34,8 +34,8 @@ type _InstanceState = Unit;
 pub struct Unit {
     id: UnitId,
     is_main_unit: bool,
-    parent_instance: WeakInstance,
-    feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
+    instance: WeakInstance,
+    event_sender: SenderToNormalThread<UnitEvent>,
     /// Which mappings are in which group.
     ///
     /// - Not persistent
@@ -103,6 +103,8 @@ pub struct Unit {
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
+    #[cfg(feature = "playtime")]
+    control_unit_top_left_corner: playtime_api::persistence::SlotAddress,
 }
 
 #[derive(Debug)]
@@ -115,14 +117,14 @@ impl Unit {
         id: UnitId,
         is_main_unit: bool,
         parent_instance: WeakInstance,
-        feedback_event_sender: SenderToNormalThread<UnitStateChanged>,
+        feedback_event_sender: SenderToNormalThread<UnitEvent>,
         parameter_manager: ParameterManager,
     ) -> Self {
         Self {
             id,
             is_main_unit,
-            parent_instance,
-            feedback_event_sender,
+            instance: parent_instance,
+            event_sender: feedback_event_sender,
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
             mapping_infos: Default::default(),
@@ -136,6 +138,8 @@ impl Unit {
             mapping_which_learns_source: Default::default(),
             mapping_which_learns_target: Default::default(),
             parameter_manager: Arc::new(parameter_manager),
+            #[cfg(feature = "playtime")]
+            control_unit_top_left_corner: Default::default(),
         }
     }
 
@@ -152,18 +156,35 @@ impl Unit {
         mapping_id: Option<QualifiedMappingId>,
     ) -> Option<QualifiedMappingId> {
         let previous_value = self.mapping_which_learns_source.replace(mapping_id);
-        self.parent_instance()
+        self.instance()
             .borrow()
             .notify_learning_target_in_unit_changed(self.id);
-        self.feedback_event_sender
-            .send_complaining(UnitStateChanged::MappingWhichLearnsSourceChanged { mapping_id });
+        self.event_sender
+            .send_complaining(UnitEvent::MappingWhichLearnsSourceChanged { mapping_id });
         previous_value
     }
 
-    fn parent_instance(&self) -> SharedInstance {
-        self.parent_instance
-            .upgrade()
-            .expect("parent instance gone")
+    fn instance(&self) -> SharedInstance {
+        self.instance.upgrade().expect("parent instance gone")
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn control_unit_top_left_corner(&self) -> playtime_api::persistence::SlotAddress {
+        self.control_unit_top_left_corner
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn set_control_unit_top_left_corner(
+        &mut self,
+        value: playtime_api::persistence::SlotAddress,
+    ) {
+        self.control_unit_top_left_corner = value;
+        let instance = self.instance();
+        if let Some(m) = instance.borrow().clip_matrix() {
+            m.notify_control_units_changed();
+        }
+        self.event_sender
+            .send_complaining(UnitEvent::ControlUnitTopLeftCornerChanged(value));
     }
 
     pub fn set_mapping_which_learns_target(
@@ -171,8 +192,8 @@ impl Unit {
         mapping_id: Option<QualifiedMappingId>,
     ) -> Option<QualifiedMappingId> {
         let previous_value = self.mapping_which_learns_target.replace(mapping_id);
-        self.feedback_event_sender
-            .send_complaining(UnitStateChanged::MappingWhichLearnsTargetChanged { mapping_id });
+        self.event_sender
+            .send_complaining(UnitEvent::MappingWhichLearnsTargetChanged { mapping_id });
         previous_value
     }
 
@@ -229,8 +250,8 @@ impl Unit {
         snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) {
         self.mapping_snapshot_container[compartment].mark_snapshot_active(tag_scope, snapshot_id);
-        self.feedback_event_sender
-            .send_complaining(UnitStateChanged::MappingSnapshotActivated {
+        self.event_sender
+            .send_complaining(UnitEvent::MappingSnapshotActivated {
                 compartment,
                 tag_scope: tag_scope.clone(),
                 snapshot_id: snapshot_id.clone(),
@@ -305,8 +326,8 @@ impl Unit {
     }
 
     fn notify_active_mapping_tags_changed(&mut self, compartment: Compartment) {
-        let instance_event = UnitStateChanged::ActiveMappingTags { compartment };
-        self.feedback_event_sender.send_complaining(instance_event);
+        let instance_event = UnitEvent::ActiveMappingTags { compartment };
+        self.event_sender.send_complaining(instance_event);
     }
 
     pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
@@ -340,8 +361,8 @@ impl Unit {
     }
 
     fn notify_active_instance_tags_changed(&mut self) {
-        self.feedback_event_sender
-            .send_complaining(UnitStateChanged::ActiveInstanceTags);
+        self.event_sender
+            .send_complaining(UnitEvent::ActiveInstanceTags);
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
@@ -409,12 +430,12 @@ impl Unit {
         mapping_id: MappingId,
     ) {
         self.active_mapping_by_group[compartment].insert(group_id, mapping_id);
-        let instance_event = UnitStateChanged::ActiveMappingWithinGroup {
+        let instance_event = UnitEvent::ActiveMappingWithinGroup {
             compartment,
             group_id,
             mapping_id: Some(mapping_id),
         };
-        self.feedback_event_sender.send_complaining(instance_event);
+        self.event_sender.send_complaining(instance_event);
     }
 
     /// Gets the ID of the currently active mapping within the given group.
@@ -435,12 +456,12 @@ impl Unit {
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
             if !mappings_by_group.contains_key(group_id) {
-                let event = UnitStateChanged::ActiveMappingWithinGroup {
+                let event = UnitEvent::ActiveMappingWithinGroup {
                     compartment,
                     group_id: *group_id,
                     mapping_id: None,
                 };
-                self.feedback_event_sender.send_complaining(event);
+                self.event_sender.send_complaining(event);
             }
         }
         self.mappings_by_group[compartment] = mappings_by_group;
@@ -462,7 +483,7 @@ impl Unit {
 
 #[derive(Clone, Debug)]
 #[allow(clippy::enum_variant_names)]
-pub enum UnitStateChanged {
+pub enum UnitEvent {
     /// For the "ReaLearn: Browse group mappings" target.
     ActiveMappingWithinGroup {
         compartment: Compartment,
@@ -485,13 +506,12 @@ pub enum UnitStateChanged {
     MappingWhichLearnsTargetChanged {
         mapping_id: Option<QualifiedMappingId>,
     },
+    #[cfg(feature = "playtime")]
+    ControlUnitTopLeftCornerChanged(playtime_api::persistence::SlotAddress),
 }
 
-impl UnitStateChanged {
+impl UnitEvent {
     pub fn is_interesting_for_other_units(&self) -> bool {
-        matches!(
-            self,
-            UnitStateChanged::MappingWhichLearnsTargetChanged { .. }
-        )
+        matches!(self, UnitEvent::MappingWhichLearnsTargetChanged { .. })
     }
 }

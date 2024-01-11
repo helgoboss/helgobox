@@ -3,7 +3,7 @@ use crate::domain::{
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetSection, TargetTypeDef, UnitStateChanged, UnresolvedReaperTargetDef,
+    TargetCharacter, TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -140,9 +140,11 @@ impl RealearnTarget for EnableMappingsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Unit(UnitStateChanged::ActiveMappingTags {
-                compartment, ..
-            }) if *compartment == self.compartment => (true, None),
+            CompoundChangeEvent::Unit(UnitEvent::ActiveMappingTags { compartment, .. })
+                if *compartment == self.compartment =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }

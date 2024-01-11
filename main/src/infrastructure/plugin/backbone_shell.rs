@@ -8,14 +8,14 @@ use crate::domain::{
     ChangeInstanceTrackArgs, Compartment, ControlSurfaceEventHandler, DeviceDiff,
     EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch,
     InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
-    InstanceOrchestrationEvent, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
-    MessageCaptureEvent, MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId,
-    OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent,
-    QualifiedMappingId, RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
+    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
+    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
+    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
     ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
     SharedInstance, SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
-    WeakInstance, WeakUnit,
+    UnitOrchestrationEvent, WeakInstance, WeakUnit,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -166,7 +166,7 @@ pub struct BackboneShell {
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
-    instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+    instance_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
     audio_hook_task_sender: SenderToRealTimeThread<NormalAudioHookTask>,
     instance_shell_infos: RefCell<Vec<InstanceShellInfo>>,
     unit_infos: RefCell<Vec<UnitInfo>>,
@@ -772,7 +772,7 @@ impl BackboneShell {
 
     pub fn instance_orchestration_event_sender(
         &self,
-    ) -> SenderToNormalThread<InstanceOrchestrationEvent> {
+    ) -> SenderToNormalThread<UnitOrchestrationEvent> {
         self.instance_orchestration_event_sender.clone()
     }
 
