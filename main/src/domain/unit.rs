@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use enum_map::EnumMap;
 use rxrust::prelude::*;
+use serde_json::json;
 
 use crate::base::Prop;
 use crate::domain::{
@@ -12,7 +13,7 @@ use crate::domain::{
     MappingSnapshotContainer, ParameterManager, QualifiedMappingId, SharedInstance, Tag, TagScope,
     TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
-use base::{NamedChannelSender, SenderToNormalThread};
+use base::{serde_json_util, NamedChannelSender, SenderToNormalThread};
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
 pub type WeakUnit = Weak<RefCell<Unit>>;
@@ -103,6 +104,7 @@ pub struct Unit {
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
+    custom_compartment_data: EnumMap<Compartment, HashMap<String, serde_json::Value>>,
     #[cfg(feature = "playtime")]
     control_unit_top_left_corner: playtime_api::persistence::SlotAddress,
 }
@@ -138,9 +140,36 @@ impl Unit {
             mapping_which_learns_source: Default::default(),
             mapping_which_learns_target: Default::default(),
             parameter_manager: Arc::new(parameter_manager),
+            custom_compartment_data: Default::default(),
             #[cfg(feature = "playtime")]
             control_unit_top_left_corner: Default::default(),
         }
+    }
+
+    pub fn set_custom_compartment_data(
+        &mut self,
+        compartment: Compartment,
+        data: HashMap<String, serde_json::Value>,
+    ) {
+        self.custom_compartment_data[compartment] = data;
+        self.notify_matrix_control_units_changed();
+    }
+
+    pub fn update_custom_compartment_data_key(
+        &mut self,
+        compartment: Compartment,
+        key: String,
+        value: serde_json::Value,
+    ) {
+        self.custom_compartment_data[compartment].insert(key, value);
+        self.notify_matrix_control_units_changed();
+    }
+
+    pub fn custom_compartment_data(
+        &self,
+        compartment: Compartment,
+    ) -> &HashMap<String, serde_json::Value> {
+        &self.custom_compartment_data[compartment]
     }
 
     pub fn is_main_unit(&self) -> bool {
@@ -169,6 +198,61 @@ impl Unit {
     }
 
     #[cfg(feature = "playtime")]
+    pub fn control_unit_column_count(&self) -> u32 {
+        self.get_playtime_main_compartment_data_as_u32("/control_unit/column_count")
+            .unwrap_or(0)
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn set_control_unit_column_count(&mut self, value: u32) {
+        let patch = json!({
+            "control_unit": {
+                "column_count": value
+            }
+        });
+        self.patch_playtime_main_compartment_data(patch);
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn control_unit_row_count(&self) -> u32 {
+        self.get_playtime_main_compartment_data_as_u32("/control_unit/row_count")
+            .unwrap_or(0)
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn set_control_unit_row_count(&mut self, value: u32) {
+        let patch = json!({
+            "control_unit": {
+                "row_count": value
+            }
+        });
+        self.patch_playtime_main_compartment_data(patch);
+    }
+
+    #[cfg(feature = "playtime")]
+    fn get_playtime_main_compartment_data_as_u32(&self, pointer: &str) -> Option<u32> {
+        self.get_playtime_main_compartment_data(pointer)
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    #[cfg(feature = "playtime")]
+    fn get_playtime_main_compartment_data(&self, pointer: &str) -> Option<&serde_json::Value> {
+        self.custom_compartment_data[Compartment::Main]
+            .get("playtime")?
+            .pointer(pointer)
+    }
+
+    #[cfg(feature = "playtime")]
+    fn patch_playtime_main_compartment_data(&mut self, patch: serde_json::Value) {
+        let playtime = self.custom_compartment_data[Compartment::Main]
+            .entry("playtime".to_string())
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        serde_json_util::merge(playtime, patch);
+        self.notify_matrix_control_units_changed();
+    }
+
+    #[cfg(feature = "playtime")]
     pub fn control_unit_top_left_corner(&self) -> playtime_api::persistence::SlotAddress {
         self.control_unit_top_left_corner
     }
@@ -179,12 +263,17 @@ impl Unit {
         value: playtime_api::persistence::SlotAddress,
     ) {
         self.control_unit_top_left_corner = value;
+        self.notify_matrix_control_units_changed();
+        self.event_sender
+            .send_complaining(UnitEvent::ControlUnitTopLeftCornerChanged(value));
+    }
+
+    #[cfg(feature = "playtime")]
+    fn notify_matrix_control_units_changed(&self) {
         let instance = self.instance();
         if let Some(m) = instance.borrow().clip_matrix() {
             m.notify_control_units_changed();
-        }
-        self.event_sender
-            .send_complaining(UnitEvent::ControlUnitTopLeftCornerChanged(value));
+        };
     }
 
     pub fn set_mapping_which_learns_target(

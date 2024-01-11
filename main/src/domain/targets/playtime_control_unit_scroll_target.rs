@@ -31,8 +31,8 @@ pub struct PlaytimeControlUnitScrollTarget {
 }
 
 impl PlaytimeControlUnitScrollTarget {
-    fn slot_count_on_axis(&self, context: ControlContext) -> u32 {
-        context
+    fn value_count(&self, context: ControlContext) -> u32 {
+        let total_count = context
             .instance()
             .borrow()
             .clip_matrix()
@@ -40,7 +40,13 @@ impl PlaytimeControlUnitScrollTarget {
                 Axis::X => m.column_count(),
                 Axis::Y => m.row_count(),
             } as u32)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        let unit = context.unit.borrow();
+        let control_unit_count = match self.axis {
+            Axis::X => unit.control_unit_column_count(),
+            Axis::Y => unit.control_unit_row_count(),
+        };
+        (total_count + 1).saturating_sub(control_unit_count)
     }
 
     fn calculate_value(&self, context: ControlContext, slot_address: SlotAddress) -> AbsoluteValue {
@@ -48,7 +54,7 @@ impl PlaytimeControlUnitScrollTarget {
             Axis::X => slot_address.column_index,
             Axis::Y => slot_address.row_index,
         };
-        let count = self.slot_count_on_axis(context);
+        let count = self.value_count(context);
         AbsoluteValue::Discrete(Fraction::new(index as u32, count))
     }
 }
@@ -60,7 +66,7 @@ impl RealearnTarget for PlaytimeControlUnitScrollTarget {
     ) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteDiscrete {
-                atomic_step_size: convert_count_to_step_size(self.slot_count_on_axis(context)),
+                atomic_step_size: convert_count_to_step_size(self.value_count(context)),
                 is_retriggerable: false,
             },
             TargetCharacter::Discrete,
@@ -74,7 +80,7 @@ impl RealearnTarget for PlaytimeControlUnitScrollTarget {
     ) -> Result<HitResponse, &'static str> {
         let new_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => {
-                convert_unit_to_discrete_value(v, self.slot_count_on_axis(context.control_context))
+                convert_unit_to_discrete_value(v, self.value_count(context.control_context))
             }
             AbsoluteValue::Discrete(f) => f.actual(),
         };

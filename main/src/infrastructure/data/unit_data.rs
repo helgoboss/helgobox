@@ -420,8 +420,8 @@ impl UnitData {
             Some(group_model_data)
         };
         let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
-        let instance_state = session.unit().borrow();
-        let plugin_params = instance_state.parameter_manager().params();
+        let unit = session.unit().borrow();
+        let plugin_params = unit.parameter_manager().params();
         UnitData {
             version: Some(BackboneShell::version().clone()),
             id: Some(session.id().to_string()),
@@ -465,7 +465,7 @@ impl UnitData {
             controller_groups: from_groups(Compartment::Controller),
             mappings: from_mappings(Compartment::Main),
             controller_mappings: from_mappings(Compartment::Controller),
-            controller_custom_data: session
+            controller_custom_data: unit
                 .custom_compartment_data(Compartment::Controller)
                 .clone(),
             controller_notes: session
@@ -484,24 +484,17 @@ impl UnitData {
             #[cfg(feature = "playtime")]
             clip_matrix: None,
             tags: session.tags.get_ref().clone(),
-            controller: CompartmentState::from_instance_state(
-                &instance_state,
-                Compartment::Controller,
-            ),
-            main: CompartmentState::from_instance_state(&instance_state, Compartment::Main),
-            active_instance_tags: instance_state.active_instance_tags().clone(),
+            controller: CompartmentState::from_instance_state(&unit, Compartment::Controller),
+            main: CompartmentState::from_instance_state(&unit, Compartment::Main),
+            active_instance_tags: unit.active_instance_tags().clone(),
             instance_preset_link_config: session.instance_preset_link_config().clone(),
             use_instance_preset_links_only: session.use_instance_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
             instance_fx: session.instance_fx_descriptor().clone(),
-            mapping_snapshots: convert_mapping_snapshots_to_api(
-                session,
-                &instance_state,
-                Compartment::Main,
-            ),
+            mapping_snapshots: convert_mapping_snapshots_to_api(session, &unit, Compartment::Main),
             controller_mapping_snapshots: convert_mapping_snapshots_to_api(
                 session,
-                &instance_state,
+                &unit,
                 Compartment::Controller,
             ),
             pot_state: None,
@@ -743,10 +736,6 @@ impl UnitData {
             };
         apply_mappings(Compartment::Main, &self.mappings)?;
         apply_mappings(Compartment::Controller, &self.controller_mappings)?;
-        session.set_custom_compartment_data(
-            Compartment::Controller,
-            self.controller_custom_data.clone(),
-        );
         let _ = session.change(SessionCommand::ChangeCompartment(
             Compartment::Controller,
             CompartmentCommand::SetNotes(self.controller_notes.clone()),
@@ -776,34 +765,33 @@ impl UnitData {
         session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
-            let instance_state = session.unit().clone();
-            let mut instance_state = instance_state.borrow_mut();
-            instance_state
-                .parameter_manager()
-                .set_all_parameters(params);
-            instance_state
-                .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
+            let unit = session.unit().clone();
+            let mut unit = unit.borrow_mut();
+            unit.set_custom_compartment_data(
+                Compartment::Controller,
+                self.controller_custom_data.clone(),
+            );
+            unit.parameter_manager().set_all_parameters(params);
+            unit.set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific
             // Active mapping by group
-            instance_state.set_active_mapping_by_group(
+            unit.set_active_mapping_by_group(
                 Compartment::Controller,
                 self.controller.active_mapping_by_group.clone(),
             );
-            instance_state.set_active_mapping_by_group(
+            unit.set_active_mapping_by_group(
                 Compartment::Main,
                 self.main.active_mapping_by_group.clone(),
             );
             // Active mapping tags
-            instance_state.set_active_mapping_tags(
+            unit.set_active_mapping_tags(
                 Compartment::Controller,
                 self.controller.active_mapping_tags.clone(),
             );
-            instance_state
-                .set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
+            unit.set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
             // Mapping snapshots (contents) and IDs
-            instance_state
-                .set_mapping_snapshot_container(Compartment::Main, main_mapping_snapshot_container);
-            instance_state.set_mapping_snapshot_container(
+            unit.set_mapping_snapshot_container(Compartment::Main, main_mapping_snapshot_container);
+            unit.set_mapping_snapshot_container(
                 Compartment::Controller,
                 controller_mapping_snapshot_container,
             );

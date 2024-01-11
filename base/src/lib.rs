@@ -43,3 +43,5 @@ pub mod validation_util;
 pub mod peak_util;
 
 pub mod byte_pattern;
+
+pub mod serde_json_util;

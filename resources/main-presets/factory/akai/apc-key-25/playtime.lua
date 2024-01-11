@@ -794,4 +794,12 @@ return {
     parameters = sorted_by_index(params),
     groups = to_array(groups),
     mappings = mappings,
+    custom_data = {
+        playtime = {
+            control_unit = {
+                column_count = 8,
+                row_count = 5,
+            },
+        },
+    },
 }

@@ -103,6 +103,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
             .into_iter()
             .filter_map(|unit_model| {
                 let unit_model = unit_model.borrow();
+                let unit = unit_model.unit().borrow();
                 let control_unit = ControlUnit {
                     id: ControlUnitId::new(unit_model.unit_id().into()),
                     // TODO-high CONTINUE Introduce unit naming, makes sense anyway
@@ -119,17 +120,9 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
                     // Take from unit and (or even only!) keep in custom main compartment data.
                     //  custom_data.playtime.control_unit.palette_color (number)
                     palette_color: None,
-                    top_left_corner: unit_model.unit().borrow().control_unit_top_left_corner(),
-                    // TODO-high CONTINUE Column and row count are NOT provided by the controller
-                    // definition because how many columns an rows are available depends on the
-                    // particular usage.
-                    //
-                    // Take from custom main compartment data.
-                    //  custom_data.playtime.control_unit.column_count (number)
-                    column_count: 8,
-                    // TODO-high CONTINUE Take from custom main compartment data.
-                    //  custom_data.playtime.control_unit.row_count (number)
-                    row_count: 8,
+                    top_left_corner: unit.control_unit_top_left_corner(),
+                    column_count: unit.control_unit_column_count(),
+                    row_count: unit.control_unit_row_count(),
                 };
                 Some(control_unit)
             })

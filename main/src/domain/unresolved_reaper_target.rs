@@ -2305,7 +2305,7 @@ fn first_selected_track_scoped(
 
 #[cfg(feature = "playtime")]
 fn additional_playtime_vars(context: ControlContext) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
-    |name, args| match name {
+    |name, _| match name {
         "control_unit_column_index" => Some(
             context
                 .unit

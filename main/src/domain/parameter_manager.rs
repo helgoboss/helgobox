@@ -1,6 +1,6 @@
 use crate::domain::{
-    Compartment, CompartmentParams, ParameterMainTask, PluginParamIndex, PluginParams,
-    RawParamValue,
+    Compartment, CompartmentParamIndex, CompartmentParams, ParamSetting, ParameterMainTask,
+    PluginParamIndex, PluginParams, RawParamValue,
 };
 use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
 use reaper_high::Reaper;
@@ -24,6 +24,16 @@ impl ParameterManager {
             params: Default::default(),
             parameter_main_task_sender,
         }
+    }
+
+    pub fn update_certain_compartment_param_settings(
+        &self,
+        compartment: Compartment,
+        settings: Vec<(CompartmentParamIndex, ParamSetting)>,
+    ) {
+        let mut plugin_params = self.params_mut();
+        let compartment_params = plugin_params.compartment_params_mut(compartment);
+        compartment_params.apply_given_settings(settings);
     }
 
     pub fn update_compartment_params(&self, compartment: Compartment, params: CompartmentParams) {

@@ -107,8 +107,6 @@ pub struct UnitModel {
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
     mappings: EnumMap<Compartment, Vec<SharedMapping>>,
-    /// At the moment, custom data is only used in the controller compartment.
-    custom_compartment_data: EnumMap<Compartment, HashMap<String, serde_json::Value>>,
     compartment_notes: EnumMap<Compartment, String>,
     default_main_group: SharedGroup,
     default_controller_group: SharedGroup,
@@ -125,7 +123,11 @@ pub struct UnitModel {
     #[derivative(Debug = "ignore")]
     ui: OnceCell<Box<dyn SessionUi>>,
     unit_container: &'static dyn UnitContainer,
-    /// Copy of all parameters (`RealearnPluginParameters` is the rightful owner).
+    // TODO-medium I already made an attempt to remove this because we share parameters via
+    //  Arc<ParameterManager> now. However, the extended_context() method borrows this and it's
+    //  used in many places. This is harder to replace because we can't just return something
+    //  borrowed from the Arc.
+    /// Copy of all parameters (`ParameterManager` is the rightful owner).
     params: PluginParams,
     controller_preset_manager: Box<dyn CompartmentPresetManager>,
     main_preset_manager: Box<dyn CompartmentPresetManager>,
@@ -270,7 +272,6 @@ impl UnitModel {
             active_main_preset_id: None,
             processor_context: context,
             mappings: Default::default(),
-            custom_compartment_data: Default::default(),
             compartment_notes: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
                 Compartment::Main,
@@ -1951,30 +1952,6 @@ impl UnitModel {
         id.as_deref()
     }
 
-    pub fn set_custom_compartment_data(
-        &mut self,
-        compartment: Compartment,
-        data: HashMap<String, serde_json::Value>,
-    ) {
-        self.custom_compartment_data[compartment] = data;
-    }
-
-    pub fn update_custom_compartment_data(
-        &mut self,
-        compartment: Compartment,
-        key: String,
-        value: serde_json::Value,
-    ) {
-        self.custom_compartment_data[compartment].insert(key, value);
-    }
-
-    pub fn custom_compartment_data(
-        &self,
-        compartment: Compartment,
-    ) -> &HashMap<String, serde_json::Value> {
-        &self.custom_compartment_data[compartment]
-    }
-
     pub fn compartment_notes(&self, compartment: Compartment) -> &str {
         &self.compartment_notes[compartment]
     }
@@ -2082,7 +2059,11 @@ impl UnitModel {
                 .mappings(compartment)
                 .map(|ptr| ptr.borrow().clone())
                 .collect(),
-            custom_data: self.custom_compartment_data[compartment].clone(),
+            custom_data: self
+                .unit()
+                .borrow()
+                .custom_compartment_data(compartment)
+                .clone(),
             notes: self.compartment_notes[compartment].clone(),
         }
     }
@@ -2115,7 +2096,9 @@ impl UnitModel {
                 .borrow()
                 .parameter_manager()
                 .update_compartment_params(compartment, compartment_params.clone());
-            self.custom_compartment_data[compartment] = model.custom_data;
+            self.unit
+                .borrow_mut()
+                .set_custom_compartment_data(compartment, model.custom_data);
             self.compartment_notes[compartment] = model.notes;
         } else {
             self.clear_compartment_data(compartment);
@@ -2145,7 +2128,9 @@ impl UnitModel {
             .borrow()
             .parameter_manager()
             .update_compartment_params(compartment, Default::default());
-        self.custom_compartment_data[compartment] = Default::default();
+        self.unit
+            .borrow_mut()
+            .set_custom_compartment_data(compartment, Default::default());
         self.compartment_notes[compartment] = Default::default();
     }
 

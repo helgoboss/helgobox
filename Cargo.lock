@@ -594,6 +594,7 @@ dependencies = [
  "reaper-medium",
  "reaper-rx",
  "serde",
+ "serde_json",
  "slog",
  "thiserror",
  "tracing",

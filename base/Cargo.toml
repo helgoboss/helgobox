@@ -17,6 +17,7 @@ helgoboss-allocator.workspace = true
 
 # 3rd-party
 serde.workspace = true
+serde_json.workspace = true
 xxhash-rust.workspace = true
 walkdir.workspace = true
 crossbeam-channel.workspace = true
