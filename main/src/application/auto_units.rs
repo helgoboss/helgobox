@@ -4,6 +4,7 @@ use crate::domain::{ControlInput, DeviceControlInput, DeviceFeedbackOutput, Feed
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct AutoUnitData {
     pub controller_id: String,
+    pub controller_palette_color: Option<u32>,
     pub input: Option<DeviceControlInput>,
     pub output: Option<DeviceFeedbackOutput>,
     pub controller_preset_usage: Option<ControllerPresetUsage>,

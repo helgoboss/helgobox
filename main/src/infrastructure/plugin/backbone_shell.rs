@@ -2397,6 +2397,7 @@ async fn maybe_create_controller_for_device_internal(
     let controller = Controller {
         id: "".to_string(),
         name: device_name.clone(),
+        palette_color: None,
         connection: Some(ControllerConnection::Midi(MidiControllerConnection {
             identity_response: Some(format_raw_midi(
                 &identity_reply.device_inquiry_reply.message,

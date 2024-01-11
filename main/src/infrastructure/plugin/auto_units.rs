@@ -62,6 +62,7 @@ fn build_auto_unit_from_controller(controller: &Controller) -> Option<AutoUnitDa
     // Build data
     let data = AutoUnitData {
         controller_id: controller.id.clone(),
+        controller_palette_color: controller.palette_color,
         controller_preset_usage,
         input,
         output,

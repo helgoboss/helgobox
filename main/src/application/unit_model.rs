@@ -237,11 +237,6 @@ impl UnitModel {
             .map(|au| au.control_input())
             .unwrap_or_default();
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
-        let initial_controller_preset_id = auto_unit
-            .as_ref()
-            .and_then(|u| u.controller_preset_usage.as_ref())
-            .map(|u| u.controller_preset_id.clone());
-        let initial_main_preset_id = auto_unit.as_ref().map(|u| u.main_preset_id.clone());
         let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
             unit_id: instance_id,
@@ -306,13 +301,20 @@ impl UnitModel {
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
-            auto_unit,
+            auto_unit: auto_unit.clone(),
         };
-        if let Some(id) = initial_controller_preset_id {
-            model.activate_controller_preset(Some(id));
-        }
-        if let Some(id) = initial_main_preset_id {
-            model.activate_main_preset(Some(id));
+        if let Some(auto_unit) = auto_unit {
+            let initial_controller_preset_id = auto_unit
+                .controller_preset_usage
+                .map(|u| u.controller_preset_id);
+            if let Some(id) = initial_controller_preset_id {
+                model.activate_controller_preset(Some(id));
+            }
+            model.activate_main_preset(Some(auto_unit.main_preset_id));
+            model
+                .unit()
+                .borrow_mut()
+                .set_control_unit_palette_color(auto_unit.controller_palette_color);
         }
         model
     }
@@ -344,6 +346,14 @@ impl UnitModel {
         }
         if &new_unit.main_preset_id != &old_auto_unit.main_preset_id {
             self.activate_main_preset(Some(new_unit.main_preset_id.clone()))
+        }
+        if &new_unit.main_preset_id != &old_auto_unit.main_preset_id {
+            self.activate_main_preset(Some(new_unit.main_preset_id.clone()))
+        }
+        if &new_unit.controller_palette_color != &old_auto_unit.controller_palette_color {
+            self.unit
+                .borrow_mut()
+                .set_control_unit_palette_color(new_unit.controller_palette_color);
         }
         // Update unit data itself
         self.auto_unit.replace(new_unit);

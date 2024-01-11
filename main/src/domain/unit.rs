@@ -198,6 +198,21 @@ impl Unit {
     }
 
     #[cfg(feature = "playtime")]
+    pub fn control_unit_palette_color(&self) -> Option<u32> {
+        self.get_playtime_main_compartment_data_as_u32("/control_unit/palette_color")
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn set_control_unit_palette_color(&mut self, value: Option<u32>) {
+        let patch = json!({
+            "control_unit": {
+                "palette_color": value
+            }
+        });
+        self.patch_playtime_main_compartment_data(patch);
+    }
+
+    #[cfg(feature = "playtime")]
     pub fn control_unit_column_count(&self) -> u32 {
         self.get_playtime_main_compartment_data_as_u32("/control_unit/column_count")
             .unwrap_or(0)

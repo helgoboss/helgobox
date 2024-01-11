@@ -19,6 +19,11 @@ pub struct Controller {
     /// If one uses multiple controllers of the same kind, this should make clear which
     /// particular controller instance we are talking about.
     pub name: String,
+    /// Controller color.
+    ///
+    /// Used e.g. for the control unit rectangle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub palette_color: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connection: Option<ControllerConnection>,
     /// Default controller preset to load whenever an auto unit with this controller is created.

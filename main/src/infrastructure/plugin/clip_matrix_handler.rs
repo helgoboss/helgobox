@@ -108,18 +108,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
                     id: ControlUnitId::new(unit_model.unit_id().into()),
                     // TODO-high CONTINUE Introduce unit naming, makes sense anyway
                     name: "".to_string(),
-                    // TODO-high CONTINUE The palette color will be provided by the controller if
-                    //  we use one. But things should also work without controllers (controllers
-                    //  are only a mechanism on top of everything existing). So another part of
-                    //  Helgobox should be responsible for keeping that color. It should be on unit
-                    //  level. And that means it would make sense to put it in the unit (just like
-                    //  the top-left corner). But where to persist it? Putting it into
-                    //  CompartmentModelData as dedicated field would leak Playtime-specific stuff
-                    //  in there. But: Putting it in custom_data, that sounds good!
-                    //
-                    // Take from unit and (or even only!) keep in custom main compartment data.
-                    //  custom_data.playtime.control_unit.palette_color (number)
-                    palette_color: None,
+                    palette_color: unit.control_unit_palette_color(),
                     top_left_corner: unit.control_unit_top_left_corner(),
                     column_count: unit.control_unit_column_count(),
                     row_count: unit.control_unit_row_count(),
