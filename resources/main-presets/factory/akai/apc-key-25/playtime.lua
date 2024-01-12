@@ -2,7 +2,7 @@
 --- author: helgoboss
 --- realearn_version: 2.16.0-pre.8
 --- used_schemes: [akai/apc-key-25]
---- provided_roles: [clip]
+--- required_features: [playtime]
 
 -- Configuration
 

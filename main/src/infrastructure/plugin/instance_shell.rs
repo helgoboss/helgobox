@@ -16,7 +16,7 @@ use base::{
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use playtime_clip_engine::base::Matrix;
-use realearn_api::persistence::InstanceSettings;
+use realearn_api::persistence::{instance_features, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -301,9 +301,12 @@ impl InstanceShell {
             self.notify_units_changed();
             return Ok(());
         }
+
         {
+            // Include only auto units that are suitable for this instance
             let mut required_auto_units: HashMap<_, _> = required_auto_units
                 .iter()
+                .filter(|au| self.has_all_features_required_by_main_preset(&au.main_preset_id))
                 .map(|au| (&au.controller_id, au))
                 .collect();
             let mut additional_unit_shells =
@@ -348,6 +351,25 @@ impl InstanceShell {
         let instance_data = self.create_data();
         let data = InstanceOrUnitData::InstanceData(instance_data);
         serde_json::to_vec(&data).expect("couldn't serialize instance data")
+    }
+
+    fn has_all_features_required_by_main_preset(&self, main_preset_id: &str) -> bool {
+        let main_preset_manager = BackboneShell::get().main_preset_manager().borrow();
+        let Some(preset) = main_preset_manager.find_preset_info_by_id(main_preset_id) else {
+            return false;
+        };
+        preset
+            .specific_meta_data
+            .required_features
+            .iter()
+            .all(|f| self.has_feature(f))
+    }
+
+    fn has_feature(&self, feature: &str) -> bool {
+        match feature {
+            instance_features::PLAYTIME => self.instance.get().borrow().clip_matrix().is_some(),
+            _ => false,
+        }
     }
 
     pub fn create_data(&self) -> InstanceData {

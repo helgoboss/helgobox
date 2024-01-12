@@ -60,6 +60,8 @@ pub struct ControllerPresetMetaData {
     )]
     pub midi_identity_pattern: Option<String>,
     /// Provided virtual control schemes.
+    ///
+    /// Will be used for finding the correct controller preset when calculating auto units.
     #[serde(default)]
     pub provided_schemes: HashSet<VirtualControlSchemeId>,
 }
@@ -68,10 +70,23 @@ pub struct ControllerPresetMetaData {
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MainPresetMetaData {
     /// Used virtual control schemes.
+    ///
+    /// Will be used for finding the correct controller preset when calculating auto units.
     #[serde(default)]
     pub used_schemes: HashSet<VirtualControlSchemeId>,
+    // TODO-high-ms5 I don't think we need that.
     #[serde(default)]
     pub provided_roles: HashSet<String>,
+    /// A set of features that a Helgobox instance needs to provide for the preset to make sense.
+    ///
+    /// See [instance_features].
+    ///
+    /// Will be used for determining whether an auto unit should be created for a specific instance
+    /// or not. Example: If the required feature is "playtime" and a controller is configured with
+    /// this main preset but the instance doesn't contain a Playtime Clip Matrix, this instance will
+    /// not load the main preset.
+    #[serde(default)]
+    pub required_features: HashSet<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -81,4 +96,10 @@ impl VirtualControlSchemeId {
     pub fn get(&self) -> &str {
         &self.0
     }
+}
+
+/// Known instance features.
+pub mod instance_features {
+    /// Instance owns a Playtime Clip Matrix.
+    pub const PLAYTIME: &str = "playtime";
 }
