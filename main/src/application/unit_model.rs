@@ -237,6 +237,8 @@ impl UnitModel {
             .map(|au| au.control_input())
             .unwrap_or_default();
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
+        let initial_send_feedback_only_if_armed =
+            get_appropriate_send_feedback_only_if_armed_default(initial_input);
         let mut model = Self {
             id: prop(nanoid::nanoid!(8)),
             unit_id: instance_id,
@@ -252,7 +254,7 @@ impl UnitModel {
             virtual_input_logging_enabled: prop(false),
             virtual_output_logging_enabled: prop(false),
             target_control_logging_enabled: prop(false),
-            send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
+            send_feedback_only_if_armed: prop(initial_send_feedback_only_if_armed),
             reset_feedback_when_releasing_source: prop(
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             ),
@@ -2883,3 +2885,7 @@ impl RealearnControlSurfaceMainTaskSender {
 }
 
 const SESSION_GONE: &str = "session gone";
+
+pub fn get_appropriate_send_feedback_only_if_armed_default(control_input: ControlInput) -> bool {
+    control_input == ControlInput::Midi(MidiControlInput::FxInput)
+}

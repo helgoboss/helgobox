@@ -45,9 +45,8 @@ impl ProtoReceivers {
         session_id: &str,
         process: &impl Fn(EventReply),
     ) {
-        future::join(
+        future::join3(
             future::join5(
-                keep_processing_updates(process, &mut self.occasional_global_update_receiver),
                 keep_processing_session_filtered_updates(
                     session_id,
                     process,
@@ -63,13 +62,19 @@ impl ProtoReceivers {
                     process,
                     &mut self.continuous_slot_update_receiver,
                 ),
+                keep_processing_updates(process, &mut self.occasional_global_update_receiver),
+                keep_processing_session_filtered_updates(
+                    session_id,
+                    process,
+                    &mut self.occasional_instance_update_receiver,
+                ),
+            ),
+            future::join5(
                 keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_matrix_update_receiver,
                 ),
-            ),
-            future::join5(
                 keep_processing_session_filtered_updates(
                     session_id,
                     process,
@@ -90,11 +95,11 @@ impl ProtoReceivers {
                     process,
                     &mut self.occasional_slot_update_receiver,
                 ),
-                keep_processing_session_filtered_updates(
-                    session_id,
-                    process,
-                    &mut self.occasional_clip_update_receiver,
-                ),
+            ),
+            keep_processing_session_filtered_updates(
+                session_id,
+                process,
+                &mut self.occasional_clip_update_receiver,
             ),
         )
         .await;

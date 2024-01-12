@@ -16,10 +16,11 @@ use slog::debug;
 use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentPresetManager,
-    CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig, MainPresetAutoLoadMode,
-    MappingCommand, MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping,
-    SharedUnitModel, VirtualControlElementType, WeakUnitModel,
+    get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
+    Affected, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, MainPresetAutoLoadMode, MappingCommand,
+    MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping, SharedUnitModel,
+    VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -2557,9 +2558,9 @@ impl HeaderPanel {
                 session.let_unmatched_events_through.set(true);
             }
             if session.auto_correct_settings.get() {
-                session
-                    .send_feedback_only_if_armed
-                    .set(control_input == ControlInput::Midi(MidiControlInput::FxInput));
+                session.send_feedback_only_if_armed.set(
+                    get_appropriate_send_feedback_only_if_armed_default(control_input),
+                );
             }
         });
         self.when(session.feedback_output.changed(), |view, _| {
