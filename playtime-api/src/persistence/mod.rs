@@ -852,11 +852,11 @@ impl Column {
     }
 }
 
-fn default_follows_scene() -> bool {
+pub fn default_follows_scene() -> bool {
     true
 }
 
-fn default_exclusive() -> bool {
+pub fn default_exclusive() -> bool {
     true
 }
 
