@@ -55,7 +55,7 @@ impl PlaytimeControlUnitScrollTarget {
             Axis::Y => slot_address.row_index,
         };
         let count = self.value_count(context);
-        AbsoluteValue::Discrete(Fraction::new(index as u32, count))
+        AbsoluteValue::Discrete(Fraction::new(index as u32, count.saturating_sub(1)))
     }
 }
 
