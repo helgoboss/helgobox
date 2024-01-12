@@ -193,8 +193,8 @@ impl AppInstance for StandaloneAppInstance {
             return Ok(());
         }
         // TODO-medium This doesn't need to be a string anymore
-        let session_id = self.instance_id.to_string();
-        let app_handle = app_library.start_app_instance(None, session_id)?;
+        let instance_id = self.instance_id.to_string();
+        let app_handle = app_library.start_app_instance(None, instance_id)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
@@ -455,7 +455,7 @@ impl View for AppPanel {
         let Some(session) = self.session.upgrade() else {
             return false;
         };
-        open_state.send_pending_events(session.borrow().id());
+        open_state.send_pending_events(session.borrow().unit_key());
         true
     }
 
@@ -516,6 +516,6 @@ fn extract_session_id(session: &WeakUnitModel) -> Result<String> {
         .upgrade()
         .ok_or_else(|| anyhow!("session gone"))?
         .borrow()
-        .id()
+        .unit_key()
         .to_string())
 }

@@ -38,12 +38,13 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::base::notification::notify_user_on_anyhow_error;
 use crate::domain::ui_util::format_raw_midi;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
-use crate::infrastructure::plugin::{determine_auto_units, SharedInstanceShell, WeakInstanceShell};
+use crate::infrastructure::plugin::{
+    update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+};
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -176,7 +177,7 @@ pub struct BackboneShell {
     proto_hub: crate::infrastructure::proto::ProtoHub,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct InstanceShellInfo {
     pub instance_id: InstanceId,
     pub processor_context: ProcessorContext,
@@ -192,7 +193,10 @@ pub struct InstanceShellInfo {
 pub struct UnitInfo {
     pub unit_id: UnitId,
     pub instance_id: InstanceId,
+    /// Whether this is the main unit of an instance.
     pub is_main_unit: bool,
+    /// Whether this is an automatically loaded unit (according to controller configuration).
+    pub is_auto_unit: bool,
     pub processor_context: ProcessorContext,
     /// Representation of the unit's parent instance in the domain layer.
     pub instance: WeakInstance,
@@ -496,18 +500,6 @@ impl BackboneShell {
             integration: Box::new(RealearnClipEngineIntegration),
         };
         ClipEngine::make_available_globally(|| ClipEngine::new(args));
-    }
-
-    /// To be called whenever some event might lead to addition/removal of auto units.
-    fn update_auto_units(&self) {
-        let auto_units = determine_auto_units();
-        let instance_infos = self.instance_shell_infos.borrow();
-        for instance_shell in instance_infos
-            .iter()
-            .filter_map(|i| i.instance_shell.upgrade())
-        {
-            notify_user_on_anyhow_error(instance_shell.apply_auto_units(&auto_units));
-        }
     }
 
     fn reconnect_osc_devices(&self) {
@@ -1055,7 +1047,7 @@ impl BackboneShell {
             let Ok(session) = session.try_borrow() else {
                 return false;
             };
-            session.id() == session_id
+            session.unit_key() == session_id
         })
     }
 
@@ -1142,7 +1134,7 @@ impl BackboneShell {
     ) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             if let Ok(session) = session.try_borrow() {
-                session.id() == session_id
+                session.unit_key() == session_id
             } else {
                 false
             }
@@ -1152,7 +1144,7 @@ impl BackboneShell {
     pub fn find_session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
         let session = self.find_unit_model_by_unit_id_ignoring_borrowed_ones(instance_id)?;
         let session = session.borrow();
-        Some(session.id().to_string())
+        Some(session.unit_key().to_string())
     }
 
     pub fn find_unit_id_by_unit_key(&self, session_id: &str) -> Option<UnitId> {
@@ -1263,6 +1255,9 @@ impl BackboneShell {
         let unit_id = unit_info.unit_id;
         debug!(Reaper::get().logger(), "Registering new unit...");
         let mut units = self.unit_infos.borrow_mut();
+        if !unit_info.is_auto_unit {
+            update_auto_units_async();
+        }
         units.push(unit_info);
         debug!(
             Reaper::get().logger(),
@@ -1279,18 +1274,21 @@ impl BackboneShell {
         );
     }
 
-    pub fn unregister_unit(&self, unit_id: UnitId, unit_model_ptr: *const UnitModel) {
+    pub fn unregister_unit(&self, unit_id: UnitId) {
         self.unregister_unit_main_processor(unit_id);
         self.unregister_unit_real_time_processor(unit_id);
         debug!(Reaper::get().logger(), "Unregistering unit...");
         let mut units = self.unit_infos.borrow_mut();
         units.retain(|i| {
-            match i.unit_model.upgrade() {
-                // Already gone, for whatever reason. Time to throw out!
-                None => false,
-                // Not gone yet.
-                Some(shared_session) => shared_session.as_ptr() != unit_model_ptr as _,
+            if i.unit_id != unit_id {
+                // Keep unit
+                true;
             }
+            // Remove that unit
+            if !i.is_auto_unit {
+                update_auto_units_async();
+            }
+            false
         });
         debug!(
             Reaper::get().logger(),
@@ -2275,14 +2273,6 @@ impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
             .notify_controller_config_changed(source);
         update_auto_units_async();
     }
-}
-
-fn update_auto_units_async() {
-    Global::task_support()
-        .do_later_in_main_thread_from_main_thread_asap(|| {
-            BackboneShell::get().update_auto_units();
-        })
-        .unwrap();
 }
 
 #[derive(Debug)]

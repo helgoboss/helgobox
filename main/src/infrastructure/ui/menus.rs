@@ -201,7 +201,7 @@ pub fn menu_containing_sessions(
                 _ => return None,
             }
             // Build item
-            let other_session_id = other_session.id().to_string();
+            let other_session_id = other_session.unit_key().to_string();
             let item = item_with_opts(
                 other_session.to_string(),
                 ItemOpts {

@@ -424,7 +424,7 @@ impl UnitData {
         let plugin_params = unit.parameter_manager().params();
         UnitData {
             version: Some(BackboneShell::version().clone()),
-            id: Some(session.id().to_string()),
+            id: Some(session.unit_key().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             stay_active_when_project_in_background: Some(
@@ -609,7 +609,7 @@ impl UnitData {
         // Mutation
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         if let Some(id) = &self.id {
-            session.id.set_without_notification(id.clone())
+            session.unit_key.set_without_notification(id.clone())
         };
         session
             .auto_correct_settings

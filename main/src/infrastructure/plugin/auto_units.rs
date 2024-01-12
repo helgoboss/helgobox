@@ -2,32 +2,74 @@ use crate::application::{
     parse_hex_string, AutoUnitData, ControllerPresetUsage, ControllerSuitability,
     MainPresetSuitability,
 };
+use crate::base::notification::notify_user_on_anyhow_error;
 use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
 use crate::infrastructure::data::PresetInfo;
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
 use base::byte_pattern::BytePattern;
-use base::{tracing_debug, tracing_warn};
+use base::{tracing_debug, tracing_warn, Global};
 use realearn_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
 };
-use reaper_high::{MidiInputDevice, MidiOutputDevice};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::str::FromStr;
 
-pub fn determine_auto_units() -> Vec<AutoUnitData> {
+pub fn update_auto_units_async() {
+    Global::task_support()
+        .do_later_in_main_thread_from_main_thread_asap(|| {
+            update_auto_units();
+        })
+        .unwrap();
+}
+
+/// To be called whenever some event might lead to addition/removal of auto units.
+fn update_auto_units() {
+    tracing::debug!("Updating auto units...");
+    // Get a list of all enabled controllers
     let controller_manager = BackboneShell::get().controller_manager().borrow();
-    let controllers = &controller_manager.controller_config().controllers;
-    controllers
+    let mut controllers: Vec<_> = controller_manager
+        .controller_config()
+        .controllers
         .iter()
-        .filter_map(build_auto_unit_from_controller)
-        .collect()
+        .filter(|c| c.enabled)
+        .collect();
+    // Sort all instances starting with the ones in the current project (ascending by track and
+    // position in FX chain), then in other projects (ascending by track and position in FX chain)
+    // and then on the monitoring FX chain (ascending by position in FX chain).
+    let mut project_first_instances =
+        BackboneShell::get().with_instance_shell_infos(|infos| infos.to_vec());
+    project_first_instances.sort_unstable_by(instance_comparator);
+    // Give each instance the chance to use the controller (respectively its input/output) for
+    // its own purposes. In this case, the controller is not eligible for global auto units
+    // anymore.
+    for instance_shell in project_first_instances
+        .iter()
+        .filter_map(|i| i.instance_shell.upgrade())
+    {
+        instance_shell.take_what_you_need(&mut controllers);
+    }
+    // Build global auto units
+    let mut global_auto_units: HashMap<_, _> = controllers
+        .iter()
+        .filter_map(|c| build_auto_unit_from_controller(c))
+        .map(|au| (au.controller_id.clone(), au))
+        .collect();
+    // Distribute the global auto units in reverse order (monitoring FX first)
+    for instance_shell in project_first_instances
+        .iter()
+        .rev()
+        .filter_map(|i| i.instance_shell.upgrade())
+    {
+        let result = instance_shell.apply_auto_units(&mut global_auto_units);
+        notify_user_on_anyhow_error(result);
+    }
 }
 
 fn build_auto_unit_from_controller(controller: &Controller) -> Option<AutoUnitData> {
-    if !controller.enabled {
-        return None;
-    }
     // Ignore if no connection info or no main preset
     let connection = controller.connection.as_ref()?;
     let main_preset_id = controller.default_main_preset.as_ref()?;
@@ -261,4 +303,51 @@ fn output_is_connected(output: DeviceFeedbackOutput) -> bool {
 fn osc_device_is_connected(_dev_id: OscDeviceId) -> bool {
     // No easy way to check with OSC. Just return true for now.
     true
+}
+
+/// Order between instances. Starting with the ones in the current project (ascending by track and
+/// position in FX chain), then in other projects (ascending by track and position in FX chain)
+/// and then on the monitoring FX chain (ascending by position in FX chain).
+fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering {
+    use Ordering::*;
+    // Monitoring FX chain (track == None) trumps track FX chain (track == Some)
+    let fx_a = a.processor_context.containing_fx();
+    let fx_b = b.processor_context.containing_fx();
+    match (fx_a.track(), fx_b.track()) {
+        (None, Some(_)) => return Greater,
+        (Some(_), None) => return Less,
+        (None, None) => {
+            // Both are on monitoring FX chain. Higher position in chain trumps lower position.
+            return fx_a.index().cmp(&fx_b.index());
+        }
+        (Some(track_a), Some(track_b)) => {
+            // Both are on tracks. Other project trumps current project.
+            let current_project = Reaper::get().current_project();
+            match (
+                track_a.project() == current_project,
+                track_b.project() == current_project,
+            ) {
+                (false, true) => return Greater,
+                (true, false) => return Less,
+                _ => {}
+            };
+            // Both instances are in the same project. Master track trumps normal track.
+            match (track_a.index(), track_b.index()) {
+                (None, Some(_)) => return Greater,
+                (Some(_), None) => return Less,
+                (None, None) => {
+                    // Both are on master track. Higher position in chain trumps lower position.
+                    return fx_a.index().cmp(&fx_b.index());
+                }
+                (Some(index_a), Some(index_b)) => {
+                    // Both are on normal tracks. Now ascending by track and index.
+                    let ord = index_a.cmp(&index_b);
+                    if ord.is_ne() {
+                        return ord;
+                    }
+                    fx_a.index().cmp(&fx_b.index())
+                }
+            }
+        }
+    }
 }

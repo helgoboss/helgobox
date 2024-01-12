@@ -2491,7 +2491,7 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         session.log_debug_info();
-        BackboneShell::get().log_debug_info(session.id());
+        BackboneShell::get().log_debug_info(session.unit_key());
     }
 
     fn open_user_guide_offline(&self) {

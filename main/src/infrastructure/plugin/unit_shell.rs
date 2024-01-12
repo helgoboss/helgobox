@@ -62,6 +62,7 @@ impl UnitShell {
         is_main_unit: bool,
         auto_unit: Option<AutoUnitData>,
     ) -> Self {
+        let is_auto_unit = auto_unit.is_some();
         let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             SenderToRealTimeThread::new_channel(
                 "normal real-time tasks",
@@ -121,6 +122,7 @@ impl UnitShell {
         let unit = Rc::new(RefCell::new(unit));
         // Session (application - shared)
         let unit_model = UnitModel::new(
+            instance_id,
             unit_id,
             &logger,
             processor_context.clone(),
@@ -185,6 +187,7 @@ impl UnitShell {
             instance_panel,
             is_main_unit,
             unit: Rc::downgrade(&unit),
+            is_auto_unit,
         };
         BackboneShell::get().register_unit(unit_info, real_time_processor.clone(), main_processor);
         shared_session.borrow_mut().activate(weak_session.clone());
@@ -249,7 +252,7 @@ impl Drop for UnitShell {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping UnitShell...");
         let session = self.model.get();
-        BackboneShell::get().unregister_unit(self.id, session.as_ptr());
+        BackboneShell::get().unregister_unit(self.id);
         debug!(
             self.logger,
             "{} pointers are still referring to this session",

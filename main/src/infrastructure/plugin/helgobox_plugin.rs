@@ -10,7 +10,7 @@ use crate::domain::{
     ProcessorContext, RawParamValue, PLUGIN_PARAMETER_COUNT,
 };
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
-use crate::infrastructure::plugin::{determine_auto_units, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use base::{tracing_debug, Global};
 use helgoboss_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
@@ -420,8 +420,6 @@ impl HelgoboxPlugin {
             processor_context,
             self.instance_panel.clone(),
         );
-        let auto_units = determine_auto_units();
-        instance_shell.apply_auto_units(&auto_units)?;
         let instance_shell = Arc::new(instance_shell);
         BackboneShell::get().register_instance(&instance_shell);
         self.instance_panel

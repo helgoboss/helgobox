@@ -50,7 +50,8 @@ impl CompanionAppPresenter {
         let session = session.borrow();
         let app = BackboneShell::get();
         let server = app.server().borrow();
-        let full_companion_app_url = server.generate_full_companion_app_url(session.id(), false);
+        let full_companion_app_url =
+            server.generate_full_companion_app_url(session.unit_key(), false);
         let server_is_running = server.is_running();
         let qr_code_image_file_name = "qr-code.png";
         let (width, height) = self
@@ -67,14 +68,15 @@ impl CompanionAppPresenter {
             qr_code_image_width: width,
             qr_code_image_height: height,
             companion_web_app_url: config.companion_web_app_url().to_string(),
-            full_companion_web_app_url: server.generate_full_companion_app_url(session.id(), true),
+            full_companion_web_app_url: server
+                .generate_full_companion_app_url(session.unit_key(), true),
             server_host: server
                 .local_ip()
                 .map(|ip| ip.to_string())
                 .unwrap_or_else(|| "<could not be determined>".to_string()),
             server_http_port: server.http_port(),
             server_https_port: server.https_port(),
-            session_id: session.id().to_string(),
+            session_id: session.unit_key().to_string(),
             os: std::env::consts::OS,
         };
         let index_file = dir.path().join("index.html");
@@ -117,7 +119,7 @@ impl CompanionAppPresenter {
         when(
             app.changed()
                 .merge(app.server().borrow().changed())
-                .merge(self.session().borrow().id.changed())
+                .merge(self.session().borrow().unit_key.changed())
                 .take_until(self.party_is_over()),
         )
         .with(Rc::downgrade(self))

@@ -122,8 +122,8 @@ impl AppLibrary {
             .ok_or(anyhow!("app base dir is not an UTF-8 string"))?;
         let app_base_dir_c_string = CString::new(app_base_dir_str)
             .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
-        let session_id_c_string =
-            CString::new(instance_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
+        let instance_id_c_string =
+            CString::new(instance_id).map_err(|_| anyhow!("instance ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
             let app_handle = unsafe {
@@ -135,7 +135,7 @@ impl AppLibrary {
                     parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
-                    session_id_c_string.as_ptr(),
+                    instance_id_c_string.as_ptr(),
                     Reaper::get().main_window().as_ptr(),
                 )
             };
@@ -635,10 +635,10 @@ fn send_to_app(instance_id: &str, reply_value: reply::Value) -> Result<()> {
 }
 
 fn find_app_instance(instance_id: &str) -> Result<SharedAppInstance> {
-    let instance = BackboneShell::get()
+    let instance_panel = BackboneShell::get()
         .find_instance_panel_by_instance_id(instance_id.parse()?)
-        .context("instance not found")?;
-    Ok(instance.app_instance().clone())
+        .ok_or_else(|| anyhow!("Helgobox instance {instance_id} not found"))?;
+    Ok(instance_panel.app_instance().clone())
 }
 
 fn to_status(err: anyhow::Error) -> Status {

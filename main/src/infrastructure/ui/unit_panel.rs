@@ -125,16 +125,18 @@ impl UnitPanel {
 
     fn invalidate_status_1_text(&self) {
         use std::fmt::Write;
-        let _ = self.do_with_session(|session| {
+        let _ = self.do_with_session(|unit_model| {
             let state = self.state.borrow();
             let scroll_status = state.scroll_status.get_ref();
-            let tags = session.tags.get_ref();
+            let tags = unit_model.tags.get_ref();
             let mut text = format!(
-                "Showing mappings {} to {} of {} | Unit ID: {}",
+                "Showing mappings {} to {} of {} | Unit info: {} ({}/{})",
                 scroll_status.from_pos,
                 scroll_status.to_pos,
                 scroll_status.item_count,
-                session.id()
+                unit_model.unit_key(),
+                unit_model.instance_id(),
+                unit_model.unit_id(),
             );
             if !tags.is_empty() {
                 let _ = write!(&mut text, " | Unit tags: {}", format_tags_as_csv(tags));
@@ -253,9 +255,12 @@ impl UnitPanel {
             self.when(session.everything_changed(), |view| {
                 view.invalidate_all_controls();
             });
-            self.when(session.tags.changed().merge(session.id.changed()), |view| {
-                view.invalidate_status_1_text();
-            });
+            self.when(
+                session.tags.changed().merge(session.unit_key.changed()),
+                |view| {
+                    view.invalidate_status_1_text();
+                },
+            );
             let instance_state = session.unit().borrow();
             self.when(
                 instance_state.global_control_and_feedback_state_changed(),
@@ -366,7 +371,7 @@ impl UnitPanel {
     fn edit_instance_data(&self) -> Result<(), &'static str> {
         let (initial_session_id, initial_tags_as_csv) = self.do_with_session(|session| {
             (
-                session.id().to_owned(),
+                session.unit_key().to_owned(),
                 format_tags_as_csv(session.tags.get_ref()),
             )
         })?;
@@ -410,7 +415,7 @@ impl UnitPanel {
                 return Ok(());
             }
             self.do_with_session_mut(|session| {
-                session.id.set(new_session_id);
+                session.unit_key.set(new_session_id);
             })?;
         }
         Ok(())
@@ -504,7 +509,7 @@ impl SessionUi for Weak<UnitPanel> {
     }
 
     fn send_projection_feedback(&self, session: &UnitModel, value: ProjectionFeedbackValue) {
-        let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
+        let _ = send_projection_feedback_to_subscribed_clients(session.unit_key(), value);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {

@@ -5,7 +5,7 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
-use crate::infrastructure::plugin::{determine_auto_units, BackboneShell};
+use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
@@ -16,7 +16,7 @@ use base::{
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use playtime_clip_engine::base::Matrix;
-use realearn_api::persistence::{instance_features, InstanceSettings};
+use realearn_api::persistence::{instance_features, Controller, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -166,7 +166,7 @@ impl InstanceShell {
 
     pub fn set_settings(&self, settings: InstanceSettings) -> anyhow::Result<()> {
         *self.settings.get().borrow_mut() = settings;
-        self.apply_auto_units(&determine_auto_units())?;
+        update_auto_units_async();
         BackboneShell::get()
             .proto_hub()
             .notify_instance_settings_changed(self);
@@ -240,18 +240,6 @@ impl InstanceShell {
         self.notify_units_changed();
         id
     }
-    //
-    // pub fn set_auto_loaded_controller_roles(
-    //     &self,
-    //     roles: EnumSet<ControllerRoleKind>,
-    // ) -> anyhow::Result<()> {
-    //     self.settings
-    //         .get()
-    //         .borrow_mut()
-    //         .auto_loaded_controller_roles = roles.iter().collect();
-    //     let auto_units = BackboneShell::get().determine_auto_units();
-    //     self.apply_auto_units(&auto_units)
-    // }
 
     fn create_additional_unit_shell(&self, auto_unit: Option<AutoUnitData>) -> UnitShell {
         UnitShell::new(
@@ -293,7 +281,17 @@ impl InstanceShell {
         Ok(())
     }
 
-    pub fn apply_auto_units(&self, required_auto_units: &[AutoUnitData]) -> anyhow::Result<()> {
+    pub fn take_what_you_need(&self, controllers: &mut Vec<&Controller>) {
+        // TODO Build local auto units only if this instance belongs to the current project!
+        // TODO When removing controllers from the list because this instance has a manual unit
+        //  that uses the controller's inputs, take care not to include those that are in
+        //  other projects UNLESS "Stay active in background" is enabled.
+    }
+
+    pub fn apply_auto_units(
+        &self,
+        required_auto_units: &mut HashMap<String, AutoUnitData>,
+    ) -> anyhow::Result<()> {
         if !self.settings.get().borrow().control.global_control_enabled {
             // Global control is not enabled. Remove auto units if some exist.
             blocking_write_lock(&self.additional_unit_shells, "apply_auto_units")
@@ -301,14 +299,8 @@ impl InstanceShell {
             self.notify_units_changed();
             return Ok(());
         }
-
         {
             // Include only auto units that are suitable for this instance
-            let mut required_auto_units: HashMap<_, _> = required_auto_units
-                .iter()
-                .filter(|au| self.has_all_features_required_by_main_preset(&au.main_preset_id))
-                .map(|au| (&au.controller_id, au))
-                .collect();
             let mut additional_unit_shells =
                 blocking_write_lock(&self.additional_unit_shells, "apply_auto_units");
             // At first we update or remove any existing auto units
@@ -316,11 +308,12 @@ impl InstanceShell {
                 let mut unit_model = unit_shell.model().borrow_mut();
                 if let Some(existing_auto_unit) = unit_model.auto_unit() {
                     // This is an existing auto unit
-                    if let Some(matching_auto_unit) =
-                        required_auto_units.remove(&existing_auto_unit.controller_id)
-                    {
+                    if let Some(matching_auto_unit) = self.remove_auto_unit_if_requirements_met(
+                        required_auto_units,
+                        &existing_auto_unit.controller_id,
+                    ) {
                         // The existing auto unit must be updated
-                        unit_model.update_auto_unit(matching_auto_unit.clone());
+                        unit_model.update_auto_unit(matching_auto_unit);
                         true
                     } else {
                         // The existing auto unit is obsolete
@@ -332,11 +325,16 @@ impl InstanceShell {
                 }
             });
             // All required auto units that are still left must be added
-            for auto_unit in required_auto_units.into_values() {
+            required_auto_units.retain(|_, auto_unit| {
+                if !self.has_all_features_required_by_main_preset(&auto_unit.main_preset_id) {
+                    // Our instance doesn't satisfy the requirements. Don't consume auto unit.
+                    return true;
+                }
                 tracing_debug!(msg = "Creating auto-unit shell", ?auto_unit);
                 let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
                 additional_unit_shells.push(unit_shell);
-            }
+                false
+            });
         }
         self.notify_units_changed();
         Ok(())
@@ -351,6 +349,19 @@ impl InstanceShell {
         let instance_data = self.create_data();
         let data = InstanceOrUnitData::InstanceData(instance_data);
         serde_json::to_vec(&data).expect("couldn't serialize instance data")
+    }
+
+    fn remove_auto_unit_if_requirements_met(
+        &self,
+        auto_units: &mut HashMap<String, AutoUnitData>,
+        controller_id: &str,
+    ) -> Option<AutoUnitData> {
+        let auto_unit = auto_units.get(controller_id)?;
+        if self.has_all_features_required_by_main_preset(&auto_unit.main_preset_id) {
+            auto_units.remove(controller_id)
+        } else {
+            None
+        }
     }
 
     fn has_all_features_required_by_main_preset(&self, main_preset_id: &str) -> bool {
@@ -480,7 +491,7 @@ impl InstanceShell {
         *blocking_write_lock(&self.additional_unit_shells, "InstanceShell apply_data") =
             additional_unit_shells?;
         // Apply auto units
-        self.apply_auto_units(&determine_auto_units())?;
+        update_auto_units_async();
         Ok(())
     }
 

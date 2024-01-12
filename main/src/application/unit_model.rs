@@ -12,11 +12,11 @@ use crate::domain::{
     CompartmentParamIndex, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InfoEvent, InputDescriptor, LastTouchedTargetFilter, MainMapping, MappingId, MappingKey,
-    MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask, NormalRealTimeTask,
-    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
     StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
     TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
     VirtualSource, VirtualSourceValue,
@@ -75,12 +75,12 @@ pub type _Session = UnitModel;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct UnitModel {
+    instance_id: InstanceId,
     unit_id: UnitId,
-    /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
+    /// Persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
-    // TODO-medium We should rename session ID to unit key?
-    pub id: Prop<String>,
+    pub unit_key: Prop<String>,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -213,7 +213,8 @@ pub mod session_defaults {
 impl UnitModel {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: UnitId,
+        instance_id: InstanceId,
+        unit_id: UnitId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
@@ -240,8 +241,9 @@ impl UnitModel {
         let initial_send_feedback_only_if_armed =
             get_appropriate_send_feedback_only_if_armed_default(initial_input);
         let mut model = Self {
-            id: prop(nanoid::nanoid!(8)),
-            unit_id: instance_id,
+            unit_key: prop(nanoid::nanoid!(8)),
+            instance_id,
+            unit_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
@@ -367,12 +369,16 @@ impl UnitModel {
         }
     }
 
+    pub fn instance_id(&self) -> InstanceId {
+        self.instance_id
+    }
+
     pub fn unit_id(&self) -> UnitId {
         self.unit_id
     }
 
-    pub fn id(&self) -> &str {
-        self.id.get_ref()
+    pub fn unit_key(&self) -> &str {
+        self.unit_key.get_ref()
     }
 
     pub fn instance_track_descriptor(&self) -> &TrackDescriptor {
@@ -2272,7 +2278,7 @@ impl UnitModel {
             - Controller mapping subscription count: {}\n\
             ",
             self.unit_id,
-            self.id.get_ref(),
+            self.unit_key.get_ref(),
             self.mappings[Compartment::Main].len(),
             self.mapping_subscriptions[Compartment::Main].len(),
             self.groups.len(),
@@ -2556,7 +2562,7 @@ impl Display for UnitModel {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let fx_pos = self.processor_context.containing_fx().index() + 1;
         let fx_name = self.processor_context.containing_fx().name();
-        let session_id = self.id();
+        let session_id = self.unit_key();
         if let Some(track) = self.processor_context.track() {
             if track.is_master_track() {
                 f.write_str(MASTER_TRACK_LABEL)?;
