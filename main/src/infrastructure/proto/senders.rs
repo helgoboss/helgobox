@@ -47,49 +47,50 @@ impl ProtoReceivers {
     ) {
         future::join(
             future::join5(
-                keep_processing_updates(
+                keep_processing_updates(process, &mut self.occasional_global_update_receiver),
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.continuous_matrix_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.continuous_column_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.continuous_slot_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_matrix_update_receiver,
                 ),
-                keep_processing_updates(
+            ),
+            future::join5(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_track_update_receiver,
                 ),
-            ),
-            future::join4(
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_column_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_row_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_slot_update_receiver,
                 ),
-                keep_processing_updates(
+                keep_processing_session_filtered_updates(
                     session_id,
                     process,
                     &mut self.occasional_clip_update_receiver,
@@ -148,7 +149,7 @@ impl ProtoReceivers {
     }
 }
 
-async fn keep_processing_updates<T>(
+async fn keep_processing_session_filtered_updates<T>(
     session_id: &str,
     process: impl Fn(EventReply),
     receiver: &mut Receiver<WithSessionId<T>>,
@@ -162,6 +163,20 @@ async fn keep_processing_updates<T>(
             }
             let reply = EventReply {
                 value: Some(batch.value.into()),
+            };
+            process(reply);
+        }
+    }
+}
+
+async fn keep_processing_updates<T>(process: impl Fn(EventReply), receiver: &mut Receiver<T>)
+where
+    T: Clone + Into<event_reply::Value>,
+{
+    loop {
+        if let Ok(batch) = receiver.recv().await {
+            let reply = EventReply {
+                value: Some(batch.into()),
             };
             process(reply);
         }
