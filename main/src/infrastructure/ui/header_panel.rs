@@ -335,6 +335,7 @@ impl HeaderPanel {
             };
             let clipboard_could_contain_lua =
                 !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
+            let instance_shell = self.instance_panel().shell().unwrap();
             let session = self.session();
             let session = session.borrow();
             #[cfg(feature = "playtime")]
@@ -351,6 +352,7 @@ impl HeaderPanel {
                     }
                 });
             let entries = vec![
+                // "View" scope
                 item(
                     "Copy listed mappings",
                     MainMenuAction::CopyListedMappingsAsJson,
@@ -442,8 +444,9 @@ impl HeaderPanel {
                     ],
                 ),
                 separator(),
+                // Unit scope
                 menu(
-                    "Options",
+                    "Unit options",
                     vec![
                         item_with_opts(
                             "Auto-correct settings",
@@ -515,6 +518,15 @@ impl HeaderPanel {
                     ],
                 ),
                 menu(
+                    "Unit-wide FX-to-preset links",
+                    generate_fx_to_preset_links_menu_entries(
+                        last_relevant_focused_fx_id.as_ref(),
+                        &main_preset_manager,
+                        session.instance_preset_link_config(),
+                        PresetLinkScope::Instance,
+                    ),
+                ),
+                menu(
                     "Compartment parameters",
                     (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
                         .map(|batch_index| {
@@ -550,15 +562,79 @@ impl HeaderPanel {
                         .collect(),
                 ),
                 menu(
-                    "Unit-wide FX-to-preset links",
-                    generate_fx_to_preset_links_menu_entries(
-                        last_relevant_focused_fx_id.as_ref(),
-                        &main_preset_manager,
-                        session.instance_preset_link_config(),
-                        PresetLinkScope::Instance,
-                    ),
+                    "Logging",
+                    vec![
+                        item("Log debug info (now)", MainMenuAction::LogDebugInfo),
+                        item_with_opts(
+                            "Log real control messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_input_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleRealInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log virtual control messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_input_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleVirtualInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log target control",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.target_control_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleTargetControlLogging,
+                        ),
+                        item_with_opts(
+                            "Log virtual feedback messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_output_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleVirtualOutputLogging,
+                        ),
+                        item_with_opts(
+                            "Log real feedback messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_output_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleRealOutputLogging,
+                        ),
+                    ],
+                ),
+                item("Send feedback now", MainMenuAction::SendFeedbackNow),
+                separator(),
+                // Instance scope
+                menu(
+                    "Instance options",
+                    vec![item_with_opts(
+                        "Enable global control (auto units)",
+                        ItemOpts {
+                            enabled: true,
+                            checked: instance_shell.settings().control.global_control_enabled,
+                        },
+                        MainMenuAction::ToggleGlobalControl,
+                    )],
+                ),
+                item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
+                #[cfg(feature = "playtime")]
+                item("Show App (not usable yet)", MainMenuAction::ShowApp),
+                #[cfg(feature = "playtime")]
+                item_with_opts(
+                    "Close App (not usable yet)",
+                    ItemOpts {
+                        enabled: app_is_open,
+                        checked: false,
+                    },
+                    MainMenuAction::CloseApp,
                 ),
                 separator(),
+                // Global scope
                 menu(
                     "Server",
                     vec![
@@ -629,66 +705,6 @@ impl HeaderPanel {
                     "Reload all presets from disk",
                     MainMenuAction::ReloadAllPresets,
                 ),
-                item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
-                #[cfg(feature = "playtime")]
-                item("Show App (not usable yet)", MainMenuAction::ShowApp),
-                #[cfg(feature = "playtime")]
-                item_with_opts(
-                    "Close App (not usable yet)",
-                    ItemOpts {
-                        enabled: app_is_open,
-                        checked: false,
-                    },
-                    MainMenuAction::CloseApp,
-                ),
-                separator(),
-                menu(
-                    "Logging",
-                    vec![
-                        item("Log debug info (now)", MainMenuAction::LogDebugInfo),
-                        item_with_opts(
-                            "Log real control messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.real_input_logging_enabled.get(),
-                            },
-                            MainMenuAction::ToggleRealInputLogging,
-                        ),
-                        item_with_opts(
-                            "Log virtual control messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.virtual_input_logging_enabled.get(),
-                            },
-                            MainMenuAction::ToggleVirtualInputLogging,
-                        ),
-                        item_with_opts(
-                            "Log target control",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.target_control_logging_enabled.get(),
-                            },
-                            MainMenuAction::ToggleTargetControlLogging,
-                        ),
-                        item_with_opts(
-                            "Log virtual feedback messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.virtual_output_logging_enabled.get(),
-                            },
-                            MainMenuAction::ToggleVirtualOutputLogging,
-                        ),
-                        item_with_opts(
-                            "Log real feedback messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.real_output_logging_enabled.get(),
-                            },
-                            MainMenuAction::ToggleRealOutputLogging,
-                        ),
-                    ],
-                ),
-                item("Send feedback now", MainMenuAction::SendFeedbackNow),
             ];
             root_menu(entries)
         };
@@ -748,6 +764,7 @@ impl HeaderPanel {
                 self.freeze_clip_matrix();
             }
             MainMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
+            MainMenuAction::ToggleGlobalControl => self.toggle_global_control(),
             MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
             MainMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
             MainMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
@@ -1280,6 +1297,13 @@ impl HeaderPanel {
             .borrow_mut()
             .auto_correct_settings
             .set_with(|prev| !*prev);
+    }
+
+    fn toggle_global_control(&self) {
+        self.instance_panel()
+            .shell()
+            .unwrap()
+            .toggle_global_control();
     }
 
     fn toggle_real_input_logging(&self) {
@@ -3075,6 +3099,7 @@ enum MainMenuAction {
     #[cfg(feature = "playtime")]
     FreezeClipMatrix,
     ToggleAutoCorrectSettings,
+    ToggleGlobalControl,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,
     ToggleRealOutputLogging,

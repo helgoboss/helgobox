@@ -38,7 +38,7 @@ use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
-    ControllerConnection, FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+    FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
 };
 use reaper_medium::RecordingInput;
 use std::error::Error;

@@ -1253,7 +1253,7 @@ impl BackboneShell {
         main_processor: MainProcessor<WeakUnitModel>,
     ) {
         let unit_id = unit_info.unit_id;
-        debug!(Reaper::get().logger(), "Registering new unit...");
+        debug!(Reaper::get().logger(), "Registering new unit {unit_id}...");
         let mut units = self.unit_infos.borrow_mut();
         if !unit_info.is_auto_unit {
             update_auto_units_async();
@@ -1261,7 +1261,7 @@ impl BackboneShell {
         units.push(unit_info);
         debug!(
             Reaper::get().logger(),
-            "Unit registered. Unit count: {}",
+            "Unit {unit_id} registered. Unit count: {}",
             units.len()
         );
         self.audio_hook_task_sender
@@ -1282,7 +1282,7 @@ impl BackboneShell {
         units.retain(|i| {
             if i.unit_id != unit_id {
                 // Keep unit
-                true;
+                return true;
             }
             // Remove that unit
             if !i.is_auto_unit {

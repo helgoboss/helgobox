@@ -16,7 +16,7 @@ use base::{
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use playtime_clip_engine::base::Matrix;
-use realearn_api::persistence::{instance_features, Controller, InstanceSettings};
+use realearn_api::persistence::{instance_features, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -164,13 +164,24 @@ impl InstanceShell {
         self.settings.get().borrow().clone()
     }
 
-    pub fn set_settings(&self, settings: InstanceSettings) -> anyhow::Result<()> {
+    pub fn toggle_global_control(&self) {
+        {
+            let mut settings = self.settings.get().borrow_mut();
+            settings.control.global_control_enabled = !settings.control.global_control_enabled;
+        }
+        self.handle_changed_settings();
+    }
+
+    pub fn set_settings(&self, settings: InstanceSettings) {
         *self.settings.get().borrow_mut() = settings;
+        self.handle_changed_settings();
+    }
+
+    fn handle_changed_settings(&self) {
         update_auto_units_async();
         BackboneShell::get()
             .proto_hub()
             .notify_instance_settings_changed(self);
-        Ok(())
     }
 
     pub fn instance_id(&self) -> InstanceId {

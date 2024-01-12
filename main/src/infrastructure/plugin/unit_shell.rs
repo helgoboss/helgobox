@@ -250,7 +250,7 @@ impl UnitShell {
 
 impl Drop for UnitShell {
     fn drop(&mut self) {
-        debug!(self.logger, "Dropping UnitShell...");
+        debug!(self.logger, "Dropping UnitShell {}...", self.id);
         let session = self.model.get();
         BackboneShell::get().unregister_unit(self.id);
         debug!(

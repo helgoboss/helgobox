@@ -31,15 +31,13 @@ fn update_auto_units() {
     tracing::debug!("Updating auto units...");
     // Get a list of all enabled controllers
     let controller_manager = BackboneShell::get().controller_manager().borrow();
-    let mut controllers: Vec<_> = controller_manager
+    let controllers = controller_manager
         .controller_config()
         .controllers
         .iter()
-        .filter(|c| c.enabled)
-        .collect();
+        .filter(|c| c.enabled);
     // Build global auto units
     let mut global_auto_units: HashMap<_, _> = controllers
-        .iter()
         .filter_map(|c| build_auto_unit_from_controller(c))
         .map(|au| (au.controller_id.clone(), au))
         .collect();

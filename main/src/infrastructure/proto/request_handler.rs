@@ -253,7 +253,8 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
         let settings = serde_json::from_str(&req.settings)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_instance_command(&req.instance_id, |instance_shell| {
-            instance_shell.set_settings(settings)
+            instance_shell.set_settings(settings);
+            Ok(())
         })
     }
 
