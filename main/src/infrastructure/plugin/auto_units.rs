@@ -3,7 +3,7 @@ use crate::application::{
     MainPresetSuitability,
 };
 use crate::base::notification::notify_user_on_anyhow_error;
-use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
+use crate::domain::{get_project_options, DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
@@ -18,6 +18,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+/// To be called whenever some event might lead to addition/removal of auto units.
 pub fn update_auto_units_async() {
     Global::task_support()
         .do_later_in_main_thread_from_main_thread_asap(|| {
@@ -26,7 +27,6 @@ pub fn update_auto_units_async() {
         .unwrap();
 }
 
-/// To be called whenever some event might lead to addition/removal of auto units.
 fn update_auto_units() {
     tracing::debug!("Updating auto units...");
     // Get a list of all enabled controllers
@@ -37,28 +37,31 @@ fn update_auto_units() {
         .iter()
         .filter(|c| c.enabled)
         .collect();
-    // Sort all instances starting with the ones in the current project (ascending by track and
-    // position in FX chain), then in other projects (ascending by track and position in FX chain)
-    // and then on the monitoring FX chain (ascending by position in FX chain).
-    let mut project_first_instances =
-        BackboneShell::get().with_instance_shell_infos(|infos| infos.to_vec());
-    project_first_instances.sort_unstable_by(instance_comparator);
-    // Give each instance the chance to use the controller (respectively its input/output) for
-    // its own purposes. In this case, the controller is not eligible for global auto units
-    // anymore.
-    for instance_shell in project_first_instances
-        .iter()
-        .filter_map(|i| i.instance_shell.upgrade())
-    {
-        instance_shell.take_what_you_need(&mut controllers);
-    }
     // Build global auto units
     let mut global_auto_units: HashMap<_, _> = controllers
         .iter()
         .filter_map(|c| build_auto_unit_from_controller(c))
         .map(|au| (au.controller_id.clone(), au))
         .collect();
-    // Distribute the global auto units in reverse order (monitoring FX first)
+    // Sort all instances in a project-first
+    let mut project_first_instances =
+        BackboneShell::get().with_instance_shell_infos(|infos| infos.to_vec());
+    project_first_instances.sort_unstable_by(instance_comparator);
+    // Give each instance the chance to give a veto for a global auto unit. Or even instantiate
+    // its own local auto unit, in which case the project-first ordering is important
+    // (because project instances have priority over monitoring FX instances when it comes to
+    // controller overrides).
+    let project_options = get_project_options();
+    for instance_shell in project_first_instances
+        .iter()
+        .filter_map(|i| i.instance_shell.upgrade())
+    {
+        instance_shell.judge_auto_unit_candidates(&mut global_auto_units, project_options);
+    }
+    // Distribute the remaining global auto units in reverse order (monitoring FX first).
+    // Reason: We want the global units to be as long-lived as possible. If there's a ReaLearn
+    // instance on the monitoring FX chain and global control is enabled for it, it should get
+    // most of the global auto units.
     for instance_shell in project_first_instances
         .iter()
         .rev()

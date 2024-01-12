@@ -1,7 +1,7 @@
 use crate::application::{AutoUnitData, SharedUnitModel};
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
-    MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
+    MidiEvent, ProcessorContext, ProjectOptions, SharedInstance, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
@@ -281,16 +281,47 @@ impl InstanceShell {
         Ok(())
     }
 
-    pub fn take_what_you_need(&self, controllers: &mut Vec<&Controller>) {
-        // TODO Build local auto units only if this instance belongs to the current project!
-        // TODO When removing controllers from the list because this instance has a manual unit
-        //  that uses the controller's inputs, take care not to include those that are in
-        //  other projects UNLESS "Stay active in background" is enabled.
+    /// The idea is that this instance removes each auto unit candidate from the given map if it
+    /// feels like it shouldn't be loaded. Which can be the case if it wants to use its input/output
+    /// in another way (global auto unit override).
+    pub fn judge_auto_unit_candidates(
+        &self,
+        auto_unit_candidates: &mut HashMap<String, AutoUnitData>,
+        project_options: ProjectOptions,
+    ) {
+        // TODO-medium In future, we can build local auto units here, that is, check if the
+        //  controller should be used in a different way in this instance and create an appropriate
+        //  auto unit. We should do that only if the instance belongs to the current project.
+        auto_unit_candidates.retain(|_, auto_unit_candidate| {
+            if !self
+                .main_unit_shell
+                .model()
+                .borrow()
+                .is_fine_with_global_auto_unit(auto_unit_candidate, project_options)
+            {
+                return false;
+            }
+            let additional_unit_shells = blocking_read_lock(
+                &self.additional_unit_shells,
+                "participate_in_global_auto_unit_calculation",
+            );
+            if !additional_unit_shells.iter().all(|s| {
+                s.model()
+                    .borrow()
+                    .is_fine_with_global_auto_unit(auto_unit_candidate, project_options)
+            }) {
+                return false;
+            }
+            true
+        });
     }
 
+    /// Here the instance gets the chance to load some of the given auto units. If it decides to
+    /// load it, it must remove it from the map in order to prevent the unit to be loaded
+    /// in other instances as well (would cause input/output conflicts).
     pub fn apply_auto_units(
         &self,
-        required_auto_units: &mut HashMap<String, AutoUnitData>,
+        desired_auto_units: &mut HashMap<String, AutoUnitData>,
     ) -> anyhow::Result<()> {
         if !self.settings.get().borrow().control.global_control_enabled {
             // Global control is not enabled. Remove auto units if some exist.
@@ -309,7 +340,7 @@ impl InstanceShell {
                 if let Some(existing_auto_unit) = unit_model.auto_unit() {
                     // This is an existing auto unit
                     if let Some(matching_auto_unit) = self.remove_auto_unit_if_requirements_met(
-                        required_auto_units,
+                        desired_auto_units,
                         &existing_auto_unit.controller_id,
                     ) {
                         // The existing auto unit must be updated
@@ -325,7 +356,7 @@ impl InstanceShell {
                 }
             });
             // All required auto units that are still left must be added
-            required_auto_units.retain(|_, auto_unit| {
+            desired_auto_units.retain(|_, auto_unit| {
                 if !self.has_all_features_required_by_main_preset(&auto_unit.main_preset_id) {
                     // Our instance doesn't satisfy the requirements. Don't consume auto unit.
                     return true;

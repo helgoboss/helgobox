@@ -8,18 +8,18 @@ use crate::application::{
 };
 use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, Compartment,
-    CompartmentParamIndex, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
-    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
-    TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
-    VirtualSource, VirtualSourceValue,
+    convert_plugin_param_index_range_to_iter, passes_background_project_check, Backbone,
+    BasicSettings, Compartment, CompartmentParamIndex, CompoundMappingSource, ControlContext,
+    ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
+    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter,
+    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
+    ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
+    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance,
+    SharedUnit, SourceFeedbackEvent, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
+    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -38,7 +38,7 @@ use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
-    FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+    ControllerConnection, FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
 };
 use reaper_medium::RecordingInput;
 use std::error::Error;
@@ -387,6 +387,37 @@ impl UnitModel {
 
     pub fn instance_fx_descriptor(&self) -> &FxDescriptor {
         &self.instance_fx_descriptor
+    }
+
+    /// Returns whether this unit allows the given global auto unit to be created (not necessarily
+    /// and even most likely not in this instance by the way). It can give its veto by returning
+    /// `false`.
+    pub fn is_fine_with_global_auto_unit(
+        &self,
+        auto_unit_candidate: &AutoUnitData,
+        project_options: ProjectOptions,
+    ) -> bool {
+        if self.auto_unit.is_some() {
+            // Only manual units give veto
+            return true;
+        }
+        if !passes_background_project_check(
+            &self.processor_context,
+            self.stay_active_when_project_in_background.get(),
+            project_options,
+        ) {
+            // Only active units give veto
+            return true;
+        }
+        // If the manual unit uses the same connection as the controller, the manual unit wins. We
+        // do this to prevent conflicts of manual units with automatic ones. Manual units need to
+        // take care of that manually, but with auto units we can easily avoid it.
+        if auto_unit_candidate.control_input() == self.control_input()
+            || auto_unit_candidate.feedback_output() == self.feedback_output()
+        {
+            return false;
+        }
+        true
     }
 
     pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {

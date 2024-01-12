@@ -4230,7 +4230,7 @@ fn determine_feedback_globally_enabled(
         )
 }
 
-fn passes_background_project_check(
+pub fn passes_background_project_check(
     context: &ProcessorContext,
     stay_active_when_project_in_background: StayActiveWhenProjectInBackground,
     opts: ProjectOptions,
