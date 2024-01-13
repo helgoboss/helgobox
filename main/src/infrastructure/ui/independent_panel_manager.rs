@@ -92,7 +92,7 @@ impl IndependentPanelManager {
 
     pub fn handle_changed_conditions(&self) {
         for p in &self.mapping_panels {
-            let _ = p.clone().handle_changed_conditions();
+            p.clone().handle_changed_conditions();
         }
     }
 

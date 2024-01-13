@@ -1396,9 +1396,9 @@ impl MappingPanel {
         });
     }
 
-    pub fn handle_changed_conditions(self: SharedView<Self>) -> Result<(), &'static str> {
+    pub fn handle_changed_conditions(self: SharedView<Self>) {
         self.clone().invoke_programmatically(|| {
-            self.read(|view| {
+            let _ = self.read(|view| {
                 // These changes can happen because of removals (e.g. project close, FX deletions,
                 // track deletions etc.). We want to update whatever is possible. But if the own
                 // project is missing, this was a project close and we don't need to do anything
@@ -1408,8 +1408,8 @@ impl MappingPanel {
                 }
                 view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
-            })
-        })
+            });
+        });
     }
 
     pub fn notify_parameters_changed(
@@ -1497,7 +1497,12 @@ impl MappingPanel {
     /// process, wrap your function body with this. Basically all pub functions!
     ///
     /// This prevents edit control text change events fired by windows to be processed.
-    fn invoke_programmatically<R>(&self, f: impl FnOnce() -> R) -> R {
+    /// It also prevents the function from being executed if the window is not open anymore,
+    /// which can happen when closing things.
+    fn invoke_programmatically(&self, f: impl FnOnce()) {
+        if self.view.window().is_none() {
+            return;
+        }
         self.set_invoked_programmatically(true);
         scopeguard::defer! { self.set_invoked_programmatically(false); }
         f()
@@ -1703,7 +1708,7 @@ fn decorate_reaction<I: Send + Sync + Clone + 'static>(
             // If the reaction can't be displayed anymore because the mapping is not filled anymore,
             // so what.
             let _ = view.read(move |p| reaction(p, item.clone()));
-        })
+        });
     }
 }
 
