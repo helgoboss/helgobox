@@ -248,7 +248,8 @@ impl BackboneShell {
     /// Executed globally just once when module loaded.
     pub fn init(context: PluginContext) -> Self {
         let logger = BackboneShell::logger().clone();
-        Swell::make_available_globally(Swell::load(context));
+        // Previously, we also loaded the `Swell` struct here. See
+        // `HelgoboxPlugin::ensure_reaper_setup` to see why we must not do that anymore!
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
         Reaper::setup_with_defaults(
