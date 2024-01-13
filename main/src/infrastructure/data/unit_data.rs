@@ -14,7 +14,7 @@ use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, CompartmentModelData, GroupModelData, MappingModelData,
     MigrationDescriptor, ParameterData,
 };
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 
 use crate::base::notification;
@@ -796,6 +796,7 @@ impl UnitData {
                 controller_mapping_snapshot_container,
             );
         }
+        update_auto_units_async();
         Ok(())
     }
 

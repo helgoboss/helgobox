@@ -3,7 +3,7 @@ use crate::application::{
     MainPresetSuitability,
 };
 use crate::base::notification::notify_user_on_anyhow_error;
-use crate::domain::{get_project_options, DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
+use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
@@ -49,12 +49,11 @@ fn update_auto_units() {
     // its own local auto unit, in which case the project-first ordering is important
     // (because project instances have priority over monitoring FX instances when it comes to
     // controller overrides).
-    let project_options = get_project_options();
     for instance_shell in project_first_instances
         .iter()
         .filter_map(|i| i.instance_shell.upgrade())
     {
-        instance_shell.judge_auto_unit_candidates(&mut global_auto_units, project_options);
+        instance_shell.judge_auto_unit_candidates(&mut global_auto_units);
     }
     // Distribute the remaining global auto units in reverse order (monitoring FX first).
     // Reason: We want the global units to be as long-lived as possible. If there's a ReaLearn

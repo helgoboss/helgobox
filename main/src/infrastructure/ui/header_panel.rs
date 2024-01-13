@@ -34,7 +34,9 @@ use crate::infrastructure::data::{
     FileBasedMainPresetManager, InstanceOrUnitData, MappingModelData, OscDevice, PresetFileType,
     PresetOrigin, UnitData,
 };
-use crate::infrastructure::plugin::{warn_about_failed_server_start, BackboneShell};
+use crate::infrastructure::plugin::{
+    update_auto_units_async, warn_about_failed_server_start, BackboneShell,
+};
 
 use crate::infrastructure::ui::bindings::root;
 
@@ -1802,6 +1804,7 @@ impl HeaderPanel {
         };
         if let Ok(control_input) = control_input {
             self.session().borrow_mut().control_input.set(control_input);
+            update_auto_units_async();
         } else {
             // This is most likely a section entry. Selection is not allowed.
             self.invalidate_control_input_combo_box_value();
@@ -1839,6 +1842,7 @@ impl HeaderPanel {
                 .borrow_mut()
                 .feedback_output
                 .set(feedback_output);
+            update_auto_units_async();
         } else {
             // This is most likely a section entry. Selection is not allowed.
             self.invalidate_feedback_output_combo_box_value();

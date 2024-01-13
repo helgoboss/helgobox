@@ -1,7 +1,7 @@
 use crate::application::{AutoUnitData, SharedUnitModel};
 use crate::domain::{
     AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
-    MidiEvent, ProcessorContext, ProjectOptions, SharedInstance, SharedRealTimeInstance, UnitId,
+    MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
@@ -298,7 +298,6 @@ impl InstanceShell {
     pub fn judge_auto_unit_candidates(
         &self,
         auto_unit_candidates: &mut HashMap<String, AutoUnitData>,
-        project_options: ProjectOptions,
     ) {
         // TODO-medium In future, we can build local auto units here, that is, check if the
         //  controller should be used in a different way in this instance and create an appropriate
@@ -308,7 +307,7 @@ impl InstanceShell {
                 .main_unit_shell
                 .model()
                 .borrow()
-                .is_fine_with_global_auto_unit(auto_unit_candidate, project_options)
+                .is_fine_with_global_auto_unit(auto_unit_candidate)
             {
                 return false;
             }
@@ -319,7 +318,7 @@ impl InstanceShell {
             if !additional_unit_shells.iter().all(|s| {
                 s.model()
                     .borrow()
-                    .is_fine_with_global_auto_unit(auto_unit_candidate, project_options)
+                    .is_fine_with_global_auto_unit(auto_unit_candidate)
             }) {
                 return false;
             }

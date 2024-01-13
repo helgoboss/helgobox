@@ -8,16 +8,16 @@ use crate::application::{
 };
 use crate::base::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, passes_background_project_check, Backbone,
-    BasicSettings, Compartment, CompartmentParamIndex, CompoundMappingSource, ControlContext,
-    ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter,
-    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
-    NormalMainTask, NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams,
-    ProcessorContext, ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId,
-    RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance,
-    SharedUnit, SourceFeedbackEvent, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
+    convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, Compartment,
+    CompartmentParamIndex, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
+    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
+    ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit,
+    SourceFeedbackEvent, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
     TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
     VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
 };
@@ -58,6 +58,7 @@ pub trait SessionUi {
     fn handle_target_control(&self, event: TargetControlEvent);
     fn handle_source_feedback(&self, event: SourceFeedbackEvent);
     fn handle_info_event(&self, event: &InfoEvent);
+    fn handle_global_control_and_feedback_state_changed(&self);
     fn handle_affected(
         &self,
         session: &UnitModel,
@@ -392,28 +393,20 @@ impl UnitModel {
     /// Returns whether this unit allows the given global auto unit to be created (not necessarily
     /// and even most likely not in this instance by the way). It can give its veto by returning
     /// `false`.
-    pub fn is_fine_with_global_auto_unit(
-        &self,
-        auto_unit_candidate: &AutoUnitData,
-        project_options: ProjectOptions,
-    ) -> bool {
+    pub fn is_fine_with_global_auto_unit(&self, auto_unit_candidate: &AutoUnitData) -> bool {
         if self.auto_unit.is_some() {
             // Only manual units give veto
             return true;
         }
-        if !passes_background_project_check(
-            &self.processor_context,
-            self.stay_active_when_project_in_background.get(),
-            project_options,
-        ) {
-            // Only active units give veto
-            return true;
-        }
+        // Only active units give veto
+        let state = self.unit.borrow().global_control_and_feedback_state();
         // If the manual unit uses the same connection as the controller, the manual unit wins. We
         // do this to prevent conflicts of manual units with automatic ones. Manual units need to
         // take care of that manually, but with auto units we can easily avoid it.
-        if auto_unit_candidate.control_input() == self.control_input()
-            || auto_unit_candidate.feedback_output() == self.feedback_output()
+        if state.control_active && auto_unit_candidate.control_input() == self.control_input() {
+            return false;
+        }
+        if state.feedback_active && auto_unit_candidate.feedback_output() == self.feedback_output()
         {
             return false;
         }
@@ -2642,11 +2635,14 @@ impl DomainEventHandler for WeakUnitModel {
                     .set_on_mappings(on_mappings);
             }
             GlobalControlAndFeedbackStateChanged(state) => {
+                let session = session.borrow();
                 session
-                    .borrow()
                     .unit
                     .borrow_mut()
                     .set_global_control_and_feedback_state(state);
+                session
+                    .ui()
+                    .handle_global_control_and_feedback_state_changed();
             }
             UpdatedSingleMappingOnState(event) => {
                 session

@@ -18,7 +18,7 @@ use crate::domain::{
     Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
     QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent, TargetValueChangedEvent,
 };
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::server::http::{
     send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
 };
@@ -546,6 +546,10 @@ impl SessionUi for Weak<UnitPanel> {
 
     fn handle_info_event(&self, event: &InfoEvent) {
         upgrade_panel(self).handle_info_event(event);
+    }
+
+    fn handle_global_control_and_feedback_state_changed(&self) {
+        update_auto_units_async();
     }
 }
 
