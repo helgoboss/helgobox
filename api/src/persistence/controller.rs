@@ -40,6 +40,31 @@ pub struct Controller {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_controller_preset: Option<CompartmentPresetId>,
     /// Default main preset to load whenever an auto unit with this controller is created.
+    // TODO-high The plan is to introduce an advanced mode where you don't just set a main preset but can define
+    //  a decision table per controller. It's a list of rules. A rule is made from conditions
+    //  (fixed number, typed, every condition optional, AND) and effects (fixed number, typed, optional).
+    //  The default_main_preset would act as fallback, as last line in the list of rules, which doesn't
+    //  define any additional condition.
+    //  Possible conditions:
+    //  - Playtime clip matrix (if at least one instance is active that has a clip matrix)
+    //  - Active pot unit?
+    //  Possible effects:
+    //  - Main preset (optional)
+    //  - Use auto-load in unit
+    //  "Use auto-load in unit" uses the already existing global FX-to-preset links to do auto-load within
+    //  the unit. FX-to-preset links already is very similar to a decision table. It's going to be a
+    //  second global decision table, but a subordinate one, which acts on a single unit (not by adding/removing
+    //  units). The main preset defined in the controller rule should act as fallback if none of the
+    //  FX-to-preset links was effective. This should be implemented by the existing auto-load. Maybe by
+    //  memorizing the preset that was active when "Auto-load depending on instance FX" was active.
+    //  FX-to-preset links are not 100% a decision table already. Because their order doesn't matter.
+    //  But we can turn it into one by sorting the list according to our current automatic ranking
+    //  (a migration step). Making it a decision table would have the nice effect that the user has
+    //  much influence and it's immediately clear why something happens, no implicit ranking. The list
+    //  of conditions can be easily extended. E.g. we could not just react on what unit FX is
+    //  active but also unit track and so on. In any case, we should add a "Controller" condition, so
+    //  that one e.g. can load a different main preset depending on which FX is focused AND which controller
+    //  is connected.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_main_preset: Option<CompartmentPresetId>,
 }
