@@ -304,7 +304,7 @@ async fn start_servers(
         metrics_reporter,
     );
     let grpc_server_future =
-        start_grpc_server(SocketAddr::from(([127, 0, 0, 1], grpc_port)), services);
+        start_grpc_server(SocketAddr::from(([0, 0, 0, 0], grpc_port)), services);
     let (http_result, grpc_result) =
         futures::future::join(http_server_future, grpc_server_future).await;
     http_result.expect("HTTP server error");
