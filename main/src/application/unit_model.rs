@@ -241,8 +241,14 @@ impl UnitModel {
         let initial_output = auto_unit.as_ref().and_then(|au| au.feedback_output());
         let initial_send_feedback_only_if_armed =
             get_appropriate_send_feedback_only_if_armed_default(initial_input);
+        // Make unit key deterministic if we have an auto unit. That can help later if we want to let other units
+        // (or anything really) refer to automatically loaded units.
+        let initial_unit_key = auto_unit
+            .as_ref()
+            .map(|au| au.controller_id.clone())
+            .unwrap_or_else(|| nanoid::nanoid!(8));
         let mut model = Self {
-            unit_key: prop(nanoid::nanoid!(8)),
+            unit_key: prop(initial_unit_key),
             instance_id,
             unit_id,
             logger: parent_logger.clone(),
