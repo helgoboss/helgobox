@@ -14,13 +14,14 @@ use include_dir::{include_dir, Dir};
 use itertools::Itertools;
 use mlua::LuaSerdeExt;
 use realearn_api::persistence::{
-    CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData,
+    CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData, VirtualControlSchemeId,
 };
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use serde::Deserialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -47,7 +48,7 @@ pub struct FileBasedCompartmentPresetManager<M> {
 }
 
 impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
-    pub fn find_preset_compatible_with_device(
+    pub fn find_controller_preset_compatible_with_device(
         &self,
         midi_identity_reply: &[u8],
     ) -> Option<&PresetInfo<ControllerPresetMetaData>> {
@@ -62,6 +63,50 @@ impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
             };
             byte_pattern.matches(midi_identity_reply)
         })
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct MainPresetSelectionConditions {
+    pub at_least_one_instance_has_playtime_clip_matrix: bool,
+}
+
+impl FileBasedCompartmentPresetManager<MainPresetMetaData> {
+    pub fn find_most_suitable_main_preset_for_schemes(
+        &self,
+        virtual_control_schemes: &HashSet<VirtualControlSchemeId>,
+        conditions: MainPresetSelectionConditions,
+    ) -> Option<&PresetInfo<MainPresetMetaData>> {
+        let mut candidates: Vec<_> = self
+            .preset_infos
+            .iter()
+            .filter_map(|info| {
+                let intersection_count = info
+                    .specific_meta_data
+                    .used_schemes
+                    .intersection(virtual_control_schemes)
+                    .count();
+                if intersection_count == 0 {
+                    return None;
+                }
+                Some((info, intersection_count))
+            })
+            .collect();
+        candidates.sort_unstable_by(|(preset_a, rank_a), (preset_b, rank_b)| {
+            // Prefer Playtime preset if at least one instance has a Playtime clip matrix
+            if conditions.at_least_one_instance_has_playtime_clip_matrix {
+                let ord = preset_a
+                    .specific_meta_data
+                    .requires_playtime()
+                    .cmp(&preset_b.specific_meta_data.requires_playtime());
+                if ord.is_ne() {
+                    return ord;
+                }
+            }
+            // Apart from that, prefer higher rank
+            rank_a.cmp(rank_b)
+        });
+        Some(candidates.into_iter().next()?.0)
     }
 }
 

@@ -15,11 +15,11 @@ use crate::domain::{
     InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
     MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
     NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectOptions, ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask,
-    RealearnTarget, ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit,
-    SourceFeedbackEvent, StayActiveWhenProjectInBackground, Tag, TargetControlEvent,
-    TargetTouchEvent, TargetValueChangedEvent, Unit, UnitContainer, UnitId,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
+    TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
+    VirtualSource, VirtualSourceValue,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;

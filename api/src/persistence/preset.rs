@@ -89,6 +89,12 @@ pub struct MainPresetMetaData {
     pub required_features: HashSet<String>,
 }
 
+impl MainPresetMetaData {
+    pub fn requires_playtime(&self) -> bool {
+        self.required_features.contains(instance_features::PLAYTIME)
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 pub struct VirtualControlSchemeId(String);
 

@@ -165,15 +165,11 @@ impl InstanceShell {
     }
 
     pub fn toggle_global_control(&self) {
-        {
-            let mut settings = self.settings.get().borrow_mut();
-            settings.control.global_control_enabled = !settings.control.global_control_enabled;
-        }
-        self.handle_changed_settings();
+        self.change_settings(|settings| settings.control.global_control_enabled ^= true);
     }
 
-    pub fn set_settings(&self, settings: InstanceSettings) {
-        *self.settings.get().borrow_mut() = settings;
+    pub fn change_settings(&self, f: impl FnOnce(&mut InstanceSettings)) {
+        f(&mut self.settings.get().borrow_mut());
         self.handle_changed_settings();
     }
 
@@ -589,7 +585,14 @@ impl InstanceShell {
     #[cfg(feature = "playtime")]
     pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) {
         let mut instance = self.instance.get().borrow_mut();
+        if instance.clip_matrix().is_some() {
+            return;
+        }
         self.clone().get_or_insert_owned_clip_matrix(&mut instance);
+        // For convenience, we automatically switch global control on. This, combined with automatically creating
+        // a controller for a known device (see `maybe_create_controller_for_device`) leads to newly connected
+        // controllers working automagically!
+        self.change_settings(|settings| settings.control.global_control_enabled = true);
     }
 
     #[cfg(feature = "playtime")]

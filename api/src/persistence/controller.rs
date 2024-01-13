@@ -144,6 +144,10 @@ impl OscDeviceId {
 pub struct CompartmentPresetId(String);
 
 impl CompartmentPresetId {
+    pub fn new(raw: String) -> Self {
+        Self(raw)
+    }
+
     pub fn get(&self) -> &str {
         &self.0
     }

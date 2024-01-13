@@ -1,7 +1,5 @@
-use crate::domain::InstanceId;
-use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
+use crate::infrastructure::plugin::BackboneShell;
 use anyhow::Context;
-use itertools::Itertools;
 use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
 use reaper_high::{OrCurrentProject, Project, Reaper};
 use reaper_low::raw::ReaProject;
@@ -39,17 +37,18 @@ fn find_first_playtime_helgobox_instance_in_project(
     let project = reaper_medium::ReaProject::new(project)
         .map(Project::new)
         .or_current_project();
-    let instance_id = find_first_helgobox_instance_matching(|info| {
-        if info.processor_context.project() != Some(project) {
-            return false;
-        }
-        let Some(instance) = info.instance.upgrade() else {
-            return false;
-        };
-        let instance_state = instance.borrow();
-        instance_state.clip_matrix().is_some()
-    })
-    .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
+    let instance_id = BackboneShell::get()
+        .find_first_helgobox_instance_matching(|info| {
+            if info.processor_context.project() != Some(project) {
+                return false;
+            }
+            let Some(instance) = info.instance.upgrade() else {
+                return false;
+            };
+            let instance_state = instance.borrow();
+            instance_state.clip_matrix().is_some()
+        })
+        .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
     Ok(u32::from(instance_id) as _)
 }
 
@@ -57,33 +56,15 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
     let project = reaper_medium::ReaProject::new(project)
         .map(Project::new)
         .or_current_project();
-    let instance_id = find_first_helgobox_instance_matching(|instance| {
-        instance
-            .processor_context
-            .project()
-            .is_some_and(|p| p == project)
-    })
-    .context("Project doesn't contain Helgobox instance")?;
+    let instance_id = BackboneShell::get()
+        .find_first_helgobox_instance_matching(|instance| {
+            instance
+                .processor_context
+                .project()
+                .is_some_and(|p| p == project)
+        })
+        .context("Project doesn't contain Helgobox instance")?;
     Ok(u32::from(instance_id) as _)
-}
-
-fn find_first_helgobox_instance_matching(
-    meets_criteria: impl Fn(&InstanceShellInfo) -> bool,
-) -> Option<InstanceId> {
-    BackboneShell::get().with_instance_shell_infos(|infos| {
-        infos
-            .iter()
-            .filter_map(|info| {
-                if !meets_criteria(info) {
-                    return None;
-                }
-                let track_index = info.processor_context.track()?.index()?;
-                Some((track_index, info))
-            })
-            .sorted_by_key(|(track_index, _)| *track_index)
-            .next()
-            .map(|(_, instance)| instance.instance_id)
-    })
 }
 
 #[cfg(feature = "playtime")]

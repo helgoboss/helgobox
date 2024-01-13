@@ -20,9 +20,9 @@ use crate::domain::{
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
     ControllerManagerEventHandler, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerManager,
-    SharedControllerPresetManager, SharedMainPresetManager, SharedOscDeviceManager,
-    SharedPresetLinkManager,
+    FileBasedPresetLinkManager, MainPresetSelectionConditions, OscDevice, OscDeviceManager,
+    SharedControllerManager, SharedControllerPresetManager, SharedMainPresetManager,
+    SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::server;
 use crate::infrastructure::server::{
@@ -51,11 +51,12 @@ use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
-    Controller, ControllerConnection, Envelope, FxChainDescriptor, FxDescriptor,
-    MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause, TrackDescriptor,
-    TrackFxChain,
+    CompartmentPresetId, Controller, ControllerConnection, Envelope, FxChainDescriptor,
+    FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
+    TrackDescriptor, TrackFxChain,
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, InfoEvent};
 use reaper_high::{
@@ -1190,6 +1191,25 @@ impl BackboneShell {
             .iter()
             .filter_map(|s| s.unit_model.upgrade())
             .find(predicate)
+    }
+
+    pub fn find_first_helgobox_instance_matching(
+        &self,
+        meets_criteria: impl Fn(&InstanceShellInfo) -> bool,
+    ) -> Option<InstanceId> {
+        self.instance_shell_infos
+            .borrow()
+            .iter()
+            .filter_map(|info| {
+                if !meets_criteria(info) {
+                    return None;
+                }
+                let track_index = info.processor_context.track()?.index()?;
+                Some((track_index, info))
+            })
+            .sorted_by_key(|(track_index, _)| *track_index)
+            .next()
+            .map(|(_, instance)| instance.instance_id)
     }
 
     pub fn with_instance_shell_infos<R>(&self, f: impl FnOnce(&[InstanceShellInfo]) -> R) -> R {
@@ -2376,13 +2396,33 @@ async fn maybe_create_controller_for_device_internal(
     // Neither output nor input used already. Maybe this is a known controller!
     let controller_preset_manager = BackboneShell::get().controller_preset_manager().borrow();
     let controller_preset = controller_preset_manager
-        .find_preset_compatible_with_device(&identity_reply.device_inquiry_reply.message)
+        .find_controller_preset_compatible_with_device(&identity_reply.device_inquiry_reply.message)
         .ok_or("no controller preset matching device")?;
     let device_name = controller_preset
         .specific_meta_data
         .device_name
         .as_ref()
         .ok_or("controller preset doesn't have device name")?;
+    // Search for suitable main preset
+    let main_preset_manager = BackboneShell::get().main_preset_manager().borrow();
+    let conditions = MainPresetSelectionConditions {
+        at_least_one_instance_has_playtime_clip_matrix: {
+            BackboneShell::get()
+                .find_first_helgobox_instance_matching(|info| {
+                    let Some(instance) = info.instance.upgrade() else {
+                        return false;
+                    };
+                    let instance_state = instance.borrow();
+                    instance_state.clip_matrix().is_some()
+                })
+                .is_some()
+        },
+    };
+    let main_preset = main_preset_manager.find_most_suitable_main_preset_for_schemes(
+        &controller_preset.specific_meta_data.provided_schemes,
+        conditions,
+    );
+    let default_main_preset = main_preset.map(|mp| CompartmentPresetId::new(mp.common.id.clone()));
     // Auto-create controller
     let controller = Controller {
         id: "".to_string(),
@@ -2399,7 +2439,7 @@ async fn maybe_create_controller_for_device_internal(
             output_port: Some(MidiOutputPort::new(out_dev_id.get() as u32)),
         })),
         default_controller_preset: None,
-        default_main_preset: None,
+        default_main_preset,
     };
     let outcome = BackboneShell::get()
         .controller_manager
