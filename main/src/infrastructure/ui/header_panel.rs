@@ -493,9 +493,9 @@ impl HeaderPanel {
                             "Use unit-wide FX-to-preset links only",
                             ItemOpts {
                                 enabled: true,
-                                checked: session.use_instance_preset_links_only(),
+                                checked: session.use_unit_preset_links_only(),
                             },
-                            MainMenuAction::ToggleUseInstancePresetLinksOnly,
+                            MainMenuAction::ToggleUseUnitPresetLinksOnly,
                         ),
                         menu(
                             "Stay active when project in background",
@@ -802,8 +802,8 @@ impl HeaderPanel {
                     };
                 }
             }
-            MainMenuAction::ToggleUseInstancePresetLinksOnly => {
-                self.toggle_use_instance_preset_links_only()
+            MainMenuAction::ToggleUseUnitPresetLinksOnly => {
+                self.toggle_use_unit_preset_links_only()
             }
             MainMenuAction::AddFirewallRule => {
                 let (http_port, https_port, grpc_port) = {
@@ -1343,11 +1343,11 @@ impl HeaderPanel {
             .set_with(|prev| !*prev);
     }
 
-    fn toggle_use_instance_preset_links_only(&self) {
+    fn toggle_use_unit_preset_links_only(&self) {
         let session = self.session();
         let mut session = session.borrow_mut();
-        let new_state = !session.use_instance_preset_links_only();
-        session.set_use_instance_preset_links_only(new_state);
+        let new_state = !session.use_unit_preset_links_only();
+        session.set_use_unit_preset_links_only(new_state);
     }
 
     fn toggle_upper_floor_membership(&self) {
@@ -3114,7 +3114,7 @@ enum MainMenuAction {
     ToggleUpperFloorMembership,
     SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,
-    ToggleUseInstancePresetLinksOnly,
+    ToggleUseUnitPresetLinksOnly,
     AddFirewallRule,
     ChangeSessionId,
     EditPresetLinkFxId(PresetLinkScope, FxId),

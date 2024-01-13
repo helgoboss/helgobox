@@ -133,8 +133,8 @@ pub struct UnitModel {
     controller_preset_manager: Box<dyn CompartmentPresetManager>,
     main_preset_manager: Box<dyn CompartmentPresetManager>,
     global_preset_link_manager: Box<dyn PresetLinkManager>,
-    instance_preset_link_config: FxPresetLinkConfig,
-    use_instance_preset_links_only: bool,
+    unit_preset_link_config: FxPresetLinkConfig,
+    use_unit_preset_links_only: bool,
     // It's okay not to use Weak here because the instance lives longer than the unit.
     instance: SharedInstance,
     unit: SharedUnit,
@@ -295,8 +295,8 @@ impl UnitModel {
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             global_preset_link_manager: Box::new(preset_link_manager),
-            instance_preset_link_config: Default::default(),
-            use_instance_preset_links_only: false,
+            unit_preset_link_config: Default::default(),
+            use_unit_preset_links_only: false,
             instance,
             unit,
             global_feedback_audio_hook_task_sender,
@@ -614,12 +614,12 @@ impl UnitModel {
 
     fn find_preset_linked_to_fx(&self, fx_id: FxId) -> Option<String> {
         if let Some(preset_id) = self
-            .instance_preset_link_config
+            .unit_preset_link_config
             .find_preset_linked_to_fx(&fx_id)
         {
             return Some(preset_id);
         }
-        if self.use_instance_preset_links_only {
+        if self.use_unit_preset_links_only {
             return None;
         }
         self.global_preset_link_manager
@@ -1948,24 +1948,24 @@ impl UnitModel {
         self.processor_context.containing_fx().is_input_fx()
     }
 
-    pub fn use_instance_preset_links_only(&self) -> bool {
-        self.use_instance_preset_links_only
+    pub fn use_unit_preset_links_only(&self) -> bool {
+        self.use_unit_preset_links_only
     }
 
-    pub fn set_use_instance_preset_links_only(&mut self, value: bool) {
-        self.use_instance_preset_links_only = value;
+    pub fn set_use_unit_preset_links_only(&mut self, value: bool) {
+        self.use_unit_preset_links_only = value;
     }
 
     pub fn instance_preset_link_config(&self) -> &FxPresetLinkConfig {
-        &self.instance_preset_link_config
+        &self.unit_preset_link_config
     }
 
     pub fn instance_preset_link_config_mut(&mut self) -> &mut FxPresetLinkConfig {
-        &mut self.instance_preset_link_config
+        &mut self.unit_preset_link_config
     }
 
     pub fn set_instance_preset_link_config(&mut self, config: FxPresetLinkConfig) {
-        self.instance_preset_link_config = config;
+        self.unit_preset_link_config = config;
     }
 
     pub fn set_active_controller_id_without_notification(

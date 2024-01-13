@@ -488,7 +488,7 @@ impl UnitData {
             main: CompartmentState::from_instance_state(&unit, Compartment::Main),
             active_instance_tags: unit.active_instance_tags().clone(),
             instance_preset_link_config: session.instance_preset_link_config().clone(),
-            use_instance_preset_links_only: session.use_instance_preset_links_only(),
+            use_instance_preset_links_only: session.use_unit_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
             instance_fx: session.instance_fx_descriptor().clone(),
             mapping_snapshots: convert_mapping_snapshots_to_api(session, &unit, Compartment::Main),
@@ -751,7 +751,7 @@ impl UnitData {
             .set_without_notification(self.main_preset_auto_load_mode);
         session.tags.set_without_notification(self.tags.clone());
         session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
-        session.set_use_instance_preset_links_only(self.use_instance_preset_links_only);
+        session.set_use_unit_preset_links_only(self.use_instance_preset_links_only);
         let _ = session.change(SessionCommand::SetInstanceTrack(
             self.instance_track.clone(),
         ));
