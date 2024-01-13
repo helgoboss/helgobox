@@ -285,6 +285,7 @@ impl View for InstancePanel {
             self.open(parent_window);
             return false;
         }
+        // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         if let Ok(shell) = self.shell() {
             self.open_unit_panel_as_child(&shell, window);
         }

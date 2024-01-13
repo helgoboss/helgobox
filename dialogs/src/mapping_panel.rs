@@ -162,8 +162,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             "Target type",
             ids.named_id("ID_TARGET_TYPE_BUTTON"),
             context.rect(283, 96, 155, 15),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ),
         ltext(
             "Action name",
             ids.named_id("ID_TARGET_LINE_2_LABEL_2"),

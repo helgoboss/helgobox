@@ -442,21 +442,6 @@ impl View for UnitPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        #[cfg(target_family = "windows")]
-        if self.dimensions.get().is_none() {
-            // The dialog has been opened by user request but the optimal dimensions have not yet
-            // been figured out. Figure them out now.
-            self.dimensions.replace(Some(
-                window.convert_to_pixels(util::main_panel_dimensions()),
-            ));
-            // Close and reopen window, this time with `dimensions()` returning the optimal size to
-            // the host.
-            let parent_window = window.parent().expect("must have parent");
-            window.destroy();
-            self.open(parent_window);
-            return false;
-        }
-        // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         self.open_sub_panels(window);
         self.invalidate_all_controls();
         self.register_listeners();
