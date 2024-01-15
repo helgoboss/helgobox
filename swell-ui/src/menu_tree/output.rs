@@ -2,6 +2,9 @@ use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
 pub fn fill_menu<R>(swell_menu: SwellMenu, menu: &Menu<R>) {
+    if swell_menu.entry_count().is_ok_and(|count| count > 0) {
+        swell_menu.add_separator();
+    }
     for e in &menu.entries {
         fill_menu_recursive(swell_menu, e);
     }

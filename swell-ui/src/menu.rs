@@ -95,6 +95,14 @@ impl<'a> Menu<'a> {
         }
     }
 
+    pub fn entry_count(&self) -> Result<u32, &'static str> {
+        let res = unsafe { Swell::get().GetMenuItemCount(self.raw) };
+        if res == -1 {
+            return Err("couldn't menu get entry count");
+        }
+        Ok(res as u32)
+    }
+
     pub fn add_menu<'b>(self, text: impl Into<SwellStringArg<'b>>) -> Menu<'b> {
         unsafe {
             let swell_string_arg = text.into();

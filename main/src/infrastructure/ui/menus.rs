@@ -35,7 +35,6 @@ pub fn extension_menu() -> Menu<&'static str> {
     // ];
     let mut menu = root_menu(vec![menu("Helgobox", entries)]);
     assign_command_ids(&mut menu);
-    println!("{menu:#?}");
     menu
 }
 
