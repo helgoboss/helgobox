@@ -38,10 +38,12 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
+use crate::base::notification::{alert, notify_user_about_anyhow_error};
 use crate::domain::ui_util::format_raw_midi;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
+use crate::infrastructure::plugin::toolbar::add_toolbar_button;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
     update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
@@ -1415,6 +1417,21 @@ impl BackboneShell {
         }
     }
 
+    pub fn add_toolbar_buttons() {
+        for def in ACTION_DEFS.iter().filter(|def| def.add_toolbar_button) {
+            let result = add_toolbar_button(
+                def.command_name,
+                &def.build_full_action_name(),
+                def.icon_file_name,
+            );
+            if let Err(e) = result {
+                notify_user_about_anyhow_error(e);
+                return;
+            }
+        }
+        alert("Successfully added Helgobox toolbar buttons. Please restart REAPER to see them!");
+    }
+
     pub fn resolve_symbols_from_clipboard() {
         if let Err(e) = resolve_symbols_from_clipboard() {
             Reaper::get().show_console_msg(format!("{e}\n"));
@@ -1489,8 +1506,8 @@ impl BackboneShell {
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
         fn add_and_show_playtime() -> anyhow::Result<()> {
-            let mut project = Reaper::get().current_project();
-            let mut track = project.insert_track_at(0)?;
+            let project = Reaper::get().current_project();
+            let track = project.insert_track_at(0)?;
             track.set_name("Playtime");
             track
                 .normal_fx_chain()

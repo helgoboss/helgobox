@@ -16,9 +16,9 @@ fn render_artwork() -> Result<()> {
 }
 
 fn generate_toolbar_icons(src_file: &str) -> Result<()> {
-    generate_toolbar_icon(src_file, "toolbar_icons/playtime.png", (30, 30))?;
-    generate_toolbar_icon(src_file, "toolbar_icons/150/playtime.png", (45, 45))?;
-    generate_toolbar_icon(src_file, "toolbar_icons/200/playtime.png", (60, 60))?;
+    generate_toolbar_icon(src_file, "toolbar_icons/toolbar_playtime.png", (30, 30))?;
+    generate_toolbar_icon(src_file, "toolbar_icons/150/toolbar_playtime.png", (45, 45))?;
+    generate_toolbar_icon(src_file, "toolbar_icons/200/toolbar_playtime.png", (60, 60))?;
     Ok(())
 }
 
