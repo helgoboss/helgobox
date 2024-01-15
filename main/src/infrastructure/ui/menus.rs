@@ -9,36 +9,22 @@ use crate::infrastructure::ui::Item;
 use reaper_high::{FxChainContext, Reaper};
 use std::iter;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu};
+use swell_ui::menu_tree::{
+    item, item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu,
+};
 
 pub fn extension_menu() -> Menu<&'static str> {
     let entries = ActionSection::iter()
-        .filter_map(|section| {
-            let items: Vec<_> = ACTION_DEFS
+        .filter(|section| *section != ActionSection::General)
+        .filter_map(|section| section.build_menu())
+        .chain(iter::once(separator()))
+        .chain(
+            ACTION_DEFS
                 .iter()
-                .filter(|def| def.section == section && !def.developer)
-                .map(|def| {
-                    item(
-                        format!("{}{}", def.action_name, def.instance_suffix()),
-                        def.command_name,
-                    )
-                })
-                .collect();
-            if items.is_empty() {
-                return None;
-            }
-            let menu = menu(section.to_string(), items);
-            Some(menu)
-        })
-        .collect();
-    // let entries = vec![
-    //     #[cfg(feature = "playtime")]
-    //     menu(
-    //         "Playtime",
-    //         vec![item("Show/hide Playtime", "_HB_SHOW_HIDE_PLAYTIME")],
-    //     ),
-    // ];
-    let mut menu = root_menu(vec![menu("Helgobox", entries)]);
+                .filter(|def| def.section == ActionSection::General && !def.developer)
+                .map(|def| def.build_menu_item()),
+        );
+    let mut menu = root_menu(vec![menu("Helgobox", entries.collect())]);
     assign_command_ids(&mut menu);
     menu
 }

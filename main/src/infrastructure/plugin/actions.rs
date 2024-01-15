@@ -3,6 +3,7 @@ use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
 use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
+use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_DEFS: &[ActionDef] = &[
     ActionDef {
@@ -148,6 +149,13 @@ impl ActionDef {
         )
     }
 
+    pub fn build_menu_item(&self) -> Entry<&'static str> {
+        item(
+            format!("{}{}", self.action_name, self.instance_suffix()),
+            self.command_name,
+        )
+    }
+
     pub fn developer_prefix(&self) -> &'static str {
         if self.developer {
             "[developer] "
@@ -158,7 +166,7 @@ impl ActionDef {
 
     pub fn instance_suffix(&self) -> &'static str {
         if self.requires_instance {
-            " (requires instance)"
+            " [REQUIRES INSTANCE]"
         } else {
             ""
         }
@@ -172,4 +180,18 @@ pub enum ActionSection {
     Playtime,
     #[strum(serialize = "SoundPot (experimental)")]
     SoundPot,
+}
+
+impl ActionSection {
+    pub fn build_menu(&self) -> Option<Entry<&'static str>> {
+        let items: Vec<_> = ACTION_DEFS
+            .iter()
+            .filter(|def| def.section == *self && !def.developer)
+            .map(|def| def.build_menu_item())
+            .collect();
+        if items.is_empty() {
+            return None;
+        }
+        Some(menu(self.to_string(), items))
+    }
 }
