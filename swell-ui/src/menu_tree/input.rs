@@ -50,7 +50,11 @@ pub struct Menu<R> {
 }
 
 impl<R> Menu<R> {
-    /// Returns next possible value.
+    /// Assigns all menu entries consecutive IDs starting from the given first ID.
+    ///
+    /// Returns next non-used value.
+    ///
+    /// This is useful for popup menus.
     pub fn index(&mut self, first_id: u32) -> u32 {
         let mut counter = Counter::starting_from(first_id);
         for e in &mut self.entries {
@@ -59,6 +63,11 @@ impl<R> Menu<R> {
         counter.next_value()
     }
 
+    /// Returns the item that has the given ID.
+    ///
+    /// Also looks into sub menus.
+    ///
+    /// This is useful for popup menus.
     pub fn find_item_by_id(self, id: u32) -> Option<Item<R>> {
         self.entries
             .into_iter()
@@ -74,6 +83,9 @@ pub struct Item<R> {
     pub opts: ItemOpts,
 }
 
+/// Unlabeled root menu.
+///
+/// This is useful for popup menus.
 pub fn root_menu<R>(entries: Vec<Entry<R>>) -> Menu<R> {
     Menu {
         id: 0,

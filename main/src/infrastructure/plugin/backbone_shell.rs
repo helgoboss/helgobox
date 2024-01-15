@@ -28,7 +28,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::MessagePanel;
+use crate::infrastructure::ui::{menus, MessagePanel};
 #[allow(unused)]
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
@@ -39,6 +39,7 @@ use base::{
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use crate::domain::ui_util::format_raw_midi;
+use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
@@ -46,7 +47,6 @@ use crate::infrastructure::plugin::{
     update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
 };
 use crate::infrastructure::server::services::Services;
-use crate::infrastructure::test::run_test;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
@@ -59,15 +59,13 @@ use realearn_api::persistence::{
     TrackDescriptor, TrackFxChain,
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, InfoEvent};
-use reaper_high::{
-    ActionKind, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
-};
+use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    AcceleratorPosition, ActionValueChange, CommandId, HookPostCommand, HookPostCommand2,
-    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, RegistrationHandle, SectionContext,
-    WindowContext,
+    AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu, HookPostCommand,
+    HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr,
+    RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -85,7 +83,8 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use strum::IntoEnumIterator;
-use swell_ui::{SharedView, View, ViewManager, Window};
+use swell_ui::menu_tree::{fill_menu, root_menu};
+use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use url::Url;
@@ -147,6 +146,9 @@ type _App = BackboneShell;
 
 #[derive(Debug)]
 pub struct BackboneShell {
+    /// Indicates if this was initialized from the Helgobox extension plug-in or the
+    /// Helgobox VST plug-in.
+    plugin_context: PluginContext,
     /// RAII
     _tracing_hook: Option<TracingHook>,
     /// RAII
@@ -246,10 +248,16 @@ struct AwakeState {
 
 impl BackboneShell {
     /// Executed globally just once when module loaded.
+    ///
+    /// This should fire up everything that must be around even while asleep (even without any
+    /// VST plug-in instance being around). The less the better! Users shouldn't pay for stuff they
+    /// don't need!
     pub fn init(context: PluginContext) -> Self {
         let logger = BackboneShell::logger().clone();
-        // Previously, we also loaded the `Swell` struct here. See
-        // `HelgoboxPlugin::ensure_reaper_setup` to see why we must not do that anymore!
+        // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
+        // exists, we also need it for all the native GUI stuff.
+        Swell::make_available_globally(Swell::load(context));
+        // We need access to REAPER as soon as possible, of course
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?
         Reaper::setup_with_defaults(
@@ -261,7 +269,11 @@ impl BackboneShell {
                 support_email_address: "info@helgoboss.org".to_string(),
             },
         );
+        // The API contains functions that must be around without any VST plug-in instance being active
         register_api().expect("couldn't register API");
+        // Senders and receivers are initialized here but used only when awake. Yes, they already consume memory
+        // when asleep but most of them are unbounded and therefore consume a minimal amount of memory as long as
+        // they are not used.
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(BackboneShell::logger(), "{}", e);
             Default::default()
@@ -301,7 +313,7 @@ impl BackboneShell {
         // We initialize metrics here already for the same reasons.
         let metrics_hook = MetricsHook::init();
         // The global allocator uses a dedicated thread to offload deallocation from real-time
-        // threads. However, this thread will only exist in awaken state.
+        // threads. However, this thread will only exist when awake.
         let async_deallocation_receiver = GLOBAL_ALLOCATOR.init(
             DEALLOCATOR_THREAD_CAPACITY,
             RealearnAllocatorIntegration::new(
@@ -313,17 +325,22 @@ impl BackboneShell {
                     .expect("couldn't get IsInRealTimeAudio function from REAPER"),
             ),
         );
+        // This just initializes the clip engine, it doesn't add any clip matrix yet, so resource consumption is low.
         #[cfg(feature = "playtime")]
         Self::init_clip_engine();
+        // This is the backbone representation in the domain layer, of course we need this now already.
         let backbone_state = Backbone::new(
             additional_feedback_event_sender.clone(),
             RealearnTargetState::new(additional_feedback_event_sender.clone()),
         );
         Backbone::make_available_globally(|| backbone_state);
+        // This just sets up the server event wiring but doesn't send any events yet => low resource usage.
         let sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>> = Default::default();
         server::http::keep_informing_clients_about_sessions(
             sessions_changed_subject.borrow().clone(),
         );
+        // Presets, preset links and controllers are all global things, so we wire everything now already. However,
+        // the actual presets are read from disk when waking up.
         let controller_preset_manager = FileBasedControllerPresetManager::new(
             Compartment::Controller,
             BackboneShell::realearn_preset_dir_path().join("controller"),
@@ -336,12 +353,11 @@ impl BackboneShell {
         );
         let preset_link_manager =
             FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
-        // This loads controllers already
         let controller_manager = ControllerManager::new(
             Self::realearn_controller_config_file_path(),
             Box::new(BackboneControllerManagerEventHandler),
         );
-        // This doesn't yet start listening for OSC messages (will happen on wake up)
+        // This doesn't yet load devices or start listening for OSC messages (will happen on wake up)
         let osc_device_manager =
             OscDeviceManager::new(BackboneShell::realearn_osc_device_config_file_path());
         // This doesn't yet start the server (will happen on wake up)
@@ -352,6 +368,7 @@ impl BackboneShell {
             BackboneShell::server_resource_dir_path().join("certificates"),
             MetricsReporter::new(),
         );
+        // OSC devices are reconnected only if device list changes (= while instance active)
         let osc_feedback_processor = OscFeedbackProcessor::new(osc_feedback_task_receiver);
         osc_device_manager
             .changed()
@@ -377,7 +394,8 @@ impl BackboneShell {
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator =
             RealearnAccelerator::new(shared_main_processors, BackboneHelgoboxWindowSnitch);
-        // Silently decompress app and load library in background so it's ready when needed
+        // Silently decompress app and load library in background so it's ready when needed. We want to do this
+        // already here in order to let actions such as "Show/hide Playtime" work instantly without delay.
         #[cfg(feature = "playtime")]
         let _ = std::thread::Builder::new()
             .name("Helgobox app loader".to_string())
@@ -385,15 +403,20 @@ impl BackboneShell {
                 let result = decompress_app().and_then(|_| load_app_library());
                 let _ = APP_LIBRARY.set(result);
             });
-        // REAPER registers/unregisters actions automatically depending on presence of plug-in
-        Self::register_actions(&control_surface_main_task_sender);
+        // We want actions and menu entries to be available even in sleeping state because there are some convenience
+        // actions among them that boot up an instance when none is found yet.
+        let _ = Self::register_menus();
+        Self::register_actions();
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
             audio_hook: Box::new(audio_hook),
             accelerator: Box::new(accelerator),
             async_deallocation_receiver,
         };
+        // We wake up reaper-rs here already, otherwise the registered actions wouldn't show up yet.
+        Reaper::get().wake_up().expect("couldn't wake up REAPER");
         BackboneShell {
+            plugin_context: context,
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
@@ -529,12 +552,36 @@ impl BackboneShell {
         }
     }
 
-    // Executed whenever the first ReaLearn instance is loaded.
+    /// Executed whenever the first Helgobox instance is loaded.
+    ///
+    /// This should fire up stuff that only needs to be around while awake (= as long as at least one Helgobox VST
+    /// plug-in instance is around). Stuff that must be around even while asleep should be put into [Self::init].
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
         let AppState::Sleeping(mut sleeping_state) = prev_state else {
             panic!("App was not sleeping");
         };
+        // (Re)load presets, links and controllers
+        let _ = self
+            .controller_preset_manager
+            .borrow_mut()
+            .load_presets_from_disk_without_notification();
+        let _ = self
+            .main_preset_manager
+            .borrow_mut()
+            .load_presets_from_disk_without_notification();
+        let _ = self
+            .preset_link_manager
+            .borrow_mut()
+            .load_preset_links_from_disk();
+        let _ = self
+            .controller_manager
+            .borrow_mut()
+            .load_controllers_from_disk();
+        let _ = self
+            .osc_device_manager
+            .borrow_mut()
+            .load_osc_devices_from_disk();
         // Start thread for async deallocation
         let async_deallocation_thread = start_async_deallocation_thread(
             RealearnDeallocator::with_metrics("async_deallocation"),
@@ -1335,119 +1382,93 @@ impl BackboneShell {
         self.message_panel.close();
     }
 
-    fn register_actions(control_surface_sender: &RealearnControlSurfaceMainTaskSender) {
-        let control_surface_sender = control_surface_sender.0.clone();
-        Reaper::get().register_action(
-            "realearnLearnSourceForLastTouchedTarget",
-            "ReaLearn: Learn source for last touched target (reassigning target)",
-            move || {
-                let included_target_types = ReaperTargetType::iter().collect();
-                let filter = LastTouchedTargetFilter {
-                    included_target_types: &included_target_types,
-                    touch_cause: TargetTouchCause::Any,
-                };
-                let target = Backbone::get().find_last_touched_target(filter);
-                let target = match target.as_ref() {
-                    None => return,
-                    Some(t) => t,
-                };
-                BackboneShell::get().start_learning_source_for_target(Compartment::Main, target);
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE",
-            "ReaLearn: Learn single mapping (reassigning source)",
-            move || {
-                Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = BackboneShell::get()
-                        .learn_mapping_reassigning_source(Compartment::Main, false)
-                        .await;
-                    Ok(())
-                });
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE_OPEN",
-            "ReaLearn: Learn single mapping (reassigning source) and open it",
-            move || {
-                Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = BackboneShell::get()
-                        .learn_mapping_reassigning_source(Compartment::Main, true)
-                        .await;
-                    Ok(())
-                });
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_FIND_FIRST_MAPPING_BY_SOURCE",
-            "ReaLearn: Find first mapping by source",
-            move || {
-                Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = BackboneShell::get()
-                        .find_first_mapping_by_source(Compartment::Main)
-                        .await;
-                    Ok(())
-                });
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_OPEN_FIRST_POT_BROWSER",
-            "ReaLearn: Open first Pot Browser",
-            move || {
-                let Some(session) =
-                    BackboneShell::get().find_first_relevant_session_monitoring_first()
-                else {
-                    return;
-                };
-                session.borrow().ui().show_pot_browser();
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_FIND_FIRST_MAPPING_BY_TARGET",
-            "ReaLearn: Find first mapping by target",
-            move || {
-                Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let _ = BackboneShell::get()
-                        .find_first_mapping_by_target(Compartment::Main)
-                        .await;
-                    Ok(())
-                });
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_SEND_ALL_FEEDBACK",
-            "ReaLearn: Send feedback for all instances",
-            move || {
-                control_surface_sender
-                    .send_complaining(RealearnControlSurfaceMainTask::SendAllFeedback);
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_RESOLVE_SYMBOLS",
-            "[developer] ReaLearn: Resolve symbols from clipboard",
-            || {
-                if let Err(e) = resolve_symbols_from_clipboard() {
-                    Reaper::get().show_console_msg(format!("{e}\n"));
-                }
-            },
-            ActionKind::NotToggleable,
-        );
-        Reaper::get().register_action(
-            "REALEARN_INTEGRATION_TEST",
-            "[developer] ReaLearn: Run integration test",
-            run_test,
-            ActionKind::NotToggleable,
-        );
+    fn register_menus() -> anyhow::Result<()> {
+        let reaper = Reaper::get();
+        reaper
+            .medium_session()
+            .plugin_register_add_hook_custom_menu::<Self>()?;
+        reaper.medium_reaper().add_extensions_main_menu();
+        Ok(())
     }
 
-    async fn find_first_mapping_by_source(
+    fn register_actions() {
+        for def in ACTION_DEFS {
+            def.register();
+        }
+    }
+
+    pub fn resolve_symbols_from_clipboard() {
+        if let Err(e) = resolve_symbols_from_clipboard() {
+            Reaper::get().show_console_msg(format!("{e}\n"));
+        }
+    }
+
+    pub fn find_first_mapping_by_target() {
+        Global::future_support().spawn_in_main_thread_from_main_thread(async {
+            let _ = BackboneShell::get()
+                .find_first_mapping_by_target_async(Compartment::Main)
+                .await;
+            Ok(())
+        });
+    }
+
+    pub fn open_first_pot_browser() {
+        let Some(session) = BackboneShell::get().find_first_relevant_session_monitoring_first()
+        else {
+            return;
+        };
+        session.borrow().ui().show_pot_browser();
+    }
+
+    pub fn find_first_mapping_by_source() {
+        Global::future_support().spawn_in_main_thread_from_main_thread(async {
+            let _ = BackboneShell::get()
+                .find_first_mapping_by_source_async(Compartment::Main)
+                .await;
+            Ok(())
+        });
+    }
+
+    pub fn learn_mapping_reassigning_source_open() {
+        Global::future_support().spawn_in_main_thread_from_main_thread(async {
+            let _ = BackboneShell::get()
+                .learn_mapping_reassigning_source_async(Compartment::Main, true)
+                .await;
+            Ok(())
+        });
+    }
+
+    pub fn send_feedback_for_all_instances() {
+        Self::get()
+            .control_surface_main_task_sender
+            .0
+            .send_complaining(RealearnControlSurfaceMainTask::SendAllFeedback);
+    }
+
+    pub fn learn_mapping_reassigning_source() {
+        Global::future_support().spawn_in_main_thread_from_main_thread(async {
+            let _ = BackboneShell::get()
+                .learn_mapping_reassigning_source_async(Compartment::Main, false)
+                .await;
+            Ok(())
+        });
+    }
+
+    pub fn learn_source_for_last_touched_target() {
+        let included_target_types = ReaperTargetType::iter().collect();
+        let filter = LastTouchedTargetFilter {
+            included_target_types: &included_target_types,
+            touch_cause: TargetTouchCause::Any,
+        };
+        let target = Backbone::get().find_last_touched_target(filter);
+        let target = match target.as_ref() {
+            None => return,
+            Some(t) => t,
+        };
+        BackboneShell::get().start_learning_source_for_target(Compartment::Main, target);
+    }
+
+    async fn find_first_mapping_by_source_async(
         &self,
         compartment: Compartment,
     ) -> Result<(), &'static str> {
@@ -1483,7 +1504,7 @@ impl BackboneShell {
         Ok(())
     }
 
-    async fn find_first_mapping_by_target(
+    async fn find_first_mapping_by_target_async(
         &self,
         compartment: Compartment,
     ) -> Result<(), &'static str> {
@@ -1510,7 +1531,7 @@ impl BackboneShell {
         Ok(())
     }
 
-    async fn learn_mapping_reassigning_source(
+    async fn learn_mapping_reassigning_source_async(
         &self,
         compartment: Compartment,
         open_mapping: bool,
@@ -1894,17 +1915,20 @@ impl BackboneShell {
 
 impl Drop for BackboneShell {
     fn drop(&mut self) {
+        let _ = Reaper::get().go_to_sleep();
         self.message_panel.close();
         self.party_is_over_subject.next(());
         // This is ugly but we need it on Windows where getting the current thread can lead to
         // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
         // when exiting REAPER. The following code essentially ignores this.
-        let old_panic_hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(|_| {}));
-        let _ = std::panic::catch_unwind(|| {
-            let _ = unregister_api();
-        });
-        std::panic::set_hook(old_panic_hook);
+        {
+            let old_panic_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let _ = std::panic::catch_unwind(|| {
+                let _ = unregister_api();
+            });
+            std::panic::set_hook(old_panic_hook);
+        }
     }
 }
 
@@ -2452,4 +2476,15 @@ async fn maybe_create_controller_for_device_internal(
             controller_id: outcome.id,
         }));
     Ok(())
+}
+
+impl HookCustomMenu for BackboneShell {
+    fn call(menuidstr: &ReaperStr, menu: Hmenu, flag: MenuHookFlag) {
+        if flag != MenuHookFlag::Init || menuidstr.to_str() != "Main extensions" {
+            return;
+        }
+        let swell_menu = Menu::new(menu.as_ptr());
+        let pure_menu = menus::extension_menu();
+        fill_menu(swell_menu, &pure_menu);
+    }
 }

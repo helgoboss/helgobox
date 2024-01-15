@@ -30,13 +30,11 @@ impl ControllerManager {
         controller_config_path: PathBuf,
         event_handler: Box<dyn ControllerManagerEventHandler>,
     ) -> Self {
-        let mut manager = Self {
+        Self {
             controller_config_path,
             event_handler,
             controller_config: Default::default(),
-        };
-        let _ = manager.load();
-        manager
+        }
     }
 
     pub fn controller_config(&self) -> &ControllerConfig {
@@ -151,7 +149,7 @@ impl ControllerManager {
         self.event_handler.controller_config_changed(self);
     }
 
-    fn load(&mut self) -> anyhow::Result<()> {
+    pub fn load_controllers_from_disk(&mut self) -> anyhow::Result<()> {
         let json = fs::read_to_string(&self.controller_config_path)?;
         self.controller_config = serde_json::from_str(&json)?;
         Ok(())

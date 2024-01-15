@@ -6,14 +6,25 @@ use crate::domain::{
 use crate::infrastructure::data::CommonPresetInfo;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::Item;
-use reaper_high::FxChainContext;
+use reaper_high::{FxChainContext, Reaper};
 use std::iter;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{item_with_opts, menu, root_menu, Entry, ItemOpts};
+use swell_ui::menu_tree::{item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu};
 
-pub fn reaper_target_type_menu(
-    current_value: ReaperTargetType,
-) -> swell_ui::menu_tree::Menu<ReaperTargetType> {
+pub fn extension_menu() -> Menu<&'static str> {
+    let entries = vec![
+        #[cfg(feature = "playtime")]
+        menu(
+            "Playtime",
+            vec![item("Show/hide Playtime", "_HB_SHOW_HIDE_PLAYTIME")],
+        ),
+    ];
+    let mut menu = root_menu(vec![menu("Helgobox", entries)]);
+    assign_command_ids(&mut menu);
+    menu
+}
+
+pub fn reaper_target_type_menu(current_value: ReaperTargetType) -> Menu<ReaperTargetType> {
     let entries = TargetSection::iter().map(|section| {
         let sub_entries = ReaperTargetType::iter()
             .filter(|t| t.definition().section == section)
@@ -34,7 +45,7 @@ pub fn reaper_target_type_menu(
 
 pub fn virtual_control_element_type_menu(
     current_value: VirtualControlElementType,
-) -> swell_ui::menu_tree::Menu<VirtualControlElementType> {
+) -> Menu<VirtualControlElementType> {
     let entries = VirtualControlElementType::iter().map(|t| {
         item_with_opts(
             t.to_string(),
@@ -52,7 +63,7 @@ pub fn menu_containing_realearn_params(
     session: &WeakUnitModel,
     compartment: Compartment,
     current_value: CompartmentParamIndex,
-) -> swell_ui::menu_tree::Menu<CompartmentParamIndex> {
+) -> Menu<CompartmentParamIndex> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
     root_menu(
@@ -76,7 +87,7 @@ pub fn menu_containing_realearn_params_optional(
     session: &WeakUnitModel,
     compartment: Compartment,
     current_value: Option<CompartmentParamIndex>,
-) -> swell_ui::menu_tree::Menu<Option<CompartmentParamIndex>> {
+) -> Menu<Option<CompartmentParamIndex>> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
     root_menu(
@@ -108,7 +119,7 @@ pub fn menu_containing_mappings(
     session: &WeakUnitModel,
     compartment: Compartment,
     current_value: Option<MappingId>,
-) -> swell_ui::menu_tree::Menu<Option<MappingId>> {
+) -> Menu<Option<MappingId>> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
     let none_item = item_with_opts(
@@ -152,7 +163,7 @@ pub fn menu_containing_mappings(
 pub fn menu_containing_sessions(
     this_session: &UnitModel,
     current_other_session_id: Option<&str>,
-) -> swell_ui::menu_tree::Menu<Option<String>> {
+) -> Menu<Option<String>> {
     let this_item = item_with_opts(
         THIS,
         ItemOpts {
@@ -222,7 +233,7 @@ pub fn menu_containing_banks(
     compartment: Compartment,
     param_index: CompartmentParamIndex,
     current_value: u32,
-) -> swell_ui::menu_tree::Menu<u32> {
+) -> Menu<u32> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
     let bank_param = session
@@ -297,7 +308,7 @@ fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<
 pub fn menu_containing_compartment_presets(
     compartment: Compartment,
     current_value: Option<&str>,
-) -> swell_ui::menu_tree::Menu<Option<String>> {
+) -> Menu<Option<String>> {
     let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
     let preset_manager = preset_manager.borrow();
     root_menu(
@@ -369,3 +380,29 @@ fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
 
 pub const NONE: &str = "<None>";
 pub const THIS: &str = "<This>";
+
+/// Interprets the item payloads as REAPER command names and uses them to lookup the corresponding REAPER command
+/// IDs.
+///
+/// This is useful for top-level menus.
+pub fn assign_command_ids(menu: &mut Menu<&'static str>) {
+    for e in &mut menu.entries {
+        assign_command_ids_recursively(e);
+    }
+}
+
+fn assign_command_ids_recursively(entry: &mut Entry<&'static str>) {
+    match entry {
+        Entry::Menu(m) => {
+            m.id = 0;
+            for e in &mut m.entries {
+                assign_command_ids_recursively(e);
+            }
+        }
+        Entry::Item(i) => {
+            let command_id = Reaper::get().medium_reaper().named_command_lookup(i.result);
+            i.id = command_id.map(|id| id.get()).unwrap_or(0);
+        }
+        _ => {}
+    }
+}

@@ -24,16 +24,14 @@ pub struct OscDeviceManager {
 
 impl OscDeviceManager {
     pub fn new(osc_device_config_file_path: PathBuf) -> OscDeviceManager {
-        let mut manager = OscDeviceManager {
+        OscDeviceManager {
             config: Default::default(),
             osc_device_config_file_path,
             changed_subject: Default::default(),
-        };
-        let _ = manager.load();
-        manager
+        }
     }
 
-    fn load(&mut self) -> Result<(), String> {
+    pub fn load_osc_devices_from_disk(&mut self) -> Result<(), String> {
         let json = fs::read_to_string(&self.osc_device_config_file_path)
             .map_err(|_| "couldn't read OSC device config file".to_string())?;
         let config: OscDeviceConfig = serde_json::from_str(&json)

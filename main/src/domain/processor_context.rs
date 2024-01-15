@@ -2,7 +2,7 @@ use crate::domain::{ControlContext, PluginParams};
 use anyhow::{bail, Context};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChainContext, Project, Reaper, Track};
-use reaper_low::{static_vst_plugin_context, PluginContext};
+use reaper_low::{static_plugin_context, PluginContext};
 use reaper_medium::{MainThreadScope, ParamId, TrackFxLocation, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;
@@ -111,7 +111,7 @@ fn get_containing_fx(host: &HostCallback) -> anyhow::Result<Fx> {
     let aeffect = NonNull::new(host.raw_effect()).context("aeffect must not be null")?;
     // We must not use the plug-in context from the global `Reaper` instance because this was
     // probably initialized by the extension entry point or another instance.
-    let plugin_context = PluginContext::from_vst_plugin(host, static_vst_plugin_context())
+    let plugin_context = PluginContext::from_vst_plugin(host, static_plugin_context())
         .context("host callback not available")?;
     let plugin_context = reaper_medium::PluginContext::<'_, MainThreadScope>::new(&plugin_context);
     let vst_context = match plugin_context.type_specific() {

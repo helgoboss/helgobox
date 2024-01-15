@@ -14,7 +14,7 @@ use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use base::{tracing_debug, Global};
 use helgoboss_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
-use reaper_low::{static_vst_plugin_context, PluginContext, Swell};
+use reaper_low::{static_plugin_context, PluginContext};
 use reaper_medium::{Hz, ReaperStr};
 
 use std::ffi::{CStr, CString};
@@ -315,29 +315,17 @@ impl HelgoboxPlugin {
 
     fn ensure_reaper_setup(&mut self) -> Arc<ReaperGuard> {
         Reaper::guarded(
+            // We let reaper-rs wake up and go to sleep in Backbone init/drop in order to let it be awake even
+            // if not VST plug-in instance is around
+            false,
             || {
                 let context =
-                    PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context())
-                        .unwrap();
+                    PluginContext::from_vst_plugin(&self.host, static_plugin_context()).unwrap();
                 // If the Helgobox Extension is installed, it already called our eager-loading
                 // extension entry point. In this case, the following call will not have any
                 // effect. And that's exactly what we want, because the App already has been
                 // initialized then!
                 BackboneShell::make_available_globally(|| BackboneShell::init(context));
-                // For Windows, it's super important to load the `Swell` struct here and not already
-                // as part of `BackboneShell::init`. Reason: On Windows, the `Swell` struct simply
-                // forwards to Windows calls instead of really using Cockos SWELL. E.g. if we call
-                // `Swell::get().CreateDialogParam()`, it will call the real Windows function
-                // `CreateDialogParam`. This function makes use of the HINSTANCE to find the
-                // dialog definitions. And this HINSTANCE is part of the `Swell` struct.
-                // Now, since the `init` function will be called from the Helgobox
-                // Extension context if the Helgobox Extension DLL is installed (see above),
-                // `BackboneShell::init()` will be called with the *extension* context, not the VST
-                // plug-in context. Passing the *extension* context to the `Swell` struct will make
-                // it use the HINSTANCE of the extension DLL. And hence functions like
-                // `CreateDialogParam` will not be able to find the dialog definitions because
-                // it's in the VST plug-in DLL, not the extension DLL.
-                Swell::make_available_globally(Swell::load(context));
             },
             || {
                 BackboneShell::get().wake_up();

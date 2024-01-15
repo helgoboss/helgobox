@@ -82,6 +82,6 @@ pub mod lua_serializer;
 #[cfg(feature = "egui")]
 mod egui_views;
 
-mod menus;
+pub mod menus;
 
 pub mod instance_panel;

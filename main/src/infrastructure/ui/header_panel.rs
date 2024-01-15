@@ -2313,11 +2313,11 @@ impl HeaderPanel {
         let _ = BackboneShell::get()
             .controller_preset_manager()
             .borrow_mut()
-            .load_preset_infos();
+            .load_presets_from_disk();
         let _ = BackboneShell::get()
             .main_preset_manager()
             .borrow_mut()
-            .load_preset_infos();
+            .load_presets_from_disk();
     }
 
     pub fn show_pot_browser(&self) {

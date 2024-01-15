@@ -227,24 +227,22 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         preset_dir_path: PathBuf,
         event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
     ) -> FileBasedCompartmentPresetManager<S> {
-        let mut manager = FileBasedCompartmentPresetManager {
+        FileBasedCompartmentPresetManager {
             compartment,
             preset_dir_path,
             preset_infos: vec![],
             changed_subject: Default::default(),
             event_handler,
-        };
-        let _ = manager.load_preset_infos_internal();
-        manager
+        }
     }
 
-    pub fn load_preset_infos(&mut self) -> Result<(), String> {
-        self.load_preset_infos_internal()?;
+    pub fn load_presets_from_disk(&mut self) -> Result<(), String> {
+        self.load_presets_from_disk_without_notification()?;
         self.notify_presets_changed();
         Ok(())
     }
 
-    fn load_preset_infos_internal(&mut self) -> Result<(), String> {
+    pub fn load_presets_from_disk_without_notification(&mut self) -> Result<(), String> {
         // Load factory preset infos
         let compartment = self.compartment;
         let factory_preset_dir = get_factory_preset_dir(compartment);
@@ -336,7 +334,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).context("couldn't serialize preset")?;
         fs::write(path, json).context("couldn't write preset file")?;
-        let _ = self.load_preset_infos();
+        let _ = self.load_presets_from_disk();
         Ok(())
     }
 
@@ -462,7 +460,7 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
             bail!("can't delete factory presets");
         };
         fs::remove_file(absolute_path).context("couldn't delete preset file")?;
-        let _ = self.load_preset_infos();
+        let _ = self.load_presets_from_disk();
         Ok(())
     }
 
@@ -486,7 +484,7 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
         let preset_content = get_factory_preset_content(self.compartment, relative_file_path)?;
         fs::create_dir_all(dest_file_path.parent().context("impossible")?)?;
         fs::write(&dest_file_path, preset_content)?;
-        let _ = self.load_preset_infos();
+        let _ = self.load_presets_from_disk();
         let _ = open_in_file_manager(&dest_file_path);
         let origin = PresetOrigin::User {
             absolute_file_path: dest_file_path.clone(),

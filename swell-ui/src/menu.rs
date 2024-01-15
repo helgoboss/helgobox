@@ -57,7 +57,7 @@ pub struct Menu<'a> {
 }
 
 impl<'a> Menu<'a> {
-    fn new(raw: raw::HMENU) -> Self {
+    pub fn new(raw: raw::HMENU) -> Self {
         Self {
             raw,
             p: Default::default(),

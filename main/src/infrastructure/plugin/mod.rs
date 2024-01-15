@@ -10,6 +10,7 @@ mod instance_shell;
 pub use instance_shell::*;
 mod auto_units;
 pub use auto_units::*;
+mod actions;
 mod unit_shell;
 
 #[cfg(feature = "playtime")]
