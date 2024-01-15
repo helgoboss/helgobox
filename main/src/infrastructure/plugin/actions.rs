@@ -2,7 +2,7 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
-use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
+use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode, HelpMode};
 use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_DEFS: &[ActionDef] = &[
@@ -130,11 +130,22 @@ const DEFAULT_DEF: ActionDef = ActionDef {
 
 impl ActionDef {
     pub fn register(&self) {
+        let requires_instance = self.requires_instance;
+        let op = self.op.clone();
         Reaper::get().register_action(
             self.command_name,
             self.build_full_action_name(),
             self.default_key_binding,
-            self.op,
+            move || {
+                if requires_instance && BackboneShell::get().instance_count() == 0 {
+                    Reaper::get().medium_reaper().help_set(
+                        "Please add a Helgobox plug-in instance first!",
+                        HelpMode::Temporary,
+                    );
+                    return;
+                }
+                op();
+            },
             ActionKind::NotToggleable,
         );
     }
@@ -165,11 +176,7 @@ impl ActionDef {
     }
 
     pub fn instance_suffix(&self) -> &'static str {
-        if self.requires_instance {
-            " [REQUIRES INSTANCE]"
-        } else {
-            ""
-        }
+        ""
     }
 }
 

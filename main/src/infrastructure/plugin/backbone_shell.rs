@@ -1281,6 +1281,10 @@ impl BackboneShell {
             .map(|(_, instance)| instance.instance_id)
     }
 
+    pub fn instance_count(&self) -> usize {
+        self.instance_shell_infos.borrow().len()
+    }
+
     pub fn with_instance_shell_infos<R>(&self, f: impl FnOnce(&[InstanceShellInfo]) -> R) -> R {
         f(&self.instance_shell_infos.borrow())
     }
