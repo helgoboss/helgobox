@@ -17,7 +17,12 @@ pub fn extension_menu() -> Menu<&'static str> {
             let items: Vec<_> = ACTION_DEFS
                 .iter()
                 .filter(|def| def.section == section && !def.developer)
-                .map(|def| item(def.action_name, def.command_name))
+                .map(|def| {
+                    item(
+                        format!("{}{}", def.action_name, def.instance_suffix()),
+                        def.command_name,
+                    )
+                })
                 .collect();
             if items.is_empty() {
                 return None;
