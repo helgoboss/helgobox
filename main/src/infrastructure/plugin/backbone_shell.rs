@@ -1486,6 +1486,68 @@ impl BackboneShell {
         BackboneShell::get().start_learning_source_for_target(Compartment::Main, target);
     }
 
+    pub fn show_hide_playtime() {
+        #[cfg(feature = "playtime")]
+        fn add_and_show_playtime() -> anyhow::Result<()> {
+            let mut project = Reaper::get().current_project();
+            let mut track = project.insert_track_at(0)?;
+            track.set_name("Playtime");
+            track
+                .normal_fx_chain()
+                .add_fx_by_original_name("<1751282284")
+                .context("Couldn't add Helgobox. Maybe not installed?")?
+                .hide_floating_window();
+            // The rest needs to be done async because the instance initializes itself async
+            // (because FX not yet available when plug-in instantiated).
+            Global::task_support()
+                .do_later_in_main_thread_from_main_thread_asap(|| {
+                    enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
+                })
+                .unwrap();
+            Ok(())
+        }
+
+        #[cfg(feature = "playtime")]
+        fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
+            let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+            // We don't really need to do that via the external API but on the other hand, this is the only
+            // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
+            // to add integration tests in order to quickly realize if this works or not.
+            // TODO-low Add integration tests instead of using API here.
+            let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
+                .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
+            let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+                .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
+            let instance_id =
+                helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
+            playtime_api.HB_CreateClipMatrix(instance_id);
+            playtime_api.HB_ShowOrHidePlaytime(instance_id);
+            Ok(())
+        }
+
+        #[cfg(feature = "playtime")]
+        fn show_or_hide_playtime() -> anyhow::Result<()> {
+            let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+            let Some(playtime_api) =
+                playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+            else {
+                // Project doesn't have any Helgobox instance yet. Add one.
+                add_and_show_playtime()?;
+                return Ok(());
+            };
+            let helgobox_instance =
+                playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
+            if helgobox_instance == -1 {
+                // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
+                add_and_show_playtime()?;
+                return Ok(());
+            }
+            playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
+            Ok(())
+        }
+        show_or_hide_playtime().expect("couldn't show/hide playtime");
+    }
+
     async fn find_first_mapping_by_source_async(
         &self,
         compartment: Compartment,

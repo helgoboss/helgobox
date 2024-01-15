@@ -12,6 +12,7 @@ mod auto_units;
 pub use auto_units::*;
 mod actions;
 pub use actions::*;
+mod toolbar;
 mod unit_shell;
 
 #[cfg(feature = "playtime")]

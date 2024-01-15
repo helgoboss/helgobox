@@ -2705,15 +2705,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base",
- "enumflags2",
  "libloading 0.8.0",
- "playtime-api",
- "realearn-api",
  "reaper-fluent",
  "reaper-low",
  "reaper-macros",
  "reaper-medium",
- "rust-ini",
 ]
 
 [[package]]
@@ -4998,6 +4994,7 @@ dependencies = [
  "regex",
  "rosc",
  "runas",
+ "rust-ini",
  "rx-util",
  "rxrust",
  "scopeguard",
