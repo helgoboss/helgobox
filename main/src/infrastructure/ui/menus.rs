@@ -13,8 +13,8 @@ use swell_ui::menu_tree::{
     item, item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu,
 };
 
-pub fn extension_menu() -> Menu<&'static str> {
-    let entries = ActionSection::iter()
+pub fn extension_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
+    ActionSection::iter()
         .filter(|section| *section != ActionSection::General)
         .filter_map(|section| section.build_menu())
         .chain(iter::once(separator()))
@@ -23,10 +23,11 @@ pub fn extension_menu() -> Menu<&'static str> {
                 .iter()
                 .filter(|def| def.section == ActionSection::General && !def.developer)
                 .map(|def| def.build_menu_item()),
-        );
-    let mut menu = root_menu(vec![menu("Helgobox", entries.collect())]);
-    assign_command_ids(&mut menu);
-    menu
+        )
+        .map(|mut entry| {
+            assign_command_ids_recursively(&mut entry);
+            entry
+        })
 }
 
 pub fn reaper_target_type_menu(current_value: ReaperTargetType) -> Menu<ReaperTargetType> {
@@ -396,7 +397,11 @@ pub fn assign_command_ids(menu: &mut Menu<&'static str>) {
     }
 }
 
-fn assign_command_ids_recursively(entry: &mut Entry<&'static str>) {
+/// Interprets the item payloads as REAPER command names and uses them to lookup the corresponding REAPER command
+/// IDs.
+///
+/// This is useful for top-level menus.
+pub fn assign_command_ids_recursively(entry: &mut Entry<&'static str>) {
     match entry {
         Entry::Menu(m) => {
             m.id = 0;

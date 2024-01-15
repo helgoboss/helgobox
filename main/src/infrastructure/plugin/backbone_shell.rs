@@ -65,9 +65,9 @@ use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu, HookPostCommand,
-    HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr,
-    RegistrationHandle, SectionContext, WindowContext,
+    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
+    ReaProject, ReaperStr, RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -80,12 +80,13 @@ use std::error::Error;
 use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::ptr::null;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::fill_menu;
+use swell_ui::menu_tree::{fill_menu, fill_menu_recursively};
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -1407,7 +1408,24 @@ impl BackboneShell {
         reaper
             .medium_session()
             .plugin_register_add_hook_custom_menu::<Self>()?;
-        reaper.medium_reaper().add_extensions_main_menu();
+        let id_and_name = reaper_str!("Helgobox").as_c_str().as_ptr();
+        if reaper
+            .medium_reaper()
+            .low()
+            .pointers()
+            .AddCustomizableMenu
+            .is_none()
+        {
+            bail!("REAPER version too low, can't register customizable menu");
+        }
+        unsafe {
+            reaper.medium_reaper().low().AddCustomizableMenu(
+                id_and_name,
+                id_and_name,
+                null(),
+                true,
+            );
+        }
         Ok(())
     }
 
@@ -1429,7 +1447,7 @@ impl BackboneShell {
                 return;
             }
         }
-        alert("Successfully added Helgobox toolbar buttons. Please restart REAPER to see them!");
+        alert("Successfully added or updated Helgobox toolbar buttons. Please restart REAPER to see them!");
     }
 
     pub fn resolve_symbols_from_clipboard() {
@@ -2564,11 +2582,12 @@ async fn maybe_create_controller_for_device_internal(
 
 impl HookCustomMenu for BackboneShell {
     fn call(menuidstr: &ReaperStr, menu: Hmenu, flag: MenuHookFlag) {
-        if flag != MenuHookFlag::Init || menuidstr.to_str() != "Main extensions" {
+        if flag != MenuHookFlag::Init || menuidstr.to_str() != "Helgobox" {
             return;
         }
         let swell_menu = Menu::new(menu.as_ptr());
-        let pure_menu = menus::extension_menu();
-        fill_menu(swell_menu, &pure_menu);
+        for entry in menus::extension_menu_entries() {
+            fill_menu_recursively(swell_menu, &entry);
+        }
     }
 }
