@@ -10,8 +10,7 @@ pub fn fill_menu<R>(swell_menu: SwellMenu, menu: &Menu<R>) {
 fn fill_menu_recursive<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
     match entry {
         Entry::Menu(m) => {
-            swell_menu.add_item(m.id, m.text.as_str());
-            let sub_menu = swell_menu.turn_into_submenu(m.id);
+            let sub_menu = swell_menu.add_menu(m.text.as_str());
             for e in &m.entries {
                 fill_menu_recursive(sub_menu, e);
             }

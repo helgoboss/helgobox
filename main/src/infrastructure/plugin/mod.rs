@@ -11,6 +11,7 @@ pub use instance_shell::*;
 mod auto_units;
 pub use auto_units::*;
 mod actions;
+pub use actions::*;
 mod unit_shell;
 
 #[cfg(feature = "playtime")]

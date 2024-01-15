@@ -83,7 +83,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{fill_menu, root_menu};
+use swell_ui::menu_tree::fill_menu;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -146,9 +146,6 @@ type _App = BackboneShell;
 
 #[derive(Debug)]
 pub struct BackboneShell {
-    /// Indicates if this was initialized from the Helgobox extension plug-in or the
-    /// Helgobox VST plug-in.
-    plugin_context: PluginContext,
     /// RAII
     _tracing_hook: Option<TracingHook>,
     /// RAII
@@ -252,6 +249,8 @@ impl BackboneShell {
     /// This should fire up everything that must be around even while asleep (even without any
     /// VST plug-in instance being around). The less the better! Users shouldn't pay for stuff they
     /// don't need!
+    ///
+    /// The opposite function is [Self::dispose].
     pub fn init(context: PluginContext) -> Self {
         let logger = BackboneShell::logger().clone();
         // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
@@ -405,7 +404,6 @@ impl BackboneShell {
             });
         // We want actions and menu entries to be available even in sleeping state because there are some convenience
         // actions among them that boot up an instance when none is found yet.
-        let _ = Self::register_menus();
         Self::register_actions();
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
@@ -415,8 +413,9 @@ impl BackboneShell {
         };
         // We wake up reaper-rs here already, otherwise the registered actions wouldn't show up yet.
         Reaper::get().wake_up().expect("couldn't wake up REAPER");
+        // Must be called after registering actions and waking REAPER up, otherwise it won't find the command IDs.
+        let _ = Self::register_extension_menu();
         BackboneShell {
-            plugin_context: context,
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
@@ -444,6 +443,23 @@ impl BackboneShell {
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
+        }
+    }
+
+    pub fn dispose(&mut self) {
+        let _ = Reaper::get().go_to_sleep();
+        self.message_panel.close();
+        self.party_is_over_subject.next(());
+        // This is ugly but we need it on Windows where getting the current thread can lead to
+        // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
+        // when exiting REAPER. The following code essentially ignores this.
+        {
+            let old_panic_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let _ = std::panic::catch_unwind(|| {
+                let _ = unregister_api();
+            });
+            std::panic::set_hook(old_panic_hook);
         }
     }
 
@@ -556,6 +572,8 @@ impl BackboneShell {
     ///
     /// This should fire up stuff that only needs to be around while awake (= as long as at least one Helgobox VST
     /// plug-in instance is around). Stuff that must be around even while asleep should be put into [Self::init].
+    ///
+    /// The opposite function is [Self::go_to_sleep].
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
         let AppState::Sleeping(mut sleeping_state) = prev_state else {
@@ -1382,7 +1400,7 @@ impl BackboneShell {
         self.message_panel.close();
     }
 
-    fn register_menus() -> anyhow::Result<()> {
+    fn register_extension_menu() -> anyhow::Result<()> {
         let reaper = Reaper::get();
         reaper
             .medium_session()
@@ -1915,20 +1933,7 @@ impl BackboneShell {
 
 impl Drop for BackboneShell {
     fn drop(&mut self) {
-        let _ = Reaper::get().go_to_sleep();
-        self.message_panel.close();
-        self.party_is_over_subject.next(());
-        // This is ugly but we need it on Windows where getting the current thread can lead to
-        // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
-        // when exiting REAPER. The following code essentially ignores this.
-        {
-            let old_panic_hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
-            let _ = std::panic::catch_unwind(|| {
-                let _ = unregister_api();
-            });
-            std::panic::set_hook(old_panic_hook);
-        }
+        self.dispose();
     }
 }
 

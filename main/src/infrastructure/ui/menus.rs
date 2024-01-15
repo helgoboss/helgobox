@@ -4,7 +4,7 @@ use crate::domain::{
     ReaperTargetType, TargetSection,
 };
 use crate::infrastructure::data::CommonPresetInfo;
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
 use crate::infrastructure::ui::Item;
 use reaper_high::{FxChainContext, Reaper};
 use std::iter;
@@ -12,15 +12,30 @@ use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{item, item_with_opts, menu, root_menu, Entry, ItemOpts, Menu};
 
 pub fn extension_menu() -> Menu<&'static str> {
-    let entries = vec![
-        #[cfg(feature = "playtime")]
-        menu(
-            "Playtime",
-            vec![item("Show/hide Playtime", "_HB_SHOW_HIDE_PLAYTIME")],
-        ),
-    ];
+    let entries = ActionSection::iter()
+        .filter_map(|section| {
+            let items: Vec<_> = ACTION_DEFS
+                .iter()
+                .filter(|def| def.section == section && !def.developer)
+                .map(|def| item(def.action_name, def.command_name))
+                .collect();
+            if items.is_empty() {
+                return None;
+            }
+            let menu = menu(section.to_string(), items);
+            Some(menu)
+        })
+        .collect();
+    // let entries = vec![
+    //     #[cfg(feature = "playtime")]
+    //     menu(
+    //         "Playtime",
+    //         vec![item("Show/hide Playtime", "_HB_SHOW_HIDE_PLAYTIME")],
+    //     ),
+    // ];
     let mut menu = root_menu(vec![menu("Helgobox", entries)]);
     assign_command_ids(&mut menu);
+    println!("{menu:#?}");
     menu
 }
 
@@ -400,7 +415,9 @@ fn assign_command_ids_recursively(entry: &mut Entry<&'static str>) {
             }
         }
         Entry::Item(i) => {
-            let command_id = Reaper::get().medium_reaper().named_command_lookup(i.result);
+            let command_id = Reaper::get()
+                .medium_reaper()
+                .named_command_lookup(format!("_{}", i.result));
             i.id = command_id.map(|id| id.get()).unwrap_or(0);
         }
         _ => {}
