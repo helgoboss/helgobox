@@ -242,7 +242,8 @@ impl<P: MatrixProvider> ProtoRequestHandler<P> {
         BackboneShell::get()
             .controller_manager()
             .borrow_mut()
-            .delete_controller(&req.controller_id);
+            .delete_controller(&req.controller_id)
+            .map_err(|e| Status::unknown(e.to_string()))?;
         Ok(Response::new(Empty {}))
     }
 

@@ -142,11 +142,13 @@ impl ControllerManager {
             .context("controller not found")
     }
 
-    pub fn delete_controller(&mut self, controller_id: &str) {
+    pub fn delete_controller(&mut self, controller_id: &str) -> anyhow::Result<()> {
         self.controller_config
             .controllers
             .retain(|c| c.id != controller_id);
+        self.save()?;
         self.event_handler.controller_config_changed(self);
+        Ok(())
     }
 
     pub fn load_controllers_from_disk(&mut self) -> anyhow::Result<()> {
