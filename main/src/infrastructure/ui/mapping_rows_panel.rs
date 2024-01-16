@@ -633,7 +633,7 @@ impl View for MappingRowsPanel {
     }
 
     #[allow(unused_variables)]
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn on_destroy(self: SharedView<Self>, window: Window) {
         #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()

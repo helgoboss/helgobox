@@ -292,7 +292,7 @@ impl View for InstancePanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         // No need to keep currently displayed unit panel in memory when window closed
         self.displayed_unit_panel.borrow_mut().take();
     }

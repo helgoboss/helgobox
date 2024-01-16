@@ -14,6 +14,7 @@ use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use tinyvec::ArrayVec;
@@ -125,6 +126,7 @@ pub struct RealearnAudioHook {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
     initialized: bool,
+    counter: Arc<AtomicU32>,
     #[cfg(feature = "playtime")]
     clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook,
 }
@@ -144,6 +146,7 @@ impl RealearnAudioHook {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
+        counter: Arc<AtomicU32>,
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
@@ -154,6 +157,7 @@ impl RealearnAudioHook {
             feedback_task_receiver,
             time_of_last_run: None,
             initialized: false,
+            counter,
             #[cfg(feature = "playtime")]
             clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook::new(
             ),
@@ -188,6 +192,7 @@ impl RealearnAudioHook {
     }
 
     fn on_pre(&mut self, args: OnAudioBufferArgs) {
+        self.counter.fetch_add(1, Ordering::Relaxed);
         let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
         // Pre-poll Playtime
         #[cfg(feature = "playtime")]

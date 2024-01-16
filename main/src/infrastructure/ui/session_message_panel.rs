@@ -109,7 +109,7 @@ impl View for SessionMessagePanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         if let Some(session) = self.session.upgrade() {
             session.borrow_mut().stop_learning_many_mappings();
         }

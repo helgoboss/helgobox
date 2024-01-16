@@ -83,6 +83,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::rc::{Rc, Weak};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -180,6 +181,7 @@ pub struct BackboneShell {
     #[cfg(feature = "playtime")]
     proto_hub: crate::infrastructure::proto::ProtoHub,
     shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
+    audio_block_counter: Arc<AtomicU32>,
 }
 
 #[derive(Clone, Debug)]
@@ -391,9 +393,11 @@ impl BackboneShell {
             Box::new(BackboneControlSurfaceEventHandler),
         ));
         // This doesn't yet activate the audio hook (will happen on wake up)
+        let audio_block_counter = Arc::new(AtomicU32::new(0));
         let audio_hook = RealearnAudioHook::new(
             normal_audio_hook_task_receiver,
             feedback_audio_hook_task_receiver,
+            audio_block_counter.clone(),
         );
         // This doesn't yet activate the accelerator (will happen on wake up)
         let accelerator =
@@ -454,6 +458,7 @@ impl BackboneShell {
             #[cfg(feature = "playtime")]
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
             shutdown_detection_panel,
+            audio_block_counter,
         }
     }
 
@@ -554,11 +559,33 @@ impl BackboneShell {
         ClipEngine::make_available_globally(|| ClipEngine::new(args));
     }
 
-    pub fn send_shutdown_feedback(&self) {
+    /// This will cause all main processors to "switch all lights off".
+    ///
+    /// Doing this on main processor drop is too late as audio won't be running anymore and the MIDI devices will
+    /// already be closed. Opening them again - in a destructor - is not good practice.
+    ///
+    /// This should be called early in the REAPER shutdown procedure. At the moment, we call it when a hidden window
+    /// is destroyed.
+    pub fn shutdown(&self) {
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             let middleware = control_surface.middleware_mut();
-            middleware.send_shutdown_feedback();
+            middleware.shutdown();
         });
+        // It's important to wait a bit otherwise we risk the MIDI is not being sent.
+        // We wait for 3 audio blocks, a maximum of 100 milliseconds. Justin's recommendation.
+        let initial_block_count = self.audio_block_count();
+        for _ in 0..100 {
+            std::thread::sleep(Duration::from_millis(1));
+            let elapsed_blocks = self.audio_block_count().saturating_sub(initial_block_count);
+            if elapsed_blocks > 2 {
+                tracing::debug!("Waited a total of {elapsed_blocks} blocks after sending shutdown MIDI messages");
+                break;
+            }
+        }
+    }
+
+    fn audio_block_count(&self) -> u32 {
+        self.audio_block_counter.load(Ordering::Relaxed)
     }
 
     fn reconnect_osc_devices(&self) {

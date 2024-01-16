@@ -2711,7 +2711,7 @@ impl View for HeaderPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         self.main_state.borrow_mut().stop_filter_learning();
     }
 

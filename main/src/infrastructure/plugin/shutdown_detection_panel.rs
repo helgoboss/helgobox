@@ -22,7 +22,7 @@ impl View for ShutdownDetectionPanel {
         &self.view
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
-        BackboneShell::get().send_shutdown_feedback();
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
+        BackboneShell::get().shutdown();
     }
 }

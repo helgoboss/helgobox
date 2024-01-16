@@ -84,7 +84,7 @@ pub trait View: Debug {
     }
 
     /// WM_DESTROY.
-    fn closed(self: SharedView<Self>, _window: Window) {}
+    fn on_destroy(self: SharedView<Self>, _window: Window) {}
 
     /// WM_SHOWWINDOW.
     ///

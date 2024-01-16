@@ -398,7 +398,7 @@ impl View for AppPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn on_destroy(self: SharedView<Self>, window: Window) {
         self.stop(window).unwrap();
     }
 

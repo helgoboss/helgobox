@@ -185,7 +185,7 @@ unsafe extern "C" fn view_dialog_proc(
                     let view_context = view.view_context();
                     view_context.closed_subject.borrow_mut().next(());
                     view_context.window.replace(None);
-                    view.closed(window);
+                    view.on_destroy(window);
                     ViewManager::get().borrow_mut().unregister_view(hwnd);
                     1
                 }
