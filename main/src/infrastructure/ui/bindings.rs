@@ -301,4 +301,5 @@ pub mod root {
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30243;
     #[allow(dead_code)]
     pub const ID_EMPTY_PANEL: u32 = 30245;
+    pub const ID_HIDDEN_PANEL: u32 = 30246;
 }

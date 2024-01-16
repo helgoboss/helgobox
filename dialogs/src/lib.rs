@@ -11,6 +11,7 @@ mod empty_panel;
 mod ext;
 mod group_panel;
 mod header_panel;
+mod hidden_panel;
 mod instance_panel;
 mod main_panel;
 mod mapping_panel;
@@ -165,6 +166,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             main_panel_dialog,
             simple_editor_panel_dialog,
             empty_panel_dialog,
+            hidden_panel::create(context.global(), &mut ids),
         ],
     };
     let header_info = resource.generate_info(&context);

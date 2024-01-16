@@ -88,6 +88,33 @@ pub enum FeedbackAudioHookTask {
     SendMidi(MidiOutputDeviceId, RawMidiEvents),
 }
 
+pub fn send_midi_device_feedback(
+    dev_id: MidiOutputDeviceId,
+    value: MidiSourceValue<RawShortMessage>,
+) {
+    if let Some(events) = value.to_raw() {
+        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+            if let Some(mo) = mo {
+                for event in events {
+                    mo.send_msg(event, SendMidiTime::Instantly);
+                }
+            }
+        });
+    } else {
+        let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
+        if shorts[0].is_none() {
+            return;
+        }
+        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+            if let Some(mo) = mo {
+                for short in shorts.iter().flatten() {
+                    mo.send(*short, SendMidiTime::Instantly);
+                }
+            }
+        });
+    }
+}
+
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
@@ -221,27 +248,7 @@ impl RealearnAudioHook {
             use FeedbackAudioHookTask::*;
             match task {
                 MidiDeviceFeedback(dev_id, value) => {
-                    if let Some(events) = value.to_raw() {
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
-                            if let Some(mo) = mo {
-                                for event in events {
-                                    mo.send_msg(event, SendMidiTime::Instantly);
-                                }
-                            }
-                        });
-                    } else {
-                        let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
-                        if shorts[0].is_none() {
-                            return;
-                        }
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
-                            if let Some(mo) = mo {
-                                for short in shorts.iter().flatten() {
-                                    mo.send(*short, SendMidiTime::Instantly);
-                                }
-                            }
-                        });
-                    }
+                    send_midi_device_feedback(dev_id, value);
                 }
                 SendMidi(dev_id, raw_midi_events) => {
                     MidiOutputDevice::new(dev_id).with_midi_output(|mo| {

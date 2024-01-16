@@ -43,10 +43,11 @@ use crate::domain::ui_util::format_raw_midi;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
+use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPanel;
 use crate::infrastructure::plugin::toolbar::add_toolbar_button;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+    shutdown_detection_panel, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -178,6 +179,7 @@ pub struct BackboneShell {
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     #[cfg(feature = "playtime")]
     proto_hub: crate::infrastructure::proto::ProtoHub,
+    shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
 }
 
 #[derive(Clone, Debug)]
@@ -418,6 +420,11 @@ impl BackboneShell {
         Reaper::get().wake_up().expect("couldn't wake up REAPER");
         // Must be called after registering actions and waking REAPER up, otherwise it won't find the command IDs.
         let _ = Self::register_extension_menu();
+        // Detect shutdown via hidden child window as suggested by Justin
+        let shutdown_detection_panel = SharedView::new(ShutdownDetectionPanel::new());
+        shutdown_detection_panel
+            .clone()
+            .open(Window::from_hwnd(Reaper::get().main_window()));
         BackboneShell {
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
@@ -446,6 +453,7 @@ impl BackboneShell {
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             #[cfg(feature = "playtime")]
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
+            shutdown_detection_panel,
         }
     }
 
@@ -544,6 +552,13 @@ impl BackboneShell {
             integration: Box::new(RealearnClipEngineIntegration),
         };
         ClipEngine::make_available_globally(|| ClipEngine::new(args));
+    }
+
+    pub fn send_shutdown_feedback(&self) {
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            let middleware = control_surface.middleware_mut();
+            middleware.send_shutdown_feedback();
+        });
     }
 
     fn reconnect_osc_devices(&self) {

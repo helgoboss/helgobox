@@ -316,6 +316,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.osc_input_devices = devs;
     }
 
+    pub fn send_shutdown_feedback(&self) {
+        for m in &mut *self.main_processors.borrow_mut() {
+            m.shutdown();
+        }
+    }
+
     pub fn clear_osc_input_devices(&mut self) {
         self.osc_input_devices.clear();
     }

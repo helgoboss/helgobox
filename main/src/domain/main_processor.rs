@@ -1,12 +1,12 @@
 use crate::domain::{
-    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, Backbone,
-    Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
-    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
-    ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
-    FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    aggregate_target_values, get_project_options, say, send_midi_device_feedback,
+    AdditionalFeedbackEvent, Backbone, Compartment, CompoundChangeEvent, CompoundFeedbackValue,
+    CompoundMappingSource, CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext,
+    ControlEvent, ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry,
+    ControlLogEntryKind, ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector,
+    FeedbackDestinations, FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
     GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
     InfoEvent, InstanceId, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
@@ -37,10 +37,12 @@ use crate::domain::ui_util::{
     log_target_output, log_virtual_control_input, log_virtual_feedback_output,
 };
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
+use helgoboss_midi::{
+    ControlChange14BitMessage, DataEntryByteOrder, ParameterNumberMessage, RawShortMessage,
+};
 use indexmap::IndexSet;
 use reaper_high::{ChangeEvent, Reaper};
-use reaper_medium::ReaperNormalizedFxParamValue;
+use reaper_medium::{ReaperNormalizedFxParamValue, SendMidiTime, StuffMidiMessageTarget};
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use std::collections::hash_map::Entry;
@@ -50,6 +52,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::Duration;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -73,6 +76,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
+    /// Set shortly before REAPER shuts down. Has an influence on how feedback is sent.
+    shutdown: bool,
     instance_id: InstanceId,
     unit_id: UnitId,
     source_context: SourceContext,
@@ -284,6 +289,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             basics: Basics {
+                shutdown: false,
                 instance_id,
                 unit_id,
                 source_context: SourceContext,
@@ -2282,6 +2288,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
     }
 
+    pub fn shutdown(&mut self) {
+        if self.basics.shutdown {
+            return;
+        }
+        self.basics.shutdown = true;
+        if self.basics.instance_feedback_is_effectively_enabled() {
+            // We clear feedback right here and now because that's the last chance.
+            // Other instances can take over the feedback output afterwards.
+            self.clear_all_feedback_preventing_source_takeover();
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
     /// When main processor goes away for good.
     fn clear_all_feedback_preventing_source_takeover(&self) {
         debug!(
@@ -2970,11 +2989,7 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.basics.logger, "Dropping main processor...");
-        if self.basics.instance_feedback_is_effectively_enabled() {
-            // We clear feedback right here and now because that's the last chance.
-            // Other instances can take over the feedback output afterwards.
-            self.clear_all_feedback_preventing_source_takeover();
-        }
+        self.shutdown();
         let released_event = self
             .basics
             .io_released_event(self.any_main_mapping_is_effectively_on());
@@ -3760,11 +3775,34 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     format_midi_source_value(&v),
                                 );
                             }
-                            self.channels
-                                .feedback_audio_hook_task_sender
-                                .send_complaining(FeedbackAudioHookTask::MidiDeviceFeedback(
-                                    dev_id, v,
-                                ));
+                            if self.shutdown {
+                                send_midi_device_feedback(dev_id, v);
+                            } else {
+                                self.channels
+                                    .feedback_audio_hook_task_sender
+                                    .send_complaining(FeedbackAudioHookTask::MidiDeviceFeedback(
+                                        dev_id, v,
+                                    ));
+                                // println!("Feedback didn't arrive anymore");
+                                // // This works but it's not very efficient and might actually not
+                                // // be a REAPER quit. We should test audio running in the destructor and open the
+                                // // device in the destructor and then send all the stuff. We could do this easily
+                                // // by overwriting a member variable (no need to pass things via thread local or params).
+                                // let shorts = v.to_short_messages(DataEntryByteOrder::MsbFirst);
+                                // if shorts[0].is_some() {
+                                //     Reaper::get().medium_reaper().create_midi_output(
+                                //         dev_id,
+                                //         false,
+                                //         |mo| {
+                                //             if let Some(mo) = mo {
+                                //                 for short in shorts.iter().flatten() {
+                                //                     mo.send(*short, SendMidiTime::Instantly);
+                                //                 }
+                                //             }
+                                //         },
+                                //     );
+                                // }
+                            }
                         }
                     }
                 }

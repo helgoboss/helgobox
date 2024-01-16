@@ -1,4 +1,4 @@
-mod bindings;
+pub mod bindings;
 
 mod unit_panel;
 pub use unit_panel::*;
