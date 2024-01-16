@@ -32,6 +32,30 @@ impl MidiInDevsConfig {
             midiins_nowarn: self.midiins_nowarn | (1 << index),
         }
     }
+
+    pub fn to_ini_entries(&self) -> impl Iterator<Item = (String, u32)> {
+        to_ini_entries("midiins", self.midiins)
+            .chain(to_ini_entries("midiins_nowarn", self.midiins_nowarn))
+    }
+}
+
+fn to_ini_entries(name: &str, devs: u128) -> impl Iterator<Item = (String, u32)> {
+    [
+        (name.to_string(), (devs & 0x0000_0000_0000_FFFF) as u32),
+        (
+            format!("{name}_h"),
+            ((devs & 0x0000_0000_FFFF_0000) >> 4) as u32,
+        ),
+        (
+            format!("{name}_x"),
+            ((devs & 0x0000_FFFF_0000_0000) >> 8) as u32,
+        ),
+        (
+            format!("{name}_x_h"),
+            ((devs & 0xFFFF_0000_0000_0000) >> 12) as u32,
+        ),
+    ]
+    .into_iter()
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
@@ -63,6 +87,12 @@ impl MidiOutDevsConfig {
             midiouts_nowarn: self.midiouts_nowarn | (1 << index),
             midiouts_noreset: self.midiouts_noreset | (1 << index),
         }
+    }
+
+    pub fn to_ini_entries(&self) -> impl Iterator<Item = (String, u32)> {
+        to_ini_entries("midiouts", self.midiouts)
+            .chain(to_ini_entries("midiouts_nowarn", self.midiouts_nowarn))
+            .chain(to_ini_entries("midiouts_noreset", self.midiouts_noreset))
     }
 }
 

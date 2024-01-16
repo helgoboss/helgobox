@@ -54,6 +54,7 @@ use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
+use ini::EscapePolicy;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
@@ -2565,11 +2566,12 @@ async fn maybe_create_controller_for_device_internal(
 ) -> Result<(), Box<dyn Error>> {
     // Make sure that MIDI output device is enabled
     let old_midi_outs = MidiOutDevsConfig::from_reaper();
-    let new_midi_outs = old_midi_outs.with_dev_enabled(out_dev_id);
-    new_midi_outs.apply_to_reaper();
+    let tmp_midi_outs = old_midi_outs.with_dev_enabled(out_dev_id);
+    tmp_midi_outs.apply_to_reaper();
     // Temporily enable all input devices (so they can listen to the device identity reply)
     let old_midi_ins = MidiInDevsConfig::from_reaper();
-    MidiInDevsConfig::ALL_ENABLED.apply_to_reaper();
+    let tmp_midi_ins = MidiInDevsConfig::ALL_ENABLED;
+    tmp_midi_ins.apply_to_reaper();
     // Apply changes
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
     // Send device identity request to MIDI output device
@@ -2626,9 +2628,13 @@ async fn maybe_create_controller_for_device_internal(
     tracing::debug!(
         "Enabling MIDI input device {in_dev_id} and MIDI output device {out_dev_id}..."
     );
-    old_midi_outs.with_dev_enabled(out_dev_id).apply_to_reaper();
-    old_midi_ins.with_dev_enabled(in_dev_id).apply_to_reaper();
+    let new_midi_outs = old_midi_outs.with_dev_enabled(out_dev_id);
+    new_midi_outs.apply_to_reaper();
+    let new_midi_ins = old_midi_ins.with_dev_enabled(in_dev_id);
+    new_midi_ins.apply_to_reaper();
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
+    // Persist the changes
+    write_midi_devs_config_to_reaper_ini(new_midi_ins, new_midi_outs)?;
     // Auto-create controller
     tracing::debug!("Auto-creating controller...");
     let controller = Controller {
@@ -2657,6 +2663,38 @@ async fn maybe_create_controller_for_device_internal(
         .notify_about_info_event(InfoEvent::AutoAddedController(AutoAddedControllerEvent {
             controller_id: outcome.id,
         }));
+    Ok(())
+}
+
+fn write_midi_devs_config_to_reaper_ini(
+    midi_in_devs: MidiInDevsConfig,
+    midi_out_devs: MidiOutDevsConfig,
+) -> anyhow::Result<()> {
+    // Load REAPER INI file
+    let reaper = Reaper::get();
+    let reaper_ini = reaper.medium_reaper().get_ini_file(|p| p.to_path_buf());
+    let mut ini = ini::Ini::load_from_file_opt(
+        &reaper_ini,
+        ini::ParseOption {
+            enabled_quote: false,
+            enabled_escape: false,
+        },
+    )
+    .context("couldn't load REAPER.ini")?;
+    // Find REAPER section
+    let reaper_section = ini
+        .section_mut(Some("REAPER"))
+        .context("couldn't find INI section REAPER")?;
+    // Replace existing entries
+    for (key, val) in midi_in_devs
+        .to_ini_entries()
+        .chain(midi_out_devs.to_ini_entries())
+    {
+        reaper_section.insert(key, val.to_string());
+    }
+    // Write changes to file
+    // EscapePolicy Nothing is important to not double the backslashes of existing values.
+    ini.write_to_file_policy(&reaper_ini, EscapePolicy::Nothing)?;
     Ok(())
 }
 
