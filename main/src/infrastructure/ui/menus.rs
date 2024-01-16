@@ -9,9 +9,7 @@ use crate::infrastructure::ui::Item;
 use reaper_high::{FxChainContext, Reaper};
 use std::iter;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{
-    item, item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu,
-};
+use swell_ui::menu_tree::{item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu};
 
 pub fn extension_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
     ActionSection::iter()
@@ -21,7 +19,7 @@ pub fn extension_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
         .chain(
             ACTION_DEFS
                 .iter()
-                .filter(|def| def.section == ActionSection::General && !def.developer)
+                .filter(|def| def.section == ActionSection::General && def.should_appear_in_menu())
                 .map(|def| def.build_menu_item()),
         )
         .map(|mut entry| {

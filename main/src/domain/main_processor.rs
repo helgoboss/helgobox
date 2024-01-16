@@ -37,12 +37,10 @@ use crate::domain::ui_util::{
     log_target_output, log_virtual_control_input, log_virtual_feedback_output,
 };
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use helgoboss_midi::{
-    ControlChange14BitMessage, DataEntryByteOrder, ParameterNumberMessage, RawShortMessage,
-};
+use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use indexmap::IndexSet;
 use reaper_high::{ChangeEvent, Reaper};
-use reaper_medium::{ReaperNormalizedFxParamValue, SendMidiTime, StuffMidiMessageTarget};
+use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use std::collections::hash_map::Entry;

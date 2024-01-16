@@ -12,6 +12,9 @@ mod auto_units;
 pub use auto_units::*;
 mod actions;
 pub use actions::*;
+
+#[cfg(debug_assertions)]
+mod sandbox;
 mod shutdown_detection_panel;
 mod toolbar;
 mod unit_shell;

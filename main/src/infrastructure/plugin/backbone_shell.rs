@@ -9,13 +9,13 @@ use crate::domain::{
     EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch,
     InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
     InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId,
-    RealearnAccelerator, RealearnAudioHook, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnTarget, RealearnTargetState, ReaperTarget,
-    ReaperTargetType, RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply,
-    SharedInstance, SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
-    UnitOrchestrationEvent, WeakInstance, WeakUnit,
+    MessageCaptureResult, MidiInDevsConfig, MidiOutDevsConfig, MidiScanResult, NormalAudioHookTask,
+    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext,
+    QualifiedInstanceEvent, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
+    RealearnTargetState, ReaperTarget, ReaperTargetType, RequestMidiDeviceIdentityCommand,
+    RequestMidiDeviceIdentityReply, SharedInstance, SharedMainProcessors, SharedRealTimeProcessor,
+    Tag, UnitContainer, UnitId, UnitOrchestrationEvent, WeakInstance, WeakUnit,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -47,7 +47,7 @@ use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPa
 use crate::infrastructure::plugin::toolbar::add_toolbar_button;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    shutdown_detection_panel, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+    update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -87,7 +87,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{fill_menu, fill_menu_recursively};
+use swell_ui::menu_tree::fill_menu_recursively;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -2397,18 +2397,27 @@ impl HelgoboxWindowSnitch for BackboneHelgoboxWindowSnitch {
 pub struct BackboneControlSurfaceEventHandler;
 
 impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
-    fn midi_input_devices_changed(&self, _diff: &DeviceDiff<MidiInputDeviceId>) {
+    fn midi_input_devices_changed(
+        &self,
+        _diff: &DeviceDiff<MidiInputDeviceId>,
+        device_config_changed: bool,
+    ) {
         BackboneShell::get()
             .proto_hub()
             .notify_midi_input_devices_changed();
         update_auto_units_async();
     }
 
-    fn midi_output_devices_changed(&self, diff: &DeviceDiff<MidiOutputDeviceId>) {
+    fn midi_output_devices_changed(
+        &self,
+        diff: &DeviceDiff<MidiOutputDeviceId>,
+        device_config_changed: bool,
+    ) {
         BackboneShell::get()
             .proto_hub()
             .notify_midi_output_devices_changed();
         update_auto_units_async();
+        // Maybe create controller for each added device
         for out_dev_id in diff.added_devices.iter().copied() {
             maybe_create_controller_for_device(out_dev_id);
         }
@@ -2510,33 +2519,50 @@ fn decompress_app() -> anyhow::Result<()> {
 }
 
 fn maybe_create_controller_for_device(out_dev_id: MidiOutputDeviceId) {
-    let device = Reaper::get().midi_output_device_by_id(out_dev_id);
-    if !device.is_open() {
-        return;
-    }
+    // Don't create controller if there is one already which uses that device
     let output_used_already = BackboneShell::get()
         .controller_manager
         .borrow()
         .find_controller_connected_to_midi_output(out_dev_id)
         .is_some();
     if output_used_already {
+        // Output used already by existing controller
         return;
     }
+    // Create controller async
     spawn_in_main_thread(maybe_create_controller_for_device_internal(out_dev_id));
 }
 
 async fn maybe_create_controller_for_device_internal(
     out_dev_id: MidiOutputDeviceId,
 ) -> Result<(), Box<dyn Error>> {
-    let identity_reply = BackboneShell::get()
+    // Make sure that MIDI output device is enabled
+    let old_midi_outs = MidiOutDevsConfig::from_reaper();
+    let new_midi_outs = old_midi_outs.with_dev_enabled(out_dev_id);
+    new_midi_outs.apply_to_reaper();
+    // Temporily enable all input devices (so they can listen to the device identity reply)
+    let old_midi_ins = MidiInDevsConfig::from_reaper();
+    MidiInDevsConfig::ALL_ENABLED.apply_to_reaper();
+    // Apply changes
+    Reaper::get().medium_reaper().low().midi_init(-1, -1);
+    // Send device identity request to MIDI output device
+    let identity_reply_result = BackboneShell::get()
         .request_midi_device_identity(out_dev_id, None)
-        .await?;
+        .await;
+    // As soon as possible, reset MIDI devices to old state (we don't want to leave traces)
+    old_midi_outs.apply_to_reaper();
+    old_midi_ins.apply_to_reaper();
+    Reaper::get().medium_reaper().low().midi_init(-1, -1);
+    //  Check if input already used by existing controller
+    let identity_reply = identity_reply_result?;
+    let in_dev_id = identity_reply.input_device_id;
     let input_used_already = BackboneShell::get()
         .controller_manager
         .borrow()
-        .find_controller_connected_to_midi_input(identity_reply.input_device_id)
+        .find_controller_connected_to_midi_input(in_dev_id)
         .is_some();
     if input_used_already {
+        // Input already used by existing controller
         return Ok(());
     }
     // Neither output nor input used already. Maybe this is a known controller!
@@ -2569,7 +2595,15 @@ async fn maybe_create_controller_for_device_internal(
         conditions,
     );
     let default_main_preset = main_preset.map(|mp| CompartmentPresetId::new(mp.common.id.clone()));
+    // Make sure the involved MIDI devices are enabled
+    tracing::debug!(
+        "Enabling MIDI input device {in_dev_id} and MIDI output device {out_dev_id}..."
+    );
+    old_midi_outs.with_dev_enabled(out_dev_id).apply_to_reaper();
+    old_midi_ins.with_dev_enabled(in_dev_id).apply_to_reaper();
+    Reaper::get().medium_reaper().low().midi_init(-1, -1);
     // Auto-create controller
+    tracing::debug!("Auto-creating controller...");
     let controller = Controller {
         id: "".to_string(),
         name: device_name.clone(),

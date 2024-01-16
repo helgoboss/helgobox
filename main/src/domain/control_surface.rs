@@ -76,8 +76,16 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub trait ControlSurfaceEventHandler: Debug {
-    fn midi_input_devices_changed(&self, diff: &DeviceDiff<MidiInputDeviceId>);
-    fn midi_output_devices_changed(&self, diff: &DeviceDiff<MidiOutputDeviceId>);
+    fn midi_input_devices_changed(
+        &self,
+        diff: &DeviceDiff<MidiInputDeviceId>,
+        device_config_changed: bool,
+    );
+    fn midi_output_devices_changed(
+        &self,
+        diff: &DeviceDiff<MidiOutputDeviceId>,
+        device_config_changed: bool,
+    );
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -662,12 +670,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 midi_out_diff.added_devices.iter().copied(),
             );
             // Handle events
-            if midi_in_diff.devices_changed() {
-                self.event_handler.midi_input_devices_changed(&midi_in_diff);
-            }
-            if midi_out_diff.devices_changed() {
+            if midi_in_diff.devices_changed() || midi_in_diff.device_config_changed {
                 self.event_handler
-                    .midi_output_devices_changed(&midi_out_diff);
+                    .midi_input_devices_changed(&midi_in_diff, midi_in_diff.device_config_changed);
+            }
+            if midi_out_diff.devices_changed() || midi_out_diff.device_config_changed {
+                self.event_handler.midi_output_devices_changed(
+                    &midi_out_diff,
+                    midi_out_diff.device_config_changed,
+                );
             }
             // Emit as REAPER source messages
             let mut msgs = Vec::with_capacity(2);

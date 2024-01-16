@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{sandbox, BackboneShell};
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
@@ -102,6 +102,15 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         requires_instance: true,
         ..DEFAULT_DEF
     },
+    #[cfg(debug_assertions)]
+    ActionDef {
+        section: ActionSection::General,
+        command_name: "HB_SANDBOX",
+        action_name: "Execute sandbox",
+        developer: true,
+        op: sandbox::execute,
+        ..DEFAULT_DEF
+    },
 ];
 
 pub struct ActionDef {
@@ -150,6 +159,10 @@ impl ActionDef {
         );
     }
 
+    pub fn should_appear_in_menu(&self) -> bool {
+        !self.developer || cfg!(debug_assertions)
+    }
+
     pub fn build_full_action_name(&self) -> String {
         format!(
             "{}Helgobox/{}: {}{}",
@@ -162,7 +175,12 @@ impl ActionDef {
 
     pub fn build_menu_item(&self) -> Entry<&'static str> {
         item(
-            format!("{}{}", self.action_name, self.instance_suffix()),
+            format!(
+                "{}{}{}",
+                self.developer_prefix(),
+                self.action_name,
+                self.instance_suffix()
+            ),
             self.command_name,
         )
     }
@@ -193,7 +211,7 @@ impl ActionSection {
     pub fn build_menu(&self) -> Option<Entry<&'static str>> {
         let items: Vec<_> = ACTION_DEFS
             .iter()
-            .filter(|def| def.section == *self && !def.developer)
+            .filter(|def| def.section == *self && def.should_appear_in_menu())
             .map(|def| def.build_menu_item())
             .collect();
         if items.is_empty() {

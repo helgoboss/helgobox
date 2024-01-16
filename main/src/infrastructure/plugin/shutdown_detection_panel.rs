@@ -1,6 +1,5 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
-use reaper_high::Reaper;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug, Default)]

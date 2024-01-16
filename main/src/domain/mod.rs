@@ -152,3 +152,6 @@ pub use instance::*;
 
 mod real_time_instance;
 pub use real_time_instance::*;
+
+mod midi_dev_management;
+pub use midi_dev_management::*;
