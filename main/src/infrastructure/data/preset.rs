@@ -10,6 +10,7 @@ use crate::infrastructure::ui::util::open_in_file_manager;
 use anyhow::{anyhow, bail, Context};
 use base::byte_pattern::BytePattern;
 use base::file_util;
+use base::file_util::is_hidden;
 use include_dir::{include_dir, Dir};
 use itertools::Itertools;
 use mlua::LuaSerdeExt;
@@ -289,7 +290,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
             .follow_links(true)
             .max_depth(4)
             .into_iter()
-            .filter_entry(|e| !file_util::is_hidden(e))
+            .filter_entry(|e| !file_util::is_hidden(e.file_name()))
             .filter_map(|entry| {
                 let entry = entry.ok()?;
                 if !entry.file_type().is_file() {
@@ -546,9 +547,16 @@ fn walk_included_dir(
     for entry in dir.entries() {
         match entry {
             DirEntry::Dir(dir) => {
+                if is_hidden(dir.path().file_name().unwrap()) {
+                    // E.g. useful to prevent walking into .vscode folders
+                    continue;
+                }
                 walk_included_dir(dir, on_file);
             }
             DirEntry::File(file) => {
+                if is_hidden(file.path().file_name().unwrap()) {
+                    continue;
+                }
                 warn_user_on_anyhow_error(on_file(file));
             }
         }

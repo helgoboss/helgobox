@@ -267,7 +267,7 @@ fn crawl_js_plugins(
     WalkDir::new(js_root_dir)
         .follow_links(true)
         .into_iter()
-        .filter_entry(|e| !file_util::is_hidden(e))
+        .filter_entry(|e| !file_util::is_hidden(e.file_name()))
         .filter_map(|entry| {
             let entry = entry.ok()?;
             if !entry.file_type().is_file() {
