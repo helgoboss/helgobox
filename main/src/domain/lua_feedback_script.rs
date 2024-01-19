@@ -4,7 +4,7 @@ use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
     PropProvider, PropValue,
 };
-use mlua::{Function, Lua, LuaSerdeExt, Table, ToLua, Value};
+use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -31,7 +31,7 @@ impl<'lua> LuaFeedbackScript<'lua> {
             lua,
             env,
             function,
-            context_key: "context".to_lua(lua.as_ref())?,
+            context_key: "context".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -77,20 +77,20 @@ impl<'lua> LuaFeedbackScript<'lua> {
 
 struct LuaPropValue(PropValue);
 
-impl<'lua> ToLua<'lua> for LuaPropValue {
-    fn to_lua(self, lua: &'lua Lua) -> mlua::Result<Value<'lua>> {
+impl<'lua> IntoLua<'lua> for LuaPropValue {
+    fn into_lua(self, lua: &'lua Lua) -> mlua::Result<Value<'lua>> {
         match self.0 {
-            PropValue::Normalized(p) => p.get().to_lua(lua),
-            PropValue::Index(i) => i.to_lua(lua),
-            PropValue::Numeric(NumericValue::Decimal(i)) => i.to_lua(lua),
-            PropValue::Numeric(NumericValue::Discrete(i)) => i.to_lua(lua),
-            PropValue::Boolean(state) => state.to_lua(lua),
-            PropValue::Text(t) => t.to_lua(lua),
+            PropValue::Normalized(p) => p.get().into_lua(lua),
+            PropValue::Index(i) => i.into_lua(lua),
+            PropValue::Numeric(NumericValue::Decimal(i)) => i.into_lua(lua),
+            PropValue::Numeric(NumericValue::Discrete(i)) => i.into_lua(lua),
+            PropValue::Boolean(state) => state.into_lua(lua),
+            PropValue::Text(t) => t.into_lua(lua),
             PropValue::Color(c) => {
                 let script_color = ScriptColor::from(c);
                 lua.to_value(&script_color)
             }
-            PropValue::DurationInMillis(d) => d.to_lua(lua),
+            PropValue::DurationInMillis(d) => d.into_lua(lua),
         }
     }
 }

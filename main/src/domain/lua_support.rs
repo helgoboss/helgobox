@@ -43,8 +43,8 @@ impl SafeLua {
         let chunk = self
             .0
             .load(code)
-            .set_name(name)?
-            .set_environment(env)?
+            .set_name(name)
+            .set_environment(env)
             .set_mode(ChunkMode::Text);
         let function = chunk.into_function()?;
         Ok(function)
@@ -73,7 +73,7 @@ impl SafeLua {
         const MAX_DURATION: Duration = Duration::from_millis(200);
         let instant = Instant::now();
         self.0.set_hook(
-            HookTriggers::every_nth_instruction(10),
+            HookTriggers::new().every_nth_instruction(10),
             move |_lua, _debug| {
                 if instant.elapsed() > MAX_DURATION {
                     Err(mlua::Error::ExternalError(Arc::new(
@@ -83,7 +83,7 @@ impl SafeLua {
                     Ok(())
                 }
             },
-        )?;
+        );
         Ok(self)
     }
 }
@@ -105,9 +105,9 @@ pub fn compile_and_execute<'a>(
 ) -> anyhow::Result<Value<'a>> {
     let lua_chunk = lua
         .load(code)
-        .set_name(name)?
+        .set_name(name)
         .set_mode(ChunkMode::Text)
-        .set_environment(env)?;
+        .set_environment(env);
     let value = lua_chunk.eval().map_err(|e| match e {
         // Box the cause if it's a callback error (used for the execution time limit feature).
         mlua::Error::CallbackError { cause, .. } => {

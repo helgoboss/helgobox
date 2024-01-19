@@ -3,7 +3,7 @@ use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
 };
-use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
+use mlua::{Function, IntoLua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::error::Error;
 
@@ -29,8 +29,8 @@ impl<'lua> LuaMidiSourceScript<'lua> {
             lua,
             env,
             function,
-            y_key: "y".to_lua(lua.as_ref())?,
-            context_key: "context".to_lua(lua.as_ref())?,
+            y_key: "y".into_lua(lua.as_ref())?,
+            context_key: "context".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -65,7 +65,7 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
             },
             FeedbackValue::Textual(v) => v
                 .text
-                .to_lua(self.lua.as_ref())
+                .into_lua(self.lua.as_ref())
                 .map_err(|_| "couldn't convert string to Lua string")?,
             FeedbackValue::Complex(v) => self
                 .lua
