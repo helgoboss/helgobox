@@ -116,7 +116,7 @@ webbrowser = "0.5.5"
 # For writing generated projection setup page to disk
 tempfile.workspace = true
 # For adding firewall rules
-runas = "0.2.1"
+runas = "1.1.0"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
