@@ -11,6 +11,7 @@ use crate::domain::{
 use anyhow::{anyhow, Context};
 use pot::{PotFavorites, PotFilterExcludes};
 
+use fragile::Fragile;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::{Fx, Reaper};
@@ -205,12 +206,8 @@ impl Backbone {
     ///
     /// If this static reference is passed to other user threads and used there, we are done.
     pub unsafe fn main_thread_lua() -> &'static SafeLua {
-        Reaper::get().require_main_thread();
-        struct SingleThreadLua(SafeLua);
-        unsafe impl Send for SingleThreadLua {}
-        unsafe impl Sync for SingleThreadLua {}
-        static LUA: Lazy<SingleThreadLua> = Lazy::new(|| SingleThreadLua(SafeLua::new().unwrap()));
-        &LUA.0
+        static LUA: Lazy<Fragile<SafeLua>> = Lazy::new(|| Fragile::new(SafeLua::new().unwrap()));
+        LUA.get()
     }
 
     pub fn source_state() -> &'static RefCell<RealearnSourceState> {

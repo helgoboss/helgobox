@@ -26,11 +26,12 @@ use pot::preview_recorder::{
 use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
     create_plugin_factory_preset, find_preview_file, pot_db, spawn_in_pot_worker, ChangeHint,
-    CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPresetKind, Filters,
+    CurrentPreset, Debounce, DestinationTrackDescriptor, FiledBasedPotPresetKind, Filters,
     LoadAudioSampleBehavior, LoadPresetError, LoadPresetOptions, LoadPresetWindowBehavior,
     MacroParam, MainThreadDispatcher, MainThreadSpawner, OptFilter, PersistentDatabaseId,
-    PotFavorites, PotFilterExcludes, PotFxParamId, PotWorkerDispatcher, PotWorkerSpawner, Preset,
-    PresetKind, PresetWithId, RuntimePotUnit, SearchField, SharedRuntimePotUnit, WorkerDispatcher,
+    PotFavorites, PotFilterExcludes, PotFxParamId, PotPreset, PotPresetKind, PotWorkerDispatcher,
+    PotWorkerSpawner, PresetWithId, RuntimePotUnit, SearchField, SharedRuntimePotUnit,
+    WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
@@ -283,19 +284,19 @@ impl Dialog {
 struct PresetCacheMessage {
     pot_db_revision: u8,
     preset_id: PresetId,
-    preset_data: Option<PresetData>,
+    preset_data: Option<PotPresetData>,
 }
 
 #[derive(Debug)]
 enum PresetCacheEntry {
     Requested,
     NotFound,
-    Found(Box<PresetData>),
+    Found(Box<PotPresetData>),
 }
 
 #[derive(Debug)]
-struct PresetData {
-    preset: Preset,
+struct PotPresetData {
+    preset: PotPreset,
     preview_file: Option<PathBuf>,
 }
 
@@ -1524,9 +1525,9 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                     .on_hover_text("Opens the preview file in RS5k sampler in a \"playable\" way")
                                     .clicked()
                                 {
-                                    let preset = Preset {
+                                    let preset = PotPreset {
                                         common: data.preset.common.clone(),
-                                        kind: PresetKind::FileBased(FiledBasedPresetKind {
+                                        kind: PotPresetKind::FileBased(FiledBasedPotPresetKind {
                                             path: preview_file.clone(),
                                             file_ext: "ogg".to_string(),
                                         }),
@@ -1563,7 +1564,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 target_os = "macos"
                             ))]
                             {
-                                if let pot::PresetKind::FileBased(k) = &data.preset.kind {
+                                if let pot::PotPresetKind::FileBased(k) = &data.preset.kind {
                                     if ui.button("Show preset in file manager").clicked() {
                                         if k.path.exists() {
                                             if let Err(e) = opener::reveal(&k.path) {
@@ -1729,7 +1730,7 @@ fn add_item_table<T: DisplayItem>(ui: &mut Ui, items: &[T], max_height: f32) {
 
 const DIALOG_CONTENT_MAX_HEIGHT: f32 = 300.0;
 
-fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PresetData, ui: &mut Ui) {
+fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PotPresetData, ui: &mut Ui) {
     pot_db().with_plugin_db(|db| {
         for product_id in &data.preset.common.product_ids {
             let Some(product) = db.find_product_by_id(product_id) else {
@@ -2571,7 +2572,7 @@ impl PresetCache {
                 let preset_data = preset.map(|p| {
                     let preview_file =
                         find_preview_file(&p, &reaper_resource_dir).map(|p| p.into_owned());
-                    PresetData {
+                    PotPresetData {
                         preset: p,
                         preview_file,
                     }
@@ -2817,7 +2818,7 @@ fn add_filter_view_content_as_icons(
 }
 
 fn load_preset_and_regain_focus(
-    preset: &Preset,
+    preset: &PotPreset,
     os_window: Window,
     pot_unit: &mut RuntimePotUnit,
     toasts: &mut Toasts,

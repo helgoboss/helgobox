@@ -3,7 +3,7 @@ use crate::provider_database::{
     DatabaseId, FIL_HAS_PREVIEW_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
     FIL_IS_USER_PRESET_TRUE,
 };
-use crate::{FilterItem, Preset};
+use crate::{FilterItem, PotPreset};
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
@@ -407,7 +407,7 @@ impl PotFilterExcludes {
 
 #[derive(Debug)]
 pub struct CurrentPreset {
-    pub preset: Preset,
+    pub preset: PotPreset,
     pub macro_param_banks: Vec<MacroParamBank>,
 }
 
@@ -510,7 +510,7 @@ pub enum PotFxParamId {
 }
 
 impl CurrentPreset {
-    pub fn preset(&self) -> &Preset {
+    pub fn preset(&self) -> &PotPreset {
         &self.preset
     }
 

@@ -4,7 +4,7 @@ use crate::provider_database::{
 use crate::{
     Fil, FilterInput, FilterItem, FilterItemId, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId,
-    Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId, SearchInput,
+    PotPreset, PotPresetCommon, PotPresetKind, ProjectBasedPotPresetKind, ProjectId, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -203,12 +203,16 @@ impl Database for ProjectDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        ctx: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_entry = self.preset_entries.get(preset_id.0 as usize)?;
         let project = self.projects.get(preset_entry.project_id.0 as usize)?;
         let relative_path = PathBuf::from(&project.relative_path_to_rpp);
-        let preset = Preset {
-            common: PresetCommon {
+        let preset = PotPreset {
+            common: PotPresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
                     create_persistent_inner_id(project, preset_entry),
@@ -234,7 +238,7 @@ impl Database for ProjectDatabase {
                 is_available: !preset_entry.track_preset.used_plugins.is_empty(),
                 metadata: Default::default(),
             },
-            kind: PresetKind::ProjectBased(ProjectBasedPresetKind {
+            kind: PotPresetKind::ProjectBased(ProjectBasedPotPresetKind {
                 path_to_rpp: self.root_dir.join(relative_path),
                 fx_chain_range: preset_entry.track_preset.fx_chain_range.clone(),
             }),

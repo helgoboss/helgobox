@@ -883,6 +883,10 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
 }
 
 impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
+    fn compartment(&self) -> Compartment {
+        self.compartment
+    }
+
     fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex> {
         let (i, _) = self
             .session

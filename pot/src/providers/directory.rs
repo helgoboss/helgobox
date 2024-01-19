@@ -2,9 +2,9 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
-    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
-    PresetKind, SearchInput,
+    FiledBasedPotPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
+    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, PotPreset, PotPresetCommon,
+    PotPresetKind, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -167,10 +167,14 @@ impl Database for DirectoryDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        ctx: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
-        let preset = Preset {
-            common: PresetCommon {
+        let preset = PotPreset {
+            common: PotPresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
                     create_persistent_inner_id(preset_entry),
@@ -192,7 +196,7 @@ impl Database for DirectoryDatabase {
                 is_available: !preset_entry.plugin_cores.is_empty(),
                 metadata: Default::default(),
             },
-            kind: PresetKind::FileBased(FiledBasedPresetKind {
+            kind: PotPresetKind::FileBased(FiledBasedPotPresetKind {
                 file_ext: get_file_extension(&preset_entry.relative_path).to_string(),
                 path: self.root_dir.join(&preset_entry.relative_path),
             }),

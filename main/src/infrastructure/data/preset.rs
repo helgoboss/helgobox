@@ -2,7 +2,7 @@ use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 
 use crate::base::notification;
 use crate::base::notification::warn_user_on_anyhow_error;
-use crate::domain::{Compartment, SafeLua};
+use crate::domain::{Compartment, IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
@@ -405,16 +405,23 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
             }
             PresetFileType::Lua => {
                 let lua = SafeLua::new()?;
-                let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
+                let lua = lua.start_execution_time_limit_countdown()?;
                 let env = lua.create_fresh_environment(true)?;
+                if preset_info.common.origin.is_factory() {
+                    let factory_presets_dir = get_factory_preset_dir(self.compartment).clone();
+                    let mut module_container = LuaModuleContainer::new(
+                        IncludedDirLuaModuleFinder::new(factory_presets_dir),
+                    );
+                    module_container.install_to(&env, lua.as_ref())?;
+                }
                 let value = lua.compile_and_execute(
                     preset_info.common.origin.to_string().as_ref(),
                     &file_content,
                     env,
                 )?;
-                let api_compartment: realearn_api::persistence::Compartment =
+                let compartment_content: realearn_api::persistence::CompartmentContent =
                     lua.as_ref().from_value(value)?;
-                let compartment_data = convert_compartment(api_compartment)?;
+                let compartment_data = convert_compartment(self.compartment, compartment_content)?;
                 let compartment_model = compartment_data.to_model(
                     preset_info.common.meta_data.realearn_version.as_ref(),
                     self.compartment,
@@ -512,9 +519,9 @@ impl<T: CompartmentPresetManager> CompartmentPresetManager for Rc<RefCell<T>> {
     }
 }
 
-static FACTORY_CONTROLLER_PRESETS_DIR: Dir<'_> =
+pub static FACTORY_CONTROLLER_PRESETS_DIR: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../resources/controller-presets/factory");
-static FACTORY_MAIN_PRESETS_DIR: Dir<'_> =
+pub static FACTORY_MAIN_PRESETS_DIR: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../resources/main-presets/factory");
 
 fn walk_included_dir(
@@ -534,6 +541,8 @@ fn walk_included_dir(
     }
 }
 
+/// Returns `None` if the file is in the preset folder but not a preset, e.g. a Lua file which
+/// will be required by presets.
 fn load_preset_info<M: SpecificPresetMetaData>(
     origin: PresetOrigin,
     relative_file_path: &Path,
@@ -597,7 +606,7 @@ fn build_id(
     Ok(id)
 }
 
-fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
+pub fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
     match compartment {
         Compartment::Controller => &FACTORY_CONTROLLER_PRESETS_DIR,
         Compartment::Main => &FACTORY_MAIN_PRESETS_DIR,

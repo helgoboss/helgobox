@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::error::Error;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
-pub trait ScriptEngine: Send {
+pub trait ScriptEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>>;
 
     /// Must include the dot!

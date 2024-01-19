@@ -575,14 +575,15 @@ impl MappingRowPanel {
     }
 
     fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         if !matches!(api_object, ApiObject::Mapping(Envelope { value: _, .. })) {
             return Err("There's more than one mapping in the clipboard.".into());
         }
         let data_object = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_object(api_object, &compartment_in_session)?
         };
         paste_data_object_in_place(data_object, self.session(), self.mapping_triple()?)?;
@@ -590,14 +591,15 @@ impl MappingRowPanel {
     }
 
     fn paste_from_lua_insert_below(&self, text: &str) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         let api_mappings = api_object
             .into_mappings()
             .ok_or("Can only insert a list of mappings.")?;
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
         let triple = self.mapping_triple()?;

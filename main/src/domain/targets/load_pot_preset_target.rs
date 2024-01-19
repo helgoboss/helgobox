@@ -7,7 +7,7 @@ use crate::domain::{
 use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use pot::{pot_db, Destination, LoadPresetOptions, Preset};
+use pot::{pot_db, Destination, LoadPresetOptions, PotPreset};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;
 
@@ -153,7 +153,7 @@ impl<'a> Target<'a> for LoadPotPresetTarget {
 }
 
 impl LoadPotPresetTarget {
-    fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&Preset>) -> R) -> R {
+    fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&PotPreset>) -> R) -> R {
         match Backbone::target_state()
             .borrow()
             .current_fx_preset(&self.fx)
@@ -173,7 +173,7 @@ pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
     ..DEFAULT_TARGET
 };
 
-pub fn get_preset_property(p: &Preset, key: &str) -> Option<PropValue> {
+pub fn get_preset_property(p: &PotPreset, key: &str) -> Option<PropValue> {
     let value = match key {
         "preset.name" => p.common.name.clone().into(),
         "preset.product.name" => p.common.product_name.as_ref()?.clone().into(),

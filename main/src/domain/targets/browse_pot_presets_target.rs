@@ -10,7 +10,7 @@ use base::{blocking_lock, blocking_lock_arc};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, PropValue, Target, UnitValue,
 };
-use pot::{Preset, PresetId, RuntimePotUnit};
+use pot::{PotPreset, PresetId, RuntimePotUnit};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -223,7 +223,7 @@ impl BrowsePotPresetsTarget {
     fn with_selected_preset<R>(
         &self,
         context: ControlContext,
-        f: impl FnOnce(Option<&Preset>) -> R,
+        f: impl FnOnce(Option<&PotPreset>) -> R,
     ) -> R {
         let mut instance_state = context.instance().borrow_mut();
         if let Ok(pot_unit) = instance_state.pot_unit() {

@@ -666,7 +666,7 @@ impl RuntimePotUnit {
         self.sound_player.stop()
     }
 
-    pub fn preset_and_id(&self) -> Option<(PresetId, Preset)> {
+    pub fn preset_and_id(&self) -> Option<(PresetId, PotPreset)> {
         let preset_id = self.preset_id()?;
         let preset = pot_db().find_preset_by_id(preset_id)?;
         Some((preset_id, preset))
@@ -674,7 +674,7 @@ impl RuntimePotUnit {
 
     pub fn load_preset(
         &mut self,
-        preset: &Preset,
+        preset: &PotPreset,
         options: LoadPresetOptions,
     ) -> Result<(), LoadPresetError> {
         let build_destination = |pot_unit: &mut Self| {
@@ -722,7 +722,7 @@ impl RuntimePotUnit {
 
     pub fn load_preset_at(
         &mut self,
-        preset: &Preset,
+        preset: &PotPreset,
         options: LoadPresetOptions,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
     ) -> Result<Fx, LoadPresetError> {
@@ -819,7 +819,7 @@ impl RuntimePotUnit {
     /// Doesn't try to load a shim preset yet.
     fn load_preset_at_internal(
         &mut self,
-        preset: &Preset,
+        preset: &PotPreset,
         window_behavior: LoadPresetWindowBehavior,
         audio_sample_behavior: LoadAudioSampleBehavior,
         build_destination: &impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
@@ -827,7 +827,7 @@ impl RuntimePotUnit {
         let _ = self.sound_player.stop();
         let protected_fx = self.protected_fx().clone();
         let outcome = match &preset.kind {
-            PresetKind::FileBased(k) => self.load_file_based_preset(
+            PotPresetKind::FileBased(k) => self.load_file_based_preset(
                 &k.path,
                 build_destination,
                 window_behavior,
@@ -835,7 +835,7 @@ impl RuntimePotUnit {
                 false,
                 &protected_fx,
             )?,
-            PresetKind::ProjectBased(k) => load_project_based_rfx_chain_preset(
+            PotPresetKind::ProjectBased(k) => load_project_based_rfx_chain_preset(
                 self,
                 build_destination,
                 &k.path_to_rpp,
@@ -843,7 +843,7 @@ impl RuntimePotUnit {
                 window_behavior,
                 &protected_fx,
             )?,
-            PresetKind::Internal(k) => {
+            PotPresetKind::Internal(k) => {
                 if let Some(plugin_id) = k.plugin_id {
                     let dest = build_destination(self)?;
                     load_internal_preset(
@@ -860,7 +860,7 @@ impl RuntimePotUnit {
                     ));
                 }
             }
-            PresetKind::DefaultFactory(plugin_id) => {
+            PotPresetKind::DefaultFactory(plugin_id) => {
                 let dest = build_destination(self)?;
                 load_default_factory_preset(*plugin_id, &dest, window_behavior, &protected_fx)
                     .map_err(LoadPresetError::Other)?
@@ -870,7 +870,7 @@ impl RuntimePotUnit {
         Ok(fx)
     }
 
-    fn process_preset_load_outcome(&self, preset: &Preset, outcome: LoadPresetOutcome) -> Fx {
+    fn process_preset_load_outcome(&self, preset: &PotPreset, outcome: LoadPresetOutcome) -> Fx {
         let current_preset = CurrentPreset {
             preset: preset.clone(),
             macro_param_banks: outcome.banks,
@@ -888,7 +888,7 @@ impl RuntimePotUnit {
         self.runtime_state.preset_id
     }
 
-    pub fn find_currently_selected_preset(&self) -> Option<Preset> {
+    pub fn find_currently_selected_preset(&self) -> Option<PotPreset> {
         let preset_id = self.runtime_state.preset_id?;
         pot_db().find_preset_by_id(preset_id)
     }
@@ -1230,17 +1230,17 @@ impl FilterItem {
 #[derive(Debug)]
 pub struct PresetWithId {
     pub id: PresetId,
-    pub preset: Preset,
+    pub preset: PotPreset,
 }
 
 impl PresetWithId {
-    pub fn new(id: PresetId, preset: Preset) -> Self {
+    pub fn new(id: PresetId, preset: PotPreset) -> Self {
         Self { id, preset }
     }
 }
 
-impl AsRef<Preset> for PresetWithId {
-    fn as_ref(&self) -> &Preset {
+impl AsRef<PotPreset> for PresetWithId {
+    fn as_ref(&self) -> &PotPreset {
         &self.preset
     }
 }
@@ -1251,13 +1251,13 @@ impl AsRef<Preset> for PresetWithId {
 /// preset), it's still a bit heavy-weight, containing much meta-data and stuff. So we should
 /// not have a list of all presets in memory, for example.
 #[derive(Clone, Debug)]
-pub struct Preset {
-    pub common: PresetCommon,
-    pub kind: PresetKind,
+pub struct PotPreset {
+    pub common: PotPresetCommon,
+    pub kind: PotPresetKind,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct PresetMetaData {
+pub struct PotPresetMetaData {
     pub author: Option<String>,
     pub vendor: Option<String>,
     pub comment: Option<String>,
@@ -1265,8 +1265,8 @@ pub struct PresetMetaData {
     pub modification_date: Option<NaiveDateTime>,
 }
 
-impl Preset {
-    pub fn new(common: PresetCommon, kind: PresetKind) -> Self {
+impl PotPreset {
+    pub fn new(common: PotPresetCommon, kind: PotPresetKind) -> Self {
         Self { common, kind }
     }
 
@@ -1276,7 +1276,7 @@ impl Preset {
 }
 
 #[derive(Clone, Debug)]
-pub struct PresetCommon {
+pub struct PotPresetCommon {
     /// ID of the preset that survives restarts and even rescans.
     ///
     /// It might be tempting to let the persistent ID be based on the contents of the preset
@@ -1322,10 +1322,10 @@ pub struct PresetCommon {
     pub db_specific_preview_file: Option<PathBuf>,
     pub is_supported: bool,
     pub is_available: bool,
-    pub metadata: PresetMetaData,
+    pub metadata: PotPresetMetaData,
 }
 
-impl PresetCommon {
+impl PotPresetCommon {
     /// Returns the hash that should be used to identify the location of the custom preview file.
     pub fn content_or_id_hash(&self) -> PersistentHash {
         self.content_hash.unwrap_or_else(|| {
@@ -1338,34 +1338,34 @@ impl PresetCommon {
 }
 
 #[derive(Clone, Debug)]
-pub enum PresetKind {
-    FileBased(FiledBasedPresetKind),
-    ProjectBased(ProjectBasedPresetKind),
-    Internal(InternalPresetKind),
+pub enum PotPresetKind {
+    FileBased(FiledBasedPotPresetKind),
+    ProjectBased(ProjectBasedPotPresetKind),
+    Internal(InternalPotPresetKind),
     DefaultFactory(PluginId),
 }
 
-impl PresetKind {
+impl PotPresetKind {
     pub fn file_extension(&self) -> Option<&str> {
         match self {
-            PresetKind::FileBased(k) => Some(&k.file_ext),
-            PresetKind::Internal(_) => None,
-            PresetKind::DefaultFactory(_) => None,
-            PresetKind::ProjectBased(_) => None,
+            PotPresetKind::FileBased(k) => Some(&k.file_ext),
+            PotPresetKind::Internal(_) => None,
+            PotPresetKind::DefaultFactory(_) => None,
+            PotPresetKind::ProjectBased(_) => None,
         }
     }
 }
 
 /// The kind of preset that's saved in a separate file.
 #[derive(Clone, Debug)]
-pub struct FiledBasedPresetKind {
+pub struct FiledBasedPotPresetKind {
     pub path: PathBuf,
     pub file_ext: String,
 }
 
 /// The kind of preset that's buried in a project file.
 #[derive(Clone, Debug)]
-pub struct ProjectBasedPresetKind {
+pub struct ProjectBasedPotPresetKind {
     pub path_to_rpp: PathBuf,
     pub fx_chain_range: Range<usize>,
 }
@@ -1373,7 +1373,7 @@ pub struct ProjectBasedPresetKind {
 /// The kind of preset that's saved together with the plug-in in REAPER's plug-in GUI, not exported
 /// to a separate file.
 #[derive(Clone, Debug)]
-pub struct InternalPresetKind {
+pub struct InternalPotPresetKind {
     pub plugin_id: Option<PluginId>,
 }
 
@@ -1917,7 +1917,7 @@ fn is_audio_file_extension(ext: &str) -> bool {
     matches!(ext, "wav" | "aif" | "ogg" | "mp3")
 }
 
-pub fn preview_exists(preset: &Preset, reaper_resource_dir: &Path) -> bool {
+pub fn preview_exists(preset: &PotPreset, reaper_resource_dir: &Path) -> bool {
     find_preview_file(preset, reaper_resource_dir).is_some()
 }
 
@@ -1928,11 +1928,11 @@ pub fn preview_exists(preset: &Preset, reaper_resource_dir: &Path) -> bool {
 ///
 /// It prefers custom previews over database-specific previews.
 pub fn find_preview_file<'a>(
-    preset: &'a Preset,
+    preset: &'a PotPreset,
     reaper_resource_dir: &Path,
 ) -> Option<Cow<'a, Path>> {
     // If the preset is an audio file and it exists, return that
-    if let PresetKind::FileBased(kind) = &preset.kind {
+    if let PotPresetKind::FileBased(kind) = &preset.kind {
         if is_audio_file_extension(&kind.file_ext) {
             return if kind.path.exists() {
                 Some(kind.path.as_path().into())
@@ -1960,9 +1960,9 @@ pub fn create_plugin_factory_preset(
     plugin: &PluginCommon,
     persistent_id: PersistentPresetId,
     preset_name: String,
-) -> Preset {
-    Preset {
-        common: PresetCommon {
+) -> PotPreset {
+    PotPreset {
+        common: PotPresetCommon {
             persistent_id,
             name: preset_name,
             context_name: None,
@@ -1975,7 +1975,7 @@ pub fn create_plugin_factory_preset(
             is_available: true,
             metadata: Default::default(),
         },
-        kind: PresetKind::DefaultFactory(plugin.core.id),
+        kind: PotPresetKind::DefaultFactory(plugin.core.id),
     }
 }
 

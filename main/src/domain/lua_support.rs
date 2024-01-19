@@ -57,20 +57,7 @@ impl SafeLua {
         code: &str,
         env: Table<'a>,
     ) -> anyhow::Result<Value<'a>> {
-        let lua_chunk = self
-            .0
-            .load(code)
-            .set_name(name)?
-            .set_mode(ChunkMode::Text)
-            .set_environment(env)?;
-        let value = lua_chunk.eval().map_err(|e| match e {
-            // Box the cause if it's a callback error (used for the execution time limit feature).
-            mlua::Error::CallbackError { cause, .. } => {
-                anyhow!(cause)
-            }
-            e => anyhow!(e),
-        })?;
-        Ok(value)
+        compile_and_execute(&self.0, name, code, env)
     }
 
     /// Creates a fresh environment for this Lua state.
@@ -78,19 +65,17 @@ impl SafeLua {
     /// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
     /// fresh Lua state for each execution.
     pub fn create_fresh_environment(&self, allow_side_effects: bool) -> anyhow::Result<Table> {
-        build_safe_lua_env(&self.0, self.0.globals(), allow_side_effects)
+        create_fresh_environment(&self.0, allow_side_effects)
     }
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
-    pub fn start_execution_time_limit_countdown(
-        self,
-        max_duration: Duration,
-    ) -> anyhow::Result<Self> {
+    pub fn start_execution_time_limit_countdown(self) -> anyhow::Result<Self> {
+        const MAX_DURATION: Duration = Duration::from_millis(200);
         let instant = Instant::now();
         self.0.set_hook(
             HookTriggers::every_nth_instruction(10),
             move |_lua, _debug| {
-                if instant.elapsed() > max_duration {
+                if instant.elapsed() > MAX_DURATION {
                     Err(mlua::Error::ExternalError(Arc::new(
                         RealearnScriptError::Timeout,
                     )))
@@ -101,6 +86,36 @@ impl SafeLua {
         )?;
         Ok(self)
     }
+}
+
+/// Creates a fresh environment for this Lua state.
+///
+/// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
+/// fresh Lua state for each execution.
+pub fn create_fresh_environment(lua: &Lua, allow_side_effects: bool) -> anyhow::Result<Table> {
+    build_safe_lua_env(lua, lua.globals(), allow_side_effects)
+}
+
+/// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
+pub fn compile_and_execute<'a>(
+    lua: &'a Lua,
+    name: &str,
+    code: &str,
+    env: Table<'a>,
+) -> anyhow::Result<Value<'a>> {
+    let lua_chunk = lua
+        .load(code)
+        .set_name(name)?
+        .set_mode(ChunkMode::Text)
+        .set_environment(env)?;
+    let value = lua_chunk.eval().map_err(|e| match e {
+        // Box the cause if it's a callback error (used for the execution time limit feature).
+        mlua::Error::CallbackError { cause, .. } => {
+            anyhow!(cause)
+        }
+        e => anyhow!(e),
+    })?;
+    Ok(value)
 }
 
 impl AsRef<Lua> for SafeLua {

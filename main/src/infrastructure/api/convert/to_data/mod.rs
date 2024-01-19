@@ -1,5 +1,5 @@
 use crate::application::{BankConditionModel, ModifierConditionModel};
-use crate::domain::CompartmentParamIndex;
+use crate::domain::{Compartment, CompartmentParamIndex};
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::{ActivationConditionData, OscValueRange};
@@ -80,6 +80,7 @@ fn convert_osc_value_range(v: Option<Interval<f64>>) -> OscValueRange {
 }
 
 pub trait ApiToDataConversionContext {
+    fn compartment(&self) -> Compartment;
     fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex>;
 }
 

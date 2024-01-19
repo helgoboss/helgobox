@@ -1078,7 +1078,7 @@ impl HeaderPanel {
     }
 
     fn dry_run_lua_script(&self, text: &str) {
-        let result = dry_run_lua_script(text);
+        let result = dry_run_lua_script(text, self.active_compartment());
         self.notify_user_on_error(result);
     }
 
@@ -1086,14 +1086,15 @@ impl HeaderPanel {
         &self,
         text: &str,
     ) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         let api_mappings = api_object
             .into_mappings()
             .ok_or("Can only paste a list of mappings into a mapping group.")?;
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
         self.paste_replace_all_in_group(Envelope::new(api_mappings.version, data_mappings));

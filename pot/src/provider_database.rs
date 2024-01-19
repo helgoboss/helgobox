@@ -1,7 +1,7 @@
 use crate::plugins::{PluginDatabase, ProductKind};
 use crate::{
     Fil, FilterItem, FilterItemId, GenericFilterItemCollections, HasFilterItemId, InnerBuildInput,
-    InnerPresetId, PersistentDatabaseId, Preset, ProductId,
+    InnerPresetId, PersistentDatabaseId, PotPreset, ProductId,
 };
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
@@ -44,7 +44,7 @@ pub trait Database {
         &self,
         context: &ProviderContext,
         preset_id: InnerPresetId,
-    ) -> Option<Preset>;
+    ) -> Option<PotPreset>;
 
     /// Tries to find a preset that belongs to the given product and has the given name *and*
     /// most importantly a preset file format that can't be loaded by Pot Browser.
@@ -56,7 +56,7 @@ pub trait Database {
         &self,
         product_id: ProductId,
         preset_name: &str,
-    ) -> Option<Preset> {
+    ) -> Option<PotPreset> {
         let _ = (product_id, preset_name);
         None
     }

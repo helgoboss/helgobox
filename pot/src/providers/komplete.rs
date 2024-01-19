@@ -5,10 +5,10 @@ use crate::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::{
-    Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
+    Fil, FiledBasedPotPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
-    PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetaData, ProductId, SearchEvaluator,
-    SearchField, SearchOptions,
+    PotFxParamId, PotPreset, PotPresetCommon, PotPresetKind, PotPresetMetaData, ProductId,
+    SearchEvaluator, SearchField, SearchOptions,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
@@ -130,7 +130,7 @@ impl KompleteDatabase {
         &self,
         preset_db: &PresetDb,
         id: InnerPresetId,
-    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+    ) -> Option<(PotPresetCommon, FiledBasedPotPresetKind)> {
         preset_db.find_preset_by_id(&self.persistent_id, id, |bank_id, extension| {
             // Try to translate bank ID - a number representing either a plug-in product like
             // "Zebra2" or a sub product like "Vintage Organs". If it represents a plug-in product,
@@ -470,17 +470,21 @@ impl Database for KompleteDatabase {
         )
     }
 
-    fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        _: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_db = blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
         let (common, kind) = self.find_preset_by_id_internal(&preset_db, preset_id)?;
-        Some(Preset::new(common, PresetKind::FileBased(kind)))
+        Some(PotPreset::new(common, PotPresetKind::FileBased(kind)))
     }
 
     fn find_unsupported_preset_matching(
         &self,
         product_id: ProductId,
         preset_name: &str,
-    ) -> Option<Preset> {
+    ) -> Option<PotPreset> {
         // Look for corresponding Komplete bank
         let bank_id = self.nks_bank_id_by_product_id.get(&product_id)?;
         // Make sure we only get results from that bank
@@ -512,7 +516,7 @@ impl Database for KompleteDatabase {
         let first_preset_id = preset_ids.first()?;
         let (common, kind) =
             self.find_preset_by_id_internal(&preset_db, first_preset_id.inner_preset_id)?;
-        Some(Preset::new(common, PresetKind::FileBased(kind)))
+        Some(PotPreset::new(common, PotPresetKind::FileBased(kind)))
     }
 }
 
@@ -776,7 +780,7 @@ impl PresetDb {
         persistent_db_id: &PersistentDatabaseId,
         id: InnerPresetId,
         translate_bank_or_ext_to_product_id: impl FnOnce(Option<u32>, &str) -> Option<ProductId>,
-    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+    ) -> Option<(PotPresetCommon, FiledBasedPotPresetKind)> {
         let sql = format!(
             r#"
                     SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id, i.vendor, i.author, i.comment, i.file_size, i.mod_date, cp.state
@@ -799,7 +803,7 @@ impl PresetDb {
                 let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
                 let preview_file = determine_preview_file(&path);
                 let content_path_state: Option<u32> = row.get(11)?;
-                let common = PresetCommon {
+                let common = PotPresetCommon {
                     persistent_id: PersistentPresetId::new(
                         persistent_db_id.clone(),
                         PersistentInnerPresetId::new(favorite_id),
@@ -820,7 +824,7 @@ impl PresetDb {
                     db_specific_preview_file: preview_file,
                     is_supported: SUPPORTED_FILE_EXTENSIONS.contains(&file_ext.as_str()),
                     is_available: content_path_state == Some(1),
-                    metadata: PresetMetaData {
+                    metadata: PotPresetMetaData {
                         author: row.get(6).ok(),
                         vendor: row.get(7).ok(),
                         comment: row.get(8).ok(),
@@ -834,7 +838,7 @@ impl PresetDb {
                     },
                     context_name: None,
                 };
-                let kind = FiledBasedPresetKind { path, file_ext };
+                let kind = FiledBasedPotPresetKind { path, file_ext };
                 Ok((common, kind))
             })
             .ok()

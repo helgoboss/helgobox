@@ -1,22 +1,30 @@
 use anyhow::{anyhow, bail, Context};
+use egui::epaint::ahash::HashMap;
+use include_dir::Dir;
+use std::borrow::Cow;
+use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::fmt::Debug;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::SafeLua;
+use crate::domain::{
+    compile_and_execute, create_fresh_environment, Compartment, IncludedDirLuaModuleFinder,
+    LuaModuleContainer, SafeLua,
+};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    parse_lua_frontmatter, ActivationConditionData, CompartmentModelData, InstanceData,
-    MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
+    get_factory_preset_dir, parse_lua_frontmatter, ActivationConditionData, CompartmentModelData,
+    InstanceData, MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
+    FACTORY_CONTROLLER_PRESETS_DIR, FACTORY_MAIN_PRESETS_DIR,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
-use mlua::{Lua, LuaSerdeExt, Value};
+use mlua::{Function, Lua, LuaSerdeExt, Table, Value};
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
@@ -27,7 +35,7 @@ use semver::Version;
 #[serde(untagged)]
 pub enum UntaggedApiObject {
     Tagged(ApiObject),
-    LuaPresetLike(Box<persistence::Compartment>),
+    LuaPresetLike(Box<persistence::CompartmentContent>),
 }
 
 #[derive(Deserialize)]
@@ -48,11 +56,14 @@ impl UntaggedDataObject {
                 let data_object = DataObject::try_from_api_object(o, conversion_context)?;
                 Ok(Self::Tagged(data_object))
             }
-            UntaggedApiObject::LuaPresetLike(compartment) => {
+            UntaggedApiObject::LuaPresetLike(compartment_content) => {
                 let preset_meta_data = preset_meta_data.context(
                     "not a real Lua preset because it doesn't contain meta data (at least name)",
                 )?;
-                let compartment_data = to_data::convert_compartment(*compartment)?;
+                let compartment_data = to_data::convert_compartment(
+                    conversion_context.compartment(),
+                    *compartment_content,
+                )?;
                 let common_preset_data = CommonPresetData {
                     version: preset_meta_data.realearn_version,
                     name: preset_meta_data.name,
@@ -123,11 +134,11 @@ impl DataObject {
             #[cfg(feature = "playtime")]
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
-                let data_compartment = to_data::convert_compartment(*c)?;
+                let data_compartment = to_data::convert_compartment(Compartment::Main, *c)?;
                 DataObject::MainCompartment(Envelope::new(version, Box::new(data_compartment)))
             }
             ApiObject::ControllerCompartment(Envelope { value: c, version }) => {
-                let data_compartment = to_data::convert_compartment(*c)?;
+                let data_compartment = to_data::convert_compartment(Compartment::Controller, *c)?;
                 DataObject::ControllerCompartment(Envelope::new(
                     version,
                     Box::new(data_compartment),
@@ -281,7 +292,8 @@ pub fn deserialize_untagged_data_object_from_lua(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
 ) -> anyhow::Result<UntaggedDataObject> {
-    let untagged_api_object: UntaggedApiObject = deserialize_from_lua(text)?;
+    let untagged_api_object: UntaggedApiObject =
+        deserialize_from_lua(text, conversion_context.compartment())?;
     // We don't need the full metadata here (controller/main-preset specific), just the common one.
     // Actually only the version is important because it might influence import behavior.
     let preset_meta_data = parse_lua_frontmatter(text).ok();
@@ -297,9 +309,12 @@ pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<Strin
 }
 
 /// Runs without importing the result and also doesn't have an execution time limit.
-pub fn dry_run_lua_script(text: &str) -> Result<(), Box<dyn Error>> {
+pub fn dry_run_lua_script(
+    text: &str,
+    active_compartment: Compartment,
+) -> Result<(), Box<dyn Error>> {
     let lua = SafeLua::new()?;
-    let value = execute_lua_import_script(&lua, text)?;
+    let value = execute_lua_import_script(&lua, text, active_compartment)?;
     let json = serde_json::to_string_pretty(&value)?;
     match BackboneShell::get_temp_dir() {
         None => {
@@ -339,26 +354,35 @@ pub fn serialize_data_object_to_lua(
     Ok(lua_serializer::to_string(&api_object)?)
 }
 
-pub fn deserialize_api_object_from_lua(text: &str) -> anyhow::Result<ApiObject> {
-    deserialize_from_lua(text)
+pub fn deserialize_api_object_from_lua(
+    text: &str,
+    active_compartment: Compartment,
+) -> anyhow::Result<ApiObject> {
+    deserialize_from_lua(text, active_compartment)
 }
 
-fn deserialize_from_lua<T>(text: &str) -> anyhow::Result<T>
+fn deserialize_from_lua<T>(text: &str, active_compartment: Compartment) -> anyhow::Result<T>
 where
     T: for<'a> Deserialize<'a> + 'static,
 {
     let lua = SafeLua::new()?;
-    let lua = lua.start_execution_time_limit_countdown(Duration::from_millis(200))?;
-    let value = execute_lua_import_script(&lua, text)?;
+    let lua = lua.start_execution_time_limit_countdown()?;
+    let value = execute_lua_import_script(&lua, text, active_compartment)?;
     Ok(lua.as_ref().from_value(value)?)
 }
 
-fn execute_lua_import_script<'a>(lua: &'a SafeLua, text: &str) -> anyhow::Result<mlua::Value<'a>> {
+fn execute_lua_import_script<'a>(
+    lua: &'a SafeLua,
+    text: &str,
+    active_compartment: Compartment,
+) -> anyhow::Result<mlua::Value<'a>> {
     let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)
     let realearn_table = {
+        // Prepare
         let lua: &Lua = lua.as_ref();
         let table = lua.create_table()?;
+        // get_track_guid_by_index
         let get_track_guid_by_index = lua.create_function(|_, index: u32| {
             let guid = Reaper::get()
                 .current_project()
@@ -367,6 +391,7 @@ fn execute_lua_import_script<'a>(lua: &'a SafeLua, text: &str) -> anyhow::Result
             Ok(guid)
         })?;
         table.set("get_track_guid_by_index", get_track_guid_by_index)?;
+        // get_track_guid_by_name_prefix
         let get_track_guid_by_name_prefix = lua.create_function(|_, prefix: String| {
             let guid = Reaper::get().current_project().tracks().find_map(|t| {
                 if !t.name()?.to_str().starts_with(&prefix) {
@@ -380,6 +405,7 @@ fn execute_lua_import_script<'a>(lua: &'a SafeLua, text: &str) -> anyhow::Result
             "get_track_guid_by_name_prefix",
             get_track_guid_by_name_prefix,
         )?;
+        // print
         let print = lua.create_function(|_, arg: mlua::Value| {
             let text: String = match arg {
                 Value::String(s) => format!("{}\n", s.to_string_lossy()),
@@ -389,8 +415,18 @@ fn execute_lua_import_script<'a>(lua: &'a SafeLua, text: &str) -> anyhow::Result
             Ok(())
         })?;
         table.set("print", print)?;
+        // Return
         table
     };
     env.set("realearn", realearn_table)?;
+    // Add support for require but only in debug builds (for easier development of factory presets)
+    #[cfg(debug_assertions)]
+    {
+        let factory_presets_dir = get_factory_preset_dir(active_compartment).clone();
+        let mut module_container =
+            LuaModuleContainer::new(IncludedDirLuaModuleFinder::new(factory_presets_dir));
+        module_container.install_to(&env, lua.as_ref())?;
+    }
+    // Invoke
     lua.compile_and_execute("Import", text, env)
 }

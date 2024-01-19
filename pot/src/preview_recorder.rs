@@ -3,7 +3,7 @@ use crate::provider_database::{
 };
 use crate::{
     pot_db, preview_exists, BuildInput, Destination, EscapeCatcher, FilterItemId,
-    LoadPresetOptions, LoadPresetWindowBehavior, PluginId, Preset, PresetKind, PresetWithId,
+    LoadPresetOptions, LoadPresetWindowBehavior, PluginId, PotPreset, PotPresetKind, PresetWithId,
     ProductId, SharedRuntimePotUnit,
 };
 use base::future_util::millis;
@@ -39,8 +39,8 @@ pub struct PreviewRecorderFailure {
     pub reason: String,
 }
 
-impl AsRef<Preset> for PreviewRecorderFailure {
-    fn as_ref(&self) -> &Preset {
+impl AsRef<PotPreset> for PreviewRecorderFailure {
+    fn as_ref(&self) -> &PotPreset {
         &self.preset.preset
     }
 }
@@ -203,7 +203,7 @@ fn bucket(preset_with_id: &PresetWithId) -> BucketId {
     if !preset.common.product_ids.is_empty() {
         return BucketId::ProductId(&preset.common.product_ids);
     }
-    if let PresetKind::FileBased(kind) = &preset.kind {
+    if let PotPresetKind::FileBased(kind) = &preset.kind {
         return BucketId::FileExtension(&kind.file_ext);
     }
     BucketId::Remaining
