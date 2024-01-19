@@ -177,24 +177,44 @@ impl fmt::Display for PresetOrigin {
     }
 }
 
+struct PresetBasics {
+    id: String,
+    file_type: PresetFileType,
+}
+
+impl PresetBasics {
+    pub fn from_relative_path(relative_file_path: &Path, prefix: &str) -> Option<Self> {
+        let file_name = relative_file_path.file_name()?.to_str()?;
+        let file_type_mappings = [
+            (".json", PresetFileType::Json),
+            (".preset.lua", PresetFileType::Lua),
+        ];
+        let (id_leaf, file_type) =
+            file_type_mappings
+                .into_iter()
+                .find_map(|(suffix, file_type)| {
+                    let id_leaf = file_name.strip_suffix(suffix)?;
+                    Some((id_leaf, file_type))
+                })?;
+        let relative_dir_path = relative_file_path.parent()?;
+        let id = if relative_dir_path.parent().is_none() {
+            // Preset is in root
+            format!("{prefix}{id_leaf}")
+        } else {
+            // Preset is in sub directory
+            let relative_dir_path_with_slashes =
+                relative_dir_path.to_string_lossy().replace('\\', "/");
+            format!("{prefix}{relative_dir_path_with_slashes}/{id_leaf}")
+        };
+        let basics = Self { id, file_type };
+        Some(basics)
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum PresetFileType {
     Json,
     Lua,
-}
-
-impl PresetFileType {
-    pub fn from_path(path: &Path) -> Option<Self> {
-        let extension = path.extension()?;
-        let file_type = if extension == "json" {
-            PresetFileType::Json
-        } else if extension == "lua" {
-            PresetFileType::Lua
-        } else {
-            return None;
-        };
-        Some(file_type)
-    }
 }
 
 #[derive(Deserialize)]
@@ -249,8 +269,10 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         let mut all_preset_infos = vec![];
         walk_included_dir(factory_preset_dir, &mut |file| {
             let relative_file_path = file.path();
-            let file_type = PresetFileType::from_path(relative_file_path)
-                .context("Factory preset has unsupported file type")?;
+            let Some(basics) = PresetBasics::from_relative_path(relative_file_path, "factory/")
+            else {
+                return Ok(());
+            };
             let file_content = file
                 .contents_utf8()
                 .context("Factory preset not UTF-8 encoded")?;
@@ -258,13 +280,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                 compartment,
                 relative_file_path: relative_file_path.to_path_buf(),
             };
-            let preset_info = load_preset_info(
-                origin,
-                relative_file_path,
-                file_type,
-                "factory/",
-                file_content,
-            )?;
+            let preset_info = load_preset_info(origin, basics, file_content)?;
             all_preset_infos.push(preset_info);
             Ok(())
         });
@@ -288,12 +304,11 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     component.to_string_lossy().eq_ignore_ascii_case("factory")
                 }) {
                     // User presets must not get mixed up with factory presets. Most importantly,
-                    // it's not allowed to override factory presets. That could create mess.
+                    // it's not allowed to override factory presets. That could create a mess.
                     return None;
                 }
-                let file_type = PresetFileType::from_path(entry.path())?;
-                match self.build_user_preset_info(entry.into_path(), &relative_file_path, file_type)
-                {
+                let basics = PresetBasics::from_relative_path(&relative_file_path, "")?;
+                match self.build_user_preset_info(entry.into_path(), basics) {
                     Ok(p) => Some(p),
                     Err(e) => {
                         notification::warn(e.to_string());
@@ -310,8 +325,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
     fn build_user_preset_info(
         &mut self,
         absolute_file_path: PathBuf,
-        relative_file_path: &Path,
-        file_type: PresetFileType,
+        basics: PresetBasics,
     ) -> anyhow::Result<PresetInfo<S>> {
         let origin = PresetOrigin::User {
             absolute_file_path: absolute_file_path.clone(),
@@ -322,7 +336,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                 absolute_file_path.display()
             )
         })?;
-        load_preset_info(origin, relative_file_path, file_type, "", &file_content)
+        load_preset_info(origin, basics, &file_content)
     }
 
     pub fn add_preset(&mut self, preset: CompartmentPresetModel) -> anyhow::Result<()> {
@@ -482,6 +496,7 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
             .map(|info| &info.common)
     }
 
+    /// Returns ID of the newly created user preset.
     fn save_original_factory_preset_as_user_preset(
         &mut self,
         relative_file_path: &Path,
@@ -491,12 +506,11 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
         let preset_content = get_factory_preset_content(self.compartment, relative_file_path)?;
         fs::create_dir_all(dest_file_path.parent().context("impossible")?)?;
         fs::write(&dest_file_path, preset_content)?;
+        let basics = PresetBasics::from_relative_path(&relative_user_file_path, "")
+            .context("couldn't build ID from newly created user preset")?;
         let _ = self.load_presets_from_disk();
         let _ = open_in_file_manager(&dest_file_path);
-        let origin = PresetOrigin::User {
-            absolute_file_path: dest_file_path.clone(),
-        };
-        build_id(&relative_user_file_path, "", &origin)
+        Ok(basics.id)
     }
 }
 
@@ -541,17 +555,12 @@ fn walk_included_dir(
     }
 }
 
-/// Returns `None` if the file is in the preset folder but not a preset, e.g. a Lua file which
-/// will be required by presets.
 fn load_preset_info<M: SpecificPresetMetaData>(
     origin: PresetOrigin,
-    relative_file_path: &Path,
-    file_type: PresetFileType,
-    id_prefix: &str,
+    basics: PresetBasics,
     file_content: &str,
 ) -> anyhow::Result<PresetInfo<M>> {
-    let id = build_id(relative_file_path, id_prefix, &origin)?;
-    let preset_meta_data_result = match file_type {
+    let preset_meta_data_result = match basics.file_type {
         PresetFileType::Json => CombinedPresetMetaData::from_json(&file_content),
         PresetFileType::Lua => CombinedPresetMetaData::from_lua_code(&file_content),
     };
@@ -570,40 +579,14 @@ fn load_preset_info<M: SpecificPresetMetaData>(
     }
     let preset_info = PresetInfo {
         common: CommonPresetInfo {
-            id,
-            file_type,
+            id: basics.id,
+            file_type: basics.file_type,
             origin,
             meta_data: preset_meta_data.common,
         },
         specific_meta_data: preset_meta_data.specific,
     };
     Ok(preset_info)
-}
-
-fn build_id(
-    relative_file_path: &Path,
-    prefix: &str,
-    origin: &PresetOrigin,
-) -> anyhow::Result<String> {
-    let file_stem = relative_file_path.file_stem().ok_or_else(|| {
-        anyhow!(
-            "Preset file \"{origin}\" only has an extension but not a name. \
-                    The name is necessary because it makes up the preset ID.",
-        )
-    })?;
-    let leaf_id = file_stem.to_string_lossy();
-    let relative_dir_path = relative_file_path
-        .parent()
-        .context("relative file was a dir actually")?;
-    let id = if relative_dir_path.parent().is_none() {
-        // Preset is in root
-        format!("{prefix}{leaf_id}")
-    } else {
-        // Preset is in sub directory
-        let relative_dir_path_with_slashes = relative_dir_path.to_string_lossy().replace('\\', "/");
-        format!("{prefix}{relative_dir_path_with_slashes}/{leaf_id}")
-    };
-    Ok(id)
 }
 
 pub fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
