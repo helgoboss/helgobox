@@ -6,6 +6,8 @@
 
 -- Configuration
 
+local common = require("common.lua")
+
 local use_column_stop_buttons = true
 
 -- Utility functions
@@ -27,66 +29,8 @@ function extract_labels(array)
     return labels
 end
 
---- Converts the given key-value table to an array table.
-function to_array(t)
-    local array = {}
-    for _, v in pairs(t) do
-        table.insert(array, v)
-    end
-    return array
-end
-
---- Returns a new table that's the given table turned into an array
---- and sorted by the `index` key.
-function sorted_by_index(t)
-    local sorted = to_array(t)
-    local compare_index = function(left, right)
-        return left.index < right.index
-    end
-    table.sort(sorted, compare_index)
-    return sorted
-end
-
---- Clones a table.
-function clone(t)
-    local new_table = {}
-    for k, v in pairs(t) do
-        new_table[k] = v
-    end
-    return new_table
-end
-
---- Returns a new table that is the result of merging t2 into t1.
----
---- Values in t2 have precedence.
----
---- The result will be mergeable as well. This is good for "modifier chaining".
-function merged(t1, t2)
-    local result = clone(t1)
-    for key, new_value in pairs(t2) do
-        local old_value = result[key]
-        if old_value and type(old_value) == "table" and type(new_value) == "table" then
-            -- Merge table value as well
-            result[key] = merged(old_value, new_value)
-        else
-            -- Simple use new value
-            result[key] = new_value
-        end
-    end
-    return make_mergeable(result)
-end
-
---- Makes it possible to merge this table with another one via "+" operator.
-function make_mergeable(t)
-    local metatable = {
-        __add = merged
-    }
-    setmetatable(t, metatable)
-    return t
-end
-
 function PartialMapping(t)
-    return make_mergeable(t)
+    return common.make_mergeable(t)
 end
 
 -- Constants
@@ -120,7 +64,7 @@ local column_modes = {
         label = "Track select",
     },
 }
-local sorted_column_modes = sorted_by_index(column_modes)
+local sorted_column_modes = common.sorted_by_index(column_modes)
 
 -- Knob modes
 local knob_modes = {
@@ -141,7 +85,7 @@ local knob_modes = {
         label = "Device",
     },
 }
-local sorted_knob_modes = sorted_by_index(knob_modes)
+local sorted_knob_modes = common.sorted_by_index(knob_modes)
 
 -- Parameters
 local params = {
@@ -791,8 +735,8 @@ for col = 0, column_count - 1 do
 end
 
 return {
-    parameters = sorted_by_index(params),
-    groups = to_array(groups),
+    parameters = common.sorted_by_index(params),
+    groups = common.to_array(groups),
     mappings = mappings,
     custom_data = {
         playtime = {

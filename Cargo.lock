@@ -20,9 +20,9 @@ checksum = "330223a1aecc308757b9926e9391c9b47f8ef2dbd8aea9df88312aea18c5e8d6"
 
 [[package]]
 name = "addr2line"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4fa78e18c64fce05e902adecd7a5eed15a5e0a3439f7b0e169f0252214865e3"
+checksum = "8a30b2e23b9e17a9f90641c7ab1549cd9b44f296d3ccbf309d2863cfe398a0cb"
 dependencies = [
  "gimli",
 ]
@@ -572,12 +572,12 @@ dependencies = [
 
 [[package]]
 name = "backtrace"
-version = "0.3.68"
+version = "0.3.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4319208da049c43661739c5fade2ba182f09d1dc2299b32298d3a31692b17e12"
+checksum = "2089b7e3f35b9dd2d0ed921ead4f6d318c27680d4a5bd167b3ee120edb105837"
 dependencies = [
  "addr2line",
- "cc 1.0.79",
+ "cc 1.0.83",
  "cfg-if",
  "libc",
  "miniz_oxide 0.7.1",
@@ -870,11 +870,12 @@ source = "git+https://github.com/petrochenkov/cc-rs.git?rev=4d52bd211aeb2b4ddccd
 
 [[package]]
 name = "cc"
-version = "1.0.79"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
+checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
 dependencies = [
  "jobserver",
+ "libc",
 ]
 
 [[package]]
@@ -1851,7 +1852,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45de30eb317b4cd3882ee16623cb3004e5fb99a8f4cd40097cadf61efbc54adc"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "vswhom",
  "winreg",
 ]
@@ -2058,7 +2059,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
 ]
 
@@ -2485,9 +2486,9 @@ dependencies = [
 
 [[package]]
 name = "gimli"
-version = "0.27.3"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6c80984affa11d98d1b88b66ac8853f143217b399d3c74116778ff8fdb4ed2e"
+checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
 
 [[package]]
 name = "gio-sys"
@@ -3217,7 +3218,7 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06085512b750d640299b79be4bad3d2fa90a9c00b1fd9e1b46364f66f0485c72"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "pkg-config",
 ]
 
@@ -3227,7 +3228,7 @@ version = "0.12.22+1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89c53ac117c44f7042ad8d8f5681378dfbc6010e49ec2c0d1f11dfedc7a4a1c3"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
  "libz-sys",
  "pkg-config",
@@ -3259,7 +3260,7 @@ version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f0455f2c1bc9a7caa792907026e469c1d91761fb0ea37cbb16427c77280cf35"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "pkg-config",
  "vcpkg",
 ]
@@ -3270,7 +3271,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de5435b8549c16d423ed0c03dbaafe57cf6c3344744f1242520d59c9d8ecec66"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
  "pkg-config",
  "vcpkg",
@@ -3359,7 +3360,7 @@ version = "546.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2da0daa7eee611a4c30c8f5ee31af55266e26e573971ba9336d2993e2da129b2"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
 ]
 
 [[package]]
@@ -3368,7 +3369,7 @@ version = "210.5.4+c525bcb"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a10ab4ed12d22cb50ef43ece4f6c5ca594b2d2480019e87facfd422225a9908"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "which 5.0.0",
 ]
 
@@ -3615,7 +3616,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4655631a02e3739d014951291ecfa08db49c4da3f7f8c6f3931ed236af5dd78e"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "cfg-if",
  "lua-src",
  "luajit-src",
@@ -3733,7 +3734,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa9b4819da1bc61c0ea48b63b7bc8604064dd43013e7cc325df098d49cd7c18a"
 dependencies = [
  "bitflags 1.3.2",
- "cc 1.0.79",
+ "cc 1.0.83",
  "cfg-if",
  "libc",
 ]
@@ -3745,7 +3746,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4916f159ed8e5de0082076562152a76b7a1f64a01fd9d1e0fea002c37624faf"
 dependencies = [
  "bitflags 1.3.2",
- "cc 1.0.79",
+ "cc 1.0.83",
  "cfg-if",
  "libc",
  "memoffset",
@@ -4060,7 +4061,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad970fb455818ad6cba4c122ad012fae53ae8b4795f86378bce65e4f6bab2ca4"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
 ]
 
 [[package]]
@@ -4074,9 +4075,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.31.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bda667d9f2b5051b8833f59f3bf748b28ef54f850f4fcb389a252aa383866d1"
+checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr",
 ]
@@ -5236,7 +5237,7 @@ name = "reaper-low"
 version = "0.1.0"
 dependencies = [
  "c_str_macro",
- "cc 1.0.79",
+ "cc 1.0.83",
  "derive_more",
  "downcast-rs",
  "libc",
@@ -5461,7 +5462,7 @@ version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3053cf52e236a3ed746dfc745aa9cacf1b791d846bdaf412f60a8d7d6e17c8fc"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
  "once_cell",
  "spin",
@@ -6300,7 +6301,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5cfbd84f86389198ade41b439f72a5b1b3a8ba728e61cd589e1720d0df44c39"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
 ]
 
@@ -7241,7 +7242,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f5402d3d0e79a069714f7b48e3ecc60be7775a2c049cb839457457a239532"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "libc",
 ]
 
@@ -7497,7 +7498,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d743fdedc5c64377b5fc2bc036b01c7fd642205a0d96356034ae3404d49eb7fb"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
 ]
 
 [[package]]
@@ -8035,6 +8036,6 @@ version = "2.0.9+zstd.1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e16efa8a874a0481a574084d34cc26fdb3b99627480f785888deb6386506656"
 dependencies = [
- "cc 1.0.79",
+ "cc 1.0.83",
  "pkg-config",
 ]
