@@ -140,3 +140,61 @@ image:doc/images/components-midi-device.svg[ReaLearn components]
 
 [.text-center]
 image:doc/images/components-osc.svg[ReaLearn components]
+
+== Design decisions
+
+=== Lua as main scripting language
+
+==== Introduction
+
+ReaLearn supports scripting in various places:
+
+- *MIDI scripts:* Lua or EEL (Lua support more powerful)
+- *Feedback scripts (for MIDI or OSC):* Lua only
+- *Control transformations:* EEL only (because must be real-time capable)
+- *Import/export:* JSON or Lua (Lua obviously more powerful)
+- *Dynamic conditional activation:* Expression language or EEL
+- *Target-based conditional activation:* Expression language
+- *Dynamic expressions:* Expression language
+
+==== Advantages of Lua
+
+Lua is its main scripting language for stuff that doesn't need to run in real-time. Here's why:
+
+* Lua is easily embeddable (this is a must, and it rules out most other mainstream languages)
+* Lua is popular and widely-used (important, rules out exotic or new languages such as Rhai or Gluon)
+* Lua has nice features that make it very suitable for building data structures and even DSLs (our main use case):
+** Operator overloading (rules out JavaScript/TypeScript)
+** Ability to skip parentheses when passing function argument (rules out JavaScript/TypeScript)
+** Really usable multi-line strings
+* Doesn't increase the size of the binary very much (nice to have)
+* It can be quite fast (not important for import/export but very helpful when it comes to e.g. MIDI or feedback scripts)
+* REAPER power users already know Lua because it's also REAPER's primary scripting language (not strictly necessary but certainly helps because REAPER users are usually not developers, so switching languages might be a big effort for them)
+
+==== Ruled out alternatives
+
+Some languages that were considered but ruled out. Here they are, along with the most important reasons why there were ruled out:
+
+* JavaScript/TypeScript: no operator overloading, not possible to skip parentheses when passing function argument, also harder to embed
+** In general, I was very much in favor of JavaScript/TypeScript because it's so widespread and the tooling is first-class. I even considered putting up with the "harder to embed" by using TypeScriptToLua. But turns out Lua is actually better suited for our main use case of creating large data structures for import/export. Surprise!
+** Assembling mappings is an example where operator overloading is really nice: `name("Scroll up") + shift_or_sustain + button("col1/stop") + feedback_disabled() + turbo() + scroll_vertically(-1)`
+* Python: too heavy-weight, also harder to embed and slower
+* Wren: doesn't seem to be active anymore, maybe a bit too exotic (looks exciting though)
+* Gluon: too exotic
+* Dyon: too exotic
+* Rhai: too exotic
+* Mun: hard/impossible to embed, not mature enough
+* Rust: hard/impossible to embed, not easy enough
+* WASM: just embedding a WASM runtime wouldn't help because it's just for running WASM bytecode but not producing the bytecode, which would require a language-to-WASM compiler, which again brings up the question of which scripting language
+
+==== Disadvantages of Lua
+
+* No distinction between maps an arrays (just tables)
+* Really spartan standard library
+* No static typing
+* No strong conventions
+
+==== Interesting other languages to look at
+
+- AssemblyScript: It's like TypeScript but supports operator overloading and only needs a WASM runtime, not a JavaScript engine.
+- Haxe
