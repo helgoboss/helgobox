@@ -98,7 +98,7 @@ pub enum FireMode {
     AfterTimeout(AfterTimeoutFireMode),
     AfterTimeoutKeepFiring(AfterTimeoutKeepFiringFireMode),
     OnSinglePress(OnSinglePressFireMode),
-    OnDoublePress(OnDoublePressFireMode),
+    OnDoublePress,
 }
 
 impl Default for FireMode {
@@ -131,9 +131,6 @@ pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
-
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
-pub struct OnDoublePressFireMode;
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

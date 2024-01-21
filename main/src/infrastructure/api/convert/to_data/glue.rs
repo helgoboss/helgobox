@@ -86,7 +86,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 let min = m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64;
                 (min, min)
             }
-            OnDoublePress(_) => (0, 0),
+            OnDoublePress => (0, 0),
         }
     };
     let data = ModeModelData {
@@ -143,7 +143,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 AfterTimeout(_) => T::AfterTimeout,
                 AfterTimeoutKeepFiring(_) => T::AfterTimeoutKeepFiring,
                 OnSinglePress(_) => T::OnSinglePress,
-                OnDoublePress(_) => T::OnDoublePress,
+                OnDoublePress => T::OnDoublePress,
             }
         },
         round_target_value: g

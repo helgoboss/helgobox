@@ -1,6 +1,4 @@
-use crate::persistence::{
-    OscArgument, TargetValue, VirtualControlElementCharacter, VirtualControlElementId,
-};
+use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enumset::EnumSet;
@@ -2176,4 +2174,16 @@ impl BrowseTracksMode {
             }
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum TargetValue {
+    #[serde(alias = "Normalized")]
+    Unit {
+        value: f64,
+    },
+    Discrete {
+        value: u32,
+    },
 }

@@ -19,15 +19,3 @@ pub struct MappingInSnapshot {
     pub id: String,
     pub target_value: TargetValue,
 }
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum TargetValue {
-    #[serde(alias = "Normalized")]
-    Unit {
-        value: f64,
-    },
-    Discrete {
-        value: u32,
-    },
-}
