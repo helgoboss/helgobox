@@ -186,15 +186,24 @@ Some languages that were considered but ruled out. Here they are, along with the
 * Mun: hard/impossible to embed, not mature enough
 * Rust: hard/impossible to embed, not easy enough
 * WASM: just embedding a WASM runtime wouldn't help because it's just for running WASM bytecode but not producing the bytecode, which would require a language-to-WASM compiler, which again brings up the question of which scripting language
+- AssemblyScript: interesting because TypeScript-like and operator overloading, but ultimately looks too hard to embed because it needs a WASM runtime and I need to make it itself run within that runtime
+- Haxe: direct embedding doesn't seem to be possible, so would only be interesting for transpiling outside Helgobox
 
 ==== Disadvantages of Lua
 
+Despite its many advantages, there are also a few really annoying things about Lua:
+
+* No static typing
+* String concatenation is ugly
 * No distinction between maps an arrays (just tables)
 * Really spartan standard library
-* No static typing
 * No strong conventions
 
-==== Interesting other languages to look at
+==== How to tackle the remaining disadvantages
 
-- AssemblyScript: It's like TypeScript but supports operator overloading and only needs a WASM runtime, not a JavaScript engine.
-- Haxe
+There are some interesting Lua-like languages out there that seek to address Lua's pain points:
+
+* Teal: Statically typed Lua dialect transpiled to Lua
+* Luau: Lua fork with optional static typing
+
+I looked into both and Luau felt more mature and its typing more sophisticated and suited to our use case (especially the structural typing). Also, it doesn't need to be transpiled because the VM itself interprets Luau. Plus, it has string interpolation! And lots of other goodies that help very much in practice.
