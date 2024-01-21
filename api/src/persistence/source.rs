@@ -12,11 +12,11 @@ pub enum Source {
     #[default]
     None,
     // REAPER
-    MidiDeviceChanges(MidiDeviceChangesSource),
-    RealearnInstanceStart(RealearnInstanceStartSource),
+    MidiDeviceChanges,
+    RealearnInstanceStart,
     Timer(TimerSource),
     RealearnParameter(RealearnParameterSource),
-    Speech(SpeechSource),
+    Speech,
     // MIDI
     MidiNoteVelocity(MidiNoteVelocitySource),
     MidiNoteKeyNumber(MidiNoteKeyNumberSource),
@@ -27,7 +27,7 @@ pub enum Source {
     MidiChannelPressureAmount(MidiChannelPressureAmountSource),
     MidiPitchBendChangeValue(MidiPitchBendChangeValueSource),
     MidiParameterNumberValue(MidiParameterNumberValueSource),
-    MidiClockTempo(MidiClockTempoSource),
+    MidiClockTempo,
     MidiClockTransport(MidiClockTransportSource),
     MidiRaw(MidiRawSource),
     MidiScript(MidiScriptSource),
@@ -36,7 +36,7 @@ pub enum Source {
     MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySource),
     SlKeyboardDisplay(SlKeyboardDisplaySource),
     SiniConE24Display(SiniConE24DisplaySource),
-    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplaySource),
+    LaunchpadProScrollingTextDisplay,
     // OSC
     Osc(OscSource),
     // Keyboard
@@ -150,12 +150,6 @@ pub struct MidiParameterNumberValueSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub character: Option<SourceCharacter>,
 }
-
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MidiClockTempoSource;
-
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct MidiDeviceChangesSource;
 
 #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MidiClockTransportSource {
@@ -284,9 +278,6 @@ pub struct SiniConE24DisplaySource {
     pub item_index: Option<u8>,
 }
 
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct LaunchpadProScrollingTextDisplaySource;
-
 #[derive(Default, PartialEq, Serialize, Deserialize)]
 pub struct OscSource {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -302,15 +293,9 @@ pub struct OscSource {
 }
 
 #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct RealearnInstanceStartSource;
-
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RealearnParameterSource {
     pub parameter_index: u32,
 }
-
-#[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
-pub struct SpeechSource {}
 
 #[derive(Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TimerSource {

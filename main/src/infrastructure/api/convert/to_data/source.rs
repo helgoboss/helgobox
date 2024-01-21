@@ -75,7 +75,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             }
             Source::MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
             Source::SiniConE24Display(_) => DisplayType::SiniConE24,
-            Source::LaunchpadProScrollingTextDisplay(_) => DisplayType::LaunchpadProScrollingText,
+            Source::LaunchpadProScrollingTextDisplay => DisplayType::LaunchpadProScrollingText,
             _ => Default::default(),
         },
         display_id: match &s {
@@ -135,8 +135,8 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         reaper_source_type: match &s {
-            Source::MidiDeviceChanges(_) => ReaperSourceType::MidiDeviceChanges,
-            Source::RealearnInstanceStart(_) => ReaperSourceType::RealearnUnitStart,
+            Source::MidiDeviceChanges => ReaperSourceType::MidiDeviceChanges,
+            Source::RealearnInstanceStart => ReaperSourceType::RealearnUnitStart,
             Source::Timer(_) => ReaperSourceType::Timer,
             Source::RealearnParameter(_) => ReaperSourceType::RealearnParameter,
             _ => Default::default(),
@@ -159,11 +159,9 @@ fn convert_category(s: &Source) -> SourceCategory {
     use Source::*;
     match s {
         None => SourceCategory::Never,
-        MidiDeviceChanges(_)
-        | RealearnInstanceStart(_)
-        | Timer(_)
-        | RealearnParameter(_)
-        | Speech(_) => SourceCategory::Reaper,
+        MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) | Speech => {
+            SourceCategory::Reaper
+        }
         MidiNoteVelocity(_)
         | MidiNoteKeyNumber(_)
         | MidiPolyphonicKeyPressureAmount(_)
@@ -173,7 +171,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MidiChannelPressureAmount(_)
         | MidiPitchBendChangeValue(_)
         | MidiParameterNumberValue(_)
-        | MidiClockTempo(_)
+        | MidiClockTempo
         | MidiClockTransport(_)
         | MidiRaw(_)
         | MidiScript(_)
@@ -182,7 +180,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MackieSevenSegmentDisplay(_)
         | SiniConE24Display(_)
         | SlKeyboardDisplay(_)
-        | LaunchpadProScrollingTextDisplay(_) => SourceCategory::Midi,
+        | LaunchpadProScrollingTextDisplay => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
         Key(_) => SourceCategory::Keyboard,
         Virtual(_) => SourceCategory::Virtual,
@@ -201,7 +199,7 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
         MidiChannelPressureAmount(_) => MidiSourceType::ChannelPressureAmount,
         MidiPitchBendChangeValue(_) => MidiSourceType::PitchBendChangeValue,
         MidiParameterNumberValue(_) => MidiSourceType::ParameterNumberValue,
-        MidiClockTempo(_) => MidiSourceType::ClockTempo,
+        MidiClockTempo => MidiSourceType::ClockTempo,
         MidiClockTransport(_) => MidiSourceType::ClockTransport,
         MidiRaw(_) => MidiSourceType::Raw,
         MidiScript(_) => MidiSourceType::Script,
