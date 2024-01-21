@@ -188,7 +188,7 @@ impl PresetBasics {
         let file_name = relative_file_path.file_name()?.to_str()?;
         let file_type_mappings = [
             (".json", PresetFileType::Json),
-            (".preset.lua", PresetFileType::Lua),
+            (".preset.luau", PresetFileType::Lua),
         ];
         let (id_leaf, file_type) =
             file_type_mappings

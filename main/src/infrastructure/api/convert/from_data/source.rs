@@ -36,7 +36,7 @@ pub fn convert_source(
     };
     use SourceCategory::*;
     let source = match data.category {
-        Never => persistence::Source::NoneSource,
+        Never => persistence::Source::None,
         Midi => {
             use MidiSourceType::*;
             match data.r#type {

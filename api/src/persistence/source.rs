@@ -11,8 +11,7 @@ pub use virt::*;
 pub enum Source {
     // None
     #[default]
-    #[serde(rename = "None")]
-    NoneSource,
+    None,
     // REAPER
     MidiDeviceChanges(MidiDeviceChangesSource),
     RealearnInstanceStart(RealearnInstanceStartSource),
@@ -209,10 +208,10 @@ mod midi {
     #[repr(usize)]
     pub enum MidiScriptKind {
         #[default]
-        #[serde(rename = "eel")]
+        #[serde(alias = "eel")]
         #[display(fmt = "EEL")]
         Eel,
-        #[serde(rename = "lua")]
+        #[serde(alias = "lua")]
         #[display(fmt = "Lua")]
         Lua,
     }

@@ -21,18 +21,17 @@ pub fn convert_mapping(
 ) -> ConversionResult<MappingModelData> {
     let (prevent_echo_feedback, send_feedback_after_control) =
         if let Some(source) = m.source.as_ref() {
-            use Source::*;
             let feedback_behavior = match source {
-                MidiNoteVelocity(s) => s.feedback_behavior,
-                MidiNoteKeyNumber(s) => s.feedback_behavior,
-                MidiPolyphonicKeyPressureAmount(s) => s.feedback_behavior,
-                MidiControlChangeValue(s) => s.feedback_behavior,
-                MidiProgramChangeNumber(s) => s.feedback_behavior,
-                MidiChannelPressureAmount(s) => s.feedback_behavior,
-                MidiPitchBendChangeValue(s) => s.feedback_behavior,
-                MidiParameterNumberValue(s) => s.feedback_behavior,
-                MidiRaw(s) => s.feedback_behavior,
-                Osc(s) => s.feedback_behavior,
+                Source::MidiNoteVelocity(s) => s.feedback_behavior,
+                Source::MidiNoteKeyNumber(s) => s.feedback_behavior,
+                Source::MidiPolyphonicKeyPressureAmount(s) => s.feedback_behavior,
+                Source::MidiControlChangeValue(s) => s.feedback_behavior,
+                Source::MidiProgramChangeNumber(s) => s.feedback_behavior,
+                Source::MidiChannelPressureAmount(s) => s.feedback_behavior,
+                Source::MidiPitchBendChangeValue(s) => s.feedback_behavior,
+                Source::MidiParameterNumberValue(s) => s.feedback_behavior,
+                Source::MidiRaw(s) => s.feedback_behavior,
+                Source::Osc(s) => s.feedback_behavior,
                 _ => None,
             };
             match feedback_behavior.unwrap_or_default() {

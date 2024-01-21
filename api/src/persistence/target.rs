@@ -117,7 +117,7 @@ pub enum Target {
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
     TrackVolume(TrackVolumeTarget),
-    #[serde(rename = "Track")]
+    #[serde(alias = "Track")]
     TrackTool(TrackToolTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),
@@ -128,7 +128,7 @@ pub enum Target {
     LoadFxSnapshot(LoadFxSnapshotTarget),
     #[serde(alias = "CycleThroughFxPresets")]
     BrowseFxPresets(BrowseFxPresetsTarget),
-    #[serde(rename = "Fx")]
+    #[serde(alias = "Fx")]
     FxTool(FxToolTarget),
     FxVisibility(FxVisibilityTarget),
     FxParameterValue(FxParameterValueTarget),
