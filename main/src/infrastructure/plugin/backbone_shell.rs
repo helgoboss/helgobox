@@ -568,10 +568,13 @@ impl BackboneShell {
     /// This should be called early in the REAPER shutdown procedure. At the moment, we call it when a hidden window
     /// is destroyed.
     pub fn shutdown(&self) {
-        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+        let result = self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             let middleware = control_surface.middleware_mut();
             middleware.shutdown();
         });
+        if result.is_err() {
+            return;
+        }
         // It's important to wait a bit otherwise we risk the MIDI is not being sent.
         // We wait for 3 audio blocks, a maximum of 100 milliseconds. Justin's recommendation.
         let initial_block_count = self.audio_block_count();
@@ -897,19 +900,19 @@ impl BackboneShell {
     fn temporarily_reclaim_control_surface_ownership(
         &self,
         f: impl FnOnce(&mut RealearnControlSurface),
-    ) {
+    ) -> anyhow::Result<()> {
         // Shortly reclaim ownership of the control surface by unregistering it.
         let prev_state = self.state.replace(AppState::Suspended);
         let awake_state = if let AppState::Awake(s) = prev_state {
             s
         } else {
-            panic!("App was not awake when trying to suspend");
+            bail!("App was not awake when trying to suspend");
         };
         let mut session = Reaper::get().medium_session();
         let mut control_surface = unsafe {
             session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
-                .expect("control surface was not registered")
+                .context("control surface was not registered")?
         };
         // Execute necessary operations
         f(&mut control_surface);
@@ -925,6 +928,7 @@ impl BackboneShell {
             async_runtime: awake_state.async_runtime,
         };
         self.state.replace(AppState::Awake(awake_state));
+        Ok(())
     }
 
     /// Spawns the given future on the ReaLearn async runtime.
