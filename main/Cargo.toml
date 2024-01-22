@@ -202,6 +202,8 @@ whoami = "1.4.1"
 tinyvec.workspace = true
 # For adding toolbar items by parsing/formatting INI (hopefully gets an API soon)
 rust-ini.workspace = true
+# For not having to deal with non-UTF8 paths if we are sure we don't have them
+camino.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

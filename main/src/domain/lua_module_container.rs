@@ -1,8 +1,10 @@
 use crate::domain::{compile_and_execute, create_fresh_environment};
 use anyhow::Context;
+use camino::Utf8Path;
 use include_dir::Dir;
 use mlua::{Function, Lua, Table, Value};
 use std::borrow::Cow;
+use std::path::Path;
 
 pub struct LuaModuleContainer<F> {
     finder: F,
@@ -82,7 +84,16 @@ impl IncludedDirLuaModuleFinder {
 
 impl LuaModuleFinder for IncludedDirLuaModuleFinder {
     fn find_source_by_path(&self, path: &str) -> Option<Cow<str>> {
-        let file = self.dir.get_file(path)?;
+        let path = Utf8Path::new(path);
+        let file = if path.extension().is_some() {
+            // Extension given. Just get file directly.
+            self.dir.get_file(path)?
+        } else {
+            // No extension given. Try ".luau" and ".lua".
+            ["luau", "lua"]
+                .into_iter()
+                .find_map(|ext| self.dir.get_file(path.with_extension(ext)))?
+        };
         let contents = file.contents_utf8()?;
         Some(contents.into())
     }
