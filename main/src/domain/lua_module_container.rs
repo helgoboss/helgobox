@@ -40,10 +40,24 @@ fn find_and_execute_module<'lua, 'b>(
     lua: &'lua Lua,
     path: &'b str,
 ) -> anyhow::Result<Value<'lua>> {
-    let source = finder
-        .find_source_by_path(path)
-        .with_context(|| format!("Couldn't find Lua module {path}"))?;
-    execute_as_module(path, source.as_ref(), finder, lua)
+    let path = Utf8Path::new(path);
+    let source = if path.extension().is_some() {
+        // Extension given. Just get file directly.
+        finder
+            .find_source_by_path(path.as_str())
+            .with_context(|| format!("Couldn't find Lua module [{path}]"))?
+    } else {
+        // No extension given. Try ".luau" and ".lua".
+        ["luau", "lua"]
+            .into_iter()
+            .find_map(|ext| finder.find_source_by_path(path.with_extension(ext).as_str()))
+            .with_context(|| {
+                format!(
+                    "Couldn't find Lua module [{path}]. Tried both with .lua and .luau extension."
+                )
+            })?
+    };
+    execute_as_module(path.as_str(), source.as_ref(), finder, lua)
 }
 
 fn execute_as_module<'a, 'b, 'lua>(
@@ -103,17 +117,7 @@ impl IncludedDirLuaModuleFinder {
 
 impl LuaModuleFinder for IncludedDirLuaModuleFinder {
     fn find_source_by_path(&self, path: &str) -> Option<Cow<'static, str>> {
-        let path = Utf8Path::new(path);
-        let file = if path.extension().is_some() {
-            // Extension given. Just get file directly.
-            self.dir.get_file(path)?
-        } else {
-            // No extension given. Try ".luau" and ".lua".
-            ["luau", "lua"]
-                .into_iter()
-                .find_map(|ext| self.dir.get_file(path.with_extension(ext)))?
-        };
-        let contents = file.contents_utf8()?;
+        let contents = self.dir.get_file(path)?.contents_utf8()?;
         Some(contents.into())
     }
 }
