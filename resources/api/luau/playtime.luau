@@ -1,3 +1,7 @@
+--!strict
+
+--- Attention: This file is generated from Rust code! Don't modify it directly!
+
 local module = {}
 
 export type PlaytimePersistenceRoot = {

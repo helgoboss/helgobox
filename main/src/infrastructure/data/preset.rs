@@ -4,7 +4,10 @@ use crate::base::notification;
 use crate::base::notification::{
     notify_user_about_anyhow_error, warn_user_about_anyhow_error, warn_user_on_anyhow_error,
 };
-use crate::domain::{Compartment, IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua};
+use crate::domain::{
+    Compartment, FsDirLuaModuleFinder, IncludedDirLuaModuleFinder, LuaModuleContainer,
+    LuaModuleFinder, SafeLua,
+};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
@@ -422,18 +425,43 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
             }
             PresetFileType::Lua => {
                 let lua = SafeLua::new()?;
-                let lua = lua.start_execution_time_limit_countdown()?;
-                let env = lua.create_fresh_environment(true)?;
                 let script_name = preset_info.common.origin.to_string();
-                let value = if preset_info.common.origin.is_factory() {
-                    let factory_presets_dir = get_factory_preset_dir(self.compartment).clone();
-                    let mut module_container = LuaModuleContainer::new(
-                        IncludedDirLuaModuleFinder::new(factory_presets_dir),
-                    );
-                    module_container.execute_as_module(lua.as_ref(), &script_name, &file_content)?
-                } else {
-                    lua.compile_and_execute(&script_name, &file_content, env)?
+                let module_finder: Result<Rc<dyn LuaModuleFinder>, _> = match &preset_info
+                    .common
+                    .origin
+                {
+                    PresetOrigin::User { absolute_file_path } => {
+                        let relative_path = Path::new(&preset_info.common.id);
+                        let mut components = relative_path.components();
+                        let first_component = components
+                            .next()
+                            .expect("user preset with empty path shouldn't happen here");
+                        if components.next().is_some() {
+                            // That means the user preset is in a subdirectory of the preset folder.
+                            // This is our root for resolving Lua modules (the subdirectory serves as namespace).
+                            let module_root = self.preset_dir_path.join(first_component);
+                            Ok(Rc::new(FsDirLuaModuleFinder::new(module_root)))
+                        } else {
+                            // The preset resides in the root of the preset folder. This is discouraged nowadays
+                            // because it makes sharing presets more difficult (conflicting file names etc.).
+                            // That's why we don't allow using require in this case!
+                            Err(
+                                r#"Using "require" in Lua presets is only supported if they are located in a subfolder of the main or controller preset folder."#,
+                            )
+                        }
+                    }
+                    PresetOrigin::Factory { compartment, .. } => {
+                        let module_root = get_factory_preset_dir(*compartment).clone();
+                        Ok(Rc::new(IncludedDirLuaModuleFinder::new(module_root)))
+                    }
                 };
+                let module_container = LuaModuleContainer::new(module_finder);
+                let lua = lua.start_execution_time_limit_countdown()?;
+                let value = module_container.execute_as_module(
+                    lua.as_ref(),
+                    &script_name,
+                    &file_content,
+                )?;
                 let compartment_content: realearn_api::persistence::CompartmentContent =
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(self.compartment, compartment_content)?;

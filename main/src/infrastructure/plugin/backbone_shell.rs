@@ -350,12 +350,12 @@ impl BackboneShell {
         // the actual presets are read from disk when waking up.
         let controller_preset_manager = FileBasedControllerPresetManager::new(
             Compartment::Controller,
-            BackboneShell::realearn_preset_dir_path().join("controller"),
+            BackboneShell::realearn_compartment_preset_dir_path(Compartment::Controller),
             Box::new(BackboneControllerPresetManagerEventHandler),
         );
         let main_preset_manager = FileBasedMainPresetManager::new(
             Compartment::Main,
-            BackboneShell::realearn_preset_dir_path().join("main"),
+            BackboneShell::realearn_compartment_preset_dir_path(Compartment::Main),
             Box::new(BackboneMainPresetManagerEventHandler),
         );
         let preset_link_manager =
@@ -1120,6 +1120,14 @@ impl BackboneShell {
 
     pub fn realearn_preset_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("presets")
+    }
+
+    pub fn realearn_compartment_preset_dir_path(compartment: Compartment) -> PathBuf {
+        let sub_dir = match compartment {
+            Compartment::Controller => "controller",
+            Compartment::Main => "main",
+        };
+        Self::realearn_preset_dir_path().join(sub_dir)
     }
 
     pub fn realearn_auto_load_configs_dir_path() -> PathBuf {

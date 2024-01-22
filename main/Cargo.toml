@@ -204,6 +204,8 @@ tinyvec.workspace = true
 rust-ini.workspace = true
 # For not having to deal with non-UTF8 paths if we are sure we don't have them
 camino.workspace = true
+# For not having to manually implement Lua module finder trait for smart pointers
+auto_impl.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

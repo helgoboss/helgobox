@@ -1,4 +1,9 @@
-require("playtime.luau")
+--!strict
+
+--- Attention: This file is generated from Rust code! Don't modify it directly!
+
+local playtime = require("playtime")
+
 local module = {}
 
 export type CompartmentContent = {
@@ -561,7 +566,7 @@ export type Target_BrowsePotFilterItems = { kind: "BrowsePotFilterItems" } & Bro
 export type Target_BrowsePotPresets = { kind: "BrowsePotPresets" } & BrowsePotPresetsTarget
 export type Target_PreviewPotPreset = { kind: "PreviewPotPreset" } & PreviewPotPresetTarget
 export type Target_LoadPotPreset = { kind: "LoadPotPreset" } & LoadPotPresetTarget
-export type Target_Virtual = { kind: "Virtual" } & VirtualTarget
+	export type Target_Virtual = { kind: "Virtual" } & VirtualTarget
 
 export type Target =
 	Target_Mouse

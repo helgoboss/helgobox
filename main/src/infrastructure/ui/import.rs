@@ -10,8 +10,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    compile_and_execute, create_fresh_environment, Compartment, IncludedDirLuaModuleFinder,
-    LuaModuleContainer, SafeLua,
+    compile_and_execute, create_fresh_environment, Compartment, FsDirLuaModuleFinder,
+    IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua,
 };
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
@@ -416,16 +416,10 @@ fn execute_lua_import_script<'a>(
         table
     };
     env.set("realearn", realearn_table)?;
-    // Add support for require but only in debug builds for now (for easier development of factory presets)
-    #[cfg(debug_assertions)]
-    {
-        let factory_presets_dir = get_factory_preset_dir(active_compartment).clone();
-        let mut module_container =
-            LuaModuleContainer::new(IncludedDirLuaModuleFinder::new(factory_presets_dir));
-        module_container.execute_as_module(lua.as_ref(), "Import", code)
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        lua.compile_and_execute("Import", code, env)
-    }
+    // Add support for require, but only for the logged-in user's presets. That means the module root will be the
+    // subdirectory within the preset directory that has the name as the logged-in user's name.
+    let preset_dir = BackboneShell::realearn_compartment_preset_dir_path(active_compartment);
+    let module_finder = FsDirLuaModuleFinder::new(preset_dir.join(whoami::username()));
+    let mut module_container = LuaModuleContainer::new(Ok(module_finder));
+    module_container.execute_as_module(lua.as_ref(), "Import", code)
 }

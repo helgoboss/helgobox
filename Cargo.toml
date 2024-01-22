@@ -110,6 +110,7 @@ function_name = "0.3.0"
 num = "0.4.1"
 logos = "0.13.0"
 camino = "1.1.6"
+auto_impl = "1.1.0"
 
 [profile.release]
 # This is important for having line numbers in bug reports.
