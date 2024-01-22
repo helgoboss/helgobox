@@ -32,3 +32,5 @@ syn = { version = "2.0.48", features = ["full", "extra-traits"] }
 darling = "0.20.3"
 # For generating Luau type definitions from our Rust APIs
 heck = "0.4.0"
+# For formatting generated Luau Type definitions
+stylua = { version = "0.19.1", features = ["luau"] }

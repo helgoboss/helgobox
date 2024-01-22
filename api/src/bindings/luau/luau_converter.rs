@@ -2,25 +2,74 @@ use darling::FromMeta;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use syn::{
-    Attribute, Field, Fields, File, GenericArgument, GenericParam, Generics, Ident, Item, ItemEnum,
+    Field, Fields, File, GenericArgument, GenericParam, Generics, Ident, Item, ItemEnum,
     ItemStruct, PathArguments, Type, Variant,
 };
 
-pub struct LuauFile<'a> {
-    rust_file: &'a File,
-    include_ident: fn(&str) -> bool,
+pub trait Hook {
+    /// Return `true` if you want to include this type in the language binding.
+    ///
+    /// Called for each Rust type with its simple name (not including the path).
+    fn include_type(&self, simple_ident: &str) -> bool {
+        let _ = simple_ident;
+        true
+    }
+
+    /// Return the Luau module name that corresponds to the given Rust crate name. Return `None`
+    /// if you want to use the crate's name as Luau module name.
+    ///
+    /// Called for each referenced Rust type that's addressed with an explicit module path. It will pass the first
+    /// segment of that past. Ideally, our logic would resolve the crate name by looking at the use statements,
+    /// but it's okay, we just need to be a bit disciplined when writing the Rust API code.
+    fn translate_crate_name(&self, rust_crate_ident: &str) -> Option<&'static str> {
+        let _ = rust_crate_ident;
+        None
+    }
 }
 
-struct LuauItem<'a>(&'a Item);
+pub struct LuauFile<'a, H> {
+    rust_file: &'a File,
+    hook: &'a H,
+}
 
-struct LuauStruct<'a>(&'a ItemStruct);
+struct LuauItem<'a, H> {
+    value: &'a Item,
+    hook: &'a H,
+}
 
-struct LuauEnum<'a>(&'a ItemEnum);
+impl<'a, H> LuauItem<'a, H> {
+    pub fn new(value: &'a Item, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
 
-struct RichLuauEnum<'a> {
+struct LuauStruct<'a, H> {
+    value: &'a ItemStruct,
+    hook: &'a H,
+}
+
+impl<'a, H> LuauStruct<'a, H> {
+    pub fn new(value: &'a ItemStruct, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
+
+struct LuauEnum<'a, H> {
+    value: &'a ItemEnum,
+    hook: &'a H,
+}
+
+impl<'a, H> LuauEnum<'a, H> {
+    pub fn new(value: &'a ItemEnum, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
+
+struct RichLuauEnum<'a, H> {
     item_enum: &'a ItemEnum,
     /// `None` means untagged
     tag: Option<&'a str>,
+    hook: &'a H,
 }
 
 struct PrimitiveLuauEnum<'a> {
@@ -29,15 +78,34 @@ struct PrimitiveLuauEnum<'a> {
 }
 
 struct LuauGenerics<'a>(&'a Generics);
-struct LuauGenericArguments<'a>(&'a PathArguments);
+struct LuauGenericArguments<'a, H> {
+    value: &'a PathArguments,
+    hook: &'a H,
+}
 
-struct LuauStructField<'a>(&'a Field);
+impl<'a, H> LuauGenericArguments<'a, H> {
+    pub fn new(value: &'a PathArguments, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
 
-struct LuauVariant<'a> {
+struct LuauStructField<'a, H> {
+    value: &'a Field,
+    hook: &'a H,
+}
+
+impl<'a, H> LuauStructField<'a, H> {
+    pub fn new(value: &'a Field, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
+
+struct LuauVariant<'a, H> {
     variant: &'a Variant,
     enum_ident: LuauIdent<'a>,
     /// `None` means untagged.
     tag: Option<&'a str>,
+    hook: &'a H,
 }
 
 struct LuauVariantIdent<'a> {
@@ -75,7 +143,16 @@ struct LuauPrimitiveMapping<'a> {
     variant: &'a Variant,
 }
 
-struct LuauType<'a>(&'a Type);
+struct LuauType<'a, H> {
+    value: &'a Type,
+    hook: &'a H,
+}
+
+impl<'a, H> LuauType<'a, H> {
+    fn new(value: &'a Type, hook: &'a H) -> Self {
+        Self { value, hook }
+    }
+}
 
 #[derive(Copy, Clone)]
 struct LuauIdent<'a>(&'a Ident, Case);
@@ -88,24 +165,21 @@ enum Case {
     SnakeCase,
 }
 
-impl<'a> LuauFile<'a> {
-    pub fn new(rust_file: &'a File, include_ident: fn(&str) -> bool) -> Self {
-        Self {
-            rust_file,
-            include_ident,
-        }
+impl<'a, H> LuauFile<'a, H> {
+    pub fn new(rust_file: &'a File, hook: &'a H) -> Self {
+        Self { rust_file, hook }
     }
 }
 
-impl<'a> Display for LuauFile<'a> {
+impl<'a, H: Hook> Display for LuauFile<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("local module = {}\n\n")?;
         line_breaked(|| {
             self.rust_file
                 .items
                 .iter()
-                .filter(|item| item_is_included(item, self.include_ident))
-                .map(LuauItem)
+                .filter(|item| item_is_included(item, |ident| self.hook.include_type(ident)))
+                .map(|item| LuauItem::new(item, self.hook))
         })
         .fmt(f)?;
         f.write_str("return module\n")?;
@@ -113,7 +187,7 @@ impl<'a> Display for LuauFile<'a> {
     }
 }
 
-fn item_is_included(item: &Item, include_ident: fn(&str) -> bool) -> bool {
+fn item_is_included(item: &Item, include_ident: impl Fn(&str) -> bool) -> bool {
     let ident = match item {
         Item::Enum(e) => &e.ident,
         Item::Struct(s) => &s.ident,
@@ -146,11 +220,11 @@ impl<'a> Display for LuauIdent<'a> {
     }
 }
 
-impl<'a> Display for LuauItem<'a> {
+impl<'a, H: Hook> Display for LuauItem<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match &self.0 {
-            Item::Enum(e) => LuauEnum(e).fmt(f)?,
-            Item::Struct(s) => LuauStruct(s).fmt(f)?,
+        match &self.value {
+            Item::Enum(e) => LuauEnum::new(e, self.hook).fmt(f)?,
+            Item::Struct(s) => LuauStruct::new(s, self.hook).fmt(f)?,
             Item::Type(_) => {}
             _ => {}
         }
@@ -158,13 +232,18 @@ impl<'a> Display for LuauItem<'a> {
     }
 }
 
-impl<'a> Display for LuauStruct<'a> {
+impl<'a, H: Hook> Display for LuauStruct<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let ident = LuauIdent(&self.0.ident, Case::Original);
-        let generics = LuauGenerics(&self.0.generics);
-        match &self.0.fields {
+        let ident = LuauIdent(&self.value.ident, Case::Original);
+        let generics = LuauGenerics(&self.value.generics);
+        match &self.value.fields {
             Fields::Named(fields) => {
-                let fields = line_breaked(|| fields.named.iter().map(LuauStructField));
+                let fields = line_breaked(|| {
+                    fields
+                        .named
+                        .iter()
+                        .map(|f| LuauStructField::new(f, self.hook))
+                });
                 writeln!(
                     f,
                     r#"
@@ -179,7 +258,7 @@ impl<'a> Display for LuauStruct<'a> {
                     .unnamed
                     .first()
                     .expect("empty tuple structs not supported");
-                let ty = LuauType(&field.ty);
+                let ty = LuauType::new(&field.ty, self.hook);
                 if fields.unnamed.len() == 1 {
                     writeln!(f, "export type {ident}{generics} = {ty};")?;
                 } else {
@@ -205,9 +284,9 @@ pub struct SerdeTagArgs {
     untagged: bool,
 }
 
-impl<'a> Display for LuauEnum<'a> {
+impl<'a, H: Hook> Display for LuauEnum<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let args = self.0.attrs.iter().find_map(|attr| {
+        let args = self.value.attrs.iter().find_map(|attr| {
             if attr.path().segments.last()?.ident != "serde" {
                 return None;
             }
@@ -217,7 +296,7 @@ impl<'a> Display for LuauEnum<'a> {
             None => {
                 // Primitive enum
                 let primitive_enum = PrimitiveLuauEnum {
-                    item_enum: self.0,
+                    item_enum: self.value,
                     ident_override: None,
                 };
                 primitive_enum.fmt(f)?;
@@ -230,16 +309,18 @@ impl<'a> Display for LuauEnum<'a> {
                     (None, true) => {
                         // Untagged enum
                         let rich_enum = RichLuauEnum {
-                            item_enum: self.0,
+                            item_enum: self.value,
                             tag: None,
+                            hook: self.hook,
                         };
                         rich_enum.fmt(f)?;
                     }
                     (Some(tag), _) => {
                         // Tagged enum
                         let rich_enum = RichLuauEnum {
-                            item_enum: self.0,
+                            item_enum: self.value,
                             tag: Some(&tag),
+                            hook: self.hook,
                         };
                         rich_enum.fmt(f)?;
                     }
@@ -250,7 +331,7 @@ impl<'a> Display for LuauEnum<'a> {
     }
 }
 
-impl<'a> Display for RichLuauEnum<'a> {
+impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let enum_ident = LuauIdent(&self.item_enum.ident, Case::Original);
         let generics = LuauGenerics(&self.item_enum.generics);
@@ -266,6 +347,7 @@ impl<'a> Display for RichLuauEnum<'a> {
                 variant,
                 enum_ident,
                 tag: self.tag,
+                hook: self.hook,
             })
         });
         let variant_disjunction = separated("|", || {
@@ -340,9 +422,9 @@ impl<'a> Display for LuauGenerics<'a> {
     }
 }
 
-impl<'a> Display for LuauGenericArguments<'a> {
+impl<'a, H: Hook> Display for LuauGenericArguments<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let PathArguments::AngleBracketed(args) = self.0 else {
+        let PathArguments::AngleBracketed(args) = self.value else {
             return Ok(());
         };
         f.write_char('<')?;
@@ -353,7 +435,7 @@ impl<'a> Display for LuauGenericArguments<'a> {
             let GenericArgument::Type(ty) = arg else {
                 panic!("only type arguments supported: {:?}", arg);
             };
-            LuauType(ty).fmt(f)?;
+            LuauType::new(ty, self.hook).fmt(f)?;
         }
         f.write_char('>')?;
         Ok(())
@@ -389,11 +471,11 @@ impl<T: Display> Display for Delimited<T> {
     }
 }
 
-impl<'a> Display for LuauStructField<'a> {
+impl<'a, H: Hook> Display for LuauStructField<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let ty = LuauType(&self.0.ty);
+        let ty = LuauType::new(&self.value.ty, self.hook);
         let ident = self
-            .0
+            .value
             .ident
             .as_ref()
             .expect("no tuple struct field expected");
@@ -411,7 +493,7 @@ impl<'a> Display for LuauVariantIdent<'a> {
     }
 }
 
-impl<'a> Display for LuauVariant<'a> {
+impl<'a, H: Hook> Display for LuauVariant<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let variant_ident = LuauVariantIdent {
             enum_ident: self.enum_ident,
@@ -430,7 +512,12 @@ impl<'a> Display for LuauVariant<'a> {
                     // Tagged
                     f.write_str(" & ")?;
                 }
-                let fields = line_breaked(|| fields.named.iter().map(LuauStructField));
+                let fields = line_breaked(|| {
+                    fields
+                        .named
+                        .iter()
+                        .map(|f| LuauStructField::new(f, self.hook))
+                });
                 write!(
                     f,
                     r#"
@@ -453,7 +540,7 @@ impl<'a> Display for LuauVariant<'a> {
                     // Tagged
                     f.write_str(" & ")?;
                 }
-                write!(f, "{}", LuauType(&field.ty))?;
+                write!(f, "{}", LuauType::new(&field.ty, self.hook))?;
             }
             Fields::Unit => {
                 // Primitive enum variant
@@ -467,41 +554,55 @@ impl<'a> Display for LuauVariant<'a> {
     }
 }
 
-impl<'a> Display for LuauType<'a> {
+impl<'a, H: Hook> Display for LuauType<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.0 {
+        match self.value {
             Type::Path(p) => {
                 let el = p.path.segments.last().unwrap();
                 let ident = el.ident.to_string();
                 match ident.as_str() {
                     "Option" => {
                         let ty = get_type_arg(&el.arguments, 0);
-                        write!(f, "{}?", LuauType(ty))?;
+                        write!(f, "{}?", LuauType::new(ty, self.hook))?;
                     }
                     "Vec" | "EnumSet" | "HashSet" => {
                         let ty = get_type_arg(&el.arguments, 0);
-                        write!(f, "{{{}}}", LuauType(ty))?;
+                        write!(f, "{{{}}}", LuauType::new(ty, self.hook))?;
                     }
                     "HashMap" | "Map" => {
                         let ty1 = get_type_arg(&el.arguments, 0);
                         let ty2 = get_type_arg(&el.arguments, 1);
-                        write!(f, "{{[{}]: {}}}", LuauType(ty1), LuauType(ty2))?;
+                        write!(
+                            f,
+                            "{{[{}]: {}}}",
+                            LuauType::new(ty1, self.hook),
+                            LuauType::new(ty2, self.hook)
+                        )?;
                     }
                     _ => {
-                        let converted_type = convert_type(&ident);
-                        let generic_arguments = LuauGenericArguments(&el.arguments);
-                        write!(f, "{converted_type}{generic_arguments}")?;
+                        let final_type_name = translate_type_name(&ident).unwrap_or(&ident);
+                        let generic_arguments = LuauGenericArguments::new(&el.arguments, self.hook);
+                        if p.path.segments.len() > 1 {
+                            if let Some(first_seg) = p.path.segments.first() {
+                                if let Some(module) =
+                                    self.hook.translate_crate_name(&first_seg.ident.to_string())
+                                {
+                                    write!(f, "{}.", module)?;
+                                }
+                            }
+                        }
+                        write!(f, "{final_type_name}{generic_arguments}")?;
                     }
                 }
             }
-            _ => panic!("unsupported type {:?}", self.0),
+            _ => panic!("unsupported type {:?}", self.value),
         }
         Ok(())
     }
 }
 
-fn convert_type(ident: &str) -> &str {
-    match ident {
+fn translate_type_name(ident: &str) -> Option<&str> {
+    let translated = match ident {
         "usize" | "u8" | "u16" | "u32" | "u64" | "isize" | "i8" | "i16" | "i32" | "i64"
         | "NonZeroU32" => "number",
         "f64" | "f32" => "number",
@@ -509,8 +610,9 @@ fn convert_type(ident: &str) -> &str {
         "bool" => "boolean",
         // serde_json::Value
         "Value" => "any",
-        _ => ident,
-    }
+        _ => return None,
+    };
+    Some(translated)
 }
 
 fn get_type_arg(args: &PathArguments, n: usize) -> &Type {
