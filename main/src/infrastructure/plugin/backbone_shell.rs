@@ -573,6 +573,7 @@ impl BackboneShell {
             middleware.shutdown();
         });
         if result.is_err() {
+            // Backbone was not awake (no instance loaded)
             return;
         }
         // It's important to wait a bit otherwise we risk the MIDI is not being sent.

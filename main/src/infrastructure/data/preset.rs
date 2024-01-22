@@ -1,7 +1,9 @@
 use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 
 use crate::base::notification;
-use crate::base::notification::warn_user_on_anyhow_error;
+use crate::base::notification::{
+    notify_user_about_anyhow_error, warn_user_about_anyhow_error, warn_user_on_anyhow_error,
+};
 use crate::domain::{Compartment, IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua};
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
@@ -422,18 +424,16 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                 let lua = SafeLua::new()?;
                 let lua = lua.start_execution_time_limit_countdown()?;
                 let env = lua.create_fresh_environment(true)?;
-                if preset_info.common.origin.is_factory() {
+                let script_name = preset_info.common.origin.to_string();
+                let value = if preset_info.common.origin.is_factory() {
                     let factory_presets_dir = get_factory_preset_dir(self.compartment).clone();
                     let mut module_container = LuaModuleContainer::new(
                         IncludedDirLuaModuleFinder::new(factory_presets_dir),
                     );
-                    module_container.install_to(&env, lua.as_ref())?;
-                }
-                let value = lua.compile_and_execute(
-                    preset_info.common.origin.to_string().as_ref(),
-                    &file_content,
-                    env,
-                )?;
+                    module_container.execute_as_module(lua.as_ref(), &script_name, &file_content)?
+                } else {
+                    lua.compile_and_execute(&script_name, &file_content, env)?
+                };
                 let compartment_content: realearn_api::persistence::CompartmentContent =
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(self.compartment, compartment_content)?;
@@ -521,7 +521,7 @@ impl<M: SpecificPresetMetaData> CompartmentPresetManager for FileBasedCompartmen
         match self.load_full_preset(preset_info) {
             Ok(p) => Some(p),
             Err(e) => {
-                notification::warn(e.to_string());
+                warn_user_about_anyhow_error(e);
                 None
             }
         }

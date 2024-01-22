@@ -1079,7 +1079,7 @@ impl HeaderPanel {
 
     fn dry_run_lua_script(&self, text: &str) {
         let result = dry_run_lua_script(text, self.active_compartment());
-        self.notify_user_on_error(result);
+        self.notify_user_on_anyhow_error(result);
     }
 
     fn paste_from_lua_replace_all_in_group_internal(
@@ -2281,7 +2281,9 @@ impl HeaderPanel {
     }
 
     fn notify_user_about_anyhow_error(&self, e: anyhow::Error) {
-        self.view.require_window().alert("ReaLearn", e.to_string());
+        self.view
+            .require_window()
+            .alert("ReaLearn", format!("{e:#}"));
     }
 
     fn delete_active_preset(&self) -> anyhow::Result<()> {

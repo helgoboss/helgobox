@@ -106,7 +106,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
                 let unit = unit_model.unit().borrow();
                 let control_unit = ControlUnit {
                     id: ControlUnitId::new(unit_model.unit_id().into()),
-                    // TODO-high CONTINUE Introduce unit naming, makes sense anyway
+                    // TODO-medium CONTINUE Introduce unit naming, makes sense anyway
                     name: "".to_string(),
                     palette_color: unit.control_unit_palette_color(),
                     top_left_corner: unit.control_unit_top_left_corner(),

@@ -258,7 +258,7 @@ pub fn deserialize_data_object(
         Invalid JSON: \n\
         {json_err}\n\n\
         Invalid Lua: \n\
-        {lua_err}\n\n\
+        {lua_err:#}\n\n\
         Invalid CSI: \n\
         {csi_err}"
     );
@@ -309,10 +309,7 @@ pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<Strin
 }
 
 /// Runs without importing the result and also doesn't have an execution time limit.
-pub fn dry_run_lua_script(
-    text: &str,
-    active_compartment: Compartment,
-) -> Result<(), Box<dyn Error>> {
+pub fn dry_run_lua_script(text: &str, active_compartment: Compartment) -> anyhow::Result<()> {
     let lua = SafeLua::new()?;
     let value = execute_lua_import_script(&lua, text, active_compartment)?;
     let json = serde_json::to_string_pretty(&value)?;
@@ -373,7 +370,7 @@ where
 
 fn execute_lua_import_script<'a>(
     lua: &'a SafeLua,
-    text: &str,
+    code: &str,
     active_compartment: Compartment,
 ) -> anyhow::Result<mlua::Value<'a>> {
     let env = lua.create_fresh_environment(true)?;
@@ -419,14 +416,16 @@ fn execute_lua_import_script<'a>(
         table
     };
     env.set("realearn", realearn_table)?;
-    // Add support for require but only in debug builds (for easier development of factory presets)
+    // Add support for require but only in debug builds for now (for easier development of factory presets)
     #[cfg(debug_assertions)]
     {
         let factory_presets_dir = get_factory_preset_dir(active_compartment).clone();
         let mut module_container =
             LuaModuleContainer::new(IncludedDirLuaModuleFinder::new(factory_presets_dir));
-        module_container.install_to(&env, lua.as_ref())?;
+        module_container.execute_as_module(lua.as_ref(), "Import", code)
     }
-    // Invoke
-    lua.compile_and_execute("Import", text, env)
+    #[cfg(not(debug_assertions))]
+    {
+        lua.compile_and_execute("Import", code, env)
+    }
 }
