@@ -759,7 +759,9 @@ impl MappingRowPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
+                            MenuAction::PasteFromLuaReplace(
+                                text_from_clipboard.unwrap_or_default(),
+                            ),
                         ),
                         item_with_opts(
                             "Paste from Lua (insert below)",
@@ -767,7 +769,9 @@ impl MappingRowPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            MenuAction::PasteFromLuaInsertBelow(text_from_clipboard_clone.unwrap()),
+                            MenuAction::PasteFromLuaInsertBelow(
+                                text_from_clipboard_clone.unwrap_or_default(),
+                            ),
                         ),
                         item("Log debug info (now)", MenuAction::LogDebugInfo),
                     ],
