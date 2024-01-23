@@ -132,7 +132,7 @@ export type MatrixClipRecordAudioSettings = {
 }
 
 export type RecordLength_OpenEnd = { kind: "OpenEnd" }
-export type RecordLength_Quantized = { kind: "Quantized" } & EvenQuantization
+export type RecordLength_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
 export type RecordLength = RecordLength_OpenEnd | RecordLength_Quantized
 
@@ -156,7 +156,7 @@ export type TriggerPlayBehavior =
 
 export type ClipRecordStartTiming_LikeClipPlayStartTiming = { kind: "LikeClipPlayStartTiming" }
 export type ClipRecordStartTiming_Immediately = { kind: "Immediately" }
-export type ClipRecordStartTiming_Quantized = { kind: "Quantized" } & EvenQuantization
+export type ClipRecordStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
 export type ClipRecordStartTiming =
 	ClipRecordStartTiming_LikeClipPlayStartTiming
@@ -165,7 +165,7 @@ export type ClipRecordStartTiming =
 
 export type ClipRecordStopTiming_LikeClipRecordStartTiming = { kind: "LikeClipRecordStartTiming" }
 export type ClipRecordStopTiming_Immediately = { kind: "Immediately" }
-export type ClipRecordStopTiming_Quantized = { kind: "Quantized" } & EvenQuantization
+export type ClipRecordStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
 export type ClipRecordStopTiming =
 	ClipRecordStopTiming_LikeClipRecordStartTiming
@@ -179,13 +179,13 @@ export type MidiClipRecordMode_Replace = { kind: "Replace" }
 export type MidiClipRecordMode = MidiClipRecordMode_Normal | MidiClipRecordMode_Overdub | MidiClipRecordMode_Replace
 
 export type ClipPlayStartTiming_Immediately = { kind: "Immediately" }
-export type ClipPlayStartTiming_Quantized = { kind: "Quantized" } & EvenQuantization
+export type ClipPlayStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
 export type ClipPlayStartTiming = ClipPlayStartTiming_Immediately | ClipPlayStartTiming_Quantized
 
 export type ClipPlayStopTiming_LikeClipStartTiming = { kind: "LikeClipStartTiming" }
 export type ClipPlayStopTiming_Immediately = { kind: "Immediately" }
-export type ClipPlayStopTiming_Quantized = { kind: "Quantized" } & EvenQuantization
+export type ClipPlayStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type ClipPlayStopTiming_UntilEndOfClip = { kind: "UntilEndOfClip" }
 
 export type ClipPlayStopTiming =
@@ -197,7 +197,7 @@ export type ClipPlayStopTiming =
 export type ResolvedClipPlayStopTiming = "Immediately" | "Quantized" | "UntilEndOfClip"
 
 export type ClipPlayStartTimingOverrideAfterRecording_Inherit = { kind: "Inherit" }
-export type ClipPlayStartTimingOverrideAfterRecording_Override = { kind: "Override" } & ClipPlayStartTimingOverride
+export type ClipPlayStartTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStartTiming }
 export type ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 
 export type ClipPlayStartTimingOverrideAfterRecording =
@@ -206,7 +206,7 @@ export type ClipPlayStartTimingOverrideAfterRecording =
 	| ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming
 
 export type ClipPlayStopTimingOverrideAfterRecording_Inherit = { kind: "Inherit" }
-export type ClipPlayStopTimingOverrideAfterRecording_Override = { kind: "Override" } & ClipPlayStopTimingOverride
+export type ClipPlayStopTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStopTiming }
 export type ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 
 export type ClipPlayStopTimingOverrideAfterRecording =
@@ -279,12 +279,12 @@ export type Row = {
 }
 
 export type AudioTimeStretchMode_VariSpeed = { kind: "VariSpeed" }
-export type AudioTimeStretchMode_KeepingPitch = { kind: "KeepingPitch" } & TimeStretchMode
+export type AudioTimeStretchMode_KeepingPitch = { kind: "KeepingPitch", mode: VirtualTimeStretchMode }
 
 export type AudioTimeStretchMode = AudioTimeStretchMode_VariSpeed | AudioTimeStretchMode_KeepingPitch
 
 export type VirtualResampleMode_ProjectDefault = { kind: "ProjectDefault" }
-export type VirtualResampleMode_ReaperMode = { kind: "ReaperMode" } & ReaperResampleMode
+export type VirtualResampleMode_ReaperMode = { kind: "ReaperMode", mode: number }
 
 export type VirtualResampleMode = VirtualResampleMode_ProjectDefault | VirtualResampleMode_ReaperMode
 
@@ -297,7 +297,7 @@ export type TimeStretchMode = {
 }
 
 export type VirtualTimeStretchMode_ProjectDefault = { kind: "ProjectDefault" }
-export type VirtualTimeStretchMode_ReaperMode = { kind: "ReaperMode" } & ReaperPitchShiftMode
+export type VirtualTimeStretchMode_ReaperMode = { kind: "ReaperMode", mode: number, sub_mode: number }
 
 export type VirtualTimeStretchMode = VirtualTimeStretchMode_ProjectDefault | VirtualTimeStretchMode_ReaperMode
 
@@ -308,7 +308,7 @@ export type ReaperPitchShiftMode = {
 
 export type RecordOrigin_TrackInput = { kind: "TrackInput" }
 export type RecordOrigin_TrackAudioOutput = { kind: "TrackAudioOutput" }
-export type RecordOrigin_FxAudioInput = { kind: "FxAudioInput" } & ChannelRange
+export type RecordOrigin_FxAudioInput = { kind: "FxAudioInput", first_channel_index: number, channel_count: number }
 
 export type RecordOrigin = RecordOrigin_TrackInput | RecordOrigin_TrackAudioOutput | RecordOrigin_FxAudioInput
 
@@ -383,8 +383,8 @@ export type AudioCacheBehavior_CacheInMemory = { kind: "CacheInMemory" }
 export type AudioCacheBehavior = AudioCacheBehavior_DirectFromDisk | AudioCacheBehavior_CacheInMemory
 
 export type ClipColor_PlayTrackColor = { kind: "PlayTrackColor" }
-export type ClipColor_CustomColor = { kind: "CustomColor" } & CustomClipColor
-export type ClipColor_PaletteColor = { kind: "PaletteColor" } & PaletteClipColor
+export type ClipColor_CustomColor = { kind: "CustomColor", value: RgbColor }
+export type ClipColor_PaletteColor = { kind: "PaletteColor", index: number }
 
 export type ClipColor = ClipColor_PlayTrackColor | ClipColor_CustomColor | ClipColor_PaletteColor
 
@@ -396,8 +396,8 @@ export type PaletteClipColor = {
 	index: number,
 }
 
-export type Source_File = { kind: "File" } & FileSource
-export type Source_MidiChunk = { kind: "MidiChunk" } & MidiChunkSource
+export type Source_File = { kind: "File", path: string }
+export type Source_MidiChunk = { kind: "MidiChunk", chunk: string }
 
 export type Source = Source_File | Source_MidiChunk
 
@@ -410,7 +410,7 @@ export type MidiChunkSource = {
 }
 
 export type ClipTimeBase_Time = { kind: "Time" }
-export type ClipTimeBase_Beat = { kind: "Beat" } & BeatTimeBase
+export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: Bpm?, time_signature: TimeSignature, downbeat: PositiveBeat }
 
 export type ClipTimeBase = ClipTimeBase_Time | ClipTimeBase_Beat
 

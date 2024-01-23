@@ -60,13 +60,18 @@ pub struct Glue {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum FeedbackValueTable {
-    FromTextToDiscrete(FeedbackValueTableContent<String, u32>),
-    FromTextToContinuous(FeedbackValueTableContent<String, f64>),
+    FromTextToDiscrete(DiscreteFeedbackValueTableContent),
+    FromTextToContinuous(ContinuousFeedbackValueTableContent),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
-    pub value: HashMap<K, V>,
+pub struct DiscreteFeedbackValueTableContent {
+    pub value: HashMap<String, u32>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct ContinuousFeedbackValueTableContent {
+    pub value: HashMap<String, f64>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]

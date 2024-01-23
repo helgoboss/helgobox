@@ -32,6 +32,7 @@ pub fn export_luau() {
         ],
         &RealearnApiExportHook,
         ["playtime"],
+        ["../playtime-api/src/persistence/mod.rs"],
     );
     struct PlaytimeApiExportHook;
     impl Hook for PlaytimeApiExportHook {
@@ -44,6 +45,7 @@ pub fn export_luau() {
         ["../playtime-api/src/persistence/mod.rs"],
         &PlaytimeApiExportHook,
         [],
+        [],
     );
 }
 
@@ -52,6 +54,7 @@ fn export_luau_internal<'a>(
     src_files: impl IntoIterator<Item = &'a str>,
     hook: &impl Hook,
     requires: impl AsRef<[&'a str]>,
+    foreign_files: impl IntoIterator<Item = &'a str>,
 ) {
     let rust_codes: Vec<_> = src_files
         .into_iter()
@@ -65,8 +68,15 @@ fn export_luau_internal<'a>(
         })
         .collect();
     let merged_rust_code = rust_codes.join("\n\n");
-    let rust_file = syn::parse_file(&merged_rust_code).expect("unable to parse Rust file");
-    let luau_file = luau_converter::LuauFile::new(&rust_file, hook);
+    let rust_file = parse_rust_code(&merged_rust_code);
+    let foreign_rust_files: Vec<_> = foreign_files
+        .into_iter()
+        .map(|path| {
+            let code = fs::read_to_string(path).unwrap();
+            parse_rust_code(&code)
+        })
+        .collect();
+    let luau_file = luau_converter::LuauFile::new(&rust_file, hook, &foreign_rust_files);
     use std::fmt::Write;
     let mut luau_code = "--!strict\n\n--- Attention: This file is generated from Rust code! Don't modify it directly!\n\n".to_string();
     for req in requires.as_ref() {
@@ -82,4 +92,8 @@ fn export_luau_internal<'a>(
     .unwrap();
     let dest_file = PathBuf::from(format!("../resources/api/luau/{name}.luau"));
     fs::write(&dest_file, luau_code).unwrap();
+}
+
+fn parse_rust_code(code: &str) -> syn::File {
+    syn::parse_file(code).expect("unable to parse Rust file")
 }
