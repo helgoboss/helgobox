@@ -16,12 +16,12 @@ export type Matrix = {
 	clip_record_settings: MatrixClipRecordSettings,
 	common_tempo_range: TempoRange,
 	color_palette: ColorPalette?,
-	content_quantization_settings: ContentQuantizationSettings,
-	sequencer: MatrixSequencer,
+	content_quantization_settings: ContentQuantizationSettings?,
+	sequencer: MatrixSequencer?,
 }
 
 export type MatrixSequencer = {
-	sequences: { MatrixSequence },
+	sequences: { MatrixSequence }?,
 	active_sequence: MatrixSequenceId?,
 }
 
@@ -93,7 +93,7 @@ export type TempoRange = {
 }
 
 export type MatrixClipPlaySettings = {
-	trigger_behavior: TriggerPlayBehavior,
+	trigger_behavior: TriggerPlayBehavior?,
 	start_timing: ClipPlayStartTiming,
 	stop_timing: ClipPlayStopTiming,
 	audio_settings: MatrixClipPlayAudioSettings,
@@ -123,7 +123,7 @@ export type MatrixClipRecordMidiSettings = {
 	detect_downbeat: boolean,
 	detect_input: boolean,
 	auto_quantize: boolean,
-	clip_settings: ClipMidiSettings,
+	clip_settings: ClipMidiSettings?,
 }
 
 export type MatrixClipRecordAudioSettings = {
@@ -238,7 +238,7 @@ export type ClipId = string
 export type MatrixSequenceId = string
 
 export type Column = {
-	id: ColumnId,
+	id: ColumnId?,
 	name: string?,
 	clip_play_settings: ColumnClipPlaySettings,
 	clip_record_settings: ColumnClipRecordSettings,
@@ -272,7 +272,7 @@ export type ColumnClipPlayAudioSettings = {
 }
 
 export type Row = {
-	id: RowId,
+	id: RowId?,
 	name: string?,
 	tempo: Bpm?,
 	time_signature: TimeSignature?,
@@ -320,25 +320,25 @@ export type ChannelRange = {
 }
 
 export type Slot = {
-	id: SlotId,
+	id: SlotId?,
 	row: number,
 	clip_old: Clip?,
 	clips: { Clip }?,
 }
 
 export type Clip = {
-	id: ClipId,
+	id: ClipId?,
 	name: string?,
 	source: Source,
 	frozen_source: Source?,
-	active_source: SourceOrigin,
+	active_source: SourceOrigin?,
 	time_base: ClipTimeBase,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
 	looped: boolean,
 	volume: Db,
 	color: ClipColor,
-	dynamic_section: Section,
+	dynamic_section: Section?,
 	fixed_section: Section,
 	audio_settings: ClipAudioSettings,
 	midi_settings: ClipMidiSettings,
@@ -365,7 +365,7 @@ export type MidiResetMessageRange = {
 }
 
 export type MidiResetMessages = {
-	on_notes_off: boolean,
+	on_notes_off: boolean?,
 	all_notes_off: boolean,
 	all_sound_off: boolean,
 	reset_all_controllers: boolean,

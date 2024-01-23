@@ -2,7 +2,7 @@ use darling::FromMeta;
 use std::fmt::{Display, Formatter, Write};
 use std::{fmt, iter};
 use syn::{
-    Field, Fields, File, GenericArgument, GenericParam, Generics, Ident, Item, ItemEnum,
+    Attribute, Field, Fields, File, GenericArgument, GenericParam, Generics, Ident, Item, ItemEnum,
     ItemStruct, PathArguments, Type, Variant,
 };
 
@@ -177,11 +177,24 @@ struct LuauPrimitiveMapping<'a> {
 struct LuauType<'a, H> {
     value: &'a Type,
     context: Context<'a, H>,
+    force_optional: bool,
 }
 
 impl<'a, H> LuauType<'a, H> {
     fn new(value: &'a Type, context: Context<'a, H>) -> Self {
-        Self { value, context }
+        Self {
+            value,
+            context,
+            force_optional: false,
+        }
+    }
+
+    fn new_detailed(value: &'a Type, context: Context<'a, H>, force_optional: bool) -> Self {
+        Self {
+            value,
+            context,
+            force_optional,
+        }
     }
 }
 
@@ -318,20 +331,19 @@ impl<'a, H: Hook> Display for LuauStruct<'a, H> {
 }
 
 #[derive(Debug, darling::FromMeta)]
-pub struct SerdeTagArgs {
+pub struct SerdeArgs {
     tag: Option<String>,
     #[darling(default)]
     untagged: bool,
+    #[darling(default)]
+    default: bool,
+    #[darling(default)]
+    flatten: bool,
 }
 
 impl<'a, H: Hook> Display for LuauEnum<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let args = self.value.attrs.iter().find_map(|attr| {
-            if attr.path().segments.last()?.ident != "serde" {
-                return None;
-            }
-            Some(SerdeTagArgs::from_meta(&attr.meta).expect("unknown serde attribute"))
-        });
+        let args = serde_args(&self.value.attrs).next();
         match args {
             None => {
                 // Primitive enum
@@ -513,7 +525,11 @@ impl<T: Display> Display for Delimited<T> {
 
 impl<'a, H: Hook> Display for LuauStructField<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let ty = LuauType::new(&self.value.ty, self.context);
+        let ty = LuauType::new_detailed(
+            &self.value.ty,
+            self.context,
+            has_serde_default_arg(&self.value.attrs),
+        );
         let ident = self
             .value
             .ident
@@ -694,6 +710,9 @@ impl<'a, H: Hook> Display for LuauType<'a, H> {
                         write!(f, "{final_type_name}{generic_arguments}")?;
                     }
                 }
+                if self.force_optional && ident.as_str() != "Option" {
+                    f.write_char('?')?;
+                }
             }
             _ => panic!("unsupported type {:?}", self.value),
         }
@@ -733,3 +752,24 @@ fn get_type_arg(args: &PathArguments, n: usize) -> &Type {
 
 const DOUBLE_QUOTES: (&str, &str) = (DOUBLE_QUOTE, DOUBLE_QUOTE);
 const DOUBLE_QUOTE: &str = "\"";
+
+fn has_serde_default_arg(attributes: &[Attribute]) -> bool {
+    serde_args(attributes).any(|args| args.default)
+}
+
+fn serde_args(attributes: &[Attribute]) -> impl Iterator<Item = SerdeArgs> + '_ {
+    serde_attributes(attributes).filter_map(|a| SerdeArgs::from_meta(&a.meta).ok())
+}
+
+fn serde_attributes(attributes: &[Attribute]) -> impl Iterator<Item = &Attribute> {
+    attributes.iter().filter(|a| is_serde_attribute(a))
+}
+
+fn is_serde_attribute(attribute: &Attribute) -> bool {
+    attribute
+        .path()
+        .segments
+        .last()
+        .map(|seg| seg.ident == "serde")
+        .unwrap_or(false)
+}
