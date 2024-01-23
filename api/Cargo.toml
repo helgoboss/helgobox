@@ -34,3 +34,4 @@ darling = "0.20.3"
 heck = "0.4.0"
 # For formatting generated Luau Type definitions
 stylua = { version = "0.19.1", features = ["luau"] }
+anyhow.workspace = true

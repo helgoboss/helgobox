@@ -117,24 +117,37 @@ export type FeedbackCommons = {
 	background_color: VirtualColor?,
 }
 
-export type Feedback_Numeric = { kind: "Numeric", commons: FeedbackCommons, transformation: string? }
-export type Feedback_Text = { kind: "Text", commons: FeedbackCommons, text_expression: string? }
-export type Feedback_Dynamic = { kind: "Dynamic", commons: FeedbackCommons, script: string? }
+export type Feedback_Numeric = {
+	kind: "Numeric",
+	color: VirtualColor?,
+	background_color: VirtualColor?,
+	transformation: string?,
+}
+export type Feedback_Text = {
+	kind: "Text",
+	color: VirtualColor?,
+	background_color: VirtualColor?,
+	text_expression: string?,
+}
+export type Feedback_Dynamic = { kind: "Dynamic", color: VirtualColor?, background_color: VirtualColor?, script: string? }
 
 export type Feedback = Feedback_Numeric | Feedback_Text | Feedback_Dynamic
 
 export type NumericFeedback = {
-	commons: FeedbackCommons,
+	color: VirtualColor?,
+	background_color: VirtualColor?,
 	transformation: string?,
 }
 
 export type TextFeedback = {
-	commons: FeedbackCommons,
+	color: VirtualColor?,
+	background_color: VirtualColor?,
 	text_expression: string?,
 }
 
 export type DynamicFeedback = {
-	commons: FeedbackCommons,
+	color: VirtualColor?,
+	background_color: VirtualColor?,
 	script: string?,
 }
 
@@ -552,37 +565,37 @@ export type LearnableTargetKind =
 
 export type TargetTouchCause = "Any" | "Realearn" | "Reaper"
 
-export type Target_Mouse = { kind: "Mouse", commons: TargetCommons, action: MouseAction }
+export type Target_Mouse = { kind: "Mouse", unit: TargetUnit?, action: MouseAction }
 export type Target_LastTouched = {
 	kind: "LastTouched",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	included_targets: { LearnableTargetKind }?,
 	touch_cause: TargetTouchCause?,
 }
 export type Target_AutomationModeOverride = {
 	kind: "AutomationModeOverride",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	override_value: AutomationModeOverride?,
 }
 export type Target_ReaperAction = {
 	kind: "ReaperAction",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	command: ReaperCommand?,
 	invocation: ActionInvocationKind?,
 	track: TrackDescriptor?,
 }
-export type Target_TransportAction = { kind: "TransportAction", commons: TargetCommons, action: TransportAction }
-export type Target_AnyOn = { kind: "AnyOn", commons: TargetCommons, parameter: AnyOnParameter }
+export type Target_TransportAction = { kind: "TransportAction", unit: TargetUnit?, action: TransportAction }
+export type Target_AnyOn = { kind: "AnyOn", unit: TargetUnit?, parameter: AnyOnParameter }
 export type Target_BrowseTracks = {
 	kind: "BrowseTracks",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	scroll_arrange_view: boolean?,
 	scroll_mixer: boolean?,
 	mode: BrowseTracksMode?,
 }
 export type Target_Seek = {
 	kind: "Seek",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	use_time_selection: boolean?,
 	use_loop_points: boolean?,
 	use_regions: boolean?,
@@ -592,11 +605,11 @@ export type Target_Seek = {
 	feedback_resolution: FeedbackResolution?,
 	behavior: SeekBehavior?,
 }
-export type Target_PlayRate = { kind: "PlayRate", commons: TargetCommons }
-export type Target_Tempo = { kind: "Tempo", commons: TargetCommons }
+export type Target_PlayRate = { kind: "PlayRate", unit: TargetUnit? }
+export type Target_Tempo = { kind: "Tempo", unit: TargetUnit? }
 export type Target_GoToBookmark = {
 	kind: "GoToBookmark",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	bookmark: BookmarkDescriptor,
 	set_time_selection: boolean?,
 	set_loop_points: boolean?,
@@ -604,7 +617,7 @@ export type Target_GoToBookmark = {
 }
 export type Target_TrackArmState = {
 	kind: "TrackArmState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	use_track_grouping: boolean?,
@@ -612,29 +625,29 @@ export type Target_TrackArmState = {
 }
 export type Target_TrackParentSendState = {
 	kind: "TrackParentSendState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 }
 export type Target_AllTrackFxOnOffState = {
 	kind: "AllTrackFxOnOffState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
 }
 export type Target_TrackMuteState = {
 	kind: "TrackMuteState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
-export type Target_TrackPeak = { kind: "TrackPeak", commons: TargetCommons, track: TrackDescriptor? }
+export type Target_TrackPeak = { kind: "TrackPeak", unit: TargetUnit?, track: TrackDescriptor? }
 export type Target_TrackPhase = {
 	kind: "TrackPhase",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
@@ -643,7 +656,7 @@ export type Target_TrackPhase = {
 }
 export type Target_TrackSelectionState = {
 	kind: "TrackSelectionState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	scroll_arrange_view: boolean?,
@@ -651,14 +664,14 @@ export type Target_TrackSelectionState = {
 }
 export type Target_TrackAutomationMode = {
 	kind: "TrackAutomationMode",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	mode: AutomationMode,
 }
 export type Target_TrackMonitoringMode = {
 	kind: "TrackMonitoringMode",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	mode: MonitoringMode,
@@ -666,42 +679,42 @@ export type Target_TrackMonitoringMode = {
 }
 export type Target_TrackAutomationTouchState = {
 	kind: "TrackAutomationTouchState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	touched_parameter: TouchedTrackParameter,
 }
 export type Target_TrackPan = {
 	kind: "TrackPan",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 export type Target_TrackWidth = {
 	kind: "TrackWidth",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 export type Target_TrackVolume = {
 	kind: "TrackVolume",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 export type Target_TrackTool = {
 	kind: "TrackTool",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	action: TrackToolAction?,
 	instance_tags: { string }?,
 }
 export type Target_TrackVisibility = {
 	kind: "TrackVisibility",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
@@ -709,7 +722,7 @@ export type Target_TrackVisibility = {
 }
 export type Target_TrackSoloState = {
 	kind: "TrackSoloState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	behavior: SoloBehavior?,
@@ -718,80 +731,80 @@ export type Target_TrackSoloState = {
 }
 export type Target_BrowseFxChain = {
 	kind: "BrowseFxChain",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	chain: FxChainDescriptor,
 	display_kind: FxDisplayKind?,
 }
-export type Target_FxOnOffState = { kind: "FxOnOffState", commons: TargetCommons, fx: FxDescriptor? }
-export type Target_FxOnlineOfflineState = { kind: "FxOnlineOfflineState", commons: TargetCommons, fx: FxDescriptor? }
+export type Target_FxOnOffState = { kind: "FxOnOffState", unit: TargetUnit?, fx: FxDescriptor? }
+export type Target_FxOnlineOfflineState = { kind: "FxOnlineOfflineState", unit: TargetUnit?, fx: FxDescriptor? }
 export type Target_LoadFxSnapshot = {
 	kind: "LoadFxSnapshot",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	snapshot: FxSnapshot?,
 }
-export type Target_BrowseFxPresets = { kind: "BrowseFxPresets", commons: TargetCommons, fx: FxDescriptor? }
+export type Target_BrowseFxPresets = { kind: "BrowseFxPresets", unit: TargetUnit?, fx: FxDescriptor? }
 export type Target_FxTool = {
 	kind: "FxTool",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	action: FxToolAction?,
 	instance_tags: { string }?,
 }
 export type Target_FxVisibility = {
 	kind: "FxVisibility",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	display_kind: FxDisplayKind?,
 }
 export type Target_FxParameterValue = {
 	kind: "FxParameterValue",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: FxParameterDescriptor,
 	poll_for_feedback: boolean?,
 	retrigger: boolean?,
 }
 export type Target_FxParameterAutomationTouchState = {
 	kind: "FxParameterAutomationTouchState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: FxParameterDescriptor,
 }
 export type Target_RouteAutomationMode = {
 	kind: "RouteAutomationMode",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	mode: AutomationMode,
 	poll_for_feedback: boolean?,
 }
 export type Target_RouteMonoState = {
 	kind: "RouteMonoState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
 export type Target_RouteMuteState = {
 	kind: "RouteMuteState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
 export type Target_RoutePhase = {
 	kind: "RoutePhase",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
-export type Target_RoutePan = { kind: "RoutePan", commons: TargetCommons, route: RouteDescriptor }
-export type Target_RouteVolume = { kind: "RouteVolume", commons: TargetCommons, route: RouteDescriptor }
+export type Target_RoutePan = { kind: "RoutePan", unit: TargetUnit?, route: RouteDescriptor }
+export type Target_RouteVolume = { kind: "RouteVolume", unit: TargetUnit?, route: RouteDescriptor }
 export type Target_RouteTouchState = {
 	kind: "RouteTouchState",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	touched_parameter: TouchedRouteParameter,
 }
 export type Target_PlaytimeSlotTransportAction = {
 	kind: "PlaytimeSlotTransportAction",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	action: ClipTransportAction,
 	record_only_if_track_armed: boolean?,
@@ -801,76 +814,67 @@ export type Target_PlaytimeSlotTransportAction = {
 }
 export type Target_PlaytimeColumnAction = {
 	kind: "PlaytimeColumnAction",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	column: ClipColumnDescriptor,
 	action: ClipColumnAction,
 }
 export type Target_PlaytimeRowAction = {
 	kind: "PlaytimeRowAction",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	row: ClipRowDescriptor,
 	action: ClipRowAction,
 }
-export type Target_PlaytimeMatrixAction = {
-	kind: "PlaytimeMatrixAction",
-	commons: TargetCommons,
-	action: ClipMatrixAction,
-}
-export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", commons: TargetCommons, axis: Axis }
+export type Target_PlaytimeMatrixAction = { kind: "PlaytimeMatrixAction", unit: TargetUnit?, action: ClipMatrixAction }
+export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", unit: TargetUnit?, axis: Axis }
 export type Target_PlaytimeSlotSeek = {
 	kind: "PlaytimeSlotSeek",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	feedback_resolution: FeedbackResolution?,
 }
-export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", commons: TargetCommons, slot: ClipSlotDescriptor }
+export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", unit: TargetUnit?, slot: ClipSlotDescriptor }
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	action: ClipManagementAction,
 }
-export type Target_SendMidi = {
-	kind: "SendMidi",
-	commons: TargetCommons,
-	message: string?,
-	destination: MidiDestination?,
-}
+export type Target_SendMidi = { kind: "SendMidi", unit: TargetUnit?, message: string?, destination: MidiDestination? }
 export type Target_SendOsc = {
 	kind: "SendOsc",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	address: string?,
 	argument: OscArgument?,
 	destination: OscDestination?,
 }
-export type Target_Dummy = { kind: "Dummy", commons: TargetCommons }
+export type Target_Dummy = { kind: "Dummy", unit: TargetUnit? }
 export type Target_EnableInstances = {
 	kind: "EnableInstances",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: InstanceExclusivity?,
 }
 export type Target_EnableMappings = {
 	kind: "EnableMappings",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: MappingExclusivity?,
 }
 export type Target_ModifyMapping = {
 	kind: "ModifyMapping",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	session: string?,
 	mapping: string?,
 	modification: MappingModification,
 }
 export type Target_CompartmentParameterValue = {
 	kind: "CompartmentParameterValue",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: CompartmentParameterDescriptor,
 }
 export type Target_LoadMappingSnapshot = {
 	kind: "LoadMappingSnapshot",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	active_mappings_only: boolean?,
 	snapshot: MappingSnapshotDescForLoad?,
@@ -878,25 +882,21 @@ export type Target_LoadMappingSnapshot = {
 }
 export type Target_TakeMappingSnapshot = {
 	kind: "TakeMappingSnapshot",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	active_mappings_only: boolean?,
 	snapshot: BackwardCompatibleMappingSnapshotDescForTake,
 }
 export type Target_BrowseGroupMappings = {
 	kind: "BrowseGroupMappings",
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	exclusivity: GroupMappingExclusivity?,
 	group: string?,
 }
-export type Target_BrowsePotFilterItems = {
-	kind: "BrowsePotFilterItems",
-	commons: TargetCommons,
-	item_kind: PotFilterKind?,
-}
-export type Target_BrowsePotPresets = { kind: "BrowsePotPresets", commons: TargetCommons }
-export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", commons: TargetCommons }
-export type Target_LoadPotPreset = { kind: "LoadPotPreset", commons: TargetCommons, fx: FxDescriptor? }
+export type Target_BrowsePotFilterItems = { kind: "BrowsePotFilterItems", unit: TargetUnit?, item_kind: PotFilterKind? }
+export type Target_BrowsePotPresets = { kind: "BrowsePotPresets", unit: TargetUnit? }
+export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", unit: TargetUnit? }
+export type Target_LoadPotPreset = { kind: "LoadPotPreset", unit: TargetUnit?, fx: FxDescriptor? }
 export type Target_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 
 export type Target =
@@ -974,47 +974,47 @@ export type TargetCommons = {
 export type TargetUnit = "Native" | "Percent"
 
 export type MouseTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	action: MouseAction,
 }
 
 export type LastTouchedTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	included_targets: { LearnableTargetKind }?,
 	touch_cause: TargetTouchCause?,
 }
 
 export type AutomationModeOverrideTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	override_value: AutomationModeOverride?,
 }
 
 export type ReaperActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	command: ReaperCommand?,
 	invocation: ActionInvocationKind?,
 	track: TrackDescriptor?,
 }
 
 export type TransportActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	action: TransportAction,
 }
 
 export type AnyOnTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: AnyOnParameter,
 }
 
 export type BrowseTracksTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	scroll_arrange_view: boolean?,
 	scroll_mixer: boolean?,
 	mode: BrowseTracksMode?,
 }
 
 export type SeekTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	use_time_selection: boolean?,
 	use_loop_points: boolean?,
 	use_regions: boolean?,
@@ -1026,15 +1026,15 @@ export type SeekTarget = {
 }
 
 export type PlayRateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 }
 
 export type TempoTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 }
 
 export type GoToBookmarkTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	bookmark: BookmarkDescriptor,
 	set_time_selection: boolean?,
 	set_loop_points: boolean?,
@@ -1042,7 +1042,7 @@ export type GoToBookmarkTarget = {
 }
 
 export type TrackArmStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	use_track_grouping: boolean?,
@@ -1050,20 +1050,20 @@ export type TrackArmStateTarget = {
 }
 
 export type TrackParentSendStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 }
 
 export type AllTrackFxOnOffStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
 }
 
 export type TrackMuteStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	use_track_grouping: boolean?,
@@ -1071,12 +1071,12 @@ export type TrackMuteStateTarget = {
 }
 
 export type TrackPeakTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 }
 
 export type TrackPhaseTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
@@ -1085,7 +1085,7 @@ export type TrackPhaseTarget = {
 }
 
 export type TrackSelectionStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	scroll_arrange_view: boolean?,
@@ -1093,14 +1093,14 @@ export type TrackSelectionStateTarget = {
 }
 
 export type TrackAutomationModeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	mode: AutomationMode,
 }
 
 export type TrackMonitoringModeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	mode: MonitoringMode,
@@ -1108,35 +1108,35 @@ export type TrackMonitoringModeTarget = {
 }
 
 export type TrackAutomationTouchStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	touched_parameter: TouchedTrackParameter,
 }
 
 export type TrackPanTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 
 export type TrackWidthTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 
 export type TrackVolumeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
 
 export type TrackToolTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	action: TrackToolAction?,
 	instance_tags: { string }?,
@@ -1156,7 +1156,7 @@ export type Axis = "X" | "Y"
 export type MouseButton = "Left" | "Middle" | "Right"
 
 export type TrackVisibilityTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
@@ -1164,7 +1164,7 @@ export type TrackVisibilityTarget = {
 }
 
 export type TrackSoloStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 	behavior: SoloBehavior?,
@@ -1173,34 +1173,34 @@ export type TrackSoloStateTarget = {
 }
 
 export type BrowseFxChainTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	chain: FxChainDescriptor,
 	display_kind: FxDisplayKind?,
 }
 
 export type FxOnOffStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 }
 
 export type FxOnlineOfflineStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 }
 
 export type LoadFxSnapshotTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	snapshot: FxSnapshot?,
 }
 
 export type BrowseFxPresetsTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 }
 
 export type FxToolTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	action: FxToolAction?,
 	instance_tags: { string }?,
@@ -1209,71 +1209,71 @@ export type FxToolTarget = {
 export type FxToolAction = "DoNothing" | "SetAsUnitFx" | "PinAsUnitFx"
 
 export type FxVisibilityTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	display_kind: FxDisplayKind?,
 }
 
 export type FxParameterValueTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: FxParameterDescriptor,
 	poll_for_feedback: boolean?,
 	retrigger: boolean?,
 }
 
 export type CompartmentParameterValueTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: CompartmentParameterDescriptor,
 }
 
 export type FxParameterAutomationTouchStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	parameter: FxParameterDescriptor,
 }
 
 export type RouteAutomationModeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	mode: AutomationMode,
 	poll_for_feedback: boolean?,
 }
 
 export type RouteMonoStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
 
 export type RouteMuteStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
 
 export type RoutePhaseTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
 
 export type RoutePanTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 }
 
 export type RouteVolumeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 }
 
 export type RouteTouchStateTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	route: RouteDescriptor,
 	touched_parameter: TouchedRouteParameter,
 }
 
 export type PlaytimeSlotTransportActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	action: ClipTransportAction,
 	record_only_if_track_armed: boolean?,
@@ -1283,40 +1283,40 @@ export type PlaytimeSlotTransportActionTarget = {
 }
 
 export type PlaytimeColumnActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	column: ClipColumnDescriptor,
 	action: ClipColumnAction,
 }
 
 export type PlaytimeRowActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	row: ClipRowDescriptor,
 	action: ClipRowAction,
 }
 
 export type PlaytimeMatrixActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	action: ClipMatrixAction,
 }
 
 export type PlaytimeControlUnitScrollTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	axis: Axis,
 }
 
 export type PlaytimeSlotSeekTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	feedback_resolution: FeedbackResolution?,
 }
 
 export type PlaytimeSlotVolumeTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 }
 
 export type PlaytimeSlotManagementActionTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	action: ClipManagementAction,
 }
@@ -1339,36 +1339,36 @@ export type AdjustClipSectionLengthAction = {
 }
 
 export type SendMidiTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	message: string?,
 	destination: MidiDestination?,
 }
 
 export type DummyTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 }
 
 export type SendOscTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	address: string?,
 	argument: OscArgument?,
 	destination: OscDestination?,
 }
 
 export type EnableInstancesTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: InstanceExclusivity?,
 }
 
 export type EnableMappingsTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: MappingExclusivity?,
 }
 
 export type ModifyMappingTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	session: string?,
 	mapping: string?,
 	modification: MappingModification,
@@ -1400,7 +1400,7 @@ export type SetTargetToLastTouchedMappingModification = {
 }
 
 export type LoadMappingSnapshotTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	active_mappings_only: boolean?,
 	snapshot: MappingSnapshotDescForLoad?,
@@ -1408,7 +1408,7 @@ export type LoadMappingSnapshotTarget = {
 }
 
 export type TakeMappingSnapshotTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	tags: { string }?,
 	active_mappings_only: boolean?,
 	snapshot: BackwardCompatibleMappingSnapshotDescForTake,
@@ -1432,26 +1432,26 @@ export type MappingSnapshotDescForTake_ById = { kind: "ById", id: string }
 export type MappingSnapshotDescForTake = MappingSnapshotDescForTake_LastLoaded | MappingSnapshotDescForTake_ById
 
 export type BrowseGroupMappingsTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	exclusivity: GroupMappingExclusivity?,
 	group: string?,
 }
 
 export type BrowsePotFilterItemsTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	item_kind: PotFilterKind?,
 }
 
 export type BrowsePotPresetsTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 }
 
 export type PreviewPotPresetTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 }
 
 export type LoadPotPresetTarget = {
-	commons: TargetCommons,
+	unit: TargetUnit?,
 	fx: FxDescriptor?,
 }
 
@@ -1520,32 +1520,32 @@ export type ReaperCommand_Name = string
 
 export type ReaperCommand = ReaperCommand_Id | ReaperCommand_Name
 
-export type TrackDescriptor_This = { address: "This", commons: TrackDescriptorCommons }
-export type TrackDescriptor_Master = { address: "Master", commons: TrackDescriptorCommons }
-export type TrackDescriptor_Instance = { address: "Instance", commons: TrackDescriptorCommons }
+export type TrackDescriptor_This = { address: "This", track_must_be_selected: boolean? }
+export type TrackDescriptor_Master = { address: "Master", track_must_be_selected: boolean? }
+export type TrackDescriptor_Instance = { address: "Instance", track_must_be_selected: boolean? }
 export type TrackDescriptor_Selected = { address: "Selected", allow_multiple: boolean? }
 export type TrackDescriptor_Dynamic = {
 	address: "Dynamic",
-	commons: TrackDescriptorCommons,
+	track_must_be_selected: boolean?,
 	expression: string,
 	scope: TrackScope?,
 }
-export type TrackDescriptor_ById = { address: "ById", commons: TrackDescriptorCommons, id: string? }
+export type TrackDescriptor_ById = { address: "ById", track_must_be_selected: boolean?, id: string? }
 export type TrackDescriptor_ByIndex = {
 	address: "ByIndex",
-	commons: TrackDescriptorCommons,
+	track_must_be_selected: boolean?,
 	index: number,
 	scope: TrackScope?,
 }
 export type TrackDescriptor_ByName = {
 	address: "ByName",
-	commons: TrackDescriptorCommons,
+	track_must_be_selected: boolean?,
 	name: string,
 	allow_multiple: boolean?,
 }
 export type TrackDescriptor_FromClipColumn = {
 	address: "FromClipColumn",
-	commons: TrackDescriptorCommons,
+	track_must_be_selected: boolean?,
 	column: ClipColumnDescriptor,
 	context: ClipColumnTrackContext,
 }
@@ -1601,25 +1601,25 @@ export type FxDescriptorCommons = {
 	fx_must_have_focus: boolean?,
 }
 
-export type FxDescriptor_This = { address: "This", commons: FxDescriptorCommons }
+export type FxDescriptor_This = { address: "This", fx_must_have_focus: boolean? }
 export type FxDescriptor_Focused = { address: "Focused" }
-export type FxDescriptor_Instance = { address: "Instance", commons: FxDescriptorCommons }
+export type FxDescriptor_Instance = { address: "Instance", fx_must_have_focus: boolean? }
 export type FxDescriptor_Dynamic = {
 	address: "Dynamic",
-	commons: FxDescriptorCommons,
+	fx_must_have_focus: boolean?,
 	chain: FxChainDescriptor,
 	expression: string,
 }
-export type FxDescriptor_ById = { address: "ById", commons: FxDescriptorCommons, chain: FxChainDescriptor, id: string? }
+export type FxDescriptor_ById = { address: "ById", fx_must_have_focus: boolean?, chain: FxChainDescriptor, id: string? }
 export type FxDescriptor_ByIndex = {
 	address: "ByIndex",
-	commons: FxDescriptorCommons,
+	fx_must_have_focus: boolean?,
 	chain: FxChainDescriptor,
 	index: number,
 }
 export type FxDescriptor_ByName = {
 	address: "ByName",
-	commons: FxDescriptorCommons,
+	fx_must_have_focus: boolean?,
 	chain: FxChainDescriptor,
 	name: string,
 	allow_multiple: boolean?,
@@ -1673,10 +1673,25 @@ export type RouteDescriptorCommons = {
 	route_kind: TrackRouteKind?,
 }
 
-export type RouteDescriptor_Dynamic = { address: "Dynamic", commons: RouteDescriptorCommons, expression: string }
-export type RouteDescriptor_ById = { address: "ById", commons: RouteDescriptorCommons, id: string? }
-export type RouteDescriptor_ByIndex = { address: "ByIndex", commons: RouteDescriptorCommons, index: number }
-export type RouteDescriptor_ByName = { address: "ByName", commons: RouteDescriptorCommons, name: string }
+export type RouteDescriptor_Dynamic = {
+	address: "Dynamic",
+	track: TrackDescriptor?,
+	route_kind: TrackRouteKind?,
+	expression: string,
+}
+export type RouteDescriptor_ById = { address: "ById", track: TrackDescriptor?, route_kind: TrackRouteKind?, id: string? }
+export type RouteDescriptor_ByIndex = {
+	address: "ByIndex",
+	track: TrackDescriptor?,
+	route_kind: TrackRouteKind?,
+	index: number,
+}
+export type RouteDescriptor_ByName = {
+	address: "ByName",
+	track: TrackDescriptor?,
+	route_kind: TrackRouteKind?,
+	name: string,
+}
 
 export type RouteDescriptor =
 	RouteDescriptor_Dynamic

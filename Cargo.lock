@@ -5381,6 +5381,7 @@ dependencies = [
 name = "realearn-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "darling 0.20.3",
  "derive_more",
  "enum-iterator",
