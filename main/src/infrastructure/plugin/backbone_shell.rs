@@ -47,14 +47,13 @@ use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPa
 use crate::infrastructure::plugin::toolbar::add_toolbar_button;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
-    update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+    ini_util, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
-use ini::EscapePolicy;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::{
@@ -2687,31 +2686,16 @@ fn write_midi_devs_config_to_reaper_ini(
     midi_in_devs: MidiInDevsConfig,
     midi_out_devs: MidiOutDevsConfig,
 ) -> anyhow::Result<()> {
-    // Load REAPER INI file
     let reaper = Reaper::get();
     let reaper_ini = reaper.medium_reaper().get_ini_file(|p| p.to_path_buf());
-    let mut ini = ini::Ini::load_from_file_opt(
-        &reaper_ini,
-        ini::ParseOption {
-            enabled_quote: false,
-            enabled_escape: false,
-        },
-    )
-    .context("couldn't load REAPER.ini")?;
-    // Find REAPER section
-    let reaper_section = ini
-        .section_mut(Some("REAPER"))
-        .context("couldn't find INI section REAPER")?;
+    let reaper_ini = reaper_ini.to_str().context("non-UTF8 path")?;
     // Replace existing entries
     for (key, val) in midi_in_devs
         .to_ini_entries()
         .chain(midi_out_devs.to_ini_entries())
     {
-        reaper_section.insert(key, val.to_string());
+        ini_util::write_ini_entry(reaper_ini, "REAPER", key, val.to_string())?;
     }
-    // Write changes to file
-    // EscapePolicy Nothing is important to not double the backslashes of existing values.
-    ini.write_to_file_policy(&reaper_ini, EscapePolicy::Nothing)?;
     Ok(())
 }
 
