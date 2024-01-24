@@ -64,10 +64,9 @@ use crate::domain::ui_util::format_tags_as_csv;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
     LearnTargetMappingModification, LearnableTargetKind, MappingModification,
-    MappingModificationKind, MappingSnapshotDescForLoad, MappingSnapshotDescForTake,
-    MonitoringMode, MouseAction, MouseButton, PotFilterKind, SeekBehavior,
-    SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
-    TrackFxChain, TrackScope, TrackToolAction,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    MouseButton, PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification,
+    TargetTouchCause, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -4735,5 +4734,37 @@ fn convert_monitoring_mode_to_realearn(monitoring_mode: InputMonitoringMode) -> 
         InputMonitoringMode::Normal => MonitoringMode::Normal,
         InputMonitoringMode::NotWhenPlaying => MonitoringMode::TapeStyle,
         InputMonitoringMode::Unknown(_) => MonitoringMode::Off,
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    derive_more::Display,
+    enum_iterator::IntoEnumIterator,
+    num_enum::TryFromPrimitive,
+    num_enum::IntoPrimitive,
+)]
+#[repr(usize)]
+pub enum MappingModificationKind {
+    #[display(fmt = "Learn target")]
+    #[default]
+    LearnTarget,
+    #[display(fmt = "Set target to last touched")]
+    SetTargetToLastTouched,
+}
+
+impl MappingModificationKind {
+    pub fn from_modification(modification: &MappingModification) -> Self {
+        match modification {
+            MappingModification::LearnTarget(_) => Self::LearnTarget,
+            MappingModification::SetTargetToLastTouched(_) => Self::SetTargetToLastTouched,
+        }
     }
 }

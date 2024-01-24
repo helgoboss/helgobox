@@ -1,8 +1,8 @@
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
-    RealearnAutomationMode, RealearnTrackArea, TargetCategory, TrackPropValues,
-    TrackRoutePropValues, TrackRouteSelectorType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType,
+    MappingModificationKind, RealearnAutomationMode, RealearnTrackArea, TargetCategory,
+    TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType, VirtualFxParameterType,
+    VirtualFxType, VirtualTrackType,
 };
 use crate::domain::{
     ActionInvocationType, Exclusivity, FxDisplayType, ReaperTargetType, SeekOptions,
@@ -922,7 +922,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::ModifyMapping(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::ModifyMapping,
-            mapping_modification_kind: d.modification.kind(),
+            mapping_modification_kind: MappingModificationKind::from_modification(&d.modification),
             touch_cause: match &d.modification {
                 MappingModification::SetTargetToLastTouched(t) => t.touch_cause.unwrap_or_default(),
                 _ => Default::default(),

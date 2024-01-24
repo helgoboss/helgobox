@@ -27,9 +27,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind,
-    MappingModificationKind, MidiScriptKind, MonitoringMode, MouseButton, PotFilterKind,
-    SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
+    MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
     DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
@@ -40,12 +39,12 @@ use crate::application::{
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MappingRefModel, MappingSnapshotTypeForLoad,
-    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp, SharedMapping,
-    SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory,
-    TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
-    TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
+    MappingCommand, MappingModel, MappingModificationKind, MappingProp, MappingRefModel,
+    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
+    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
+    SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};

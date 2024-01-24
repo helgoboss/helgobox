@@ -5,10 +5,11 @@ use std::collections::HashSet;
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
-    FxSnapshot, MappingRefModel, MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake,
-    RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetCommand, TargetModel,
-    TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    FxSnapshot, MappingModificationKind, MappingRefModel, MappingSnapshotTypeForLoad,
+    MappingSnapshotTypeForTake, RealearnAutomationMode, RealearnTrackArea, TargetCategory,
+    TargetCommand, TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -29,9 +30,9 @@ use base::default_util::{
 };
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingModificationKind,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
+    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingSnapshotDescForLoad,
+    MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterKind, SeekBehavior,
+    TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
 
 #[cfg(feature = "playtime")]

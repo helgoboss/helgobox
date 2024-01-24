@@ -1013,45 +1013,11 @@ pub struct ModifyMappingTarget {
     pub modification: MappingModification,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    derive_more::Display,
-    enum_iterator::IntoEnumIterator,
-    num_enum::TryFromPrimitive,
-    num_enum::IntoPrimitive,
-)]
-#[repr(usize)]
-pub enum MappingModificationKind {
-    #[display(fmt = "Learn target")]
-    #[default]
-    LearnTarget,
-    #[display(fmt = "Set target to last touched")]
-    SetTargetToLastTouched,
-}
-
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MappingModification {
     LearnTarget(LearnTargetMappingModification),
     SetTargetToLastTouched(SetTargetToLastTouchedMappingModification),
-}
-
-impl MappingModification {
-    pub fn kind(&self) -> MappingModificationKind {
-        match self {
-            MappingModification::LearnTarget(_) => MappingModificationKind::LearnTarget,
-            MappingModification::SetTargetToLastTouched(_) => {
-                MappingModificationKind::SetTargetToLastTouched
-            }
-        }
-    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]

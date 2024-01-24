@@ -1,7 +1,7 @@
 use crate::application::{
-    AutomationModeOverrideType, BookmarkAnchorType, RealearnAutomationMode, RealearnTrackArea,
-    TargetCategory, TargetUnit, TrackRouteSelectorType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType,
+    AutomationModeOverrideType, BookmarkAnchorType, MappingModificationKind,
+    RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetUnit, TrackRouteSelectorType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::domain::{
     ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
@@ -28,12 +28,11 @@ use realearn_api::persistence::{
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
     FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnTargetMappingModification,
     LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget, MappingModification,
-    MappingModificationKind, ModifyMappingTarget, MouseTarget, PlayRateTarget,
-    PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
-    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
-    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
-    SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget, TempoTarget,
-    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    ModifyMappingTarget, MouseTarget, PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget,
+    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
+    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
+    SendOscTarget, SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget,
+    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
     TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
     TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
     TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,

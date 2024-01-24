@@ -3,36 +3,17 @@
 --- realearn_version: 2.16.0-pre.8
 --- used_schemes: [akai/apc-key-25]
 --- required_features: [playtime]
+
 --!strict
+
+local util = require("util")
+local realearn = require("realearn")
+
+local partial_mapping = util.partial_mapping
 
 -- Configuration
 
-local common = require("common.luau")
-
 local use_column_stop_buttons = true
-
--- Utility functions
-
---- Takes a key-value table and adds a new attribute `id` to each value that
---- corresponds to the key.
-function set_keys_as_ids(t)
-	for key, value in pairs(t) do
-		value.id = key
-	end
-end
-
---- Puts each `label` property value of the given array into a new array.
-function extract_labels(array)
-	local labels = {}
-	for _, element in ipairs(array) do
-		table.insert(labels, element.label)
-	end
-	return labels
-end
-
-function PartialMapping(t)
-	return common.make_mergeable(t)
-end
 
 -- Constants
 
@@ -65,7 +46,7 @@ local column_modes = {
 		label = "Track select",
 	},
 }
-local sorted_column_modes = common.sorted_by_index(column_modes)
+local sorted_column_modes = util.sorted_by_index(column_modes)
 
 -- Knob modes
 local knob_modes = {
@@ -86,7 +67,7 @@ local knob_modes = {
 		label = "Device",
 	},
 }
-local sorted_knob_modes = common.sorted_by_index(knob_modes)
+local sorted_knob_modes = util.sorted_by_index(knob_modes)
 
 -- Parameters
 local params = {
@@ -108,13 +89,13 @@ local params = {
 		index = 3,
 		name = "Column mode",
 		value_count = column_mode_count,
-		value_labels = extract_labels(sorted_column_modes),
+		value_labels = util.extract_labels(sorted_column_modes),
 	},
 	knob_mode = {
 		index = 4,
 		name = "Knob mode",
 		value_count = knob_mode_count,
-		value_labels = extract_labels(sorted_knob_modes),
+		value_labels = util.extract_labels(sorted_knob_modes),
 	},
 	send = {
 		index = 6,
@@ -141,46 +122,43 @@ function create_row_expression(row: number): string
 	return create_index_expression("control_unit_row_index", row)
 end
 
-function create_slot_selector(col: number, row: number)
-	return {
-		address = "Dynamic",
+function create_slot_selector(col: number, row: number): realearn.ClipSlotDescriptor
+	return realearn.ClipSlotDescriptor.Dynamic {
 		column_expression = create_col_expression(col),
 		row_expression = create_row_expression(row),
 	}
 end
 
-function create_column_selector(col: number)
-	return {
-		address = "Dynamic",
+function create_column_selector(col: number): realearn.ClipColumnDescriptor
+	return realearn.ClipColumnDescriptor.Dynamic {
 		expression = create_col_expression(col),
 	}
 end
 
-function create_row_selector(row: number)
-	return {
-		address = "Dynamic",
+function create_row_selector(row: number): realearn.ClipRowDescriptor
+	return realearn.ClipRowDescriptor.Dynamic {
 		expression = create_row_expression(row),
 	}
 end
 
 function multi(index: number)
-	return PartialMapping({
+	return partial_mapping {
 		source = {
 			kind = "Virtual",
 			character = "Multi",
 			id = index,
 		},
-	})
+	}
 end
 
 function button(id: string)
-	return PartialMapping({
+	return partial_mapping {
 		source = {
 			kind = "Virtual",
 			id = id,
 			character = "Button",
 		},
-	})
+	}
 end
 
 function column_stop_button(col: number)
@@ -196,7 +174,7 @@ function slot_button(col: number, row: number)
 end
 
 function shift_pressed(on: boolean)
-	return PartialMapping({
+	return partial_mapping {
 		activation_condition = {
 			kind = "Modifier",
 			modifiers = {
@@ -210,11 +188,11 @@ function shift_pressed(on: boolean)
 				},
 			},
 		},
-	})
+	}
 end
 
 function sustain_pressed(on: boolean)
-	return PartialMapping({
+	return partial_mapping {
 		activation_condition = {
 			kind = "Modifier",
 			modifiers = {
@@ -228,20 +206,20 @@ function sustain_pressed(on: boolean)
 				},
 			},
 		},
-	})
+	}
 end
 
 function shift_or_sustain_pressed()
-	return PartialMapping({
+	return partial_mapping {
 		activation_condition = {
 			kind = "Expression",
 			condition = "p[2] || p[7]",
 		},
-	})
+	}
 end
 
 function shift_and_sustain_pressed()
-	return PartialMapping({
+	return partial_mapping {
 		activation_condition = {
 			kind = "Modifier",
 			modifiers = {
@@ -255,11 +233,11 @@ function shift_and_sustain_pressed()
 				},
 			},
 		},
-	})
+	}
 end
 
 function turbo()
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			fire_mode = {
 				kind = "AfterTimeoutKeepFiring",
@@ -267,29 +245,29 @@ function turbo()
 				rate = 100,
 			},
 		},
-	})
+	}
 end
 
 function fire_max(millis: number)
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			fire_mode = {
 				kind = "Normal",
 				press_duration_interval = { 0, millis },
 			},
 		},
-	})
+	}
 end
 
 function fire_after_timeout(millis: number)
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			fire_mode = {
 				kind = "AfterTimeout",
 				timeout = millis,
 			},
 		},
-	})
+	}
 end
 
 function fire(kind, max_duration: number?)
@@ -313,55 +291,51 @@ local long_press = fire_after_timeout(1000)
 local single_press = fire("OnSinglePress", 200)
 local double_press = fire("OnDoublePress")
 
-function clip_matrix_action(action: string)
-	return PartialMapping({
-		target = {
-			kind = "ClipMatrixAction",
+function clip_matrix_action(action: realearn.ClipMatrixAction)
+	return partial_mapping {
+		target = realearn.Target.PlaytimeMatrixAction {
 			action = action,
-		},
-	})
+		}
+	}
 end
 
-function clip_column_action(col: number, action: string)
-	return PartialMapping({
-		target = {
-			kind = "ClipColumnAction",
+function clip_column_action(col: number, action: realearn.ClipColumnAction)
+	return partial_mapping {
+		target = realearn.Target.PlaytimeColumnAction {
 			column = create_column_selector(col),
 			action = action,
-		},
-	})
+		}
+	}
 end
 
-function clip_row_action(row: number, action: string)
-	return PartialMapping({
-		target = {
-			kind = "ClipRowAction",
+function clip_row_action(row: number, action: realearn.ClipRowAction)
+	return partial_mapping {
+		target = realearn.Target.PlaytimeRowAction {
 			row = create_row_selector(row),
 			action = action,
 		},
-	})
+	}
 end
 
-function clip_column_track(col: number)
-	return {
-		address = "FromClipColumn",
+function clip_column_track(col: number): realearn.TrackDescriptor
+	return realearn.TrackDescriptor.FromClipColumn {
 		column = create_column_selector(col),
 		context = "Playback",
 	}
 end
 
-function column_track_target(col: number, track_target_kind: string, exclusive: boolean)
-	return PartialMapping({
+function column_track_target(col: number, track_target_kind: realearn.TargetKind, exclusive: boolean)
+	return partial_mapping {
 		target = {
 			kind = track_target_kind,
 			track = clip_column_track(col),
-			exclusivity = exclusive and "WithinFolderOnOnly" or nil,
-		},
-	})
+			exclusivity = if exclusive then "WithinFolderOnOnly" else nil,
+		} :: any,
+	}
 end
 
 function route_target(col: number, route_target_kind: string)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = route_target_kind,
 			route = {
@@ -370,11 +344,11 @@ function route_target(col: number, route_target_kind: string)
 				expression = "p[" .. params.send.index .. "]",
 			},
 		},
-	})
+	}
 end
 
 function clip_transport_action(col: number, row: number, action: string, record_only_if_track_armed: boolean)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = "ClipTransportAction",
 			slot = create_slot_selector(col, row),
@@ -382,11 +356,11 @@ function clip_transport_action(col: number, row: number, action: string, record_
 			record_only_if_track_armed = record_only_if_track_armed,
 			stop_column_if_slot_empty = true,
 		},
-	})
+	}
 end
 
 function clip_management_action(col: number, row: number, action: string)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = "ClipManagement",
 			slot = create_slot_selector(col, row),
@@ -394,11 +368,11 @@ function clip_management_action(col: number, row: number, action: string)
 				kind = action,
 			},
 		},
-	})
+	}
 end
 
 function adjust_clip_section_length_action(col: number, row: number, factor: number)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = "ClipManagement",
 			slot = create_slot_selector(col, row),
@@ -407,74 +381,74 @@ function adjust_clip_section_length_action(col: number, row: number, factor: num
 				factor = factor,
 			},
 		},
-	})
+	}
 end
 
 function slot_state_text_feedback()
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			feedback = {
 				kind = "Text",
 				text_expression = "{{ target.slot_state.id }}",
 			},
 		},
-	})
+	}
 end
 
 function transport_action(action: string)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = "TransportAction",
 			action = action,
 		},
-	})
+	}
 end
 
 function reaper_action(command_id: string)
-	return PartialMapping({
+	return partial_mapping {
 		target = {
 			kind = "ReaperAction",
 			command = command_id,
 			invocation = "Trigger",
 		},
-	})
+	}
 end
 
 function toggle()
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			absolute_mode = "ToggleButton",
 		},
-	})
+	}
 end
 
 function incremental()
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			absolute_mode = "IncrementalButton",
 		},
-	})
+	}
 end
 
 function wrap()
-	return PartialMapping({
+	return partial_mapping {
 		glue = {
 			wrap = true,
 		},
-	})
+	}
 end
 
 function control_disabled()
-	return PartialMapping({
+	return partial_mapping {
 		control_enabled = false,
 		visible_in_projection = false,
-	})
+	}
 end
 
 function feedback_disabled()
-	return PartialMapping({
+	return partial_mapping {
 		feedback_enabled = false,
-	})
+	}
 end
 
 function scroll_horizontally(amount: number)
@@ -485,11 +459,9 @@ function scroll_vertically(amount: number)
 	return scroll("Y", amount)
 end
 
-type Axis = "X" | "Y"
-
-function scroll(axis: Axis, amount: number)
+function scroll(axis: realearn.Axis, amount: number)
 	local abs_amount = math.abs(amount)
-	return {
+	return partial_mapping {
 		glue = {
 			absolute_mode = "IncrementalButton",
 			step_factor_interval = { abs_amount, abs_amount },

@@ -1,7 +1,6 @@
 --!strict
 
-local common = require("common")
-type ArbitraryTable = common.ArbitraryTable
+type ArbitraryTable = { [any]: any }
 
 --- Returns a new table that is the result of merging t2 into t1.
 ---
@@ -14,7 +13,7 @@ function merged<A, B>(t1: A, t2: B): A & B
     if type(t1) ~= "table" or type(t2) ~= "table" then
         return t1 :: any
     end
-	local result = common.clone(t1 :: ArbitraryTable)
+	local result = t1.clone()
 	for key, new_value in pairs(t2 :: ArbitraryTable) do
 		local old_value = result[key]
 		if old_value and type(old_value) == "table" and type(new_value) == "table" then
@@ -31,10 +30,10 @@ end
 type PartialImpl = {
     new: (part: ArbitraryTable) -> Partial,
     __index: PartialImpl,
-    __add: <B>(self: Partial, part: B) -> Partial,
+    __add: (self: Partial, part: Partial) -> Partial,
 }
 
-type Partial = typeof(setmetatable({}, {} :: PartialImpl))
+export type Partial = typeof(setmetatable({}, {} :: PartialImpl))
 
 local Partial: PartialImpl = {} :: PartialImpl
 Partial.__index = Partial
@@ -43,8 +42,10 @@ function Partial.new(part)
     return setmetatable(part, Partial)
 end
 
-function Partial:__add<B>(part: B)
-    return Partial.new(merged(self, part))
+function Partial:__add(part)
+    return Partial.new(merged(self, part) :: any)
 end
 
-return Partial
+return {
+	Partial = Partial,
+}

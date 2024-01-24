@@ -1,7 +1,9 @@
 use anyhow::{bail, Context};
 use darling::FromMeta;
 use std::fmt::{Display, Formatter, Write};
+use std::iter::Map;
 use std::{fmt, iter};
+use syn::punctuated::Iter;
 use syn::{
     Attribute, Expr, ExprLit, Field, Fields, FieldsNamed, File, GenericArgument, GenericParam,
     Generics, Ident, Item, ItemEnum, ItemStruct, Lit, Meta, MetaNameValue, PathArguments, Type,
@@ -116,7 +118,12 @@ struct RichLuauEnum<'a, H> {
 
 struct PrimitiveLuauEnum<'a> {
     item_enum: &'a ItemEnum,
-    ident_override: Option<String>,
+}
+
+impl<'a> PrimitiveLuauEnum<'a> {
+    pub fn new(item_enum: &'a ItemEnum) -> Self {
+        Self { item_enum }
+    }
 }
 
 struct LuauGenerics<'a>(&'a Generics);
@@ -408,11 +415,7 @@ impl<'a, H: Hook> Display for LuauEnum<'a, H> {
         match args {
             None => {
                 // Primitive enum
-                let primitive_enum = PrimitiveLuauEnum {
-                    item_enum: self.value,
-                    ident_override: None,
-                };
-                primitive_enum.fmt(f)?;
+                PrimitiveLuauEnum::new(self.value).fmt(f)?;
             }
             Some(args) => {
                 match (args.tag, args.untagged) {
@@ -480,6 +483,19 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
                     export type {enum_ident} = {variant_disjunction}
                 "#
         )?;
+        // For tagged enums, we also generate a convenience type that contains all the tags
+        if let Some(tag) = self.tag {
+            let upper_tag = heck::AsUpperCamelCase(tag);
+            let variant_ident_disjunction = variant_ident_disjunction(self.item_enum);
+            writeln!(
+                f,
+                r#"
+                    --- A type that represents all possible kinds of {enum_ident}.
+                    export type {enum_ident}{upper_tag} = {variant_ident_disjunction}
+                "#
+            )?;
+        }
+        // Also generate variant builders
         if let Some(tag) = self.tag {
             let variant_builders = line_breaked(|| {
                 self.item_enum
@@ -516,27 +532,27 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
     }
 }
 
+fn variant_ident_disjunction(item_enum: &ItemEnum) -> impl Display + '_ {
+    separated("|", || {
+        item_enum.variants.iter().map(|variant| {
+            delimited(
+                DOUBLE_QUOTES,
+                LuauIdent(&variant.ident, Case::UpperCamelCase),
+            )
+        })
+    })
+}
+
 impl<'a> Display for PrimitiveLuauEnum<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let ident = if let Some(ovr) = &self.ident_override {
-            ovr.clone()
-        } else {
-            LuauIdent(&self.item_enum.ident, Case::Original).to_string()
-        };
-        let variant_disjunction = separated("|", || {
-            self.item_enum.variants.iter().map(|variant| {
-                delimited(
-                    DOUBLE_QUOTES,
-                    LuauIdent(&variant.ident, Case::UpperCamelCase),
-                )
-            })
-        });
+        let ident = LuauIdent(&self.item_enum.ident, Case::Original);
+        let variant_ident_disjunction = variant_ident_disjunction(self.item_enum);
         let doc = LuauDoc::new(&self.item_enum.attrs);
         writeln!(
             f,
             r#"
                 {doc}
-                export type {ident} = {variant_disjunction}
+                export type {ident} = {variant_ident_disjunction}
             "#
         )?;
         Ok(())

@@ -53,6 +53,9 @@ export type FeedbackValueTable_FromTextToDiscrete = { kind: "FromTextToDiscrete"
 export type FeedbackValueTable_FromTextToContinuous = { kind: "FromTextToContinuous", value: { [string]: number } }
 export type FeedbackValueTable = FeedbackValueTable_FromTextToDiscrete | FeedbackValueTable_FromTextToContinuous
 
+--- A type that represents all possible kinds of FeedbackValueTable.
+export type FeedbackValueTableKind = "FromTextToDiscrete" | "FromTextToContinuous"
+
 --- Helper table to create FeedbackValueTable values of different kinds.
 module.FeedbackValueTable = {}
 
@@ -113,6 +116,9 @@ export type FireMode =
 	| FireMode_AfterTimeoutKeepFiring
 	| FireMode_OnSinglePress
 	| FireMode_OnDoublePress
+
+--- A type that represents all possible kinds of FireMode.
+export type FireModeKind = "Normal" | "AfterTimeout" | "AfterTimeoutKeepFiring" | "OnSinglePress" | "OnDoublePress"
 
 --- Helper table to create FireMode values of different kinds.
 module.FireMode = {}
@@ -247,6 +253,9 @@ export type Feedback_Text = {
 export type Feedback_Dynamic = { kind: "Dynamic", color: VirtualColor?, background_color: VirtualColor?, script: string? }
 export type Feedback = Feedback_Numeric | Feedback_Text | Feedback_Dynamic
 
+--- A type that represents all possible kinds of Feedback.
+export type FeedbackKind = "Numeric" | "Text" | "Dynamic"
+
 --- Helper table to create Feedback values of different kinds.
 module.Feedback = {}
 
@@ -350,6 +359,9 @@ end
 export type SendMidiFeedbackAction_Raw = { kind: "Raw", message: RawMidiMessage }
 export type SendMidiFeedbackAction = SendMidiFeedbackAction_Raw
 
+--- A type that represents all possible kinds of SendMidiFeedbackAction.
+export type SendMidiFeedbackActionKind = "Raw"
+
 --- Helper table to create SendMidiFeedbackAction values of different kinds.
 module.SendMidiFeedbackAction = {}
 
@@ -372,6 +384,9 @@ end
 
 export type SuccessAudioFeedback_Simple = { kind: "Simple" }
 export type SuccessAudioFeedback = SuccessAudioFeedback_Simple
+
+--- A type that represents all possible kinds of SuccessAudioFeedback.
+export type SuccessAudioFeedbackKind = "Simple"
 
 --- Helper table to create SuccessAudioFeedback values of different kinds.
 module.SuccessAudioFeedback = {}
@@ -398,6 +413,9 @@ export type ActivationCondition =
 	| ActivationCondition_Eel
 	| ActivationCondition_Expression
 	| ActivationCondition_TargetValue
+
+--- A type that represents all possible kinds of ActivationCondition.
+export type ActivationConditionKind = "Modifier" | "Bank" | "Eel" | "Expression" | "TargetValue"
 
 --- Helper table to create ActivationCondition values of different kinds.
 module.ActivationCondition = {}
@@ -693,6 +711,37 @@ export type Source =
 	| Source_Osc
 	| Source_Key
 	| Source_Virtual
+
+--- A type that represents all possible kinds of Source.
+export type SourceKind =
+	"None"
+	| "MidiDeviceChanges"
+	| "RealearnInstanceStart"
+	| "Timer"
+	| "RealearnParameter"
+	| "Speech"
+	| "MidiNoteVelocity"
+	| "MidiNoteKeyNumber"
+	| "MidiPolyphonicKeyPressureAmount"
+	| "MidiControlChangeValue"
+	| "MidiProgramChangeNumber"
+	| "MidiSpecificProgramChange"
+	| "MidiChannelPressureAmount"
+	| "MidiPitchBendChangeValue"
+	| "MidiParameterNumberValue"
+	| "MidiClockTempo"
+	| "MidiClockTransport"
+	| "MidiRaw"
+	| "MidiScript"
+	| "MackieLcd"
+	| "XTouchMackieLcd"
+	| "MackieSevenSegmentDisplay"
+	| "SlKeyboardDisplay"
+	| "SiniConE24Display"
+	| "LaunchpadProScrollingTextDisplay"
+	| "Osc"
+	| "Key"
+	| "Virtual"
 
 --- Helper table to create Source values of different kinds.
 module.Source = {}
@@ -1630,6 +1679,75 @@ export type Target =
 	| Target_LoadPotPreset
 	| Target_Virtual
 
+--- A type that represents all possible kinds of Target.
+export type TargetKind =
+	"Mouse"
+	| "LastTouched"
+	| "AutomationModeOverride"
+	| "ReaperAction"
+	| "TransportAction"
+	| "AnyOn"
+	| "BrowseTracks"
+	| "Seek"
+	| "PlayRate"
+	| "Tempo"
+	| "GoToBookmark"
+	| "TrackArmState"
+	| "TrackParentSendState"
+	| "AllTrackFxOnOffState"
+	| "TrackMuteState"
+	| "TrackPeak"
+	| "TrackPhase"
+	| "TrackSelectionState"
+	| "TrackAutomationMode"
+	| "TrackMonitoringMode"
+	| "TrackAutomationTouchState"
+	| "TrackPan"
+	| "TrackWidth"
+	| "TrackVolume"
+	| "TrackTool"
+	| "TrackVisibility"
+	| "TrackSoloState"
+	| "BrowseFxChain"
+	| "FxOnOffState"
+	| "FxOnlineOfflineState"
+	| "LoadFxSnapshot"
+	| "BrowseFxPresets"
+	| "FxTool"
+	| "FxVisibility"
+	| "FxParameterValue"
+	| "FxParameterAutomationTouchState"
+	| "RouteAutomationMode"
+	| "RouteMonoState"
+	| "RouteMuteState"
+	| "RoutePhase"
+	| "RoutePan"
+	| "RouteVolume"
+	| "RouteTouchState"
+	| "PlaytimeSlotTransportAction"
+	| "PlaytimeColumnAction"
+	| "PlaytimeRowAction"
+	| "PlaytimeMatrixAction"
+	| "PlaytimeControlUnitScroll"
+	| "PlaytimeSlotSeek"
+	| "PlaytimeSlotVolume"
+	| "PlaytimeSlotManagementAction"
+	| "SendMidi"
+	| "SendOsc"
+	| "Dummy"
+	| "EnableInstances"
+	| "EnableMappings"
+	| "ModifyMapping"
+	| "CompartmentParameterValue"
+	| "LoadMappingSnapshot"
+	| "TakeMappingSnapshot"
+	| "BrowseGroupMappings"
+	| "BrowsePotFilterItems"
+	| "BrowsePotPresets"
+	| "PreviewPotPreset"
+	| "LoadPotPreset"
+	| "Virtual"
+
 --- Helper table to create Target values of different kinds.
 module.Target = {}
 
@@ -2438,6 +2556,9 @@ export type MouseAction_PressOrRelease = { kind: "PressOrRelease", button: Mouse
 export type MouseAction_Scroll = { kind: "Scroll", axis: Axis? }
 export type MouseAction = MouseAction_MoveTo | MouseAction_MoveBy | MouseAction_PressOrRelease | MouseAction_Scroll
 
+--- A type that represents all possible kinds of MouseAction.
+export type MouseActionKind = "MoveTo" | "MoveBy" | "PressOrRelease" | "Scroll"
+
 --- Helper table to create MouseAction values of different kinds.
 module.MouseAction = {}
 
@@ -2810,6 +2931,14 @@ export type ClipManagementAction =
 	| ClipManagementAction_CopyOrPasteClip
 	| ClipManagementAction_AdjustClipSectionLength
 
+--- A type that represents all possible kinds of ClipManagementAction.
+export type ClipManagementActionKind =
+	"ClearSlot"
+	| "FillSlotWithSelectedItem"
+	| "EditClip"
+	| "CopyOrPasteClip"
+	| "AdjustClipSectionLength"
+
 --- Helper table to create ClipManagementAction values of different kinds.
 module.ClipManagementAction = {}
 
@@ -2918,8 +3047,6 @@ function module.ModifyMappingTarget(value: ModifyMappingTarget): ModifyMappingTa
 	return value
 end
 
-export type MappingModificationKind = "LearnTarget" | "SetTargetToLastTouched"
-
 export type MappingModification_LearnTarget = {
 	kind: "LearnTarget",
 	included_targets: { LearnableTargetKind }?,
@@ -2932,6 +3059,9 @@ export type MappingModification_SetTargetToLastTouched = {
 	touch_cause: TargetTouchCause?,
 }
 export type MappingModification = MappingModification_LearnTarget | MappingModification_SetTargetToLastTouched
+
+--- A type that represents all possible kinds of MappingModification.
+export type MappingModificationKind = "LearnTarget" | "SetTargetToLastTouched"
 
 --- Helper table to create MappingModification values of different kinds.
 module.MappingModification = {}
@@ -3014,6 +3144,9 @@ export type MappingSnapshotDescForLoad_Initial = { kind: "Initial" }
 export type MappingSnapshotDescForLoad_ById = { kind: "ById", id: string }
 export type MappingSnapshotDescForLoad = MappingSnapshotDescForLoad_Initial | MappingSnapshotDescForLoad_ById
 
+--- A type that represents all possible kinds of MappingSnapshotDescForLoad.
+export type MappingSnapshotDescForLoadKind = "Initial" | "ById"
+
 --- Helper table to create MappingSnapshotDescForLoad values of different kinds.
 module.MappingSnapshotDescForLoad = {}
 
@@ -3035,6 +3168,9 @@ export type MappingSnapshotDescForTake_LastLoaded = { kind: "LastLoaded" }
 
 export type MappingSnapshotDescForTake_ById = { kind: "ById", id: string }
 export type MappingSnapshotDescForTake = MappingSnapshotDescForTake_LastLoaded | MappingSnapshotDescForTake_ById
+
+--- A type that represents all possible kinds of MappingSnapshotDescForTake.
+export type MappingSnapshotDescForTakeKind = "LastLoaded" | "ById"
 
 --- Helper table to create MappingSnapshotDescForTake values of different kinds.
 module.MappingSnapshotDescForTake = {}
@@ -3125,6 +3261,9 @@ export type AutomationModeOverride_Bypass = { kind: "Bypass" }
 
 export type AutomationModeOverride_Mode = { kind: "Mode", mode: AutomationMode }
 export type AutomationModeOverride = AutomationModeOverride_Bypass | AutomationModeOverride_Mode
+
+--- A type that represents all possible kinds of AutomationModeOverride.
+export type AutomationModeOverrideKind = "Bypass" | "Mode"
 
 --- Helper table to create AutomationModeOverride values of different kinds.
 module.AutomationModeOverride = {}
@@ -3238,6 +3377,18 @@ export type TrackDescriptor =
 	| TrackDescriptor_ByIndex
 	| TrackDescriptor_ByName
 	| TrackDescriptor_FromClipColumn
+
+--- A type that represents all possible kinds of TrackDescriptor.
+export type TrackDescriptorAddress =
+	"This"
+	| "Master"
+	| "Instance"
+	| "Selected"
+	| "Dynamic"
+	| "ById"
+	| "ByIndex"
+	| "ByName"
+	| "FromClipColumn"
 
 --- Helper table to create TrackDescriptor values of different kinds.
 module.TrackDescriptor = {}
@@ -3353,6 +3504,9 @@ export type BookmarkDescriptor_Marker = { kind: "Marker", id: number } | { kind:
 export type BookmarkDescriptor_Region = { kind: "Region", id: number } | { kind: "Region", index: number }
 export type BookmarkDescriptor = BookmarkDescriptor_Marker | BookmarkDescriptor_Region
 
+--- A type that represents all possible kinds of BookmarkDescriptor.
+export type BookmarkDescriptorKind = "Marker" | "Region"
+
 --- Helper table to create BookmarkDescriptor values of different kinds.
 module.BookmarkDescriptor = {}
 
@@ -3426,6 +3580,9 @@ export type FxDescriptor =
 	| FxDescriptor_ByIndex
 	| FxDescriptor_ByName
 
+--- A type that represents all possible kinds of FxDescriptor.
+export type FxDescriptorAddress = "This" | "Focused" | "Instance" | "Dynamic" | "ById" | "ByIndex" | "ByName"
+
 --- Helper table to create FxDescriptor values of different kinds.
 module.FxDescriptor = {}
 
@@ -3492,6 +3649,9 @@ end
 export type FxChainDescriptor_Track = { address: "Track", track: TrackDescriptor?, chain: TrackFxChain? }
 export type FxChainDescriptor = FxChainDescriptor_Track
 
+--- A type that represents all possible kinds of FxChainDescriptor.
+export type FxChainDescriptorAddress = "Track"
+
 --- Helper table to create FxChainDescriptor values of different kinds.
 module.FxChainDescriptor = {}
 
@@ -3522,6 +3682,9 @@ end
 export type FxSnapshotContent_Chunk = { kind: "Chunk", chunk: string }
 export type FxSnapshotContent = FxSnapshotContent_Chunk
 
+--- A type that represents all possible kinds of FxSnapshotContent.
+export type FxSnapshotContentKind = "Chunk"
+
 --- Helper table to create FxSnapshotContent values of different kinds.
 module.FxSnapshotContent = {}
 
@@ -3544,6 +3707,9 @@ export type FxParameterDescriptor =
 	| FxParameterDescriptor_ById
 	| FxParameterDescriptor_ByIndex
 	| FxParameterDescriptor_ByName
+
+--- A type that represents all possible kinds of FxParameterDescriptor.
+export type FxParameterDescriptorAddress = "Dynamic" | "ById" | "ByIndex" | "ByName"
 
 --- Helper table to create FxParameterDescriptor values of different kinds.
 module.FxParameterDescriptor = {}
@@ -3582,6 +3748,9 @@ end
 
 export type CompartmentParameterDescriptor_ById = { address: "ById", index: number }
 export type CompartmentParameterDescriptor = CompartmentParameterDescriptor_ById
+
+--- A type that represents all possible kinds of CompartmentParameterDescriptor.
+export type CompartmentParameterDescriptorAddress = "ById"
 
 --- Helper table to create CompartmentParameterDescriptor values of different kinds.
 module.CompartmentParameterDescriptor = {}
@@ -3629,6 +3798,9 @@ export type RouteDescriptor =
 	| RouteDescriptor_ById
 	| RouteDescriptor_ByIndex
 	| RouteDescriptor_ByName
+
+--- A type that represents all possible kinds of RouteDescriptor.
+export type RouteDescriptorAddress = "Dynamic" | "ById" | "ByIndex" | "ByName"
 
 --- Helper table to create RouteDescriptor values of different kinds.
 module.RouteDescriptor = {}
@@ -3678,6 +3850,9 @@ export type ClipSlotDescriptor_ByIndex = { address: "ByIndex", column_index: num
 export type ClipSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
 export type ClipSlotDescriptor = ClipSlotDescriptor_Selected | ClipSlotDescriptor_ByIndex | ClipSlotDescriptor_Dynamic
 
+--- A type that represents all possible kinds of ClipSlotDescriptor.
+export type ClipSlotDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+
 --- Helper table to create ClipSlotDescriptor values of different kinds.
 module.ClipSlotDescriptor = {}
 
@@ -3714,6 +3889,9 @@ export type ClipColumnDescriptor =
 	| ClipColumnDescriptor_ByIndex
 	| ClipColumnDescriptor_Dynamic
 
+--- A type that represents all possible kinds of ClipColumnDescriptor.
+export type ClipColumnDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+
 --- Helper table to create ClipColumnDescriptor values of different kinds.
 module.ClipColumnDescriptor = {}
 
@@ -3745,6 +3923,9 @@ export type ClipRowDescriptor_ByIndex = { address: "ByIndex", index: number }
 export type ClipRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
 export type ClipRowDescriptor = ClipRowDescriptor_Selected | ClipRowDescriptor_ByIndex | ClipRowDescriptor_Dynamic
 
+--- A type that represents all possible kinds of ClipRowDescriptor.
+export type ClipRowDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+
 --- Helper table to create ClipRowDescriptor values of different kinds.
 module.ClipRowDescriptor = {}
 
@@ -3774,6 +3955,9 @@ export type MidiDestination_FxOutput = { kind: "FxOutput" }
 export type MidiDestination_FeedbackOutput = { kind: "FeedbackOutput" }
 export type MidiDestination = MidiDestination_FxOutput | MidiDestination_FeedbackOutput
 
+--- A type that represents all possible kinds of MidiDestination.
+export type MidiDestinationKind = "FxOutput" | "FeedbackOutput"
+
 --- Helper table to create MidiDestination values of different kinds.
 module.MidiDestination = {}
 
@@ -3795,6 +3979,9 @@ export type OscDestination_FeedbackOutput = { kind: "FeedbackOutput" }
 
 export type OscDestination_Device = { kind: "Device", id: string }
 export type OscDestination = OscDestination_FeedbackOutput | OscDestination_Device
+
+--- A type that represents all possible kinds of OscDestination.
+export type OscDestinationKind = "FeedbackOutput" | "Device"
 
 --- Helper table to create OscDestination values of different kinds.
 module.OscDestination = {}
@@ -3826,6 +4013,9 @@ export type TargetValue_Unit = { kind: "Unit", value: number }
 
 export type TargetValue_Discrete = { kind: "Discrete", value: number }
 export type TargetValue = TargetValue_Unit | TargetValue_Discrete
+
+--- A type that represents all possible kinds of TargetValue.
+export type TargetValueKind = "Unit" | "Discrete"
 
 --- Helper table to create TargetValue values of different kinds.
 module.TargetValue = {}

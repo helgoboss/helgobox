@@ -209,6 +209,9 @@ export type RecordLength_OpenEnd = { kind: "OpenEnd" }
 export type RecordLength_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type RecordLength = RecordLength_OpenEnd | RecordLength_Quantized
 
+--- A type that represents all possible kinds of RecordLength.
+export type RecordLengthKind = "OpenEnd" | "Quantized"
+
 --- Helper table to create RecordLength values of different kinds.
 module.RecordLength = {}
 
@@ -240,6 +243,9 @@ export type ClipRecordTimeBase =
 	ClipRecordTimeBase_DeriveFromRecordTiming
 	| ClipRecordTimeBase_Time
 	| ClipRecordTimeBase_Beat
+
+--- A type that represents all possible kinds of ClipRecordTimeBase.
+export type ClipRecordTimeBaseKind = "DeriveFromRecordTiming" | "Time" | "Beat"
 
 --- Helper table to create ClipRecordTimeBase values of different kinds.
 module.ClipRecordTimeBase = {}
@@ -281,6 +287,9 @@ export type TriggerPlayBehavior =
 	| TriggerPlayBehavior_MomentaryPlayStop
 	| TriggerPlayBehavior_Retrigger
 
+--- A type that represents all possible kinds of TriggerPlayBehavior.
+export type TriggerPlayBehaviorKind = "TogglePlayStop" | "MomentaryPlayStop" | "Retrigger"
+
 --- Helper table to create TriggerPlayBehavior values of different kinds.
 module.TriggerPlayBehavior = {}
 
@@ -321,6 +330,9 @@ export type ClipRecordStartTiming =
 	| ClipRecordStartTiming_Immediately
 	| ClipRecordStartTiming_Quantized
 
+--- A type that represents all possible kinds of ClipRecordStartTiming.
+export type ClipRecordStartTimingKind = "LikeClipPlayStartTiming" | "Immediately" | "Quantized"
+
 --- Helper table to create ClipRecordStartTiming values of different kinds.
 module.ClipRecordStartTiming = {}
 
@@ -360,6 +372,9 @@ export type ClipRecordStopTiming =
 	ClipRecordStopTiming_LikeClipRecordStartTiming
 	| ClipRecordStopTiming_Immediately
 	| ClipRecordStopTiming_Quantized
+
+--- A type that represents all possible kinds of ClipRecordStopTiming.
+export type ClipRecordStopTimingKind = "LikeClipRecordStartTiming" | "Immediately" | "Quantized"
 
 --- Helper table to create ClipRecordStopTiming values of different kinds.
 module.ClipRecordStopTiming = {}
@@ -402,6 +417,9 @@ export type MidiClipRecordMode_Overdub = { kind: "Overdub" }
 export type MidiClipRecordMode_Replace = { kind: "Replace" }
 export type MidiClipRecordMode = MidiClipRecordMode_Normal | MidiClipRecordMode_Overdub | MidiClipRecordMode_Replace
 
+--- A type that represents all possible kinds of MidiClipRecordMode.
+export type MidiClipRecordModeKind = "Normal" | "Overdub" | "Replace"
+
 --- Helper table to create MidiClipRecordMode values of different kinds.
 module.MidiClipRecordMode = {}
 
@@ -440,6 +458,9 @@ export type ClipPlayStartTiming_Immediately = { kind: "Immediately" }
 export type ClipPlayStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type ClipPlayStartTiming = ClipPlayStartTiming_Immediately | ClipPlayStartTiming_Quantized
 
+--- A type that represents all possible kinds of ClipPlayStartTiming.
+export type ClipPlayStartTimingKind = "Immediately" | "Quantized"
+
 --- Helper table to create ClipPlayStartTiming values of different kinds.
 module.ClipPlayStartTiming = {}
 
@@ -475,6 +496,9 @@ export type ClipPlayStopTiming =
 	| ClipPlayStopTiming_Immediately
 	| ClipPlayStopTiming_Quantized
 	| ClipPlayStopTiming_UntilEndOfClip
+
+--- A type that represents all possible kinds of ClipPlayStopTiming.
+export type ClipPlayStopTimingKind = "LikeClipStartTiming" | "Immediately" | "Quantized" | "UntilEndOfClip"
 
 --- Helper table to create ClipPlayStopTiming values of different kinds.
 module.ClipPlayStopTiming = {}
@@ -529,6 +553,9 @@ export type ClipPlayStartTimingOverrideAfterRecording =
 	| ClipPlayStartTimingOverrideAfterRecording_Override
 	| ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming
 
+--- A type that represents all possible kinds of ClipPlayStartTimingOverrideAfterRecording.
+export type ClipPlayStartTimingOverrideAfterRecordingKind = "Inherit" | "Override" | "DeriveFromRecordTiming"
+
 --- Helper table to create ClipPlayStartTimingOverrideAfterRecording values of different kinds.
 module.ClipPlayStartTimingOverrideAfterRecording = {}
 
@@ -577,6 +604,9 @@ export type ClipPlayStopTimingOverrideAfterRecording =
 	ClipPlayStopTimingOverrideAfterRecording_Inherit
 	| ClipPlayStopTimingOverrideAfterRecording_Override
 	| ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming
+
+--- A type that represents all possible kinds of ClipPlayStopTimingOverrideAfterRecording.
+export type ClipPlayStopTimingOverrideAfterRecordingKind = "Inherit" | "Override" | "DeriveFromRecordTiming"
 
 --- Helper table to create ClipPlayStopTimingOverrideAfterRecording values of different kinds.
 module.ClipPlayStopTimingOverrideAfterRecording = {}
@@ -762,6 +792,9 @@ export type AudioTimeStretchMode_VariSpeed = { kind: "VariSpeed" }
 export type AudioTimeStretchMode_KeepingPitch = { kind: "KeepingPitch", mode: VirtualTimeStretchMode }
 export type AudioTimeStretchMode = AudioTimeStretchMode_VariSpeed | AudioTimeStretchMode_KeepingPitch
 
+--- A type that represents all possible kinds of AudioTimeStretchMode.
+export type AudioTimeStretchModeKind = "VariSpeed" | "KeepingPitch"
+
 --- Helper table to create AudioTimeStretchMode values of different kinds.
 module.AudioTimeStretchMode = {}
 
@@ -791,6 +824,9 @@ export type VirtualResampleMode_ProjectDefault = { kind: "ProjectDefault" }
 --- Uses a specific resample mode.
 export type VirtualResampleMode_ReaperMode = { kind: "ReaperMode", mode: number }
 export type VirtualResampleMode = VirtualResampleMode_ProjectDefault | VirtualResampleMode_ReaperMode
+
+--- A type that represents all possible kinds of VirtualResampleMode.
+export type VirtualResampleModeKind = "ProjectDefault" | "ReaperMode"
 
 --- Helper table to create VirtualResampleMode values of different kinds.
 module.VirtualResampleMode = {}
@@ -834,6 +870,9 @@ export type VirtualTimeStretchMode_ProjectDefault = { kind: "ProjectDefault" }
 export type VirtualTimeStretchMode_ReaperMode = { kind: "ReaperMode", mode: number, sub_mode: number }
 export type VirtualTimeStretchMode = VirtualTimeStretchMode_ProjectDefault | VirtualTimeStretchMode_ReaperMode
 
+--- A type that represents all possible kinds of VirtualTimeStretchMode.
+export type VirtualTimeStretchModeKind = "ProjectDefault" | "ReaperMode"
+
 --- Helper table to create VirtualTimeStretchMode values of different kinds.
 module.VirtualTimeStretchMode = {}
 
@@ -871,6 +910,9 @@ export type RecordOrigin_TrackAudioOutput = { kind: "TrackAudioOutput" }
 --- Records audio flowing into the FX input.
 export type RecordOrigin_FxAudioInput = { kind: "FxAudioInput", first_channel_index: number, channel_count: number }
 export type RecordOrigin = RecordOrigin_TrackInput | RecordOrigin_TrackAudioOutput | RecordOrigin_FxAudioInput
+
+--- A type that represents all possible kinds of RecordOrigin.
+export type RecordOriginKind = "TrackInput" | "TrackAudioOutput" | "FxAudioInput"
 
 --- Helper table to create RecordOrigin values of different kinds.
 module.RecordOrigin = {}
@@ -1006,6 +1048,9 @@ export type AudioCacheBehavior_DirectFromDisk = { kind: "DirectFromDisk" }
 export type AudioCacheBehavior_CacheInMemory = { kind: "CacheInMemory" }
 export type AudioCacheBehavior = AudioCacheBehavior_DirectFromDisk | AudioCacheBehavior_CacheInMemory
 
+--- A type that represents all possible kinds of AudioCacheBehavior.
+export type AudioCacheBehaviorKind = "DirectFromDisk" | "CacheInMemory"
+
 --- Helper table to create AudioCacheBehavior values of different kinds.
 module.AudioCacheBehavior = {}
 
@@ -1037,6 +1082,9 @@ export type ClipColor_CustomColor = { kind: "CustomColor", value: RgbColor }
 --- Uses a certain color from a palette.
 export type ClipColor_PaletteColor = { kind: "PaletteColor", index: number }
 export type ClipColor = ClipColor_PlayTrackColor | ClipColor_CustomColor | ClipColor_PaletteColor
+
+--- A type that represents all possible kinds of ClipColor.
+export type ClipColorKind = "PlayTrackColor" | "CustomColor" | "PaletteColor"
 
 --- Helper table to create ClipColor values of different kinds.
 module.ClipColor = {}
@@ -1088,6 +1136,9 @@ export type Source_File = { kind: "File", path: string }
 export type Source_MidiChunk = { kind: "MidiChunk", chunk: string }
 export type Source = Source_File | Source_MidiChunk
 
+--- A type that represents all possible kinds of Source.
+export type SourceKind = "File" | "MidiChunk"
+
 --- Helper table to create Source values of different kinds.
 module.Source = {}
 
@@ -1130,6 +1181,9 @@ export type ClipTimeBase_Time = { kind: "Time" }
 export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: Bpm?, time_signature: TimeSignature, downbeat: PositiveBeat }
 --- Decides if the clip will be adjusted to the current tempo.
 export type ClipTimeBase = ClipTimeBase_Time | ClipTimeBase_Beat
+
+--- A type that represents all possible kinds of ClipTimeBase.
+export type ClipTimeBaseKind = "Time" | "Beat"
 
 --- Helper table to create ClipTimeBase values of different kinds.
 --- Decides if the clip will be adjusted to the current tempo.
