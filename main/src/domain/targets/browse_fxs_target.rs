@@ -1,6 +1,6 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chains, get_fx_name,
-    shown_fx_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    shown_fx_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FxDisplayType, HitResponse, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseFxsTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fx_chains = get_fx_chains(
             context,

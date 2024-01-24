@@ -216,7 +216,7 @@ impl ActivationState {
 impl MainMapping {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        compartment: Compartment,
+        compartment: CompartmentKind,
         id: MappingId,
         key: &MappingKey,
         group_id: GroupId,
@@ -359,7 +359,7 @@ impl MainMapping {
         self.tags.iter().any(|t| tags.contains(t))
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.core.compartment
     }
 
@@ -1383,7 +1383,7 @@ impl RealTimeMapping {
         self.core.id
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.core.compartment
     }
 
@@ -1502,7 +1502,7 @@ pub enum PartialControlMatch {
 
 #[derive(Clone, Debug)]
 pub struct MappingCore {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     id: MappingId,
     group_id: GroupId,
     pub source: CompoundMappingSource,
@@ -1843,7 +1843,7 @@ impl FeedbackDestinations {
 
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_key: Rc<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
@@ -1862,7 +1862,7 @@ impl SpecificCompoundFeedbackValue {
         } else {
             // Real source
             let projection = if destinations.with_projection_feedback
-                && compartment == Compartment::Controller
+                && compartment == CompartmentKind::Controller
             {
                 // TODO-medium Support textual projection feedback
                 mode_value.to_numeric().map(|v| {
@@ -1913,13 +1913,13 @@ impl<T> AbstractRealFeedbackValue<T> {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: Compartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
+    pub fn new(compartment: CompartmentKind, mapping_key: Rc<str>, value: UnitValue) -> Self {
         Self {
             compartment,
             mapping_key,
@@ -1968,7 +1968,7 @@ impl UnresolvedCompoundMappingTarget {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved_targets = match self {
@@ -2376,12 +2376,12 @@ impl<'a> Target<'a> for CompoundMappingTarget {
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct QualifiedMappingId {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub id: MappingId,
 }
 
 impl QualifiedMappingId {
-    pub fn new(compartment: Compartment, id: MappingId) -> Self {
+    pub fn new(compartment: CompartmentKind, id: MappingId) -> Self {
         Self { compartment, id }
     }
 }
@@ -2402,7 +2402,7 @@ impl QualifiedMappingId {
     Deserialize,
 )]
 #[repr(usize)]
-pub enum Compartment {
+pub enum CompartmentKind {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
     #[display(fmt = "controller compartment")]
@@ -2411,15 +2411,15 @@ pub enum Compartment {
     Main,
 }
 
-impl Compartment {
+impl CompartmentKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
-    pub fn enum_iter() -> impl Iterator<Item = Compartment> + ExactSizeIterator {
-        Compartment::into_enum_iter()
+    pub fn enum_iter() -> impl Iterator<Item = CompartmentKind> + ExactSizeIterator {
+        CompartmentKind::into_enum_iter()
     }
 
     /// Returns the compartment to which the given plug-in parameter index belongs.
-    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> Compartment {
+    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> CompartmentKind {
         Self::enum_iter()
             .find(|c| c.plugin_param_range().contains(&plugin_param_index))
             .unwrap()
@@ -2428,7 +2428,7 @@ impl Compartment {
     /// Translates the given plug-in parameter index to a compartment-local index.
     pub fn translate_plugin_param_index(
         index: PluginParamIndex,
-    ) -> (Compartment, CompartmentParamIndex) {
+    ) -> (CompartmentKind, CompartmentParamIndex) {
         let compartment = Self::by_plugin_param_index(index);
         (compartment, compartment.to_compartment_param_index(index))
     }
@@ -2459,8 +2459,8 @@ impl Compartment {
 
     fn plugin_param_offset(self) -> PluginParamIndex {
         let raw_offset = match self {
-            Compartment::Controller => 100u32,
-            Compartment::Main => 0u32,
+            CompartmentKind::Controller => 100u32,
+            CompartmentKind::Main => 0u32,
         };
         PluginParamIndex::try_from(raw_offset).unwrap()
     }

@@ -3,10 +3,10 @@ use crate::domain::ui_util::{
     volume_unit_value,
 };
 use crate::domain::{
-    interpret_current_clip_slot_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    VirtualPlaytimeSlot, DEFAULT_TARGET,
+    interpret_current_clip_slot_value, Backbone, CompartmentKind, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::persistence::SlotAddress;
@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeSlotVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

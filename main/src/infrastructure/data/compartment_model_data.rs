@@ -1,6 +1,6 @@
 use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, UnitModel};
 use crate::domain::{
-    Compartment, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
+    CompartmentKind, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
     UnitId,
 };
 use crate::infrastructure::data::{
@@ -103,7 +103,7 @@ impl CompartmentModelData {
     pub fn to_model(
         &self,
         version: Option<&Version>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         session: Option<&UnitModel>,
     ) -> anyhow::Result<CompartmentModel> {
         ensure_no_duplicate_compartment_data(

@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, fx_online_unit_value, Compartment, ControlContext,
+    format_value_as_on_off, fx_online_unit_value, CompartmentKind, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, FxDescriptor, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(self
             .fx_descriptor

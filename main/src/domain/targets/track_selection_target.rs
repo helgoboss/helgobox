@@ -1,7 +1,7 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-    track_selected_unit_value, Compartment, CompoundChangeEvent, ControlContext,
+    track_selected_unit_value, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSelectionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

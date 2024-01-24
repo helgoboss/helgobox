@@ -1,7 +1,7 @@
 use crate::domain::{
     get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project,
-    ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
+    ChangeInstanceTrackArgs, CompartmentKind, ControlContext, ExtendedProcessorContext,
+    HitResponse, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let tracks = get_effective_tracks(context, &self.track_descriptor.track, compartment)
             .and_then(|tracks| {

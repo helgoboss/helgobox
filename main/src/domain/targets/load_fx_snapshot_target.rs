@@ -1,9 +1,9 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, Backbone, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, AdditionalFeedbackEvent, Backbone, CompartmentKind,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::hash_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let targets = self
             .fx_descriptor

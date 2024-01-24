@@ -1,15 +1,15 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, MappingControlContext, MappingSnapshot, MappingSnapshotId,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, HitInstruction,
+    HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext,
+    MappingSnapshot, MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForTake;
 
 #[derive(Debug)]
 pub struct UnresolvedTakeMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     /// Mappings which are not in the tag scope don't make it into the snapshot.
     pub scope: TagScope,
     /// Defines whether mappings that are inactive due to conditional activation should make it
@@ -61,7 +61,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::TakeMappingSnapshot(
             TakeMappingSnapshotTarget {
@@ -76,7 +76,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTakeMappingSnapshotTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TakeMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot_id: VirtualMappingSnapshotIdForTake,
@@ -143,7 +143,7 @@ pub const SAVE_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
 };
 
 struct TakeMappingSnapshotInstruction {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     scope: TagScope,
     active_mappings_only: bool,
     snapshot_id: VirtualMappingSnapshotIdForTake,

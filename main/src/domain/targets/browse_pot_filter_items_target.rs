@@ -1,6 +1,6 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
-    convert_unit_to_discrete_value_with_none, Compartment, CompoundChangeEvent, ControlContext,
+    convert_unit_to_discrete_value_with_none, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, InstanceStateChanged, MappingControlContext,
     PotStateChangedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -28,7 +28,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowsePotFilterItemsTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::BrowsePotFilterItems(
             BrowsePotFilterItemsTarget {

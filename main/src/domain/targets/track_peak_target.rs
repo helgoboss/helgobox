@@ -2,7 +2,7 @@ use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    get_effective_tracks, Compartment, ControlContext, ExtendedProcessorContext,
+    get_effective_tracks, CompartmentKind, ControlContext, ExtendedProcessorContext,
     FeedbackResolution, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackPeakTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?

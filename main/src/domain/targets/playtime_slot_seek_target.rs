@@ -5,7 +5,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Ta
 use playtime_api::persistence::SlotAddress;
 
 use crate::domain::{
-    interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, Compartment,
+    interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompartmentKind,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
@@ -26,7 +26,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotSeekTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeSlotSeekTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

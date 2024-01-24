@@ -1,8 +1,8 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_to_discrete_value, Compartment, CompoundChangeEvent,
-    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnitEvent,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_count_to_step_size, convert_unit_to_discrete_value, CompartmentKind,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
 use playtime_api::persistence::SlotAddress;
@@ -18,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeControlUnitScrollTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeControlUnitScrollTarget { axis: self.axis };
         Ok(vec![ReaperTarget::PlaytimeControlUnitScroll(target)])

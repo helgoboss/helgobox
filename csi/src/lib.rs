@@ -1,7 +1,7 @@
 use derive_more::Display;
 use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U14, U7};
 use realearn_api::persistence::{
-    ApiObject, ButtonFilter, CompartmentContent, Envelope, Glue, Interval, MackieLcdSource,
+    ApiObject, ButtonFilter, Compartment, Envelope, Glue, Interval, MackieLcdSource,
     MackieSevenSegmentDisplayScope, MackieSevenSegmentDisplaySource, Mapping,
     MidiChannelPressureAmountSource, MidiControlChangeValueSource, MidiNoteVelocitySource,
     MidiPitchBendChangeValueSource, MidiPolyphonicKeyPressureAmountSource,
@@ -134,7 +134,7 @@ impl CsiObject {
                     annotator.warn("Duplicate widget IDs were produced because of truncation. This will most likely lead to problems! Please shorten the affected widget names.")
                 }
                 let mappings = results.into_iter().flat_map(|r| r.mappings).collect();
-                let compartment = CompartmentContent {
+                let compartment = Compartment {
                     mappings: Some(mappings),
                     ..Default::default()
                 };

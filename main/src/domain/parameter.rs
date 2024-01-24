@@ -1,4 +1,4 @@
-use crate::domain::Compartment;
+use crate::domain::CompartmentKind;
 use base::default_util::{deserialize_null_default, is_default};
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -302,41 +302,44 @@ impl CompartmentParams {
 /// All parameters for the complete plug-in.
 #[derive(Clone, Debug, Default)]
 pub struct PluginParams {
-    compartment_params: EnumMap<Compartment, CompartmentParams>,
+    compartment_params: EnumMap<CompartmentKind, CompartmentParams>,
 }
 
 impl PluginParams {
     /// Returns the parameter at the given index.
     pub fn at(&self, index: PluginParamIndex) -> &Param {
-        let (compartment, index) = Compartment::translate_plugin_param_index(index);
+        let (compartment, index) = CompartmentKind::translate_plugin_param_index(index);
         self.compartment_params(compartment).at(index)
     }
 
     /// Returns the parameter at the given index, mutable.
     pub fn at_mut(&mut self, index: PluginParamIndex) -> &mut Param {
-        let (compartment, index) = Compartment::translate_plugin_param_index(index);
+        let (compartment, index) = CompartmentKind::translate_plugin_param_index(index);
         self.compartment_params_mut(compartment).at_mut(index)
     }
 
     /// Returns the parameter for the given compartment.
-    pub fn compartment_params(&self, compartment: Compartment) -> &CompartmentParams {
+    pub fn compartment_params(&self, compartment: CompartmentKind) -> &CompartmentParams {
         &self.compartment_params[compartment]
     }
 
     /// Returns the parameter for the given compartment, mutable.
-    pub fn compartment_params_mut(&mut self, compartment: Compartment) -> &mut CompartmentParams {
+    pub fn compartment_params_mut(
+        &mut self,
+        compartment: CompartmentKind,
+    ) -> &mut CompartmentParams {
         &mut self.compartment_params[compartment]
     }
 
     /// Returns the parameter name prefixed with compartment label.
     pub fn build_qualified_parameter_name(&self, index: PluginParamIndex) -> String {
-        let (compartment, index) = Compartment::translate_plugin_param_index(index);
+        let (compartment, index) = CompartmentKind::translate_plugin_param_index(index);
         let compartment_param_name = self
             .compartment_params(compartment)
             .get_parameter_name(index);
         let compartment_label = match compartment {
-            Compartment::Controller => "Ctrl",
-            Compartment::Main => "Main",
+            CompartmentKind::Controller => "Ctrl",
+            CompartmentKind::Main => "Main",
         };
         format!(
             "{} p{}: {}",

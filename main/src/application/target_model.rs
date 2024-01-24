@@ -20,8 +20,8 @@ use crate::application::{
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_routes, ActionInvocationType, AnyOnParameter,
-    Compartment, CompartmentParamIndex, CompoundMappingTarget, Exclusivity, ExpressionEvaluator,
-    ExtendedProcessorContext, FeedbackResolution, FxDescriptor, FxDisplayType,
+    CompartmentKind, CompartmentParamIndex, CompoundMappingTarget, Exclusivity,
+    ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution, FxDescriptor, FxDisplayType,
     FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef, MappingSnapshotId,
     MouseActionType, OscDeviceId, PotFilterItemsTargetSettings, ProcessorContext,
     QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
@@ -1354,7 +1354,7 @@ impl TargetModel {
 
     pub fn make_track_sticky(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         context: ExtendedProcessorContext,
     ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.track_type.is_sticky() {
@@ -1370,7 +1370,7 @@ impl TargetModel {
 
     pub fn make_fx_sticky(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         context: ExtendedProcessorContext,
     ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.fx_type.is_sticky() {
@@ -1383,7 +1383,7 @@ impl TargetModel {
 
     pub fn make_route_sticky(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         context: ExtendedProcessorContext,
     ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.route_selector_type.is_sticky() {
@@ -1398,7 +1398,7 @@ impl TargetModel {
     pub fn take_fx_snapshot(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<FxSnapshot, &'static str> {
         let fx = self.with_context(context, compartment).first_fx()?;
         let fx_info = fx.info()?;
@@ -1420,7 +1420,7 @@ impl TargetModel {
     pub fn invalidate_fx_index(
         &mut self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<Affected<TargetProp>> {
         if !self.supports_fx() {
             return None;
@@ -1497,7 +1497,7 @@ impl TargetModel {
         &mut self,
         fx_type: VirtualFxType,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<Affected<TargetProp>> {
         use VirtualFxType::*;
         match fx_type {
@@ -1596,7 +1596,7 @@ impl TargetModel {
         &mut self,
         fx: VirtualFx,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<Affected<TargetProp>> {
         self.set_fx_from_prop_values(
             FxPropValues::from_virtual_fx(fx),
@@ -1612,7 +1612,7 @@ impl TargetModel {
         fx: FxPropValues,
         with_notification: bool,
         context: Option<ExtendedProcessorContext>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<Affected<TargetProp>> {
         self.fx_type = fx.r#type;
         self.fx_expression = fx.expression;
@@ -1763,7 +1763,7 @@ impl TargetModel {
         &mut self,
         target: &ReaperTarget,
         extended_context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<Affected<TargetProp>> {
         let context = extended_context.context();
         use ReaperTarget::*;
@@ -1870,8 +1870,8 @@ impl TargetModel {
         }
     }
 
-    pub fn default_for_compartment(compartment: Compartment) -> Self {
-        use Compartment::*;
+    pub fn default_for_compartment(compartment: CompartmentKind) -> Self {
+        use CompartmentKind::*;
         TargetModel {
             category: match compartment {
                 Controller => TargetCategory::Virtual,
@@ -2304,7 +2304,7 @@ impl TargetModel {
 
     pub fn create_target(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
         use TargetCategory::*;
         match self.category {
@@ -2892,7 +2892,7 @@ impl TargetModel {
     pub fn with_context<'a>(
         &'a self,
         context: ExtendedProcessorContext<'a>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> TargetModelWithContext<'a> {
         TargetModelWithContext {
             target: self,
@@ -3149,11 +3149,15 @@ pub struct TargetModelFormatMultiLine<'a> {
     target: &'a TargetModel,
     context: ExtendedProcessorContext<'a>,
     session: &'a UnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 }
 
 impl<'a> TargetModelFormatMultiLine<'a> {
-    pub fn new(target: &'a TargetModel, session: &'a UnitModel, compartment: Compartment) -> Self {
+    pub fn new(
+        target: &'a TargetModel,
+        session: &'a UnitModel,
+        compartment: CompartmentKind,
+    ) -> Self {
         TargetModelFormatMultiLine {
             target,
             context: session.extended_context(),
@@ -3558,7 +3562,7 @@ pub fn get_fx_label(index: u32, fx: &Fx) -> String {
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
     context: ExtendedProcessorContext<'a>,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 }
 
 impl<'a> TargetModelWithContext<'a> {
@@ -3627,7 +3631,7 @@ impl<'a> TargetModelWithContext<'a> {
 
 pub fn first_effective_track(
     virtual_track: &VirtualTrack,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     context: ExtendedProcessorContext,
 ) -> Result<Track, &'static str> {
     virtual_track
@@ -3640,7 +3644,7 @@ pub fn first_effective_track(
 
 pub fn first_effective_fx(
     fx_descriptor: &FxDescriptor,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     context: ExtendedProcessorContext,
 ) -> Result<Fx, &'static str> {
     fx_descriptor
@@ -3717,19 +3721,19 @@ pub enum TargetCategory {
 }
 
 impl TargetCategory {
-    pub fn default_for(compartment: Compartment) -> Self {
+    pub fn default_for(compartment: CompartmentKind) -> Self {
         use TargetCategory::*;
         match compartment {
-            Compartment::Controller => Virtual,
-            Compartment::Main => Reaper,
+            CompartmentKind::Controller => Virtual,
+            CompartmentKind::Main => Reaper,
         }
     }
 
-    pub fn is_allowed_in(self, compartment: Compartment) -> bool {
+    pub fn is_allowed_in(self, compartment: CompartmentKind) -> bool {
         use TargetCategory::*;
         match compartment {
-            Compartment::Controller => true,
-            Compartment::Main => match self {
+            CompartmentKind::Controller => true,
+            CompartmentKind::Main => match self {
                 Reaper => true,
                 Virtual => false,
             },
@@ -4663,7 +4667,7 @@ const TARGET_OBJECT_IRRELEVANT_LABEL: &str = "<Irrelevant>";
 
 pub fn get_virtual_track_label(
     virtual_track: &VirtualTrack,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     context: ExtendedProcessorContext,
 ) -> String {
     use VirtualTrack::*;
@@ -4681,7 +4685,7 @@ pub fn get_virtual_track_label(
 
 pub fn get_virtual_fx_label(
     fx_descriptor: &FxDescriptor,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     context: ExtendedProcessorContext,
 ) -> String {
     match &fx_descriptor.fx {

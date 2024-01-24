@@ -5,7 +5,7 @@ use crate::application::{
 use crate::base::notification;
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
-    ChangeInstanceTrackArgs, Compartment, ControlSurfaceEventHandler, DeviceDiff,
+    ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler, DeviceDiff,
     EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch,
     InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
     InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
@@ -349,13 +349,13 @@ impl BackboneShell {
         // Presets, preset links and controllers are all global things, so we wire everything now already. However,
         // the actual presets are read from disk when waking up.
         let controller_preset_manager = FileBasedControllerPresetManager::new(
-            Compartment::Controller,
-            BackboneShell::realearn_compartment_preset_dir_path(Compartment::Controller),
+            CompartmentKind::Controller,
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Controller),
             Box::new(BackboneControllerPresetManagerEventHandler),
         );
         let main_preset_manager = FileBasedMainPresetManager::new(
-            Compartment::Main,
-            BackboneShell::realearn_compartment_preset_dir_path(Compartment::Main),
+            CompartmentKind::Main,
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Main),
             Box::new(BackboneMainPresetManagerEventHandler),
         );
         let preset_link_manager =
@@ -971,11 +971,11 @@ impl BackboneShell {
 
     pub fn compartment_preset_manager(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Rc<RefCell<dyn CommonCompartmentPresetManager>> {
         match compartment {
-            Compartment::Controller => self.controller_preset_manager().clone(),
-            Compartment::Main => self.main_preset_manager().clone(),
+            CompartmentKind::Controller => self.controller_preset_manager().clone(),
+            CompartmentKind::Main => self.main_preset_manager().clone(),
         }
     }
 
@@ -1122,10 +1122,10 @@ impl BackboneShell {
         Self::realearn_data_dir_path().join("presets")
     }
 
-    pub fn realearn_compartment_preset_dir_path(compartment: Compartment) -> PathBuf {
+    pub fn realearn_compartment_preset_dir_path(compartment: CompartmentKind) -> PathBuf {
         let sub_dir = match compartment {
-            Compartment::Controller => "controller",
-            Compartment::Main => "main",
+            CompartmentKind::Controller => "controller",
+            CompartmentKind::Main => "main",
         };
         Self::realearn_preset_dir_path().join(sub_dir)
     }
@@ -1519,7 +1519,7 @@ impl BackboneShell {
     pub fn find_first_mapping_by_target() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .find_first_mapping_by_target_async(Compartment::Main)
+                .find_first_mapping_by_target_async(CompartmentKind::Main)
                 .await;
             Ok(())
         });
@@ -1536,7 +1536,7 @@ impl BackboneShell {
     pub fn find_first_mapping_by_source() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .find_first_mapping_by_source_async(Compartment::Main)
+                .find_first_mapping_by_source_async(CompartmentKind::Main)
                 .await;
             Ok(())
         });
@@ -1545,7 +1545,7 @@ impl BackboneShell {
     pub fn learn_mapping_reassigning_source_open() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .learn_mapping_reassigning_source_async(Compartment::Main, true)
+                .learn_mapping_reassigning_source_async(CompartmentKind::Main, true)
                 .await;
             Ok(())
         });
@@ -1561,7 +1561,7 @@ impl BackboneShell {
     pub fn learn_mapping_reassigning_source() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .learn_mapping_reassigning_source_async(Compartment::Main, false)
+                .learn_mapping_reassigning_source_async(CompartmentKind::Main, false)
                 .await;
             Ok(())
         });
@@ -1578,7 +1578,7 @@ impl BackboneShell {
             None => return,
             Some(t) => t,
         };
-        BackboneShell::get().start_learning_source_for_target(Compartment::Main, target);
+        BackboneShell::get().start_learning_source_for_target(CompartmentKind::Main, target);
     }
 
     pub fn show_hide_playtime() {
@@ -1645,7 +1645,7 @@ impl BackboneShell {
 
     async fn find_first_mapping_by_source_async(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
@@ -1681,7 +1681,7 @@ impl BackboneShell {
 
     async fn find_first_mapping_by_target_async(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
         self.show_message_panel("ReaLearn", "Touch some targets!", || {
@@ -1708,7 +1708,7 @@ impl BackboneShell {
 
     async fn learn_mapping_reassigning_source_async(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         open_mapping: bool,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
@@ -1898,7 +1898,11 @@ impl BackboneShell {
         Err("capturing ended")
     }
 
-    fn start_learning_source_for_target(&self, compartment: Compartment, target: &ReaperTarget) {
+    fn start_learning_source_for_target(
+        &self,
+        compartment: CompartmentKind,
+        target: &ReaperTarget,
+    ) {
         // Try to find an existing session which has a target with that parameter
         let session = self
             .find_first_relevant_session_with_target(compartment, target)
@@ -1928,7 +1932,7 @@ impl BackboneShell {
 
     fn find_first_relevant_session_with_target(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         target: &ReaperTarget,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.find_first_session_with_target(
@@ -1942,7 +1946,7 @@ impl BackboneShell {
     fn find_first_session_with_target(
         &self,
         project: Option<Project>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         target: &ReaperTarget,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.unit_infos.borrow().iter().find_map(|session| {
@@ -2008,7 +2012,7 @@ impl BackboneShell {
 
     fn find_first_relevant_session_with_source_matching(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.find_first_session_with_source_matching(
@@ -2022,7 +2026,7 @@ impl BackboneShell {
     fn find_first_session_with_source_matching(
         &self,
         project: Option<Project>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
         self.unit_infos.borrow().iter().find_map(|session| {

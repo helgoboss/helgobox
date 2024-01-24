@@ -1,6 +1,6 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    convert_count_to_step_size, Compartment, CompartmentParamIndex, CompoundChangeEvent,
+    convert_count_to_step_size, CompartmentKind, CompartmentParamIndex, CompoundChangeEvent,
     ControlContext, EffectiveParamValue, ExtendedProcessorContext, HitResponse,
     MappingControlContext, PluginParamIndex, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -11,7 +11,7 @@ use std::num::NonZeroU32;
 
 #[derive(Debug)]
 pub struct UnresolvedCompartmentParameterValueTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub index: CompartmentParamIndex,
 }
 
@@ -19,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedCompartmentParameterValueTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::CompartmentParameterValue(
             CompartmentParameterValueTarget {
@@ -32,7 +32,7 @@ impl UnresolvedReaperTargetDef for UnresolvedCompartmentParameterValueTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompartmentParameterValueTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub index: CompartmentParamIndex,
 }
 

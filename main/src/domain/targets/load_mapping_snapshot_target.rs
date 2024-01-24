@@ -1,16 +1,16 @@
 use crate::domain::{
-    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, MainMapping,
-    MappingControlContext, MappingControlResult, MappingSnapshotId, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitEvent,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext,
+    ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
+    HitResponse, MainMapping, MappingControlContext, MappingControlResult, MappingSnapshotId,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
+    TargetTypeDef, Unit, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForLoad;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     /// Mappings which are in the snapshot but not in the tag scope will be ignored.
     pub scope: TagScope,
     /// If `false`, mappings which are contained in the snapshot but are now inactive
@@ -78,7 +78,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::LoadMappingSnapshot(
             LoadMappingSnapshotTarget {
@@ -94,7 +94,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot_id: VirtualMappingSnapshotIdForLoad,
@@ -180,7 +180,7 @@ pub const LOAD_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
 };
 
 struct LoadMappingSnapshotInstruction {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     scope: TagScope,
     active_mappings_only: bool,
     snapshot: VirtualMappingSnapshotIdForLoad,

@@ -1,5 +1,5 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -12,7 +12,7 @@ impl UnresolvedReaperTargetDef for UnresolvedDummyTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Dummy(DummyTarget::new())])
     }

@@ -15,7 +15,7 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
-    Compartment, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
+    CompartmentKind, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
     QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
@@ -109,7 +109,7 @@ impl UnitPanel {
         self.mapping_rows_panel.force_scroll_to_mapping(id);
     }
 
-    pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
+    pub fn edit_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         self.mapping_rows_panel
             .edit_mapping(compartment, mapping_id);
     }
@@ -152,7 +152,7 @@ impl UnitPanel {
         let _ = self.do_with_session(|session| {
             let instance_state = session.unit().borrow();
             let instance_track = instance_state.instance_track_descriptor();
-            let compartment = Compartment::Main;
+            let compartment = CompartmentKind::Main;
             let instance_track_label = get_virtual_track_label(
                 &instance_track.track,
                 compartment,
@@ -465,7 +465,7 @@ impl View for UnitPanel {
 }
 
 impl SessionUi for Weak<UnitPanel> {
-    fn show_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn show_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         upgrade_panel(self).edit_mapping(compartment, mapping_id);
     }
 

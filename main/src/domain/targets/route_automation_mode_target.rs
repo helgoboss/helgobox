@@ -1,5 +1,5 @@
 use crate::domain::{
-    automation_mode_unit_value, format_value_as_on_off, get_track_routes, Compartment,
+    automation_mode_unit_value, format_value_as_on_off, get_track_routes, CompartmentKind,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes

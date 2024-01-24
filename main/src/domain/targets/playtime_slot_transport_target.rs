@@ -1,9 +1,10 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
-    transport_is_enabled_unit_value, Backbone, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
+    transport_is_enabled_unit_value, Backbone, CompartmentKind, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
+    DEFAULT_TARGET,
 };
 use anyhow::bail;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -39,7 +40,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotTransportTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context.project_or_current_project();
         let target = PlaytimeSlotTransportTarget {

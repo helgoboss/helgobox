@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, Backbone, Compartment, CompoundChangeEvent, ControlContext,
+    format_value_as_on_off, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeColumnActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeColumnActionTarget {
             column_index: self.column.resolve(context, compartment)?,

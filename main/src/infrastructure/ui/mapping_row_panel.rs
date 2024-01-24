@@ -4,7 +4,7 @@ use crate::application::{
     UnitModel, WeakUnitModel,
 };
 use crate::base::when;
-use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId};
+use crate::domain::{CompartmentKind, GroupId, GroupKey, MappingId, QualifiedMappingId};
 
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
@@ -240,7 +240,7 @@ impl MappingRowPanel {
         let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
-            let controller_mappings = session.mappings(Compartment::Controller);
+            let controller_mappings = session.mappings(CompartmentKind::Controller);
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();
@@ -499,7 +499,7 @@ impl MappingRowPanel {
         Ok(())
     }
 
-    fn active_compartment(&self) -> Compartment {
+    fn active_compartment(&self) -> CompartmentKind {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -928,7 +928,7 @@ impl Drop for MappingRowPanel {
 
 fn move_mapping_to_group(
     session: SharedUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     group_id: Option<GroupId>,
 ) -> Result<(), &'static str> {
@@ -947,7 +947,7 @@ fn move_mapping_to_group(
 
 fn copy_mapping_object(
     session: SharedUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     object_type: ObjectType,
     format: SerializationFormat,
@@ -1064,7 +1064,7 @@ fn paste_data_object_in_place(
 pub fn paste_mappings(
     mapping_datas: Envelope<Vec<MappingModelData>>,
     session: SharedUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,
 ) -> Result<(), Box<dyn Error>> {
@@ -1109,7 +1109,7 @@ pub fn paste_mappings(
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
 
 struct MappingTriple {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     group_id: GroupId,
 }

@@ -13,7 +13,7 @@ use crate::application::{
     SharedUnitModel, UnitModel, WeakUnitModel,
 };
 use crate::domain::ui_util::format_tags_as_csv;
-use crate::domain::{Compartment, MappingId, Tag};
+use crate::domain::{CompartmentKind, MappingId, Tag};
 use crate::infrastructure::ui::menus;
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
@@ -31,7 +31,7 @@ pub struct MappingHeaderPanel {
 }
 
 pub trait Item: Debug {
-    fn compartment(&self) -> Compartment;
+    fn compartment(&self) -> CompartmentKind;
     fn supports_name_change(&self) -> bool;
     fn name(&self) -> &str;
     fn set_name(&mut self, session: WeakUnitModel, name: String, initiator: u32);
@@ -348,7 +348,7 @@ impl MappingHeaderPanel {
         session: &UnitModel,
         button: Window,
         check_box: Window,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         modifier_condition: ModifierConditionModel,
     ) {
         check_box.show();
@@ -702,7 +702,7 @@ impl View for MappingHeaderPanel {
 }
 
 impl Item for MappingModel {
-    fn compartment(&self) -> Compartment {
+    fn compartment(&self) -> CompartmentKind {
         self.compartment()
     }
 
@@ -852,7 +852,7 @@ impl Item for MappingModel {
 }
 
 impl Item for GroupModel {
-    fn compartment(&self) -> Compartment {
+    fn compartment(&self) -> CompartmentKind {
         self.compartment()
     }
 

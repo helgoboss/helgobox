@@ -1,6 +1,6 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
+    format_value_as_on_off, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
     HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
     MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct UnresolvedModifyMappingTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_ref: MappingRef,
     pub modification: MappingModification,
 }
@@ -43,7 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ModifyMapping(ModifyMappingTarget {
             compartment: self.compartment,
@@ -57,7 +57,7 @@ impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
 pub struct ModifyMappingTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub modification: MappingModification,
     pub mapping_ref: MappingRef,
 }
@@ -81,7 +81,7 @@ impl RealearnTarget for ModifyMappingTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         struct ModifyMappingInstruction {
-            compartment: Compartment,
+            compartment: CompartmentKind,
             instance_id: Option<UnitId>,
             mapping_id: MappingId,
             modification: MappingModification,

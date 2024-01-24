@@ -3,7 +3,7 @@
 use crate::application::{
     CompartmentPresetManager, CompartmentPresetModel, SourceCategory, TargetCategory, UnitModel,
 };
-use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
+use crate::domain::{CompartmentKind, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
 use helgoboss_learn::UnitValue;
@@ -127,7 +127,7 @@ pub fn get_controller_routing(session: &UnitModel) -> ControllerRouting {
     });
     let instance_state = session.unit().borrow();
     let routes = session
-        .mappings(Compartment::Controller)
+        .mappings(CompartmentKind::Controller)
         .filter_map(|m| {
             let m = m.borrow();
             if !m.visible_in_projection() {
@@ -137,13 +137,14 @@ pub fn get_controller_routing(session: &UnitModel) -> ControllerRouting {
                 if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_main_mappings = session.mappings(Compartment::Main).filter(|mp| {
-                        let mp = mp.borrow();
-                        mp.visible_in_projection()
-                            && mp.source_model.category() == SourceCategory::Virtual
-                            && mp.source_model.create_control_element() == control_element
-                            && instance_state.mapping_is_on(mp.qualified_id())
-                    });
+                    let matching_main_mappings =
+                        session.mappings(CompartmentKind::Main).filter(|mp| {
+                            let mp = mp.borrow();
+                            mp.visible_in_projection()
+                                && mp.source_model.category() == SourceCategory::Virtual
+                                && mp.source_model.create_control_element() == control_element
+                                && instance_state.mapping_is_on(mp.qualified_id())
+                        });
                     let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {
                             let m = m.borrow();
@@ -207,7 +208,7 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
         for unit in units {
             let mut unit = unit.borrow_mut();
             unit.update_custom_compartment_data_key(
-                Compartment::Controller,
+                CompartmentKind::Controller,
                 custom_data_key.to_string(),
                 req.value.clone(),
             );
@@ -352,7 +353,7 @@ fn get_controller(session: &UnitModel) -> Option<CompartmentPresetData> {
 fn get_controller_preset_data_internal(
     session: &UnitModel,
 ) -> Result<CompartmentPresetData, DataError> {
-    let data = session.extract_compartment_model(Compartment::Controller);
+    let data = session.extract_compartment_model(CompartmentKind::Controller);
     if data.mappings.is_empty() {
         return Err(DataError::SessionHasNoActiveController);
     }
@@ -368,7 +369,7 @@ fn get_controller_preset_data_internal(
     let preset = CompartmentPresetModel::new(
         id.map(|id| id.to_string()).unwrap_or_default(),
         name.unwrap_or_else(|| "<Not saved>".to_string()),
-        Compartment::Controller,
+        CompartmentKind::Controller,
         data,
     );
     Ok(CompartmentPresetData::from_model(&preset))

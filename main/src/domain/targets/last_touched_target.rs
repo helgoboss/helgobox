@@ -1,6 +1,6 @@
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    Backbone, Compartment, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
+    Backbone, CompartmentKind, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
     ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use realearn_api::persistence::TargetTouchCause;
@@ -16,7 +16,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLastTouchedTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let filter = LastTouchedTargetFilter {
             included_target_types: &self.included_targets,

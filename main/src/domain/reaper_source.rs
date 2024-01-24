@@ -1,4 +1,4 @@
-use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
+use crate::domain::{CompartmentKind, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
@@ -190,7 +190,7 @@ impl ReaperSource {
     pub fn control(
         &mut self,
         msg: &ReaperMessage,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<ControlValue> {
         use ReaperMessage::*;
         let control_value = match msg {
@@ -261,7 +261,7 @@ pub enum ReaperMessage {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct RealearnParameterChangePayload {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub parameter_index: CompartmentParamIndex,
     pub value: RawParamValue,
 }

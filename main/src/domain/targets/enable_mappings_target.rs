@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
+    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext, DomainEvent,
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
     HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
@@ -12,7 +12,7 @@ use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct UnresolvedEnableMappingsTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub exclusivity: Exclusivity,
 }
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
             compartment: self.compartment,
@@ -35,7 +35,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
 pub struct EnableMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub exclusivity: Exclusivity,
 }
@@ -56,7 +56,7 @@ impl RealearnTarget for EnableMappingsTarget {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
         struct EnableMappingsInstruction {
-            compartment: Compartment,
+            compartment: CompartmentKind,
             scope: TagScope,
             mapping_data: MappingData,
             is_enable: bool,

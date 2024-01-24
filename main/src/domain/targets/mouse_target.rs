@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    convert_count_to_step_size, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_count_to_step_size, CompartmentKind, ControlContext, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMouseTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Mouse(EnigoMouseTarget {
             mouse: Default::default(),

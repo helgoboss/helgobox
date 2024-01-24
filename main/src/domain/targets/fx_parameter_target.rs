@@ -1,6 +1,6 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_params, AdditionalFeedbackEvent, Backbone, Caller, Compartment, CompoundChangeEvent,
+    get_fx_params, AdditionalFeedbackEvent, Backbone, Caller, CompartmentKind, CompoundChangeEvent,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
     HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
@@ -27,7 +27,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
         let targets = params

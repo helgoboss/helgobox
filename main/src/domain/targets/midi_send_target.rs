@@ -1,6 +1,6 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
     TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SendMidi(MidiSendTarget::new(
             self.pattern.clone(),

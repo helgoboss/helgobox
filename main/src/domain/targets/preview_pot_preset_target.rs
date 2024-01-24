@@ -1,5 +1,5 @@
 use crate::domain::{
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPreviewPotPresetTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::PreviewPotPreset(
             PreviewPotPresetTarget {},

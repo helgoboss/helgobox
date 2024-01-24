@@ -8,8 +8,8 @@ use realearn_api::persistence;
 pub fn convert_compartment(
     data: CompartmentModelData,
     style: ConversionStyle,
-) -> ConversionResult<persistence::CompartmentContent> {
-    let compartment = persistence::CompartmentContent {
+) -> ConversionResult<persistence::Compartment> {
+    let compartment = persistence::Compartment {
         default_group: {
             let v = if let Some(group_data) = data.default_group {
                 Some(convert_group(group_data, style)?)

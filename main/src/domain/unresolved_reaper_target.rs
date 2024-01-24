@@ -1,7 +1,7 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    scoped_track_index, Backbone, Compartment, CompartmentParamIndex, CompartmentParams,
+    scoped_track_index, Backbone, CompartmentKind, CompartmentParamIndex, CompartmentParams,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, ReaperTarget,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedBrowseFxsTarget, UnresolvedBrowseGroupTarget,
@@ -259,7 +259,7 @@ impl UnresolvedReaperTarget {
 pub fn get_effective_tracks(
     context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Result<Vec<Track>, &'static str> {
     virtual_track
         .resolve(context, compartment)
@@ -270,7 +270,7 @@ pub fn get_effective_tracks(
 pub fn get_track_routes(
     context: ExtendedProcessorContext,
     descriptor: &TrackRouteDescriptor,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Result<Vec<TrackRoute>, &'static str> {
     let tracks = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?;
     let routes = tracks
@@ -473,7 +473,7 @@ impl FxDescriptor {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<Fx>, &'static str> {
         match &self.fx {
             VirtualFx::This => {
@@ -564,7 +564,7 @@ impl TrackRouteDescriptor {
     pub fn resolve_first(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<TrackRoute, Box<dyn Error>> {
         let tracks = self.track_descriptor.track.resolve(context, compartment)?;
         let track = tracks.first().ok_or("didn't resolve to any track")?;
@@ -593,7 +593,7 @@ impl TrackRouteSelector {
         track: &Track,
         route_type: TrackRouteType,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<TrackRoute, TrackRouteResolveError> {
         use TrackRouteSelector::*;
         let route = match self {
@@ -628,7 +628,7 @@ impl TrackRouteSelector {
     pub fn calculated_route_index(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<u32> {
         if let TrackRouteSelector::Dynamic(evaluator) = self {
             Some(Self::evaluate_to_route_index(evaluator, context, compartment).ok()?)
@@ -640,7 +640,7 @@ impl TrackRouteSelector {
     fn evaluate_to_route_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<u32, TrackRouteResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
@@ -695,7 +695,7 @@ impl VirtualTrackRoute {
         &self,
         track: &Track,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<TrackRoute, TrackRouteResolveError> {
         self.selector
             .resolve(track, self.r#type, context, compartment)
@@ -772,7 +772,7 @@ impl VirtualPlaytimeSlot {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<playtime_api::persistence::SlotAddress, &'static str> {
         use playtime_api::persistence::SlotAddress;
         use VirtualPlaytimeSlot::*;
@@ -850,7 +850,7 @@ impl VirtualPlaytimeColumn {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeColumn::*;
         let index = match self {
@@ -899,7 +899,7 @@ impl VirtualPlaytimeRow {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeRow::*;
         let index = match self {
@@ -1001,7 +1001,7 @@ impl VirtualFxParameter {
         &self,
         fx: &Fx,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<FxParameter, FxParameterResolveError> {
         use VirtualFxParameter::*;
         match self {
@@ -1030,7 +1030,7 @@ impl VirtualFxParameter {
     pub fn calculated_fx_parameter_index(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         fx: &Fx,
     ) -> Option<u32> {
         if let VirtualFxParameter::Dynamic(evaluator) = self {
@@ -1047,7 +1047,7 @@ impl VirtualFxParameter {
     fn evaluate_to_fx_parameter_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         fx: &Fx,
     ) -> Result<u32, FxParameterResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
@@ -1357,7 +1357,7 @@ impl VirtualTrack {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<Track>, TrackResolveError> {
         use VirtualTrack::*;
         let project = context.context().project_or_current_project();
@@ -1487,7 +1487,7 @@ impl VirtualTrack {
     pub fn calculated_track_index(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<i32> {
         if let VirtualTrack::Dynamic {
             evaluator: expression_evaluator,
@@ -1503,7 +1503,7 @@ impl VirtualTrack {
     fn evaluate_to_track_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<i32, TrackResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
         let result = evaluator
@@ -1756,7 +1756,7 @@ impl VirtualChainFx {
         &self,
         fx_chains: &[FxChain],
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<Fx>, FxResolveError> {
         use VirtualChainFx::*;
         let fxs = match self {
@@ -1833,7 +1833,7 @@ impl VirtualChainFx {
     pub fn calculated_fx_index(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         chain: &FxChain,
     ) -> Option<u32> {
         if let VirtualChainFx::Dynamic(evaluator) = self {
@@ -1846,7 +1846,7 @@ impl VirtualChainFx {
     fn evaluate_to_fx_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         chain: &FxChain,
     ) -> Result<u32, FxResolveError> {
         let compartment_params = context.params().compartment_params(compartment);
@@ -1979,7 +1979,7 @@ pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String 
 pub fn get_fx_params(
     context: ExtendedProcessorContext,
     fx_parameter_descriptor: &FxParameterDescriptor,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Result<Vec<FxParameter>, &'static str> {
     let fxs = fx_parameter_descriptor
         .fx_descriptor
@@ -2061,7 +2061,7 @@ pub fn get_fx_chains(
     context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Result<Vec<FxChain>, &'static str> {
     let fx_chains = get_effective_tracks(context, track, compartment)?
         .into_iter()
@@ -2179,7 +2179,7 @@ pub trait UnresolvedReaperTargetDef {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str>;
 
     /// `None` means that no polling is necessary for feedback because we are notified via events.

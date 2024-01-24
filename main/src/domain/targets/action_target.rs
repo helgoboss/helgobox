@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_bool_as_on_off, get_effective_tracks, ActionInvocationType, AdditionalFeedbackEvent,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         let resolved_targets = if let Some(td) = &self.track_descriptor {

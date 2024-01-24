@@ -1,5 +1,5 @@
 use crate::application::CompartmentPresetModel;
-use crate::domain::Compartment;
+use crate::domain::CompartmentKind;
 use crate::infrastructure::data::CompartmentModelData;
 use base::default_util::{deserialize_null_default, is_default};
 
@@ -37,7 +37,7 @@ impl CompartmentPresetData {
     pub fn to_model(
         &self,
         id: String,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> anyhow::Result<CompartmentPresetModel> {
         let preset = CompartmentPresetModel::new(
             id,

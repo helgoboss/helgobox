@@ -4,18 +4,6 @@
 
 local module = {}
 
-export type PlaytimePersistenceRoot = {
-	matrix: Matrix,
-	even_quantization: EvenQuantization,
-}
---- Creates a PlaytimePersistenceRoot value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
-function module.PlaytimePersistenceRoot(value: PlaytimePersistenceRoot): PlaytimePersistenceRoot
-	return value
-end
-
 export type Matrix = {
 	columns: { Column }?,
 	rows: { Row }?,
@@ -27,9 +15,6 @@ export type Matrix = {
 	sequencer: MatrixSequencer?,
 }
 --- Creates a Matrix value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Matrix(value: Matrix): Matrix
 	return value
 end
@@ -39,9 +24,6 @@ export type MatrixSequencer = {
 	active_sequence: MatrixSequenceId?,
 }
 --- Creates a MatrixSequencer value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequencer(value: MatrixSequencer): MatrixSequencer
 	return value
 end
@@ -52,9 +34,6 @@ export type MatrixSequence = {
 	data: MatrixSequenceData,
 }
 --- Creates a MatrixSequence value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequence(value: MatrixSequence): MatrixSequence
 	return value
 end
@@ -64,9 +43,6 @@ export type MatrixSequenceInfo = {
 	created_at: string,
 }
 --- Creates a MatrixSequenceInfo value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceInfo(value: MatrixSequenceInfo): MatrixSequenceInfo
 	return value
 end
@@ -77,9 +53,6 @@ export type MatrixSequenceData = {
 	events: { MatrixSequenceEvent },
 }
 --- Creates a MatrixSequenceData value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceData(value: MatrixSequenceData): MatrixSequenceData
 	return value
 end
@@ -89,9 +62,6 @@ export type MatrixSequenceEvent = {
 	message: MatrixSequenceMessage,
 }
 --- Creates a MatrixSequenceEvent value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceEvent(value: MatrixSequenceEvent): MatrixSequenceEvent
 	return value
 end
@@ -110,9 +80,6 @@ export type MatrixSequenceColumnMessage = {
 	index: number,
 }
 --- Creates a MatrixSequenceColumnMessage value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceColumnMessage(value: MatrixSequenceColumnMessage): MatrixSequenceColumnMessage
 	return value
 end
@@ -121,9 +88,6 @@ export type MatrixSequenceRowMessage = {
 	index: number,
 }
 --- Creates a MatrixSequenceRowMessage value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceRowMessage(value: MatrixSequenceRowMessage): MatrixSequenceRowMessage
 	return value
 end
@@ -133,9 +97,6 @@ export type MatrixSequenceSlotMessage = {
 	row_index: number,
 }
 --- Creates a MatrixSequenceSlotMessage value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSequenceSlotMessage(value: MatrixSequenceSlotMessage): MatrixSequenceSlotMessage
 	return value
 end
@@ -144,9 +105,6 @@ export type ContentQuantizationSettings = {
 	quantization: EvenQuantization,
 }
 --- Creates a ContentQuantizationSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ContentQuantizationSettings(value: ContentQuantizationSettings): ContentQuantizationSettings
 	return value
 end
@@ -156,9 +114,6 @@ export type SignedMatrix = {
 	signature: string,
 }
 --- Creates a SignedMatrix value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SignedMatrix(value: SignedMatrix): SignedMatrix
 	return value
 end
@@ -171,9 +126,6 @@ export type MatrixSettings = {
 	content_quantization_settings: ContentQuantizationSettings,
 }
 --- Creates a MatrixSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixSettings(value: MatrixSettings): MatrixSettings
 	return value
 end
@@ -183,9 +135,6 @@ export type TempoRange = {
 	max: Bpm,
 }
 --- Creates a TempoRange value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TempoRange(value: TempoRange): TempoRange
 	return value
 end
@@ -197,9 +146,6 @@ export type MatrixClipPlaySettings = {
 	audio_settings: MatrixClipPlayAudioSettings,
 }
 --- Creates a MatrixClipPlaySettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixClipPlaySettings(value: MatrixClipPlaySettings): MatrixClipPlaySettings
 	return value
 end
@@ -210,9 +156,6 @@ export type MatrixClipPlayAudioSettings = {
 	cache_behavior: AudioCacheBehavior,
 }
 --- Creates a MatrixClipPlayAudioSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixClipPlayAudioSettings(value: MatrixClipPlayAudioSettings): MatrixClipPlayAudioSettings
 	return value
 end
@@ -230,9 +173,6 @@ export type MatrixClipRecordSettings = {
 	audio_settings: MatrixClipRecordAudioSettings,
 }
 --- Creates a MatrixClipRecordSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixClipRecordSettings(value: MatrixClipRecordSettings): MatrixClipRecordSettings
 	return value
 end
@@ -245,9 +185,6 @@ export type MatrixClipRecordMidiSettings = {
 	clip_settings: ClipMidiSettings?,
 }
 --- Creates a MatrixClipRecordMidiSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixClipRecordMidiSettings(value: MatrixClipRecordMidiSettings): MatrixClipRecordMidiSettings
 	return value
 end
@@ -257,9 +194,6 @@ export type MatrixClipRecordAudioSettings = {
 	detect_input: boolean,
 }
 --- Creates a MatrixClipRecordAudioSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MatrixClipRecordAudioSettings(value: MatrixClipRecordAudioSettings): MatrixClipRecordAudioSettings
 	return value
 end
@@ -590,9 +524,6 @@ export type ClipPlayStartTimingOverride = {
 	value: ClipPlayStartTiming,
 }
 --- Creates a ClipPlayStartTimingOverride value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ClipPlayStartTimingOverride(value: ClipPlayStartTimingOverride): ClipPlayStartTimingOverride
 	return value
 end
@@ -601,9 +532,6 @@ export type ClipPlayStopTimingOverride = {
 	value: ClipPlayStopTiming,
 }
 --- Creates a ClipPlayStopTimingOverride value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ClipPlayStopTimingOverride(value: ClipPlayStopTimingOverride): ClipPlayStopTimingOverride
 	return value
 end
@@ -613,9 +541,6 @@ export type EvenQuantization = {
 	denominator: number,
 }
 --- Creates a EvenQuantization value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.EvenQuantization(value: EvenQuantization): EvenQuantization
 	return value
 end
@@ -638,9 +563,6 @@ export type Column = {
 	slots: { Slot }?,
 }
 --- Creates a Column value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Column(value: Column): Column
 	return value
 end
@@ -651,9 +573,6 @@ export type ColumnSettings = {
 	clip_record_settings: ColumnClipRecordSettings,
 }
 --- Creates a ColumnSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColumnSettings(value: ColumnSettings): ColumnSettings
 	return value
 end
@@ -667,9 +586,6 @@ export type ColumnClipPlaySettings = {
 	audio_settings: ColumnClipPlayAudioSettings,
 }
 --- Creates a ColumnClipPlaySettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColumnClipPlaySettings(value: ColumnClipPlaySettings): ColumnClipPlaySettings
 	return value
 end
@@ -679,9 +595,6 @@ export type ColumnClipRecordSettings = {
 	track: TrackId?,
 }
 --- Creates a ColumnClipRecordSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColumnClipRecordSettings(value: ColumnClipRecordSettings): ColumnClipRecordSettings
 	return value
 end
@@ -692,9 +605,6 @@ export type ColumnClipPlayAudioSettings = {
 	cache_behavior: AudioCacheBehavior?,
 }
 --- Creates a ColumnClipPlayAudioSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColumnClipPlayAudioSettings(value: ColumnClipPlayAudioSettings): ColumnClipPlayAudioSettings
 	return value
 end
@@ -706,9 +616,6 @@ export type Row = {
 	time_signature: TimeSignature?,
 }
 --- Creates a Row value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Row(value: Row): Row
 	return value
 end
@@ -761,9 +668,6 @@ export type ReaperResampleMode = {
 	mode: number,
 }
 --- Creates a ReaperResampleMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ReaperResampleMode(value: ReaperResampleMode): ReaperResampleMode
 	return value
 end
@@ -772,9 +676,6 @@ export type TimeStretchMode = {
 	mode: VirtualTimeStretchMode,
 }
 --- Creates a TimeStretchMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TimeStretchMode(value: TimeStretchMode): TimeStretchMode
 	return value
 end
@@ -806,9 +707,6 @@ export type ReaperPitchShiftMode = {
 	sub_mode: number,
 }
 --- Creates a ReaperPitchShiftMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ReaperPitchShiftMode(value: ReaperPitchShiftMode): ReaperPitchShiftMode
 	return value
 end
@@ -850,9 +748,6 @@ export type ChannelRange = {
 	channel_count: number,
 }
 --- Creates a ChannelRange value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ChannelRange(value: ChannelRange): ChannelRange
 	return value
 end
@@ -864,9 +759,6 @@ export type Slot = {
 	clips: { Clip }?,
 }
 --- Creates a Slot value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Slot(value: Slot): Slot
 	return value
 end
@@ -889,9 +781,6 @@ export type Clip = {
 	midi_settings: ClipMidiSettings,
 }
 --- Creates a Clip value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Clip(value: Clip): Clip
 	return value
 end
@@ -904,9 +793,6 @@ export type ClipAudioSettings = {
 	original_tempo: Bpm?,
 }
 --- Creates a ClipAudioSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ClipAudioSettings(value: ClipAudioSettings): ClipAudioSettings
 	return value
 end
@@ -918,9 +804,6 @@ export type ClipMidiSettings = {
 	interaction_reset_settings: MidiResetMessageRange,
 }
 --- Creates a ClipMidiSettings value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ClipMidiSettings(value: ClipMidiSettings): ClipMidiSettings
 	return value
 end
@@ -930,9 +813,6 @@ export type MidiResetMessageRange = {
 	right: MidiResetMessages,
 }
 --- Creates a MidiResetMessageRange value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiResetMessageRange(value: MidiResetMessageRange): MidiResetMessageRange
 	return value
 end
@@ -945,9 +825,6 @@ export type MidiResetMessages = {
 	damper_pedal_off: boolean,
 }
 --- Creates a MidiResetMessages value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
 	return value
 end
@@ -957,9 +834,6 @@ export type Section = {
 	length: PositiveSecond?,
 }
 --- Creates a Section value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Section(value: Section): Section
 	return value
 end
@@ -1020,9 +894,6 @@ export type CustomClipColor = {
 	value: RgbColor,
 }
 --- Creates a CustomClipColor value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.CustomClipColor(value: CustomClipColor): CustomClipColor
 	return value
 end
@@ -1031,9 +902,6 @@ export type PaletteClipColor = {
 	index: number,
 }
 --- Creates a PaletteClipColor value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PaletteClipColor(value: PaletteClipColor): PaletteClipColor
 	return value
 end
@@ -1064,9 +932,6 @@ export type FileSource = {
 	path: string,
 }
 --- Creates a FileSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FileSource(value: FileSource): FileSource
 	return value
 end
@@ -1075,9 +940,6 @@ export type MidiChunkSource = {
 	chunk: string,
 }
 --- Creates a MidiChunkSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiChunkSource(value: MidiChunkSource): MidiChunkSource
 	return value
 end
@@ -1110,9 +972,6 @@ export type BeatTimeBase = {
 	downbeat: PositiveBeat,
 }
 --- Creates a BeatTimeBase value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BeatTimeBase(value: BeatTimeBase): BeatTimeBase
 	return value
 end
@@ -1121,9 +980,6 @@ export type ColorPalette = {
 	entries: { ColorPaletteEntry },
 }
 --- Creates a ColorPalette value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColorPalette(value: ColorPalette): ColorPalette
 	return value
 end
@@ -1132,9 +988,6 @@ export type ColorPaletteEntry = {
 	color: RgbColor,
 }
 --- Creates a ColorPaletteEntry value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColorPaletteEntry(value: ColorPaletteEntry): ColorPaletteEntry
 	return value
 end
@@ -1144,9 +997,6 @@ export type TimeSignature = {
 	denominator: number,
 }
 --- Creates a TimeSignature value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TimeSignature(value: TimeSignature): TimeSignature
 	return value
 end
@@ -1167,9 +1017,6 @@ export type ColumnAddress = {
 	index: number,
 }
 --- Creates a ColumnAddress value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ColumnAddress(value: ColumnAddress): ColumnAddress
 	return value
 end
@@ -1178,9 +1025,6 @@ export type RowAddress = {
 	index: number,
 }
 --- Creates a RowAddress value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RowAddress(value: RowAddress): RowAddress
 	return value
 end
@@ -1190,9 +1034,6 @@ export type SlotAddress = {
 	row_index: number,
 }
 --- Creates a SlotAddress value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SlotAddress(value: SlotAddress): SlotAddress
 	return value
 end

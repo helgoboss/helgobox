@@ -4,7 +4,7 @@ use crate::application::{
     UnitModel, WeakUnitModel,
 };
 use crate::domain::{
-    compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams,
+    compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
     ControlInput, FeedbackOutput, GroupId, GroupKey, MappingId, MappingKey,
     MappingSnapshotContainer, MappingSnapshotId, MidiControlInput, MidiDestination, OscDeviceId,
     Param, PluginParams, StayActiveWhenProjectInBackground, Tag, Unit, UnitId,
@@ -307,7 +307,7 @@ struct CompartmentState {
 }
 
 impl CompartmentState {
-    fn from_instance_state(instance_state: &Unit, compartment: Compartment) -> Self {
+    fn from_instance_state(instance_state: &Unit, compartment: CompartmentKind) -> Self {
         CompartmentState {
             active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
             active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
@@ -459,43 +459,50 @@ impl UnitData {
                     FeedbackOutput::Osc(dev_id) => FeedbackDeviceId::Osc(dev_id),
                 })
             },
-            default_group: from_group(Compartment::Main),
-            default_controller_group: from_group(Compartment::Controller),
-            groups: from_groups(Compartment::Main),
-            controller_groups: from_groups(Compartment::Controller),
-            mappings: from_mappings(Compartment::Main),
-            controller_mappings: from_mappings(Compartment::Controller),
+            default_group: from_group(CompartmentKind::Main),
+            default_controller_group: from_group(CompartmentKind::Controller),
+            groups: from_groups(CompartmentKind::Main),
+            controller_groups: from_groups(CompartmentKind::Controller),
+            mappings: from_mappings(CompartmentKind::Main),
+            controller_mappings: from_mappings(CompartmentKind::Controller),
             controller_custom_data: unit
-                .custom_compartment_data(Compartment::Controller)
+                .custom_compartment_data(CompartmentKind::Controller)
                 .clone(),
             controller_notes: session
-                .compartment_notes(Compartment::Controller)
+                .compartment_notes(CompartmentKind::Controller)
                 .to_owned(),
-            main_notes: session.compartment_notes(Compartment::Main).to_owned(),
+            main_notes: session.compartment_notes(CompartmentKind::Main).to_owned(),
             active_controller_id: session
-                .active_preset_id(Compartment::Controller)
+                .active_preset_id(CompartmentKind::Controller)
                 .map(|id| id.to_string()),
             active_main_preset_id: session
-                .active_preset_id(Compartment::Main)
+                .active_preset_id(CompartmentKind::Main)
                 .map(|id| id.to_string()),
             main_preset_auto_load_mode,
-            parameters: get_parameter_data_map(&plugin_params, Compartment::Main),
-            controller_parameters: get_parameter_data_map(&plugin_params, Compartment::Controller),
+            parameters: get_parameter_data_map(&plugin_params, CompartmentKind::Main),
+            controller_parameters: get_parameter_data_map(
+                &plugin_params,
+                CompartmentKind::Controller,
+            ),
             #[cfg(feature = "playtime")]
             clip_matrix: None,
             tags: session.tags.get_ref().clone(),
-            controller: CompartmentState::from_instance_state(&unit, Compartment::Controller),
-            main: CompartmentState::from_instance_state(&unit, Compartment::Main),
+            controller: CompartmentState::from_instance_state(&unit, CompartmentKind::Controller),
+            main: CompartmentState::from_instance_state(&unit, CompartmentKind::Main),
             active_instance_tags: unit.active_instance_tags().clone(),
             instance_preset_link_config: session.instance_preset_link_config().clone(),
             use_instance_preset_links_only: session.use_unit_preset_links_only(),
             instance_track: session.instance_track_descriptor().clone(),
             instance_fx: session.instance_fx_descriptor().clone(),
-            mapping_snapshots: convert_mapping_snapshots_to_api(session, &unit, Compartment::Main),
+            mapping_snapshots: convert_mapping_snapshots_to_api(
+                session,
+                &unit,
+                CompartmentKind::Main,
+            ),
             controller_mapping_snapshots: convert_mapping_snapshots_to_api(
                 session,
                 &unit,
-                Compartment::Controller,
+                CompartmentKind::Controller,
             ),
             pot_state: None,
             memorized_main_compartment: session
@@ -547,7 +554,7 @@ impl UnitData {
         let main_conversion_context = SimpleDataToModelConversionContext::from_session_or_random(
             &self.groups,
             &self.mappings,
-            Some(CompartmentInSession::new(session, Compartment::Main)),
+            Some(CompartmentInSession::new(session, CompartmentKind::Main)),
         );
         ensure_no_duplicate_compartment_data(
             &self.mappings,
@@ -667,35 +674,38 @@ impl UnitData {
             SimpleDataToModelConversionContext::from_session_or_random(
                 &self.controller_groups,
                 &self.controller_mappings,
-                Some(CompartmentInSession::new(session, Compartment::Controller)),
+                Some(CompartmentInSession::new(
+                    session,
+                    CompartmentKind::Controller,
+                )),
             );
-        let conversion_context = |compartment: Compartment| match compartment {
-            Compartment::Controller => &controller_conversion_context,
-            Compartment::Main => &main_conversion_context,
+        let conversion_context = |compartment: CompartmentKind| match compartment {
+            CompartmentKind::Controller => &controller_conversion_context,
+            CompartmentKind::Main => &main_conversion_context,
         };
         let get_final_default_group =
-            |def_group: Option<&GroupModelData>, compartment: Compartment| {
+            |def_group: Option<&GroupModelData>, compartment: CompartmentKind| {
                 def_group
                     .map(|g| g.to_model(compartment, true, conversion_context(compartment)))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
         let main_default_group =
-            get_final_default_group(self.default_group.as_ref(), Compartment::Main);
+            get_final_default_group(self.default_group.as_ref(), CompartmentKind::Main);
         let controller_default_group = get_final_default_group(
             self.default_controller_group.as_ref(),
-            Compartment::Controller,
+            CompartmentKind::Controller,
         );
         session
-            .default_group(Compartment::Main)
+            .default_group(CompartmentKind::Main)
             .replace(main_default_group);
         let main_groups: Vec<_> = self
             .groups
             .iter()
             .map(|g| {
                 g.to_model(
-                    Compartment::Main,
+                    CompartmentKind::Main,
                     false,
-                    conversion_context(Compartment::Main),
+                    conversion_context(CompartmentKind::Main),
                 )
             })
             .collect();
@@ -704,17 +714,17 @@ impl UnitData {
             .iter()
             .map(|g| {
                 g.to_model(
-                    Compartment::Controller,
+                    CompartmentKind::Controller,
                     false,
-                    conversion_context(Compartment::Controller),
+                    conversion_context(CompartmentKind::Controller),
                 )
             })
             .collect();
-        session.set_groups_without_notification(Compartment::Main, main_groups);
+        session.set_groups_without_notification(CompartmentKind::Main, main_groups);
         session
-            .default_group(Compartment::Controller)
+            .default_group(CompartmentKind::Controller)
             .replace(controller_default_group);
-        session.set_groups_without_notification(Compartment::Controller, controller_groups);
+        session.set_groups_without_notification(CompartmentKind::Controller, controller_groups);
         // Mappings
 
         let mut apply_mappings =
@@ -734,14 +744,14 @@ impl UnitData {
                 session.set_mappings_without_notification(compartment, mappings?);
                 Ok(())
             };
-        apply_mappings(Compartment::Main, &self.mappings)?;
-        apply_mappings(Compartment::Controller, &self.controller_mappings)?;
+        apply_mappings(CompartmentKind::Main, &self.mappings)?;
+        apply_mappings(CompartmentKind::Controller, &self.controller_mappings)?;
         let _ = session.change(SessionCommand::ChangeCompartment(
-            Compartment::Controller,
+            CompartmentKind::Controller,
             CompartmentCommand::SetNotes(self.controller_notes.clone()),
         ));
         let _ = session.change(SessionCommand::ChangeCompartment(
-            Compartment::Main,
+            CompartmentKind::Main,
             CompartmentCommand::SetNotes(self.main_notes.clone()),
         ));
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
@@ -758,7 +768,7 @@ impl UnitData {
         let _ = session.change(SessionCommand::SetInstanceFx(self.instance_fx.clone()));
         let memorized_main_compartment =
             if let Some(data) = self.memorized_main_compartment.as_ref() {
-                Some(data.to_model(self.version.as_ref(), Compartment::Main, Some(session))?)
+                Some(data.to_model(self.version.as_ref(), CompartmentKind::Main, Some(session))?)
             } else {
                 None
             };
@@ -768,7 +778,7 @@ impl UnitData {
             let unit = session.unit().clone();
             let mut unit = unit.borrow_mut();
             unit.set_custom_compartment_data(
-                Compartment::Controller,
+                CompartmentKind::Controller,
                 self.controller_custom_data.clone(),
             );
             unit.parameter_manager().set_all_parameters(params);
@@ -776,23 +786,29 @@ impl UnitData {
             // Compartment-specific
             // Active mapping by group
             unit.set_active_mapping_by_group(
-                Compartment::Controller,
+                CompartmentKind::Controller,
                 self.controller.active_mapping_by_group.clone(),
             );
             unit.set_active_mapping_by_group(
-                Compartment::Main,
+                CompartmentKind::Main,
                 self.main.active_mapping_by_group.clone(),
             );
             // Active mapping tags
             unit.set_active_mapping_tags(
-                Compartment::Controller,
+                CompartmentKind::Controller,
                 self.controller.active_mapping_tags.clone(),
             );
-            unit.set_active_mapping_tags(Compartment::Main, self.main.active_mapping_tags.clone());
+            unit.set_active_mapping_tags(
+                CompartmentKind::Main,
+                self.main.active_mapping_tags.clone(),
+            );
             // Mapping snapshots (contents) and IDs
-            unit.set_mapping_snapshot_container(Compartment::Main, main_mapping_snapshot_container);
             unit.set_mapping_snapshot_container(
-                Compartment::Controller,
+                CompartmentKind::Main,
+                main_mapping_snapshot_container,
+            );
+            unit.set_mapping_snapshot_container(
+                CompartmentKind::Controller,
                 controller_mapping_snapshot_container,
             );
         }
@@ -804,11 +820,11 @@ impl UnitData {
         let mut params = PluginParams::default();
         fill_compartment_params(
             &self.parameters,
-            params.compartment_params_mut(Compartment::Main),
+            params.compartment_params_mut(CompartmentKind::Main),
         );
         fill_compartment_params(
             &self.controller_parameters,
-            params.compartment_params_mut(Compartment::Controller),
+            params.compartment_params_mut(CompartmentKind::Controller),
         );
         params
     }
@@ -829,7 +845,7 @@ fn fill_compartment_params(data: &HashMap<String, ParameterData>, model: &mut Co
 
 fn get_parameter_data_map(
     plugin_params: &PluginParams,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> HashMap<String, ParameterData> {
     let compartment_params = plugin_params.compartment_params(compartment);
     compartment_param_index_iter()
@@ -883,7 +899,7 @@ impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
 }
 
 impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
-    fn compartment(&self) -> Compartment {
+    fn compartment(&self) -> CompartmentKind {
         self.compartment
     }
 
@@ -992,7 +1008,7 @@ impl DataToModelConversionContext for SimpleDataToModelConversionContext {
 fn convert_mapping_snapshots_to_api(
     session: &UnitModel,
     instance_state: &Unit,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Vec<MappingSnapshot> {
     let compartment_in_session = CompartmentInSession::new(session, compartment);
     convert_mapping_snapshots_to_api_internal(

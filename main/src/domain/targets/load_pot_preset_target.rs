@@ -1,5 +1,5 @@
 use crate::domain::{
-    Backbone, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadPotPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fxs = self
             .fx_descriptor

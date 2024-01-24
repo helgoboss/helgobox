@@ -1,7 +1,7 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::{
     current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior,
-    AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
     RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -29,7 +29,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         let res = find_bookmark(

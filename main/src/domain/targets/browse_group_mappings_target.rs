@@ -1,10 +1,10 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    GroupId, HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
-    MappingControlContext, MappingId, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetSection, TargetTypeDef, UnitEvent,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext,
+    ExtendedProcessorContext, GroupId, HitInstruction, HitInstructionContext,
+    HitInstructionResponse, HitResponse, MappingControlContext, MappingId, QualifiedMappingId,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter,
+    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -13,7 +13,7 @@ use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedBrowseGroupTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::BrowseGroupMappings(
             BrowseGroupMappingsTarget {
@@ -38,7 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
 pub struct BrowseGroupMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// not have any effect when controlling (only when querying the values).
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }

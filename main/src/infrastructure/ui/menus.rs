@@ -1,7 +1,7 @@
 use crate::application::{UnitModel, VirtualControlElementType, WeakUnitModel};
 use crate::domain::{
-    compartment_param_index_iter, Compartment, CompartmentParamIndex, CompartmentParams, MappingId,
-    ReaperTargetType, TargetSection,
+    compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
+    MappingId, ReaperTargetType, TargetSection,
 };
 use crate::infrastructure::data::CommonPresetInfo;
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
@@ -65,7 +65,7 @@ pub fn virtual_control_element_type_menu(
 
 pub fn menu_containing_realearn_params(
     session: &WeakUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     current_value: CompartmentParamIndex,
 ) -> Menu<CompartmentParamIndex> {
     let session = session.upgrade().expect("session gone");
@@ -89,7 +89,7 @@ pub fn menu_containing_realearn_params(
 
 pub fn menu_containing_realearn_params_optional(
     session: &WeakUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     current_value: Option<CompartmentParamIndex>,
 ) -> Menu<Option<CompartmentParamIndex>> {
     let session = session.upgrade().expect("session gone");
@@ -121,7 +121,7 @@ pub fn menu_containing_realearn_params_optional(
 
 pub fn menu_containing_mappings(
     session: &WeakUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     current_value: Option<MappingId>,
 ) -> Menu<Option<MappingId>> {
     let session = session.upgrade().expect("session gone");
@@ -234,7 +234,7 @@ pub fn menu_containing_sessions(
 
 pub fn menu_containing_banks(
     session: &WeakUnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     param_index: CompartmentParamIndex,
     current_value: u32,
 ) -> Menu<u32> {
@@ -264,7 +264,7 @@ pub fn menu_containing_banks(
 
 pub fn get_optional_param_name(
     session: &UnitModel,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     index: Option<CompartmentParamIndex>,
 ) -> String {
     match index {
@@ -310,7 +310,7 @@ fn bank_item(text: String, bank_index: usize, current_bank_index: u32) -> Entry<
 }
 
 pub fn menu_containing_compartment_presets(
-    compartment: Compartment,
+    compartment: CompartmentKind,
     current_value: Option<&str>,
 ) -> Menu<Option<String>> {
     let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);

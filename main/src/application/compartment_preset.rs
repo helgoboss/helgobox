@@ -1,5 +1,5 @@
 use crate::application::CompartmentModel;
-use crate::domain::Compartment;
+use crate::domain::CompartmentKind;
 use std::fmt;
 
 pub trait CompartmentPresetManager: fmt::Debug {
@@ -10,7 +10,7 @@ pub trait CompartmentPresetManager: fmt::Debug {
 pub struct CompartmentPresetModel {
     id: String,
     name: String,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     model: CompartmentModel,
 }
 
@@ -18,7 +18,7 @@ impl CompartmentPresetModel {
     pub fn new(
         id: String,
         name: String,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         model: CompartmentModel,
     ) -> CompartmentPresetModel {
         CompartmentPresetModel {
@@ -37,7 +37,7 @@ impl CompartmentPresetModel {
         &self.name
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.compartment
     }
 

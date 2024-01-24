@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    compile_and_execute, create_fresh_environment, Compartment, FsDirLuaModuleFinder,
+    compile_and_execute, create_fresh_environment, CompartmentKind, FsDirLuaModuleFinder,
     IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua,
 };
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
@@ -35,7 +35,7 @@ use semver::Version;
 #[serde(untagged)]
 pub enum UntaggedApiObject {
     Tagged(ApiObject),
-    LuaPresetLike(Box<persistence::CompartmentContent>),
+    LuaPresetLike(Box<persistence::Compartment>),
 }
 
 #[derive(Deserialize)]
@@ -134,11 +134,12 @@ impl DataObject {
             #[cfg(feature = "playtime")]
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
-                let data_compartment = to_data::convert_compartment(Compartment::Main, *c)?;
+                let data_compartment = to_data::convert_compartment(CompartmentKind::Main, *c)?;
                 DataObject::MainCompartment(Envelope::new(version, Box::new(data_compartment)))
             }
             ApiObject::ControllerCompartment(Envelope { value: c, version }) => {
-                let data_compartment = to_data::convert_compartment(Compartment::Controller, *c)?;
+                let data_compartment =
+                    to_data::convert_compartment(CompartmentKind::Controller, *c)?;
                 DataObject::ControllerCompartment(Envelope::new(
                     version,
                     Box::new(data_compartment),
@@ -309,7 +310,7 @@ pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<Strin
 }
 
 /// Runs without importing the result and also doesn't have an execution time limit.
-pub fn dry_run_lua_script(text: &str, active_compartment: Compartment) -> anyhow::Result<()> {
+pub fn dry_run_lua_script(text: &str, active_compartment: CompartmentKind) -> anyhow::Result<()> {
     let lua = SafeLua::new()?;
     let value = execute_lua_import_script(&lua, text, active_compartment)?;
     let json = serde_json::to_string_pretty(&value)?;
@@ -353,12 +354,12 @@ pub fn serialize_data_object_to_lua(
 
 pub fn deserialize_api_object_from_lua(
     text: &str,
-    active_compartment: Compartment,
+    active_compartment: CompartmentKind,
 ) -> anyhow::Result<ApiObject> {
     deserialize_from_lua(text, active_compartment)
 }
 
-fn deserialize_from_lua<T>(text: &str, active_compartment: Compartment) -> anyhow::Result<T>
+fn deserialize_from_lua<T>(text: &str, active_compartment: CompartmentKind) -> anyhow::Result<T>
 where
     T: for<'a> Deserialize<'a> + 'static,
 {
@@ -371,7 +372,7 @@ where
 fn execute_lua_import_script<'a>(
     lua: &'a SafeLua,
     code: &str,
-    active_compartment: Compartment,
+    active_compartment: CompartmentKind,
 ) -> anyhow::Result<mlua::Value<'a>> {
     let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)

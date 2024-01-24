@@ -1,6 +1,6 @@
 use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::domain::{
-    Compartment, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask, ReaperTarget,
+    CompartmentKind, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask, ReaperTarget,
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
 use base::{Global, NamedChannelSender};
@@ -87,7 +87,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         let session = self.main_unit_model.upgrade().expect("session gone");
         let session = session.borrow();
         let simple_mappings = session
-            .mappings(Compartment::Main)
+            .mappings(CompartmentKind::Main)
             .filter_map(|m| m.borrow().get_simple_mapping());
         SimpleMappingContainer {
             mappings: simple_mappings.collect(),
@@ -124,7 +124,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         let instance_state = session.unit();
         let instance_state = instance_state.borrow();
         let learning_mapping_id = instance_state.mapping_which_learns_source().get()?;
-        if learning_mapping_id.compartment != Compartment::Main {
+        if learning_mapping_id.compartment != CompartmentKind::Main {
             return None;
         }
         let mapping = session.find_mapping_by_qualified_id(learning_mapping_id)?;
@@ -138,7 +138,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
             let reaper_target = ReaperTarget::from_simple_target(target);
             session.toggle_learn_source_for_target(
                 &shared_session,
-                Compartment::Main,
+                CompartmentKind::Main,
                 &reaper_target,
             );
         });
@@ -148,7 +148,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         self.do_async_with_session(move |shared_session| {
             let mut session = shared_session.borrow_mut();
             let reaper_target = ReaperTarget::from_simple_target(target);
-            session.remove_mapping_by_target(Compartment::Main, &reaper_target);
+            session.remove_mapping_by_target(CompartmentKind::Main, &reaper_target);
         });
     }
 }

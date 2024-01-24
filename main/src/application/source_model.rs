@@ -3,7 +3,7 @@ use crate::application::{
 };
 use crate::base::CloneAsDefault;
 use crate::domain::{
-    Backbone, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
+    Backbone, CompartmentKind, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
     MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
     VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
@@ -998,18 +998,18 @@ pub enum SourceCategory {
 }
 
 impl SourceCategory {
-    pub fn default_for(compartment: Compartment) -> Self {
+    pub fn default_for(compartment: CompartmentKind) -> Self {
         use SourceCategory::*;
         match compartment {
-            Compartment::Controller => Midi,
-            Compartment::Main => Midi,
+            CompartmentKind::Controller => Midi,
+            CompartmentKind::Main => Midi,
         }
     }
 
-    pub fn is_allowed_in(self, compartment: Compartment) -> bool {
+    pub fn is_allowed_in(self, compartment: CompartmentKind) -> bool {
         use SourceCategory::*;
         match compartment {
-            Compartment::Controller => match self {
+            CompartmentKind::Controller => match self {
                 Never => true,
                 Midi => true,
                 Osc => true,
@@ -1017,7 +1017,7 @@ impl SourceCategory {
                 Keyboard => true,
                 Virtual => false,
             },
-            Compartment::Main => true,
+            CompartmentKind::Main => true,
         }
     }
 }

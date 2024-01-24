@@ -5,7 +5,7 @@ use crate::base::notification::{
     notify_user_about_anyhow_error, warn_user_about_anyhow_error, warn_user_on_anyhow_error,
 };
 use crate::domain::{
-    Compartment, FsDirLuaModuleFinder, IncludedDirLuaModuleFinder, LuaModuleContainer,
+    CompartmentKind, FsDirLuaModuleFinder, IncludedDirLuaModuleFinder, LuaModuleContainer,
     LuaModuleFinder, SafeLua,
 };
 use crate::infrastructure::api::convert::to_data::convert_compartment;
@@ -46,7 +46,7 @@ pub type FileBasedMainPresetManager = FileBasedCompartmentPresetManager<MainPres
 
 #[derive(Debug)]
 pub struct FileBasedCompartmentPresetManager<M> {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     preset_dir_path: PathBuf,
     preset_infos: Vec<PresetInfo<M>>,
     changed_subject: LocalSubject<'static, (), ()>,
@@ -154,7 +154,7 @@ pub enum PresetOrigin {
         absolute_file_path: PathBuf,
     },
     Factory {
-        compartment: Compartment,
+        compartment: CompartmentKind,
         relative_file_path: PathBuf,
     },
 }
@@ -170,8 +170,8 @@ impl fmt::Display for PresetOrigin {
                 relative_file_path,
             } => {
                 let compartment_id = match compartment {
-                    Compartment::Controller => "controller",
-                    Compartment::Main => "main",
+                    CompartmentKind::Controller => "controller",
+                    CompartmentKind::Main => "main",
                 };
                 write!(
                     f,
@@ -249,7 +249,7 @@ impl<S: SpecificPresetMetaData> CombinedPresetMetaData<S> {
 
 impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
     pub fn new(
-        compartment: Compartment,
+        compartment: CompartmentKind,
         preset_dir_path: PathBuf,
         event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
     ) -> FileBasedCompartmentPresetManager<S> {
@@ -462,7 +462,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     &script_name,
                     &file_content,
                 )?;
-                let compartment_content: realearn_api::persistence::CompartmentContent =
+                let compartment_content: realearn_api::persistence::Compartment =
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(self.compartment, compartment_content)?;
                 let compartment_model = compartment_data.to_model(
@@ -483,7 +483,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
 }
 
 fn get_factory_preset_content(
-    compartment: Compartment,
+    compartment: CompartmentKind,
     relative_file_path: &Path,
 ) -> anyhow::Result<&'static str> {
     let factory_preset_dir = get_factory_preset_dir(compartment);
@@ -625,10 +625,10 @@ fn load_preset_info<M: SpecificPresetMetaData>(
     Ok(preset_info)
 }
 
-pub fn get_factory_preset_dir(compartment: Compartment) -> &'static Dir<'static> {
+pub fn get_factory_preset_dir(compartment: CompartmentKind) -> &'static Dir<'static> {
     match compartment {
-        Compartment::Controller => &FACTORY_CONTROLLER_PRESETS_DIR,
-        Compartment::Main => &FACTORY_MAIN_PRESETS_DIR,
+        CompartmentKind::Controller => &FACTORY_CONTROLLER_PRESETS_DIR,
+        CompartmentKind::Main => &FACTORY_MAIN_PRESETS_DIR,
     }
 }
 

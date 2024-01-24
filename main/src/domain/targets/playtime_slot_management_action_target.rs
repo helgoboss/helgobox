@@ -1,6 +1,6 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    Backbone, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
@@ -19,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotManagementActionTarget 
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeSlotManagementActionTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,

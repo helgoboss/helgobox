@@ -12,7 +12,7 @@ use crate::application::{
 };
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chains, ActionInvocationType, AnyOnParameter, Compartment, Exclusivity,
+    get_fx_chains, ActionInvocationType, AnyOnParameter, CompartmentKind, Exclusivity,
     ExtendedProcessorContext, FxDisplayType, GroupKey, MappingKey, OscDeviceId, ReaperTargetType,
     SeekOptions, SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackExclusivity, TrackGangBehavior, TrackRouteType,
@@ -695,7 +695,7 @@ impl TargetModelData {
     pub fn apply_to_model(
         &self,
         model: &mut TargetModel,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         context: ExtendedProcessorContext,
         conversion_context: &impl DataToModelConversionContext,
     ) -> Result<(), &'static str> {
@@ -717,7 +717,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         conversion_context: &impl DataToModelConversionContext,
         migration_descriptor: &MigrationDescriptor,
     ) -> Result<(), &'static str> {
@@ -1631,7 +1631,7 @@ pub fn deserialize_track(input: TrackDeserializationInput) -> TrackPropValues {
 /// The context and so on is only necessary if you want to load < 1.12.0 presets.
 pub fn deserialize_fx(
     fx_data: &FxData,
-    ctx: Option<(ExtendedProcessorContext, Compartment, &VirtualTrack)>,
+    ctx: Option<(ExtendedProcessorContext, CompartmentKind, &VirtualTrack)>,
     migration_descriptor: &MigrationDescriptor,
 ) -> FxPropValues {
     match fx_data {
@@ -1920,7 +1920,7 @@ pub fn get_first_guid_based_fx_at_index(
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> Result<Fx, &'static str> {
     let fx_chains = get_fx_chains(context, track, is_input_fx, compartment)?;
     let fx_chain = fx_chains.first().ok_or("empty list of FX chains")?;

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::domain::{Compartment, CompartmentParamIndex, ParamSetting};
+use crate::domain::{CompartmentKind, CompartmentParamIndex, ParamSetting};
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
@@ -9,11 +9,11 @@ use crate::infrastructure::data::{CompartmentModelData, GroupModelData};
 use realearn_api::persistence::*;
 
 pub fn convert_compartment(
-    compartment: Compartment,
-    compartment_content: CompartmentContent,
+    compartment: CompartmentKind,
+    compartment_content: Compartment,
 ) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
-        compartment: Compartment,
+        compartment: CompartmentKind,
         parameters: HashMap<CompartmentParamIndex, ParamSetting>,
         groups: Vec<GroupModelData>,
     }
@@ -27,7 +27,7 @@ pub fn convert_compartment(
             .map(|(i, _)| *i)
     }
     impl ApiToDataConversionContext for ConversionContext {
-        fn compartment(&self) -> Compartment {
+        fn compartment(&self) -> CompartmentKind {
             self.compartment
         }
 

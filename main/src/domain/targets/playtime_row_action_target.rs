@@ -1,5 +1,5 @@
 use crate::domain::{
-    Backbone, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
+    Backbone, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
     ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualPlaytimeRow, DEFAULT_TARGET,
@@ -18,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeRowActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeRowActionTarget {
             basics: ClipRowTargetBasics {

@@ -47,9 +47,9 @@ pub enum ApiObject {
     #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     /// Main compartment.
-    MainCompartment(Envelope<Box<CompartmentContent>>),
+    MainCompartment(Envelope<Box<Compartment>>),
     /// Controller compartment.
-    ControllerCompartment(Envelope<Box<CompartmentContent>>),
+    ControllerCompartment(Envelope<Box<Compartment>>),
     /// A flat list of mappings.
     Mappings(Envelope<Vec<Mapping>>),
     /// A single mapping.

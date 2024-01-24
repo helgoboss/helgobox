@@ -6,7 +6,7 @@ local playtime = require("playtime")
 
 local module = {}
 
-export type CompartmentContent = {
+export type Compartment = {
 	default_group: Group?,
 	parameters: { Parameter }?,
 	groups: { Group }?,
@@ -14,11 +14,8 @@ export type CompartmentContent = {
 	custom_data: { [string]: any }?,
 	notes: string?,
 }
---- Creates a CompartmentContent value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
-function module.CompartmentContent(value: CompartmentContent): CompartmentContent
+--- Creates a Compartment value.
+function module.Compartment(value: Compartment): Compartment
 	return value
 end
 
@@ -45,9 +42,6 @@ export type Glue = {
 	feedback_value_table: FeedbackValueTable?,
 }
 --- Creates a Glue value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Glue(value: Glue): Glue
 	return value
 end
@@ -82,9 +76,6 @@ export type DiscreteFeedbackValueTableContent = {
 	value: { [string]: number },
 }
 --- Creates a DiscreteFeedbackValueTableContent value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.DiscreteFeedbackValueTableContent(
 	value: DiscreteFeedbackValueTableContent
 ): DiscreteFeedbackValueTableContent
@@ -95,9 +86,6 @@ export type ContinuousFeedbackValueTableContent = {
 	value: { [string]: number },
 }
 --- Creates a ContinuousFeedbackValueTableContent value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ContinuousFeedbackValueTableContent(
 	value: ContinuousFeedbackValueTableContent
 ): ContinuousFeedbackValueTableContent
@@ -163,9 +151,6 @@ export type NormalFireMode = {
 	press_duration_interval: Interval<number>?,
 }
 --- Creates a NormalFireMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.NormalFireMode(value: NormalFireMode): NormalFireMode
 	return value
 end
@@ -174,9 +159,6 @@ export type AfterTimeoutFireMode = {
 	timeout: number?,
 }
 --- Creates a AfterTimeoutFireMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AfterTimeoutFireMode(value: AfterTimeoutFireMode): AfterTimeoutFireMode
 	return value
 end
@@ -186,9 +168,6 @@ export type AfterTimeoutKeepFiringFireMode = {
 	rate: number?,
 }
 --- Creates a AfterTimeoutKeepFiringFireMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AfterTimeoutKeepFiringFireMode(value: AfterTimeoutKeepFiringFireMode): AfterTimeoutKeepFiringFireMode
 	return value
 end
@@ -197,9 +176,6 @@ export type OnSinglePressFireMode = {
 	max_duration: number?,
 }
 --- Creates a OnSinglePressFireMode value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.OnSinglePressFireMode(value: OnSinglePressFireMode): OnSinglePressFireMode
 	return value
 end
@@ -210,9 +186,6 @@ export type VirtualColor_Prop = PropColor
 export type VirtualColor = VirtualColor_Rgb | VirtualColor_Prop
 
 --- Creates a VirtualColor value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.VirtualColor(value: VirtualColor): VirtualColor
 	return value
 end
@@ -223,9 +196,6 @@ export type PropColor = {
 	prop: string,
 }
 --- Creates a PropColor value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PropColor(value: PropColor): PropColor
 	return value
 end
@@ -251,9 +221,6 @@ export type FeedbackCommons = {
 	background_color: VirtualColor?,
 }
 --- Creates a FeedbackCommons value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FeedbackCommons(value: FeedbackCommons): FeedbackCommons
 	return value
 end
@@ -304,9 +271,6 @@ export type NumericFeedback = {
 	transformation: string?,
 }
 --- Creates a NumericFeedback value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.NumericFeedback(value: NumericFeedback): NumericFeedback
 	return value
 end
@@ -317,9 +281,6 @@ export type TextFeedback = {
 	text_expression: string?,
 }
 --- Creates a TextFeedback value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TextFeedback(value: TextFeedback): TextFeedback
 	return value
 end
@@ -330,9 +291,6 @@ export type DynamicFeedback = {
 	script: string?,
 }
 --- Creates a DynamicFeedback value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.DynamicFeedback(value: DynamicFeedback): DynamicFeedback
 	return value
 end
@@ -348,9 +306,6 @@ export type Group = {
 	activation_condition: ActivationCondition?,
 }
 --- Creates a Group value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Group(value: Group): Group
 	return value
 end
@@ -374,9 +329,6 @@ export type Mapping = {
 	unprocessed: { [string]: any }?,
 }
 --- Creates a Mapping value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Mapping(value: Mapping): Mapping
 	return value
 end
@@ -385,9 +337,6 @@ export type LifecycleHook = {
 	send_midi_feedback: { SendMidiFeedbackAction }?,
 }
 --- Creates a LifecycleHook value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LifecycleHook(value: LifecycleHook): LifecycleHook
 	return value
 end
@@ -412,9 +361,6 @@ export type RawMidiMessage_ByteArray = { number }
 export type RawMidiMessage = RawMidiMessage_HexString | RawMidiMessage_ByteArray
 
 --- Creates a RawMidiMessage value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RawMidiMessage(value: RawMidiMessage): RawMidiMessage
 	return value
 end
@@ -488,9 +434,6 @@ export type ModifierActivationCondition = {
 	modifiers: { ModifierState }?,
 }
 --- Creates a ModifierActivationCondition value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ModifierActivationCondition(value: ModifierActivationCondition): ModifierActivationCondition
 	return value
 end
@@ -500,9 +443,6 @@ export type ModifierState = {
 	on: boolean,
 }
 --- Creates a ModifierState value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ModifierState(value: ModifierState): ModifierState
 	return value
 end
@@ -512,9 +452,6 @@ export type BankActivationCondition = {
 	bank_index: number,
 }
 --- Creates a BankActivationCondition value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BankActivationCondition(value: BankActivationCondition): BankActivationCondition
 	return value
 end
@@ -523,9 +460,6 @@ export type EelActivationCondition = {
 	condition: string,
 }
 --- Creates a EelActivationCondition value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.EelActivationCondition(value: EelActivationCondition): EelActivationCondition
 	return value
 end
@@ -534,9 +468,6 @@ export type ExpressionActivationCondition = {
 	condition: string,
 }
 --- Creates a ExpressionActivationCondition value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ExpressionActivationCondition(value: ExpressionActivationCondition): ExpressionActivationCondition
 	return value
 end
@@ -546,9 +477,6 @@ export type TargetValueActivationCondition = {
 	condition: string,
 }
 --- Creates a TargetValueActivationCondition value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TargetValueActivationCondition(value: TargetValueActivationCondition): TargetValueActivationCondition
 	return value
 end
@@ -559,9 +487,6 @@ export type ParamRef_Key = string
 export type ParamRef = ParamRef_Index | ParamRef_Key
 
 --- Creates a ParamRef value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ParamRef(value: ParamRef): ParamRef
 	return value
 end
@@ -572,9 +497,6 @@ export type VirtualControlElementId_Named = string
 export type VirtualControlElementId = VirtualControlElementId_Indexed | VirtualControlElementId_Named
 
 --- Creates a VirtualControlElementId value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.VirtualControlElementId(value: VirtualControlElementId): VirtualControlElementId
 	return value
 end
@@ -587,9 +509,6 @@ export type OscArgument = {
 	value_range: Interval<number>?,
 }
 --- Creates a OscArgument value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.OscArgument(value: OscArgument): OscArgument
 	return value
 end
@@ -618,9 +537,6 @@ export type Parameter = {
 	value_labels: { string }?,
 }
 --- Creates a Parameter value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Parameter(value: Parameter): Parameter
 	return value
 end
@@ -960,9 +876,6 @@ export type MidiNoteVelocitySource = {
 	key_number: number?,
 }
 --- Creates a MidiNoteVelocitySource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiNoteVelocitySource(value: MidiNoteVelocitySource): MidiNoteVelocitySource
 	return value
 end
@@ -972,9 +885,6 @@ export type MidiNoteKeyNumberSource = {
 	channel: number?,
 }
 --- Creates a MidiNoteKeyNumberSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiNoteKeyNumberSource(value: MidiNoteKeyNumberSource): MidiNoteKeyNumberSource
 	return value
 end
@@ -985,9 +895,6 @@ export type MidiPolyphonicKeyPressureAmountSource = {
 	key_number: number?,
 }
 --- Creates a MidiPolyphonicKeyPressureAmountSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiPolyphonicKeyPressureAmountSource(
 	value: MidiPolyphonicKeyPressureAmountSource
 ): MidiPolyphonicKeyPressureAmountSource
@@ -1002,9 +909,6 @@ export type MidiControlChangeValueSource = {
 	fourteen_bit: boolean?,
 }
 --- Creates a MidiControlChangeValueSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiControlChangeValueSource(value: MidiControlChangeValueSource): MidiControlChangeValueSource
 	return value
 end
@@ -1014,9 +918,6 @@ export type MidiProgramChangeNumberSource = {
 	channel: number?,
 }
 --- Creates a MidiProgramChangeNumberSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiProgramChangeNumberSource(value: MidiProgramChangeNumberSource): MidiProgramChangeNumberSource
 	return value
 end
@@ -1027,9 +928,6 @@ export type MidiSpecificProgramChangeSource = {
 	program_number: number?,
 }
 --- Creates a MidiSpecificProgramChangeSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiSpecificProgramChangeSource(value: MidiSpecificProgramChangeSource): MidiSpecificProgramChangeSource
 	return value
 end
@@ -1039,9 +937,6 @@ export type MidiChannelPressureAmountSource = {
 	channel: number?,
 }
 --- Creates a MidiChannelPressureAmountSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiChannelPressureAmountSource(value: MidiChannelPressureAmountSource): MidiChannelPressureAmountSource
 	return value
 end
@@ -1051,9 +946,6 @@ export type MidiPitchBendChangeValueSource = {
 	channel: number?,
 }
 --- Creates a MidiPitchBendChangeValueSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiPitchBendChangeValueSource(value: MidiPitchBendChangeValueSource): MidiPitchBendChangeValueSource
 	return value
 end
@@ -1067,9 +959,6 @@ export type MidiParameterNumberValueSource = {
 	character: SourceCharacter?,
 }
 --- Creates a MidiParameterNumberValueSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiParameterNumberValueSource(value: MidiParameterNumberValueSource): MidiParameterNumberValueSource
 	return value
 end
@@ -1078,9 +967,6 @@ export type MidiClockTransportSource = {
 	message: MidiClockTransportMessage?,
 }
 --- Creates a MidiClockTransportSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiClockTransportSource(value: MidiClockTransportSource): MidiClockTransportSource
 	return value
 end
@@ -1091,9 +977,6 @@ export type MidiRawSource = {
 	character: SourceCharacter?,
 }
 --- Creates a MidiRawSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiRawSource(value: MidiRawSource): MidiRawSource
 	return value
 end
@@ -1103,9 +986,6 @@ export type MidiScriptSource = {
 	script: string?,
 }
 --- Creates a MidiScriptSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MidiScriptSource(value: MidiScriptSource): MidiScriptSource
 	return value
 end
@@ -1122,9 +1002,6 @@ export type MackieLcdSource = {
 	line: number?,
 }
 --- Creates a MackieLcdSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MackieLcdSource(value: MackieLcdSource): MackieLcdSource
 	return value
 end
@@ -1135,9 +1012,6 @@ export type XTouchMackieLcdSource = {
 	line: number?,
 }
 --- Creates a XTouchMackieLcdSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.XTouchMackieLcdSource(value: XTouchMackieLcdSource): XTouchMackieLcdSource
 	return value
 end
@@ -1147,9 +1021,6 @@ export type SlKeyboardDisplaySource = {
 	line: number?,
 }
 --- Creates a SlKeyboardDisplaySource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SlKeyboardDisplaySource(value: SlKeyboardDisplaySource): SlKeyboardDisplaySource
 	return value
 end
@@ -1158,9 +1029,6 @@ export type MackieSevenSegmentDisplaySource = {
 	scope: MackieSevenSegmentDisplayScope?,
 }
 --- Creates a MackieSevenSegmentDisplaySource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MackieSevenSegmentDisplaySource(value: MackieSevenSegmentDisplaySource): MackieSevenSegmentDisplaySource
 	return value
 end
@@ -1179,9 +1047,6 @@ export type SiniConE24DisplaySource = {
 	item_index: number?,
 }
 --- Creates a SiniConE24DisplaySource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SiniConE24DisplaySource(value: SiniConE24DisplaySource): SiniConE24DisplaySource
 	return value
 end
@@ -1194,9 +1059,6 @@ export type OscSource = {
 	feedback_arguments: { string }?,
 }
 --- Creates a OscSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.OscSource(value: OscSource): OscSource
 	return value
 end
@@ -1205,9 +1067,6 @@ export type RealearnParameterSource = {
 	parameter_index: number,
 }
 --- Creates a RealearnParameterSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RealearnParameterSource(value: RealearnParameterSource): RealearnParameterSource
 	return value
 end
@@ -1216,9 +1075,6 @@ export type TimerSource = {
 	duration: number,
 }
 --- Creates a TimerSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TimerSource(value: TimerSource): TimerSource
 	return value
 end
@@ -1227,9 +1083,6 @@ export type KeySource = {
 	keystroke: Keystroke?,
 }
 --- Creates a KeySource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.KeySource(value: KeySource): KeySource
 	return value
 end
@@ -1239,9 +1092,6 @@ export type Keystroke = {
 	key: number,
 }
 --- Creates a Keystroke value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.Keystroke(value: Keystroke): Keystroke
 	return value
 end
@@ -1251,9 +1101,6 @@ export type VirtualSource = {
 	character: VirtualControlElementCharacter?,
 }
 --- Creates a VirtualSource value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.VirtualSource(value: VirtualSource): VirtualSource
 	return value
 end
@@ -2163,9 +2010,6 @@ export type TargetCommons = {
 	unit: TargetUnit?,
 }
 --- Creates a TargetCommons value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TargetCommons(value: TargetCommons): TargetCommons
 	return value
 end
@@ -2177,9 +2021,6 @@ export type MouseTarget = {
 	action: MouseAction,
 }
 --- Creates a MouseTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.MouseTarget(value: MouseTarget): MouseTarget
 	return value
 end
@@ -2190,9 +2031,6 @@ export type LastTouchedTarget = {
 	touch_cause: TargetTouchCause?,
 }
 --- Creates a LastTouchedTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LastTouchedTarget(value: LastTouchedTarget): LastTouchedTarget
 	return value
 end
@@ -2202,9 +2040,6 @@ export type AutomationModeOverrideTarget = {
 	override_value: AutomationModeOverride?,
 }
 --- Creates a AutomationModeOverrideTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AutomationModeOverrideTarget(value: AutomationModeOverrideTarget): AutomationModeOverrideTarget
 	return value
 end
@@ -2216,9 +2051,6 @@ export type ReaperActionTarget = {
 	track: TrackDescriptor?,
 }
 --- Creates a ReaperActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ReaperActionTarget(value: ReaperActionTarget): ReaperActionTarget
 	return value
 end
@@ -2228,9 +2060,6 @@ export type TransportActionTarget = {
 	action: TransportAction,
 }
 --- Creates a TransportActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TransportActionTarget(value: TransportActionTarget): TransportActionTarget
 	return value
 end
@@ -2240,9 +2069,6 @@ export type AnyOnTarget = {
 	parameter: AnyOnParameter,
 }
 --- Creates a AnyOnTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AnyOnTarget(value: AnyOnTarget): AnyOnTarget
 	return value
 end
@@ -2254,9 +2080,6 @@ export type BrowseTracksTarget = {
 	mode: BrowseTracksMode?,
 }
 --- Creates a BrowseTracksTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowseTracksTarget(value: BrowseTracksTarget): BrowseTracksTarget
 	return value
 end
@@ -2273,9 +2096,6 @@ export type SeekTarget = {
 	behavior: SeekBehavior?,
 }
 --- Creates a SeekTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SeekTarget(value: SeekTarget): SeekTarget
 	return value
 end
@@ -2284,9 +2104,6 @@ export type PlayRateTarget = {
 	unit: TargetUnit?,
 }
 --- Creates a PlayRateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlayRateTarget(value: PlayRateTarget): PlayRateTarget
 	return value
 end
@@ -2295,9 +2112,6 @@ export type TempoTarget = {
 	unit: TargetUnit?,
 }
 --- Creates a TempoTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TempoTarget(value: TempoTarget): TempoTarget
 	return value
 end
@@ -2310,9 +2124,6 @@ export type GoToBookmarkTarget = {
 	seek_behavior: SeekBehavior?,
 }
 --- Creates a GoToBookmarkTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.GoToBookmarkTarget(value: GoToBookmarkTarget): GoToBookmarkTarget
 	return value
 end
@@ -2325,9 +2136,6 @@ export type TrackArmStateTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackArmStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackArmStateTarget(value: TrackArmStateTarget): TrackArmStateTarget
 	return value
 end
@@ -2338,9 +2146,6 @@ export type TrackParentSendStateTarget = {
 	exclusivity: TrackExclusivity?,
 }
 --- Creates a TrackParentSendStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackParentSendStateTarget(value: TrackParentSendStateTarget): TrackParentSendStateTarget
 	return value
 end
@@ -2352,9 +2157,6 @@ export type AllTrackFxOnOffStateTarget = {
 	poll_for_feedback: boolean?,
 }
 --- Creates a AllTrackFxOnOffStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AllTrackFxOnOffStateTarget(value: AllTrackFxOnOffStateTarget): AllTrackFxOnOffStateTarget
 	return value
 end
@@ -2367,9 +2169,6 @@ export type TrackMuteStateTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackMuteStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackMuteStateTarget(value: TrackMuteStateTarget): TrackMuteStateTarget
 	return value
 end
@@ -2379,9 +2178,6 @@ export type TrackPeakTarget = {
 	track: TrackDescriptor?,
 }
 --- Creates a TrackPeakTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackPeakTarget(value: TrackPeakTarget): TrackPeakTarget
 	return value
 end
@@ -2395,9 +2191,6 @@ export type TrackPhaseTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackPhaseTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackPhaseTarget(value: TrackPhaseTarget): TrackPhaseTarget
 	return value
 end
@@ -2410,9 +2203,6 @@ export type TrackSelectionStateTarget = {
 	scroll_mixer: boolean?,
 }
 --- Creates a TrackSelectionStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackSelectionStateTarget(value: TrackSelectionStateTarget): TrackSelectionStateTarget
 	return value
 end
@@ -2424,9 +2214,6 @@ export type TrackAutomationModeTarget = {
 	mode: AutomationMode,
 }
 --- Creates a TrackAutomationModeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackAutomationModeTarget(value: TrackAutomationModeTarget): TrackAutomationModeTarget
 	return value
 end
@@ -2439,9 +2226,6 @@ export type TrackMonitoringModeTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackMonitoringModeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackMonitoringModeTarget(value: TrackMonitoringModeTarget): TrackMonitoringModeTarget
 	return value
 end
@@ -2453,9 +2237,6 @@ export type TrackAutomationTouchStateTarget = {
 	touched_parameter: TouchedTrackParameter,
 }
 --- Creates a TrackAutomationTouchStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackAutomationTouchStateTarget(value: TrackAutomationTouchStateTarget): TrackAutomationTouchStateTarget
 	return value
 end
@@ -2467,9 +2248,6 @@ export type TrackPanTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackPanTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackPanTarget(value: TrackPanTarget): TrackPanTarget
 	return value
 end
@@ -2481,9 +2259,6 @@ export type TrackWidthTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackWidthTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackWidthTarget(value: TrackWidthTarget): TrackWidthTarget
 	return value
 end
@@ -2495,9 +2270,6 @@ export type TrackVolumeTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackVolumeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackVolumeTarget(value: TrackVolumeTarget): TrackVolumeTarget
 	return value
 end
@@ -2509,9 +2281,6 @@ export type TrackToolTarget = {
 	instance_tags: { string }?,
 }
 --- Creates a TrackToolTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackToolTarget(value: TrackToolTarget): TrackToolTarget
 	return value
 end
@@ -2529,15 +2298,11 @@ export type MouseAction = MouseAction_MoveTo | MouseAction_MoveBy | MouseAction_
 module.MouseAction = {}
 
 --- Creates a MouseAction of kind MoveTo.
-function module.MouseAction.MoveTo(value: { axis: Axis }): MouseAction_MoveTo
+function module.MouseAction.MoveTo(value: { axis: Axis? }): MouseAction_MoveTo
 	local t: any = table.clone(value)
 	t.kind = "MoveTo"
 	return t
 end
-
-module.MouseAction.MoveTo ({
-	axis = 5
-})
 
 --- Creates a MouseAction of kind MoveBy.
 function module.MouseAction.MoveBy(value: { axis: Axis? }): MouseAction_MoveBy
@@ -2572,9 +2337,6 @@ export type TrackVisibilityTarget = {
 	area: TrackArea,
 }
 --- Creates a TrackVisibilityTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackVisibilityTarget(value: TrackVisibilityTarget): TrackVisibilityTarget
 	return value
 end
@@ -2588,9 +2350,6 @@ export type TrackSoloStateTarget = {
 	use_selection_ganging: boolean?,
 }
 --- Creates a TrackSoloStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackSoloStateTarget(value: TrackSoloStateTarget): TrackSoloStateTarget
 	return value
 end
@@ -2601,9 +2360,6 @@ export type BrowseFxChainTarget = {
 	display_kind: FxDisplayKind?,
 }
 --- Creates a BrowseFxChainTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowseFxChainTarget(value: BrowseFxChainTarget): BrowseFxChainTarget
 	return value
 end
@@ -2613,9 +2369,6 @@ export type FxOnOffStateTarget = {
 	fx: FxDescriptor?,
 }
 --- Creates a FxOnOffStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxOnOffStateTarget(value: FxOnOffStateTarget): FxOnOffStateTarget
 	return value
 end
@@ -2625,9 +2378,6 @@ export type FxOnlineOfflineStateTarget = {
 	fx: FxDescriptor?,
 }
 --- Creates a FxOnlineOfflineStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxOnlineOfflineStateTarget(value: FxOnlineOfflineStateTarget): FxOnlineOfflineStateTarget
 	return value
 end
@@ -2638,9 +2388,6 @@ export type LoadFxSnapshotTarget = {
 	snapshot: FxSnapshot?,
 }
 --- Creates a LoadFxSnapshotTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LoadFxSnapshotTarget(value: LoadFxSnapshotTarget): LoadFxSnapshotTarget
 	return value
 end
@@ -2650,9 +2397,6 @@ export type BrowseFxPresetsTarget = {
 	fx: FxDescriptor?,
 }
 --- Creates a BrowseFxPresetsTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowseFxPresetsTarget(value: BrowseFxPresetsTarget): BrowseFxPresetsTarget
 	return value
 end
@@ -2664,9 +2408,6 @@ export type FxToolTarget = {
 	instance_tags: { string }?,
 }
 --- Creates a FxToolTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxToolTarget(value: FxToolTarget): FxToolTarget
 	return value
 end
@@ -2679,9 +2420,6 @@ export type FxVisibilityTarget = {
 	display_kind: FxDisplayKind?,
 }
 --- Creates a FxVisibilityTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxVisibilityTarget(value: FxVisibilityTarget): FxVisibilityTarget
 	return value
 end
@@ -2693,9 +2431,6 @@ export type FxParameterValueTarget = {
 	retrigger: boolean?,
 }
 --- Creates a FxParameterValueTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxParameterValueTarget(value: FxParameterValueTarget): FxParameterValueTarget
 	return value
 end
@@ -2705,9 +2440,6 @@ export type CompartmentParameterValueTarget = {
 	parameter: CompartmentParameterDescriptor,
 }
 --- Creates a CompartmentParameterValueTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.CompartmentParameterValueTarget(value: CompartmentParameterValueTarget): CompartmentParameterValueTarget
 	return value
 end
@@ -2717,9 +2449,6 @@ export type FxParameterAutomationTouchStateTarget = {
 	parameter: FxParameterDescriptor,
 }
 --- Creates a FxParameterAutomationTouchStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxParameterAutomationTouchStateTarget(
 	value: FxParameterAutomationTouchStateTarget
 ): FxParameterAutomationTouchStateTarget
@@ -2733,9 +2462,6 @@ export type RouteAutomationModeTarget = {
 	poll_for_feedback: boolean?,
 }
 --- Creates a RouteAutomationModeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteAutomationModeTarget(value: RouteAutomationModeTarget): RouteAutomationModeTarget
 	return value
 end
@@ -2746,9 +2472,6 @@ export type RouteMonoStateTarget = {
 	poll_for_feedback: boolean?,
 }
 --- Creates a RouteMonoStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteMonoStateTarget(value: RouteMonoStateTarget): RouteMonoStateTarget
 	return value
 end
@@ -2759,9 +2482,6 @@ export type RouteMuteStateTarget = {
 	poll_for_feedback: boolean?,
 }
 --- Creates a RouteMuteStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteMuteStateTarget(value: RouteMuteStateTarget): RouteMuteStateTarget
 	return value
 end
@@ -2772,9 +2492,6 @@ export type RoutePhaseTarget = {
 	poll_for_feedback: boolean?,
 }
 --- Creates a RoutePhaseTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RoutePhaseTarget(value: RoutePhaseTarget): RoutePhaseTarget
 	return value
 end
@@ -2784,9 +2501,6 @@ export type RoutePanTarget = {
 	route: RouteDescriptor,
 }
 --- Creates a RoutePanTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RoutePanTarget(value: RoutePanTarget): RoutePanTarget
 	return value
 end
@@ -2796,9 +2510,6 @@ export type RouteVolumeTarget = {
 	route: RouteDescriptor,
 }
 --- Creates a RouteVolumeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteVolumeTarget(value: RouteVolumeTarget): RouteVolumeTarget
 	return value
 end
@@ -2809,9 +2520,6 @@ export type RouteTouchStateTarget = {
 	touched_parameter: TouchedRouteParameter,
 }
 --- Creates a RouteTouchStateTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteTouchStateTarget(value: RouteTouchStateTarget): RouteTouchStateTarget
 	return value
 end
@@ -2826,9 +2534,6 @@ export type PlaytimeSlotTransportActionTarget = {
 	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
 --- Creates a PlaytimeSlotTransportActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeSlotTransportActionTarget(
 	value: PlaytimeSlotTransportActionTarget
 ): PlaytimeSlotTransportActionTarget
@@ -2841,9 +2546,6 @@ export type PlaytimeColumnActionTarget = {
 	action: ClipColumnAction,
 }
 --- Creates a PlaytimeColumnActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeColumnActionTarget(value: PlaytimeColumnActionTarget): PlaytimeColumnActionTarget
 	return value
 end
@@ -2854,9 +2556,6 @@ export type PlaytimeRowActionTarget = {
 	action: ClipRowAction,
 }
 --- Creates a PlaytimeRowActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeRowActionTarget(value: PlaytimeRowActionTarget): PlaytimeRowActionTarget
 	return value
 end
@@ -2866,9 +2565,6 @@ export type PlaytimeMatrixActionTarget = {
 	action: ClipMatrixAction,
 }
 --- Creates a PlaytimeMatrixActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeMatrixActionTarget(value: PlaytimeMatrixActionTarget): PlaytimeMatrixActionTarget
 	return value
 end
@@ -2878,9 +2574,6 @@ export type PlaytimeControlUnitScrollTarget = {
 	axis: Axis,
 }
 --- Creates a PlaytimeControlUnitScrollTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeControlUnitScrollTarget(value: PlaytimeControlUnitScrollTarget): PlaytimeControlUnitScrollTarget
 	return value
 end
@@ -2891,9 +2584,6 @@ export type PlaytimeSlotSeekTarget = {
 	feedback_resolution: FeedbackResolution?,
 }
 --- Creates a PlaytimeSlotSeekTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeSlotSeekTarget(value: PlaytimeSlotSeekTarget): PlaytimeSlotSeekTarget
 	return value
 end
@@ -2903,9 +2593,6 @@ export type PlaytimeSlotVolumeTarget = {
 	slot: ClipSlotDescriptor,
 }
 --- Creates a PlaytimeSlotVolumeTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeSlotVolumeTarget(value: PlaytimeSlotVolumeTarget): PlaytimeSlotVolumeTarget
 	return value
 end
@@ -2916,9 +2603,6 @@ export type PlaytimeSlotManagementActionTarget = {
 	action: ClipManagementAction,
 }
 --- Creates a PlaytimeSlotManagementActionTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PlaytimeSlotManagementActionTarget(
 	value: PlaytimeSlotManagementActionTarget
 ): PlaytimeSlotManagementActionTarget
@@ -2982,9 +2666,6 @@ export type AdjustClipSectionLengthAction = {
 	factor: number,
 }
 --- Creates a AdjustClipSectionLengthAction value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.AdjustClipSectionLengthAction(value: AdjustClipSectionLengthAction): AdjustClipSectionLengthAction
 	return value
 end
@@ -2995,9 +2676,6 @@ export type SendMidiTarget = {
 	destination: MidiDestination?,
 }
 --- Creates a SendMidiTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SendMidiTarget(value: SendMidiTarget): SendMidiTarget
 	return value
 end
@@ -3006,9 +2684,6 @@ export type DummyTarget = {
 	unit: TargetUnit?,
 }
 --- Creates a DummyTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.DummyTarget(value: DummyTarget): DummyTarget
 	return value
 end
@@ -3020,9 +2695,6 @@ export type SendOscTarget = {
 	destination: OscDestination?,
 }
 --- Creates a SendOscTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SendOscTarget(value: SendOscTarget): SendOscTarget
 	return value
 end
@@ -3033,9 +2705,6 @@ export type EnableInstancesTarget = {
 	exclusivity: InstanceExclusivity?,
 }
 --- Creates a EnableInstancesTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.EnableInstancesTarget(value: EnableInstancesTarget): EnableInstancesTarget
 	return value
 end
@@ -3046,9 +2715,6 @@ export type EnableMappingsTarget = {
 	exclusivity: MappingExclusivity?,
 }
 --- Creates a EnableMappingsTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.EnableMappingsTarget(value: EnableMappingsTarget): EnableMappingsTarget
 	return value
 end
@@ -3060,9 +2726,6 @@ export type ModifyMappingTarget = {
 	modification: MappingModification,
 }
 --- Creates a ModifyMappingTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ModifyMappingTarget(value: ModifyMappingTarget): ModifyMappingTarget
 	return value
 end
@@ -3106,9 +2769,6 @@ export type LearnTargetMappingModification = {
 	touch_cause: TargetTouchCause?,
 }
 --- Creates a LearnTargetMappingModification value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LearnTargetMappingModification(value: LearnTargetMappingModification): LearnTargetMappingModification
 	return value
 end
@@ -3118,9 +2778,6 @@ export type SetTargetToLastTouchedMappingModification = {
 	touch_cause: TargetTouchCause?,
 }
 --- Creates a SetTargetToLastTouchedMappingModification value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.SetTargetToLastTouchedMappingModification(
 	value: SetTargetToLastTouchedMappingModification
 ): SetTargetToLastTouchedMappingModification
@@ -3135,9 +2792,6 @@ export type LoadMappingSnapshotTarget = {
 	default_value: TargetValue?,
 }
 --- Creates a LoadMappingSnapshotTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LoadMappingSnapshotTarget(value: LoadMappingSnapshotTarget): LoadMappingSnapshotTarget
 	return value
 end
@@ -3149,9 +2803,6 @@ export type TakeMappingSnapshotTarget = {
 	snapshot: BackwardCompatibleMappingSnapshotDescForTake,
 }
 --- Creates a TakeMappingSnapshotTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TakeMappingSnapshotTarget(value: TakeMappingSnapshotTarget): TakeMappingSnapshotTarget
 	return value
 end
@@ -3164,9 +2815,6 @@ export type BackwardCompatibleMappingSnapshotDescForTake =
 	| BackwardCompatibleMappingSnapshotDescForTake_New
 
 --- Creates a BackwardCompatibleMappingSnapshotDescForTake value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BackwardCompatibleMappingSnapshotDescForTake(
 	value: BackwardCompatibleMappingSnapshotDescForTake
 ): BackwardCompatibleMappingSnapshotDescForTake
@@ -3223,9 +2871,6 @@ export type BrowseGroupMappingsTarget = {
 	group: string?,
 }
 --- Creates a BrowseGroupMappingsTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowseGroupMappingsTarget(value: BrowseGroupMappingsTarget): BrowseGroupMappingsTarget
 	return value
 end
@@ -3235,9 +2880,6 @@ export type BrowsePotFilterItemsTarget = {
 	item_kind: PotFilterKind?,
 }
 --- Creates a BrowsePotFilterItemsTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowsePotFilterItemsTarget(value: BrowsePotFilterItemsTarget): BrowsePotFilterItemsTarget
 	return value
 end
@@ -3246,9 +2888,6 @@ export type BrowsePotPresetsTarget = {
 	unit: TargetUnit?,
 }
 --- Creates a BrowsePotPresetsTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BrowsePotPresetsTarget(value: BrowsePotPresetsTarget): BrowsePotPresetsTarget
 	return value
 end
@@ -3257,9 +2896,6 @@ export type PreviewPotPresetTarget = {
 	unit: TargetUnit?,
 }
 --- Creates a PreviewPotPresetTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.PreviewPotPresetTarget(value: PreviewPotPresetTarget): PreviewPotPresetTarget
 	return value
 end
@@ -3269,9 +2905,6 @@ export type LoadPotPresetTarget = {
 	fx: FxDescriptor?,
 }
 --- Creates a LoadPotPresetTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.LoadPotPresetTarget(value: LoadPotPresetTarget): LoadPotPresetTarget
 	return value
 end
@@ -3296,9 +2929,6 @@ export type VirtualTarget = {
 	character: VirtualControlElementCharacter?,
 }
 --- Creates a VirtualTarget value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.VirtualTarget(value: VirtualTarget): VirtualTarget
 	return value
 end
@@ -3366,9 +2996,6 @@ export type ReaperCommand_Name = string
 export type ReaperCommand = ReaperCommand_Id | ReaperCommand_Name
 
 --- Creates a ReaperCommand value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.ReaperCommand(value: ReaperCommand): ReaperCommand
 	return value
 end
@@ -3496,9 +3123,6 @@ export type TrackDescriptorCommons = {
 	track_must_be_selected: boolean?,
 }
 --- Creates a TrackDescriptorCommons value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.TrackDescriptorCommons(value: TrackDescriptorCommons): TrackDescriptorCommons
 	return value
 end
@@ -3551,9 +3175,6 @@ export type BookmarkRef_ByIndex = { index: number }
 export type BookmarkRef = BookmarkRef_ById | BookmarkRef_ByIndex
 
 --- Creates a BookmarkRef value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.BookmarkRef(value: BookmarkRef): BookmarkRef
 	return value
 end
@@ -3562,9 +3183,6 @@ export type FxDescriptorCommons = {
 	fx_must_have_focus: boolean?,
 }
 --- Creates a FxDescriptorCommons value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxDescriptorCommons(value: FxDescriptorCommons): FxDescriptorCommons
 	return value
 end
@@ -3692,9 +3310,6 @@ export type FxSnapshot = {
 	content: FxSnapshotContent,
 }
 --- Creates a FxSnapshot value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.FxSnapshot(value: FxSnapshot): FxSnapshot
 	return value
 end
@@ -3778,9 +3393,6 @@ export type RouteDescriptorCommons = {
 	route_kind: TrackRouteKind?,
 }
 --- Creates a RouteDescriptorCommons value.
----
---- This simply returns the given table, enabling type checking on the
---- way.
 function module.RouteDescriptorCommons(value: RouteDescriptorCommons): RouteDescriptorCommons
 	return value
 end

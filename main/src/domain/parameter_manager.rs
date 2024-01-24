@@ -1,5 +1,5 @@
 use crate::domain::{
-    Compartment, CompartmentParamIndex, CompartmentParams, ParamSetting, ParameterMainTask,
+    CompartmentKind, CompartmentParamIndex, CompartmentParams, ParamSetting, ParameterMainTask,
     PluginParamIndex, PluginParams, RawParamValue,
 };
 use base::{blocking_read_lock, blocking_write_lock, NamedChannelSender, SenderToNormalThread};
@@ -28,7 +28,7 @@ impl ParameterManager {
 
     pub fn update_certain_compartment_param_settings(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         settings: Vec<(CompartmentParamIndex, ParamSetting)>,
     ) {
         let mut plugin_params = self.params_mut();
@@ -36,7 +36,11 @@ impl ParameterManager {
         compartment_params.apply_given_settings(settings);
     }
 
-    pub fn update_compartment_params(&self, compartment: Compartment, params: CompartmentParams) {
+    pub fn update_compartment_params(
+        &self,
+        compartment: CompartmentKind,
+        params: CompartmentParams,
+    ) {
         let mut plugin_params = self.params_mut();
         let compartment_params = plugin_params.compartment_params_mut(compartment);
         *compartment_params = params;

@@ -60,7 +60,7 @@ use crate::domain::{
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
-    resolve_track_route_by_index, ActionInvocationType, Compartment, CompoundMappingTarget,
+    resolve_track_route_by_index, ActionInvocationType, CompartmentKind, CompoundMappingTarget,
     ExtendedProcessorContext, FeedbackResolution, FxDisplayType, QualifiedMappingId,
     RealearnTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType, TrackExclusivity,
     TrackRouteType, TransportAction, VirtualControlElement, VirtualControlElementId, VirtualFx,
@@ -829,7 +829,10 @@ impl MappingPanel {
         let controller_mappings: Vec<_> = {
             let session = self.session();
             let session = session.borrow();
-            session.mappings(Compartment::Controller).cloned().collect()
+            session
+                .mappings(CompartmentKind::Controller)
+                .cloned()
+                .collect()
         };
         let grouped_mappings =
             group_mappings_by_virtual_control_element(controller_mappings.iter());
@@ -3910,7 +3913,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_visible(self.mapping.compartment() != Compartment::Main);
+            .set_visible(self.mapping.compartment() != CompartmentKind::Main);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item_by_index(self.target.category().into())
@@ -6719,7 +6722,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
-        let is_main_mapping = self.mapping.compartment() == Compartment::Main;
+        let is_main_mapping = self.mapping.compartment() == CompartmentKind::Main;
         b.fill_combo_box_small(
             SourceCategory::into_enum_iter()
                 // Don't allow controller mappings to have virtual source
@@ -7397,7 +7400,7 @@ fn invalidate_target_line_2_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => {
@@ -7419,7 +7422,7 @@ fn invalidat_target_line_3_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => {
@@ -7447,7 +7450,7 @@ fn invalidate_target_line_4_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => match target.target_type() {

@@ -9,7 +9,7 @@ use serde_json::json;
 
 use crate::base::Prop;
 use crate::domain::{
-    Compartment, FxDescriptor, GlobalControlAndFeedbackState, GroupId, MappingId,
+    CompartmentKind, FxDescriptor, GlobalControlAndFeedbackState, GroupId, MappingId,
     MappingSnapshotContainer, ParameterManager, QualifiedMappingId, SharedInstance, Tag, TagScope,
     TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
@@ -45,13 +45,13 @@ pub struct Unit {
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
     ///   but it's very related to the active mapping by group, so we decided to keep it here too.
-    mappings_by_group: EnumMap<Compartment, HashMap<GroupId, Vec<MappingId>>>,
+    mappings_by_group: EnumMap<CompartmentKind, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
     /// - Persistent
     /// - Set by target "ReaLearn: Browse group mappings".
     /// - Non-redundant state!
-    active_mapping_by_group: EnumMap<Compartment, HashMap<GroupId, MappingId>>,
+    active_mapping_by_group: EnumMap<CompartmentKind, HashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
     /// - Not persistent
@@ -74,7 +74,7 @@ pub struct Unit {
     /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
-    active_mapping_tags: EnumMap<Compartment, HashSet<Tag>>,
+    active_mapping_tags: EnumMap<CompartmentKind, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
     /// - Persistent
@@ -100,11 +100,11 @@ pub struct Unit {
     /// Mapping snapshots.
     ///
     /// Persistent.
-    mapping_snapshot_container: EnumMap<Compartment, MappingSnapshotContainer>,
+    mapping_snapshot_container: EnumMap<CompartmentKind, MappingSnapshotContainer>,
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
-    custom_compartment_data: EnumMap<Compartment, HashMap<String, serde_json::Value>>,
+    custom_compartment_data: EnumMap<CompartmentKind, HashMap<String, serde_json::Value>>,
     #[cfg(feature = "playtime")]
     control_unit_top_left_corner: playtime_api::persistence::SlotAddress,
 }
@@ -148,7 +148,7 @@ impl Unit {
 
     pub fn set_custom_compartment_data(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         data: HashMap<String, serde_json::Value>,
     ) {
         self.custom_compartment_data[compartment] = data;
@@ -157,7 +157,7 @@ impl Unit {
 
     pub fn update_custom_compartment_data_key(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         key: String,
         value: serde_json::Value,
     ) {
@@ -167,7 +167,7 @@ impl Unit {
 
     pub fn custom_compartment_data(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> &HashMap<String, serde_json::Value> {
         &self.custom_compartment_data[compartment]
     }
@@ -253,14 +253,14 @@ impl Unit {
 
     #[cfg(feature = "playtime")]
     fn get_playtime_main_compartment_data(&self, pointer: &str) -> Option<&serde_json::Value> {
-        self.custom_compartment_data[Compartment::Main]
+        self.custom_compartment_data[CompartmentKind::Main]
             .get("playtime")?
             .pointer(pointer)
     }
 
     #[cfg(feature = "playtime")]
     fn patch_playtime_main_compartment_data(&mut self, patch: serde_json::Value) {
-        let playtime = self.custom_compartment_data[Compartment::Main]
+        let playtime = self.custom_compartment_data[CompartmentKind::Main]
             .entry("playtime".to_string())
             .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
         serde_json_util::merge(playtime, patch);
@@ -325,7 +325,7 @@ impl Unit {
 
     pub fn set_mapping_snapshot_container(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         container: MappingSnapshotContainer,
     ) {
         self.mapping_snapshot_container[compartment] = container;
@@ -333,14 +333,14 @@ impl Unit {
 
     pub fn mapping_snapshot_container(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> &MappingSnapshotContainer {
         &self.mapping_snapshot_container[compartment]
     }
 
     pub fn mapping_snapshot_container_mut(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> &mut MappingSnapshotContainer {
         &mut self.mapping_snapshot_container[compartment]
     }
@@ -349,7 +349,7 @@ impl Unit {
     /// instance feedback.
     pub fn mark_snapshot_active(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         tag_scope: &TagScope,
         snapshot_id: &VirtualMappingSnapshotIdForLoad,
     ) {
@@ -396,7 +396,7 @@ impl Unit {
 
     pub fn only_these_mapping_tags_are_active(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         tags: &HashSet<Tag>,
     ) -> bool {
         tags == &self.active_mapping_tags[compartment]
@@ -404,7 +404,7 @@ impl Unit {
 
     pub fn at_least_those_mapping_tags_are_active(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         tags: &HashSet<Tag>,
     ) -> bool {
         tags.is_subset(&self.active_mapping_tags[compartment])
@@ -412,7 +412,7 @@ impl Unit {
 
     pub fn activate_or_deactivate_mapping_tags(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         tags: &HashSet<Tag>,
         activate: bool,
     ) {
@@ -424,12 +424,12 @@ impl Unit {
         self.notify_active_mapping_tags_changed(compartment);
     }
 
-    pub fn set_active_mapping_tags(&mut self, compartment: Compartment, tags: HashSet<Tag>) {
+    pub fn set_active_mapping_tags(&mut self, compartment: CompartmentKind, tags: HashSet<Tag>) {
         self.active_mapping_tags[compartment] = tags;
         self.notify_active_mapping_tags_changed(compartment);
     }
 
-    fn notify_active_mapping_tags_changed(&mut self, compartment: Compartment) {
+    fn notify_active_mapping_tags_changed(&mut self, compartment: CompartmentKind) {
         let instance_event = UnitEvent::ActiveMappingTags { compartment };
         self.event_sender.send_complaining(instance_event);
     }
@@ -509,18 +509,18 @@ impl Unit {
 
     pub fn active_mapping_by_group(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> &HashMap<GroupId, MappingId> {
         &self.active_mapping_by_group[compartment]
     }
 
-    pub fn active_mapping_tags(&self, compartment: Compartment) -> &HashSet<Tag> {
+    pub fn active_mapping_tags(&self, compartment: CompartmentKind) -> &HashSet<Tag> {
         &self.active_mapping_tags[compartment]
     }
 
     pub fn set_active_mapping_by_group(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         value: HashMap<GroupId, MappingId>,
     ) {
         self.active_mapping_by_group[compartment] = value;
@@ -529,7 +529,7 @@ impl Unit {
     /// Sets the ID of the currently active mapping within the given group.
     pub fn set_active_mapping_within_group(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         group_id: GroupId,
         mapping_id: MappingId,
     ) {
@@ -545,7 +545,7 @@ impl Unit {
     /// Gets the ID of the currently active mapping within the given group.
     pub fn get_active_mapping_within_group(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         group_id: GroupId,
     ) -> Option<MappingId> {
         self.active_mapping_by_group[compartment]
@@ -555,7 +555,7 @@ impl Unit {
 
     pub fn set_mappings_by_group(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
@@ -573,7 +573,7 @@ impl Unit {
 
     pub fn get_on_mappings_within_group(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         group_id: GroupId,
     ) -> impl Iterator<Item = MappingId> + '_ {
         self.mappings_by_group[compartment]
@@ -590,17 +590,17 @@ impl Unit {
 pub enum UnitEvent {
     /// For the "ReaLearn: Browse group mappings" target.
     ActiveMappingWithinGroup {
-        compartment: Compartment,
+        compartment: CompartmentKind,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
     /// For the "ReaLearn: Enable/disable mappings" target.
-    ActiveMappingTags { compartment: Compartment },
+    ActiveMappingTags { compartment: CompartmentKind },
     /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
     /// For the "ReaLearn: Load mapping snapshot" target.
     MappingSnapshotActivated {
-        compartment: Compartment,
+        compartment: CompartmentKind,
         tag_scope: TagScope,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },

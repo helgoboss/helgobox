@@ -1,5 +1,5 @@
 use crate::domain::{
-    classify_midi_message, BasicSettings, Compartment, CompoundMappingSource, ControlEvent,
+    classify_midi_message, BasicSettings, CompartmentKind, CompoundMappingSource, ControlEvent,
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
     ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingId,
     MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification, MidiScanResult,
@@ -41,7 +41,7 @@ pub struct RealTimeProcessor {
     // Synced processing settings
     settings: BasicSettings,
     control_mode: ControlMode,
-    mappings: EnumMap<Compartment, OrderedMappingMap<RealTimeMapping>>,
+    mappings: EnumMap<CompartmentKind, OrderedMappingMap<RealTimeMapping>>,
     // State
     control_is_globally_enabled: bool,
     feedback_is_globally_enabled: bool,
@@ -74,7 +74,7 @@ impl RealTimeProcessor {
         normal_main_task_sender: SenderToNormalThread<NormalRealTimeToMainThreadTask>,
         control_main_task_sender: SenderToNormalThread<ControlMainTask>,
     ) -> RealTimeProcessor {
-        use Compartment::*;
+        use CompartmentKind::*;
         RealTimeProcessor {
             unit_id,
             instance,
@@ -438,14 +438,14 @@ impl RealTimeProcessor {
     }
 
     fn send_lifecycle_midi_for_all_mappings(&self, phase: LifecyclePhase) {
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             self.send_lifecycle_midi_for_all_mappings_in(compartment, phase);
         }
     }
 
     fn send_lifecycle_midi_for_all_mappings_in(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         phase: LifecyclePhase,
     ) {
         for m in self.mappings[compartment].values() {
@@ -536,13 +536,13 @@ impl RealTimeProcessor {
             ",
                 self.unit_id,
                 self.control_mode,
-                self.mappings[Compartment::Main].len(),
-                self.mappings[Compartment::Main]
+                self.mappings[CompartmentKind::Main].len(),
+                self.mappings[CompartmentKind::Main]
                     .values()
                     .filter(|m| m.control_is_effectively_on())
                     .count(),
-                self.mappings[Compartment::Controller].len(),
-                self.mappings[Compartment::Controller]
+                self.mappings[CompartmentKind::Controller].len(),
+                self.mappings[CompartmentKind::Controller]
                     .values()
                     .filter(|m| m.control_is_effectively_on())
                     .count(),
@@ -564,7 +564,7 @@ impl RealTimeProcessor {
         });
     }
 
-    fn log_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn log_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         permit_alloc(|| {
             let mapping = self.mappings[compartment].get(&mapping_id);
             let msg = format!(
@@ -874,7 +874,8 @@ impl RealTimeProcessor {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
-        Compartment::enum_iter().flat_map(move |compartment| self.mappings[compartment].values())
+        CompartmentKind::enum_iter()
+            .flat_map(move |compartment| self.mappings[compartment].values())
     }
 
     fn control_midi(
@@ -912,7 +913,7 @@ impl RealTimeProcessor {
         caller: Caller,
         is_rendering: bool,
     ) -> MatchOutcome {
-        let compartment = Compartment::Main;
+        let compartment = CompartmentKind::Main;
         let mut match_outcome = MatchOutcome::Unmatched;
         for m in self.mappings[compartment]
             .values_mut()
@@ -1162,8 +1163,8 @@ impl<'a> Caller<'a> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    UpdateAllMappings(Compartment, Vec<RealTimeMapping>),
-    UpdateSingleMapping(Compartment, Box<RealTimeMapping>),
+    UpdateAllMappings(CompartmentKind, Vec<RealTimeMapping>),
+    UpdateSingleMapping(CompartmentKind, Box<RealTimeMapping>),
     UpdatePersistentMappingProcessingState {
         id: QualifiedMappingId,
         state: PersistentMappingProcessingState,
@@ -1171,14 +1172,14 @@ pub enum NormalRealTimeTask {
     UpdateSettings(BasicSettings),
     /// This takes care of propagating target activation states and/or real-time target updates
     /// (for non-virtual mappings).
-    UpdateTargetsPartially(Compartment, Vec<RealTimeTargetUpdate>),
+    UpdateTargetsPartially(CompartmentKind, Vec<RealTimeTargetUpdate>),
     /// Updates the activation state of multiple mappings.
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
     /// parameter update occurs we can determine in a very granular way which targets are affected.
-    UpdateMappingsPartially(Compartment, Vec<RealTimeMappingUpdate>),
+    UpdateMappingsPartially(CompartmentKind, Vec<RealTimeMappingUpdate>),
     LogDebugInfo,
-    LogMapping(Compartment, MappingId),
+    LogMapping(CompartmentKind, MappingId),
     UpdateSampleRate(Hz),
     StartLearnSource {
         allow_virtual_sources: bool,
@@ -1253,7 +1254,7 @@ pub enum FeedbackRealTimeTask {
     /// usual MidiSourceValue Raw variant is not suited.
     NonAllocatingFxOutputFeedback(RawMidiEvent),
     /// Used only if feedback output is <FX output>, otherwise done synchronously.
-    SendLifecycleMidi(Compartment, MappingId, LifecyclePhase),
+    SendLifecycleMidi(CompartmentKind, MappingId, LifecyclePhase),
 }
 
 impl Drop for RealTimeProcessor {
@@ -1351,7 +1352,7 @@ fn control_controller_mappings_midi(
                         m,
                         main_task_sender,
                         rt_feedback_sender,
-                        Compartment::Controller,
+                        CompartmentKind::Controller,
                         value_event.with_payload(MidiEvent::new(
                             value_event.payload().offset(),
                             control_value,
@@ -1382,7 +1383,7 @@ fn process_real_mapping(
     mapping: &mut RealTimeMapping,
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     value_event: ControlEvent<MidiEvent<ControlValue>>,
     options: ControlOptions,
     caller: Caller,
@@ -1570,7 +1571,7 @@ fn real_time_target_send_midi(
 
 fn forward_control_to_main_processor(
     sender: &SenderToNormalThread<ControlMainTask>,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     control_event: ControlEvent<ControlValue>,
     options: ControlOptions,
@@ -1613,7 +1614,7 @@ fn control_main_mappings_virtual(
                     m,
                     main_task_sender,
                     rt_feedback_sender,
-                    Compartment::Main,
+                    CompartmentKind::Main,
                     value_event.with_payload(MidiEvent::new(midi_event.offset(), control_value)),
                     ControlOptions {
                         enforce_target_refresh: match_outcome.matched(),

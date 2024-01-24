@@ -1,6 +1,6 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(self
             .fx_descriptor

@@ -5,7 +5,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     new_set_track_ui_functions_are_available, scoped_track_index, AdditionalFeedbackEvent,
-    AdditionalTransformationInput, BasicSettings, Compartment, DomainEventHandler, Exclusivity,
+    AdditionalTransformationInput, BasicSettings, CompartmentKind, DomainEventHandler, Exclusivity,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
     InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
     OscFeedbackTask, PluginParamIndex, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget,
@@ -512,7 +512,7 @@ impl<'a> From<MappingControlContext<'a>> for ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingData {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub group_id: GroupId,
     pub last_non_performance_target_value: Option<AbsoluteValue>,

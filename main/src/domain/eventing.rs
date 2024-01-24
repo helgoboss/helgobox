@@ -1,5 +1,5 @@
 use crate::domain::{
-    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, FeedbackLogEntry,
+    CompartmentKind, CompoundMappingTarget, ControlLogContext, ControlLogEntry, FeedbackLogEntry,
     InfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
     ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
@@ -56,14 +56,14 @@ pub struct UpdatedSingleMappingOnStateEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingEnabledChangeRequestedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub is_enabled: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct MappingModificationRequestedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub modification: MappingModification,
     pub value: ControlValue,
@@ -71,12 +71,12 @@ pub struct MappingModificationRequestedEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingMatchedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
 }
 
 impl MappingMatchedEvent {
-    pub fn new(compartment: Compartment, mapping_id: MappingId) -> Self {
+    pub fn new(compartment: CompartmentKind, mapping_id: MappingId) -> Self {
         MappingMatchedEvent {
             compartment,
             mapping_id,
@@ -113,7 +113,7 @@ impl TargetControlEvent {
 
 #[derive(Debug)]
 pub struct TargetValueChangedEvent<'a> {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub targets: &'a [CompoundMappingTarget],
     pub new_value: AbsoluteValue,
@@ -126,7 +126,7 @@ pub trait DomainEventHandler: Debug {
 
     fn handle_event(&self, event: DomainEvent) -> Result<(), Box<dyn Error>>;
 
-    fn notify_mapping_matched(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn notify_mapping_matched(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         self.handle_event_ignoring_error(DomainEvent::MappingMatched(MappingMatchedEvent::new(
             compartment,
             mapping_id,

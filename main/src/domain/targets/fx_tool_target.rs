@@ -1,5 +1,5 @@
 use crate::domain::{
-    get_fx_name, ChangeInstanceFxArgs, Compartment, ControlContext, ExtendedProcessorContext,
+    get_fx_name, ChangeInstanceFxArgs, CompartmentKind, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget,
     ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fxs = self
             .fx_descriptor
