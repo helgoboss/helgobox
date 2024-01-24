@@ -2,8 +2,12 @@ use crate::persistence::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.
 #[derive(Default, Serialize, Deserialize)]
 pub struct Compartment {
+    /// Default group settings.
+    ///
+    /// Group fields `id` and `name` will be ignored for the default group.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_group: Option<Group>,
     #[serde(skip_serializing_if = "Option::is_none")]

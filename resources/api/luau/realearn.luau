@@ -6,6 +6,7 @@ local playtime = require("playtime")
 
 local module = {}
 
+--- Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.
 export type Compartment = {
 	default_group: Group?,
 	parameters: { Parameter }?,
@@ -15,6 +16,7 @@ export type Compartment = {
 	notes: string?,
 }
 --- Creates a Compartment value.
+--- Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.
 function module.Compartment(value: Compartment): Compartment
 	return value
 end
@@ -47,11 +49,11 @@ function module.Glue(value: Glue): Glue
 end
 
 export type FeedbackValueTable_FromTextToDiscrete = { kind: "FromTextToDiscrete", value: { [string]: number } }
-export type FeedbackValueTable_FromTextToContinuous = { kind: "FromTextToContinuous", value: { [string]: number } }
 
+export type FeedbackValueTable_FromTextToContinuous = { kind: "FromTextToContinuous", value: { [string]: number } }
 export type FeedbackValueTable = FeedbackValueTable_FromTextToDiscrete | FeedbackValueTable_FromTextToContinuous
 
---- A helper table to create FeedbackValueTable values of different kinds.
+--- Helper table to create FeedbackValueTable values of different kinds.
 module.FeedbackValueTable = {}
 
 --- Creates a FeedbackValueTable of kind FromTextToDiscrete.
@@ -97,11 +99,14 @@ export type AbsoluteMode = "Normal" | "IncrementalButton" | "ToggleButton" | "Ma
 export type RelativeMode = "Normal" | "MakeAbsolute"
 
 export type FireMode_Normal = { kind: "Normal", press_duration_interval: Interval<number>? }
-export type FireMode_AfterTimeout = { kind: "AfterTimeout", timeout: number? }
-export type FireMode_AfterTimeoutKeepFiring = { kind: "AfterTimeoutKeepFiring", timeout: number?, rate: number? }
-export type FireMode_OnSinglePress = { kind: "OnSinglePress", max_duration: number? }
-export type FireMode_OnDoublePress = { kind: "OnDoublePress" }
 
+export type FireMode_AfterTimeout = { kind: "AfterTimeout", timeout: number? }
+
+export type FireMode_AfterTimeoutKeepFiring = { kind: "AfterTimeoutKeepFiring", timeout: number?, rate: number? }
+
+export type FireMode_OnSinglePress = { kind: "OnSinglePress", max_duration: number? }
+
+export type FireMode_OnDoublePress = { kind: "OnDoublePress" }
 export type FireMode =
 	FireMode_Normal
 	| FireMode_AfterTimeout
@@ -109,7 +114,7 @@ export type FireMode =
 	| FireMode_OnSinglePress
 	| FireMode_OnDoublePress
 
---- A helper table to create FireMode values of different kinds.
+--- Helper table to create FireMode values of different kinds.
 module.FireMode = {}
 
 --- Creates a FireMode of kind Normal.
@@ -181,8 +186,8 @@ function module.OnSinglePressFireMode(value: OnSinglePressFireMode): OnSinglePre
 end
 
 export type VirtualColor_Rgb = RgbColor
-export type VirtualColor_Prop = PropColor
 
+export type VirtualColor_Prop = PropColor
 export type VirtualColor = VirtualColor_Rgb | VirtualColor_Prop
 
 --- Creates a VirtualColor value.
@@ -231,17 +236,18 @@ export type Feedback_Numeric = {
 	background_color: VirtualColor?,
 	transformation: string?,
 }
+
 export type Feedback_Text = {
 	kind: "Text",
 	color: VirtualColor?,
 	background_color: VirtualColor?,
 	text_expression: string?,
 }
-export type Feedback_Dynamic = { kind: "Dynamic", color: VirtualColor?, background_color: VirtualColor?, script: string? }
 
+export type Feedback_Dynamic = { kind: "Dynamic", color: VirtualColor?, background_color: VirtualColor?, script: string? }
 export type Feedback = Feedback_Numeric | Feedback_Text | Feedback_Dynamic
 
---- A helper table to create Feedback values of different kinds.
+--- Helper table to create Feedback values of different kinds.
 module.Feedback = {}
 
 --- Creates a Feedback of kind Numeric.
@@ -342,10 +348,9 @@ function module.LifecycleHook(value: LifecycleHook): LifecycleHook
 end
 
 export type SendMidiFeedbackAction_Raw = { kind: "Raw", message: RawMidiMessage }
-
 export type SendMidiFeedbackAction = SendMidiFeedbackAction_Raw
 
---- A helper table to create SendMidiFeedbackAction values of different kinds.
+--- Helper table to create SendMidiFeedbackAction values of different kinds.
 module.SendMidiFeedbackAction = {}
 
 --- Creates a SendMidiFeedbackAction of kind Raw.
@@ -356,8 +361,8 @@ function module.SendMidiFeedbackAction.Raw(value: { message: RawMidiMessage }): 
 end
 
 export type RawMidiMessage_HexString = string
-export type RawMidiMessage_ByteArray = { number }
 
+export type RawMidiMessage_ByteArray = { number }
 export type RawMidiMessage = RawMidiMessage_HexString | RawMidiMessage_ByteArray
 
 --- Creates a RawMidiMessage value.
@@ -366,10 +371,9 @@ function module.RawMidiMessage(value: RawMidiMessage): RawMidiMessage
 end
 
 export type SuccessAudioFeedback_Simple = { kind: "Simple" }
-
 export type SuccessAudioFeedback = SuccessAudioFeedback_Simple
 
---- A helper table to create SuccessAudioFeedback values of different kinds.
+--- Helper table to create SuccessAudioFeedback values of different kinds.
 module.SuccessAudioFeedback = {}
 
 --- Creates a SuccessAudioFeedback of kind Simple.
@@ -380,11 +384,14 @@ function module.SuccessAudioFeedback.Simple(): SuccessAudioFeedback_Simple
 end
 
 export type ActivationCondition_Modifier = { kind: "Modifier", modifiers: { ModifierState }? }
-export type ActivationCondition_Bank = { kind: "Bank", parameter: ParamRef, bank_index: number }
-export type ActivationCondition_Eel = { kind: "Eel", condition: string }
-export type ActivationCondition_Expression = { kind: "Expression", condition: string }
-export type ActivationCondition_TargetValue = { kind: "TargetValue", mapping: string?, condition: string }
 
+export type ActivationCondition_Bank = { kind: "Bank", parameter: ParamRef, bank_index: number }
+
+export type ActivationCondition_Eel = { kind: "Eel", condition: string }
+
+export type ActivationCondition_Expression = { kind: "Expression", condition: string }
+
+export type ActivationCondition_TargetValue = { kind: "TargetValue", mapping: string?, condition: string }
 export type ActivationCondition =
 	ActivationCondition_Modifier
 	| ActivationCondition_Bank
@@ -392,7 +399,7 @@ export type ActivationCondition =
 	| ActivationCondition_Expression
 	| ActivationCondition_TargetValue
 
---- A helper table to create ActivationCondition values of different kinds.
+--- Helper table to create ActivationCondition values of different kinds.
 module.ActivationCondition = {}
 
 --- Creates a ActivationCondition of kind Modifier.
@@ -482,8 +489,8 @@ function module.TargetValueActivationCondition(value: TargetValueActivationCondi
 end
 
 export type ParamRef_Index = number
-export type ParamRef_Key = string
 
+export type ParamRef_Key = string
 export type ParamRef = ParamRef_Index | ParamRef_Key
 
 --- Creates a ParamRef value.
@@ -492,8 +499,8 @@ function module.ParamRef(value: ParamRef): ParamRef
 end
 
 export type VirtualControlElementId_Indexed = number
-export type VirtualControlElementId_Named = string
 
+export type VirtualControlElementId_Named = string
 export type VirtualControlElementId = VirtualControlElementId_Indexed | VirtualControlElementId_Named
 
 --- Creates a VirtualControlElementId value.
@@ -542,28 +549,37 @@ function module.Parameter(value: Parameter): Parameter
 end
 
 export type Source_None = { kind: "None" }
+
 export type Source_MidiDeviceChanges = { kind: "MidiDeviceChanges" }
+
 export type Source_RealearnInstanceStart = { kind: "RealearnInstanceStart" }
+
 export type Source_Timer = { kind: "Timer", duration: number }
+
 export type Source_RealearnParameter = { kind: "RealearnParameter", parameter_index: number }
+
 export type Source_Speech = { kind: "Speech" }
+
 export type Source_MidiNoteVelocity = {
 	kind: "MidiNoteVelocity",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 	key_number: number?,
 }
+
 export type Source_MidiNoteKeyNumber = {
 	kind: "MidiNoteKeyNumber",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 }
+
 export type Source_MidiPolyphonicKeyPressureAmount = {
 	kind: "MidiPolyphonicKeyPressureAmount",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 	key_number: number?,
 }
+
 export type Source_MidiControlChangeValue = {
 	kind: "MidiControlChangeValue",
 	feedback_behavior: FeedbackBehavior?,
@@ -572,27 +588,32 @@ export type Source_MidiControlChangeValue = {
 	character: SourceCharacter?,
 	fourteen_bit: boolean?,
 }
+
 export type Source_MidiProgramChangeNumber = {
 	kind: "MidiProgramChangeNumber",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 }
+
 export type Source_MidiSpecificProgramChange = {
 	kind: "MidiSpecificProgramChange",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 	program_number: number?,
 }
+
 export type Source_MidiChannelPressureAmount = {
 	kind: "MidiChannelPressureAmount",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 }
+
 export type Source_MidiPitchBendChangeValue = {
 	kind: "MidiPitchBendChangeValue",
 	feedback_behavior: FeedbackBehavior?,
 	channel: number?,
 }
+
 export type Source_MidiParameterNumberValue = {
 	kind: "MidiParameterNumberValue",
 	feedback_behavior: FeedbackBehavior?,
@@ -602,24 +623,35 @@ export type Source_MidiParameterNumberValue = {
 	registered: boolean?,
 	character: SourceCharacter?,
 }
+
 export type Source_MidiClockTempo = { kind: "MidiClockTempo" }
+
 export type Source_MidiClockTransport = { kind: "MidiClockTransport", message: MidiClockTransportMessage? }
+
 export type Source_MidiRaw = {
 	kind: "MidiRaw",
 	feedback_behavior: FeedbackBehavior?,
 	pattern: string?,
 	character: SourceCharacter?,
 }
+
 export type Source_MidiScript = { kind: "MidiScript", script_kind: MidiScriptKind?, script: string? }
+
 export type Source_MackieLcd = { kind: "MackieLcd", extender_index: number?, channel: number?, line: number? }
+
 export type Source_XTouchMackieLcd = { kind: "XTouchMackieLcd", extender_index: number?, channel: number?, line: number? }
+
 export type Source_MackieSevenSegmentDisplay = {
 	kind: "MackieSevenSegmentDisplay",
 	scope: MackieSevenSegmentDisplayScope?,
 }
+
 export type Source_SlKeyboardDisplay = { kind: "SlKeyboardDisplay", section: number?, line: number? }
+
 export type Source_SiniConE24Display = { kind: "SiniConE24Display", cell_index: number?, item_index: number? }
+
 export type Source_LaunchpadProScrollingTextDisplay = { kind: "LaunchpadProScrollingTextDisplay" }
+
 export type Source_Osc = {
 	kind: "Osc",
 	feedback_behavior: FeedbackBehavior?,
@@ -628,9 +660,10 @@ export type Source_Osc = {
 	relative: boolean?,
 	feedback_arguments: { string }?,
 }
-export type Source_Key = { kind: "Key", keystroke: Keystroke? }
-export type Source_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 
+export type Source_Key = { kind: "Key", keystroke: Keystroke? }
+
+export type Source_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 export type Source =
 	Source_None
 	| Source_MidiDeviceChanges
@@ -661,7 +694,7 @@ export type Source =
 	| Source_Key
 	| Source_Virtual
 
---- A helper table to create Source values of different kinds.
+--- Helper table to create Source values of different kinds.
 module.Source = {}
 
 --- Creates a Source of kind None.
@@ -990,6 +1023,7 @@ function module.MidiScriptSource(value: MidiScriptSource): MidiScriptSource
 	return value
 end
 
+--- Kind of a MIDI script
 export type MidiScriptKind = "Eel" | "Lua"
 
 export type SourceCharacter = "Range" | "Button" | "Relative1" | "Relative2" | "Relative3" | "StatefulButton"
@@ -1125,20 +1159,26 @@ export type LearnableTargetKind =
 	| "ReaperAction"
 	| "TransportAction"
 
+--- Which target invocations to observe, based on causality. E.g. only those not triggered by
+--- ReaLearn (would pick up invocations triggered by mouse interaction with REAPER but not by
+--- ReaLearn mapping control).
 export type TargetTouchCause = "Any" | "Realearn" | "Reaper"
 
 export type Target_Mouse = { kind: "Mouse", unit: TargetUnit?, action: MouseAction }
+
 export type Target_LastTouched = {
 	kind: "LastTouched",
 	unit: TargetUnit?,
 	included_targets: { LearnableTargetKind }?,
 	touch_cause: TargetTouchCause?,
 }
+
 export type Target_AutomationModeOverride = {
 	kind: "AutomationModeOverride",
 	unit: TargetUnit?,
 	override_value: AutomationModeOverride?,
 }
+
 export type Target_ReaperAction = {
 	kind: "ReaperAction",
 	unit: TargetUnit?,
@@ -1146,8 +1186,11 @@ export type Target_ReaperAction = {
 	invocation: ActionInvocationKind?,
 	track: TrackDescriptor?,
 }
+
 export type Target_TransportAction = { kind: "TransportAction", unit: TargetUnit?, action: TransportAction }
+
 export type Target_AnyOn = { kind: "AnyOn", unit: TargetUnit?, parameter: AnyOnParameter }
+
 export type Target_BrowseTracks = {
 	kind: "BrowseTracks",
 	unit: TargetUnit?,
@@ -1155,6 +1198,7 @@ export type Target_BrowseTracks = {
 	scroll_mixer: boolean?,
 	mode: BrowseTracksMode?,
 }
+
 export type Target_Seek = {
 	kind: "Seek",
 	unit: TargetUnit?,
@@ -1167,8 +1211,11 @@ export type Target_Seek = {
 	feedback_resolution: FeedbackResolution?,
 	behavior: SeekBehavior?,
 }
+
 export type Target_PlayRate = { kind: "PlayRate", unit: TargetUnit? }
+
 export type Target_Tempo = { kind: "Tempo", unit: TargetUnit? }
+
 export type Target_GoToBookmark = {
 	kind: "GoToBookmark",
 	unit: TargetUnit?,
@@ -1177,6 +1224,7 @@ export type Target_GoToBookmark = {
 	set_loop_points: boolean?,
 	seek_behavior: SeekBehavior?,
 }
+
 export type Target_TrackArmState = {
 	kind: "TrackArmState",
 	unit: TargetUnit?,
@@ -1185,12 +1233,14 @@ export type Target_TrackArmState = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackParentSendState = {
 	kind: "TrackParentSendState",
 	unit: TargetUnit?,
 	track: TrackDescriptor?,
 	exclusivity: TrackExclusivity?,
 }
+
 export type Target_AllTrackFxOnOffState = {
 	kind: "AllTrackFxOnOffState",
 	unit: TargetUnit?,
@@ -1198,6 +1248,7 @@ export type Target_AllTrackFxOnOffState = {
 	exclusivity: TrackExclusivity?,
 	poll_for_feedback: boolean?,
 }
+
 export type Target_TrackMuteState = {
 	kind: "TrackMuteState",
 	unit: TargetUnit?,
@@ -1206,7 +1257,9 @@ export type Target_TrackMuteState = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackPeak = { kind: "TrackPeak", unit: TargetUnit?, track: TrackDescriptor? }
+
 export type Target_TrackPhase = {
 	kind: "TrackPhase",
 	unit: TargetUnit?,
@@ -1216,6 +1269,7 @@ export type Target_TrackPhase = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackSelectionState = {
 	kind: "TrackSelectionState",
 	unit: TargetUnit?,
@@ -1224,6 +1278,7 @@ export type Target_TrackSelectionState = {
 	scroll_arrange_view: boolean?,
 	scroll_mixer: boolean?,
 }
+
 export type Target_TrackAutomationMode = {
 	kind: "TrackAutomationMode",
 	unit: TargetUnit?,
@@ -1231,6 +1286,7 @@ export type Target_TrackAutomationMode = {
 	exclusivity: TrackExclusivity?,
 	mode: AutomationMode,
 }
+
 export type Target_TrackMonitoringMode = {
 	kind: "TrackMonitoringMode",
 	unit: TargetUnit?,
@@ -1239,6 +1295,7 @@ export type Target_TrackMonitoringMode = {
 	mode: MonitoringMode,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackAutomationTouchState = {
 	kind: "TrackAutomationTouchState",
 	unit: TargetUnit?,
@@ -1246,6 +1303,7 @@ export type Target_TrackAutomationTouchState = {
 	exclusivity: TrackExclusivity?,
 	touched_parameter: TouchedTrackParameter,
 }
+
 export type Target_TrackPan = {
 	kind: "TrackPan",
 	unit: TargetUnit?,
@@ -1253,6 +1311,7 @@ export type Target_TrackPan = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackWidth = {
 	kind: "TrackWidth",
 	unit: TargetUnit?,
@@ -1260,6 +1319,7 @@ export type Target_TrackWidth = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackVolume = {
 	kind: "TrackVolume",
 	unit: TargetUnit?,
@@ -1267,6 +1327,7 @@ export type Target_TrackVolume = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_TrackTool = {
 	kind: "TrackTool",
 	unit: TargetUnit?,
@@ -1274,6 +1335,7 @@ export type Target_TrackTool = {
 	action: TrackToolAction?,
 	instance_tags: { string }?,
 }
+
 export type Target_TrackVisibility = {
 	kind: "TrackVisibility",
 	unit: TargetUnit?,
@@ -1282,6 +1344,7 @@ export type Target_TrackVisibility = {
 	poll_for_feedback: boolean?,
 	area: TrackArea,
 }
+
 export type Target_TrackSoloState = {
 	kind: "TrackSoloState",
 	unit: TargetUnit?,
@@ -1291,21 +1354,27 @@ export type Target_TrackSoloState = {
 	use_track_grouping: boolean?,
 	use_selection_ganging: boolean?,
 }
+
 export type Target_BrowseFxChain = {
 	kind: "BrowseFxChain",
 	unit: TargetUnit?,
 	chain: FxChainDescriptor,
 	display_kind: FxDisplayKind?,
 }
+
 export type Target_FxOnOffState = { kind: "FxOnOffState", unit: TargetUnit?, fx: FxDescriptor? }
+
 export type Target_FxOnlineOfflineState = { kind: "FxOnlineOfflineState", unit: TargetUnit?, fx: FxDescriptor? }
+
 export type Target_LoadFxSnapshot = {
 	kind: "LoadFxSnapshot",
 	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	snapshot: FxSnapshot?,
 }
+
 export type Target_BrowseFxPresets = { kind: "BrowseFxPresets", unit: TargetUnit?, fx: FxDescriptor? }
+
 export type Target_FxTool = {
 	kind: "FxTool",
 	unit: TargetUnit?,
@@ -1313,12 +1382,14 @@ export type Target_FxTool = {
 	action: FxToolAction?,
 	instance_tags: { string }?,
 }
+
 export type Target_FxVisibility = {
 	kind: "FxVisibility",
 	unit: TargetUnit?,
 	fx: FxDescriptor?,
 	display_kind: FxDisplayKind?,
 }
+
 export type Target_FxParameterValue = {
 	kind: "FxParameterValue",
 	unit: TargetUnit?,
@@ -1326,11 +1397,13 @@ export type Target_FxParameterValue = {
 	poll_for_feedback: boolean?,
 	retrigger: boolean?,
 }
+
 export type Target_FxParameterAutomationTouchState = {
 	kind: "FxParameterAutomationTouchState",
 	unit: TargetUnit?,
 	parameter: FxParameterDescriptor,
 }
+
 export type Target_RouteAutomationMode = {
 	kind: "RouteAutomationMode",
 	unit: TargetUnit?,
@@ -1338,32 +1411,39 @@ export type Target_RouteAutomationMode = {
 	mode: AutomationMode,
 	poll_for_feedback: boolean?,
 }
+
 export type Target_RouteMonoState = {
 	kind: "RouteMonoState",
 	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
+
 export type Target_RouteMuteState = {
 	kind: "RouteMuteState",
 	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
+
 export type Target_RoutePhase = {
 	kind: "RoutePhase",
 	unit: TargetUnit?,
 	route: RouteDescriptor,
 	poll_for_feedback: boolean?,
 }
+
 export type Target_RoutePan = { kind: "RoutePan", unit: TargetUnit?, route: RouteDescriptor }
+
 export type Target_RouteVolume = { kind: "RouteVolume", unit: TargetUnit?, route: RouteDescriptor }
+
 export type Target_RouteTouchState = {
 	kind: "RouteTouchState",
 	unit: TargetUnit?,
 	route: RouteDescriptor,
 	touched_parameter: TouchedRouteParameter,
 }
+
 export type Target_PlaytimeSlotTransportAction = {
 	kind: "PlaytimeSlotTransportAction",
 	unit: TargetUnit?,
@@ -1374,34 +1454,43 @@ export type Target_PlaytimeSlotTransportAction = {
 	play_start_timing: playtime.ClipPlayStartTiming?,
 	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
+
 export type Target_PlaytimeColumnAction = {
 	kind: "PlaytimeColumnAction",
 	unit: TargetUnit?,
 	column: ClipColumnDescriptor,
 	action: ClipColumnAction,
 }
+
 export type Target_PlaytimeRowAction = {
 	kind: "PlaytimeRowAction",
 	unit: TargetUnit?,
 	row: ClipRowDescriptor,
 	action: ClipRowAction,
 }
+
 export type Target_PlaytimeMatrixAction = { kind: "PlaytimeMatrixAction", unit: TargetUnit?, action: ClipMatrixAction }
+
 export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", unit: TargetUnit?, axis: Axis }
+
 export type Target_PlaytimeSlotSeek = {
 	kind: "PlaytimeSlotSeek",
 	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	feedback_resolution: FeedbackResolution?,
 }
+
 export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", unit: TargetUnit?, slot: ClipSlotDescriptor }
+
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
 	unit: TargetUnit?,
 	slot: ClipSlotDescriptor,
 	action: ClipManagementAction,
 }
+
 export type Target_SendMidi = { kind: "SendMidi", unit: TargetUnit?, message: string?, destination: MidiDestination? }
+
 export type Target_SendOsc = {
 	kind: "SendOsc",
 	unit: TargetUnit?,
@@ -1409,19 +1498,23 @@ export type Target_SendOsc = {
 	argument: OscArgument?,
 	destination: OscDestination?,
 }
+
 export type Target_Dummy = { kind: "Dummy", unit: TargetUnit? }
+
 export type Target_EnableInstances = {
 	kind: "EnableInstances",
 	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: InstanceExclusivity?,
 }
+
 export type Target_EnableMappings = {
 	kind: "EnableMappings",
 	unit: TargetUnit?,
 	tags: { string }?,
 	exclusivity: MappingExclusivity?,
 }
+
 export type Target_ModifyMapping = {
 	kind: "ModifyMapping",
 	unit: TargetUnit?,
@@ -1429,11 +1522,13 @@ export type Target_ModifyMapping = {
 	mapping: string?,
 	modification: MappingModification,
 }
+
 export type Target_CompartmentParameterValue = {
 	kind: "CompartmentParameterValue",
 	unit: TargetUnit?,
 	parameter: CompartmentParameterDescriptor,
 }
+
 export type Target_LoadMappingSnapshot = {
 	kind: "LoadMappingSnapshot",
 	unit: TargetUnit?,
@@ -1442,6 +1537,7 @@ export type Target_LoadMappingSnapshot = {
 	snapshot: MappingSnapshotDescForLoad?,
 	default_value: TargetValue?,
 }
+
 export type Target_TakeMappingSnapshot = {
 	kind: "TakeMappingSnapshot",
 	unit: TargetUnit?,
@@ -1449,18 +1545,23 @@ export type Target_TakeMappingSnapshot = {
 	active_mappings_only: boolean?,
 	snapshot: BackwardCompatibleMappingSnapshotDescForTake,
 }
+
 export type Target_BrowseGroupMappings = {
 	kind: "BrowseGroupMappings",
 	unit: TargetUnit?,
 	exclusivity: GroupMappingExclusivity?,
 	group: string?,
 }
-export type Target_BrowsePotFilterItems = { kind: "BrowsePotFilterItems", unit: TargetUnit?, item_kind: PotFilterKind? }
-export type Target_BrowsePotPresets = { kind: "BrowsePotPresets", unit: TargetUnit? }
-export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", unit: TargetUnit? }
-export type Target_LoadPotPreset = { kind: "LoadPotPreset", unit: TargetUnit?, fx: FxDescriptor? }
-export type Target_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 
+export type Target_BrowsePotFilterItems = { kind: "BrowsePotFilterItems", unit: TargetUnit?, item_kind: PotFilterKind? }
+
+export type Target_BrowsePotPresets = { kind: "BrowsePotPresets", unit: TargetUnit? }
+
+export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", unit: TargetUnit? }
+
+export type Target_LoadPotPreset = { kind: "LoadPotPreset", unit: TargetUnit?, fx: FxDescriptor? }
+
+export type Target_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
 export type Target =
 	Target_Mouse
 	| Target_LastTouched
@@ -1529,7 +1630,7 @@ export type Target =
 	| Target_LoadPotPreset
 	| Target_Virtual
 
---- A helper table to create Target values of different kinds.
+--- Helper table to create Target values of different kinds.
 module.Target = {}
 
 --- Creates a Target of kind Mouse.
@@ -2287,17 +2388,76 @@ end
 
 export type TrackToolAction = "DoNothing" | "SetAsUnitTrack" | "PinAsUnitTrack"
 
+--- Mouse position on the given axis.
+---
+--- Control:
+---
+--- - Move by (using relative control value)
+--- - Move to (use absolute control value)
+--- - Move to absolute coordinates before clicking (2 mappings for moving, 1 for clicking)
+---
+--- Feedback:
+---
+--- - Reflect position of the mouse cursor
+---
+--- Future extension possibilities:
+---
+--- - Canvas: Relative to all screens, current screen, REAPER window or focused window
+--- - Pixel density: Take pixel density into account
 export type MouseAction_MoveTo = { kind: "MoveTo", axis: Axis? }
-export type MouseAction_MoveBy = { kind: "MoveBy", axis: Axis? }
-export type MouseAction_PressOrRelease = { kind: "PressOrRelease", button: MouseButton? }
-export type MouseAction_Scroll = { kind: "Scroll", axis: Axis? }
 
+--- Like [`Self::Move`] but prefers relative control, so the glue section will feed it
+--- with relative control values whenever possible. Could make a little difference.
+export type MouseAction_MoveBy = { kind: "MoveBy", axis: Axis? }
+
+--- Button state.
+---
+--- Control:
+---
+--- - Press and release a mouse button
+--- - Press a mouse button and keep it pressed (press-only filter)
+--- - Just release a mouse button (release-only filter, e.g. for manual drag control)
+---
+--- Feedback:
+---
+--- - Whether the button is down or up
+---
+--- Future extension possibilities:
+---
+--- - Click or double-click a mouse button (press and immediate release, this could be a generic
+--- "Glue" option because it could be useful for other on/off targets as well).
+export type MouseAction_PressOrRelease = { kind: "PressOrRelease", button: MouseButton? }
+
+--- Scroll wheel.
+---
+--- Control:
+---
+--- - Invoke scroll wheel
+---
+--- Feedback: None
+export type MouseAction_Scroll = { kind: "Scroll", axis: Axis? }
 export type MouseAction = MouseAction_MoveTo | MouseAction_MoveBy | MouseAction_PressOrRelease | MouseAction_Scroll
 
---- A helper table to create MouseAction values of different kinds.
+--- Helper table to create MouseAction values of different kinds.
 module.MouseAction = {}
 
 --- Creates a MouseAction of kind MoveTo.
+--- Mouse position on the given axis.
+---
+--- Control:
+---
+--- - Move by (using relative control value)
+--- - Move to (use absolute control value)
+--- - Move to absolute coordinates before clicking (2 mappings for moving, 1 for clicking)
+---
+--- Feedback:
+---
+--- - Reflect position of the mouse cursor
+---
+--- Future extension possibilities:
+---
+--- - Canvas: Relative to all screens, current screen, REAPER window or focused window
+--- - Pixel density: Take pixel density into account
 function module.MouseAction.MoveTo(value: { axis: Axis? }): MouseAction_MoveTo
 	local t: any = table.clone(value)
 	t.kind = "MoveTo"
@@ -2305,6 +2465,8 @@ function module.MouseAction.MoveTo(value: { axis: Axis? }): MouseAction_MoveTo
 end
 
 --- Creates a MouseAction of kind MoveBy.
+--- Like [`Self::Move`] but prefers relative control, so the glue section will feed it
+--- with relative control values whenever possible. Could make a little difference.
 function module.MouseAction.MoveBy(value: { axis: Axis? }): MouseAction_MoveBy
 	local t: any = table.clone(value)
 	t.kind = "MoveBy"
@@ -2312,6 +2474,22 @@ function module.MouseAction.MoveBy(value: { axis: Axis? }): MouseAction_MoveBy
 end
 
 --- Creates a MouseAction of kind PressOrRelease.
+--- Button state.
+---
+--- Control:
+---
+--- - Press and release a mouse button
+--- - Press a mouse button and keep it pressed (press-only filter)
+--- - Just release a mouse button (release-only filter, e.g. for manual drag control)
+---
+--- Feedback:
+---
+--- - Whether the button is down or up
+---
+--- Future extension possibilities:
+---
+--- - Click or double-click a mouse button (press and immediate release, this could be a generic
+--- "Glue" option because it could be useful for other on/off targets as well).
 function module.MouseAction.PressOrRelease(value: { button: MouseButton? }): MouseAction_PressOrRelease
 	local t: any = table.clone(value)
 	t.kind = "PressOrRelease"
@@ -2319,6 +2497,13 @@ function module.MouseAction.PressOrRelease(value: { button: MouseButton? }): Mou
 end
 
 --- Creates a MouseAction of kind Scroll.
+--- Scroll wheel.
+---
+--- Control:
+---
+--- - Invoke scroll wheel
+---
+--- Feedback: None
 function module.MouseAction.Scroll(value: { axis: Axis? }): MouseAction_Scroll
 	local t: any = table.clone(value)
 	t.kind = "Scroll"
@@ -2610,11 +2795,14 @@ function module.PlaytimeSlotManagementActionTarget(
 end
 
 export type ClipManagementAction_ClearSlot = { kind: "ClearSlot" }
-export type ClipManagementAction_FillSlotWithSelectedItem = { kind: "FillSlotWithSelectedItem" }
-export type ClipManagementAction_EditClip = { kind: "EditClip" }
-export type ClipManagementAction_CopyOrPasteClip = { kind: "CopyOrPasteClip" }
-export type ClipManagementAction_AdjustClipSectionLength = { kind: "AdjustClipSectionLength", factor: number }
 
+export type ClipManagementAction_FillSlotWithSelectedItem = { kind: "FillSlotWithSelectedItem" }
+
+export type ClipManagementAction_EditClip = { kind: "EditClip" }
+
+export type ClipManagementAction_CopyOrPasteClip = { kind: "CopyOrPasteClip" }
+
+export type ClipManagementAction_AdjustClipSectionLength = { kind: "AdjustClipSectionLength", factor: number }
 export type ClipManagementAction =
 	ClipManagementAction_ClearSlot
 	| ClipManagementAction_FillSlotWithSelectedItem
@@ -2622,7 +2810,7 @@ export type ClipManagementAction =
 	| ClipManagementAction_CopyOrPasteClip
 	| ClipManagementAction_AdjustClipSectionLength
 
---- A helper table to create ClipManagementAction values of different kinds.
+--- Helper table to create ClipManagementAction values of different kinds.
 module.ClipManagementAction = {}
 
 --- Creates a ClipManagementAction of kind ClearSlot.
@@ -2737,15 +2925,15 @@ export type MappingModification_LearnTarget = {
 	included_targets: { LearnableTargetKind }?,
 	touch_cause: TargetTouchCause?,
 }
+
 export type MappingModification_SetTargetToLastTouched = {
 	kind: "SetTargetToLastTouched",
 	included_targets: { LearnableTargetKind }?,
 	touch_cause: TargetTouchCause?,
 }
-
 export type MappingModification = MappingModification_LearnTarget | MappingModification_SetTargetToLastTouched
 
---- A helper table to create MappingModification values of different kinds.
+--- Helper table to create MappingModification values of different kinds.
 module.MappingModification = {}
 
 --- Creates a MappingModification of kind LearnTarget.
@@ -2808,8 +2996,8 @@ function module.TakeMappingSnapshotTarget(value: TakeMappingSnapshotTarget): Tak
 end
 
 export type BackwardCompatibleMappingSnapshotDescForTake_Old = string
-export type BackwardCompatibleMappingSnapshotDescForTake_New = MappingSnapshotDescForTake
 
+export type BackwardCompatibleMappingSnapshotDescForTake_New = MappingSnapshotDescForTake
 export type BackwardCompatibleMappingSnapshotDescForTake =
 	BackwardCompatibleMappingSnapshotDescForTake_Old
 	| BackwardCompatibleMappingSnapshotDescForTake_New
@@ -2822,11 +3010,11 @@ function module.BackwardCompatibleMappingSnapshotDescForTake(
 end
 
 export type MappingSnapshotDescForLoad_Initial = { kind: "Initial" }
-export type MappingSnapshotDescForLoad_ById = { kind: "ById", id: string }
 
+export type MappingSnapshotDescForLoad_ById = { kind: "ById", id: string }
 export type MappingSnapshotDescForLoad = MappingSnapshotDescForLoad_Initial | MappingSnapshotDescForLoad_ById
 
---- A helper table to create MappingSnapshotDescForLoad values of different kinds.
+--- Helper table to create MappingSnapshotDescForLoad values of different kinds.
 module.MappingSnapshotDescForLoad = {}
 
 --- Creates a MappingSnapshotDescForLoad of kind Initial.
@@ -2844,11 +3032,11 @@ function module.MappingSnapshotDescForLoad.ById(value: { id: string }): MappingS
 end
 
 export type MappingSnapshotDescForTake_LastLoaded = { kind: "LastLoaded" }
-export type MappingSnapshotDescForTake_ById = { kind: "ById", id: string }
 
+export type MappingSnapshotDescForTake_ById = { kind: "ById", id: string }
 export type MappingSnapshotDescForTake = MappingSnapshotDescForTake_LastLoaded | MappingSnapshotDescForTake_ById
 
---- A helper table to create MappingSnapshotDescForTake values of different kinds.
+--- Helper table to create MappingSnapshotDescForTake values of different kinds.
 module.MappingSnapshotDescForTake = {}
 
 --- Creates a MappingSnapshotDescForTake of kind LastLoaded.
@@ -2934,11 +3122,11 @@ function module.VirtualTarget(value: VirtualTarget): VirtualTarget
 end
 
 export type AutomationModeOverride_Bypass = { kind: "Bypass" }
-export type AutomationModeOverride_Mode = { kind: "Mode", mode: AutomationMode }
 
+export type AutomationModeOverride_Mode = { kind: "Mode", mode: AutomationMode }
 export type AutomationModeOverride = AutomationModeOverride_Bypass | AutomationModeOverride_Mode
 
---- A helper table to create AutomationModeOverride values of different kinds.
+--- Helper table to create AutomationModeOverride values of different kinds.
 module.AutomationModeOverride = {}
 
 --- Creates a AutomationModeOverride of kind Bypass.
@@ -2991,8 +3179,8 @@ export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSele
 export type ActionInvocationKind = "Trigger" | "Absolute14Bit" | "Absolute7Bit" | "Relative"
 
 export type ReaperCommand_Id = number
-export type ReaperCommand_Name = string
 
+export type ReaperCommand_Name = string
 export type ReaperCommand = ReaperCommand_Id | ReaperCommand_Name
 
 --- Creates a ReaperCommand value.
@@ -3000,36 +3188,46 @@ function module.ReaperCommand(value: ReaperCommand): ReaperCommand
 	return value
 end
 
+--- Resolves to the track on which this ReaLearn instance is installed.
+---
+--- Doesn't make sense if ReaLearn is installed on the monitoring FX chain.
 export type TrackDescriptor_This = { address: "This", track_must_be_selected: boolean? }
+
 export type TrackDescriptor_Master = { address: "Master", track_must_be_selected: boolean? }
+
 export type TrackDescriptor_Instance = { address: "Instance", track_must_be_selected: boolean? }
+
 export type TrackDescriptor_Selected = { address: "Selected", allow_multiple: boolean? }
+
 export type TrackDescriptor_Dynamic = {
 	address: "Dynamic",
 	track_must_be_selected: boolean?,
 	expression: string,
 	scope: TrackScope?,
 }
+
 export type TrackDescriptor_ById = { address: "ById", track_must_be_selected: boolean?, id: string? }
+
 export type TrackDescriptor_ByIndex = {
 	address: "ByIndex",
 	track_must_be_selected: boolean?,
 	index: number,
 	scope: TrackScope?,
 }
+
 export type TrackDescriptor_ByName = {
 	address: "ByName",
 	track_must_be_selected: boolean?,
 	name: string,
 	allow_multiple: boolean?,
 }
+
 export type TrackDescriptor_FromClipColumn = {
 	address: "FromClipColumn",
 	track_must_be_selected: boolean?,
 	column: ClipColumnDescriptor,
 	context: ClipColumnTrackContext,
 }
-
 export type TrackDescriptor =
 	TrackDescriptor_This
 	| TrackDescriptor_Master
@@ -3041,10 +3239,13 @@ export type TrackDescriptor =
 	| TrackDescriptor_ByName
 	| TrackDescriptor_FromClipColumn
 
---- A helper table to create TrackDescriptor values of different kinds.
+--- Helper table to create TrackDescriptor values of different kinds.
 module.TrackDescriptor = {}
 
 --- Creates a TrackDescriptor of kind This.
+--- Resolves to the track on which this ReaLearn instance is installed.
+---
+--- Doesn't make sense if ReaLearn is installed on the monitoring FX chain.
 function module.TrackDescriptor.This(value: { track_must_be_selected: boolean? }): TrackDescriptor_This
 	local t: any = table.clone(value)
 	t.address = "This"
@@ -3148,11 +3349,11 @@ export type SoloBehavior = "InPlace" | "IgnoreRouting" | "ReaperPreference"
 export type SeekBehavior = "Immediate" | "Smooth" | "ReaperPreference"
 
 export type BookmarkDescriptor_Marker = { kind: "Marker", id: number } | { kind: "Marker", index: number }
-export type BookmarkDescriptor_Region = { kind: "Region", id: number } | { kind: "Region", index: number }
 
+export type BookmarkDescriptor_Region = { kind: "Region", id: number } | { kind: "Region", index: number }
 export type BookmarkDescriptor = BookmarkDescriptor_Marker | BookmarkDescriptor_Region
 
---- A helper table to create BookmarkDescriptor values of different kinds.
+--- Helper table to create BookmarkDescriptor values of different kinds.
 module.BookmarkDescriptor = {}
 
 --- Creates a BookmarkDescriptor of kind Marker.
@@ -3170,8 +3371,8 @@ function module.BookmarkDescriptor.Region(value: BookmarkRef): BookmarkDescripto
 end
 
 export type BookmarkRef_ById = { id: number }
-export type BookmarkRef_ByIndex = { index: number }
 
+export type BookmarkRef_ByIndex = { index: number }
 export type BookmarkRef = BookmarkRef_ById | BookmarkRef_ByIndex
 
 --- Creates a BookmarkRef value.
@@ -3188,21 +3389,27 @@ function module.FxDescriptorCommons(value: FxDescriptorCommons): FxDescriptorCom
 end
 
 export type FxDescriptor_This = { address: "This", fx_must_have_focus: boolean? }
+
 export type FxDescriptor_Focused = { address: "Focused" }
+
 export type FxDescriptor_Instance = { address: "Instance", fx_must_have_focus: boolean? }
+
 export type FxDescriptor_Dynamic = {
 	address: "Dynamic",
 	fx_must_have_focus: boolean?,
 	chain: FxChainDescriptor,
 	expression: string,
 }
+
 export type FxDescriptor_ById = { address: "ById", fx_must_have_focus: boolean?, chain: FxChainDescriptor, id: string? }
+
 export type FxDescriptor_ByIndex = {
 	address: "ByIndex",
 	fx_must_have_focus: boolean?,
 	chain: FxChainDescriptor,
 	index: number,
 }
+
 export type FxDescriptor_ByName = {
 	address: "ByName",
 	fx_must_have_focus: boolean?,
@@ -3210,7 +3417,6 @@ export type FxDescriptor_ByName = {
 	name: string,
 	allow_multiple: boolean?,
 }
-
 export type FxDescriptor =
 	FxDescriptor_This
 	| FxDescriptor_Focused
@@ -3220,7 +3426,7 @@ export type FxDescriptor =
 	| FxDescriptor_ByIndex
 	| FxDescriptor_ByName
 
---- A helper table to create FxDescriptor values of different kinds.
+--- Helper table to create FxDescriptor values of different kinds.
 module.FxDescriptor = {}
 
 --- Creates a FxDescriptor of kind This.
@@ -3284,10 +3490,9 @@ function module.FxDescriptor.ByName(value: {
 end
 
 export type FxChainDescriptor_Track = { address: "Track", track: TrackDescriptor?, chain: TrackFxChain? }
-
 export type FxChainDescriptor = FxChainDescriptor_Track
 
---- A helper table to create FxChainDescriptor values of different kinds.
+--- Helper table to create FxChainDescriptor values of different kinds.
 module.FxChainDescriptor = {}
 
 --- Creates a FxChainDescriptor of kind Track.
@@ -3315,10 +3520,9 @@ function module.FxSnapshot(value: FxSnapshot): FxSnapshot
 end
 
 export type FxSnapshotContent_Chunk = { kind: "Chunk", chunk: string }
-
 export type FxSnapshotContent = FxSnapshotContent_Chunk
 
---- A helper table to create FxSnapshotContent values of different kinds.
+--- Helper table to create FxSnapshotContent values of different kinds.
 module.FxSnapshotContent = {}
 
 --- Creates a FxSnapshotContent of kind Chunk.
@@ -3329,17 +3533,19 @@ function module.FxSnapshotContent.Chunk(value: { chunk: string }): FxSnapshotCon
 end
 
 export type FxParameterDescriptor_Dynamic = { address: "Dynamic", fx: FxDescriptor?, expression: string }
-export type FxParameterDescriptor_ById = { address: "ById", fx: FxDescriptor?, index: number }
-export type FxParameterDescriptor_ByIndex = { address: "ByIndex", fx: FxDescriptor?, index: number }
-export type FxParameterDescriptor_ByName = { address: "ByName", fx: FxDescriptor?, name: string }
 
+export type FxParameterDescriptor_ById = { address: "ById", fx: FxDescriptor?, index: number }
+
+export type FxParameterDescriptor_ByIndex = { address: "ByIndex", fx: FxDescriptor?, index: number }
+
+export type FxParameterDescriptor_ByName = { address: "ByName", fx: FxDescriptor?, name: string }
 export type FxParameterDescriptor =
 	FxParameterDescriptor_Dynamic
 	| FxParameterDescriptor_ById
 	| FxParameterDescriptor_ByIndex
 	| FxParameterDescriptor_ByName
 
---- A helper table to create FxParameterDescriptor values of different kinds.
+--- Helper table to create FxParameterDescriptor values of different kinds.
 module.FxParameterDescriptor = {}
 
 --- Creates a FxParameterDescriptor of kind Dynamic.
@@ -3375,10 +3581,9 @@ function module.FxParameterDescriptor.ByName(value: { fx: FxDescriptor?, name: s
 end
 
 export type CompartmentParameterDescriptor_ById = { address: "ById", index: number }
-
 export type CompartmentParameterDescriptor = CompartmentParameterDescriptor_ById
 
---- A helper table to create CompartmentParameterDescriptor values of different kinds.
+--- Helper table to create CompartmentParameterDescriptor values of different kinds.
 module.CompartmentParameterDescriptor = {}
 
 --- Creates a CompartmentParameterDescriptor of kind ById.
@@ -3403,27 +3608,29 @@ export type RouteDescriptor_Dynamic = {
 	route_kind: TrackRouteKind?,
 	expression: string,
 }
+
 export type RouteDescriptor_ById = { address: "ById", track: TrackDescriptor?, route_kind: TrackRouteKind?, id: string? }
+
 export type RouteDescriptor_ByIndex = {
 	address: "ByIndex",
 	track: TrackDescriptor?,
 	route_kind: TrackRouteKind?,
 	index: number,
 }
+
 export type RouteDescriptor_ByName = {
 	address: "ByName",
 	track: TrackDescriptor?,
 	route_kind: TrackRouteKind?,
 	name: string,
 }
-
 export type RouteDescriptor =
 	RouteDescriptor_Dynamic
 	| RouteDescriptor_ById
 	| RouteDescriptor_ByIndex
 	| RouteDescriptor_ByName
 
---- A helper table to create RouteDescriptor values of different kinds.
+--- Helper table to create RouteDescriptor values of different kinds.
 module.RouteDescriptor = {}
 
 --- Creates a RouteDescriptor of kind Dynamic.
@@ -3465,12 +3672,13 @@ end
 export type TrackRouteKind = "Send" | "Receive" | "HardwareOutput"
 
 export type ClipSlotDescriptor_Selected = { address: "Selected" }
-export type ClipSlotDescriptor_ByIndex = { address: "ByIndex", column_index: number, row_index: number }
-export type ClipSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
 
+export type ClipSlotDescriptor_ByIndex = { address: "ByIndex", column_index: number, row_index: number }
+
+export type ClipSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
 export type ClipSlotDescriptor = ClipSlotDescriptor_Selected | ClipSlotDescriptor_ByIndex | ClipSlotDescriptor_Dynamic
 
---- A helper table to create ClipSlotDescriptor values of different kinds.
+--- Helper table to create ClipSlotDescriptor values of different kinds.
 module.ClipSlotDescriptor = {}
 
 --- Creates a ClipSlotDescriptor of kind Selected.
@@ -3497,15 +3705,16 @@ function module.ClipSlotDescriptor.Dynamic(
 end
 
 export type ClipColumnDescriptor_Selected = { address: "Selected" }
-export type ClipColumnDescriptor_ByIndex = { address: "ByIndex", index: number }
-export type ClipColumnDescriptor_Dynamic = { address: "Dynamic", expression: string }
 
+export type ClipColumnDescriptor_ByIndex = { address: "ByIndex", index: number }
+
+export type ClipColumnDescriptor_Dynamic = { address: "Dynamic", expression: string }
 export type ClipColumnDescriptor =
 	ClipColumnDescriptor_Selected
 	| ClipColumnDescriptor_ByIndex
 	| ClipColumnDescriptor_Dynamic
 
---- A helper table to create ClipColumnDescriptor values of different kinds.
+--- Helper table to create ClipColumnDescriptor values of different kinds.
 module.ClipColumnDescriptor = {}
 
 --- Creates a ClipColumnDescriptor of kind Selected.
@@ -3530,12 +3739,13 @@ function module.ClipColumnDescriptor.Dynamic(value: { expression: string }): Cli
 end
 
 export type ClipRowDescriptor_Selected = { address: "Selected" }
-export type ClipRowDescriptor_ByIndex = { address: "ByIndex", index: number }
-export type ClipRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
 
+export type ClipRowDescriptor_ByIndex = { address: "ByIndex", index: number }
+
+export type ClipRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
 export type ClipRowDescriptor = ClipRowDescriptor_Selected | ClipRowDescriptor_ByIndex | ClipRowDescriptor_Dynamic
 
---- A helper table to create ClipRowDescriptor values of different kinds.
+--- Helper table to create ClipRowDescriptor values of different kinds.
 module.ClipRowDescriptor = {}
 
 --- Creates a ClipRowDescriptor of kind Selected.
@@ -3560,11 +3770,11 @@ function module.ClipRowDescriptor.Dynamic(value: { expression: string }): ClipRo
 end
 
 export type MidiDestination_FxOutput = { kind: "FxOutput" }
-export type MidiDestination_FeedbackOutput = { kind: "FeedbackOutput" }
 
+export type MidiDestination_FeedbackOutput = { kind: "FeedbackOutput" }
 export type MidiDestination = MidiDestination_FxOutput | MidiDestination_FeedbackOutput
 
---- A helper table to create MidiDestination values of different kinds.
+--- Helper table to create MidiDestination values of different kinds.
 module.MidiDestination = {}
 
 --- Creates a MidiDestination of kind FxOutput.
@@ -3582,11 +3792,11 @@ function module.MidiDestination.FeedbackOutput(): MidiDestination_FeedbackOutput
 end
 
 export type OscDestination_FeedbackOutput = { kind: "FeedbackOutput" }
-export type OscDestination_Device = { kind: "Device", id: string }
 
+export type OscDestination_Device = { kind: "Device", id: string }
 export type OscDestination = OscDestination_FeedbackOutput | OscDestination_Device
 
---- A helper table to create OscDestination values of different kinds.
+--- Helper table to create OscDestination values of different kinds.
 module.OscDestination = {}
 
 --- Creates a OscDestination of kind FeedbackOutput.
@@ -3613,11 +3823,11 @@ export type BrowseTracksMode =
 	| "TracksVisibleInMcpAllowTwoSelections"
 
 export type TargetValue_Unit = { kind: "Unit", value: number }
-export type TargetValue_Discrete = { kind: "Discrete", value: number }
 
+export type TargetValue_Discrete = { kind: "Discrete", value: number }
 export type TargetValue = TargetValue_Unit | TargetValue_Discrete
 
---- A helper table to create TargetValue values of different kinds.
+--- Helper table to create TargetValue values of different kinds.
 module.TargetValue = {}
 
 --- Creates a TargetValue of kind Unit.

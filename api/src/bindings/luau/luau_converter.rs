@@ -3,8 +3,9 @@ use darling::FromMeta;
 use std::fmt::{Display, Formatter, Write};
 use std::{fmt, iter};
 use syn::{
-    Attribute, Field, Fields, FieldsNamed, File, GenericArgument, GenericParam, Generics, Ident,
-    Item, ItemEnum, ItemStruct, PathArguments, Type, Variant,
+    Attribute, Expr, ExprLit, Field, Fields, FieldsNamed, File, GenericArgument, GenericParam,
+    Generics, Ident, Item, ItemEnum, ItemStruct, Lit, Meta, MetaNameValue, PathArguments, Type,
+    Variant,
 };
 
 pub trait Hook {
@@ -197,6 +198,35 @@ struct LuauType<'a, H> {
     force_optional: bool,
 }
 
+struct LuauDoc<'a> {
+    attributes: &'a [Attribute],
+}
+
+impl<'a> LuauDoc<'a> {
+    pub fn new(attributes: &'a [Attribute]) -> Self {
+        Self { attributes }
+    }
+}
+
+impl<'a> Display for LuauDoc<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for (i, attr) in attributes_where_ident(self.attributes, "doc").enumerate() {
+            let doc_line = match &attr.meta {
+                Meta::NameValue(MetaNameValue {
+                    value:
+                        Expr::Lit(ExprLit {
+                            lit: Lit::Str(s), ..
+                        }),
+                    ..
+                }) => s.value(),
+                _ => panic!("unusual doc comment"),
+            };
+            write!(f, "\n---{doc_line}")?;
+        }
+        Ok(())
+    }
+}
+
 impl<'a, H> LuauType<'a, H> {
     fn new(value: &'a Type, context: ConvContext<'a, H>) -> Self {
         Self {
@@ -318,16 +348,18 @@ impl<'a, H: Hook> Display for LuauStruct<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let ident = LuauIdent(&self.value.ident, Case::Original);
         let generics = LuauGenerics(&self.value.generics);
+        let doc = LuauDoc::new(&self.value.attrs);
         match &self.value.fields {
             Fields::Named(fields) => {
                 let fields = line_breaked_named_fields(fields, self.context);
                 writeln!(
                     f,
                     r#"
+                        {doc}
                         export type {ident}{generics} = {{
                             {fields}
                         }}
-                        --- Creates a {ident} value.
+                        --- Creates a {ident} value.{doc}
                         function module.{ident}(value: {ident}): {ident}
                             return value
                         end
@@ -440,11 +472,11 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
                     variant,
                 })
         });
+        let doc = LuauDoc::new(&self.item_enum.attrs);
         writeln!(
             f,
             r#"
-                    {variants}
-                    
+                    {variants}{doc}
                     export type {enum_ident} = {variant_disjunction}
                 "#
         )?;
@@ -463,7 +495,7 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
             writeln!(
                 f,
                 r#"
-                    --- A helper table to create {enum_ident} values of different kinds.
+                    --- Helper table to create {enum_ident} values of different kinds.{doc}
                     module.{enum_ident} = {{}}
                     
                     {variant_builders}
@@ -499,9 +531,11 @@ impl<'a> Display for PrimitiveLuauEnum<'a> {
                 )
             })
         });
+        let doc = LuauDoc::new(&self.item_enum.attrs);
         writeln!(
             f,
             r#"
+                {doc}
                 export type {ident} = {variant_disjunction}
             "#
         )?;
@@ -585,6 +619,9 @@ impl<T: Display> Display for Delimited<T> {
 }
 
 trait GetIdent {
+    fn find_ident(&self) -> Option<&Ident> {
+        self.get_ident().ok()
+    }
     fn get_ident(&self) -> anyhow::Result<&Ident>;
 }
 
@@ -668,7 +705,14 @@ impl<'a, H: Hook> Display for LuauVariant<'a, H> {
             enum_ident,
             variant: self.variant,
         };
-        write!(f, "export type {variant_ident} = ")?;
+        let doc = LuauDoc::new(&self.variant.attrs);
+        write!(
+            f,
+            r#"
+                {doc}
+                export type {variant_ident} = 
+            "#
+        )?;
         let upper_ident = LuauIdent(&self.variant.ident, Case::UpperCamelCase);
         match &self.variant.fields {
             Fields::Named(fields) => {
@@ -769,6 +813,7 @@ impl<'a, H: Hook> Display for LuauTaggedVariantBuilder<'a, H> {
             variant: self.variant,
         };
         let tag = self.tag;
+        let doc = LuauDoc::new(&self.variant.attrs);
         match &self.variant.fields {
             Fields::Named(fields) => {
                 // Struct-like enum variant
@@ -776,7 +821,7 @@ impl<'a, H: Hook> Display for LuauTaggedVariantBuilder<'a, H> {
                 write!(
                     f,
                     r#"
-                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.{doc}
                     function module.{enum_ident}.{simple_variant_ident}(value: {{{named_fields}}}): {tagged_variant_ident}
                         local t: any = table.clone(value)
                         t.{tag} = "{simple_variant_ident}"
@@ -798,7 +843,7 @@ impl<'a, H: Hook> Display for LuauTaggedVariantBuilder<'a, H> {
                 write!(
                     f,
                     r#"
-                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.{doc}
                     function module.{enum_ident}.{simple_variant_ident}(value: {ref_type}): {tagged_variant_ident}
                         local t: any = table.clone(value)
                         t.{tag} = "{simple_variant_ident}"
@@ -812,7 +857,7 @@ impl<'a, H: Hook> Display for LuauTaggedVariantBuilder<'a, H> {
                 write!(
                     f,
                     r#"
-                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.{doc}
                     function module.{enum_ident}.{simple_variant_ident}(): {tagged_variant_ident}
                         return {{
                             {tag} = "{simple_variant_ident}"
@@ -925,14 +970,28 @@ fn serde_args(attributes: &[Attribute]) -> impl Iterator<Item = SerdeArgs> + '_ 
 }
 
 fn serde_attributes(attributes: &[Attribute]) -> impl Iterator<Item = &Attribute> {
-    attributes.iter().filter(|a| is_serde_attribute(a))
+    attributes_where_ident(attributes, "serde")
 }
 
-fn is_serde_attribute(attribute: &Attribute) -> bool {
-    attribute
-        .path()
-        .segments
-        .last()
-        .map(|seg| seg.ident == "serde")
-        .unwrap_or(false)
+fn doc_attributes(attributes: &[Attribute]) -> impl Iterator<Item = &Attribute> {
+    attributes_where_ident(attributes, "doc")
+}
+
+fn attributes_where_ident<'a>(
+    attributes: &'a [Attribute],
+    ident: &'a str,
+) -> impl Iterator<Item = &'a Attribute> + 'a {
+    attributes
+        .iter()
+        .filter(move |a| a.find_ident().is_some_and(|id| id == ident))
+}
+
+impl GetIdent for Attribute {
+    fn get_ident(&self) -> anyhow::Result<&Ident> {
+        self.path()
+            .segments
+            .last()
+            .map(|seg| &seg.ident)
+            .context("attribute has no ident")
+    }
 }

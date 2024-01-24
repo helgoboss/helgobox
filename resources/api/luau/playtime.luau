@@ -139,6 +139,7 @@ function module.TempoRange(value: TempoRange): TempoRange
 	return value
 end
 
+--- Matrix-global settings related to playing clips.
 export type MatrixClipPlaySettings = {
 	trigger_behavior: TriggerPlayBehavior?,
 	start_timing: ClipPlayStartTiming,
@@ -146,6 +147,7 @@ export type MatrixClipPlaySettings = {
 	audio_settings: MatrixClipPlayAudioSettings,
 }
 --- Creates a MatrixClipPlaySettings value.
+--- Matrix-global settings related to playing clips.
 function module.MatrixClipPlaySettings(value: MatrixClipPlaySettings): MatrixClipPlaySettings
 	return value
 end
@@ -160,6 +162,7 @@ function module.MatrixClipPlayAudioSettings(value: MatrixClipPlayAudioSettings):
 	return value
 end
 
+--- Matrix-global settings related to recording clips.
 export type MatrixClipRecordSettings = {
 	start_timing: ClipRecordStartTiming,
 	stop_timing: ClipRecordStopTiming,
@@ -173,6 +176,7 @@ export type MatrixClipRecordSettings = {
 	audio_settings: MatrixClipRecordAudioSettings,
 }
 --- Creates a MatrixClipRecordSettings value.
+--- Matrix-global settings related to recording clips.
 function module.MatrixClipRecordSettings(value: MatrixClipRecordSettings): MatrixClipRecordSettings
 	return value
 end
@@ -198,15 +202,18 @@ function module.MatrixClipRecordAudioSettings(value: MatrixClipRecordAudioSettin
 	return value
 end
 
+--- Records open-ended until the user decides to stop.
 export type RecordLength_OpenEnd = { kind: "OpenEnd" }
-export type RecordLength_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
+--- Records exactly as much material as defined by the given quantization.
+export type RecordLength_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type RecordLength = RecordLength_OpenEnd | RecordLength_Quantized
 
---- A helper table to create RecordLength values of different kinds.
+--- Helper table to create RecordLength values of different kinds.
 module.RecordLength = {}
 
 --- Creates a RecordLength of kind OpenEnd.
+--- Records open-ended until the user decides to stop.
 function module.RecordLength.OpenEnd(): RecordLength_OpenEnd
 	return {
 		kind = "OpenEnd",
@@ -214,25 +221,31 @@ function module.RecordLength.OpenEnd(): RecordLength_OpenEnd
 end
 
 --- Creates a RecordLength of kind Quantized.
+--- Records exactly as much material as defined by the given quantization.
 function module.RecordLength.Quantized(value: EvenQuantization): RecordLength_Quantized
 	local t: any = table.clone(value)
 	t.kind = "Quantized"
 	return t
 end
 
+--- Derives the time base of the resulting clip from the clip start timing.
 export type ClipRecordTimeBase_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
-export type ClipRecordTimeBase_Time = { kind: "Time" }
-export type ClipRecordTimeBase_Beat = { kind: "Beat" }
 
+--- Sets the time base of the recorded clip to [`ClipTimeBase::Time`].
+export type ClipRecordTimeBase_Time = { kind: "Time" }
+
+--- Sets the time base of the recorded clip to [`ClipTimeBase::Beat`].
+export type ClipRecordTimeBase_Beat = { kind: "Beat" }
 export type ClipRecordTimeBase =
 	ClipRecordTimeBase_DeriveFromRecordTiming
 	| ClipRecordTimeBase_Time
 	| ClipRecordTimeBase_Beat
 
---- A helper table to create ClipRecordTimeBase values of different kinds.
+--- Helper table to create ClipRecordTimeBase values of different kinds.
 module.ClipRecordTimeBase = {}
 
 --- Creates a ClipRecordTimeBase of kind DeriveFromRecordTiming.
+--- Derives the time base of the resulting clip from the clip start timing.
 function module.ClipRecordTimeBase.DeriveFromRecordTiming(): ClipRecordTimeBase_DeriveFromRecordTiming
 	return {
 		kind = "DeriveFromRecordTiming",
@@ -240,6 +253,7 @@ function module.ClipRecordTimeBase.DeriveFromRecordTiming(): ClipRecordTimeBase_
 end
 
 --- Creates a ClipRecordTimeBase of kind Time.
+--- Sets the time base of the recorded clip to [`ClipTimeBase::Time`].
 function module.ClipRecordTimeBase.Time(): ClipRecordTimeBase_Time
 	return {
 		kind = "Time",
@@ -247,25 +261,31 @@ function module.ClipRecordTimeBase.Time(): ClipRecordTimeBase_Time
 end
 
 --- Creates a ClipRecordTimeBase of kind Beat.
+--- Sets the time base of the recorded clip to [`ClipTimeBase::Beat`].
 function module.ClipRecordTimeBase.Beat(): ClipRecordTimeBase_Beat
 	return {
 		kind = "Beat",
 	}
 end
 
+--- Press once = play, press again = stop.
 export type TriggerPlayBehavior_TogglePlayStop = { kind: "TogglePlayStop" }
-export type TriggerPlayBehavior_MomentaryPlayStop = { kind: "MomentaryPlayStop" }
-export type TriggerPlayBehavior_Retrigger = { kind: "Retrigger" }
 
+--- Press once = play, release = stop.
+export type TriggerPlayBehavior_MomentaryPlayStop = { kind: "MomentaryPlayStop" }
+
+--- Press once = play, press again = retrigger.
+export type TriggerPlayBehavior_Retrigger = { kind: "Retrigger" }
 export type TriggerPlayBehavior =
 	TriggerPlayBehavior_TogglePlayStop
 	| TriggerPlayBehavior_MomentaryPlayStop
 	| TriggerPlayBehavior_Retrigger
 
---- A helper table to create TriggerPlayBehavior values of different kinds.
+--- Helper table to create TriggerPlayBehavior values of different kinds.
 module.TriggerPlayBehavior = {}
 
 --- Creates a TriggerPlayBehavior of kind TogglePlayStop.
+--- Press once = play, press again = stop.
 function module.TriggerPlayBehavior.TogglePlayStop(): TriggerPlayBehavior_TogglePlayStop
 	return {
 		kind = "TogglePlayStop",
@@ -273,6 +293,7 @@ function module.TriggerPlayBehavior.TogglePlayStop(): TriggerPlayBehavior_Toggle
 end
 
 --- Creates a TriggerPlayBehavior of kind MomentaryPlayStop.
+--- Press once = play, release = stop.
 function module.TriggerPlayBehavior.MomentaryPlayStop(): TriggerPlayBehavior_MomentaryPlayStop
 	return {
 		kind = "MomentaryPlayStop",
@@ -280,25 +301,31 @@ function module.TriggerPlayBehavior.MomentaryPlayStop(): TriggerPlayBehavior_Mom
 end
 
 --- Creates a TriggerPlayBehavior of kind Retrigger.
+--- Press once = play, press again = retrigger.
 function module.TriggerPlayBehavior.Retrigger(): TriggerPlayBehavior_Retrigger
 	return {
 		kind = "Retrigger",
 	}
 end
 
+--- Uses the inherited clip play start timing (from column or matrix).
 export type ClipRecordStartTiming_LikeClipPlayStartTiming = { kind: "LikeClipPlayStartTiming" }
-export type ClipRecordStartTiming_Immediately = { kind: "Immediately" }
-export type ClipRecordStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
+--- Starts recording immediately.
+export type ClipRecordStartTiming_Immediately = { kind: "Immediately" }
+
+--- Starts recording according to the given quantization.
+export type ClipRecordStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type ClipRecordStartTiming =
 	ClipRecordStartTiming_LikeClipPlayStartTiming
 	| ClipRecordStartTiming_Immediately
 	| ClipRecordStartTiming_Quantized
 
---- A helper table to create ClipRecordStartTiming values of different kinds.
+--- Helper table to create ClipRecordStartTiming values of different kinds.
 module.ClipRecordStartTiming = {}
 
 --- Creates a ClipRecordStartTiming of kind LikeClipPlayStartTiming.
+--- Uses the inherited clip play start timing (from column or matrix).
 function module.ClipRecordStartTiming.LikeClipPlayStartTiming(): ClipRecordStartTiming_LikeClipPlayStartTiming
 	return {
 		kind = "LikeClipPlayStartTiming",
@@ -306,6 +333,7 @@ function module.ClipRecordStartTiming.LikeClipPlayStartTiming(): ClipRecordStart
 end
 
 --- Creates a ClipRecordStartTiming of kind Immediately.
+--- Starts recording immediately.
 function module.ClipRecordStartTiming.Immediately(): ClipRecordStartTiming_Immediately
 	return {
 		kind = "Immediately",
@@ -313,25 +341,31 @@ function module.ClipRecordStartTiming.Immediately(): ClipRecordStartTiming_Immed
 end
 
 --- Creates a ClipRecordStartTiming of kind Quantized.
+--- Starts recording according to the given quantization.
 function module.ClipRecordStartTiming.Quantized(value: EvenQuantization): ClipRecordStartTiming_Quantized
 	local t: any = table.clone(value)
 	t.kind = "Quantized"
 	return t
 end
 
+--- Uses the record start timing.
 export type ClipRecordStopTiming_LikeClipRecordStartTiming = { kind: "LikeClipRecordStartTiming" }
-export type ClipRecordStopTiming_Immediately = { kind: "Immediately" }
-export type ClipRecordStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
+--- Stops recording immediately.
+export type ClipRecordStopTiming_Immediately = { kind: "Immediately" }
+
+--- Stops recording according to the given quantization.
+export type ClipRecordStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type ClipRecordStopTiming =
 	ClipRecordStopTiming_LikeClipRecordStartTiming
 	| ClipRecordStopTiming_Immediately
 	| ClipRecordStopTiming_Quantized
 
---- A helper table to create ClipRecordStopTiming values of different kinds.
+--- Helper table to create ClipRecordStopTiming values of different kinds.
 module.ClipRecordStopTiming = {}
 
 --- Creates a ClipRecordStopTiming of kind LikeClipRecordStartTiming.
+--- Uses the record start timing.
 function module.ClipRecordStopTiming.LikeClipRecordStartTiming(): ClipRecordStopTiming_LikeClipRecordStartTiming
 	return {
 		kind = "LikeClipRecordStartTiming",
@@ -339,6 +373,7 @@ function module.ClipRecordStopTiming.LikeClipRecordStartTiming(): ClipRecordStop
 end
 
 --- Creates a ClipRecordStopTiming of kind Immediately.
+--- Stops recording immediately.
 function module.ClipRecordStopTiming.Immediately(): ClipRecordStopTiming_Immediately
 	return {
 		kind = "Immediately",
@@ -346,22 +381,32 @@ function module.ClipRecordStopTiming.Immediately(): ClipRecordStopTiming_Immedia
 end
 
 --- Creates a ClipRecordStopTiming of kind Quantized.
+--- Stops recording according to the given quantization.
 function module.ClipRecordStopTiming.Quantized(value: EvenQuantization): ClipRecordStopTiming_Quantized
 	local t: any = table.clone(value)
 	t.kind = "Quantized"
 	return t
 end
 
+--- Creates an empty clip and records MIDI material in it.
 export type MidiClipRecordMode_Normal = { kind: "Normal" }
-export type MidiClipRecordMode_Overdub = { kind: "Overdub" }
-export type MidiClipRecordMode_Replace = { kind: "Replace" }
 
+--- Records more material onto an existing clip, leaving existing material in place.
+---
+--- Falls back to Normal when used on an empty slot.
+export type MidiClipRecordMode_Overdub = { kind: "Overdub" }
+
+--- Records more material onto an existing clip, overwriting existing material.
+---
+--- Falls back to Normal when used on an empty slot.
+export type MidiClipRecordMode_Replace = { kind: "Replace" }
 export type MidiClipRecordMode = MidiClipRecordMode_Normal | MidiClipRecordMode_Overdub | MidiClipRecordMode_Replace
 
---- A helper table to create MidiClipRecordMode values of different kinds.
+--- Helper table to create MidiClipRecordMode values of different kinds.
 module.MidiClipRecordMode = {}
 
 --- Creates a MidiClipRecordMode of kind Normal.
+--- Creates an empty clip and records MIDI material in it.
 function module.MidiClipRecordMode.Normal(): MidiClipRecordMode_Normal
 	return {
 		kind = "Normal",
@@ -369,6 +414,9 @@ function module.MidiClipRecordMode.Normal(): MidiClipRecordMode_Normal
 end
 
 --- Creates a MidiClipRecordMode of kind Overdub.
+--- Records more material onto an existing clip, leaving existing material in place.
+---
+--- Falls back to Normal when used on an empty slot.
 function module.MidiClipRecordMode.Overdub(): MidiClipRecordMode_Overdub
 	return {
 		kind = "Overdub",
@@ -376,21 +424,27 @@ function module.MidiClipRecordMode.Overdub(): MidiClipRecordMode_Overdub
 end
 
 --- Creates a MidiClipRecordMode of kind Replace.
+--- Records more material onto an existing clip, overwriting existing material.
+---
+--- Falls back to Normal when used on an empty slot.
 function module.MidiClipRecordMode.Replace(): MidiClipRecordMode_Replace
 	return {
 		kind = "Replace",
 	}
 end
 
+--- Starts playing immediately.
 export type ClipPlayStartTiming_Immediately = { kind: "Immediately" }
-export type ClipPlayStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 
+--- Starts playing according to the given quantization.
+export type ClipPlayStartTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
 export type ClipPlayStartTiming = ClipPlayStartTiming_Immediately | ClipPlayStartTiming_Quantized
 
---- A helper table to create ClipPlayStartTiming values of different kinds.
+--- Helper table to create ClipPlayStartTiming values of different kinds.
 module.ClipPlayStartTiming = {}
 
 --- Creates a ClipPlayStartTiming of kind Immediately.
+--- Starts playing immediately.
 function module.ClipPlayStartTiming.Immediately(): ClipPlayStartTiming_Immediately
 	return {
 		kind = "Immediately",
@@ -398,27 +452,35 @@ function module.ClipPlayStartTiming.Immediately(): ClipPlayStartTiming_Immediate
 end
 
 --- Creates a ClipPlayStartTiming of kind Quantized.
+--- Starts playing according to the given quantization.
 function module.ClipPlayStartTiming.Quantized(value: EvenQuantization): ClipPlayStartTiming_Quantized
 	local t: any = table.clone(value)
 	t.kind = "Quantized"
 	return t
 end
 
+--- Uses the play start timing.
 export type ClipPlayStopTiming_LikeClipStartTiming = { kind: "LikeClipStartTiming" }
-export type ClipPlayStopTiming_Immediately = { kind: "Immediately" }
-export type ClipPlayStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
-export type ClipPlayStopTiming_UntilEndOfClip = { kind: "UntilEndOfClip" }
 
+--- Stops playing immediately.
+export type ClipPlayStopTiming_Immediately = { kind: "Immediately" }
+
+--- Stops playing according to the given quantization.
+export type ClipPlayStopTiming_Quantized = { kind: "Quantized", numerator: number, denominator: number }
+
+--- Keeps playing until the end of the clip.
+export type ClipPlayStopTiming_UntilEndOfClip = { kind: "UntilEndOfClip" }
 export type ClipPlayStopTiming =
 	ClipPlayStopTiming_LikeClipStartTiming
 	| ClipPlayStopTiming_Immediately
 	| ClipPlayStopTiming_Quantized
 	| ClipPlayStopTiming_UntilEndOfClip
 
---- A helper table to create ClipPlayStopTiming values of different kinds.
+--- Helper table to create ClipPlayStopTiming values of different kinds.
 module.ClipPlayStopTiming = {}
 
 --- Creates a ClipPlayStopTiming of kind LikeClipStartTiming.
+--- Uses the play start timing.
 function module.ClipPlayStopTiming.LikeClipStartTiming(): ClipPlayStopTiming_LikeClipStartTiming
 	return {
 		kind = "LikeClipStartTiming",
@@ -426,6 +488,7 @@ function module.ClipPlayStopTiming.LikeClipStartTiming(): ClipPlayStopTiming_Lik
 end
 
 --- Creates a ClipPlayStopTiming of kind Immediately.
+--- Stops playing immediately.
 function module.ClipPlayStopTiming.Immediately(): ClipPlayStopTiming_Immediately
 	return {
 		kind = "Immediately",
@@ -433,6 +496,7 @@ function module.ClipPlayStopTiming.Immediately(): ClipPlayStopTiming_Immediately
 end
 
 --- Creates a ClipPlayStopTiming of kind Quantized.
+--- Stops playing according to the given quantization.
 function module.ClipPlayStopTiming.Quantized(value: EvenQuantization): ClipPlayStopTiming_Quantized
 	local t: any = table.clone(value)
 	t.kind = "Quantized"
@@ -440,6 +504,7 @@ function module.ClipPlayStopTiming.Quantized(value: EvenQuantization): ClipPlayS
 end
 
 --- Creates a ClipPlayStopTiming of kind UntilEndOfClip.
+--- Keeps playing until the end of the clip.
 function module.ClipPlayStopTiming.UntilEndOfClip(): ClipPlayStopTiming_UntilEndOfClip
 	return {
 		kind = "UntilEndOfClip",
@@ -448,19 +513,27 @@ end
 
 export type ResolvedClipPlayStopTiming = "Immediately" | "Quantized" | "UntilEndOfClip"
 
+--- Doesn't apply any override.
 export type ClipPlayStartTimingOverrideAfterRecording_Inherit = { kind: "Inherit" }
-export type ClipPlayStartTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStartTiming }
-export type ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 
+--- Overrides the setting with the given value.
+export type ClipPlayStartTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStartTiming }
+
+--- Derives the setting from the record timing.
+---
+--- If the record timing is set to the global clip timing, that means it will not apply any
+--- override. If it's set to something specific, it will apply the appropriate override.
+export type ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 export type ClipPlayStartTimingOverrideAfterRecording =
 	ClipPlayStartTimingOverrideAfterRecording_Inherit
 	| ClipPlayStartTimingOverrideAfterRecording_Override
 	| ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming
 
---- A helper table to create ClipPlayStartTimingOverrideAfterRecording values of different kinds.
+--- Helper table to create ClipPlayStartTimingOverrideAfterRecording values of different kinds.
 module.ClipPlayStartTimingOverrideAfterRecording = {}
 
 --- Creates a ClipPlayStartTimingOverrideAfterRecording of kind Inherit.
+--- Doesn't apply any override.
 function module.ClipPlayStartTimingOverrideAfterRecording.Inherit(): ClipPlayStartTimingOverrideAfterRecording_Inherit
 	return {
 		kind = "Inherit",
@@ -468,6 +541,7 @@ function module.ClipPlayStartTimingOverrideAfterRecording.Inherit(): ClipPlaySta
 end
 
 --- Creates a ClipPlayStartTimingOverrideAfterRecording of kind Override.
+--- Overrides the setting with the given value.
 function module.ClipPlayStartTimingOverrideAfterRecording.Override(
 	value: ClipPlayStartTimingOverride
 ): ClipPlayStartTimingOverrideAfterRecording_Override
@@ -477,6 +551,10 @@ function module.ClipPlayStartTimingOverrideAfterRecording.Override(
 end
 
 --- Creates a ClipPlayStartTimingOverrideAfterRecording of kind DeriveFromRecordTiming.
+--- Derives the setting from the record timing.
+---
+--- If the record timing is set to the global clip timing, that means it will not apply any
+--- override. If it's set to something specific, it will apply the appropriate override.
 function module.ClipPlayStartTimingOverrideAfterRecording.DeriveFromRecordTiming(
 ): ClipPlayStartTimingOverrideAfterRecording_DeriveFromRecordTiming
 	return {
@@ -484,19 +562,27 @@ function module.ClipPlayStartTimingOverrideAfterRecording.DeriveFromRecordTiming
 	}
 end
 
+--- Doesn't apply any override.
 export type ClipPlayStopTimingOverrideAfterRecording_Inherit = { kind: "Inherit" }
-export type ClipPlayStopTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStopTiming }
-export type ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 
+--- Overrides the setting with the given value.
+export type ClipPlayStopTimingOverrideAfterRecording_Override = { kind: "Override", value: ClipPlayStopTiming }
+
+--- Derives the setting from the record timing.
+---
+--- If the record timing is set to the global clip timing, that means it will not apply any
+--- override. If it's set to something specific, it will apply the appropriate override.
+export type ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming = { kind: "DeriveFromRecordTiming" }
 export type ClipPlayStopTimingOverrideAfterRecording =
 	ClipPlayStopTimingOverrideAfterRecording_Inherit
 	| ClipPlayStopTimingOverrideAfterRecording_Override
 	| ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming
 
---- A helper table to create ClipPlayStopTimingOverrideAfterRecording values of different kinds.
+--- Helper table to create ClipPlayStopTimingOverrideAfterRecording values of different kinds.
 module.ClipPlayStopTimingOverrideAfterRecording = {}
 
 --- Creates a ClipPlayStopTimingOverrideAfterRecording of kind Inherit.
+--- Doesn't apply any override.
 function module.ClipPlayStopTimingOverrideAfterRecording.Inherit(): ClipPlayStopTimingOverrideAfterRecording_Inherit
 	return {
 		kind = "Inherit",
@@ -504,6 +590,7 @@ function module.ClipPlayStopTimingOverrideAfterRecording.Inherit(): ClipPlayStop
 end
 
 --- Creates a ClipPlayStopTimingOverrideAfterRecording of kind Override.
+--- Overrides the setting with the given value.
 function module.ClipPlayStopTimingOverrideAfterRecording.Override(
 	value: ClipPlayStopTimingOverride
 ): ClipPlayStopTimingOverrideAfterRecording_Override
@@ -513,6 +600,10 @@ function module.ClipPlayStopTimingOverrideAfterRecording.Override(
 end
 
 --- Creates a ClipPlayStopTimingOverrideAfterRecording of kind DeriveFromRecordTiming.
+--- Derives the setting from the record timing.
+---
+--- If the record timing is set to the global clip timing, that means it will not apply any
+--- override. If it's set to something specific, it will apply the appropriate override.
 function module.ClipPlayStopTimingOverrideAfterRecording.DeriveFromRecordTiming(
 ): ClipPlayStopTimingOverrideAfterRecording_DeriveFromRecordTiming
 	return {
@@ -536,11 +627,17 @@ function module.ClipPlayStopTimingOverride(value: ClipPlayStopTimingOverride): C
 	return value
 end
 
+--- An even quantization.
+---
+--- Even in the sense of that's it's not swing or dotted.
 export type EvenQuantization = {
 	numerator: number,
 	denominator: number,
 }
 --- Creates a EvenQuantization value.
+--- An even quantization.
+---
+--- Even in the sense of that's it's not swing or dotted.
 function module.EvenQuantization(value: EvenQuantization): EvenQuantization
 	return value
 end
@@ -609,6 +706,23 @@ function module.ColumnClipPlayAudioSettings(value: ColumnClipPlayAudioSettings):
 	return value
 end
 
+--- A row represents a complete row in a matrix.
+---
+--- A scene is a very related concept and sometimes used interchangeably with row because there's
+--- a one-to-one relationship between a row and a scene.
+---
+--- The difference between row and scene is of conceptual nature: A scene represents a part of a
+--- song that's played exclusively whereas a row is just a row in the clip matrix. This distinction
+--- results in some practical differences:
+---
+--- - A column can be configured to not follow scenes. The clips in that column are of
+---   course still structured in rows, but they are not part of the scenes anymore.
+--- - In practice, this means that whenever you launch the scene, the clips in that independent
+---   column are not launched. Or when you clear the scene, the slots in that column are not
+---   cleared.
+--- - Whenever you read "Scene", it will only affect the columns that are configured to follow
+---   scenes. Whenever you read "Row", it will affect the complete matrix row, no matter the
+---   column type.
 export type Row = {
 	id: RowId?,
 	name: string?,
@@ -616,19 +730,45 @@ export type Row = {
 	time_signature: TimeSignature?,
 }
 --- Creates a Row value.
+--- A row represents a complete row in a matrix.
+---
+--- A scene is a very related concept and sometimes used interchangeably with row because there's
+--- a one-to-one relationship between a row and a scene.
+---
+--- The difference between row and scene is of conceptual nature: A scene represents a part of a
+--- song that's played exclusively whereas a row is just a row in the clip matrix. This distinction
+--- results in some practical differences:
+---
+--- - A column can be configured to not follow scenes. The clips in that column are of
+---   course still structured in rows, but they are not part of the scenes anymore.
+--- - In practice, this means that whenever you launch the scene, the clips in that independent
+---   column are not launched. Or when you clear the scene, the slots in that column are not
+---   cleared.
+--- - Whenever you read "Scene", it will only affect the columns that are configured to follow
+---   scenes. Whenever you read "Row", it will affect the complete matrix row, no matter the
+---   column type.
 function module.Row(value: Row): Row
 	return value
 end
 
+--- Doesn't just stretch/squeeze the material but also changes the pitch.
+---
+--- Comparatively fast.
 export type AudioTimeStretchMode_VariSpeed = { kind: "VariSpeed" }
-export type AudioTimeStretchMode_KeepingPitch = { kind: "KeepingPitch", mode: VirtualTimeStretchMode }
 
+--- Applies a real time-stretch algorithm to the material which keeps the pitch.
+---
+--- Comparatively slow.
+export type AudioTimeStretchMode_KeepingPitch = { kind: "KeepingPitch", mode: VirtualTimeStretchMode }
 export type AudioTimeStretchMode = AudioTimeStretchMode_VariSpeed | AudioTimeStretchMode_KeepingPitch
 
---- A helper table to create AudioTimeStretchMode values of different kinds.
+--- Helper table to create AudioTimeStretchMode values of different kinds.
 module.AudioTimeStretchMode = {}
 
 --- Creates a AudioTimeStretchMode of kind VariSpeed.
+--- Doesn't just stretch/squeeze the material but also changes the pitch.
+---
+--- Comparatively fast.
 function module.AudioTimeStretchMode.VariSpeed(): AudioTimeStretchMode_VariSpeed
 	return {
 		kind = "VariSpeed",
@@ -636,21 +776,27 @@ function module.AudioTimeStretchMode.VariSpeed(): AudioTimeStretchMode_VariSpeed
 end
 
 --- Creates a AudioTimeStretchMode of kind KeepingPitch.
+--- Applies a real time-stretch algorithm to the material which keeps the pitch.
+---
+--- Comparatively slow.
 function module.AudioTimeStretchMode.KeepingPitch(value: TimeStretchMode): AudioTimeStretchMode_KeepingPitch
 	local t: any = table.clone(value)
 	t.kind = "KeepingPitch"
 	return t
 end
 
+--- Uses the resample mode set as default for this REAPER project.
 export type VirtualResampleMode_ProjectDefault = { kind: "ProjectDefault" }
-export type VirtualResampleMode_ReaperMode = { kind: "ReaperMode", mode: number }
 
+--- Uses a specific resample mode.
+export type VirtualResampleMode_ReaperMode = { kind: "ReaperMode", mode: number }
 export type VirtualResampleMode = VirtualResampleMode_ProjectDefault | VirtualResampleMode_ReaperMode
 
---- A helper table to create VirtualResampleMode values of different kinds.
+--- Helper table to create VirtualResampleMode values of different kinds.
 module.VirtualResampleMode = {}
 
 --- Creates a VirtualResampleMode of kind ProjectDefault.
+--- Uses the resample mode set as default for this REAPER project.
 function module.VirtualResampleMode.ProjectDefault(): VirtualResampleMode_ProjectDefault
 	return {
 		kind = "ProjectDefault",
@@ -658,6 +804,7 @@ function module.VirtualResampleMode.ProjectDefault(): VirtualResampleMode_Projec
 end
 
 --- Creates a VirtualResampleMode of kind ReaperMode.
+--- Uses a specific resample mode.
 function module.VirtualResampleMode.ReaperMode(value: ReaperResampleMode): VirtualResampleMode_ReaperMode
 	local t: any = table.clone(value)
 	t.kind = "ReaperMode"
@@ -680,15 +827,18 @@ function module.TimeStretchMode(value: TimeStretchMode): TimeStretchMode
 	return value
 end
 
+--- Uses the pitch shift mode set as default for this REAPER project.
 export type VirtualTimeStretchMode_ProjectDefault = { kind: "ProjectDefault" }
-export type VirtualTimeStretchMode_ReaperMode = { kind: "ReaperMode", mode: number, sub_mode: number }
 
+--- Uses a specific REAPER pitch shift mode.
+export type VirtualTimeStretchMode_ReaperMode = { kind: "ReaperMode", mode: number, sub_mode: number }
 export type VirtualTimeStretchMode = VirtualTimeStretchMode_ProjectDefault | VirtualTimeStretchMode_ReaperMode
 
---- A helper table to create VirtualTimeStretchMode values of different kinds.
+--- Helper table to create VirtualTimeStretchMode values of different kinds.
 module.VirtualTimeStretchMode = {}
 
 --- Creates a VirtualTimeStretchMode of kind ProjectDefault.
+--- Uses the pitch shift mode set as default for this REAPER project.
 function module.VirtualTimeStretchMode.ProjectDefault(): VirtualTimeStretchMode_ProjectDefault
 	return {
 		kind = "ProjectDefault",
@@ -696,6 +846,7 @@ function module.VirtualTimeStretchMode.ProjectDefault(): VirtualTimeStretchMode_
 end
 
 --- Creates a VirtualTimeStretchMode of kind ReaperMode.
+--- Uses a specific REAPER pitch shift mode.
 function module.VirtualTimeStretchMode.ReaperMode(value: ReaperPitchShiftMode): VirtualTimeStretchMode_ReaperMode
 	local t: any = table.clone(value)
 	t.kind = "ReaperMode"
@@ -711,16 +862,21 @@ function module.ReaperPitchShiftMode(value: ReaperPitchShiftMode): ReaperPitchSh
 	return value
 end
 
+--- Records using the hardware input set for the track (MIDI or stereo).
 export type RecordOrigin_TrackInput = { kind: "TrackInput" }
-export type RecordOrigin_TrackAudioOutput = { kind: "TrackAudioOutput" }
-export type RecordOrigin_FxAudioInput = { kind: "FxAudioInput", first_channel_index: number, channel_count: number }
 
+--- Captures audio from the output of the track.
+export type RecordOrigin_TrackAudioOutput = { kind: "TrackAudioOutput" }
+
+--- Records audio flowing into the FX input.
+export type RecordOrigin_FxAudioInput = { kind: "FxAudioInput", first_channel_index: number, channel_count: number }
 export type RecordOrigin = RecordOrigin_TrackInput | RecordOrigin_TrackAudioOutput | RecordOrigin_FxAudioInput
 
---- A helper table to create RecordOrigin values of different kinds.
+--- Helper table to create RecordOrigin values of different kinds.
 module.RecordOrigin = {}
 
 --- Creates a RecordOrigin of kind TrackInput.
+--- Records using the hardware input set for the track (MIDI or stereo).
 function module.RecordOrigin.TrackInput(): RecordOrigin_TrackInput
 	return {
 		kind = "TrackInput",
@@ -728,6 +884,7 @@ function module.RecordOrigin.TrackInput(): RecordOrigin_TrackInput
 end
 
 --- Creates a RecordOrigin of kind TrackAudioOutput.
+--- Captures audio from the output of the track.
 function module.RecordOrigin.TrackAudioOutput(): RecordOrigin_TrackAudioOutput
 	return {
 		kind = "TrackAudioOutput",
@@ -735,6 +892,7 @@ function module.RecordOrigin.TrackAudioOutput(): RecordOrigin_TrackAudioOutput
 end
 
 --- Creates a RecordOrigin of kind FxAudioInput.
+--- Records audio flowing into the FX input.
 function module.RecordOrigin.FxAudioInput(value: ChannelRange): RecordOrigin_FxAudioInput
 	local t: any = table.clone(value)
 	t.kind = "FxAudioInput"
@@ -838,15 +996,24 @@ function module.Section(value: Section): Section
 	return value
 end
 
+--- Loads directly from the disk.
+---
+--- Might still pre-buffer some blocks but definitely won't put the complete audio data into
+--- memory.
 export type AudioCacheBehavior_DirectFromDisk = { kind: "DirectFromDisk" }
-export type AudioCacheBehavior_CacheInMemory = { kind: "CacheInMemory" }
 
+--- Loads the complete audio data into memory.
+export type AudioCacheBehavior_CacheInMemory = { kind: "CacheInMemory" }
 export type AudioCacheBehavior = AudioCacheBehavior_DirectFromDisk | AudioCacheBehavior_CacheInMemory
 
---- A helper table to create AudioCacheBehavior values of different kinds.
+--- Helper table to create AudioCacheBehavior values of different kinds.
 module.AudioCacheBehavior = {}
 
 --- Creates a AudioCacheBehavior of kind DirectFromDisk.
+--- Loads directly from the disk.
+---
+--- Might still pre-buffer some blocks but definitely won't put the complete audio data into
+--- memory.
 function module.AudioCacheBehavior.DirectFromDisk(): AudioCacheBehavior_DirectFromDisk
 	return {
 		kind = "DirectFromDisk",
@@ -854,22 +1021,28 @@ function module.AudioCacheBehavior.DirectFromDisk(): AudioCacheBehavior_DirectFr
 end
 
 --- Creates a AudioCacheBehavior of kind CacheInMemory.
+--- Loads the complete audio data into memory.
 function module.AudioCacheBehavior.CacheInMemory(): AudioCacheBehavior_CacheInMemory
 	return {
 		kind = "CacheInMemory",
 	}
 end
 
+--- Inherits the color of the column's play track.
 export type ClipColor_PlayTrackColor = { kind: "PlayTrackColor" }
-export type ClipColor_CustomColor = { kind: "CustomColor", value: RgbColor }
-export type ClipColor_PaletteColor = { kind: "PaletteColor", index: number }
 
+--- Assigns a very specific custom color.
+export type ClipColor_CustomColor = { kind: "CustomColor", value: RgbColor }
+
+--- Uses a certain color from a palette.
+export type ClipColor_PaletteColor = { kind: "PaletteColor", index: number }
 export type ClipColor = ClipColor_PlayTrackColor | ClipColor_CustomColor | ClipColor_PaletteColor
 
---- A helper table to create ClipColor values of different kinds.
+--- Helper table to create ClipColor values of different kinds.
 module.ClipColor = {}
 
 --- Creates a ClipColor of kind PlayTrackColor.
+--- Inherits the color of the column's play track.
 function module.ClipColor.PlayTrackColor(): ClipColor_PlayTrackColor
 	return {
 		kind = "PlayTrackColor",
@@ -877,6 +1050,7 @@ function module.ClipColor.PlayTrackColor(): ClipColor_PlayTrackColor
 end
 
 --- Creates a ClipColor of kind CustomColor.
+--- Assigns a very specific custom color.
 function module.ClipColor.CustomColor(value: CustomClipColor): ClipColor_CustomColor
 	local t: any = table.clone(value)
 	t.kind = "CustomColor"
@@ -884,6 +1058,7 @@ function module.ClipColor.CustomColor(value: CustomClipColor): ClipColor_CustomC
 end
 
 --- Creates a ClipColor of kind PaletteColor.
+--- Uses a certain color from a palette.
 function module.ClipColor.PaletteColor(value: PaletteClipColor): ClipColor_PaletteColor
 	local t: any = table.clone(value)
 	t.kind = "PaletteColor"
@@ -906,15 +1081,18 @@ function module.PaletteClipColor(value: PaletteClipColor): PaletteClipColor
 	return value
 end
 
+--- Takes content from a media file on the file system (audio).
 export type Source_File = { kind: "File", path: string }
-export type Source_MidiChunk = { kind: "MidiChunk", chunk: string }
 
+--- Embedded MIDI data.
+export type Source_MidiChunk = { kind: "MidiChunk", chunk: string }
 export type Source = Source_File | Source_MidiChunk
 
---- A helper table to create Source values of different kinds.
+--- Helper table to create Source values of different kinds.
 module.Source = {}
 
 --- Creates a Source of kind File.
+--- Takes content from a media file on the file system (audio).
 function module.Source.File(value: FileSource): Source_File
 	local t: any = table.clone(value)
 	t.kind = "File"
@@ -922,6 +1100,7 @@ function module.Source.File(value: FileSource): Source_File
 end
 
 --- Creates a Source of kind MidiChunk.
+--- Embedded MIDI data.
 function module.Source.MidiChunk(value: MidiChunkSource): Source_MidiChunk
 	local t: any = table.clone(value)
 	t.kind = "MidiChunk"
@@ -944,15 +1123,20 @@ function module.MidiChunkSource(value: MidiChunkSource): MidiChunkSource
 	return value
 end
 
+--- Material which doesn't need to be adjusted to the current tempo.
 export type ClipTimeBase_Time = { kind: "Time" }
-export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: Bpm?, time_signature: TimeSignature, downbeat: PositiveBeat }
 
+--- Material which needs to be adjusted to the current tempo.
+export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: Bpm?, time_signature: TimeSignature, downbeat: PositiveBeat }
+--- Decides if the clip will be adjusted to the current tempo.
 export type ClipTimeBase = ClipTimeBase_Time | ClipTimeBase_Beat
 
---- A helper table to create ClipTimeBase values of different kinds.
+--- Helper table to create ClipTimeBase values of different kinds.
+--- Decides if the clip will be adjusted to the current tempo.
 module.ClipTimeBase = {}
 
 --- Creates a ClipTimeBase of kind Time.
+--- Material which doesn't need to be adjusted to the current tempo.
 function module.ClipTimeBase.Time(): ClipTimeBase_Time
 	return {
 		kind = "Time",
@@ -960,6 +1144,7 @@ function module.ClipTimeBase.Time(): ClipTimeBase_Time
 end
 
 --- Creates a ClipTimeBase of kind Beat.
+--- Material which needs to be adjusted to the current tempo.
 function module.ClipTimeBase.Beat(value: BeatTimeBase): ClipTimeBase_Beat
 	local t: any = table.clone(value)
 	t.kind = "Beat"

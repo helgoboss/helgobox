@@ -1597,6 +1597,9 @@ pub enum ReaperCommand {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum TrackDescriptor {
+    /// Resolves to the track on which this ReaLearn instance is installed.
+    ///
+    /// Doesn't make sense if ReaLearn is installed on the monitoring FX chain.
     This {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
