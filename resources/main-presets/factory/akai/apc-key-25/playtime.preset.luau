@@ -15,6 +15,19 @@ local partial_mapping = util.partial_mapping
 
 local use_column_stop_buttons = true
 
+-- Types
+
+type Mode = {
+	index: number,
+	label: string,
+}
+
+type ModeMap = { [string]: Mode }
+
+type ParameterMap = { [string]: realearn.Parameter }
+
+type GroupMap = { [string]: realearn.Group }
+
 -- Constants
 
 local column_count = 8
@@ -24,7 +37,7 @@ local knob_mode_count = 100
 
 -- Column modes
 
-local column_modes = {
+local column_modes: ModeMap = {
 	stop = {
 		index = 0,
 		label = "Stop clip",
@@ -49,7 +62,7 @@ local column_modes = {
 local sorted_column_modes = util.sorted_by_index(column_modes)
 
 -- Knob modes
-local knob_modes = {
+local knob_modes: ModeMap = {
 	volume = {
 		index = 0,
 		label = "Volume",
@@ -70,7 +83,8 @@ local knob_modes = {
 local sorted_knob_modes = util.sorted_by_index(knob_modes)
 
 -- Parameters
-local params = {
+
+local params: ParameterMap = {
 	column_offset = {
 		index = 0,
 		name = "Column offset",
@@ -111,7 +125,7 @@ local params = {
 -- Domain functions
 
 function create_index_expression(variable_name: string, index: number): string
-	return `{variable_name}{index}`
+	return `{variable_name} + {index}`
 end
 
 function create_col_expression(col: number): string
@@ -123,42 +137,40 @@ function create_row_expression(row: number): string
 end
 
 function create_slot_selector(col: number, row: number): realearn.ClipSlotDescriptor
-	return realearn.ClipSlotDescriptor.Dynamic {
+	return realearn.ClipSlotDescriptor.Dynamic({
 		column_expression = create_col_expression(col),
 		row_expression = create_row_expression(row),
-	}
+	})
 end
 
 function create_column_selector(col: number): realearn.ClipColumnDescriptor
-	return realearn.ClipColumnDescriptor.Dynamic {
+	return realearn.ClipColumnDescriptor.Dynamic({
 		expression = create_col_expression(col),
-	}
+	})
 end
 
 function create_row_selector(row: number): realearn.ClipRowDescriptor
-	return realearn.ClipRowDescriptor.Dynamic {
+	return realearn.ClipRowDescriptor.Dynamic({
 		expression = create_row_expression(row),
-	}
+	})
 end
 
 function multi(index: number)
-	return partial_mapping {
-		source = {
-			kind = "Virtual",
+	return partial_mapping({
+		source = realearn.Source.Virtual({
 			character = "Multi",
 			id = index,
-		},
-	}
+		}),
+	})
 end
 
 function button(id: string)
-	return partial_mapping {
-		source = {
-			kind = "Virtual",
-			id = id,
+	return partial_mapping({
+		source = realearn.Source.Virtual({
 			character = "Button",
-		},
-	}
+			id = id,
+		}),
+	})
 end
 
 function column_stop_button(col: number)
@@ -174,9 +186,8 @@ function slot_button(col: number, row: number)
 end
 
 function shift_pressed(on: boolean)
-	return partial_mapping {
-		activation_condition = {
-			kind = "Modifier",
+	return partial_mapping({
+		activation_condition = realearn.ActivationCondition.Modifier({
 			modifiers = {
 				{
 					parameter = params.shift.index,
@@ -187,14 +198,13 @@ function shift_pressed(on: boolean)
 					on = false,
 				},
 			},
-		},
-	}
+		}),
+	})
 end
 
 function sustain_pressed(on: boolean)
-	return partial_mapping {
-		activation_condition = {
-			kind = "Modifier",
+	return partial_mapping({
+		activation_condition = realearn.ActivationCondition.Modifier({
 			modifiers = {
 				{
 					parameter = params.sustain.index,
@@ -205,23 +215,21 @@ function sustain_pressed(on: boolean)
 					on = false,
 				},
 			},
-		},
-	}
+		}),
+	})
 end
 
 function shift_or_sustain_pressed()
-	return partial_mapping {
-		activation_condition = {
-			kind = "Expression",
+	return partial_mapping({
+		activation_condition = realearn.ActivationCondition.Expression({
 			condition = "p[2] || p[7]",
-		},
-	}
+		}),
+	})
 end
 
 function shift_and_sustain_pressed()
-	return partial_mapping {
-		activation_condition = {
-			kind = "Modifier",
+	return partial_mapping({
+		activation_condition = realearn.ActivationCondition.Modifier({
 			modifiers = {
 				{
 					parameter = params.sustain.index,
@@ -232,53 +240,57 @@ function shift_and_sustain_pressed()
 					on = true,
 				},
 			},
-		},
-	}
+		}),
+	})
 end
 
 function turbo()
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
-			fire_mode = {
-				kind = "AfterTimeoutKeepFiring",
+			fire_mode = realearn.FireMode.AfterTimeoutKeepFiring({
 				timeout = 0,
 				rate = 100,
-			},
+			}),
 		},
-	}
+	})
 end
 
 function fire_max(millis: number)
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
-			fire_mode = {
-				kind = "Normal",
+			fire_mode = realearn.FireMode.Normal({
 				press_duration_interval = { 0, millis },
-			},
+			}),
 		},
-	}
+	})
 end
 
 function fire_after_timeout(millis: number)
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
-			fire_mode = {
-				kind = "AfterTimeout",
+			fire_mode = realearn.FireMode.AfterTimeout({
 				timeout = millis,
-			},
+			}),
 		},
-	}
+	})
 end
 
-function fire(kind, max_duration: number?)
-	return {
+function fire_on_single_press(max_duration: number)
+	return partial_mapping({
 		glue = {
-			fire_mode = {
-				kind = kind,
+			fire_mode = realearn.FireMode.OnSinglePress({
 				max_duration = max_duration,
-			},
+			}),
 		},
-	}
+	})
+end
+
+function fire_on_double_press()
+	return partial_mapping({
+		glue = {
+			fire_mode = realearn.FireMode.OnDoublePress(),
+		},
+	})
 end
 
 local no_mod = shift_pressed(false)
@@ -288,167 +300,153 @@ local shift_or_sustain = shift_or_sustain_pressed()
 local shift_and_sustain = shift_and_sustain_pressed()
 local short_press = fire_max(200)
 local long_press = fire_after_timeout(1000)
-local single_press = fire("OnSinglePress", 200)
-local double_press = fire("OnDoublePress")
+local single_press = fire_on_single_press(200)
+local double_press = fire_on_double_press()
 
 function clip_matrix_action(action: realearn.ClipMatrixAction)
-	return partial_mapping {
-		target = realearn.Target.PlaytimeMatrixAction {
+	return partial_mapping({
+		target = realearn.Target.PlaytimeMatrixAction({
 			action = action,
-		}
-	}
+		}),
+	})
 end
 
 function clip_column_action(col: number, action: realearn.ClipColumnAction)
-	return partial_mapping {
-		target = realearn.Target.PlaytimeColumnAction {
+	return partial_mapping({
+		target = realearn.Target.PlaytimeColumnAction({
 			column = create_column_selector(col),
 			action = action,
-		}
-	}
+		}),
+	})
 end
 
 function clip_row_action(row: number, action: realearn.ClipRowAction)
-	return partial_mapping {
-		target = realearn.Target.PlaytimeRowAction {
+	return partial_mapping({
+		target = realearn.Target.PlaytimeRowAction({
 			row = create_row_selector(row),
 			action = action,
-		},
-	}
+		}),
+	})
 end
 
 function clip_column_track(col: number): realearn.TrackDescriptor
-	return realearn.TrackDescriptor.FromClipColumn {
+	return realearn.TrackDescriptor.FromClipColumn({
 		column = create_column_selector(col),
 		context = "Playback",
-	}
+	})
 end
 
-function column_track_target(col: number, track_target_kind: realearn.TargetKind, exclusive: boolean)
-	return partial_mapping {
+function column_track_target(col: number, track_target_kind: realearn.TargetKind, exclusive: boolean?)
+	return partial_mapping({
 		target = {
 			kind = track_target_kind,
 			track = clip_column_track(col),
 			exclusivity = if exclusive then "WithinFolderOnOnly" else nil,
 		} :: any,
-	}
+	})
 end
 
-function route_target(col: number, route_target_kind: string)
-	return partial_mapping {
+function route_target(col: number, route_target_kind: realearn.TargetKind)
+	return partial_mapping({
 		target = {
 			kind = route_target_kind,
-			route = {
-				address = "Dynamic",
+			route = realearn.RouteDescriptor.Dynamic({
 				track = clip_column_track(col),
-				expression = "p[" .. params.send.index .. "]",
-			},
-		},
-	}
+				expression = `p[{params.send.index}]`,
+			}),
+		} :: any,
+	})
 end
 
-function clip_transport_action(col: number, row: number, action: string, record_only_if_track_armed: boolean)
-	return partial_mapping {
-		target = {
-			kind = "ClipTransportAction",
+function clip_transport_action(
+	col: number,
+	row: number,
+	action: realearn.ClipTransportAction,
+	record_only_if_track_armed: boolean
+)
+	return partial_mapping({
+		target = realearn.Target.PlaytimeSlotTransportAction({
 			slot = create_slot_selector(col, row),
 			action = action,
 			record_only_if_track_armed = record_only_if_track_armed,
 			stop_column_if_slot_empty = true,
-		},
-	}
+		}),
+	})
 end
 
-function clip_management_action(col: number, row: number, action: string)
-	return partial_mapping {
-		target = {
-			kind = "ClipManagement",
+function clip_management_action(col: number, row: number, action: realearn.ClipManagementActionKind)
+	return partial_mapping({
+		target = realearn.Target.PlaytimeSlotManagementAction({
 			slot = create_slot_selector(col, row),
 			action = {
 				kind = action,
-			},
-		},
-	}
-end
-
-function adjust_clip_section_length_action(col: number, row: number, factor: number)
-	return partial_mapping {
-		target = {
-			kind = "ClipManagement",
-			slot = create_slot_selector(col, row),
-			action = {
-				kind = "AdjustClipSectionLength",
-				factor = factor,
-			},
-		},
-	}
+			} :: any,
+		}),
+	})
 end
 
 function slot_state_text_feedback()
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
-			feedback = {
-				kind = "Text",
+			feedback = realearn.Feedback.Text({
 				text_expression = "{{ target.slot_state.id }}",
-			},
+			}),
 		},
-	}
+	})
 end
 
-function transport_action(action: string)
-	return partial_mapping {
-		target = {
-			kind = "TransportAction",
+function transport_action(action: realearn.TransportAction)
+	return partial_mapping({
+		target = realearn.Target.TransportAction({
 			action = action,
-		},
-	}
+		}),
+	})
 end
 
-function reaper_action(command_id: string)
-	return partial_mapping {
-		target = {
-			kind = "ReaperAction",
-			command = command_id,
+function reaper_action(command: realearn.ReaperCommand)
+	return partial_mapping({
+		target = realearn.Target.ReaperAction({
+			command = command,
 			invocation = "Trigger",
-		},
-	}
+		}),
+	})
 end
 
 function toggle()
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
 			absolute_mode = "ToggleButton",
 		},
-	}
+	})
 end
 
 function incremental()
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
 			absolute_mode = "IncrementalButton",
 		},
-	}
+	})
 end
 
 function wrap()
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
 			wrap = true,
 		},
-	}
+	})
 end
 
 function control_disabled()
-	return partial_mapping {
+	return partial_mapping({
 		control_enabled = false,
 		visible_in_projection = false,
-	}
+	})
 end
 
 function feedback_disabled()
-	return partial_mapping {
+	return partial_mapping({
 		feedback_enabled = false,
-	}
+	})
 end
 
 function scroll_horizontally(amount: number)
@@ -461,92 +459,84 @@ end
 
 function scroll(axis: realearn.Axis, amount: number)
 	local abs_amount = math.abs(amount)
-	return partial_mapping {
+	return partial_mapping({
 		glue = {
 			absolute_mode = "IncrementalButton",
 			step_factor_interval = { abs_amount, abs_amount },
 			reverse = amount < 0,
-			feedback = {
-				kind = "Numeric",
+			feedback = realearn.Feedback.Numeric({
 				transformation = "x = 1",
-			},
+			}),
 		},
-		target = {
-			kind = "PlaytimeControlUnitScroll",
+		target = realearn.Target.PlaytimeControlUnitScroll({
 			axis = axis,
-		},
-	}
+		}),
+	})
 end
 
 function set_param(index: number)
-	return PartialMapping({
-		target = {
-			kind = "CompartmentParameterValue",
-			parameter = {
-				address = "ById",
+	return partial_mapping({
+		target = realearn.Target.CompartmentParameterValue({
+			parameter = realearn.CompartmentParameterDescriptor.ById({
 				index = index,
-			},
-		},
+			}),
+		}),
 	})
 end
 
 function name(n: string)
-	return PartialMapping({
+	return partial_mapping({
 		name = n,
 	})
 end
 
-function group(g)
-	return PartialMapping({
+function group(g: realearn.Group)
+	return partial_mapping({
 		group = g.id,
 	})
 end
 
-function set_mode(mode, mode_count: number, mode_param_index: number)
+function set_mode(mode: Mode, mode_count: number, mode_param_index: number)
 	local target_value = mode.index / (mode_count - 1)
-	return PartialMapping({
+	return partial_mapping({
 		name = mode.label,
 		glue = {
 			target_interval = { target_value, target_value },
 			out_of_range_behavior = "Min",
 		},
-		target = {
-			kind = "CompartmentParameterValue",
-			parameter = {
-				address = "ById",
+		target = realearn.Target.CompartmentParameterValue({
+			parameter = realearn.FxParameterDescriptor.ById({
 				index = mode_param_index,
-			},
-		},
+			}),
+		}),
 	})
 end
 
-function set_column_mode(mode)
+function set_column_mode(mode: Mode)
 	return set_mode(mode, column_mode_count, params.column_mode.index)
 end
 
-function set_knob_mode(mode)
+function set_knob_mode(mode: Mode)
 	return set_mode(mode, knob_mode_count, params.knob_mode.index)
 end
 
-function column_mode_is(column_mode)
-	return {
-		kind = "Bank",
+function column_mode_is(column_mode: Mode)
+	return realearn.ActivationCondition.Bank({
 		parameter = params.column_mode.index,
 		bank_index = column_mode.index,
-	}
+	})
 end
 
 function knob_mode_is(knob_mode)
-	return {
-		kind = "Bank",
+	return realearn.ActivationCondition.Bank({
 		parameter = params.knob_mode.index,
 		bank_index = knob_mode.index,
-	}
+	})
 end
 
 -- Groups
 
-local groups = {
+local groups: GroupMap = {
 	slot_modes = {
 		name = "Slot modes",
 	},
@@ -629,12 +619,9 @@ local groups = {
 		activation_condition = knob_mode_is(knob_modes.device),
 	},
 }
-set_keys_as_ids(groups)
+util.set_keys_as_ids(groups)
 
 -- Mappings
-
-local bla = name("Stop all clips") + no_mod + button("stop-all-clips") + clip_matrix_action("Stop")
-local boo = common.merged(name("hallo"), no_mod)
 
 local mappings = {
 	name("Stop all clips") + no_mod + button("stop-all-clips") + clip_matrix_action("Stop"),
@@ -945,8 +932,8 @@ for col = 0, column_count - 1 do
 end
 
 return {
-	parameters = common.sorted_by_index(params),
-	groups = common.to_array(groups),
+	parameters = util.sorted_by_index(params),
+	groups = util.to_array(groups),
 	mappings = mappings,
 	custom_data = {
 		playtime = {

@@ -214,6 +214,8 @@ const SAFE_LUA_VARS: &[&str] = &[
     "string.reverse",
     "string.sub",
     "string.upper",
+    // "table.clone" is available in Luau only
+    "table.clone",
     "table.insert",
     "table.maxn",
     "table.remove",

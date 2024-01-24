@@ -4621,7 +4621,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::PlaytimeSlotManagementAction
                 | ReaperTargetType::PlaytimeSlotSeek
                 | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotVolume => Some(self.target.clip_slot().to_string()),
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    Some(format!("{:#}", self.target.clip_slot()))
+                }
                 _ => None,
             },
             _ => None,

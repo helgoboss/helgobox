@@ -13,7 +13,7 @@ function merged<A, B>(t1: A, t2: B): A & B
     if type(t1) ~= "table" or type(t2) ~= "table" then
         return t1 :: any
     end
-	local result = t1.clone()
+	local result = table.clone(t1)
 	for key, new_value in pairs(t2 :: ArbitraryTable) do
 		local old_value = result[key]
 		if old_value and type(old_value) == "table" and type(new_value) == "table" then

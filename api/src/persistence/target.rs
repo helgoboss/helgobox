@@ -1960,7 +1960,16 @@ impl Display for ClipSlotDescriptor {
         match self {
             ClipSlotDescriptor::Selected => f.write_str("Selected slot"),
             ClipSlotDescriptor::ByIndex(address) => address.fmt(f),
-            ClipSlotDescriptor::Dynamic { .. } => f.write_str("Dynamic slot"),
+            ClipSlotDescriptor::Dynamic {
+                column_expression,
+                row_expression,
+            } => {
+                f.write_str("Dynamic slot")?;
+                if f.alternate() {
+                    write!(f, " (col = {column_expression}, row = {row_expression})")?;
+                }
+                Ok(())
+            }
         }
     }
 }
