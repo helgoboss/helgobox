@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use mlua::{ChunkMode, Function, Lua, Table, Value};
 use std::error::Error;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]

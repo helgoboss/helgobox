@@ -6,7 +6,12 @@ use crate::domain::{
 use crate::infrastructure::data::CommonPresetInfo;
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
 use crate::infrastructure::ui::Item;
+use camino::Utf8Path;
+use indexmap::IndexMap;
+use itertools::Itertools;
 use reaper_high::{FxChainContext, Reaper};
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::{Display, Formatter};
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu};
@@ -333,30 +338,58 @@ pub fn menu_containing_compartment_presets(
     )
 }
 
+#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, derive_more::Display)]
+enum PresetCategory<'a> {
+    #[display(fmt = "Factory")]
+    Factory,
+    #[display(fmt = "User ({_0})")]
+    UserSorted(&'a str),
+    #[display(fmt = "User (Unsorted)")]
+    UserUnsorted,
+}
+
 pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
     build_id: impl Fn(&CommonPresetInfo) -> T + 'a,
     is_current_value: impl Fn(&CommonPresetInfo) -> bool + 'a,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
-    let (user_preset_infos, factory_preset_infos): (Vec<_>, Vec<_>) =
-        preset_infos.partition(|info| info.origin.is_user());
-    [
-        ("User presets", user_preset_infos),
-        ("Factory presets", factory_preset_infos),
-    ]
-    .into_iter()
-    .map(move |(label, mut infos)| {
-        infos.sort_by_key(|info| &info.meta_data.name);
-        menu(
-            label,
-            build_compartment_preset_menu_entries_internal(
-                infos.into_iter(),
-                &build_id,
-                &is_current_value,
+    let preset_infos: Vec<_> = preset_infos.collect();
+    let mut categorized_infos: IndexMap<PresetCategory, Vec<&CommonPresetInfo>> = IndexMap::new();
+    for info in preset_infos {
+        let path = Utf8Path::new(&info.id);
+        let category = if path.components().count() == 1 {
+            // Preset directly in user preset root = "Unsorted"
+            PresetCategory::UserUnsorted
+        } else {
+            // Preset in sub directory (good)
+            let component = path
+                .components()
+                .next()
+                .expect("preset ID should have at least one component")
+                .as_str();
+            if component == "factory" {
+                PresetCategory::Factory
+            } else {
+                PresetCategory::UserSorted(component)
+            }
+        };
+        categorized_infos.entry(category).or_default().push(info);
+    }
+    categorized_infos.sort_keys();
+    categorized_infos
+        .into_iter()
+        .map(move |(category, mut infos)| {
+            infos.sort_by_key(|info| &info.meta_data.name);
+            menu(
+                category.to_string(),
+                build_compartment_preset_menu_entries_internal(
+                    infos.into_iter(),
+                    &build_id,
+                    &is_current_value,
+                )
+                .collect(),
             )
-            .collect(),
-        )
-    })
+        })
 }
 
 fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
@@ -366,13 +399,8 @@ fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     preset_infos.map(move |info| {
         let id = build_id(info);
-        let label = if info.meta_data.name == info.id {
-            info.meta_data.name.clone()
-        } else {
-            format!("{} ({})", info.meta_data.name, info.id)
-        };
         item_with_opts(
-            label,
+            info.meta_data.name.clone(),
             ItemOpts {
                 enabled: true,
                 checked: is_current_value(info),

@@ -14,7 +14,7 @@ use pot::{PotFavorites, PotFilterExcludes};
 use fragile::Fragile;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::TargetTouchCause;
-use reaper_high::{Fx, Reaper};
+use reaper_high::Fx;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;

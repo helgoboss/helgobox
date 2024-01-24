@@ -38,6 +38,7 @@ impl HelgoboxExtension {
         Ok(extension)
     }
 
+    #[allow(dead_code)]
     pub fn get() -> &'static HelgoboxExtension {
         EXTENSION
             .get()
