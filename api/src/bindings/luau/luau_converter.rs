@@ -149,7 +149,14 @@ struct LuauVariant<'a, H> {
     context: ConvContext<'a, H>,
 }
 
-struct LuauVariantIdent<'a> {
+struct LuauTaggedVariantBuilder<'a, H> {
+    variant: &'a Variant,
+    enum_ident: LuauIdent<'a>,
+    tag: &'a str,
+    context: ConvContext<'a, H>,
+}
+
+struct LuauTaggedVariantIdent<'a> {
     enum_ident: LuauIdent<'a>,
     variant: &'a Variant,
 }
@@ -320,6 +327,10 @@ impl<'a, H: Hook> Display for LuauStruct<'a, H> {
                         export type {ident}{generics} = {{
                             {fields}
                         }}
+                        --- Creates a {ident} value.
+                        function module.{ident}(value: {ident}): {ident}
+                            return value
+                        end
                     "#
                 )?;
             }
@@ -328,6 +339,7 @@ impl<'a, H: Hook> Display for LuauStruct<'a, H> {
                     .unnamed
                     .first()
                     .expect("empty tuple structs not supported");
+                // Type alias
                 let ty = LuauType::new(&field.ty, self.context);
                 if fields.unnamed.len() == 1 {
                     writeln!(f, "export type {ident}{generics} = {ty};")?;
@@ -423,7 +435,7 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
             self.item_enum
                 .variants
                 .iter()
-                .map(|variant| LuauVariantIdent {
+                .map(|variant| LuauTaggedVariantIdent {
                     enum_ident,
                     variant,
                 })
@@ -436,6 +448,38 @@ impl<'a, H: Hook> Display for RichLuauEnum<'a, H> {
                     export type {enum_ident} = {variant_disjunction}
                 "#
         )?;
+        if let Some(tag) = self.tag {
+            let variant_builders = line_breaked(|| {
+                self.item_enum
+                    .variants
+                    .iter()
+                    .map(|variant| LuauTaggedVariantBuilder {
+                        variant,
+                        enum_ident,
+                        tag,
+                        context: self.context,
+                    })
+            });
+            writeln!(
+                f,
+                r#"
+                    --- A helper table to create {enum_ident} values of different kinds.
+                    module.{enum_ident} = {{}}
+                    
+                    {variant_builders}
+                "#
+            )?;
+        } else {
+            writeln!(
+                f,
+                r#"
+                    --- Creates a {enum_ident} value.
+                    function module.{enum_ident}(value: {enum_ident}): {enum_ident}
+                        return value
+                    end
+                "#
+            )?;
+        }
         Ok(())
     }
 }
@@ -609,7 +653,7 @@ impl<'a, H: Hook> Display for LuauStructField<'a, H> {
     }
 }
 
-impl<'a> Display for LuauVariantIdent<'a> {
+impl<'a> Display for LuauTaggedVariantIdent<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let enum_ident = self.enum_ident;
         let variant_ident = LuauIdent(&self.variant.ident, Case::UpperCamelCase);
@@ -620,7 +664,7 @@ impl<'a> Display for LuauVariantIdent<'a> {
 impl<'a, H: Hook> Display for LuauVariant<'a, H> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let enum_ident = self.enum_ident;
-        let variant_ident = LuauVariantIdent {
+        let variant_ident = LuauTaggedVariantIdent {
             enum_ident,
             variant: self.variant,
         };
@@ -710,6 +754,72 @@ impl<'a, H: Hook> Display for LuauVariant<'a, H> {
                 } else {
                     panic!("untagged enums with primitive variants invalid");
                 }
+            }
+        };
+        Ok(())
+    }
+}
+
+impl<'a, H: Hook> Display for LuauTaggedVariantBuilder<'a, H> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let enum_ident = self.enum_ident;
+        let simple_variant_ident = LuauIdent(&self.variant.ident, Case::Original);
+        let tagged_variant_ident = LuauTaggedVariantIdent {
+            enum_ident,
+            variant: self.variant,
+        };
+        let tag = self.tag;
+        match &self.variant.fields {
+            Fields::Named(fields) => {
+                // Struct-like enum variant
+                let named_fields = line_breaked_named_fields(fields, self.context);
+                write!(
+                    f,
+                    r#"
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    function module.{enum_ident}.{simple_variant_ident}(value: {{{named_fields}}}): {tagged_variant_ident}
+                        local t: any = table.clone(value)
+                        t.{tag} = "{simple_variant_ident}"
+                        return t
+                    end
+                "#
+                )?;
+            }
+            Fields::Unnamed(fields) => {
+                assert_eq!(
+                    fields.unnamed.len(),
+                    1,
+                    "enum tuple variants with more than one value not supported: {}",
+                    self.enum_ident
+                );
+                // Tuple enum variant with only one field. Very common.
+                let field = fields.unnamed.first().unwrap();
+                let ref_type = LuauType::new(&field.ty, self.context);
+                write!(
+                    f,
+                    r#"
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    function module.{enum_ident}.{simple_variant_ident}(value: {ref_type}): {tagged_variant_ident}
+                        local t: any = table.clone(value)
+                        t.{tag} = "{simple_variant_ident}"
+                        return t
+                    end
+                "#
+                )?;
+            }
+            Fields::Unit => {
+                // Primitive enum variant
+                write!(
+                    f,
+                    r#"
+                    --- Creates a {enum_ident} of kind {simple_variant_ident}.
+                    function module.{enum_ident}.{simple_variant_ident}(): {tagged_variant_ident}
+                        return {{
+                            {tag} = "{simple_variant_ident}"
+                        }}
+                    end
+                "#
+                )?;
             }
         };
         Ok(())

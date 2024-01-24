@@ -37,7 +37,10 @@ pub fn export_luau() {
     struct PlaytimeApiExportHook;
     impl Hook for PlaytimeApiExportHook {
         fn include_type(&self, simple_ident: &str) -> bool {
-            !matches!(simple_ident, "FlexibleMatrix" | "PlaytimeApiError")
+            !matches!(
+                simple_ident,
+                "FlexibleMatrix" | "PlaytimeApiError" | "PlaytimePersistenceRoot"
+            )
         }
     }
     export_luau_internal(
