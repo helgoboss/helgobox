@@ -5,13 +5,13 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, GroupingBehavior, Project};
 use reaper_medium::GangBehavior;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedAnyOnTarget {
@@ -152,7 +152,7 @@ impl<'a> Target<'a> for AnyOnTarget {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

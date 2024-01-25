@@ -61,7 +61,6 @@ validator = "0.10.0"
 validator_derive = "0.10"
 derive_more.workspace = true
 lazycell.workspace = true
-enum-iterator.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true

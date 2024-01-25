@@ -7,7 +7,6 @@ use std::time::Duration;
 use std::{cmp, iter};
 
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
 use reaper_high::{
@@ -16,6 +15,7 @@ use reaper_high::{
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
+use strum::IntoEnumIterator;
 
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
@@ -4011,7 +4011,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category() {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::Script => {
-                    b.fill_combo_box_indexed(MidiScriptKind::into_enum_iter());
+                    b.fill_combo_box_indexed(MidiScriptKind::iter());
                     b.show();
                     b.select_combo_box_item_by_index(self.source.midi_script_kind().into())
                         .unwrap();
@@ -4188,9 +4188,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             }
                             MackieSevenSegmentDisplay => {
                                 b.show();
-                                b.fill_combo_box_indexed(
-                                    MackieSevenSegmentDisplayScope::into_enum_iter(),
-                                );
+                                b.fill_combo_box_indexed(MackieSevenSegmentDisplayScope::iter());
                                 b.select_combo_box_item_by_index(
                                     self.source.mackie_7_segment_display_scope().into(),
                                 )
@@ -4434,7 +4432,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                     t if t.supports_custom_character() => {
                         b.show();
-                        b.fill_combo_box_indexed(SourceCharacter::into_enum_iter());
+                        b.fill_combo_box_indexed(SourceCharacter::iter());
                         b.select_combo_box_item_by_index(self.source.custom_character().into())
                             .unwrap();
                     }
@@ -4478,7 +4476,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::ClockTransport => {
                     b.show();
-                    b.fill_combo_box_indexed(MidiClockTransportMessage::into_enum_iter());
+                    b.fill_combo_box_indexed(MidiClockTransportMessage::iter());
                     b.select_combo_box_item_by_index(
                         self.source.midi_clock_transport_message().into(),
                     )
@@ -4486,7 +4484,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 MidiSourceType::Display => {
                     b.show();
-                    b.fill_combo_box_indexed(DisplayType::into_enum_iter());
+                    b.fill_combo_box_indexed(DisplayType::iter());
                     b.select_combo_box_item_by_index(self.source.display_type().into())
                         .unwrap();
                 }
@@ -4599,7 +4597,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::LastTouched => {
                     let enabled_count = self.target.included_targets().len();
-                    let total_count = LearnableTargetKind::into_enum_iter().count();
+                    let total_count = LearnableTargetKind::iter().count();
                     Some(format!("{enabled_count} of {total_count} targets enabled"))
                 }
                 ReaperTargetType::CompartmentParameterValue => {
@@ -4649,21 +4647,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.target.target_type() {
                 _ if self.target.supports_track() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualTrackType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
-                    combo.fill_combo_box_indexed(BookmarkAnchorType::into_enum_iter());
+                    combo.fill_combo_box_indexed(BookmarkAnchorType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.bookmark_anchor_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4675,7 +4673,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TakeMappingSnapshot => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4689,7 +4687,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     && t != ReaperTargetType::PlaytimeSlotSeek =>
                 {
                     combo.show();
-                    combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
+                    combo.fill_combo_box_indexed(FeedbackResolution::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.feedback_resolution().into(),
@@ -4716,7 +4714,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Mouse => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MouseActionType::into_enum_iter());
+                    combo.fill_combo_box_indexed(MouseActionType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.mouse_action_type().into(),
@@ -4725,7 +4723,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::Transport => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(TransportAction::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.transport_action().into(),
@@ -4734,7 +4732,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::AnyOn => {
                     combo.show();
-                    combo.fill_combo_box_indexed(AnyOnParameter::into_enum_iter());
+                    combo.fill_combo_box_indexed(AnyOnParameter::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.any_on_parameter().into(),
@@ -4743,7 +4741,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::AutomationModeOverride => {
                     combo.show();
-                    combo.fill_combo_box_indexed(AutomationModeOverrideType::into_enum_iter());
+                    combo.fill_combo_box_indexed(AutomationModeOverrideType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4793,7 +4791,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::SendMidi => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SendMidiDestination::into_enum_iter());
+                    combo.fill_combo_box_indexed(SendMidiDestination::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.send_midi_destination().into(),
@@ -4826,7 +4824,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowseTracks => {
                     combo.show();
-                    combo.fill_combo_box_indexed(BrowseTracksMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(BrowseTracksMode::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.browse_tracks_mode().into(),
@@ -4835,7 +4833,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowsePotFilterItems => {
                     combo.show();
-                    combo.fill_combo_box_indexed(PotFilterKind::into_enum_iter());
+                    combo.fill_combo_box_indexed(PotFilterKind::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.pot_filter_item_kind().into(),
@@ -4844,7 +4842,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::ModifyMapping => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingModificationKind::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingModificationKind::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.mapping_modification_kind().into(),
@@ -5358,14 +5356,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.target.target_type() {
                 t if t.supports_fx() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualFxType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.fx_type().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackRouteType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.route_type().into())
                         .unwrap();
@@ -5389,7 +5387,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowseGroup => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(SimpleExclusivity::iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
                     combo
                         .select_combo_box_item_by_index(simple_exclusivity.into())
@@ -5397,33 +5395,33 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackTool => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackToolAction::iter());
                     let action: TrackToolAction = self.target.track_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 ReaperTargetType::FxTool => {
                     combo.show();
-                    combo.fill_combo_box_indexed(FxToolAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(FxToolAction::iter());
                     let action: FxToolAction = self.target.fx_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 t if t.supports_fx_parameter() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualFxParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.param_type().into())
                         .unwrap();
                 }
                 t if t.supports_exclusivity() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(Exclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(Exclusivity::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackRouteSelectorType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackRouteSelectorType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.route_selector_type().into())
                         .unwrap();
@@ -5496,42 +5494,42 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_seek_behavior() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SeekBehavior::into_enum_iter());
+                    combo.fill_combo_box_indexed(SeekBehavior::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.seek_behavior().into())
                         .unwrap();
                 }
                 ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(Axis::into_enum_iter());
+                    combo.fill_combo_box_indexed(Axis::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.axis().into())
                         .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
-                    combo.fill_combo_box_indexed(ActionInvocationType::into_enum_iter());
+                    combo.fill_combo_box_indexed(ActionInvocationType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.action_invocation_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackSolo => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SoloBehavior::into_enum_iter());
+                    combo.fill_combo_box_indexed(SoloBehavior::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.solo_behavior().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackShow => {
                     combo.show();
-                    combo.fill_combo_box_indexed(RealearnTrackArea::into_enum_iter());
+                    combo.fill_combo_box_indexed(RealearnTrackArea::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_area().into())
                         .unwrap();
                 }
                 ReaperTargetType::RouteTouchState => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TouchedRouteParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TouchedRouteParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.target.touched_route_parameter_type().into(),
@@ -5540,21 +5538,21 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackMonitoringMode => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MonitoringMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(MonitoringMode::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.monitoring_mode().into())
                         .unwrap();
                 }
                 _ if self.target.supports_automation_mode() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(RealearnAutomationMode::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.automation_mode().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackTouchState => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TouchedTrackParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TouchedTrackParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.target.touched_track_parameter_type().into(),
@@ -5583,7 +5581,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MouseButton::into_enum_iter());
+                    combo.fill_combo_box_indexed(MouseButton::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.mouse_button().into())
                         .unwrap();
@@ -5608,14 +5606,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_track_exclusivity() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackExclusivity::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_fx_display_type() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(FxDisplayType::into_enum_iter());
+                    combo.fill_combo_box_indexed(FxDisplayType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.fx_display_type().into())
                         .unwrap();
@@ -6724,7 +6722,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
         let is_main_mapping = self.mapping.compartment() == CompartmentKind::Main;
         b.fill_combo_box_small(
-            SourceCategory::into_enum_iter()
+            SourceCategory::iter()
                 // Don't allow controller mappings to have virtual source
                 .filter(|c| is_main_mapping || *c != SourceCategory::Virtual),
         );
@@ -6734,26 +6732,23 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX);
-        b.fill_combo_box_indexed(FeedbackSendBehavior::into_enum_iter());
+        b.fill_combo_box_indexed(FeedbackSendBehavior::iter());
     }
 
     fn fill_target_category_combo_box(&self) {
         let b = self
             .view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX);
-        b.fill_combo_box_indexed(TargetCategory::into_enum_iter());
+        b.fill_combo_box_indexed(TargetCategory::iter());
     }
 
     fn fill_source_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category() {
-            Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
-            Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
-            Virtual => {
-                use strum::IntoEnumIterator;
-                b.fill_combo_box_indexed(VirtualControlElementType::iter())
-            }
+            Midi => b.fill_combo_box_indexed(MidiSourceType::iter()),
+            Reaper => b.fill_combo_box_indexed(ReaperSourceType::iter()),
+            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::iter()),
             Osc | Never | Keyboard => {}
         };
     }
@@ -6761,7 +6756,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mode_type_combo_box(&self) {
         let base_input = self.mapping.base_mode_applicability_check_input();
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
-        let items = AbsoluteMode::into_enum_iter().map(|m| {
+        let items = AbsoluteMode::iter().map(|m| {
             let applicable = self.mapping.mode_model.mode_parameter_is_relevant(
                 ModeParameter::SpecificAbsoluteMode(m),
                 base_input,
@@ -6780,43 +6775,43 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
-            .fill_combo_box_indexed(OutOfRangeBehavior::into_enum_iter());
+            .fill_combo_box_indexed(OutOfRangeBehavior::iter());
     }
 
     fn fill_mode_group_interaction_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
-            .fill_combo_box_indexed(GroupInteraction::into_enum_iter());
+            .fill_combo_box_indexed(GroupInteraction::iter());
     }
 
     fn fill_mode_fire_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_FIRE_COMBO_BOX)
-            .fill_combo_box_indexed(FireMode::into_enum_iter());
+            .fill_combo_box_indexed(FireMode::iter());
     }
 
     fn fill_mode_feedback_type_combo_box(&self) {
         self.view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
-            .fill_combo_box_indexed(FeedbackType::into_enum_iter());
+            .fill_combo_box_indexed(FeedbackType::iter());
     }
 
     fn fill_mode_takeover_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
-            .fill_combo_box_indexed(TakeoverMode::into_enum_iter());
+            .fill_combo_box_indexed(TakeoverMode::iter());
     }
 
     fn fill_mode_button_usage_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
-            .fill_combo_box_indexed(ButtonUsage::into_enum_iter());
+            .fill_combo_box_indexed(ButtonUsage::iter());
     }
 
     fn fill_mode_encoder_usage_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
-            .fill_combo_box_indexed(EncoderUsage::into_enum_iter());
+            .fill_combo_box_indexed(EncoderUsage::iter());
     }
 
     fn resolved_targets(&self) -> Vec<CompoundMappingTarget> {
@@ -7530,7 +7525,7 @@ fn channel_menu<R>(f: impl Fn(u8) -> R) -> Vec<R> {
 }
 
 fn invalidate_with_osc_arg_type_tag(b: Window, tag: OscTypeTag) {
-    b.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
+    b.fill_combo_box_indexed(OscTypeTag::iter());
     b.show();
     b.select_combo_box_item_by_index(tag.into()).unwrap();
 }

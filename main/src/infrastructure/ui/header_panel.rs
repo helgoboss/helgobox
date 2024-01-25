@@ -6,8 +6,6 @@ use std::rc::{Rc, Weak};
 use rxrust::prelude::*;
 use std::iter;
 
-use enum_iterator::IntoEnumIterator;
-
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
@@ -69,6 +67,7 @@ use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
 use std::ops::{DerefMut, RangeInclusive};
+use strum::IntoEnumIterator;
 
 const OSC_INDEX_OFFSET: isize = 1000;
 const KEYBOARD_INDEX_OFFSET: isize = 2000;
@@ -496,7 +495,7 @@ impl HeaderPanel {
                         ),
                         menu(
                             "Stay active when project in background",
-                            StayActiveWhenProjectInBackground::into_enum_iter()
+                            StayActiveWhenProjectInBackground::iter()
                                 .map(|option| {
                                     item_with_opts(
                                         option.to_string(),
@@ -1602,7 +1601,7 @@ impl HeaderPanel {
     fn fill_preset_auto_load_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
-            .fill_combo_box_indexed(MainPresetAutoLoadMode::into_enum_iter());
+            .fill_combo_box_indexed(MainPresetAutoLoadMode::iter());
     }
 
     fn invalidate_control_input_combo_box_options(&self) {

@@ -1,6 +1,5 @@
 use base::default_util::is_default;
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, Interval, OscArgDescriptor, OscTypeTag, Target,
     DEFAULT_OSC_ARG_VALUE_RANGE,
@@ -75,6 +74,7 @@ use reaper_medium::{
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use strum::{EnumIter, IntoEnumIterator};
 use wildmatch::WildMatch;
 
 #[allow(clippy::enum_variant_names)]
@@ -949,7 +949,7 @@ impl Default for TargetModel {
             pot_filter_item_kind: Default::default(),
             mapping_modification_kind: Default::default(),
             mapping_ref: Default::default(),
-            included_targets: LearnableTargetKind::into_enum_iter().collect(),
+            included_targets: LearnableTargetKind::iter().collect(),
             touch_cause: Default::default(),
         }
     }
@@ -3595,7 +3595,7 @@ pub fn get_non_present_bookmark_label(
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -3712,9 +3712,7 @@ fn virtualize_route(
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter, TryFromPrimitive, IntoPrimitive, Display)]
 #[repr(usize)]
 pub enum VirtualTrackType {
     #[display(fmt = "<This>")]
@@ -3763,7 +3761,7 @@ impl Default for VirtualTrackType {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Serialize,
@@ -3791,7 +3789,7 @@ impl Default for MappingSnapshotTypeForLoad {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Serialize,
@@ -3819,7 +3817,7 @@ impl Default for MappingSnapshotTypeForTake {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -3917,7 +3915,7 @@ impl VirtualTrackType {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -4018,7 +4016,7 @@ impl VirtualFxType {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -4070,7 +4068,7 @@ impl VirtualFxParameterType {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -4256,7 +4254,7 @@ pub struct FxParameterPropValues {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -4285,7 +4283,7 @@ impl Default for RealearnTrackArea {
     Eq,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -4345,7 +4343,7 @@ impl RealearnAutomationMode {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     Serialize,
     Deserialize,
     TryFromPrimitive,
@@ -4377,7 +4375,7 @@ impl Default for AutomationModeOverrideType {
     Debug,
     PartialEq,
     Eq,
-    IntoEnumIterator,
+    EnumIter,
     Serialize,
     Deserialize,
     TryFromPrimitive,
@@ -4632,7 +4630,7 @@ fn convert_monitoring_mode_to_realearn(monitoring_mode: InputMonitoringMode) -> 
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]

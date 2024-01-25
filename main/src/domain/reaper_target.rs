@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 use derive_more::Display;
 use enum_dispatch::enum_dispatch;
-use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
@@ -17,6 +16,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::EnumIter;
 
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -167,7 +167,7 @@ pub enum ReaperTarget {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -218,7 +218,7 @@ pub struct SeekOptions {
     Ord,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -251,7 +251,7 @@ impl Default for FeedbackResolution {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -985,7 +985,7 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1018,7 +1018,7 @@ impl ActionInvocationType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1188,7 +1188,7 @@ pub fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1304,7 +1304,7 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1344,7 +1344,7 @@ impl TrackExclusivity {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1368,7 +1368,7 @@ pub enum Exclusivity {
     Eq,
     Hash,
     Default,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

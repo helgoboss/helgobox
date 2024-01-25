@@ -50,6 +50,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use strum::EnumIter;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -2829,7 +2830,7 @@ pub struct BasicSettings {
     Debug,
     serde::Serialize,
     serde::Deserialize,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     derive_more::Display,
 )]
 pub enum StayActiveWhenProjectInBackground {

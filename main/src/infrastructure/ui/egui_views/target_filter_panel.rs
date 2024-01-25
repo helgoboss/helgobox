@@ -3,9 +3,9 @@ use base::{NamedChannelSender, SenderToNormalThread};
 use derivative::Derivative;
 use egui::CentralPanel;
 use egui::Context;
-use enum_iterator::IntoEnumIterator;
 use realearn_api::persistence::{LearnableTargetKind, TargetTouchCause};
 use std::collections::HashSet;
+use strum::IntoEnumIterator;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
     CentralPanel::default().show(ctx, |ui: &mut egui::Ui| {
@@ -13,7 +13,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
         // Target types
         ui.label("Consider target types:");
         ui.horizontal_wrapped(|ui| {
-            for kind in LearnableTargetKind::into_enum_iter() {
+            for kind in LearnableTargetKind::iter() {
                 let checked_initially = state.value.included_targets.contains(&kind);
                 let mut checked = checked_initially;
                 let target_type = ReaperTargetType::from_learnable_target_kind(kind);
@@ -37,7 +37,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
             .show_ui(ui, |ui| {
                 ui.style_mut().wrap = Some(false);
                 ui.set_min_width(60.0);
-                for touch_cause in TargetTouchCause::into_enum_iter() {
+                for touch_cause in TargetTouchCause::iter() {
                     ui.selectable_value(
                         &mut state.value.touch_cause,
                         touch_cause,

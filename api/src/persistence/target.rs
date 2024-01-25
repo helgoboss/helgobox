@@ -1,11 +1,11 @@
 use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use strum::IntoEnumIterator;
 
 #[derive(
     Copy,
@@ -17,7 +17,7 @@ use std::fmt::{Display, Formatter};
     Serialize,
     Deserialize,
     enum_map::Enum,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -71,7 +71,7 @@ pub enum LearnableTargetKind {
     Serialize,
     Deserialize,
     enum_map::Enum,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,
@@ -488,7 +488,7 @@ pub struct TrackToolTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -590,7 +590,7 @@ impl Default for MouseAction {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -612,7 +612,7 @@ pub enum Axis {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -723,7 +723,7 @@ pub struct FxToolTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -1148,7 +1148,7 @@ pub struct LoadPotPresetTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     enum_map::Enum,
@@ -1203,7 +1203,7 @@ impl PotFilterKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
-        Self::into_enum_iter()
+        Self::iter()
     }
 
     pub fn allows_excludes(&self) -> bool {
@@ -1229,13 +1229,11 @@ impl PotFilterKind {
 
     pub fn dependent_kinds(&self) -> impl Iterator<Item = PotFilterKind> {
         let dep_pos = self.dependency_position();
-        Self::into_enum_iter().filter(move |k| k.dependency_position() > dep_pos)
+        Self::iter().filter(move |k| k.dependency_position() > dep_pos)
     }
 
     pub fn core_kinds() -> EnumSet<PotFilterKind> {
-        Self::into_enum_iter()
-            .filter(|k| k.is_core_kind())
-            .collect()
+        Self::iter().filter(|k| k.is_core_kind()).collect()
     }
 
     /// Those kinds are always supported, no matter the database.
@@ -1309,7 +1307,7 @@ pub enum AutomationMode {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -1347,7 +1345,7 @@ pub enum TransportAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1422,7 +1420,7 @@ impl Default for ClipTransportAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1447,7 +1445,7 @@ impl Default for ClipColumnAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1478,7 +1476,7 @@ impl Default for ClipRowAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1698,7 +1696,7 @@ pub enum SoloBehavior {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -2084,7 +2082,7 @@ impl Default for TrackScope {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]

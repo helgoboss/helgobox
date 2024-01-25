@@ -26,7 +26,6 @@ use crate::domain::{
 };
 use derive_more::{Display, Error};
 use enum_dispatch::enum_dispatch;
-use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -43,6 +42,7 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::fmt::Formatter;
+use strum::EnumIter;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
@@ -717,7 +717,7 @@ impl VirtualTrackRoute {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

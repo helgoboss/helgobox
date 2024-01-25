@@ -9,6 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackTouchStateTarget {
@@ -157,7 +158,7 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     Default,
     serde_repr::Serialize_repr,
     serde_repr::Deserialize_repr,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,

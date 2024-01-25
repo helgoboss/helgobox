@@ -9,7 +9,6 @@ use crate::domain::{
     VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
@@ -26,6 +25,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 use std::time::Duration;
+use strum::EnumIter;
 
 #[allow(clippy::enum_variant_names)]
 pub enum SourceCommand {
@@ -968,7 +968,7 @@ pub const KEY_UNDEFINED_LABEL: &str = "<Key undefined>";
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1031,7 +1031,7 @@ impl SourceCategory {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1221,7 +1221,7 @@ impl VirtualControlElementType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

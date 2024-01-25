@@ -12,7 +12,6 @@ use crate::{
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
-use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
@@ -26,6 +25,7 @@ use std::fmt::{Display, Formatter};
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use strum::IntoEnumIterator;
 
 pub struct KompleteDatabase {
     persistent_id: PersistentDatabaseId,
@@ -143,7 +143,7 @@ impl KompleteDatabase {
                     base::tracing_debug!("Looking up product for bank {bank_id} not successful.");
                 }
             }
-            // If that didn't work because we don't have a bank ID, we have sub produt or the
+            // If that didn't work because we don't have a bank ID, we have sub product or the
             // plug-in product is simply not installed, try at least to translate the extension.
             self.nks_product_id_by_extension.get(extension).copied()
         })
@@ -1141,7 +1141,7 @@ impl PresetDb {
             }
         }
         // Exclude filters
-        for kind in PotFilterKind::into_enum_iter() {
+        for kind in PotFilterKind::iter() {
             if exclude_list.is_empty(kind) {
                 continue;
             }

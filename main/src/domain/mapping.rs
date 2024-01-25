@@ -13,7 +13,6 @@ use crate::domain::{
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
@@ -41,6 +40,7 @@ use std::fmt::{Display, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use strum::{EnumIter, IntoEnumIterator};
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug)]
@@ -74,7 +74,7 @@ impl ProcessorMappingOptions {
     Hash,
     Debug,
     Enum,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -2394,7 +2394,7 @@ impl QualifiedMappingId {
     Hash,
     Debug,
     Enum,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -2415,7 +2415,7 @@ impl CompartmentKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = CompartmentKind> + ExactSizeIterator {
-        CompartmentKind::into_enum_iter()
+        CompartmentKind::iter()
     }
 
     /// Returns the compartment to which the given plug-in parameter index belongs.

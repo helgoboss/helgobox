@@ -4,7 +4,6 @@ use crate::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::{FilterItem, PotPreset};
-use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use enumset::EnumSet;
 use once_cell::sync::Lazy;
@@ -14,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 
 /// An ID for uniquely identifying a preset along with its corresponding database.
 ///
@@ -276,7 +276,7 @@ impl Filters {
     }
 
     pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludes) {
-        for kind in PotFilterKind::into_enum_iter() {
+        for kind in PotFilterKind::iter() {
             if let Some(id) = self.0[kind] {
                 if exclude_list.contains(kind, id) {
                     self.0[kind] = None;

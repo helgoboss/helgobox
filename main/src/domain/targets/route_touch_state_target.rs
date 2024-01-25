@@ -7,6 +7,7 @@ use crate::domain::{
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use reaper_medium::EditMode;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedRouteTouchStateTarget {
@@ -138,7 +139,7 @@ pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     Default,
     serde::Serialize,
     serde::Deserialize,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,

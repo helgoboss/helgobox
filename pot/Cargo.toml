@@ -21,7 +21,6 @@ wildmatch.workspace = true
 serde.workspace = true
 derive_more.workspace = true
 tokio.workspace = true
-enum-iterator.workspace = true
 enum-map.workspace = true
 once_cell.workspace = true
 lexical-sort = "0.3.1"

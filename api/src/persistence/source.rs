@@ -1,8 +1,8 @@
 use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 #[derive(PartialEq, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -186,7 +186,7 @@ pub struct MidiScriptSource {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

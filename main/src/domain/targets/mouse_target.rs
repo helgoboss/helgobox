@@ -9,6 +9,7 @@ use base::{Mouse, MouseCursorPosition};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
 use realearn_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedMouseTarget {
@@ -49,7 +50,7 @@ pub struct MouseTarget<M> {
     PartialEq,
     Debug,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
