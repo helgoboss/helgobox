@@ -2038,165 +2038,183 @@ pub mod helgobox_service_server {
         async fn get_host_info(
             &self,
             request: tonic::Request<super::GetHostInfoRequest>,
-        ) -> Result<tonic::Response<super::GetHostInfoReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetHostInfoReply>,
+            tonic::Status,
+        >;
         async fn prove_authenticity(
             &self,
             request: tonic::Request<super::ProveAuthenticityRequest>,
-        ) -> Result<tonic::Response<super::ProveAuthenticityReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::ProveAuthenticityReply>,
+            tonic::Status,
+        >;
         /// Matrix queries
         async fn get_project_dir(
             &self,
             request: tonic::Request<super::GetProjectDirRequest>,
-        ) -> Result<tonic::Response<super::GetProjectDirReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetProjectDirReply>,
+            tonic::Status,
+        >;
         async fn get_arrangement_info(
             &self,
             request: tonic::Request<super::GetArrangementInfoRequest>,
-        ) -> Result<tonic::Response<super::GetArrangementInfoReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetArrangementInfoReply>,
+            tonic::Status,
+        >;
         /// Clip queries
         async fn get_clip_detail(
             &self,
             request: tonic::Request<super::GetClipDetailRequest>,
-        ) -> Result<tonic::Response<super::GetClipDetailReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetClipDetailReply>,
+            tonic::Status,
+        >;
         /// Global commands
         async fn save_controller(
             &self,
             request: tonic::Request<super::SaveControllerRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn delete_controller(
             &self,
             request: tonic::Request<super::DeleteControllerRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Instance commands
         async fn set_instance_settings(
             &self,
             request: tonic::Request<super::SetInstanceSettingsRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Matrix commands
         async fn trigger_matrix(
             &self,
             request: tonic::Request<super::TriggerMatrixRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_settings(
             &self,
             request: tonic::Request<super::SetMatrixSettingsRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_tempo(
             &self,
             request: tonic::Request<super::SetMatrixTempoRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_time_signature(
             &self,
             request: tonic::Request<super::SetMatrixTimeSignatureRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_volume(
             &self,
             request: tonic::Request<super::SetMatrixVolumeRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_matrix_pan(
             &self,
             request: tonic::Request<super::SetMatrixPanRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Column commands
         async fn trigger_column(
             &self,
             request: tonic::Request<super::TriggerColumnRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_column_settings(
             &self,
             request: tonic::Request<super::SetColumnSettingsRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_column_track(
             &self,
             request: tonic::Request<super::SetColumnTrackRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_column(
             &self,
             request: tonic::Request<super::DragColumnRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Track commands
         async fn trigger_track(
             &self,
             request: tonic::Request<super::TriggerTrackRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_name(
             &self,
             request: tonic::Request<super::SetTrackNameRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_color(
             &self,
             request: tonic::Request<super::SetTrackColorRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_input(
             &self,
             request: tonic::Request<super::SetTrackInputRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_input_monitoring(
             &self,
             request: tonic::Request<super::SetTrackInputMonitoringRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_volume(
             &self,
             request: tonic::Request<super::SetTrackVolumeRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_track_pan(
             &self,
             request: tonic::Request<super::SetTrackPanRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Row commands
         async fn trigger_row(
             &self,
             request: tonic::Request<super::TriggerRowRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_row_data(
             &self,
             request: tonic::Request<super::SetRowDataRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_row(
             &self,
             request: tonic::Request<super::DragRowRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Slot commands
         async fn trigger_slot(
             &self,
             request: tonic::Request<super::TriggerSlotRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_slot(
             &self,
             request: tonic::Request<super::DragSlotRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn import_files(
             &self,
             request: tonic::Request<super::ImportFilesRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Clip commands
         async fn trigger_clip(
             &self,
             request: tonic::Request<super::TriggerClipRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_clip_name(
             &self,
             request: tonic::Request<super::SetClipNameRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_clip_data(
             &self,
             request: tonic::Request<super::SetClipDataRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn drag_clip(
             &self,
             request: tonic::Request<super::DragClipRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Sequence commands
         async fn trigger_sequence(
             &self,
             request: tonic::Request<super::TriggerSequenceRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_sequence_info(
             &self,
             request: tonic::Request<super::SetSequenceInfoRequest>,
-        ) -> Result<tonic::Response<super::Empty>, tonic::Status>;
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Server streaming response type for the GetOccasionalGlobalUpdates method.
-        type GetOccasionalGlobalUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalGlobalUpdatesReply, tonic::Status>,
+        type GetOccasionalGlobalUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalGlobalUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2205,13 +2223,16 @@ pub mod helgobox_service_server {
         async fn get_occasional_global_updates(
             &self,
             request: tonic::Request<super::GetOccasionalGlobalUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalGlobalUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalInstanceUpdates method.
-        type GetOccasionalInstanceUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalInstanceUpdatesReply, tonic::Status>,
+        type GetOccasionalInstanceUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalInstanceUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2219,13 +2240,16 @@ pub mod helgobox_service_server {
         async fn get_occasional_instance_updates(
             &self,
             request: tonic::Request<super::GetOccasionalInstanceUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalInstanceUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalMatrixUpdates method.
-        type GetOccasionalMatrixUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalMatrixUpdatesReply, tonic::Status>,
+        type GetOccasionalMatrixUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalMatrixUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2233,26 +2257,32 @@ pub mod helgobox_service_server {
         async fn get_occasional_matrix_updates(
             &self,
             request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalMatrixUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetContinuousMatrixUpdates method.
-        type GetContinuousMatrixUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetContinuousMatrixUpdatesReply, tonic::Status>,
+        type GetContinuousMatrixUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetContinuousMatrixUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
         async fn get_continuous_matrix_updates(
             &self,
             request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetContinuousMatrixUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalColumnUpdates method.
-        type GetOccasionalColumnUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalColumnUpdatesReply, tonic::Status>,
+        type GetOccasionalColumnUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalColumnUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2260,26 +2290,32 @@ pub mod helgobox_service_server {
         async fn get_occasional_column_updates(
             &self,
             request: tonic::Request<super::GetOccasionalColumnUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalColumnUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetContinuousColumnUpdates method.
-        type GetContinuousColumnUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetContinuousColumnUpdatesReply, tonic::Status>,
+        type GetContinuousColumnUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetContinuousColumnUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
         async fn get_continuous_column_updates(
             &self,
             request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetContinuousColumnUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalTrackUpdates method.
-        type GetOccasionalTrackUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalTrackUpdatesReply, tonic::Status>,
+        type GetOccasionalTrackUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalTrackUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2287,13 +2323,16 @@ pub mod helgobox_service_server {
         async fn get_occasional_track_updates(
             &self,
             request: tonic::Request<super::GetOccasionalTrackUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalTrackUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalRowUpdates method.
-        type GetOccasionalRowUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalRowUpdatesReply, tonic::Status>,
+        type GetOccasionalRowUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalRowUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2301,10 +2340,16 @@ pub mod helgobox_service_server {
         async fn get_occasional_row_updates(
             &self,
             request: tonic::Request<super::GetOccasionalRowUpdatesRequest>,
-        ) -> Result<tonic::Response<Self::GetOccasionalRowUpdatesStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::GetOccasionalRowUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalSlotUpdates method.
-        type GetOccasionalSlotUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>,
+        type GetOccasionalSlotUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalSlotUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2312,26 +2357,32 @@ pub mod helgobox_service_server {
         async fn get_occasional_slot_updates(
             &self,
             request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalSlotUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetContinuousSlotUpdates method.
-        type GetContinuousSlotUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetContinuousSlotUpdatesReply, tonic::Status>,
+        type GetContinuousSlotUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetContinuousSlotUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
         async fn get_continuous_slot_updates(
             &self,
             request: tonic::Request<super::GetContinuousSlotUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetContinuousSlotUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalClipUpdates method.
-        type GetOccasionalClipUpdatesStream: futures_core::Stream<
-                Item = Result<super::GetOccasionalClipUpdatesReply, tonic::Status>,
+        type GetOccasionalClipUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalClipUpdatesReply,
+                    tonic::Status,
+                >,
             >
             + Send
             + 'static;
@@ -2339,7 +2390,7 @@ pub mod helgobox_service_server {
         async fn get_occasional_clip_updates(
             &self,
             request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
-        ) -> Result<
+        ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalClipUpdatesStream>,
             tonic::Status,
         >;
@@ -2349,6 +2400,8 @@ pub mod helgobox_service_server {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
     }
     struct _Inner<T>(Arc<T>);
     impl<T: HelgoboxService> HelgoboxServiceServer<T> {
@@ -2361,6 +2414,8 @@ pub mod helgobox_service_server {
                 inner,
                 accept_compression_encodings: Default::default(),
                 send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
             }
         }
         pub fn with_interceptor<F>(
@@ -2384,6 +2439,22 @@ pub mod helgobox_service_server {
             self.send_compression_encodings.enable(encoding);
             self
         }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
     }
     impl<T, B> tonic::codegen::Service<http::Request<B>> for HelgoboxServiceServer<T>
     where
@@ -2397,7 +2468,7 @@ pub mod helgobox_service_server {
         fn poll_ready(
             &mut self,
             _cx: &mut Context<'_>,
-        ) -> Poll<Result<(), Self::Error>> {
+        ) -> Poll<std::result::Result<(), Self::Error>> {
             Poll::Ready(Ok(()))
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
@@ -2419,15 +2490,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::GetHostInfoRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_host_info(request).await
+                                <T as HelgoboxService>::get_host_info(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2437,6 +2510,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2459,15 +2536,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::ProveAuthenticityRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).prove_authenticity(request).await
+                                <T as HelgoboxService>::prove_authenticity(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2477,6 +2557,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2499,15 +2583,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::GetProjectDirRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_project_dir(request).await
+                                <T as HelgoboxService>::get_project_dir(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2517,6 +2604,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2539,15 +2630,21 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::GetArrangementInfoRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_arrangement_info(request).await
+                                <T as HelgoboxService>::get_arrangement_info(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2557,6 +2654,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2579,15 +2680,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::GetClipDetailRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_clip_detail(request).await
+                                <T as HelgoboxService>::get_clip_detail(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2597,6 +2701,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2619,15 +2727,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SaveControllerRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).save_controller(request).await
+                                <T as HelgoboxService>::save_controller(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2637,6 +2748,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2659,15 +2774,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::DeleteControllerRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).delete_controller(request).await
+                                <T as HelgoboxService>::delete_controller(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2677,6 +2795,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2699,15 +2821,21 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetInstanceSettingsRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_instance_settings(request).await
+                                <T as HelgoboxService>::set_instance_settings(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2717,6 +2845,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2739,15 +2871,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerMatrixRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_matrix(request).await
+                                <T as HelgoboxService>::trigger_matrix(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2757,6 +2892,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2779,15 +2918,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetMatrixSettingsRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_matrix_settings(request).await
+                                <T as HelgoboxService>::set_matrix_settings(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2797,6 +2939,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2819,15 +2965,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetMatrixTempoRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_matrix_tempo(request).await
+                                <T as HelgoboxService>::set_matrix_tempo(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2837,6 +2986,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2859,15 +3012,21 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetMatrixTimeSignatureRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_matrix_time_signature(request).await
+                                <T as HelgoboxService>::set_matrix_time_signature(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2877,6 +3036,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2899,15 +3062,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetMatrixVolumeRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_matrix_volume(request).await
+                                <T as HelgoboxService>::set_matrix_volume(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2917,6 +3083,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2939,15 +3109,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetMatrixPanRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_matrix_pan(request).await
+                                <T as HelgoboxService>::set_matrix_pan(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2957,6 +3130,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -2979,15 +3156,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerColumnRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_column(request).await
+                                <T as HelgoboxService>::trigger_column(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -2997,6 +3177,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3019,15 +3203,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetColumnSettingsRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_column_settings(request).await
+                                <T as HelgoboxService>::set_column_settings(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3037,6 +3224,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3059,15 +3250,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetColumnTrackRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_column_track(request).await
+                                <T as HelgoboxService>::set_column_track(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3077,6 +3271,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3099,13 +3297,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::DragColumnRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).drag_column(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::drag_column(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3115,6 +3317,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3137,15 +3343,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerTrackRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_track(request).await
+                                <T as HelgoboxService>::trigger_track(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3155,6 +3363,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3177,15 +3389,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetTrackNameRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_name(request).await
+                                <T as HelgoboxService>::set_track_name(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3195,6 +3410,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3217,15 +3436,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetTrackColorRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_color(request).await
+                                <T as HelgoboxService>::set_track_color(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3235,6 +3457,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3257,15 +3483,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetTrackInputRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_input(request).await
+                                <T as HelgoboxService>::set_track_input(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3275,6 +3504,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3299,15 +3532,21 @@ pub mod helgobox_service_server {
                                 super::SetTrackInputMonitoringRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_input_monitoring(request).await
+                                <T as HelgoboxService>::set_track_input_monitoring(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3317,6 +3556,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3339,15 +3582,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetTrackVolumeRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_volume(request).await
+                                <T as HelgoboxService>::set_track_volume(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3357,6 +3603,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3379,15 +3629,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetTrackPanRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_track_pan(request).await
+                                <T as HelgoboxService>::set_track_pan(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3397,6 +3649,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3419,13 +3675,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerRowRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).trigger_row(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::trigger_row(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3435,6 +3695,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3457,15 +3721,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetRowDataRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_row_data(request).await
+                                <T as HelgoboxService>::set_row_data(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3475,6 +3741,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3497,13 +3767,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::DragRowRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).drag_row(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::drag_row(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3513,6 +3787,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3535,15 +3813,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerSlotRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_slot(request).await
+                                <T as HelgoboxService>::trigger_slot(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3553,6 +3833,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3575,13 +3859,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::DragSlotRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).drag_slot(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::drag_slot(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3591,6 +3879,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3613,15 +3905,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::ImportFilesRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).import_files(request).await
+                                <T as HelgoboxService>::import_files(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3631,6 +3925,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3653,15 +3951,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerClipRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_clip(request).await
+                                <T as HelgoboxService>::trigger_clip(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3671,6 +3971,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3693,15 +3997,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetClipNameRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_clip_name(request).await
+                                <T as HelgoboxService>::set_clip_name(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3711,6 +4017,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3733,15 +4043,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetClipDataRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_clip_data(request).await
+                                <T as HelgoboxService>::set_clip_data(&inner, request).await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3751,6 +4063,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3773,13 +4089,17 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::DragClipRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
-                            let fut = async move { (*inner).drag_clip(request).await };
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::drag_clip(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3789,6 +4109,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3811,15 +4135,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::TriggerSequenceRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).trigger_sequence(request).await
+                                <T as HelgoboxService>::trigger_sequence(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3829,6 +4156,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3851,15 +4182,18 @@ pub mod helgobox_service_server {
                             &mut self,
                             request: tonic::Request<super::SetSequenceInfoRequest>,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).set_sequence_info(request).await
+                                <T as HelgoboxService>::set_sequence_info(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3869,6 +4203,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
                         Ok(res)
@@ -3895,15 +4233,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalGlobalUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_global_updates(request).await
+                                <T as HelgoboxService>::get_occasional_global_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3913,6 +4257,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -3941,15 +4289,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalInstanceUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_instance_updates(request).await
+                                <T as HelgoboxService>::get_occasional_instance_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -3959,6 +4313,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -3985,15 +4343,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalMatrixUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_matrix_updates(request).await
+                                <T as HelgoboxService>::get_occasional_matrix_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4003,6 +4367,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4029,15 +4397,21 @@ pub mod helgobox_service_server {
                                 super::GetContinuousMatrixUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_continuous_matrix_updates(request).await
+                                <T as HelgoboxService>::get_continuous_matrix_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4047,6 +4421,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4073,15 +4451,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalColumnUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_column_updates(request).await
+                                <T as HelgoboxService>::get_occasional_column_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4091,6 +4475,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4117,15 +4505,21 @@ pub mod helgobox_service_server {
                                 super::GetContinuousColumnUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_continuous_column_updates(request).await
+                                <T as HelgoboxService>::get_continuous_column_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4135,6 +4529,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4161,15 +4559,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalTrackUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_track_updates(request).await
+                                <T as HelgoboxService>::get_occasional_track_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4179,6 +4583,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4205,15 +4613,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalRowUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_row_updates(request).await
+                                <T as HelgoboxService>::get_occasional_row_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4223,6 +4637,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4249,15 +4667,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalSlotUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_slot_updates(request).await
+                                <T as HelgoboxService>::get_occasional_slot_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4267,6 +4691,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4293,15 +4721,21 @@ pub mod helgobox_service_server {
                                 super::GetContinuousSlotUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_continuous_slot_updates(request).await
+                                <T as HelgoboxService>::get_continuous_slot_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4311,6 +4745,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4337,15 +4775,21 @@ pub mod helgobox_service_server {
                                 super::GetOccasionalClipUpdatesRequest,
                             >,
                         ) -> Self::Future {
-                            let inner = self.0.clone();
+                            let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                (*inner).get_occasional_clip_updates(request).await
+                                <T as HelgoboxService>::get_occasional_clip_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
                     }
                     let accept_compression_encodings = self.accept_compression_encodings;
                     let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
@@ -4355,6 +4799,10 @@ pub mod helgobox_service_server {
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
                         Ok(res)
@@ -4383,12 +4831,14 @@ pub mod helgobox_service_server {
                 inner,
                 accept_compression_encodings: self.accept_compression_encodings,
                 send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
             }
         }
     }
     impl<T: HelgoboxService> Clone for _Inner<T> {
         fn clone(&self) -> Self {
-            Self(self.0.clone())
+            Self(Arc::clone(&self.0))
         }
     }
     impl<T: std::fmt::Debug> std::fmt::Debug for _Inner<T> {

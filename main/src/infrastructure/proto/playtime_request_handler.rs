@@ -36,8 +36,8 @@ pub struct PlaytimeProtoRequestHandler;
 
 impl PlaytimeProtoRequestHandler {
     pub fn trigger_slot(&self, req: TriggerSlotRequest) -> Result<Response<Empty>, Status> {
-        let action = TriggerSlotAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger slot action"))?;
+        let action = TriggerSlotAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger slot action"))?;
         self.handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
             TriggerSlotAction::Play => {
                 matrix.play_slot(slot_address, ColumnPlaySlotOptions::default())
@@ -75,8 +75,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_clip(&self, req: TriggerClipRequest) -> Result<Response<Empty>, Status> {
-        let action = TriggerClipAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger clip action"))?;
+        let action = TriggerClipAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger clip action"))?;
         self.handle_clip_command(&req.clip_address, |matrix, clip_address| match action {
             TriggerClipAction::MidiOverdub => matrix.midi_overdub_clip(clip_address),
             TriggerClipAction::Edit => matrix.start_editing_clip(clip_address),
@@ -92,8 +92,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn drag_slot(&self, req: DragSlotRequest) -> Result<Response<Empty>, Status> {
-        let action = DragSlotAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown drag slot action"))?;
+        let action = DragSlotAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown drag slot action"))?;
         let source_slot_address = convert_slot_address_to_engine(&req.source_slot_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
         self.handle_matrix_command(&req.matrix_id, |matrix| match action {
@@ -103,8 +103,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn drag_clip(&self, req: DragClipRequest) -> Result<Response<Empty>, Status> {
-        let action = DragClipAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown drag clip action"))?;
+        let action = DragClipAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown drag clip action"))?;
         let source_clip_address = convert_clip_address_to_engine(&req.source_clip_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
         self.handle_matrix_command(&req.matrix_id, |matrix| match action {
@@ -113,8 +113,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn drag_row(&self, req: DragRowRequest) -> Result<Response<Empty>, Status> {
-        let action = DragRowAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown drag row action"))?;
+        let action = DragRowAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown drag row action"))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| match action {
             DragRowAction::MoveContent => matrix
                 .move_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
@@ -127,8 +127,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn drag_column(&self, req: DragColumnRequest) -> Result<Response<Empty>, Status> {
-        let action = DragColumnAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown drag column action"))?;
+        let action = DragColumnAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown drag column action"))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| match action {
             DragColumnAction::Reorder => matrix.reorder_columns(
                 req.source_column_index as _,
@@ -167,8 +167,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_sequence(&self, req: TriggerSequenceRequest) -> Result<Response<Empty>, Status> {
-        let action: TriggerSequenceAction = TriggerSequenceAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger sequence action"))?;
+        let action: TriggerSequenceAction = TriggerSequenceAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger sequence action"))?;
         self.handle_sequence_command(req.sequence_id, |matrix, seq_id| match action {
             TriggerSequenceAction::Activate => matrix.activate_sequence(seq_id),
             TriggerSequenceAction::Remove => matrix.remove_sequence(seq_id),
@@ -187,8 +187,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_matrix(&self, req: TriggerMatrixRequest) -> Result<Response<Empty>, Status> {
-        let action: TriggerMatrixAction = TriggerMatrixAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger matrix action"))?;
+        let action: TriggerMatrixAction = TriggerMatrixAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger matrix action"))?;
         if action == TriggerMatrixAction::CreateMatrix {
             self.create_matrix(&req.matrix_id)
                 .map_err(|e| Status::not_found(e.to_string()))?;
@@ -307,8 +307,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_column(&self, req: TriggerColumnRequest) -> Result<Response<Empty>, Status> {
-        let action = TriggerColumnAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger column action"))?;
+        let action = TriggerColumnAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger column action"))?;
         self.handle_column_command(&req.column_address, |matrix, column_index| match action {
             TriggerColumnAction::Stop => matrix.stop_column(column_index, None),
             TriggerColumnAction::Remove => matrix.remove_column(column_index),
@@ -335,8 +335,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_track(&self, req: TriggerTrackRequest) -> Result<Response<Empty>, Status> {
-        let action = TriggerTrackAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger track action"))?;
+        let action = TriggerTrackAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger track action"))?;
         self.handle_track_command(&req.track_address, |matrix, track| match action {
             TriggerTrackAction::ToggleMute => {
                 track.set_mute(
@@ -382,8 +382,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_row(&self, req: TriggerRowRequest) -> Result<Response<Empty>, Status> {
-        let action = TriggerRowAction::from_i32(req.action)
-            .ok_or_else(|| Status::invalid_argument("unknown trigger row action"))?;
+        let action = TriggerRowAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger row action"))?;
         self.handle_row_command(&req.row_address, |matrix, row_index| match action {
             TriggerRowAction::Play => {
                 matrix.play_scene(row_index);
