@@ -71,7 +71,7 @@ slog-async = "2.5.2"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 # For interacting with the OS clipboard
-arboard = "2.0.0"
+arboard = "3.3.0"
 once_cell.workspace = true
 # For being able to exclude fields from the derived Debug implementation
 derivative.workspace = true
