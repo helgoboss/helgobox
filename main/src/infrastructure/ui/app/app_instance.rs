@@ -13,7 +13,6 @@ use std::rc::Rc;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use tokio::task::JoinHandle;
-use validator::HasLen;
 
 pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
 
@@ -482,7 +481,7 @@ const TIMER_ID: usize = 322;
 
 fn send_to_app(app_callback: AppCallback, reply: &Reply) {
     let vec = reply.encode_to_vec();
-    let length = vec.length();
+    let length = vec.len();
     let boxed_slice = vec.into_boxed_slice();
     // The app side is responsible for freeing the memory!
     // We really need to pass owned data to the app because it's written in Dart and Dart code

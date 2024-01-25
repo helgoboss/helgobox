@@ -2874,7 +2874,7 @@ dependencies = [
  "clap 4.3.11",
  "rmp-serde",
  "serde",
- "validator 0.16.1",
+ "validator",
 ]
 
 [[package]]
@@ -5237,8 +5237,6 @@ dependencies = [
  "tts",
  "url",
  "uuid",
- "validator 0.10.1",
- "validator_derive 0.10.1",
  "vst",
  "walkdir",
  "webbrowser 0.5.5",
@@ -7309,21 +7307,6 @@ dependencies = [
 
 [[package]]
 name = "validator"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e60fadf92c22236de4028ceb0b8af50ed3430d41ad43d7a7d63b6bd1a8f47c38"
-dependencies = [
- "idna 0.2.3",
- "lazy_static",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "url",
-]
-
-[[package]]
-name = "validator"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b92f40481c04ff1f4f61f304d61793c7b56ff76ac1469f1beb199b1445b253bd"
@@ -7335,22 +7318,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "url",
- "validator_derive 0.16.0",
-]
-
-[[package]]
-name = "validator_derive"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d577dfb8ca9440a5c0b053d5a19b68f5c92ef57064bac87c8205c3f6072c20f"
-dependencies = [
- "if_chain",
- "lazy_static",
- "proc-macro2 1.0.76",
- "quote 1.0.35",
- "regex",
- "syn 1.0.109",
- "validator 0.10.1",
+ "validator_derive",
 ]
 
 [[package]]
