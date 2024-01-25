@@ -15,7 +15,6 @@ impl HelgoboxApi for HelgoboxAllApi {
     }
 }
 
-#[cfg(feature = "playtime")]
 impl playtime_api::runtime::PlaytimeApi for HelgoboxAllApi {
     extern "C" fn HB_FindFirstPlaytimeHelgoboxInstanceInProject(project: *mut ReaProject) -> c_int {
         find_first_playtime_helgobox_instance_in_project(project).unwrap_or(-1)
@@ -30,7 +29,6 @@ impl playtime_api::runtime::PlaytimeApi for HelgoboxAllApi {
     }
 }
 
-#[cfg(feature = "playtime")]
 fn find_first_playtime_helgobox_instance_in_project(
     project: *mut ReaProject,
 ) -> anyhow::Result<c_int> {
@@ -46,7 +44,7 @@ fn find_first_playtime_helgobox_instance_in_project(
                 return false;
             };
             let instance_state = instance.borrow();
-            instance_state.clip_matrix().is_some()
+            instance_state.has_clip_matrix()
         })
         .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
     Ok(u32::from(instance_id) as _)
@@ -67,7 +65,6 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
     Ok(u32::from(instance_id) as _)
 }
 
-#[cfg(feature = "playtime")]
 fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?.into();
     let instance_shell = BackboneShell::get()
@@ -77,7 +74,6 @@ fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "playtime")]
 fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?;
     let main_panel = BackboneShell::get()
@@ -113,7 +109,6 @@ fn register_or_unregister_api(
         ))?;
         Ok(())
     })?;
-    #[cfg(feature = "playtime")]
     playtime_api::runtime::register_playtime_api::<HelgoboxAllApi, anyhow::Error>(
         |name, ptr| unsafe {
             op(RegistrationObject::Api(

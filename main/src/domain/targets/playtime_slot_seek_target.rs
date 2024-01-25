@@ -10,11 +10,6 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::supplier::audio::GlobalBlockProvider;
-use playtime_clip_engine::rt::{
-    ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent,
-};
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeSlotSeekTarget {
@@ -58,135 +53,6 @@ pub struct PlaytimeSlotSeekTarget {
     pub feedback_resolution: FeedbackResolution,
 }
 
-impl RealearnTarget for PlaytimeSlotSeekTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
-    }
-
-    fn clip_slot_address(&self) -> Option<SlotAddress> {
-        Some(self.slot_coordinates)
-    }
-
-    fn hit(
-        &mut self,
-        value: ControlValue,
-        context: MappingControlContext,
-    ) -> Result<HitResponse, &'static str> {
-        let value = value.to_unit_value()?;
-        Backbone::get()
-            .with_clip_matrix(
-                &context.control_context.instance(),
-                |matrix| -> anyhow::Result<HitResponse> {
-                    matrix.seek_slot(self.slot_coordinates, value)?;
-                    Ok(HitResponse::processed_with_effect())
-                },
-            )
-            .map_err(|_| "couldn't acquire matrix")?
-            .map_err(|_| "couldn't carry out seek action")
-    }
-
-    fn is_available(&self, _: ControlContext) -> bool {
-        // TODO-medium With clip targets we should check the control context (instance state) if
-        //  slot filled.
-        true
-    }
-    fn process_change_event(
-        &self,
-        evt: CompoundChangeEvent,
-        _: ControlContext,
-    ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            // When feedback resolution is beat, we only react to the main timeline beat changes.
-            // TODO-low Beat-changed events are emitted only when the project is playing (important)
-            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(_))
-                if self.feedback_resolution == FeedbackResolution::Beat =>
-            {
-                (true, None)
-            }
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
-                QualifiedSlotChangeEvent {
-                    slot_address: si,
-                    event,
-                },
-            )) if *si == self.slot_coordinates => match event {
-                // If feedback resolution is high, we use the special ClipChangedEvent to do our job
-                // (in order to not lock mutex of playing clips more than once per main loop cycle).
-                SlotChangeEvent::Continuous(events)
-                    if self.feedback_resolution == FeedbackResolution::High =>
-                {
-                    if let Some(first_event) = events.first() {
-                        (
-                            true,
-                            Some(AbsoluteValue::Continuous(first_event.proportional)),
-                        )
-                    } else {
-                        (false, None)
-                    }
-                }
-                SlotChangeEvent::PlayState(InternalClipPlayState(
-                    ClipPlayState::Stopped | ClipPlayState::Ignited,
-                )) => (true, Some(AbsoluteValue::Continuous(UnitValue::MIN))),
-                _ => (false, None),
-            },
-            _ => (false, None),
-        }
-    }
-
-    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
-        let seconds = self.position_in_seconds(context)?;
-        Some(format!("{:.3} s", seconds.get()).into())
-    }
-
-    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
-        let seconds = self.position_in_seconds(context)?;
-        Some(NumericValue::Decimal(seconds.get()))
-    }
-
-    fn numeric_value_unit(&self, _: ControlContext) -> &'static str {
-        "s"
-    }
-
-    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::PlaytimeSlotSeek)
-    }
-}
-
-impl PlaytimeSlotSeekTarget {
-    fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
-        Backbone::get()
-            .with_clip_matrix(&context.instance(), |matrix| {
-                let slot = matrix.find_slot(self.slot_coordinates)?;
-                let timeline = matrix.timeline();
-                let tempo = timeline.next_block().tempo_entry.props.tempo;
-                slot.relevant_contents()
-                    .primary_position_in_seconds(tempo)
-                    .ok()
-            })
-            .ok()?
-    }
-}
-
-impl<'a> Target<'a> for PlaytimeSlotSeekTarget {
-    type Context = ControlContext<'a>;
-
-    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let val = Backbone::get()
-            .with_clip_matrix(&context.instance(), |matrix| {
-                let relevant_content = matrix.find_slot(self.slot_coordinates)?.relevant_contents();
-                let val = relevant_content
-                    .primary_logical_proportional_position()
-                    .ok()?;
-                Some(AbsoluteValue::Continuous(val))
-            })
-            .ok()?;
-        interpret_current_clip_slot_value(val)
-    }
-
-    fn control_type(&self, context: Self::Context) -> ControlType {
-        self.control_type_and_character(context).0
-    }
-}
-
 pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
@@ -196,3 +62,171 @@ pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     supports_clip_slot: true,
     ..DEFAULT_TARGET
 };
+
+#[cfg(not(feature = "playtime"))]
+mod no_playtime_impl {
+    use crate::domain::{
+        ControlContext, PlaytimeColumnActionTarget, PlaytimeSlotSeekTarget,
+        PlaytimeSlotTransportTarget, RealTimeClipColumnTarget, RealTimeControlContext,
+        RealTimeSlotTransportTarget, RealearnTarget,
+    };
+    use helgoboss_learn::{ControlValue, Target};
+
+    impl RealearnTarget for PlaytimeSlotSeekTarget {}
+    impl<'a> Target<'a> for PlaytimeSlotSeekTarget {
+        type Context = ControlContext<'a>;
+    }
+}
+
+#[cfg(feature = "playtime")]
+mod playtime_impl {
+    use reaper_medium::PositionInSeconds;
+    use std::borrow::Cow;
+
+    use helgoboss_learn::{
+        AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue,
+    };
+    use playtime_api::persistence::SlotAddress;
+
+    use crate::domain::{
+        interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompartmentKind,
+        CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+        HitResponse, MappingControlContext, PlaytimeSlotSeekTarget, RealearnTarget, ReaperTarget,
+        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+        VirtualPlaytimeSlot, DEFAULT_TARGET,
+    };
+    use playtime_clip_engine::{
+        base::ClipMatrixEvent,
+        rt::supplier::audio::GlobalBlockProvider,
+        rt::{ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent},
+    };
+    impl RealearnTarget for PlaytimeSlotSeekTarget {
+        fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+            (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+        }
+
+        fn clip_slot_address(&self) -> Option<SlotAddress> {
+            Some(self.slot_coordinates)
+        }
+
+        fn hit(
+            &mut self,
+            value: ControlValue,
+            context: MappingControlContext,
+        ) -> Result<HitResponse, &'static str> {
+            let value = value.to_unit_value()?;
+            Backbone::get()
+                .with_clip_matrix(
+                    &context.control_context.instance(),
+                    |matrix| -> anyhow::Result<HitResponse> {
+                        matrix.seek_slot(self.slot_coordinates, value)?;
+                        Ok(HitResponse::processed_with_effect())
+                    },
+                )
+                .map_err(|_| "couldn't acquire matrix")?
+                .map_err(|_| "couldn't carry out seek action")
+        }
+
+        fn is_available(&self, _: ControlContext) -> bool {
+            // TODO-medium With clip targets we should check the control context (instance state) if
+            //  slot filled.
+            true
+        }
+        fn process_change_event(
+            &self,
+            evt: CompoundChangeEvent,
+            _: ControlContext,
+        ) -> (bool, Option<AbsoluteValue>) {
+            match evt {
+                // When feedback resolution is beat, we only react to the main timeline beat changes.
+                // TODO-low Beat-changed events are emitted only when the project is playing (important)
+                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(_))
+                    if self.feedback_resolution == FeedbackResolution::Beat =>
+                {
+                    (true, None)
+                }
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                    QualifiedSlotChangeEvent {
+                        slot_address: si,
+                        event,
+                    },
+                )) if *si == self.slot_coordinates => match event {
+                    // If feedback resolution is high, we use the special ClipChangedEvent to do our job
+                    // (in order to not lock mutex of playing clips more than once per main loop cycle).
+                    SlotChangeEvent::Continuous(events)
+                        if self.feedback_resolution == FeedbackResolution::High =>
+                    {
+                        if let Some(first_event) = events.first() {
+                            (
+                                true,
+                                Some(AbsoluteValue::Continuous(first_event.proportional)),
+                            )
+                        } else {
+                            (false, None)
+                        }
+                    }
+                    SlotChangeEvent::PlayState(InternalClipPlayState(
+                        ClipPlayState::Stopped | ClipPlayState::Ignited,
+                    )) => (true, Some(AbsoluteValue::Continuous(UnitValue::MIN))),
+                    _ => (false, None),
+                },
+                _ => (false, None),
+            }
+        }
+
+        fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+            let seconds = self.position_in_seconds(context)?;
+            Some(format!("{:.3} s", seconds.get()).into())
+        }
+
+        fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+            let seconds = self.position_in_seconds(context)?;
+            Some(NumericValue::Decimal(seconds.get()))
+        }
+
+        fn numeric_value_unit(&self, _: ControlContext) -> &'static str {
+            "s"
+        }
+
+        fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+            Some(ReaperTargetType::PlaytimeSlotSeek)
+        }
+    }
+
+    impl PlaytimeSlotSeekTarget {
+        fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
+            Backbone::get()
+                .with_clip_matrix(&context.instance(), |matrix| {
+                    let slot = matrix.find_slot(self.slot_coordinates)?;
+                    let timeline = matrix.timeline();
+                    let tempo = timeline.next_block().tempo_entry.props.tempo;
+                    slot.relevant_contents()
+                        .primary_position_in_seconds(tempo)
+                        .ok()
+                })
+                .ok()?
+        }
+    }
+
+    impl<'a> Target<'a> for PlaytimeSlotSeekTarget {
+        type Context = ControlContext<'a>;
+
+        fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
+            let val = Backbone::get()
+                .with_clip_matrix(&context.instance(), |matrix| {
+                    let relevant_content =
+                        matrix.find_slot(self.slot_coordinates)?.relevant_contents();
+                    let val = relevant_content
+                        .primary_logical_proportional_position()
+                        .ok()?;
+                    Some(AbsoluteValue::Continuous(val))
+                })
+                .ok()?;
+            interpret_current_clip_slot_value(val)
+        }
+
+        fn control_type(&self, context: Self::Context) -> ControlType {
+            self.control_type_and_character(context).0
+        }
+    }
+}

@@ -4,6 +4,11 @@ pub use generated::*;
 mod ext;
 pub use ext::*;
 
+#[cfg(feature = "playtime")]
+mod playtime_ext;
+#[cfg(feature = "playtime")]
+pub use playtime_ext::*;
+
 mod service_impl;
 pub use service_impl::*;
 
@@ -18,6 +23,11 @@ pub use senders::*;
 
 mod initial_events;
 pub use initial_events::*;
+
+#[cfg(feature = "playtime")]
+mod initial_playtime_events;
+#[cfg(feature = "playtime")]
+pub use initial_playtime_events::*;
 
 /// The app will check this version and bail if it's not compatible!
 ///

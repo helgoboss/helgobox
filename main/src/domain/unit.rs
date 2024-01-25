@@ -105,7 +105,6 @@ pub struct Unit {
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
     custom_compartment_data: EnumMap<CompartmentKind, HashMap<String, serde_json::Value>>,
-    #[cfg(feature = "playtime")]
     control_unit_top_left_corner: playtime_api::persistence::SlotAddress,
 }
 
@@ -141,7 +140,6 @@ impl Unit {
             mapping_which_learns_target: Default::default(),
             parameter_manager: Arc::new(parameter_manager),
             custom_compartment_data: Default::default(),
-            #[cfg(feature = "playtime")]
             control_unit_top_left_corner: Default::default(),
         }
     }
@@ -197,12 +195,10 @@ impl Unit {
         self.instance.upgrade().expect("parent instance gone")
     }
 
-    #[cfg(feature = "playtime")]
     pub fn control_unit_palette_color(&self) -> Option<u32> {
         self.get_playtime_main_compartment_data_as_u32("/control_unit/palette_color")
     }
 
-    #[cfg(feature = "playtime")]
     pub fn set_control_unit_palette_color(&mut self, value: Option<u32>) {
         let patch = json!({
             "control_unit": {
@@ -212,13 +208,11 @@ impl Unit {
         self.patch_playtime_main_compartment_data(patch);
     }
 
-    #[cfg(feature = "playtime")]
     pub fn control_unit_column_count(&self) -> u32 {
         self.get_playtime_main_compartment_data_as_u32("/control_unit/column_count")
             .unwrap_or(0)
     }
 
-    #[cfg(feature = "playtime")]
     pub fn set_control_unit_column_count(&mut self, value: u32) {
         let patch = json!({
             "control_unit": {
@@ -228,13 +222,11 @@ impl Unit {
         self.patch_playtime_main_compartment_data(patch);
     }
 
-    #[cfg(feature = "playtime")]
     pub fn control_unit_row_count(&self) -> u32 {
         self.get_playtime_main_compartment_data_as_u32("/control_unit/row_count")
             .unwrap_or(0)
     }
 
-    #[cfg(feature = "playtime")]
     pub fn set_control_unit_row_count(&mut self, value: u32) {
         let patch = json!({
             "control_unit": {
@@ -244,21 +236,18 @@ impl Unit {
         self.patch_playtime_main_compartment_data(patch);
     }
 
-    #[cfg(feature = "playtime")]
     fn get_playtime_main_compartment_data_as_u32(&self, pointer: &str) -> Option<u32> {
         self.get_playtime_main_compartment_data(pointer)
             .and_then(|v| v.as_u64())
             .map(|v| v as u32)
     }
 
-    #[cfg(feature = "playtime")]
     fn get_playtime_main_compartment_data(&self, pointer: &str) -> Option<&serde_json::Value> {
         self.custom_compartment_data[CompartmentKind::Main]
             .get("playtime")?
             .pointer(pointer)
     }
 
-    #[cfg(feature = "playtime")]
     fn patch_playtime_main_compartment_data(&mut self, patch: serde_json::Value) {
         let playtime = self.custom_compartment_data[CompartmentKind::Main]
             .entry("playtime".to_string())
@@ -267,12 +256,10 @@ impl Unit {
         self.notify_matrix_control_units_changed();
     }
 
-    #[cfg(feature = "playtime")]
     pub fn control_unit_top_left_corner(&self) -> playtime_api::persistence::SlotAddress {
         self.control_unit_top_left_corner
     }
 
-    #[cfg(feature = "playtime")]
     pub fn set_control_unit_top_left_corner(
         &mut self,
         value: playtime_api::persistence::SlotAddress,
@@ -283,12 +270,14 @@ impl Unit {
             .send_complaining(UnitEvent::ControlUnitTopLeftCornerChanged(value));
     }
 
-    #[cfg(feature = "playtime")]
     fn notify_matrix_control_units_changed(&self) {
-        let instance = self.instance();
-        if let Some(m) = instance.borrow().clip_matrix() {
-            m.notify_control_units_changed();
-        };
+        #[cfg(feature = "playtime")]
+        {
+            let instance = self.instance();
+            if let Some(m) = instance.borrow().clip_matrix() {
+                m.notify_control_units_changed();
+            };
+        }
     }
 
     pub fn set_mapping_which_learns_target(
@@ -595,7 +584,9 @@ pub enum UnitEvent {
         mapping_id: Option<MappingId>,
     },
     /// For the "ReaLearn: Enable/disable mappings" target.
-    ActiveMappingTags { compartment: CompartmentKind },
+    ActiveMappingTags {
+        compartment: CompartmentKind,
+    },
     /// For the "ReaLearn: Enable/disable instances" target.
     ActiveInstanceTags,
     /// For the "ReaLearn: Load mapping snapshot" target.
@@ -610,7 +601,6 @@ pub enum UnitEvent {
     MappingWhichLearnsTargetChanged {
         mapping_id: Option<QualifiedMappingId>,
     },
-    #[cfg(feature = "playtime")]
     ControlUnitTopLeftCornerChanged(playtime_api::persistence::SlotAddress),
 }
 

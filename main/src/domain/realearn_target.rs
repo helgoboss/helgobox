@@ -52,10 +52,16 @@ pub trait RealearnTarget {
         self.control_type_and_character(context).1
     }
 
-    fn reaper_target_type(&self) -> Option<ReaperTargetType>;
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        None
+    }
 
-    fn control_type_and_character(&self, context: ControlContext)
-        -> (ControlType, TargetCharacter);
+    fn control_type_and_character(
+        &self,
+        context: ControlContext,
+    ) -> (ControlType, TargetCharacter) {
+        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+    }
 
     fn open(&self, context: ControlContext) {
         let _ = context;
@@ -225,7 +231,9 @@ pub trait RealearnTarget {
     }
 
     /// Used for target "Global: Last touched" and queryable as target prop.
-    fn is_available(&self, context: ControlContext) -> bool;
+    fn is_available(&self, context: ControlContext) -> bool {
+        true
+    }
 
     fn project(&self) -> Option<Project> {
         None
@@ -242,15 +250,12 @@ pub trait RealearnTarget {
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         None
     }
-    #[cfg(feature = "playtime")]
     fn clip_slot_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         None
     }
-    #[cfg(feature = "playtime")]
     fn clip_column_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         None
     }
-    #[cfg(feature = "playtime")]
     fn clip_row_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         None
     }
@@ -682,25 +687,18 @@ pub enum ReaperTargetType {
     RouteVolume = 3,
 
     // Clip targets
-    #[cfg(feature = "playtime")]
     PlaytimeSlotManagementAction = 46,
-    #[cfg(feature = "playtime")]
     PlaytimeSlotTransportAction = 31,
-    #[cfg(feature = "playtime")]
     PlaytimeSlotSeek = 32,
-    #[cfg(feature = "playtime")]
     PlaytimeSlotVolume = 33,
 
     // Clip column targets
-    #[cfg(feature = "playtime")]
     PlaytimeColumnAction = 50,
 
     // Clip row targets
-    #[cfg(feature = "playtime")]
     PlaytimeRowAction = 52,
 
     // Clip matrix
-    #[cfg(feature = "playtime")]
     PlaytimeMatrixAction = 51,
     PlaytimeControlUnitScroll = 64,
 
@@ -773,7 +771,6 @@ impl ReaperTargetType {
     pub fn supports_feedback_resolution(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            #[cfg(feature = "playtime")]
             PlaytimeSlotSeek => true,
             Seek => true,
             _ => false,
@@ -830,21 +827,13 @@ impl ReaperTargetType {
             RoutePan => &ROUTE_PAN_TARGET,
             RouteVolume => &ROUTE_VOLUME_TARGET,
             RouteTouchState => &ROUTE_TOUCH_STATE_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeSlotTransportAction => &crate::domain::PLAYTIME_SLOT_TRANSPORT_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeColumnAction => &crate::domain::PLAYTIME_COLUMN_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeRowAction => &crate::domain::PLAYTIME_ROW_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeSlotSeek => &crate::domain::PLAYTIME_SLOT_SEEK_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeSlotVolume => &crate::domain::PLAYTIME_SLOT_VOLUME_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeSlotManagementAction => &crate::domain::PLAYTIME_SLOT_MANAGEMENT_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeMatrixAction => &crate::domain::PLAYTIME_MATRIX_TARGET,
-            #[cfg(feature = "playtime")]
             PlaytimeControlUnitScroll => &crate::domain::PLAYTIME_CONTROL_UNIT_SCROLL_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,

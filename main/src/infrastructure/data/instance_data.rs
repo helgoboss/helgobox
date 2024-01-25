@@ -28,7 +28,6 @@ pub struct InstanceData {
         skip_serializing_if = "is_default"
     )]
     pub pot_state: pot::PersistentState,
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",

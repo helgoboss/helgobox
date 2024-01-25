@@ -1,6 +1,5 @@
 use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use playtime_clip_engine::base::Matrix;
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
     SharedRuntimePotUnit,
@@ -36,9 +35,7 @@ pub struct Instance {
     clip_matrix: Option<playtime_clip_engine::base::Matrix>,
     #[cfg(feature = "playtime")]
     pub clip_matrix_event_sender: SenderToNormalThread<QualifiedClipMatrixEvent>,
-    #[cfg(feature = "playtime")]
     pub audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
-    #[cfg(feature = "playtime")]
     pub real_time_instance_task_sender:
         base::SenderToRealTimeThread<crate::domain::RealTimeInstanceTask>,
 }
@@ -125,9 +122,7 @@ impl Instance {
         #[cfg(feature = "playtime")] clip_matrix_event_sender: SenderToNormalThread<
             QualifiedClipMatrixEvent,
         >,
-        #[cfg(feature = "playtime")] audio_hook_task_sender: base::SenderToRealTimeThread<
-            crate::domain::NormalAudioHookTask,
-        >,
+        audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     ) -> (Self, RealTimeInstance) {
         let (real_time_instance_task_sender, real_time_instance_task_receiver) =
             SenderToRealTimeThread::new_channel(
@@ -146,9 +141,7 @@ impl Instance {
             clip_matrix: None,
             #[cfg(feature = "playtime")]
             clip_matrix_event_sender,
-            #[cfg(feature = "playtime")]
             audio_hook_task_sender,
-            #[cfg(feature = "playtime")]
             real_time_instance_task_sender,
         };
         (instance, rt_instance)
@@ -257,6 +250,17 @@ impl Instance {
         }
     }
 
+    pub fn has_clip_matrix(&self) -> bool {
+        #[cfg(feature = "playtime")]
+        {
+            self.clip_matrix.is_some()
+        }
+        #[cfg(not(feature = "playtime"))]
+        {
+            false
+        }
+    }
+
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
         self.clip_matrix.as_ref()
@@ -291,7 +295,7 @@ impl Instance {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn set_clip_matrix(&mut self, matrix: Option<Matrix>) {
+    pub fn set_clip_matrix(&mut self, matrix: Option<playtime_clip_engine::base::Matrix>) {
         if self.clip_matrix.is_some() {
             base::tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
             self.update_real_time_clip_matrix(None, false);

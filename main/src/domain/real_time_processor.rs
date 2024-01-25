@@ -1428,17 +1428,13 @@ fn process_real_mapping(
                             rt_feedback_sender,
                             value_event.payload(),
                         ),
-                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipTransport(t) => {
                             t.hit(control_value, control_context)
                         }
-                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipColumn(t) => {
                             t.hit(control_value, control_context)
                         }
-                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
-                        #[cfg(feature = "playtime")]
                         RealTimeReaperTarget::ClipMatrix(t) => {
                             t.hit(control_value, control_context)
                         }
@@ -1748,7 +1744,6 @@ pub struct AudioBlockProps {
 }
 
 impl AudioBlockProps {
-    #[cfg(feature = "playtime")]
     pub fn from_vst(buffer: &vst::buffer::AudioBuffer<f64>, sample_rate: Hz) -> Self {
         Self {
             block_length: buffer.samples(),

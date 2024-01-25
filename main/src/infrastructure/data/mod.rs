@@ -55,9 +55,7 @@ pub use osc_device_management::*;
 mod virtual_control;
 pub use virtual_control::*;
 
-#[cfg(feature = "playtime")]
 mod license_management;
-#[cfg(feature = "playtime")]
 pub use license_management::*;
 
 mod common;

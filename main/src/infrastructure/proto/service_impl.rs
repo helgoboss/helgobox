@@ -1,11 +1,8 @@
 use crate::infrastructure::plugin::BackboneShell;
-use crate::infrastructure::proto::initial_events::{
-    create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
-};
 use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
-    create_initial_clip_updates, create_initial_global_updates, create_initial_instance_updates,
-    helgobox_service_server, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
+    create_initial_global_updates, create_initial_instance_updates, helgobox_service_server,
+    playtime_not_available_status, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
     DragRowRequest, DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest,
     GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
     GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
@@ -18,18 +15,19 @@ use crate::infrastructure::proto::{
     GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, MatrixProvider, ProtoRequestHandler,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
-    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
-    TriggerTrackRequest,
+    GetProjectDirRequest, ImportFilesRequest, ProtoRequestHandler, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest, SetClipNameRequest,
+    SetColumnSettingsRequest, SetColumnTrackRequest, SetInstanceSettingsRequest,
+    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
+#[cfg(feature = "playtime")]
+use playtime_clip_engine::base::Matrix;
 use std::pin::Pin;
 use std::{future, iter};
 use tokio::sync::broadcast::Receiver;
@@ -37,28 +35,31 @@ use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
 
 #[derive(Debug)]
-pub struct HelgoboxServiceImpl<P> {
-    matrix_provider: P,
-    command_handler: ProtoRequestHandler<P>,
+pub struct HelgoboxServiceImpl {
+    command_handler: ProtoRequestHandler,
     senders: ProtoSenders,
 }
 
-impl<P: MatrixProvider> HelgoboxServiceImpl<P> {
-    pub(crate) fn new(
-        matrix_provider: P,
-        command_handler: ProtoRequestHandler<P>,
-        senders: ProtoSenders,
-    ) -> Self {
+impl HelgoboxServiceImpl {
+    pub(crate) fn new(command_handler: ProtoRequestHandler, senders: ProtoSenders) -> Self {
         Self {
-            matrix_provider,
             command_handler,
             senders,
         }
     }
+
+    #[cfg(feature = "playtime")]
+    fn with_matrix<R>(
+        &self,
+        clip_matrix_id: &str,
+        f: impl FnOnce(&Matrix) -> R,
+    ) -> anyhow::Result<R> {
+        BackboneShell::get().with_clip_matrix(clip_matrix_id, f)
+    }
 }
 
 #[tonic::async_trait]
-impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxServiceImpl<P> {
+impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     type GetContinuousMatrixUpdatesStream =
         SyncBoxStream<'static, Result<GetContinuousMatrixUpdatesReply, Status>>;
 
@@ -104,52 +105,74 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         request: Request<GetOccasionalSlotUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalSlotUpdatesStream>, Status> {
-        // Initial
-        let initial_updates = self
-            .matrix_provider
-            .with_matrix(&request.get_ref().matrix_id, |matrix| {
-                create_initial_slot_updates(Some(matrix))
-            })
-            .unwrap_or_else(|_| create_initial_slot_updates(None));
-        // On change
-        let receiver = self.senders.occasional_slot_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |slot_updates| GetOccasionalSlotUpdatesReply { slot_updates },
-            Some(GetOccasionalSlotUpdatesReply {
-                slot_updates: initial_updates,
-            })
-            .into_iter(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            // Initial
+            let initial_updates = self
+                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                    crate::infrastructure::proto::create_initial_slot_updates(Some(matrix))
+                })
+                .unwrap_or_else(|_| {
+                    crate::infrastructure::proto::create_initial_slot_updates(None)
+                });
+            // On change
+            let receiver = self.senders.occasional_slot_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |slot_updates| GetOccasionalSlotUpdatesReply { slot_updates },
+                Some(GetOccasionalSlotUpdatesReply {
+                    slot_updates: initial_updates,
+                })
+                .into_iter(),
+            )
+        }
     }
 
     async fn get_occasional_column_updates(
         &self,
         request: Request<GetOccasionalColumnUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalColumnUpdatesStream>, Status> {
-        // On change
-        let receiver = self.senders.occasional_column_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |column_updates| GetOccasionalColumnUpdatesReply { column_updates },
-            iter::empty(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            // On change
+            let receiver = self.senders.occasional_column_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |column_updates| GetOccasionalColumnUpdatesReply { column_updates },
+                iter::empty(),
+            )
+        }
     }
 
     async fn get_occasional_row_updates(
         &self,
         request: Request<GetOccasionalRowUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalRowUpdatesStream>, Status> {
-        // On change
-        let receiver = self.senders.occasional_row_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |row_updates| GetOccasionalRowUpdatesReply { row_updates },
-            iter::empty(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            // On change
+            let receiver = self.senders.occasional_row_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |row_updates| GetOccasionalRowUpdatesReply { row_updates },
+                iter::empty(),
+            )
+        }
     }
 
     type GetOccasionalClipUpdatesStream =
@@ -159,24 +182,32 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         request: Request<GetOccasionalClipUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalClipUpdatesStream>, Status> {
-        // Initial
-        let initial_updates = self
-            .matrix_provider
-            .with_matrix(&request.get_ref().matrix_id, |matrix| {
-                create_initial_clip_updates(Some(matrix))
-            })
-            .unwrap_or_else(|_| create_initial_clip_updates(None));
-        // On change
-        let receiver = self.senders.occasional_clip_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |clip_updates| GetOccasionalClipUpdatesReply { clip_updates },
-            Some(GetOccasionalClipUpdatesReply {
-                clip_updates: initial_updates,
-            })
-            .into_iter(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            // Initial
+            let initial_updates = self
+                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                    crate::infrastructure::proto::create_initial_clip_updates(Some(matrix))
+                })
+                .unwrap_or_else(|_| {
+                    crate::infrastructure::proto::create_initial_clip_updates(None)
+                });
+            // On change
+            let receiver = self.senders.occasional_clip_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |clip_updates| GetOccasionalClipUpdatesReply { clip_updates },
+                Some(GetOccasionalClipUpdatesReply {
+                    clip_updates: initial_updates,
+                })
+                .into_iter(),
+            )
+        }
     }
 
     type GetContinuousSlotUpdatesStream =
@@ -186,13 +217,20 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         request: Request<GetContinuousSlotUpdatesRequest>,
     ) -> Result<Response<Self::GetContinuousSlotUpdatesStream>, Status> {
-        let receiver = self.senders.continuous_slot_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |slot_updates| GetContinuousSlotUpdatesReply { slot_updates },
-            iter::empty(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let receiver = self.senders.continuous_slot_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |slot_updates| GetContinuousSlotUpdatesReply { slot_updates },
+                iter::empty(),
+            )
+        }
     }
 
     type GetOccasionalGlobalUpdatesStream =
@@ -202,17 +240,24 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         _request: Request<GetOccasionalGlobalUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalGlobalUpdatesStream>, Status> {
-        let initial_updates = create_initial_global_updates();
-        let receiver = self.senders.occasional_global_update_sender.subscribe();
-        stream(
-            receiver,
-            |global_updates| GetOccasionalGlobalUpdatesReply { global_updates },
-            |_| true,
-            Some(GetOccasionalGlobalUpdatesReply {
-                global_updates: initial_updates,
-            })
-            .into_iter(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let initial_updates = create_initial_global_updates();
+            let receiver = self.senders.occasional_global_update_sender.subscribe();
+            stream(
+                receiver,
+                |global_updates| GetOccasionalGlobalUpdatesReply { global_updates },
+                |_| true,
+                Some(GetOccasionalGlobalUpdatesReply {
+                    global_updates: initial_updates,
+                })
+                .into_iter(),
+            )
+        }
     }
 
     type GetOccasionalMatrixUpdatesStream =
@@ -222,22 +267,30 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         request: Request<GetOccasionalMatrixUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalMatrixUpdatesStream>, Status> {
-        let initial_updates = self
-            .matrix_provider
-            .with_matrix(&request.get_ref().matrix_id, |matrix| {
-                create_initial_matrix_updates(Some(matrix))
-            })
-            .unwrap_or_else(|_| create_initial_matrix_updates(None));
-        let receiver = self.senders.occasional_matrix_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
-            Some(GetOccasionalMatrixUpdatesReply {
-                matrix_updates: initial_updates,
-            })
-            .into_iter(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let initial_updates = self
+                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                    crate::infrastructure::proto::create_initial_matrix_updates(Some(matrix))
+                })
+                .unwrap_or_else(|_| {
+                    crate::infrastructure::proto::create_initial_matrix_updates(None)
+                });
+            let receiver = self.senders.occasional_matrix_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
+                Some(GetOccasionalMatrixUpdatesReply {
+                    matrix_updates: initial_updates,
+                })
+                .into_iter(),
+            )
+        }
     }
 
     type GetOccasionalInstanceUpdatesStream =
@@ -270,22 +323,30 @@ impl<P: MatrixProvider> helgobox_service_server::HelgoboxService for HelgoboxSer
         &self,
         request: Request<GetOccasionalTrackUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalTrackUpdatesStream>, Status> {
-        let initial_reply = self
-            .matrix_provider
-            .with_matrix(&request.get_ref().matrix_id, |matrix| {
-                create_initial_track_updates(Some(matrix))
-            })
-            .unwrap_or_else(|_| create_initial_track_updates(None));
-        let receiver = self.senders.occasional_track_update_sender.subscribe();
-        stream_by_session_id(
-            request.into_inner().matrix_id,
-            receiver,
-            |track_updates| GetOccasionalTrackUpdatesReply { track_updates },
-            Some(GetOccasionalTrackUpdatesReply {
-                track_updates: initial_reply,
-            })
-            .into_iter(),
-        )
+        #[cfg(not(feature = "playtime"))]
+        {
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let initial_reply = self
+                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                    crate::infrastructure::proto::create_initial_track_updates(Some(matrix))
+                })
+                .unwrap_or_else(|_| {
+                    crate::infrastructure::proto::create_initial_track_updates(None)
+                });
+            let receiver = self.senders.occasional_track_update_sender.subscribe();
+            stream_by_session_id(
+                request.into_inner().matrix_id,
+                receiver,
+                |track_updates| GetOccasionalTrackUpdatesReply { track_updates },
+                Some(GetOccasionalTrackUpdatesReply {
+                    track_updates: initial_reply,
+                })
+                .into_iter(),
+            )
+        }
     }
 
     async fn trigger_slot(

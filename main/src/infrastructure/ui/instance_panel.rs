@@ -23,14 +23,12 @@ pub struct InstancePanel {
     displayed_unit_panel: RefCell<Option<SharedView<UnitPanel>>>,
     displayed_unit_id: Cell<Option<UnitId>>,
     /// We have at most one app instance open per ReaLearn instance.
-    #[cfg(feature = "playtime")]
     app_instance: crate::infrastructure::ui::SharedAppInstance,
 }
 
 impl Drop for InstancePanel {
     fn drop(&mut self) {
         tracing_debug!("Dropping InstancePanel...");
-        #[cfg(feature = "playtime")]
         let _ = self.app_instance.borrow_mut().stop();
     }
 }
@@ -42,18 +40,15 @@ impl InstancePanel {
             shell: OnceCell::new(),
             dimensions: None.into(),
             displayed_unit_id: Default::default(),
-            #[cfg(feature = "playtime")]
             app_instance: crate::infrastructure::ui::create_shared_app_instance(instance_id),
             displayed_unit_panel: RefCell::new(None),
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn app_instance(&self) -> &crate::infrastructure::ui::SharedAppInstance {
         &self.app_instance
     }
 
-    #[cfg(feature = "playtime")]
     pub fn start_or_show_app_instance(&self) {
         let result = self
             .app_instance
@@ -62,7 +57,6 @@ impl InstancePanel {
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
-    #[cfg(feature = "playtime")]
     pub fn start_show_or_hide_app_instance(&self) {
         if self.app_instance.borrow_mut().is_visible() {
             self.hide_app_instance();
@@ -71,17 +65,14 @@ impl InstancePanel {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn hide_app_instance(&self) {
         let _ = self.app_instance.borrow_mut().hide();
     }
 
-    #[cfg(feature = "playtime")]
     pub fn stop_app_instance(&self) {
         let _ = self.app_instance.borrow_mut().stop();
     }
 
-    #[cfg(feature = "playtime")]
     pub fn app_instance_is_running(&self) -> bool {
         self.app_instance.borrow().is_running()
     }

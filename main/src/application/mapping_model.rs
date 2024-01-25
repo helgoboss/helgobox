@@ -549,7 +549,6 @@ impl MappingModel {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn get_simple_mapping(&self) -> Option<playtime_api::runtime::SimpleMapping> {
         let target = self.target_model.simple_target()?;
         let source = self.source_model.simple_source()?;

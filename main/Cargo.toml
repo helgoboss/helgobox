@@ -13,7 +13,7 @@ default = []
 
 # Builds ReaLearn together with the Playtime Clip Engine. This should only be enabled if you have access to the
 # private playtime-clip-engine repository, otherwise the build will fail.
-playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
+playtime = ["dep:playtime-clip-engine"]
 
 # Activates license checks for Playtime Clip Engine. If not enabled, license checks will always fail.
 licensing = ["playtime", "playtime-clip-engine/licensing"]
@@ -41,7 +41,7 @@ realearn-csi.workspace = true
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
 helgoboss-license-api.workspace = true
-playtime-api = { workspace = true, optional = true }
+playtime-api.workspace = true
 playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party

@@ -328,7 +328,6 @@ impl HeaderPanel {
             let main_preset_manager = main_preset_manager.borrow();
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
-            #[cfg(feature = "playtime")]
             let app_is_open = self.instance_panel().app_instance_is_running();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
@@ -340,8 +339,7 @@ impl HeaderPanel {
             let instance_shell = self.instance_panel().shell().unwrap();
             let session = self.session();
             let session = session.borrow();
-            #[cfg(feature = "playtime")]
-            let has_clip_matrix = session.instance().borrow().clip_matrix().is_some();
+            let has_clip_matrix = session.instance().borrow().has_clip_matrix();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
@@ -434,7 +432,6 @@ impl HeaderPanel {
                             },
                             MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
-                        #[cfg(feature = "playtime")]
                         item_with_opts(
                             "Freeze clip matrix",
                             ItemOpts {
@@ -624,9 +621,7 @@ impl HeaderPanel {
                     )],
                 ),
                 item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
-                #[cfg(feature = "playtime")]
                 item("Show App (not usable yet)", MainMenuAction::ShowApp),
-                #[cfg(feature = "playtime")]
                 item_with_opts(
                     "Close App (not usable yet)",
                     ItemOpts {
@@ -761,7 +756,6 @@ impl HeaderPanel {
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::FreezeClipMatrix => {
                 self.freeze_clip_matrix();
             }
@@ -823,11 +817,9 @@ impl HeaderPanel {
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::ShowApp => {
                 self.show_app();
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::CloseApp => {
                 self.close_app();
             }
@@ -1256,22 +1248,24 @@ impl HeaderPanel {
             );
     }
 
-    #[cfg(feature = "playtime")]
     // TODO-high-clip-matrix As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
-        let weak_session = self.session.clone();
-        base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-            let shared_session = weak_session.upgrade().expect("session gone");
-            let instance = shared_session.borrow().instance().clone();
-            instance
-                .borrow_mut()
-                .clip_matrix_mut()
-                .expect("this instance has no clip matrix")
-                .freeze()
-                .await;
-            Ok(())
-        });
+        #[cfg(feature = "playtime")]
+        {
+            let weak_session = self.session.clone();
+            base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+                let shared_session = weak_session.upgrade().expect("session gone");
+                let instance = shared_session.borrow().instance().clone();
+                instance
+                    .borrow_mut()
+                    .clip_matrix_mut()
+                    .expect("this instance has no clip matrix")
+                    .freeze()
+                    .await;
+                Ok(())
+            });
+        }
     }
 
     fn toggle_send_feedback_only_if_armed(&self) {
@@ -2064,30 +2058,36 @@ impl HeaderPanel {
                     d.apply_to_model(&session)?;
                 }
             }
-            #[cfg(feature = "playtime")]
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
-                use playtime_api::persistence::FlexibleMatrix;
-                let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix() {
-                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(matrix) => get_clip_matrix_label(matrix.column_count())
-                };
-                let new_matrix_label = match &*value {
-                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(m) => {
-                        let column_count = match m {
-                            FlexibleMatrix::Unsigned(m) => m.column_count(),
-                            FlexibleMatrix::Signed(m) => {
-                                m.decode_value()?.column_count()
-                            }
-                        };
-                        get_clip_matrix_label(column_count)
+                #[cfg(not(feature = "playtime"))]
+                {
+                    bail!("Playtime not available");
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    use playtime_api::persistence::FlexibleMatrix;
+                    let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix() {
+                        None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                        Some(matrix) => get_clip_matrix_label(matrix.column_count())
+                    };
+                    let new_matrix_label = match &*value {
+                        None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                        Some(m) => {
+                            let column_count = match m {
+                                FlexibleMatrix::Unsigned(m) => m.column_count(),
+                                FlexibleMatrix::Signed(m) => {
+                                    m.decode_value()?.column_count()
+                                }
+                            };
+                            get_clip_matrix_label(column_count)
+                        }
+                    };
+                    if self.view.require_window().confirm(
+                        "ReaLearn",
+                        format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
+                    ) {
+                        self.instance_panel().shell()?.load_clip_matrix(*value)?;
                     }
-                };
-                if self.view.require_window().confirm(
-                    "ReaLearn",
-                    format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
-                ) {
-                    self.instance_panel().shell()?.load_clip_matrix(*value)?;
                 }
             }
             Tagged(DataObject::MainCompartment(Envelope {value, version })) => {
@@ -2149,7 +2149,6 @@ impl HeaderPanel {
             None,
             ExportInstance(SerializationFormat),
             ExportUnit(SerializationFormat),
-            #[cfg(feature = "playtime")]
             ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
         }
@@ -2187,14 +2186,20 @@ impl HeaderPanel {
                     )),
                 ),
                 separator(),
-                #[cfg(feature = "playtime")]
-                item(
+                item_with_opts(
                     "Export clip matrix as JSON",
+                    ItemOpts {
+                        enabled: cfg!(feature = "playtime"),
+                        checked: false,
+                    },
                     MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject),
                 ),
-                #[cfg(feature = "playtime")]
-                item(
+                item_with_opts(
                     "Export clip matrix as Lua",
+                    ItemOpts {
+                        enabled: cfg!(feature = "playtime"),
+                        checked: false,
+                    },
                     MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
                     )),
@@ -2233,19 +2238,21 @@ impl HeaderPanel {
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
-            #[cfg(feature = "playtime")]
             MenuAction::ExportClipMatrix(format) => {
-                let matrix = self
-                    .session()
-                    .borrow()
-                    .instance()
-                    .borrow()
-                    .clip_matrix()
-                    .map(|matrix| matrix.save());
-                let envelope = BackboneShell::create_envelope(Box::new(matrix));
-                let data_object = DataObject::ClipMatrix(envelope);
-                let text = serialize_data_object(data_object, format)?;
-                copy_text_to_clipboard(text);
+                #[cfg(feature = "playtime")]
+                {
+                    let matrix = self
+                        .session()
+                        .borrow()
+                        .instance()
+                        .borrow()
+                        .clip_matrix()
+                        .map(|matrix| matrix.save());
+                    let envelope = BackboneShell::create_envelope(Box::new(matrix));
+                    let data_object = DataObject::ClipMatrix(envelope);
+                    let text = serialize_data_object(data_object, format)?;
+                    copy_text_to_clipboard(text);
+                }
             }
             MenuAction::ExportCompartment(format) => {
                 let session = self.session();
@@ -2350,12 +2357,10 @@ impl HeaderPanel {
         Ok(())
     }
 
-    #[cfg(feature = "playtime")]
     fn show_app(&self) {
         self.instance_panel().start_or_show_app_instance();
     }
 
-    #[cfg(feature = "playtime")]
     fn close_app(&self) {
         self.instance_panel().stop_app_instance();
     }
@@ -3085,10 +3090,8 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
 
 const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";
 
-#[cfg(feature = "playtime")]
 const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
 
-#[cfg(feature = "playtime")]
 fn get_clip_matrix_label(column_count: usize) -> String {
     format!("clip matrix with {column_count} columns")
 }
@@ -3105,7 +3108,6 @@ enum MainMenuAction {
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
-    #[cfg(feature = "playtime")]
     FreezeClipMatrix,
     ToggleAutoCorrectSettings,
     ToggleGlobalControl,
@@ -3127,9 +3129,7 @@ enum MainMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
     OpenPotBrowser,
-    #[cfg(feature = "playtime")]
     ShowApp,
-    #[cfg(feature = "playtime")]
     CloseApp,
     OpenPresetFolder,
     EditNewOscDevice,

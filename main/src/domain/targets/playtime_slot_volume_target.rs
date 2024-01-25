@@ -10,8 +10,6 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::persistence::SlotAddress;
-use playtime_clip_engine::base::ClipMatrixEvent;
-use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
 use reaper_high::Volume;
 use reaper_medium::Db;
 use std::borrow::Cow;
@@ -43,119 +41,6 @@ pub struct PlaytimeSlotVolumeTarget {
     pub slot_coordinates: SlotAddress,
 }
 
-impl RealearnTarget for PlaytimeSlotVolumeTarget {
-    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
-    }
-
-    fn clip_slot_address(&self) -> Option<SlotAddress> {
-        Some(self.slot_coordinates)
-    }
-
-    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
-        parse_value_from_db(text)
-    }
-
-    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
-        format_value_as_db_without_unit(value)
-    }
-
-    fn value_unit(&self, _: ControlContext) -> &'static str {
-        "dB"
-    }
-
-    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
-        format_value_as_db(value)
-    }
-
-    fn hit(
-        &mut self,
-        value: ControlValue,
-        context: MappingControlContext,
-    ) -> Result<HitResponse, &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
-            .unwrap_or_default();
-        let db = volume.db();
-        let api_db = playtime_api::persistence::Db::new(db.get())?;
-        Backbone::get()
-            .with_clip_matrix_mut(
-                &context.control_context.instance(),
-                |matrix| -> anyhow::Result<HitResponse> {
-                    matrix.set_slot_volume(self.slot_coordinates, api_db)?;
-                    Ok(HitResponse::processed_with_effect())
-                },
-            )
-            .map_err(|_| "couldn't acquire matrix")?
-            .map_err(|_| "couldn't carry out volume action")
-    }
-
-    fn is_available(&self, _: ControlContext) -> bool {
-        // TODO-medium With clip targets we should check the control context (instance state) if
-        //  slot filled.
-        true
-    }
-
-    fn process_change_event(
-        &self,
-        evt: CompoundChangeEvent,
-        _: ControlContext,
-    ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
-                QualifiedClipChangeEvent {
-                    clip_address,
-                    event: ClipChangeEvent::Volume(new_value),
-                },
-            )) if clip_address.slot_address == self.slot_coordinates => (
-                true,
-                Some(AbsoluteValue::Continuous(db_unit_value(Db::new(
-                    new_value.get(),
-                )))),
-            ),
-            _ => (false, None),
-        }
-    }
-
-    fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
-        Some(self.volume(context)?.to_string().into())
-    }
-
-    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
-        Some(NumericValue::Decimal(self.volume(context)?.db().get()))
-    }
-
-    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::PlaytimeSlotVolume)
-    }
-}
-
-impl PlaytimeSlotVolumeTarget {
-    fn volume(&self, context: ControlContext) -> Option<Volume> {
-        Backbone::get()
-            .with_clip_matrix(&context.instance(), |matrix| {
-                let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
-                Some(Volume::from_db(Db::new(db.get())))
-            })
-            .ok()?
-    }
-}
-
-impl<'a> Target<'a> for PlaytimeSlotVolumeTarget {
-    type Context = ControlContext<'a>;
-
-    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let val = self
-            .volume(context)
-            .map(volume_unit_value)
-            .map(AbsoluteValue::Continuous);
-        interpret_current_clip_slot_value(val)
-    }
-
-    fn control_type(&self, context: Self::Context) -> ControlType {
-        self.control_type_and_character(context).0
-    }
-}
-
 pub const PLAYTIME_SLOT_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
     section: TargetSection::Playtime,
@@ -164,3 +49,157 @@ pub const PLAYTIME_SLOT_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     supports_clip_slot: true,
     ..DEFAULT_TARGET
 };
+
+#[cfg(not(feature = "playtime"))]
+mod no_playtime_impl {
+    use crate::domain::{
+        ControlContext, PlaytimeColumnActionTarget, PlaytimeSlotTransportTarget,
+        PlaytimeSlotVolumeTarget, RealTimeClipColumnTarget, RealTimeControlContext,
+        RealTimeSlotTransportTarget, RealearnTarget,
+    };
+    use helgoboss_learn::{ControlValue, Target};
+
+    impl RealearnTarget for PlaytimeSlotVolumeTarget {}
+    impl<'a> Target<'a> for PlaytimeSlotVolumeTarget {
+        type Context = ControlContext<'a>;
+    }
+}
+
+#[cfg(feature = "playtime")]
+mod playtime_impl {
+    use crate::domain::ui_util::{
+        db_unit_value, format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
+        volume_unit_value,
+    };
+    use crate::domain::{
+        interpret_current_clip_slot_value, Backbone, CompartmentKind, CompoundChangeEvent,
+        ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
+        PlaytimeSlotVolumeTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+        TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot,
+        DEFAULT_TARGET,
+    };
+    use helgoboss_learn::{
+        AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue,
+    };
+    use playtime_api::persistence::SlotAddress;
+    use playtime_clip_engine::{
+        base::ClipMatrixEvent,
+        rt::{ClipChangeEvent, QualifiedClipChangeEvent},
+    };
+    use reaper_high::Volume;
+    use reaper_medium::Db;
+    use std::borrow::Cow;
+
+    impl RealearnTarget for PlaytimeSlotVolumeTarget {
+        fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
+            (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+        }
+
+        fn clip_slot_address(&self) -> Option<SlotAddress> {
+            Some(self.slot_coordinates)
+        }
+
+        fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
+            parse_value_from_db(text)
+        }
+
+        fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
+            format_value_as_db_without_unit(value)
+        }
+
+        fn value_unit(&self, _: ControlContext) -> &'static str {
+            "dB"
+        }
+
+        fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
+            format_value_as_db(value)
+        }
+
+        fn hit(
+            &mut self,
+            value: ControlValue,
+            context: MappingControlContext,
+        ) -> Result<HitResponse, &'static str> {
+            let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
+                .unwrap_or_default();
+            let db = volume.db();
+            let api_db = playtime_api::persistence::Db::new(db.get())?;
+            Backbone::get()
+                .with_clip_matrix_mut(
+                    &context.control_context.instance(),
+                    |matrix| -> anyhow::Result<HitResponse> {
+                        matrix.set_slot_volume(self.slot_coordinates, api_db)?;
+                        Ok(HitResponse::processed_with_effect())
+                    },
+                )
+                .map_err(|_| "couldn't acquire matrix")?
+                .map_err(|_| "couldn't carry out volume action")
+        }
+
+        fn is_available(&self, _: ControlContext) -> bool {
+            // TODO-medium With clip targets we should check the control context (instance state) if
+            //  slot filled.
+            true
+        }
+
+        fn process_change_event(
+            &self,
+            evt: CompoundChangeEvent,
+            _: ControlContext,
+        ) -> (bool, Option<AbsoluteValue>) {
+            match evt {
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                    QualifiedClipChangeEvent {
+                        clip_address,
+                        event: ClipChangeEvent::Volume(new_value),
+                    },
+                )) if clip_address.slot_address == self.slot_coordinates => (
+                    true,
+                    Some(AbsoluteValue::Continuous(db_unit_value(Db::new(
+                        new_value.get(),
+                    )))),
+                ),
+                _ => (false, None),
+            }
+        }
+
+        fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
+            Some(self.volume(context)?.to_string().into())
+        }
+
+        fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+            Some(NumericValue::Decimal(self.volume(context)?.db().get()))
+        }
+
+        fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+            Some(ReaperTargetType::PlaytimeSlotVolume)
+        }
+    }
+
+    impl PlaytimeSlotVolumeTarget {
+        fn volume(&self, context: ControlContext) -> Option<Volume> {
+            Backbone::get()
+                .with_clip_matrix(&context.instance(), |matrix| {
+                    let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
+                    Some(Volume::from_db(Db::new(db.get())))
+                })
+                .ok()?
+        }
+    }
+
+    impl<'a> Target<'a> for PlaytimeSlotVolumeTarget {
+        type Context = ControlContext<'a>;
+
+        fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
+            let val = self
+                .volume(context)
+                .map(volume_unit_value)
+                .map(AbsoluteValue::Continuous);
+            interpret_current_clip_slot_value(val)
+        }
+
+        fn control_type(&self, context: Self::Context) -> ControlType {
+            self.control_type_and_character(context).0
+        }
+    }
+}

@@ -53,7 +53,6 @@ use crate::domain::{
     VirtualMappingSnapshotIdForTake, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 
-#[cfg(feature = "playtime")]
 use crate::domain::{VirtualPlaytimeColumn, VirtualPlaytimeRow, VirtualPlaytimeSlot};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -62,11 +61,12 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
-    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification,
-    TargetTouchCause, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    Axis, BrowseTracksMode, ClipColumnDescriptor, ClipRowDescriptor, ClipSlotDescriptor,
+    FxChainDescriptor, FxDescriptorCommons, FxToolAction, LearnTargetMappingModification,
+    LearnableTargetKind, MappingModification, MappingSnapshotDescForLoad,
+    MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, PotFilterKind,
+    SeekBehavior, SetTargetToLastTouchedMappingModification, TargetTouchCause,
+    TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -146,29 +146,17 @@ pub enum TargetCommand {
     SetMouseActionType(MouseActionType),
     SetAxis(Axis),
     SetMouseButton(MouseButton),
-    #[cfg(feature = "playtime")]
     SetClipSlot(realearn_api::persistence::ClipSlotDescriptor),
-    #[cfg(feature = "playtime")]
     SetClipColumn(realearn_api::persistence::ClipColumnDescriptor),
-    #[cfg(feature = "playtime")]
     SetClipRow(realearn_api::persistence::ClipRowDescriptor),
-    #[cfg(feature = "playtime")]
     SetClipManagementAction(realearn_api::persistence::ClipManagementAction),
-    #[cfg(feature = "playtime")]
     SetClipTransportAction(realearn_api::persistence::ClipTransportAction),
-    #[cfg(feature = "playtime")]
     SetClipMatrixAction(realearn_api::persistence::ClipMatrixAction),
-    #[cfg(feature = "playtime")]
     SetClipColumnAction(realearn_api::persistence::ClipColumnAction),
-    #[cfg(feature = "playtime")]
     SetClipRowAction(realearn_api::persistence::ClipRowAction),
-    #[cfg(feature = "playtime")]
     SetClipPlayStartTiming(Option<playtime_api::persistence::ClipPlayStartTiming>),
-    #[cfg(feature = "playtime")]
     SetClipPlayStopTiming(Option<playtime_api::persistence::ClipPlayStopTiming>),
-    #[cfg(feature = "playtime")]
     SetRecordOnlyIfTrackArmed(bool),
-    #[cfg(feature = "playtime")]
     SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
@@ -259,29 +247,17 @@ pub enum TargetProp {
     MouseActionType,
     Axis,
     MouseButton,
-    #[cfg(feature = "playtime")]
     ClipSlot,
-    #[cfg(feature = "playtime")]
     ClipColumn,
-    #[cfg(feature = "playtime")]
     ClipRow,
-    #[cfg(feature = "playtime")]
     ClipManagementAction,
-    #[cfg(feature = "playtime")]
     ClipTransportAction,
-    #[cfg(feature = "playtime")]
     ClipMatrixAction,
-    #[cfg(feature = "playtime")]
     ClipColumnAction,
-    #[cfg(feature = "playtime")]
     ClipRowAction,
-    #[cfg(feature = "playtime")]
     ClipPlayStartTiming,
-    #[cfg(feature = "playtime")]
     ClipPlayStopTiming,
-    #[cfg(feature = "playtime")]
     RecordOnlyIfTrackArmed,
-    #[cfg(feature = "playtime")]
     StopColumnIfSlotEmpty,
     PollForFeedback,
     Tags,
@@ -619,62 +595,50 @@ impl<'a> Change<'a> for TargetModel {
                 self.mapping_snapshot_default_value = v;
                 One(P::MappingSnapshotDefaultValue)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipSlot(s) => {
                 self.clip_slot = s;
                 One(P::ClipSlot)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipColumn(c) => {
                 self.clip_column = c;
                 One(P::ClipColumn)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipRow(r) => {
                 self.clip_row = r;
                 One(P::ClipRow)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipManagementAction(v) => {
                 self.clip_management_action = v;
                 One(P::ClipManagementAction)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipTransportAction(v) => {
                 self.clip_transport_action = v;
                 One(P::ClipTransportAction)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipMatrixAction(v) => {
                 self.clip_matrix_action = v;
                 One(P::ClipMatrixAction)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipColumnAction(v) => {
                 self.clip_column_action = v;
                 One(P::ClipColumnAction)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipRowAction(v) => {
                 self.clip_row_action = v;
                 One(P::ClipRowAction)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipPlayStartTiming(v) => {
                 self.clip_play_start_timing = v;
                 One(P::ClipPlayStartTiming)
             }
-            #[cfg(feature = "playtime")]
             C::SetClipPlayStopTiming(v) => {
                 self.clip_play_stop_timing = v;
                 One(P::ClipPlayStopTiming)
             }
-            #[cfg(feature = "playtime")]
             C::SetRecordOnlyIfTrackArmed(v) => {
                 self.record_only_if_track_armed = v;
                 One(P::RecordOnlyIfTrackArmed)
             }
-            #[cfg(feature = "playtime")]
             C::SetStopColumnIfSlotEmpty(v) => {
                 self.stop_column_if_slot_empty = v;
                 One(P::StopColumnIfSlotEmpty)
@@ -728,7 +692,6 @@ pub struct TargetModel {
     track_index: u32,
     track_expression: String,
     enable_only_if_track_selected: bool,
-    #[cfg(feature = "playtime")]
     clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
     gang_behavior: TrackGangBehavior,
@@ -811,29 +774,17 @@ pub struct TargetModel {
     axis: Axis,
     mouse_button: MouseButton,
     // # For clip targets
-    #[cfg(feature = "playtime")]
     clip_slot: realearn_api::persistence::ClipSlotDescriptor,
-    #[cfg(feature = "playtime")]
     clip_column: realearn_api::persistence::ClipColumnDescriptor,
-    #[cfg(feature = "playtime")]
     clip_row: realearn_api::persistence::ClipRowDescriptor,
-    #[cfg(feature = "playtime")]
     clip_management_action: realearn_api::persistence::ClipManagementAction,
-    #[cfg(feature = "playtime")]
     clip_transport_action: realearn_api::persistence::ClipTransportAction,
-    #[cfg(feature = "playtime")]
     clip_matrix_action: realearn_api::persistence::ClipMatrixAction,
-    #[cfg(feature = "playtime")]
     clip_column_action: realearn_api::persistence::ClipColumnAction,
-    #[cfg(feature = "playtime")]
     clip_row_action: realearn_api::persistence::ClipRowAction,
-    #[cfg(feature = "playtime")]
     record_only_if_track_armed: bool,
-    #[cfg(feature = "playtime")]
     stop_column_if_slot_empty: bool,
-    #[cfg(feature = "playtime")]
     clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
-    #[cfg(feature = "playtime")]
     clip_play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
@@ -978,31 +929,18 @@ impl Default for TargetModel {
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
-            #[cfg(feature = "playtime")]
             clip_slot: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_column: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_row: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_management_action: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_transport_action: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_column_action: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_matrix_action: Default::default(),
-            #[cfg(feature = "playtime")]
             record_only_if_track_armed: false,
-            #[cfg(feature = "playtime")]
             stop_column_if_slot_empty: false,
-            #[cfg(feature = "playtime")]
             clip_play_start_timing: None,
-            #[cfg(feature = "playtime")]
             clip_column_track_context: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_row_action: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_play_stop_timing: None,
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
@@ -1306,7 +1244,6 @@ impl TargetModel {
         self.osc_dev_id
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_management_action(&self) -> &realearn_api::persistence::ClipManagementAction {
         &self.clip_management_action
     }
@@ -1564,7 +1501,6 @@ impl TargetModel {
                 self.track_id = track.id;
                 self.track_name = track.name;
             }
-            #[cfg(feature = "playtime")]
             FromClipColumn => {
                 self.clip_column = track.clip_column;
                 self.clip_column_track_context = track.clip_column_track_context;
@@ -1792,20 +1728,14 @@ impl TargetModel {
         if let Some(track_exclusivity) = target.track_exclusivity() {
             self.track_exclusivity = track_exclusivity;
         }
-        #[cfg(feature = "playtime")]
-        {
-            use realearn_api::persistence::ClipColumnDescriptor;
-            use realearn_api::persistence::ClipRowDescriptor;
-            use realearn_api::persistence::ClipSlotDescriptor;
-            if let Some(slot_address) = target.clip_slot_address() {
-                self.clip_slot = ClipSlotDescriptor::ByIndex(slot_address);
-            }
-            if let Some(column_address) = target.clip_column_address() {
-                self.clip_column = ClipColumnDescriptor::ByIndex(column_address);
-            }
-            if let Some(row_address) = target.clip_row_address() {
-                self.clip_row = ClipRowDescriptor::ByIndex(row_address);
-            }
+        if let Some(slot_address) = target.clip_slot_address() {
+            self.clip_slot = ClipSlotDescriptor::ByIndex(slot_address);
+        }
+        if let Some(column_address) = target.clip_column_address() {
+            self.clip_column = ClipColumnDescriptor::ByIndex(column_address);
+        }
+        if let Some(row_address) = target.clip_row_address() {
+            self.clip_row = ClipRowDescriptor::ByIndex(row_address);
         }
 
         match target {
@@ -1848,7 +1778,6 @@ impl TargetModel {
                     self.automation_mode = RealearnAutomationMode::from_reaper(am);
                 }
             },
-            #[cfg(feature = "playtime")]
             PlaytimeSlotTransportAction(t) => {
                 self.clip_transport_action = t.basics.action;
             }
@@ -1915,7 +1844,6 @@ impl TargetModel {
                     scope: self.track_type.virtual_track_scope().unwrap_or_default(),
                 }
             }
-            #[cfg(feature = "playtime")]
             FromClipColumn => VirtualTrack::FromClipColumn {
                 column: self.virtual_clip_column().ok()?,
                 context: self.clip_column_track_context,
@@ -1931,9 +1859,7 @@ impl TargetModel {
             name: self.track_name.clone(),
             expression: self.track_expression.clone(),
             index: self.track_index,
-            #[cfg(feature = "playtime")]
             clip_column: self.clip_column.clone(),
-            #[cfg(feature = "playtime")]
             clip_column_track_context: self.clip_column_track_context,
         }
     }
@@ -2146,7 +2072,6 @@ impl TargetModel {
                 expression: self.track_expression.clone(),
                 scope: self.track_type.virtual_track_scope(),
             },
-            #[cfg(feature = "playtime")]
             FromClipColumn => TrackDescriptor::FromClipColumn {
                 commons,
                 column: self.clip_column.clone(),
@@ -2203,7 +2128,6 @@ impl TargetModel {
         }
     }
 
-    #[cfg(feature = "playtime")]
     fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
         use realearn_api::persistence::ClipSlotDescriptor::*;
         let slot = match &self.clip_slot {
@@ -2226,12 +2150,10 @@ impl TargetModel {
         Ok(slot)
     }
 
-    #[cfg(feature = "playtime")]
     fn virtual_clip_column(&self) -> Result<VirtualPlaytimeColumn, &'static str> {
         VirtualPlaytimeColumn::from_descriptor(&self.clip_column)
     }
 
-    #[cfg(feature = "playtime")]
     fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
         use realearn_api::persistence::ClipRowDescriptor::*;
         let row = match &self.clip_row {
@@ -2565,7 +2487,6 @@ impl TargetModel {
                         arg_descriptor: self.osc_arg_descriptor(),
                         device_id: self.osc_dev_id,
                     }),
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotTransportAction => {
                         UnresolvedReaperTarget::PlaytimeSlotTransportAction(
                             crate::domain::UnresolvedPlaytimeSlotTransportTarget {
@@ -2575,34 +2496,29 @@ impl TargetModel {
                             },
                         )
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeColumnAction => UnresolvedReaperTarget::PlaytimeColumnAction(
                         crate::domain::UnresolvedPlaytimeColumnActionTarget {
                             column: self.virtual_clip_column()?,
                             action: self.clip_column_action,
                         },
                     ),
-                    #[cfg(feature = "playtime")]
                     PlaytimeRowAction => UnresolvedReaperTarget::PlaytimeRowAction(
                         crate::domain::UnresolvedPlaytimeRowActionTarget {
                             row: self.virtual_clip_row()?,
                             action: self.clip_row_action,
                         },
                     ),
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotSeek => UnresolvedReaperTarget::PlaytimeSlotSeek(
                         crate::domain::UnresolvedPlaytimeSlotSeekTarget {
                             slot: self.virtual_clip_slot()?,
                             feedback_resolution: self.feedback_resolution,
                         },
                     ),
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotVolume => UnresolvedReaperTarget::PlaytimeSlotVolume(
                         crate::domain::UnresolvedPlaytimeSlotVolumeTarget {
                             slot: self.virtual_clip_slot()?,
                         },
                     ),
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotManagementAction => {
                         UnresolvedReaperTarget::PlaytimeSlotManagementAction(
                             crate::domain::UnresolvedPlaytimeSlotManagementActionTarget {
@@ -2611,13 +2527,11 @@ impl TargetModel {
                             },
                         )
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeMatrixAction => UnresolvedReaperTarget::PlaytimeMatrixAction(
                         crate::domain::UnresolvedPlaytimeMatrixActionTarget {
                             action: self.clip_matrix_action,
                         },
                     ),
-                    #[cfg(feature = "playtime")]
                     PlaytimeControlUnitScroll => UnresolvedReaperTarget::PlaytimeControlUnitScroll(
                         crate::domain::UnresolvedPlaytimeControlUnitScrollTarget {
                             axis: self.axis,
@@ -2720,37 +2634,30 @@ impl TargetModel {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_slot(&self) -> &realearn_api::persistence::ClipSlotDescriptor {
         &self.clip_slot
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_column(&self) -> &realearn_api::persistence::ClipColumnDescriptor {
         &self.clip_column
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_row(&self) -> &realearn_api::persistence::ClipRowDescriptor {
         &self.clip_row
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_transport_action(&self) -> realearn_api::persistence::ClipTransportAction {
         self.clip_transport_action
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_matrix_action(&self) -> realearn_api::persistence::ClipMatrixAction {
         self.clip_matrix_action
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_column_action(&self) -> realearn_api::persistence::ClipColumnAction {
         self.clip_column_action
     }
 
-    #[cfg(feature = "playtime")]
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
         use playtime_api::runtime::SimpleMappingTarget;
         use realearn_api::persistence::*;
@@ -2784,32 +2691,26 @@ impl TargetModel {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_row_action(&self) -> realearn_api::persistence::ClipRowAction {
         self.clip_row_action
     }
 
-    #[cfg(feature = "playtime")]
     pub fn record_only_if_track_armed(&self) -> bool {
         self.record_only_if_track_armed
     }
 
-    #[cfg(feature = "playtime")]
     pub fn stop_column_if_slot_empty(&self) -> bool {
         self.stop_column_if_slot_empty
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_play_start_timing(&self) -> Option<playtime_api::persistence::ClipPlayStartTiming> {
         self.clip_play_start_timing
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_play_stop_timing(&self) -> Option<playtime_api::persistence::ClipPlayStopTiming> {
         self.clip_play_stop_timing
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_transport_options(&self) -> crate::domain::ClipTransportOptions {
         crate::domain::ClipTransportOptions {
             record_only_if_track_armed: self.record_only_if_track_armed,
@@ -2972,7 +2873,6 @@ impl TargetModel {
     /// It makes sense then to present the "Track must be selected" checkbox then.
     fn uses_track_apart_from_type(&self) -> bool {
         match self.r#type {
-            #[cfg(feature = "playtime")]
             ReaperTargetType::PlaytimeSlotTransportAction => {
                 use TransportAction::*;
                 matches!(self.transport_action, PlayStop | PlayPause)
@@ -3310,45 +3210,37 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type;
                 match tt {
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotTransportAction => {
                         let slot = &self.target.clip_slot;
                         let action = &self.target.clip_transport_action;
                         write!(f, "{tt}\n{slot}\n{action}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotSeek => {
                         let slot = &self.target.clip_slot;
                         write!(f, "{tt}\n{slot}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotVolume => {
                         let slot = &self.target.clip_slot;
                         write!(f, "{tt}\n{slot}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeColumnAction => {
                         let column = &self.target.clip_column;
                         let action = &self.target.clip_column_action;
                         write!(f, "{tt}\n{column}\n{action}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeRowAction => {
                         let row = &self.target.clip_row;
                         let action = &self.target.clip_row_action;
                         write!(f, "{tt}\n{row}\n{action}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeMatrixAction => {
                         let action = &self.target.clip_matrix_action;
                         write!(f, "{tt}\n{action}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeControlUnitScroll => {
                         let axis = &self.target.axis;
                         write!(f, "{tt}\n{axis}")
                     }
-                    #[cfg(feature = "playtime")]
                     PlaytimeSlotManagementAction => {
                         let slot = &self.target.clip_slot;
                         let action = &self.target.clip_management_action;
@@ -3855,7 +3747,6 @@ pub enum VirtualTrackType {
     ByIndexMcp,
     #[display(fmt = "By ID or name (legacy)")]
     ByIdOrName,
-    #[cfg(feature = "playtime")]
     #[display(fmt = "From clip column")]
     FromClipColumn,
 }
@@ -3982,7 +3873,6 @@ impl VirtualTrackType {
                 TrackScope::TracksVisibleInTcp => Self::ByIndexTcp,
                 TrackScope::TracksVisibleInMcp => Self::ByIndexMcp,
             },
-            #[cfg(feature = "playtime")]
             FromClipColumn { .. } => Self::FromClipColumn,
         }
     }
@@ -4276,9 +4166,7 @@ pub struct TrackPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
-    #[cfg(feature = "playtime")]
     pub clip_column: realearn_api::persistence::ClipColumnDescriptor,
-    #[cfg(feature = "playtime")]
     pub clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
 }
 
@@ -4289,9 +4177,7 @@ impl TrackPropValues {
             id: track.id(),
             name: track.name().unwrap_or_default(),
             index: track.index().unwrap_or_default(),
-            #[cfg(feature = "playtime")]
             clip_column: {
-                use realearn_api::persistence::ClipColumnDescriptor;
                 match track.clip_column().unwrap_or(&Default::default()) {
                     VirtualPlaytimeColumn::Selected => ClipColumnDescriptor::Selected,
                     VirtualPlaytimeColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex(
@@ -4303,7 +4189,6 @@ impl TrackPropValues {
                 }
             },
             expression: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_column_track_context: track.clip_column_track_context().unwrap_or_default(),
         }
     }

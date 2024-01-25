@@ -1,30 +1,21 @@
 use anyhow::{anyhow, bail, Context};
-use egui::epaint::ahash::HashMap;
-use include_dir::Dir;
-use std::borrow::Cow;
-use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::fmt::Debug;
-use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{
-    compile_and_execute, create_fresh_environment, CompartmentKind, FsDirLuaModuleFinder,
-    IncludedDirLuaModuleFinder, LuaModuleContainer, SafeLua,
-};
+use crate::domain::{CompartmentKind, FsDirLuaModuleFinder, LuaModuleContainer, SafeLua};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
-    get_factory_preset_dir, parse_lua_frontmatter, ActivationConditionData, CompartmentModelData,
-    InstanceData, MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
-    FACTORY_CONTROLLER_PRESETS_DIR, FACTORY_MAIN_PRESETS_DIR,
+    parse_lua_frontmatter, ActivationConditionData, CompartmentModelData, InstanceData,
+    MappingModelData, ModeModelData, SourceModelData, TargetModelData, UnitData,
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
-use mlua::{Function, Lua, LuaSerdeExt, Table, Value};
+use mlua::{Lua, LuaSerdeExt, Value};
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
@@ -91,7 +82,6 @@ pub enum DataObject {
     #[serde(alias = "Session")]
     Unit(Envelope<Box<UnitData>>),
     /// A Playtime clip matrix.
-    #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     /// Main compartment.
     MainCompartment(Envelope<Box<CompartmentModelData>>),
@@ -131,7 +121,6 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> anyhow::Result<Self> {
         let data_object = match api_object {
-            #[cfg(feature = "playtime")]
             ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
                 let data_compartment = to_data::convert_compartment(CompartmentKind::Main, *c)?;
@@ -176,7 +165,6 @@ impl DataObject {
     ) -> anyhow::Result<ApiObject> {
         let api_object = match self {
             DataObject::Unit(Envelope { .. }) => todo!("session API not yet implemented"),
-            #[cfg(feature = "playtime")]
             DataObject::ClipMatrix(envelope) => ApiObject::ClipMatrix(envelope),
             DataObject::MainCompartment(Envelope { value: c, version }) => {
                 let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
@@ -212,7 +200,6 @@ impl DataObject {
         match self {
             Instance(v) => v.version.as_ref(),
             Unit(v) => v.version.as_ref(),
-            #[cfg(feature = "playtime")]
             ClipMatrix(v) => v.version.as_ref(),
             MainCompartment(v) => v.version.as_ref(),
             ControllerCompartment(v) => v.version.as_ref(),

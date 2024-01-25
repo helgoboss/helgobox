@@ -35,7 +35,6 @@ use realearn_api::persistence::{
     TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
 
-#[cfg(feature = "playtime")]
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
@@ -377,14 +376,12 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub slot_index: usize,
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
     pub clip_management_action: ClipManagementAction,
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -406,7 +403,6 @@ pub struct TargetModelData {
     )]
     pub buffered: bool,
     /// New since ReaLearn v2.12.0-pre.5
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -420,7 +416,6 @@ pub struct TargetModelData {
     /// For clip column targets, this contains the clip column to which we want to refer.
     ///
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -428,7 +423,6 @@ pub struct TargetModelData {
     )]
     pub clip_column: ClipColumnDescriptor,
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -438,7 +432,6 @@ pub struct TargetModelData {
     /// New since ReaLearn v2.13.0-pre.4.
     ///
     /// Migrated from `transport_action` if not given.
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -446,7 +439,6 @@ pub struct TargetModelData {
     )]
     pub clip_transport_action: Option<ClipTransportAction>,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -454,7 +446,6 @@ pub struct TargetModelData {
     )]
     pub clip_column_action: ClipColumnAction,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -462,7 +453,6 @@ pub struct TargetModelData {
     )]
     pub clip_row_action: ClipRowAction,
     /// New since ReaLearn v2.13.0-pre.4.
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -470,7 +460,6 @@ pub struct TargetModelData {
     )]
     pub clip_matrix_action: ClipMatrixAction,
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -478,7 +467,6 @@ pub struct TargetModelData {
     )]
     pub record_only_if_track_armed: bool,
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -486,7 +474,6 @@ pub struct TargetModelData {
     )]
     pub stop_column_if_slot_empty: bool,
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -494,7 +481,6 @@ pub struct TargetModelData {
     )]
     pub clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
     /// New since ReaLearn v2.13.0-pre.4
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -626,7 +612,6 @@ impl TargetModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
-            #[cfg(feature = "playtime")]
             clip_management_action: model.clip_management_action().clone(),
             next_bar: false,
             buffered: false,
@@ -643,19 +628,15 @@ impl TargetModelData {
                 .group_key_by_id(model.group_id())
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
-            #[cfg(feature = "playtime")]
             clip_slot: if model.target_type().supports_clip_slot() {
                 Some(model.clip_slot().clone())
             } else {
                 None
             },
-            #[cfg(feature = "playtime")]
             clip_column: output
                 .clip_column
                 .unwrap_or_else(|| model.clip_column().clone()),
-            #[cfg(feature = "playtime")]
             clip_row: model.clip_row().clone(),
-            #[cfg(feature = "playtime")]
             clip_transport_action: if model.target_type()
                 == ReaperTargetType::PlaytimeSlotTransportAction
             {
@@ -663,21 +644,13 @@ impl TargetModelData {
             } else {
                 None
             },
-            #[cfg(feature = "playtime")]
             clip_column_action: model.clip_column_action(),
-            #[cfg(feature = "playtime")]
             clip_row_action: model.clip_row_action(),
-            #[cfg(feature = "playtime")]
             clip_matrix_action: model.clip_matrix_action(),
-            #[cfg(feature = "playtime")]
             record_only_if_track_armed: model.record_only_if_track_armed(),
-            #[cfg(feature = "playtime")]
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
-            #[cfg(feature = "playtime")]
             clip_play_start_timing: model.clip_play_start_timing(),
-            #[cfg(feature = "playtime")]
             clip_play_stop_timing: model.clip_play_stop_timing(),
-            #[cfg(feature = "playtime")]
             axis: model.axis(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
@@ -771,7 +744,6 @@ impl TargetModelData {
         model.change(C::SetActionInvocationType(invocation_type));
         let track_des_input = TrackDeserializationInput {
             track_data: &self.track_data,
-            #[cfg(feature = "playtime")]
             clip_column: &self.clip_column,
         };
         let track_prop_values = deserialize_track(track_des_input);
@@ -920,49 +892,46 @@ impl TargetModelData {
             .unwrap_or_default();
         model.change(C::SetGroupId(group_id));
         model.change(C::SetActiveMappingsOnly(self.active_mappings_only));
-        #[cfg(feature = "playtime")]
-        {
-            let slot_descriptor = self
-                .clip_slot
-                .clone()
-                .unwrap_or(ClipSlotDescriptor::ByIndex(
-                    playtime_api::persistence::SlotAddress::new(self.slot_index, 0),
-                ));
-            model.change(C::SetClipSlot(slot_descriptor));
-            model.change(C::SetClipColumn(self.clip_column.clone()));
-            model.change(C::SetClipRow(self.clip_row.clone()));
-            model.change(C::SetClipManagementAction(
-                self.clip_management_action.clone(),
+        let slot_descriptor = self
+            .clip_slot
+            .clone()
+            .unwrap_or(ClipSlotDescriptor::ByIndex(
+                playtime_api::persistence::SlotAddress::new(self.slot_index, 0),
             ));
-            let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
-                use ClipTransportAction as T;
-                use TransportAction::*;
-                match self.transport_action {
-                    PlayStop => T::PlayStop,
-                    PlayPause => T::PlayPause,
-                    Stop => T::Stop,
-                    Pause => T::Pause,
-                    RecordStop => T::RecordStop,
-                    Repeat => T::Looped,
-                }
-            });
-            model.change(C::SetClipTransportAction(clip_transport_action));
-            model.change(C::SetClipColumnAction(self.clip_column_action));
-            model.change(C::SetClipRowAction(self.clip_row_action));
-            model.change(C::SetClipMatrixAction(self.clip_matrix_action));
-            model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
-            model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
-            model.change(C::SetRecordOnlyIfTrackArmed(
-                self.record_only_if_track_armed,
-            ));
-            model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
-            if self.category == TargetCategory::Reaper
-                && self.r#type == ReaperTargetType::PlaytimeControlUnitScroll
-            {
-                // We set this only when we actually have the control unit scroll target. Because
-                // the axis model property is also used for other things.
-                model.change(C::SetAxis(self.axis));
+        model.change(C::SetClipSlot(slot_descriptor));
+        model.change(C::SetClipColumn(self.clip_column.clone()));
+        model.change(C::SetClipRow(self.clip_row.clone()));
+        model.change(C::SetClipManagementAction(
+            self.clip_management_action.clone(),
+        ));
+        let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
+            use ClipTransportAction as T;
+            use TransportAction::*;
+            match self.transport_action {
+                PlayStop => T::PlayStop,
+                PlayPause => T::PlayPause,
+                Stop => T::Stop,
+                Pause => T::Pause,
+                RecordStop => T::RecordStop,
+                Repeat => T::Looped,
             }
+        });
+        model.change(C::SetClipTransportAction(clip_transport_action));
+        model.change(C::SetClipColumnAction(self.clip_column_action));
+        model.change(C::SetClipRowAction(self.clip_row_action));
+        model.change(C::SetClipMatrixAction(self.clip_matrix_action));
+        model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
+        model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
+        model.change(C::SetRecordOnlyIfTrackArmed(
+            self.record_only_if_track_armed,
+        ));
+        model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
+        if self.category == TargetCategory::Reaper
+            && self.r#type == ReaperTargetType::PlaytimeControlUnitScroll
+        {
+            // We set this only when we actually have the control unit scroll target. Because
+            // the axis model property is also used for other things.
+            model.change(C::SetAxis(self.axis));
         }
         model.change(C::SetTrackToolAction(self.track_tool_action));
         model.change(C::SetFxToolAction(self.fx_tool_action));
@@ -1067,7 +1036,6 @@ impl TargetModelData {
 
 pub struct TrackSerializationOutput {
     pub track_data: TrackData,
-    #[cfg(feature = "playtime")]
     pub clip_column: Option<realearn_api::persistence::ClipColumnDescriptor>,
 }
 
@@ -1075,7 +1043,6 @@ pub struct TrackSerializationOutput {
 /// to not introduce an explicit track type.
 pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
     use VirtualTrackType::*;
-    #[cfg(feature = "playtime")]
     let mut clip_column = None;
     let track_data = match track.r#type {
         This => TrackData::default(),
@@ -1141,7 +1108,6 @@ pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
             expression: Some(track.expression),
             ..Default::default()
         },
-        #[cfg(feature = "playtime")]
         FromClipColumn => {
             clip_column = Some(track.clip_column);
             TrackData {
@@ -1154,7 +1120,6 @@ pub fn serialize_track(track: TrackPropValues) -> TrackSerializationOutput {
     };
     TrackSerializationOutput {
         track_data,
-        #[cfg(feature = "playtime")]
         clip_column,
     }
 }
@@ -1480,7 +1445,6 @@ pub struct TrackData {
         skip_serializing_if = "is_default"
     )]
     pub expression: Option<String>,
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -1491,7 +1455,6 @@ pub struct TrackData {
 
 pub struct TrackDeserializationInput<'a> {
     pub track_data: &'a TrackData,
-    #[cfg(feature = "playtime")]
     pub clip_column: &'a ClipColumnDescriptor,
 }
 
@@ -1556,7 +1519,6 @@ pub fn deserialize_track(input: TrackDeserializationInput) -> TrackPropValues {
             expression: e.clone(),
             ..Default::default()
         },
-        #[cfg(feature = "playtime")]
         TrackData {
             guid: Some(g),
             clip_column_track_context,

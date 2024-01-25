@@ -44,7 +44,6 @@ impl<T> Envelope<T> {
 #[serde(tag = "kind")]
 pub enum ApiObject {
     /// A Playtime clip matrix.
-    #[cfg(feature = "playtime")]
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
     /// Main compartment.
     MainCompartment(Envelope<Box<Compartment>>),

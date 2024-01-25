@@ -95,21 +95,13 @@ pub enum UnresolvedReaperTarget {
     SendMidi(UnresolvedMidiSendTarget),
     SendOsc(UnresolvedOscSendTarget),
     Dummy(UnresolvedDummyTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotTransportAction(crate::domain::UnresolvedPlaytimeSlotTransportTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeColumnAction(crate::domain::UnresolvedPlaytimeColumnActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeRowAction(crate::domain::UnresolvedPlaytimeRowActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotSeek(crate::domain::UnresolvedPlaytimeSlotSeekTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotVolume(crate::domain::UnresolvedPlaytimeSlotVolumeTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeMatrixAction(crate::domain::UnresolvedPlaytimeMatrixActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeControlUnitScroll(crate::domain::UnresolvedPlaytimeControlUnitScrollTarget),
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
     TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
@@ -181,19 +173,16 @@ impl UnresolvedReaperTarget {
                 return true;
             }
         }
-        #[cfg(feature = "playtime")]
         if let Some(slot) = descriptors.clip_slot {
             if slot.can_be_affected_by_parameters() {
                 return true;
             }
         }
-        #[cfg(feature = "playtime")]
         if let Some(col) = descriptors.clip_column {
             if col.can_be_affected_by_parameters() {
                 return true;
             }
         }
-        #[cfg(feature = "playtime")]
         if let Some(row) = descriptors.clip_row {
             if row.can_be_affected_by_parameters() {
                 return true;
@@ -231,21 +220,18 @@ impl UnresolvedReaperTarget {
                 ..Default::default()
             };
         }
-        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_slot_descriptor() {
             return Descriptors {
                 clip_slot: Some(d),
                 ..Default::default()
             };
         }
-        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_column_descriptor() {
             return Descriptors {
                 clip_column: Some(d),
                 ..Default::default()
             };
         }
-        #[cfg(feature = "playtime")]
         if let Some(d) = self.clip_row_descriptor() {
             return Descriptors {
                 clip_row: Some(d),
@@ -349,7 +335,6 @@ impl TrackDescriptor {
                 },
                 TrackDescriptorCommons::default(),
             ),
-            #[cfg(feature = "playtime")]
             FromClipColumn {
                 column,
                 context,
@@ -756,7 +741,6 @@ impl Default for TrackRouteType {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualPlaytimeSlot {
     Selected,
@@ -767,7 +751,6 @@ pub enum VirtualPlaytimeSlot {
     },
 }
 
-#[cfg(feature = "playtime")]
 impl VirtualPlaytimeSlot {
     pub fn resolve(
         &self,
@@ -812,7 +795,6 @@ impl VirtualPlaytimeSlot {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualPlaytimeColumn {
     Selected,
@@ -820,14 +802,12 @@ pub enum VirtualPlaytimeColumn {
     Dynamic(Box<ExpressionEvaluator>),
 }
 
-#[cfg(feature = "playtime")]
 impl Default for VirtualPlaytimeColumn {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
 impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
         descriptor: &realearn_api::persistence::ClipColumnDescriptor,
@@ -879,7 +859,6 @@ impl VirtualPlaytimeColumn {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub enum VirtualPlaytimeRow {
     Selected,
@@ -887,14 +866,12 @@ pub enum VirtualPlaytimeRow {
     Dynamic(Box<ExpressionEvaluator>),
 }
 
-#[cfg(feature = "playtime")]
 impl Default for VirtualPlaytimeRow {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
 impl VirtualPlaytimeRow {
     pub fn resolve(
         &self,
@@ -933,12 +910,10 @@ impl VirtualPlaytimeRow {
 /// have a clip, which is a valid state and should return *something*. The contract of the target
 /// `current_value()` is that if it returns `None`, it means it can't get a value at the moment,
 /// probably just temporarily. In that case, the feedback is simply not updated.
-#[cfg(feature = "playtime")]
 pub fn interpret_current_clip_slot_value<T: Default>(value: Option<T>) -> Option<T> {
     Some(value.unwrap_or_default())
 }
 
-#[cfg(feature = "playtime")]
 fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {
     let res = eval_result.map_err(|_| "couldn't evaluate clip slot coordinate")?;
     if res < 0.0 {
@@ -973,7 +948,6 @@ pub enum VirtualTrack {
     /// compatibility.
     ByIdOrName(Guid, WildMatch),
     /// Uses the track from the given clip column.
-    #[cfg(feature = "playtime")]
     FromClipColumn {
         column: VirtualPlaytimeColumn,
         context: realearn_api::persistence::ClipColumnTrackContext,
@@ -1254,7 +1228,6 @@ impl fmt::Display for VirtualTrack {
                 };
                 write!(f, "#{}{}", index + 1, suffix)
             }
-            #[cfg(feature = "playtime")]
             FromClipColumn { .. } => f.write_str("From a clip column"),
         }
     }
@@ -1437,35 +1410,41 @@ impl VirtualTrack {
                 let single = resolve_track_by_index(project, *index as i32, *scope)?;
                 vec![single]
             }
-            #[cfg(feature = "playtime")]
             FromClipColumn {
                 column,
                 context: track_context,
             } => {
-                // TODO-low Not very helpful. Do we even use this error type?
-                let generic_error = || TrackResolveError::TrackNotFound {
-                    guid: None,
-                    name: None,
-                    index: None,
-                };
-                let clip_column_index = column
-                    .resolve(context, compartment)
-                    .map_err(|_| generic_error())?;
-                let track = Backbone::get()
-                    .with_clip_matrix(&context.control_context.instance(), |matrix| {
-                        let column = matrix.get_column(clip_column_index)?;
-                        match track_context {
-                            realearn_api::persistence::ClipColumnTrackContext::Playback => {
-                                column.playback_track().cloned()
+                #[cfg(not(feature = "playtime"))]
+                {
+                    vec![]
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    // TODO-low Not very helpful. Do we even use this error type?
+                    let generic_error = || TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: None,
+                        index: None,
+                    };
+                    let clip_column_index = column
+                        .resolve(context, compartment)
+                        .map_err(|_| generic_error())?;
+                    let track = Backbone::get()
+                        .with_clip_matrix(&context.control_context.instance(), |matrix| {
+                            let column = matrix.get_column(clip_column_index)?;
+                            match track_context {
+                                realearn_api::persistence::ClipColumnTrackContext::Playback => {
+                                    column.playback_track().cloned()
+                                }
+                                realearn_api::persistence::ClipColumnTrackContext::Recording => {
+                                    column.effective_recording_track()
+                                }
                             }
-                            realearn_api::persistence::ClipColumnTrackContext::Recording => {
-                                column.effective_recording_track()
-                            }
-                        }
-                    })
-                    .map_err(|_| generic_error())?
-                    .map_err(|_| generic_error())?;
-                vec![track]
+                        })
+                        .map_err(|_| generic_error())?
+                        .map_err(|_| generic_error())?;
+                    vec![track]
+                }
             }
         };
         Ok(tracks)
@@ -1475,7 +1454,6 @@ impl VirtualTrack {
     pub fn can_be_affected_by_parameters(&self) -> bool {
         match self {
             VirtualTrack::Dynamic { .. } => true,
-            #[cfg(feature = "playtime")]
             VirtualTrack::FromClipColumn {
                 column: VirtualPlaytimeColumn::Dynamic(_),
                 ..
@@ -1623,7 +1601,6 @@ impl VirtualTrack {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_column(&self) -> Option<&VirtualPlaytimeColumn> {
         if let VirtualTrack::FromClipColumn { column, .. } = self {
             Some(column)
@@ -1632,7 +1609,6 @@ impl VirtualTrack {
         }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn clip_column_track_context(
         &self,
     ) -> Option<realearn_api::persistence::ClipColumnTrackContext> {
@@ -2162,11 +2138,8 @@ struct Descriptors<'a> {
     fx: Option<&'a FxDescriptor>,
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
-    #[cfg(feature = "playtime")]
     clip_slot: Option<&'a VirtualPlaytimeSlot>,
-    #[cfg(feature = "playtime")]
     clip_column: Option<&'a VirtualPlaytimeColumn>,
-    #[cfg(feature = "playtime")]
     clip_row: Option<&'a VirtualPlaytimeRow>,
 }
 
@@ -2215,17 +2188,14 @@ pub trait UnresolvedReaperTargetDef {
         None
     }
 
-    #[cfg(feature = "playtime")]
     fn clip_slot_descriptor(&self) -> Option<&VirtualPlaytimeSlot> {
         None
     }
 
-    #[cfg(feature = "playtime")]
     fn clip_column_descriptor(&self) -> Option<&VirtualPlaytimeColumn> {
         None
     }
 
-    #[cfg(feature = "playtime")]
     fn clip_row_descriptor(&self) -> Option<&VirtualPlaytimeRow> {
         None
     }
@@ -2303,7 +2273,6 @@ fn first_selected_track_scoped(
     }
 }
 
-#[cfg(feature = "playtime")]
 fn additional_playtime_vars(context: ControlContext) -> impl Fn(&str, &[f64]) -> Option<f64> + '_ {
     |name, _| match name {
         "control_unit_column_index" => Some(

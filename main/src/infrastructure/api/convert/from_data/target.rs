@@ -105,7 +105,6 @@ fn convert_real_target(
                 convert_track_descriptor(
                     data.track_data,
                     data.enable_only_if_track_is_selected,
-                    #[cfg(feature = "playtime")]
                     &data.clip_column,
                     style,
                 )
@@ -153,7 +152,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -165,7 +163,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -181,7 +178,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -201,7 +197,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -293,7 +288,6 @@ fn convert_real_target(
             },
             route: convert_route_descriptor(data, style),
         }),
-        #[cfg(feature = "playtime")]
         PlaytimeSlotTransportAction => T::PlaytimeSlotTransportAction(
             realearn_api::persistence::PlaytimeSlotTransportActionTarget {
                 commons,
@@ -311,7 +305,6 @@ fn convert_real_target(
                 play_stop_timing: data.clip_play_stop_timing,
             },
         ),
-        #[cfg(feature = "playtime")]
         PlaytimeColumnAction => {
             T::PlaytimeColumnAction(realearn_api::persistence::PlaytimeColumnActionTarget {
                 commons,
@@ -319,7 +312,6 @@ fn convert_real_target(
                 action: data.clip_column_action,
             })
         }
-        #[cfg(feature = "playtime")]
         PlaytimeRowAction => {
             T::PlaytimeRowAction(realearn_api::persistence::PlaytimeRowActionTarget {
                 commons,
@@ -327,21 +319,18 @@ fn convert_real_target(
                 action: data.clip_row_action,
             })
         }
-        #[cfg(feature = "playtime")]
         PlaytimeMatrixAction => {
             T::PlaytimeMatrixAction(realearn_api::persistence::PlaytimeMatrixActionTarget {
                 commons,
                 action: data.clip_matrix_action,
             })
         }
-        #[cfg(feature = "playtime")]
         PlaytimeControlUnitScroll => T::PlaytimeControlUnitScroll(
             realearn_api::persistence::PlaytimeControlUnitScrollTarget {
                 commons,
                 axis: data.axis,
             },
         ),
-        #[cfg(feature = "playtime")]
         PlaytimeSlotSeek => {
             T::PlaytimeSlotSeek(realearn_api::persistence::PlaytimeSlotSeekTarget {
                 commons,
@@ -352,14 +341,12 @@ fn convert_real_target(
                 ),
             })
         }
-        #[cfg(feature = "playtime")]
         PlaytimeSlotVolume => {
             T::PlaytimeSlotVolume(realearn_api::persistence::PlaytimeSlotVolumeTarget {
                 commons,
                 slot: data.clip_slot.unwrap_or_default(),
             })
         }
-        #[cfg(feature = "playtime")]
         PlaytimeSlotManagementAction => T::PlaytimeSlotManagementAction(
             realearn_api::persistence::PlaytimeSlotManagementActionTarget {
                 commons,
@@ -432,7 +419,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -451,7 +437,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -462,7 +447,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -477,7 +461,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -496,7 +479,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -506,7 +488,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -529,7 +510,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -548,7 +528,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -566,7 +545,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -584,7 +562,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -602,7 +579,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -614,7 +590,6 @@ fn convert_real_target(
             track: convert_track_descriptor(
                 data.track_data,
                 data.enable_only_if_track_is_selected,
-                #[cfg(feature = "playtime")]
                 &data.clip_column,
                 style,
             ),
@@ -890,12 +865,11 @@ fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> pers
 fn convert_track_descriptor(
     data: TrackData,
     only_if_track_selected: bool,
-    #[cfg(feature = "playtime")] clip_column: &realearn_api::persistence::ClipColumnDescriptor,
+    clip_column: &realearn_api::persistence::ClipColumnDescriptor,
     style: ConversionStyle,
 ) -> Option<persistence::TrackDescriptor> {
     let input = TrackDeserializationInput {
         track_data: &data,
-        #[cfg(feature = "playtime")]
         clip_column,
     };
     let props = deserialize_track(input);
@@ -939,7 +913,6 @@ fn convert_track_descriptor(
             index: props.index,
             scope: style.optional_value(props.r#type.virtual_track_scope()),
         },
-        #[cfg(feature = "playtime")]
         FromClipColumn => T::FromClipColumn {
             commons,
             column: props.clip_column,
@@ -957,7 +930,6 @@ fn convert_fx_chain_descriptor(
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
-            #[cfg(feature = "playtime")]
             &data.clip_column,
             style,
         ),
@@ -1015,7 +987,6 @@ fn convert_route_descriptor(
         track: convert_track_descriptor(
             data.track_data,
             data.enable_only_if_track_is_selected,
-            #[cfg(feature = "playtime")]
             &data.clip_column,
             style,
         ),

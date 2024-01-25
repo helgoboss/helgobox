@@ -138,27 +138,19 @@ pub enum Target {
     RoutePan(RoutePanTarget),
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipTransportAction")]
     PlaytimeSlotTransportAction(PlaytimeSlotTransportActionTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipColumnAction")]
     PlaytimeColumnAction(PlaytimeColumnActionTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipRowAction")]
     PlaytimeRowAction(PlaytimeRowActionTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipMatrixAction")]
     PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeControlUnitScroll(PlaytimeControlUnitScrollTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipSeek")]
     PlaytimeSlotSeek(PlaytimeSlotSeekTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipVolume")]
     PlaytimeSlotVolume(PlaytimeSlotVolumeTarget),
-    #[cfg(feature = "playtime")]
     #[serde(alias = "ClipManagement")]
     PlaytimeSlotManagementAction(PlaytimeSlotManagementActionTarget),
     SendMidi(SendMidiTarget),
@@ -847,7 +839,6 @@ pub struct RouteTouchStateTarget {
     pub touched_parameter: TouchedRouteParameter,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeSlotTransportActionTarget {
     #[serde(flatten)]
@@ -864,7 +855,6 @@ pub struct PlaytimeSlotTransportActionTarget {
     pub play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeColumnActionTarget {
     #[serde(flatten)]
@@ -873,7 +863,6 @@ pub struct PlaytimeColumnActionTarget {
     pub action: ClipColumnAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeRowActionTarget {
     #[serde(flatten)]
@@ -882,7 +871,6 @@ pub struct PlaytimeRowActionTarget {
     pub action: ClipRowAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeMatrixActionTarget {
     #[serde(flatten)]
@@ -890,7 +878,6 @@ pub struct PlaytimeMatrixActionTarget {
     pub action: ClipMatrixAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeControlUnitScrollTarget {
     #[serde(flatten)]
@@ -898,7 +885,6 @@ pub struct PlaytimeControlUnitScrollTarget {
     pub axis: Axis,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeSlotSeekTarget {
     #[serde(flatten)]
@@ -908,7 +894,6 @@ pub struct PlaytimeSlotSeekTarget {
     pub feedback_resolution: Option<FeedbackResolution>,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeSlotVolumeTarget {
     #[serde(flatten)]
@@ -916,7 +901,6 @@ pub struct PlaytimeSlotVolumeTarget {
     pub slot: ClipSlotDescriptor,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeSlotManagementActionTarget {
     #[serde(flatten)]
@@ -925,7 +909,6 @@ pub struct PlaytimeSlotManagementActionTarget {
     pub action: ClipManagementAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Display)]
 #[serde(tag = "kind")]
 pub enum ClipManagementAction {
@@ -941,14 +924,12 @@ pub enum ClipManagementAction {
     AdjustClipSectionLength(AdjustClipSectionLengthAction),
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipManagementAction {
     fn default() -> Self {
         Self::ClearSlot
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AdjustClipSectionLengthAction {
     pub factor: f64,
@@ -1609,7 +1590,6 @@ pub enum TrackDescriptor {
         #[serde(skip_serializing_if = "Option::is_none")]
         allow_multiple: Option<bool>,
     },
-    #[cfg(feature = "playtime")]
     FromClipColumn {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
@@ -1618,14 +1598,12 @@ pub enum TrackDescriptor {
     },
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum ClipColumnTrackContext {
     Playback,
     Recording,
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipColumnTrackContext {
     fn default() -> Self {
         Self::Playback
@@ -1943,7 +1921,6 @@ impl Default for TrackRouteKind {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipSlotDescriptor {
@@ -1974,14 +1951,12 @@ impl Display for ClipSlotDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipSlotDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
 impl ClipSlotDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         if let Self::ByIndex(address) = self {
@@ -1992,7 +1967,6 @@ impl ClipSlotDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipColumnDescriptor {
@@ -2001,14 +1975,12 @@ pub enum ClipColumnDescriptor {
     Dynamic { expression: String },
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipColumnDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
 impl ClipColumnDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         if let Self::ByIndex(address) = self {
@@ -2029,7 +2001,6 @@ impl Display for ClipColumnDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum ClipRowDescriptor {
@@ -2048,7 +2019,6 @@ impl Display for ClipRowDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 impl ClipRowDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         if let Self::ByIndex(address) = self {
@@ -2059,7 +2029,6 @@ impl ClipRowDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipRowDescriptor {
     fn default() -> Self {
         Self::Selected

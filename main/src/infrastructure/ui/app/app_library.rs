@@ -1,16 +1,15 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    create_initial_clip_updates, create_initial_global_updates, create_initial_instance_updates,
-    create_initial_matrix_updates, create_initial_slot_updates, create_initial_track_updates,
-    event_reply, query_result, reply, request, EventReply, MatrixProvider, ProtoRequestHandler,
-    QueryReply, QueryResult, Reply, Request,
+    create_initial_global_updates, create_initial_instance_updates, event_reply, query_result,
+    reply, request, EventReply, ProtoRequestHandler, QueryReply, QueryResult, Reply, Request,
 };
-use crate::infrastructure::server::services::helgobox_service::BackboneMatrixProvider;
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
+
+#[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
 use prost::Message;
 use reaper_high::Reaper;
@@ -376,7 +375,7 @@ fn process_command_request(
 
 fn process_query_request(instance_id: String, id: u32, query: proto::query::Value) -> Result<()> {
     use proto::query::Value::*;
-    let handler = ProtoRequestHandler::new(BackboneMatrixProvider);
+    let handler = ProtoRequestHandler;
     match query {
         ProveAuthenticity(req) => {
             send_query_reply_to_app(instance_id, id, async move {
@@ -416,8 +415,7 @@ fn process_command(
     instance_id: &str,
     req: proto::command_request::Value,
 ) -> std::result::Result<(), Status> {
-    // TODO-low This should be a more generic command handler in future (not just clip engine)
-    let handler = ProtoRequestHandler::new(BackboneMatrixProvider);
+    let handler = ProtoRequestHandler;
     use proto::command_request::Value::*;
     match req {
         // Embedding
@@ -432,11 +430,11 @@ fn process_command(
         }
         // Event subscription commands
         GetOccasionalGlobalUpdates(_) => {
-            send_initial_events_to_app(instance_id, None, |_| create_initial_global_updates())
+            send_initial_events_to_app(instance_id, || create_initial_global_updates())
                 .map_err(to_status)?;
         }
         GetOccasionalInstanceUpdates(req) => {
-            send_initial_events_to_app(instance_id, None, |_| {
+            send_initial_events_to_app(instance_id, || {
                 let instance_shell = BackboneShell::get()
                     .find_instance_shell_by_instance_id_str(&req.instance_id)
                     .unwrap();
@@ -445,36 +443,64 @@ fn process_command(
             .map_err(to_status)?;
         }
         GetOccasionalMatrixUpdates(req) => {
-            send_initial_events_to_app(
-                instance_id,
-                Some(&req.matrix_id),
-                create_initial_matrix_updates,
-            )
-            .map_err(to_status)?;
+            #[cfg(not(feature = "playtime"))]
+            {
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_matrix_updates,
+                )
+                .map_err(to_status)?;
+            }
         }
         GetOccasionalTrackUpdates(req) => {
-            send_initial_events_to_app(
-                instance_id,
-                Some(&req.matrix_id),
-                create_initial_track_updates,
-            )
-            .map_err(to_status)?;
+            #[cfg(not(feature = "playtime"))]
+            {
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_track_updates,
+                )
+                .map_err(to_status)?;
+            }
         }
         GetOccasionalSlotUpdates(req) => {
-            send_initial_events_to_app(
-                instance_id,
-                Some(&req.matrix_id),
-                create_initial_slot_updates,
-            )
-            .map_err(to_status)?;
+            #[cfg(not(feature = "playtime"))]
+            {
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_slot_updates,
+                )
+                .map_err(to_status)?;
+            }
         }
         GetOccasionalClipUpdates(req) => {
-            send_initial_events_to_app(
-                instance_id,
-                Some(&req.matrix_id),
-                create_initial_clip_updates,
-            )
-            .map_err(to_status)?;
+            #[cfg(not(feature = "playtime"))]
+            {
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_clip_updates,
+                )
+                .map_err(to_status)?;
+            }
         }
         // Normal commands
         SaveController(req) => {
@@ -580,27 +606,34 @@ fn process_command(
     Ok(())
 }
 
+fn send_initial_events_to_app<T: Into<event_reply::Value>>(
+    instance_id: &str,
+    create_reply: impl FnOnce() -> T + Copy,
+) -> Result<()> {
+    let reply = create_reply().into();
+    send_event_reply_to_app(instance_id, reply)
+}
+
 /// The matrix ID should actually always be the same as the instance ID. We use different
 /// parameters because one is for identifying the matrix and the other one the destination app
 /// instance. In practice, there's a one-to-one relationship between
 /// Helgobox instance <=> Matrix instance <=> App instance.
-fn send_initial_events_to_app<T: Into<event_reply::Value>>(
+#[cfg(feature = "playtime")]
+fn send_initial_matrix_events_to_app<T: Into<event_reply::Value>>(
     instance_id: &str,
-    matrix_id: Option<&str>,
+    matrix_id: &str,
     create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
 ) -> Result<()> {
-    let event_reply_value = if let Some(matrix_id) = matrix_id {
-        BackboneMatrixProvider
-            .with_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
-            .unwrap_or_else(|_| create_reply(None).into())
-    } else {
-        create_reply(None).into()
-    };
+    let reply = BackboneShell::get()
+        .with_clip_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
+        .unwrap_or_else(|_| create_reply(None).into());
+    send_event_reply_to_app(instance_id, reply)
+}
+
+fn send_event_reply_to_app(instance_id: &str, value: event_reply::Value) -> Result<()> {
     send_to_app(
         instance_id,
-        reply::Value::EventReply(EventReply {
-            value: Some(event_reply_value),
-        }),
+        reply::Value::EventReply(EventReply { value: Some(value) }),
     )
 }
 
@@ -648,3 +681,7 @@ fn to_status(err: anyhow::Error) -> Status {
 /// The minimum version of the app API that the host (ReaLearn) requires to properly
 /// communicates with it. Keep this up-to-date!
 pub const MIN_APP_API_VERSION: Version = Version::new(1, 0, 0);
+
+fn playtime_not_available() -> Result<(), Status> {
+    Err(Status::not_found("Playtime feature not available"))
+}

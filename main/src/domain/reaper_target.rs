@@ -47,7 +47,6 @@ use crate::domain::{
 };
 use base::default_util::is_default;
 use base::Global;
-use playtime_clip_engine::base::ClipMatrixEvent;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
@@ -139,21 +138,13 @@ pub enum ReaperTarget {
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
     Dummy(DummyTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeControlUnitScroll(crate::domain::PlaytimeControlUnitScrollTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotSeek(crate::domain::PlaytimeSlotSeekTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotVolume(crate::domain::PlaytimeSlotVolumeTarget),
-    #[cfg(feature = "playtime")]
     PlaytimeSlotManagementAction(crate::domain::PlaytimeSlotManagementActionTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
@@ -282,7 +273,6 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
-    #[cfg(feature = "playtime")]
     pub fn from_simple_target(simple_target: playtime_api::runtime::SimpleMappingTarget) -> Self {
         use playtime_api::runtime::SimpleMappingTarget::*;
         match simple_target {
@@ -362,7 +352,10 @@ impl ReaperTarget {
             CompoundChangeEvent::Instance(_) => false,
             #[cfg(feature = "playtime")]
             CompoundChangeEvent::ClipMatrix(e) => {
-                matches!(e, ClipMatrixEvent::EverythingChanged)
+                matches!(
+                    e,
+                    playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged
+                )
             }
         }
     }
@@ -703,21 +696,13 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackAutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeSlotTransportAction(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeColumnAction(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeRowAction(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeSlotSeek(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeSlotVolume(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeSlotManagementAction(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeMatrixAction(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
             PlaytimeControlUnitScroll(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             TakeMappingSnapshot(t) => t.current_value(context),
@@ -751,13 +736,9 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // need to support that one day, we can alternatively use senders. The downside is that
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
-            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipRow(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
@@ -767,13 +748,9 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
-            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipRow(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
             Dummy(t) => t.control_type(()),
@@ -1504,13 +1481,9 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
-    #[cfg(feature = "playtime")]
-    ClipTransport(crate::domain::RealTimeClipTransportTarget),
-    #[cfg(feature = "playtime")]
+    ClipTransport(crate::domain::RealTimeSlotTransportTarget),
     ClipColumn(crate::domain::RealTimeClipColumnTarget),
-    #[cfg(feature = "playtime")]
     ClipRow(crate::domain::RealTimeClipRowTarget),
-    #[cfg(feature = "playtime")]
     ClipMatrix(crate::domain::RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
     Dummy(DummyTarget),

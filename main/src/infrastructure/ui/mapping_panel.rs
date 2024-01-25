@@ -570,7 +570,6 @@ impl MappingPanel {
                                             P::ActiveMappingsOnly => {
                                                 view.invalidate_target_check_box_2();
                                             }
-                                            #[cfg(feature = "playtime")]
                                             P::ClipPlayStartTiming | P::ClipPlayStopTiming | P::ClipRow | P::ClipRowAction | P::StopColumnIfSlotEmpty | P::ClipSlot | P::ClipColumn | P::ClipManagementAction | P::ClipTransportAction | P::ClipColumnAction | P::RecordOnlyIfTrackArmed  | P::ClipMatrixAction => {}
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();

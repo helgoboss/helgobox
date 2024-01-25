@@ -1,7 +1,6 @@
 use anyhow::{bail, Context};
 use reaper_high::Reaper;
 
-#[cfg(feature = "playtime")]
 pub fn add_toolbar_button(
     command_name: &str,
     action_label: &str,
@@ -65,14 +64,12 @@ pub fn add_toolbar_button(
     Ok(())
 }
 
-#[cfg(feature = "playtime")]
 struct ToolbarItem<'a> {
     index: u32,
     command: &'a str,
     _desc: &'a str,
 }
 
-#[cfg(feature = "playtime")]
 impl<'a> ToolbarItem<'a> {
     fn parse_from_ini_prop(key: &'a str, value: &'a str) -> Option<Self> {
         let Some(("item", i)) = key.split_once('_') else {

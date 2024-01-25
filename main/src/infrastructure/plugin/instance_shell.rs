@@ -15,7 +15,6 @@ use base::{
 };
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
-use playtime_clip_engine::base::Matrix;
 use realearn_api::persistence::{instance_features, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
@@ -74,7 +73,7 @@ impl InstanceHandler for CustomInstanceHandler {
     fn clip_matrix_changed(
         &self,
         instance_id: InstanceId,
-        matrix: &Matrix,
+        matrix: &playtime_clip_engine::base::Matrix,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
         is_poll: bool,
     ) {
@@ -92,7 +91,7 @@ impl InstanceHandler for CustomInstanceHandler {
     fn process_control_surface_change_event_for_clip_engine(
         &self,
         instance_id: InstanceId,
-        matrix: &Matrix,
+        matrix: &playtime_clip_engine::base::Matrix,
         events: &[reaper_high::ChangeEvent],
     ) {
         BackboneShell::get()
@@ -128,7 +127,6 @@ impl InstanceShell {
             Box::new(instance_handler),
             #[cfg(feature = "playtime")]
             BackboneShell::get().clip_matrix_event_sender().clone(),
-            #[cfg(feature = "playtime")]
             BackboneShell::get().normal_audio_hook_task_sender().clone(),
         );
         let rt_instance = Arc::new(Mutex::new(rt_instance));
@@ -264,6 +262,7 @@ impl InstanceShell {
     fn notify_units_changed(&self) {
         self.panel.get().notify_units_changed();
         self.main_unit_shell.panel().notify_units_changed();
+        #[cfg(feature = "playtime")]
         if let Some(m) = self.instance().borrow().clip_matrix() {
             m.notify_control_units_changed();
         }
@@ -415,7 +414,7 @@ impl InstanceShell {
 
     fn has_feature(&self, feature: &str) -> bool {
         match feature {
-            instance_features::PLAYTIME => self.instance.get().borrow().clip_matrix().is_some(),
+            instance_features::PLAYTIME => self.instance.get().borrow().has_clip_matrix(),
             _ => false,
         }
     }
@@ -439,11 +438,18 @@ impl InstanceShell {
             additional_units: additional_unit_datas,
             settings: self.settings.get().borrow().clone(),
             pot_state: instance.save_pot_unit(),
-            #[cfg(feature = "playtime")]
+            // TODO-medium Subject to improvement: If ReaLearn has been compiled without playtime feature, a
+            //  potential clip matrix in the instance data will be silently discarded and disappear when saving
+            //  next time. It would be better to memorize the data in the shell.
             clip_matrix: {
-                instance.clip_matrix().map(|matrix| {
-                    crate::infrastructure::data::ClipMatrixRefData::Own(Box::new(matrix.save()))
-                })
+                #[cfg(feature = "playtime")]
+                {
+                    instance.clip_matrix().map(|matrix| {
+                        crate::infrastructure::data::ClipMatrixRefData::Own(Box::new(matrix.save()))
+                    })
+                }
+                #[cfg(not(feature = "playtime"))]
+                None
             },
         }
     }
@@ -553,14 +559,7 @@ impl InstanceShell {
     /// Invokes the processing function for each unit.
     ///
     /// To be called from real-time thread (in the plug-in's processing function).
-    pub fn run_from_plugin(
-        &self,
-        #[cfg(feature = "playtime")] buffer: &mut vst::buffer::AudioBuffer<f64>,
-        #[cfg(feature = "playtime")] block_props: AudioBlockProps,
-        host: HostCallback,
-    ) {
-        #[cfg(feature = "playtime")]
-        non_blocking_lock(&*self.rt_instance, "RealTimeInstance").run_from_vst(buffer, block_props);
+    pub fn run_from_plugin(&self, host: HostCallback) {
         let Some(unit_shells) = non_blocking_try_read_lock(&self.additional_unit_shells) else {
             // Better miss one block than blocking the entire audio thread
             return;
@@ -568,6 +567,15 @@ impl InstanceShell {
         for unit_shell in once(&self.main_unit_shell).chain(&*unit_shells) {
             unit_shell.run_from_vst(host);
         }
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn run_playtime_from_plugin(
+        &self,
+        buffer: &mut vst::buffer::AudioBuffer<f64>,
+        block_props: AudioBlockProps,
+    ) {
+        non_blocking_lock(&*self.rt_instance, "RealTimeInstance").run_from_vst(buffer, block_props);
     }
 
     /// Informs all units about a sample rate change.
@@ -582,33 +590,46 @@ impl InstanceShell {
         }
     }
 
-    #[cfg(feature = "playtime")]
-    pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) {
-        let mut instance = self.instance.get().borrow_mut();
-        if instance.clip_matrix().is_some() {
-            return;
+    pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) -> anyhow::Result<()> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            bail!("Playtime feature not available")
         }
-        self.clone().get_or_insert_owned_clip_matrix(&mut instance);
-        // For convenience, we automatically switch global control on. This, combined with automatically creating
-        // a controller for a known device (see `maybe_create_controller_for_device`) leads to newly connected
-        // controllers working automagically!
-        self.change_settings(|settings| settings.control.global_control_enabled = true);
+        #[cfg(feature = "playtime")]
+        {
+            let mut instance = self.instance.get().borrow_mut();
+            if instance.clip_matrix().is_some() {
+                return Ok(());
+            }
+            self.clone().get_or_insert_owned_clip_matrix(&mut instance);
+            // For convenience, we automatically switch global control on. This, combined with automatically creating
+            // a controller for a known device (see `maybe_create_controller_for_device`) leads to newly connected
+            // controllers working automagically!
+            self.change_settings(|settings| settings.control.global_control_enabled = true);
+            Ok(())
+        }
     }
 
-    #[cfg(feature = "playtime")]
     pub fn load_clip_matrix(
         self: SharedInstanceShell,
         matrix: Option<FlexibleMatrix>,
     ) -> anyhow::Result<()> {
-        let mut instance = self.instance().borrow_mut();
-        if let Some(matrix) = matrix {
-            self.clone()
-                .get_or_insert_owned_clip_matrix(&mut instance)
-                .load(matrix)?;
-        } else {
-            instance.set_clip_matrix(None);
+        #[cfg(not(feature = "playtime"))]
+        {
+            bail!("Playtime feature not enabled");
         }
-        Ok(())
+        #[cfg(feature = "playtime")]
+        {
+            let mut instance = self.instance().borrow_mut();
+            if let Some(matrix) = matrix {
+                self.clone()
+                    .get_or_insert_owned_clip_matrix(&mut instance)
+                    .load(matrix)?;
+            } else {
+                instance.set_clip_matrix(None);
+            }
+            Ok(())
+        }
     }
 
     /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.

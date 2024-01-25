@@ -73,18 +73,15 @@ impl RealTimeInstance {
             }
         }
     }
-
+    #[cfg(feature = "playtime")]
     pub fn run_from_vst(
         &mut self,
-        #[cfg(feature = "playtime")] buffer: &mut vst::buffer::AudioBuffer<f64>,
-        #[cfg(feature = "playtime")] block_props: AudioBlockProps,
+        buffer: &mut vst::buffer::AudioBuffer<f64>,
+        block_props: AudioBlockProps,
     ) {
-        #[cfg(feature = "playtime")]
-        {
-            let inputs = VstChannelInputs(buffer.split().0);
-            self.clip_engine_fx_hook
-                .poll(&inputs, block_props.to_playtime());
-        }
+        let inputs = VstChannelInputs(buffer.split().0);
+        self.clip_engine_fx_hook
+            .poll(&inputs, block_props.to_playtime());
     }
 }
 

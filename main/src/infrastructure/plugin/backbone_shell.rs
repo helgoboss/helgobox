@@ -136,7 +136,6 @@ const DEALLOCATOR_THREAD_CAPACITY: usize = 10000;
 
 make_available_globally_in_main_thread_on_demand!(BackboneShell);
 
-#[cfg(feature = "playtime")]
 static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui::AppLibrary>> =
     std::sync::OnceLock::new();
 
@@ -178,7 +177,6 @@ pub struct BackboneShell {
     unit_infos: RefCell<Vec<UnitInfo>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
-    #[cfg(feature = "playtime")]
     proto_hub: crate::infrastructure::proto::ProtoHub,
     shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
     audio_block_counter: Arc<AtomicU32>,
@@ -404,7 +402,6 @@ impl BackboneShell {
             RealearnAccelerator::new(shared_main_processors, BackboneHelgoboxWindowSnitch);
         // Silently decompress app and load library in background so it's ready when needed. We want to do this
         // already here in order to let actions such as "Show/hide Playtime" work instantly without delay.
-        #[cfg(feature = "playtime")]
         let _ = std::thread::Builder::new()
             .name("Helgobox app loader".to_string())
             .spawn(|| {
@@ -455,7 +452,6 @@ impl BackboneShell {
             unit_infos: Default::default(),
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
-            #[cfg(feature = "playtime")]
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
             shutdown_detection_panel,
             audio_block_counter,
@@ -612,7 +608,6 @@ impl BackboneShell {
 
     fn create_services(&self) -> Services {
         Services {
-            #[cfg(feature = "playtime")]
             helgobox_service: server::services::helgobox_service::create_server(&self.proto_hub),
         }
     }
@@ -867,7 +862,6 @@ impl BackboneShell {
         &self.clip_matrix_event_sender
     }
 
-    #[cfg(feature = "playtime")]
     pub fn normal_audio_hook_task_sender(&self) -> &SenderToRealTimeThread<NormalAudioHookTask> {
         &self.audio_hook_task_sender
     }
@@ -892,7 +886,6 @@ impl BackboneShell {
         &self.control_surface_main_task_sender
     }
 
-    #[cfg(feature = "playtime")]
     pub fn proto_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
         &self.proto_hub
     }
@@ -1064,7 +1057,6 @@ impl BackboneShell {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
-    #[cfg(feature = "playtime")]
     pub fn app_base_dir_path() -> PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
@@ -1079,7 +1071,6 @@ impl BackboneShell {
             .join("Data/helgoboss/realearn")
     }
 
-    #[cfg(feature = "playtime")]
     pub fn app_archive_file_path() -> PathBuf {
         Reaper::get()
             .resource_path()
@@ -1154,7 +1145,6 @@ impl BackboneShell {
         &APP_LOGGER
     }
 
-    #[cfg(feature = "playtime")]
     pub fn get_app_library() -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
         let app_library = APP_LIBRARY
             .get()
@@ -1244,12 +1234,11 @@ impl BackboneShell {
         Backbone::get().with_clip_matrix_mut(&instance, f)
     }
 
-    #[cfg(feature = "playtime")]
     pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
         let instance_shell = self
             .find_instance_shell_by_instance_id_str(clip_matrix_id)
             .context("instance not found")?;
-        instance_shell.insert_owned_clip_matrix_if_necessary();
+        instance_shell.insert_owned_clip_matrix_if_necessary()?;
         Ok(())
     }
 
@@ -1582,64 +1571,66 @@ impl BackboneShell {
 
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
-        fn add_and_show_playtime() -> anyhow::Result<()> {
-            let project = Reaper::get().current_project();
-            let track = project.insert_track_at(0)?;
-            track.set_name("Playtime");
-            track
-                .normal_fx_chain()
-                .add_fx_by_original_name("<1751282284")
-                .context("Couldn't add Helgobox. Maybe not installed?")?
-                .hide_floating_window();
-            // The rest needs to be done async because the instance initializes itself async
-            // (because FX not yet available when plug-in instantiated).
-            Global::task_support()
-                .do_later_in_main_thread_from_main_thread_asap(|| {
-                    enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
-                })
-                .unwrap();
-            Ok(())
-        }
-
-        #[cfg(feature = "playtime")]
-        fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
-            let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-            // We don't really need to do that via the external API but on the other hand, this is the only
-            // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
-            // to add integration tests in order to quickly realize if this works or not.
-            // TODO-low Add integration tests instead of using API here.
-            let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
-                .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
-            let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-                .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
-            let instance_id =
-                helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
-            playtime_api.HB_CreateClipMatrix(instance_id);
-            playtime_api.HB_ShowOrHidePlaytime(instance_id);
-            Ok(())
-        }
-
-        #[cfg(feature = "playtime")]
-        fn show_or_hide_playtime() -> anyhow::Result<()> {
-            let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-            let Some(playtime_api) =
-                playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-            else {
-                // Project doesn't have any Helgobox instance yet. Add one.
-                add_and_show_playtime()?;
-                return Ok(());
-            };
-            let helgobox_instance =
-                playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
-            if helgobox_instance == -1 {
-                // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
-                add_and_show_playtime()?;
-                return Ok(());
+        {
+            fn add_and_show_playtime() -> anyhow::Result<()> {
+                let project = Reaper::get().current_project();
+                let track = project.insert_track_at(0)?;
+                track.set_name("Playtime");
+                track
+                    .normal_fx_chain()
+                    .add_fx_by_original_name("<1751282284")
+                    .context("Couldn't add Helgobox. Maybe not installed?")?
+                    .hide_floating_window();
+                // The rest needs to be done async because the instance initializes itself async
+                // (because FX not yet available when plug-in instantiated).
+                Global::task_support()
+                    .do_later_in_main_thread_from_main_thread_asap(|| {
+                        enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
+                    })
+                    .unwrap();
+                Ok(())
             }
-            playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
-            Ok(())
+
+            fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
+                let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+                // We don't really need to do that via the external API but on the other hand, this is the only
+                // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
+                // to add integration tests in order to quickly realize if this works or not.
+                // TODO-low Add integration tests instead of using API here.
+                let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
+                    .context(
+                        "Couldn't load Helgobox API even after adding Helgobox. Old version?",
+                    )?;
+                let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+                    .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
+                let instance_id =
+                    helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
+                playtime_api.HB_CreateClipMatrix(instance_id);
+                playtime_api.HB_ShowOrHidePlaytime(instance_id);
+                Ok(())
+            }
+
+            fn show_or_hide_playtime() -> anyhow::Result<()> {
+                let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+                let Some(playtime_api) =
+                    playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+                else {
+                    // Project doesn't have any Helgobox instance yet. Add one.
+                    add_and_show_playtime()?;
+                    return Ok(());
+                };
+                let helgobox_instance = playtime_api
+                    .HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
+                if helgobox_instance == -1 {
+                    // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
+                    add_and_show_playtime()?;
+                    return Ok(());
+                }
+                playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
+                Ok(())
+            }
+            show_or_hide_playtime().expect("couldn't show/hide playtime");
         }
-        show_or_hide_playtime().expect("couldn't show/hide playtime");
     }
 
     async fn find_first_mapping_by_source_async(
@@ -2507,7 +2498,6 @@ impl CompartmentPresetManagerEventHandler for BackboneControllerPresetManagerEve
     }
 }
 
-#[cfg(feature = "playtime")]
 fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     tracing::info!("Loading app library...");
     let app_base_dir = BackboneShell::app_base_dir_path();
@@ -2523,7 +2513,6 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     lib
 }
 
-#[cfg(feature = "playtime")]
 fn decompress_app() -> anyhow::Result<()> {
     // Check if decompression necessary
     let archive_file = &BackboneShell::app_archive_file_path();
@@ -2624,15 +2613,22 @@ async fn maybe_create_controller_for_device_internal(
     let main_preset_manager = BackboneShell::get().main_preset_manager().borrow();
     let conditions = MainPresetSelectionConditions {
         at_least_one_instance_has_playtime_clip_matrix: {
-            BackboneShell::get()
-                .find_first_helgobox_instance_matching(|info| {
-                    let Some(instance) = info.instance.upgrade() else {
-                        return false;
-                    };
-                    let instance_state = instance.borrow();
-                    instance_state.clip_matrix().is_some()
-                })
-                .is_some()
+            #[cfg(feature = "playtime")]
+            {
+                BackboneShell::get()
+                    .find_first_helgobox_instance_matching(|info| {
+                        let Some(instance) = info.instance.upgrade() else {
+                            return false;
+                        };
+                        let instance_state = instance.borrow();
+                        instance_state.clip_matrix().is_some()
+                    })
+                    .is_some()
+            }
+            #[cfg(not(feature = "playtime"))]
+            {
+                false
+            }
         },
     };
     let main_preset = main_preset_manager.find_most_suitable_main_preset_for_schemes(

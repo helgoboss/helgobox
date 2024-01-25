@@ -61,7 +61,6 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
     }
 }
 
-#[cfg(feature = "playtime")]
 pub fn db_unit_value(volume: Db) -> UnitValue {
     volume_unit_value(Volume::from_db(volume))
 }

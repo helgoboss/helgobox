@@ -193,7 +193,6 @@ pub struct UnitData {
     controller_parameters: HashMap<String, ParameterData>,
     // New since 2.12.0-pre.5
     #[deprecated(note = "Moved to InstanceData")]
-    #[cfg(feature = "playtime")]
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -275,7 +274,6 @@ fn focused_fx_descriptor() -> FxDescriptor {
     FxDescriptor::Focused
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ClipMatrixRefData {
@@ -373,7 +371,6 @@ impl Default for UnitData {
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
             parameters: Default::default(),
             controller_parameters: Default::default(),
-            #[cfg(feature = "playtime")]
             clip_matrix: None,
             tags: vec![],
             controller: Default::default(),
@@ -484,7 +481,6 @@ impl UnitData {
                 &plugin_params,
                 CompartmentKind::Controller,
             ),
-            #[cfg(feature = "playtime")]
             clip_matrix: None,
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(&unit, CompartmentKind::Controller),

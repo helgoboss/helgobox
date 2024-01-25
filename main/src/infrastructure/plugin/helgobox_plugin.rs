@@ -246,24 +246,22 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn process_f64(&mut self, buffer: &mut AudioBuffer<f64>) {
-        #[cfg(not(feature = "playtime"))]
-        let _ = buffer;
         firewall(|| {
             assert_no_alloc(|| {
                 // Get current time information so we can detect changes in play state reliably
                 // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
                 self.was_playing_in_last_cycle = self.is_now_playing();
                 if let Some(lazy_data) = self.lazy_data.get() {
-                    lazy_data.instance_shell.run_from_plugin(
-                        #[cfg(feature = "playtime")]
+                    #[cfg(feature = "playtime")]
+                    lazy_data.instance_shell.run_playtime_from_plugin(
                         buffer,
-                        #[cfg(feature = "playtime")]
                         crate::domain::AudioBlockProps::from_vst(buffer, self.sample_rate),
-                        self.host,
                     );
+                    lazy_data.instance_shell.run_from_plugin(self.host);
                 }
             });
         });
+        let _ = buffer;
     }
 
     fn set_sample_rate(&mut self, rate: f32) {

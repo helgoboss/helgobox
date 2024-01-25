@@ -13,25 +13,27 @@ use crate::infrastructure::proto::{
     occasional_global_update, occasional_instance_update, occasional_matrix_update,
     occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ContinuousColumnUpdate,
-    ContinuousMatrixUpdate, ContinuousSlotUpdate, HelgoboxServiceImpl, MatrixProvider,
-    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch,
-    OccasionalMatrixUpdate, OccasionalTrackUpdate, ProtoRequestHandler,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotAddress,
+    ContinuousMatrixUpdate, ContinuousSlotUpdate, HelgoboxServiceImpl, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch, OccasionalMatrixUpdate,
+    OccasionalTrackUpdate, ProtoRequestHandler, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use base::peak_util;
 use playtime_api::persistence::EvenQuantization;
-use playtime_clip_engine::base::{ClipMatrixEvent, Matrix, PlaytimeTrackInputProps};
-use playtime_clip_engine::rt::{
-    ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
-};
-use playtime_clip_engine::{clip_timeline, Laziness, Timeline};
 use realearn_api::runtime::InfoEvent;
 use reaper_high::{
     AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, PanExt, Project, Track, Volume,
 };
 use std::collections::HashMap;
+
+#[cfg(feature = "playtime")]
+use playtime_clip_engine::{
+    base::{ClipMatrixEvent, Matrix, PlaytimeTrackInputProps},
+    clip_timeline,
+    rt::{ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent},
+    Laziness, Timeline,
+};
 
 #[derive(Debug)]
 pub struct ProtoHub {
@@ -55,13 +57,9 @@ impl ProtoHub {
         &self.senders
     }
 
-    pub fn create_service<P: MatrixProvider + Clone>(
-        &self,
-        matrix_provider: P,
-    ) -> HelgoboxServiceServer<HelgoboxServiceImpl<P>> {
+    pub fn create_service(&self) -> HelgoboxServiceServer<HelgoboxServiceImpl> {
         HelgoboxServiceServer::new(HelgoboxServiceImpl::new(
-            matrix_provider.clone(),
-            ProtoRequestHandler::new(matrix_provider),
+            ProtoRequestHandler,
             self.senders.clone(),
         ))
     }
@@ -145,6 +143,7 @@ impl ProtoHub {
         let _ = sender.send(batch_event);
     }
 
+    #[cfg(feature = "playtime")]
     pub fn notify_clip_matrix_changed(
         &self,
         matrix_id: &str,
@@ -172,6 +171,7 @@ impl ProtoHub {
         });
     }
 
+    #[cfg(feature = "playtime")]
     fn send_occasional_matrix_updates_caused_by_matrix(
         &self,
         matrix_id: &str,
@@ -258,6 +258,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_occasional_track_updates_caused_by_matrix(
         &self,
         matrix_id: &str,
@@ -312,6 +313,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_occasional_column_updates(
         &self,
         matrix_id: &str,
@@ -345,6 +347,8 @@ impl ProtoHub {
             let _ = sender.send(batch_event);
         }
     }
+
+    #[cfg(feature = "playtime")]
     fn send_occasional_row_updates(
         &self,
         matrix_id: &str,
@@ -378,6 +382,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_occasional_slot_updates(
         &self,
         matrix_id: &str,
@@ -425,6 +430,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_occasional_clip_updates(
         &self,
         matrix_id: &str,
@@ -471,6 +477,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     pub fn send_occasional_matrix_updates_caused_by_reaper(
         &self,
         matrix_id: &str,
@@ -604,6 +611,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_continuous_slot_updates(&self, matrix_id: &str, events: &[ClipMatrixEvent]) {
         let sender = &self.senders.continuous_slot_update_sender;
         if sender.receiver_count() == 0 {
@@ -635,6 +643,7 @@ impl ProtoHub {
         }
     }
 
+    #[cfg(feature = "playtime")]
     fn send_continuous_matrix_updates(&self, matrix_id: &str, project: Option<Project>) {
         let sender = &self.senders.continuous_matrix_update_sender;
         if sender.receiver_count() == 0 {
@@ -667,6 +676,7 @@ impl ProtoHub {
         let _ = sender.send(batch_event);
     }
 
+    #[cfg(feature = "playtime")]
     fn send_continuous_column_updates(&self, matrix_id: &str, matrix: &Matrix) {
         let sender = &self.senders.continuous_column_update_sender;
         if sender.receiver_count() == 0 {

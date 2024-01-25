@@ -754,7 +754,6 @@ impl SourceModel {
             .unwrap_or_default()
     }
 
-    #[cfg(feature = "playtime")]
     pub fn simple_source(&self) -> Option<playtime_api::runtime::SimpleSource> {
         use playtime_api::runtime::*;
         use MidiSourceType::*;

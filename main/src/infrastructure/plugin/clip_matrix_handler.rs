@@ -8,7 +8,6 @@ use playtime_api::runtime::{
     ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
 };
 
-#[cfg(feature = "playtime")]
 #[derive(Debug)]
 pub struct MatrixHandler {
     instance_id: InstanceId,
@@ -20,7 +19,6 @@ pub struct MatrixHandler {
     main_unit_model: WeakUnitModel,
 }
 
-#[cfg(feature = "playtime")]
 impl MatrixHandler {
     pub fn new(
         instance_id: InstanceId,
@@ -53,7 +51,6 @@ impl MatrixHandler {
     }
 }
 
-#[cfg(feature = "playtime")]
 impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     fn init_recording(&self, command: playtime_clip_engine::base::HandlerInitRecordingCommand) {
         use crate::domain::NormalAudioHookTask;
