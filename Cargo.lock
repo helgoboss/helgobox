@@ -3272,6 +3272,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4654,7 +4663,7 @@ dependencies = [
  "helgoboss-license-processor",
  "helgoboss-midi",
  "indexmap 2.1.0",
- "itertools",
+ "itertools 0.12.0",
  "metrics",
  "nanoid",
  "num 0.4.1",
@@ -4758,7 +4767,7 @@ dependencies = [
  "futures",
  "helgoboss-allocator",
  "indexmap 2.1.0",
- "itertools",
+ "itertools 0.12.0",
  "lexical-sort",
  "nanoid",
  "once_cell",
@@ -4901,7 +4910,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2 1.0.76",
  "quote 1.0.35",
  "syn 1.0.109",
@@ -5300,7 +5309,7 @@ dependencies = [
  "image 0.22.5",
  "include_dir",
  "indexmap 2.1.0",
- "itertools",
+ "itertools 0.12.0",
  "lazycell",
  "libloading 0.8.0",
  "maplit",
@@ -5445,7 +5454,7 @@ dependencies = [
  "enumflags2",
  "futures",
  "helgoboss-midi",
- "itertools",
+ "itertools 0.10.5",
  "num_enum 0.4.3",
  "once_cell",
  "pathdiff",

@@ -48,7 +48,7 @@ helgoboss-license-api = { git = "https://github.com/helgoboss/helgoboss-license-
 scopeguard = "1.1.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 indexmap = "2.1.0"
-itertools = "0.10.5"
+itertools = "0.12.0"
 wildmatch = "2.1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
