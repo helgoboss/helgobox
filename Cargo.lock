@@ -169,6 +169,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "arboard"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2843,7 +2852,7 @@ dependencies = [
 name = "helgoboss-learn"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "derivative",
  "derive_more",
  "helgoboss-midi",
@@ -4399,7 +4408,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a05c0334468e62a4dfbda34b29110aa7d70d58c7fdb2c9857b5874dd9827cc59"
 dependencies = [
- "approx",
+ "approx 0.3.2",
  "num-traits",
  "palette_derive",
  "phf",
@@ -5164,7 +5173,7 @@ name = "realearn"
 version = "2.16.0-pre.8"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "arboard",
  "ascii",
  "askama",
