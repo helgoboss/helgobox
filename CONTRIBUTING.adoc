@@ -224,7 +224,20 @@ On macOS and Linux, an extra step will happen at build time: It will try to use 
 
 Yes, there are tests but there should be more. While ReaLearn's basic building blocks
 https://github.com/helgoboss/helgoboss-learn[helgoboss-learn] and https://github.com/helgoboss/reaper-rs[reaper-rs]
-are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect. There's a growing built-in
+are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect.
+
+=== Unit tests
+
+Unit tests should be executed with a higher stack size because there's one unit test that generates and formats Lua code and this currently overflows the stack in debug builds.
+
+[source,shell]
+----
+RUST_MIN_STACK=104857600 cargo test
+----
+
+=== Integration tests
+
+There's a growing built-in
 integration test, launchable via action `[developer] ReaLearn: Run integration test`. In future, it would be nice to run
 this integration test during continuous integration, just like in _reaper-rs_.
 

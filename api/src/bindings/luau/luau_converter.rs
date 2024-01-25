@@ -194,11 +194,6 @@ struct Delimited<T> {
     value: T,
 }
 
-struct LuauPrimitiveMapping<'a> {
-    enum_ident: LuauIdent<'a>,
-    variant: &'a Variant,
-}
-
 struct LuauType<'a, H> {
     value: &'a Type,
     context: ConvContext<'a, H>,
@@ -258,7 +253,6 @@ struct LuauIdent<'a>(&'a Ident, Case);
 #[derive(Copy, Clone)]
 enum Case {
     Original,
-    LowerCamelCase,
     UpperCamelCase,
     SnakeCase,
 }
@@ -309,10 +303,6 @@ impl<'a> Display for LuauIdent<'a> {
         match self.1 {
             Case::Original => {
                 self.0.fmt(f)?;
-            }
-            Case::LowerCamelCase => {
-                let ident = heck::AsLowerCamelCase(self.0.to_string());
-                ident.fmt(f)?;
             }
             Case::UpperCamelCase => {
                 let ident = heck::AsUpperCamelCase(self.0.to_string());
@@ -987,10 +977,6 @@ fn serde_args(attributes: &[Attribute]) -> impl Iterator<Item = SerdeArgs> + '_ 
 
 fn serde_attributes(attributes: &[Attribute]) -> impl Iterator<Item = &Attribute> {
     attributes_where_ident(attributes, "serde")
-}
-
-fn doc_attributes(attributes: &[Attribute]) -> impl Iterator<Item = &Attribute> {
-    attributes_where_ident(attributes, "doc")
 }
 
 fn attributes_where_ident<'a>(
