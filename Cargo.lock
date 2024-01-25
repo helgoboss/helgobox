@@ -611,7 +611,7 @@ dependencies = [
  "helgoboss-allocator",
  "helgoboss-learn",
  "logos 0.13.0",
- "metrics",
+ "metrics 0.22.0",
  "once_cell",
  "realearn-api",
  "reaper-high",
@@ -3725,13 +3725,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "metrics"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77b9e10a211c839210fd7f99954bda26e5f8e26ec686ad68da6a32df7c80e782"
+dependencies = [
+ "ahash 0.8.3",
+ "portable-atomic",
+]
+
+[[package]]
 name = "metrics-exporter-prometheus"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb2da0a53ecf563b398350e3c1834ad27dd050eb47977472f2e654ccb39ff75f"
 dependencies = [
  "indexmap 1.9.3",
- "metrics",
+ "metrics 0.18.0",
  "metrics-util",
  "parking_lot 0.11.2",
  "quanta",
@@ -3759,7 +3769,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.11.2",
- "metrics",
+ "metrics 0.18.0",
  "num_cpus",
  "parking_lot 0.11.2",
  "quanta",
@@ -4664,7 +4674,7 @@ dependencies = [
  "helgoboss-midi",
  "indexmap 2.1.0",
  "itertools 0.12.0",
- "metrics",
+ "metrics 0.22.0",
  "nanoid",
  "num 0.4.1",
  "num_enum 0.5.4",
@@ -4750,6 +4760,12 @@ dependencies = [
  "opaque-debug",
  "universal-hash",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
 
 [[package]]
 name = "pot"
@@ -5313,7 +5329,7 @@ dependencies = [
  "lazycell",
  "libloading 0.8.0",
  "maplit",
- "metrics",
+ "metrics 0.22.0",
  "metrics-exporter-prometheus",
  "mlua",
  "nanoid",
