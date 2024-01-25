@@ -650,7 +650,7 @@ impl InstanceShell {
                     instance.id(),
                     instance.audio_hook_task_sender.clone(),
                     instance.real_time_instance_task_sender.clone(),
-                    instance.clip_matrix_event_sender.clone(),
+                    instance.playtime.clip_matrix_event_sender.clone(),
                     weak_instance_shell,
                     main_unit_model,
                 );

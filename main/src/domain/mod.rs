@@ -158,3 +158,6 @@ pub use real_time_instance::*;
 
 mod midi_dev_management;
 pub use midi_dev_management::*;
+
+#[cfg(feature = "playtime")]
+mod playtime_util;

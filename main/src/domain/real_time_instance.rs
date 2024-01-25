@@ -10,10 +10,13 @@ const NORMAL_BULK_SIZE: usize = 100;
 pub struct RealTimeInstance {
     task_receiver: crossbeam_channel::Receiver<RealTimeInstanceTask>,
     #[cfg(feature = "playtime")]
+    playtime: PlaytimeRtInstance,
+}
+
+#[cfg(feature = "playtime")]
+#[derive(Debug)]
+struct PlaytimeRtInstance {
     clip_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
-    #[cfg(feature = "playtime")]
-    clip_matrix_is_owned: bool,
-    #[cfg(feature = "playtime")]
     clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook,
 }
 
@@ -21,7 +24,6 @@ pub struct RealTimeInstance {
 pub enum RealTimeInstanceTask {
     #[cfg(feature = "playtime")]
     SetClipMatrix {
-        is_owned: bool,
         matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     },
     #[cfg(feature = "playtime")]
@@ -33,17 +35,16 @@ impl RealTimeInstance {
         Self {
             task_receiver,
             #[cfg(feature = "playtime")]
-            clip_matrix: None,
-            #[cfg(feature = "playtime")]
-            clip_matrix_is_owned: false,
-            #[cfg(feature = "playtime")]
-            clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook::new(),
+            playtime: PlaytimeRtInstance {
+                clip_matrix: None,
+                clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook::new(),
+            },
         }
     }
 
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::rt::WeakRtMatrix> {
-        self.clip_matrix.as_ref()
+        self.playtime.clip_matrix.as_ref()
     }
 
     pub fn poll(&mut self, block_props: AudioBlockProps) {
@@ -53,24 +54,21 @@ impl RealTimeInstance {
         }
         #[cfg(feature = "playtime")]
         {
-            // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
-            // clip matrix as well, it would be polled more than once, which is unnecessary.
-            if self.clip_matrix_is_owned {
-                if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
-                    clip_matrix.lock().poll(block_props.to_playtime());
-                }
+            if let Some(clip_matrix) = self.playtime.clip_matrix.as_ref().and_then(|m| m.upgrade())
+            {
+                clip_matrix.lock().poll(block_props.to_playtime());
             }
         }
         for task in self.task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             match task {
                 #[cfg(feature = "playtime")]
-                RealTimeInstanceTask::SetClipMatrix { is_owned, matrix } => {
-                    self.clip_matrix_is_owned = is_owned;
-                    self.clip_matrix = matrix;
+                RealTimeInstanceTask::SetClipMatrix { matrix } => {
+                    self.playtime.clip_matrix = matrix;
                 }
                 #[cfg(feature = "playtime")]
                 RealTimeInstanceTask::PlaytimeClipEngineCommand(command) => {
                     let _ = self
+                        .playtime
                         .clip_engine_fx_hook
                         .process_command(command, block_props.to_playtime());
                 }
@@ -84,7 +82,8 @@ impl RealTimeInstance {
         block_props: AudioBlockProps,
     ) {
         let inputs = VstChannelInputs(buffer.split().0);
-        self.clip_engine_fx_hook
+        self.playtime
+            .clip_engine_fx_hook
             .poll(&inputs, block_props.to_playtime());
     }
 }

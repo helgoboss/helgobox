@@ -78,16 +78,18 @@ mod playtime_impl {
     };
     use playtime_api::persistence::SlotAddress;
 
+    use crate::domain::playtime_util::interpret_current_clip_slot_value;
     use crate::domain::{
-        interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompoundChangeEvent,
-        ControlContext, FeedbackResolution, HitResponse, MappingControlContext,
-        PlaytimeSlotSeekTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
+        AdditionalFeedbackEvent, Backbone, CompoundChangeEvent, ControlContext, FeedbackResolution,
+        HitResponse, MappingControlContext, PlaytimeSlotSeekTarget, RealearnTarget,
+        ReaperTargetType, TargetCharacter,
     };
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
         rt::supplier::audio::GlobalBlockProvider,
         rt::{ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent},
     };
+
     impl RealearnTarget for PlaytimeSlotSeekTarget {
         fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
             (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)

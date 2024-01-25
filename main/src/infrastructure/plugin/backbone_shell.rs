@@ -2613,22 +2613,15 @@ async fn maybe_create_controller_for_device_internal(
     let main_preset_manager = BackboneShell::get().main_preset_manager().borrow();
     let conditions = MainPresetSelectionConditions {
         at_least_one_instance_has_playtime_clip_matrix: {
-            #[cfg(feature = "playtime")]
-            {
-                BackboneShell::get()
-                    .find_first_helgobox_instance_matching(|info| {
-                        let Some(instance) = info.instance.upgrade() else {
-                            return false;
-                        };
-                        let instance_state = instance.borrow();
-                        instance_state.clip_matrix().is_some()
-                    })
-                    .is_some()
-            }
-            #[cfg(not(feature = "playtime"))]
-            {
-                false
-            }
+            BackboneShell::get()
+                .find_first_helgobox_instance_matching(|info| {
+                    let Some(instance) = info.instance.upgrade() else {
+                        return false;
+                    };
+                    let instance_state = instance.borrow();
+                    instance_state.has_clip_matrix()
+                })
+                .is_some()
         },
     };
     let main_preset = main_preset_manager.find_most_suitable_main_preset_for_schemes(

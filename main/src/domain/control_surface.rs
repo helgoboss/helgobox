@@ -39,8 +39,6 @@ type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const INSTANCE_EVENT_BULK_SIZE: usize = 30;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
-#[cfg(feature = "playtime")]
-const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
 
@@ -56,7 +54,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     instance_event_receiver: Receiver<QualifiedInstanceEvent>,
     #[cfg(feature = "playtime")]
-    clip_matrix_event_receiver: Receiver<crate::domain::QualifiedClipMatrixEvent>,
+    playtime: PlaytimeMiddleware,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<UnitOrchestrationEvent>,
     main_task_middleware: MainTaskMiddleware,
@@ -73,6 +71,12 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
     last_undesired_allocation_count: u32,
     event_handler: Box<dyn ControlSurfaceEventHandler>,
+}
+
+#[cfg(feature = "playtime")]
+#[derive(Debug)]
+struct PlaytimeMiddleware {
+    clip_matrix_event_receiver: Receiver<crate::domain::QualifiedClipMatrixEvent>,
 }
 
 pub trait ControlSurfaceEventHandler: Debug {
@@ -226,7 +230,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_task_receiver,
             instance_event_receiver,
             #[cfg(feature = "playtime")]
-            clip_matrix_event_receiver,
+            playtime: PlaytimeMiddleware {
+                clip_matrix_event_receiver,
+            },
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
             main_task_middleware: Global::get().create_task_support_middleware(logger.clone()),
@@ -505,11 +511,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     #[cfg(feature = "playtime")]
     fn process_incoming_clip_matrix_events(&mut self) {
-        for event in self
-            .clip_matrix_event_receiver
-            .try_iter()
-            .take(CLIP_MATRIX_EVENT_BULK_SIZE)
-        {
+        for event in self.playtime.clip_matrix_event_receiver.try_iter().take(30) {
             for i in self.instances() {
                 i.borrow().process_non_polled_clip_matrix_event(&event);
             }
