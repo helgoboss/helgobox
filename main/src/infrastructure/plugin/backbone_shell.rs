@@ -178,7 +178,8 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     proto_hub: crate::infrastructure::proto::ProtoHub,
-    shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
+    /// We need to keep this panel in memory in order to be informed when it's destroyed.
+    _shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
     audio_block_counter: Arc<AtomicU32>,
 }
 
@@ -453,7 +454,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
-            shutdown_detection_panel,
+            _shutdown_detection_panel: shutdown_detection_panel,
             audio_block_counter,
         }
     }
@@ -563,14 +564,10 @@ impl BackboneShell {
     /// This should be called early in the REAPER shutdown procedure. At the moment, we call it when a hidden window
     /// is destroyed.
     pub fn shutdown(&self) {
-        let result = self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             let middleware = control_surface.middleware_mut();
             middleware.shutdown();
         });
-        if result.is_err() {
-            // Backbone was not awake (no instance loaded)
-            return;
-        }
         // It's important to wait a bit otherwise we risk the MIDI is not being sent.
         // We wait for 3 audio blocks, a maximum of 100 milliseconds. Justin's recommendation.
         let initial_block_count = self.audio_block_count();
@@ -893,35 +890,37 @@ impl BackboneShell {
     fn temporarily_reclaim_control_surface_ownership(
         &self,
         f: impl FnOnce(&mut RealearnControlSurface),
-    ) -> anyhow::Result<()> {
-        // Shortly reclaim ownership of the control surface by unregistering it.
-        let prev_state = self.state.replace(AppState::Suspended);
-        let awake_state = if let AppState::Awake(s) = prev_state {
-            s
-        } else {
-            bail!("App was not awake when trying to suspend");
+    ) {
+        let next_state = match self.state.replace(AppState::Suspended) {
+            AppState::Sleeping(mut s) => {
+                f(&mut s.control_surface);
+                AppState::Sleeping(s)
+            }
+            AppState::Awake(s) => {
+                let mut session = Reaper::get().medium_session();
+                let mut control_surface = unsafe {
+                    session
+                        .plugin_register_remove_csurf_inst(s.control_surface_handle)
+                        .expect("control surface was not registered")
+                };
+                // Execute necessary operations
+                f(&mut control_surface);
+                // Give it back to REAPER.
+                let control_surface_handle = session
+                    .plugin_register_add_csurf_inst(control_surface)
+                    .expect("couldn't reregister ReaLearn control surface");
+                let awake_state = AwakeState {
+                    control_surface_handle,
+                    audio_hook_handle: s.audio_hook_handle,
+                    accelerator_handle: s.accelerator_handle,
+                    async_deallocation_thread: s.async_deallocation_thread,
+                    async_runtime: s.async_runtime,
+                };
+                AppState::Awake(awake_state)
+            }
+            _ => panic!("Backbone was neither in sleeping nor in awake state"),
         };
-        let mut session = Reaper::get().medium_session();
-        let mut control_surface = unsafe {
-            session
-                .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
-                .context("control surface was not registered")?
-        };
-        // Execute necessary operations
-        f(&mut control_surface);
-        // Give it back to REAPER.
-        let control_surface_handle = session
-            .plugin_register_add_csurf_inst(control_surface)
-            .expect("couldn't reregister ReaLearn control surface");
-        let awake_state = AwakeState {
-            control_surface_handle,
-            audio_hook_handle: awake_state.audio_hook_handle,
-            accelerator_handle: awake_state.accelerator_handle,
-            async_deallocation_thread: awake_state.async_deallocation_thread,
-            async_runtime: awake_state.async_runtime,
-        };
-        self.state.replace(AppState::Awake(awake_state));
-        Ok(())
+        self.state.replace(next_state);
     }
 
     /// Spawns the given future on the ReaLearn async runtime.
@@ -1234,6 +1233,7 @@ impl BackboneShell {
         Backbone::get().with_clip_matrix_mut(&instance, f)
     }
 
+    #[allow(unused)]
     pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
         let instance_shell = self
             .find_instance_shell_by_instance_id_str(clip_matrix_id)
@@ -2435,7 +2435,7 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
     fn midi_input_devices_changed(
         &self,
         _diff: &DeviceDiff<MidiInputDeviceId>,
-        device_config_changed: bool,
+        _device_config_changed: bool,
     ) {
         BackboneShell::get()
             .proto_hub()
@@ -2446,7 +2446,7 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
     fn midi_output_devices_changed(
         &self,
         diff: &DeviceDiff<MidiOutputDeviceId>,
-        device_config_changed: bool,
+        _device_config_changed: bool,
     ) {
         BackboneShell::get()
             .proto_hub()

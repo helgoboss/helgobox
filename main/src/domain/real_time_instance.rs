@@ -47,6 +47,10 @@ impl RealTimeInstance {
     }
 
     pub fn poll(&mut self, block_props: AudioBlockProps) {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = block_props;
+        }
         #[cfg(feature = "playtime")]
         {
             // Poll if this is the clip matrix of this instance. If we would do polling for a foreign

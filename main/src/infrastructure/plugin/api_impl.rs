@@ -70,7 +70,7 @@ fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
     let instance_shell = BackboneShell::get()
         .find_instance_shell_by_instance_id(instance_id)
         .context("instance not found")?;
-    instance_shell.insert_owned_clip_matrix_if_necessary();
+    instance_shell.insert_owned_clip_matrix_if_necessary()?;
     Ok(())
 }
 

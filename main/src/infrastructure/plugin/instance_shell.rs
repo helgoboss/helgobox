@@ -1,7 +1,7 @@
 use crate::application::{AutoUnitData, SharedUnitModel};
 use crate::domain::{
-    AudioBlockProps, ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId,
-    MidiEvent, ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
+    ControlEvent, IncomingMidiMessage, Instance, InstanceHandler, InstanceId, MidiEvent,
+    ProcessorContext, SharedInstance, SharedRealTimeInstance, UnitId,
 };
 use crate::infrastructure::data::{InstanceData, InstanceOrUnitData, UnitData};
 use crate::infrastructure::plugin::unit_shell::UnitShell;
@@ -9,10 +9,7 @@ use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
-use base::{
-    blocking_read_lock, blocking_write_lock, non_blocking_lock, non_blocking_try_read_lock,
-    tracing_debug,
-};
+use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::{instance_features, InstanceSettings};
@@ -65,6 +62,7 @@ impl Drop for InstanceShell {
 
 #[derive(Debug)]
 struct CustomInstanceHandler {
+    #[allow(unused)]
     project: Option<Project>,
 }
 
@@ -573,9 +571,10 @@ impl InstanceShell {
     pub fn run_playtime_from_plugin(
         &self,
         buffer: &mut vst::buffer::AudioBuffer<f64>,
-        block_props: AudioBlockProps,
+        block_props: crate::domain::AudioBlockProps,
     ) {
-        non_blocking_lock(&*self.rt_instance, "RealTimeInstance").run_from_vst(buffer, block_props);
+        base::non_blocking_lock(&*self.rt_instance, "RealTimeInstance")
+            .run_from_vst(buffer, block_props);
     }
 
     /// Informs all units about a sample rate change.
@@ -590,6 +589,7 @@ impl InstanceShell {
         }
     }
 
+    /// Fails if Playtime feature is not available.
     pub fn insert_owned_clip_matrix_if_necessary(self: SharedInstanceShell) -> anyhow::Result<()> {
         #[cfg(not(feature = "playtime"))]
         {
@@ -616,6 +616,7 @@ impl InstanceShell {
     ) -> anyhow::Result<()> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = matrix;
             bail!("Playtime feature not enabled");
         }
         #[cfg(feature = "playtime")]

@@ -2,18 +2,20 @@ mod generated;
 pub use generated::*;
 
 mod ext;
-pub use ext::*;
 
 #[cfg(feature = "playtime")]
 mod playtime_ext;
-#[cfg(feature = "playtime")]
-pub use playtime_ext::*;
 
 mod service_impl;
 pub use service_impl::*;
 
 mod request_handler;
 pub use request_handler::*;
+
+#[cfg(feature = "playtime")]
+mod playtime_request_handler;
+#[cfg(feature = "playtime")]
+pub use playtime_request_handler::*;
 
 mod hub;
 pub use hub::*;

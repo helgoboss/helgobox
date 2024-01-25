@@ -1,13 +1,14 @@
 use crate::infrastructure::plugin::BackboneShell;
+#[cfg(not(feature = "playtime"))]
+use crate::infrastructure::proto::playtime_not_available_status;
 use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, helgobox_service_server,
-    playtime_not_available_status, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
-    DragRowRequest, DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest,
-    GetClipDetailReply, GetClipDetailRequest, GetContinuousColumnUpdatesReply,
-    GetContinuousColumnUpdatesRequest, GetContinuousMatrixUpdatesReply,
-    GetContinuousMatrixUpdatesRequest, GetContinuousSlotUpdatesReply,
-    GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
+    DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest,
+    Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
     GetOccasionalColumnUpdatesRequest, GetOccasionalGlobalUpdatesReply,
     GetOccasionalGlobalUpdatesRequest, GetOccasionalInstanceUpdatesReply,
@@ -107,6 +108,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalSlotUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -139,6 +141,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalColumnUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -160,6 +163,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalRowUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -184,6 +188,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalClipUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -219,6 +224,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetContinuousSlotUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -240,24 +246,17 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         &self,
         _request: Request<GetOccasionalGlobalUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalGlobalUpdatesStream>, Status> {
-        #[cfg(not(feature = "playtime"))]
-        {
-            Err(playtime_not_available_status())
-        }
-        #[cfg(feature = "playtime")]
-        {
-            let initial_updates = create_initial_global_updates();
-            let receiver = self.senders.occasional_global_update_sender.subscribe();
-            stream(
-                receiver,
-                |global_updates| GetOccasionalGlobalUpdatesReply { global_updates },
-                |_| true,
-                Some(GetOccasionalGlobalUpdatesReply {
-                    global_updates: initial_updates,
-                })
-                .into_iter(),
-            )
-        }
+        let initial_updates = create_initial_global_updates();
+        let receiver = self.senders.occasional_global_update_sender.subscribe();
+        stream(
+            receiver,
+            |global_updates| GetOccasionalGlobalUpdatesReply { global_updates },
+            |_| true,
+            Some(GetOccasionalGlobalUpdatesReply {
+                global_updates: initial_updates,
+            })
+            .into_iter(),
+        )
     }
 
     type GetOccasionalMatrixUpdatesStream =
@@ -269,6 +268,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalMatrixUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]
@@ -325,6 +325,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalTrackUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]

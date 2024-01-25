@@ -1,9 +1,9 @@
 use anyhow::{bail, Context};
 use darling::FromMeta;
 use std::fmt::{Display, Formatter, Write};
-use std::iter::Map;
+
 use std::{fmt, iter};
-use syn::punctuated::Iter;
+
 use syn::{
     Attribute, Expr, ExprLit, Field, Fields, FieldsNamed, File, GenericArgument, GenericParam,
     Generics, Ident, Item, ItemEnum, ItemStruct, Lit, Meta, MetaNameValue, PathArguments, Type,
@@ -217,7 +217,7 @@ impl<'a> LuauDoc<'a> {
 
 impl<'a> Display for LuauDoc<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for (i, attr) in attributes_where_ident(self.attributes, "doc").enumerate() {
+        for (_i, attr) in attributes_where_ident(self.attributes, "doc").enumerate() {
             let doc_line = match &attr.meta {
                 Meta::NameValue(MetaNameValue {
                     value:

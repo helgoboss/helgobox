@@ -1,11 +1,8 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_to_discrete_value, CompartmentKind,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
-use playtime_api::persistence::SlotAddress;
+
 use realearn_api::persistence::Axis;
 
 #[derive(Debug)]
@@ -39,12 +36,8 @@ pub const PLAYTIME_CONTROL_UNIT_SCROLL_TARGET: TargetTypeDef = TargetTypeDef {
 
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
-    use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, PlaytimeControlUnitScrollTarget,
-        PlaytimeSlotTransportTarget, RealTimeClipColumnTarget, RealTimeControlContext,
-        RealTimeSlotTransportTarget, RealearnTarget,
-    };
-    use helgoboss_learn::{ControlValue, Target};
+    use crate::domain::{ControlContext, PlaytimeControlUnitScrollTarget, RealearnTarget};
+    use helgoboss_learn::Target;
 
     impl RealearnTarget for PlaytimeControlUnitScrollTarget {}
     impl<'a> Target<'a> for PlaytimeControlUnitScrollTarget {
@@ -55,11 +48,9 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        convert_count_to_step_size, convert_unit_to_discrete_value, CompartmentKind,
-        CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-        MappingControlContext, PlaytimeControlUnitScrollTarget, RealearnTarget, ReaperTarget,
-        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnitEvent,
-        UnresolvedReaperTargetDef, DEFAULT_TARGET,
+        convert_count_to_step_size, convert_unit_to_discrete_value, CompoundChangeEvent,
+        ControlContext, HitResponse, MappingControlContext, PlaytimeControlUnitScrollTarget,
+        RealearnTarget, ReaperTargetType, TargetCharacter, UnitEvent,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
     use playtime_api::persistence::SlotAddress;

@@ -9,7 +9,7 @@ use crate::infrastructure::ui::Item;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use reaper_high::{FxChainContext, Reaper};
-use std::collections::HashMap;
+
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu};
@@ -410,16 +410,6 @@ fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
 
 pub const NONE: &str = "<None>";
 pub const THIS: &str = "<This>";
-
-/// Interprets the item payloads as REAPER command names and uses them to lookup the corresponding REAPER command
-/// IDs.
-///
-/// This is useful for top-level menus.
-pub fn assign_command_ids(menu: &mut Menu<&'static str>) {
-    for e in &mut menu.entries {
-        assign_command_ids_recursively(e);
-    }
-}
 
 /// Interprets the item payloads as REAPER command names and uses them to lookup the corresponding REAPER command
 /// IDs.

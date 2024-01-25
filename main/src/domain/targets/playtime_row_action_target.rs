@@ -1,11 +1,8 @@
 use crate::domain::{
-    Backbone, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualPlaytimeRow, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use playtime_api::persistence::RowAddress;
+
 use realearn_api::persistence::ClipRowAction;
 
 #[derive(Debug)]
@@ -63,9 +60,8 @@ pub const PLAYTIME_ROW_TARGET: TargetTypeDef = TargetTypeDef {
 mod no_playtime_impl {
 
     use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, PlaytimeRowActionTarget,
-        PlaytimeSlotTransportTarget, RealTimeClipColumnTarget, RealTimeClipRowTarget,
-        RealTimeControlContext, RealTimeSlotTransportTarget, RealearnTarget,
+        ControlContext, PlaytimeRowActionTarget, RealTimeClipRowTarget, RealTimeControlContext,
+        RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -79,8 +75,8 @@ mod no_playtime_impl {
     impl RealTimeClipRowTarget {
         pub fn hit(
             &mut self,
-            value: ControlValue,
-            context: RealTimeControlContext,
+            _value: ControlValue,
+            _context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             Err("Playtime not available")
         }
@@ -90,11 +86,9 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        Backbone, CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse,
-        MappingControlContext, PlaytimeRowActionTarget, RealTimeClipRowTarget,
-        RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-        VirtualPlaytimeRow, DEFAULT_TARGET,
+        Backbone, ControlContext, HitResponse, MappingControlContext, PlaytimeRowActionTarget,
+        RealTimeClipRowTarget, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
+        ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
     use playtime_api::persistence::RowAddress;

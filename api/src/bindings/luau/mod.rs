@@ -1,6 +1,6 @@
 use crate::bindings::luau::luau_converter::Hook;
 use std::path::PathBuf;
-use std::{fs, io};
+use std::{fs};
 use stylua_lib::OutputVerification;
 
 mod luau_converter;

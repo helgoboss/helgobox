@@ -2,7 +2,7 @@ use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 
 use crate::base::notification;
 use crate::base::notification::{
-    notify_user_about_anyhow_error, warn_user_about_anyhow_error, warn_user_on_anyhow_error,
+    warn_user_about_anyhow_error, warn_user_on_anyhow_error,
 };
 use crate::domain::{
     CompartmentKind, FsDirLuaModuleFinder, IncludedDirLuaModuleFinder, LuaModuleContainer,
@@ -32,7 +32,7 @@ use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
-use std::time::Duration;
+
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
@@ -430,7 +430,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     .common
                     .origin
                 {
-                    PresetOrigin::User { absolute_file_path } => {
+                    PresetOrigin::User { absolute_file_path: _ } => {
                         let relative_path = Path::new(&preset_info.common.id);
                         let mut components = relative_path.components();
                         let first_component = components

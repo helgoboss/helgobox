@@ -27,7 +27,7 @@ use crate::domain::{
     TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
     TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
-use base::{non_blocking_lock, SenderToNormalThread, SenderToRealTimeThread};
+use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
@@ -58,7 +58,7 @@ pub trait RealearnTarget {
 
     fn control_type_and_character(
         &self,
-        context: ControlContext,
+        _context: ControlContext,
     ) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
@@ -231,7 +231,7 @@ pub trait RealearnTarget {
     }
 
     /// Used for target "Global: Last touched" and queryable as target prop.
-    fn is_available(&self, context: ControlContext) -> bool {
+    fn is_available(&self, _context: ControlContext) -> bool {
         true
     }
 
@@ -447,7 +447,7 @@ impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
         let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
-        let result = non_blocking_lock(&*instance, "real-time instance")
+        let result = base::non_blocking_lock(&*instance, "real-time instance")
             .clip_matrix()
             .ok_or("real-time clip matrix not yet initialized")?
             .upgrade()

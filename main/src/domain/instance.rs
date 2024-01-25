@@ -26,6 +26,7 @@ pub struct Instance {
     processor_context: ProcessorContext,
     feedback_event_sender: SenderToNormalThread<QualifiedInstanceEvent>,
     main_unit_id: UnitId,
+    #[allow(unused)]
     handler: Box<dyn InstanceHandler>,
     /// Saves the current state for Pot preset navigation.
     ///
@@ -233,6 +234,10 @@ impl Instance {
     }
 
     pub fn notify_mappings_in_unit_changed(&self, unit_id: UnitId) {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = unit_id;
+        }
         #[cfg(feature = "playtime")]
         if unit_id == self.main_unit_id {
             if let Some(matrix) = self.clip_matrix() {
@@ -242,6 +247,10 @@ impl Instance {
     }
 
     pub fn notify_learning_target_in_unit_changed(&self, unit_id: UnitId) {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = unit_id;
+        }
         #[cfg(feature = "playtime")]
         if unit_id == self.main_unit_id {
             if let Some(matrix) = self.clip_matrix() {

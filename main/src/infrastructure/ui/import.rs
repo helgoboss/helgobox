@@ -408,6 +408,6 @@ fn execute_lua_import_script<'a>(
     // subdirectory within the preset directory that has the name as the logged-in user's name.
     let preset_dir = BackboneShell::realearn_compartment_preset_dir_path(active_compartment);
     let module_finder = FsDirLuaModuleFinder::new(preset_dir.join(whoami::username()));
-    let mut module_container = LuaModuleContainer::new(Ok(module_finder));
+    let module_container = LuaModuleContainer::new(Ok(module_finder));
     module_container.execute_as_module(lua.as_ref(), "Import", code)
 }

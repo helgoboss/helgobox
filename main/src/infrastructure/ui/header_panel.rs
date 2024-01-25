@@ -2061,6 +2061,7 @@ impl HeaderPanel {
             Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
                 #[cfg(not(feature = "playtime"))]
                 {
+                    let _ = value;
                     bail!("Playtime not available");
                 }
                 #[cfg(feature = "playtime")]
@@ -2239,6 +2240,10 @@ impl HeaderPanel {
                 copy_text_to_clipboard(json);
             }
             MenuAction::ExportClipMatrix(format) => {
+                #[cfg(not(feature = "playtime"))]
+                {
+                    let _ = format;
+                }
                 #[cfg(feature = "playtime")]
                 {
                     let matrix = self
@@ -3090,8 +3095,10 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
 
 const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";
 
+#[cfg(feature = "playtime")]
 const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
 
+#[cfg(feature = "playtime")]
 fn get_clip_matrix_label(column_count: usize) -> String {
     format!("clip matrix with {column_count} columns")
 }

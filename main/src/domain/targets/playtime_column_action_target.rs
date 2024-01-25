@@ -1,10 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
 };
-use helgoboss_learn::Target;
+
 use realearn_api::persistence::ClipColumnAction;
 
 pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
@@ -70,8 +68,8 @@ mod no_playtime_impl {
     impl RealTimeClipColumnTarget {
         pub fn hit(
             &mut self,
-            value: ControlValue,
-            context: RealTimeControlContext,
+            _value: ControlValue,
+            _context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             Err("Playtime not available")
         }

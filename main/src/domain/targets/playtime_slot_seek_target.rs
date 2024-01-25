@@ -1,14 +1,8 @@
-use reaper_medium::PositionInSeconds;
-use std::borrow::Cow;
-
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_api::persistence::SlotAddress;
 
 use crate::domain::{
-    interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompartmentKind,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
+    CompartmentKind, ExtendedProcessorContext, FeedbackResolution, ReaperTarget, TargetSection,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 
 #[derive(Debug)]
@@ -65,12 +59,8 @@ pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
 
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
-    use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, PlaytimeSlotSeekTarget,
-        PlaytimeSlotTransportTarget, RealTimeClipColumnTarget, RealTimeControlContext,
-        RealTimeSlotTransportTarget, RealearnTarget,
-    };
-    use helgoboss_learn::{ControlValue, Target};
+    use crate::domain::{ControlContext, PlaytimeSlotSeekTarget, RealearnTarget};
+    use helgoboss_learn::Target;
 
     impl RealearnTarget for PlaytimeSlotSeekTarget {}
     impl<'a> Target<'a> for PlaytimeSlotSeekTarget {
@@ -89,11 +79,9 @@ mod playtime_impl {
     use playtime_api::persistence::SlotAddress;
 
     use crate::domain::{
-        interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompartmentKind,
-        CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-        HitResponse, MappingControlContext, PlaytimeSlotSeekTarget, RealearnTarget, ReaperTarget,
-        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-        VirtualPlaytimeSlot, DEFAULT_TARGET,
+        interpret_current_clip_slot_value, AdditionalFeedbackEvent, Backbone, CompoundChangeEvent,
+        ControlContext, FeedbackResolution, HitResponse, MappingControlContext,
+        PlaytimeSlotSeekTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
     };
     use playtime_clip_engine::{
         base::ClipMatrixEvent,

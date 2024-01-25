@@ -1,11 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, interpret_current_clip_slot_value, transport_is_enabled_unit_value,
-    Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
-use helgoboss_learn::{ControlType, Target};
 use playtime_api::persistence::SlotAddress;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::ClipTransportAction;
@@ -81,30 +77,11 @@ pub const PLAYTIME_SLOT_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     ..DEFAULT_TARGET
 };
 
-fn control_type_and_character(action: ClipTransportAction) -> (ControlType, TargetCharacter) {
-    use ClipTransportAction::*;
-    match action {
-        Trigger => (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Trigger,
-        ),
-        // Retriggerable because we want to be able to retrigger play!
-        PlayStop | PlayPause | RecordPlayStop => (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Switch,
-        ),
-        Stop | Pause | RecordStop | Looped => {
-            (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
-        }
-    }
-}
-
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
     use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, PlaytimeSlotTransportTarget,
-        RealTimeClipColumnTarget, RealTimeControlContext, RealTimeSlotTransportTarget,
-        RealearnTarget,
+        ControlContext, PlaytimeSlotTransportTarget, RealTimeControlContext,
+        RealTimeSlotTransportTarget, RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -118,8 +95,8 @@ mod no_playtime_impl {
     impl RealTimeSlotTransportTarget {
         pub fn hit(
             &mut self,
-            value: ControlValue,
-            context: RealTimeControlContext,
+            _value: ControlValue,
+            _context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             Err("Playtime not available")
         }
@@ -128,20 +105,17 @@ mod no_playtime_impl {
 
 #[cfg(feature = "playtime")]
 mod playtime_impl {
-    use crate::domain::targets::playtime_slot_transport_target::control_type_and_character;
     use crate::domain::{
         clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
-        transport_is_enabled_unit_value, Backbone, ClipTransportTargetBasics, CompartmentKind,
-        CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
-        MappingControlContext, PlaytimeSlotTransportTarget, RealTimeControlContext,
-        RealTimeReaperTarget, RealTimeSlotTransportTarget, RealearnTarget, ReaperTarget,
-        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-        VirtualPlaytimeSlot, DEFAULT_TARGET,
+        transport_is_enabled_unit_value, Backbone, ClipTransportTargetBasics, CompoundChangeEvent,
+        ControlContext, HitResponse, MappingControlContext, PlaytimeSlotTransportTarget,
+        RealTimeControlContext, RealTimeReaperTarget, RealTimeSlotTransportTarget, RealearnTarget,
+        ReaperTargetType, TargetCharacter,
     };
     use anyhow::bail;
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
     use playtime_api::persistence::SlotAddress;
-    use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
+
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
@@ -545,4 +519,22 @@ mod playtime_impl {
         }
     }
     const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
+
+    fn control_type_and_character(action: ClipTransportAction) -> (ControlType, TargetCharacter) {
+        use ClipTransportAction::*;
+        match action {
+            Trigger => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Trigger,
+            ),
+            // Retriggerable because we want to be able to retrigger play!
+            PlayStop | PlayPause | RecordPlayStop => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Switch,
+            ),
+            Stop | Pause | RecordStop | Looped => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
+        }
+    }
 }

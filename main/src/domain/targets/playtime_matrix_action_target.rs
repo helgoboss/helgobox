@@ -1,10 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, HitResponse, MappingControlContext, RealTimeControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::Target;
+
 use realearn_api::persistence::ClipMatrixAction;
 
 #[derive(Debug)]
@@ -47,9 +45,8 @@ pub const PLAYTIME_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
     use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, PlaytimeMatrixActionTarget,
-        PlaytimeSlotTransportTarget, RealTimeClipColumnTarget, RealTimeClipMatrixTarget,
-        RealTimeControlContext, RealTimeSlotTransportTarget, RealearnTarget,
+        ControlContext, PlaytimeMatrixActionTarget, RealTimeClipMatrixTarget,
+        RealTimeControlContext, RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -63,8 +60,8 @@ mod no_playtime_impl {
     impl RealTimeClipMatrixTarget {
         pub fn hit(
             &mut self,
-            value: ControlValue,
-            context: RealTimeControlContext,
+            _value: ControlValue,
+            _context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             Err("Playtime not available")
         }
@@ -74,20 +71,18 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        format_value_as_on_off, interpret_current_clip_slot_value, transport_is_enabled_unit_value,
-        Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-        HitResponse, MappingControlContext, PlaytimeMatrixActionTarget, RealTimeClipMatrixTarget,
-        RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-        ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-        VirtualPlaytimeSlot, DEFAULT_TARGET,
+        format_value_as_on_off, Backbone, CompoundChangeEvent, ControlContext, HitResponse,
+        MappingControlContext, PlaytimeMatrixActionTarget, RealTimeClipMatrixTarget,
+        RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
+        TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-    use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-    use playtime_api::persistence::{EvenQuantization, RecordLength, SlotAddress};
+
+    use playtime_api::persistence::{EvenQuantization, RecordLength};
     use playtime_clip_engine::base::{ClipMatrixEvent, Matrix};
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-    use realearn_api::persistence::{ClipMatrixAction, ClipTransportAction};
-    use reaper_high::Project;
+    use realearn_api::persistence::ClipMatrixAction;
+
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {

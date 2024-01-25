@@ -1,34 +1,28 @@
-use helgoboss_midi::Channel;
-use playtime_api::runtime::ControlUnitConfig;
-use reaper_high::{Project, Reaper};
+
+
+use reaper_high::{Reaper};
 use reaper_medium::{
-    Bpm, Db, MidiInputDeviceId, PlayState, ReaperPanValue, ReaperString, RecordingInput, RgbColor,
+    ReaperString,
 };
-use std::num::NonZeroU32;
+
 
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
-use crate::infrastructure::proto::track_input::Input;
+
 use crate::infrastructure::proto::{
-    clip_content_info, event_reply, generated, occasional_global_update,
-    occasional_instance_update, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_clip_update, qualified_occasional_column_update,
-    qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
-    AudioClipContentInfo, AudioInputChannel, AudioInputChannels, ClipAddress, ClipContentInfo,
-    ContinuousClipUpdate, ContinuousColumnUpdate, ContinuousMatrixUpdate, ContinuousSlotUpdate,
+    event_reply, occasional_global_update,
+    occasional_instance_update, AudioInputChannel, AudioInputChannels, ContinuousColumnUpdate, ContinuousMatrixUpdate,
     GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
     GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply, HistoryState, LearnState, MidiClipContentInfo,
+    GetOccasionalTrackUpdatesReply,
     MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices,
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
     QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput,
-    TrackInputMonitoring, TrackList, TrackMidiInput,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use realearn_api::runtime::{ControllerPreset, MainPreset};
 

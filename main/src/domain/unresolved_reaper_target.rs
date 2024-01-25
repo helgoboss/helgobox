@@ -910,6 +910,7 @@ impl VirtualPlaytimeRow {
 /// have a clip, which is a valid state and should return *something*. The contract of the target
 /// `current_value()` is that if it returns `None`, it means it can't get a value at the moment,
 /// probably just temporarily. In that case, the feedback is simply not updated.
+#[cfg(feature = "playtime")]
 pub fn interpret_current_clip_slot_value<T: Default>(value: Option<T>) -> Option<T> {
     Some(value.unwrap_or_default())
 }
@@ -1416,6 +1417,7 @@ impl VirtualTrack {
             } => {
                 #[cfg(not(feature = "playtime"))]
                 {
+                    let _ = (column, track_context);
                     vec![]
                 }
                 #[cfg(feature = "playtime")]

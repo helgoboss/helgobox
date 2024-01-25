@@ -79,7 +79,6 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         requires_instance: true,
         ..DEFAULT_DEF
     },
-    #[cfg(feature = "playtime")]
     ActionDef {
         section: ActionSection::Playtime,
         command_name: "HB_SHOW_HIDE_PLAYTIME",

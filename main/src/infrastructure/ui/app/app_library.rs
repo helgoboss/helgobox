@@ -445,6 +445,7 @@ fn process_command(
         GetOccasionalMatrixUpdates(req) => {
             #[cfg(not(feature = "playtime"))]
             {
+                let _ = req;
                 return playtime_not_available();
             }
             #[cfg(feature = "playtime")]
@@ -460,6 +461,7 @@ fn process_command(
         GetOccasionalTrackUpdates(req) => {
             #[cfg(not(feature = "playtime"))]
             {
+                let _ = req;
                 return playtime_not_available();
             }
             #[cfg(feature = "playtime")]
@@ -475,6 +477,7 @@ fn process_command(
         GetOccasionalSlotUpdates(req) => {
             #[cfg(not(feature = "playtime"))]
             {
+                let _ = req;
                 return playtime_not_available();
             }
             #[cfg(feature = "playtime")]
@@ -490,6 +493,7 @@ fn process_command(
         GetOccasionalClipUpdates(req) => {
             #[cfg(not(feature = "playtime"))]
             {
+                let _ = req;
                 return playtime_not_available();
             }
             #[cfg(feature = "playtime")]
@@ -682,6 +686,7 @@ fn to_status(err: anyhow::Error) -> Status {
 /// communicates with it. Keep this up-to-date!
 pub const MIN_APP_API_VERSION: Version = Version::new(1, 0, 0);
 
+#[cfg(not(feature = "playtime"))]
 fn playtime_not_available() -> Result<(), Status> {
     Err(Status::not_found("Playtime feature not available"))
 }
