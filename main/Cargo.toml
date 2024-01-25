@@ -52,6 +52,7 @@ serde_with.workspace = true
 # For panicking when accessing something from the wrong thread
 fragile.workspace = true
 c_str_macro = "1.0.2"
+# For acting as DAW plug-in
 vst = "0.3.0"
 rxrust.workspace = true
 serde.workspace = true
@@ -62,7 +63,7 @@ lazycell.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
-uuid = { version = "0.8.1", features = ["v4", "serde"] }
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
 # Old logging
 slog.workspace = true
 slog-async = "2.5.2"
