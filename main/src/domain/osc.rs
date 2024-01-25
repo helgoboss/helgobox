@@ -166,8 +166,8 @@ impl OscInputDevice {
 
     pub fn poll(&mut self) -> Result<Option<OscPacket>, &'static str> {
         match self.socket.recv(&mut self.osc_buffer) {
-            Ok(num_bytes) => match rosc::decoder::decode(&self.osc_buffer[..num_bytes]) {
-                Ok(packet) => {
+            Ok(num_bytes) => match rosc::decoder::decode_udp(&self.osc_buffer[..num_bytes]) {
+                Ok((_, packet)) => {
                     trace!(
                         self.logger,
                         "Received packet with {} bytes: {:#?}",

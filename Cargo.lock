@@ -5633,11 +5633,12 @@ dependencies = [
 
 [[package]]
 name = "rosc"
-version = "0.5.2"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ca359b640ca8ef191ad8a56dd897fc46a7c733ea7b360085891cc7a70effdc"
+checksum = "b2e63d9e6b0d090be1485cf159b1e04c3973d2d3e1614963544ea2ff47a4a981"
 dependencies = [
  "byteorder",
+ "nom 7.0.0",
 ]
 
 [[package]]
