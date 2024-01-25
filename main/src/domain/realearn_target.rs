@@ -447,12 +447,12 @@ impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
         let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
-        let result = base::non_blocking_lock(&*instance, "real-time instance")
+        let instance = base::non_blocking_lock(&*instance, "real-time instance");
+        instance
             .clip_matrix()
             .ok_or("real-time clip matrix not yet initialized")?
             .upgrade()
-            .ok_or("real-time clip matrix doesn't exist anymore");
-        result
+            .ok_or("real-time clip matrix doesn't exist anymore")
     }
 }
 
@@ -464,7 +464,7 @@ impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTime
 
 impl<'a> ControlContext<'a> {
     pub fn instance(&self) -> &SharedInstance {
-        &self.instance
+        self.instance
     }
 
     pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
@@ -770,11 +770,7 @@ impl ReaperTargetType {
 
     pub fn supports_feedback_resolution(self) -> bool {
         use ReaperTargetType::*;
-        match self {
-            PlaytimeSlotSeek => true,
-            Seek => true,
-            _ => false,
-        }
+        matches!(self, PlaytimeSlotSeek | Seek)
     }
 
     pub fn supports_poll_for_feedback(self) -> bool {

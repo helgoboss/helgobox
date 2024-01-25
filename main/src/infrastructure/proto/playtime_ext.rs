@@ -8,25 +8,21 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents, InternalClipPlayState,
 };
 use playtime_clip_engine::{base, clip_timeline, Timeline};
-use reaper_high::{Project};
+use reaper_high::Project;
 use reaper_medium::{
     Bpm, Db, MidiInputDeviceId, PlayState, ReaperPanValue, RecordingInput, RgbColor,
 };
 use std::num::NonZeroU32;
-
-
 
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
     clip_content_info, generated, occasional_matrix_update, occasional_track_update,
     qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
-    AudioClipContentInfo, ClipAddress, ClipContentInfo,
-    ContinuousClipUpdate, ContinuousSlotUpdate, HistoryState, LearnState, MidiClipContentInfo,
-    SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput,
-    TrackInputMonitoring, TrackList, TrackMidiInput,
+    AudioClipContentInfo, ClipAddress, ClipContentInfo, ContinuousClipUpdate, ContinuousSlotUpdate,
+    HistoryState, LearnState, MidiClipContentInfo, SequencerPlayState, SlotAddress, SlotPlayState,
+    TimeSignature, TrackColor, TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
 };
-
 
 impl occasional_matrix_update::Update {
     pub fn volume(db: Db) -> Self {
@@ -393,7 +389,7 @@ impl TrackInputMonitoring {
         }
     }
 
-    pub fn to_engine(&self) -> Option<ColumnTrackInputMonitoring> {
+    pub fn to_engine(self) -> Option<ColumnTrackInputMonitoring> {
         use ColumnTrackInputMonitoring as T;
         use TrackInputMonitoring::*;
         match self {

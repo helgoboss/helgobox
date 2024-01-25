@@ -53,7 +53,7 @@ impl InstanceParameterContainer {
             notification::notify_user_on_anyhow_error(instance_shell.clone().load(&data));
         }
         let lazy_data = LazyData {
-            instance_shell: Arc::downgrade(&instance_shell),
+            instance_shell: Arc::downgrade(instance_shell),
             main_unit_parameter_manager,
         };
         self.lazy_data.set(lazy_data).unwrap();

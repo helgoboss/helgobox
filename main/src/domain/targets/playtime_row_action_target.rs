@@ -149,7 +149,7 @@ mod playtime_impl {
             context: ControlContext,
             f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
         ) -> anyhow::Result<R> {
-            Backbone::get().with_clip_matrix_mut(&context.instance(), f)
+            Backbone::get().with_clip_matrix_mut(context.instance(), f)
         }
     }
 

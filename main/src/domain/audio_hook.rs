@@ -566,7 +566,7 @@ impl MidiDeviceInquiryTask {
             for evt in mi.get_read_buf() {
                 let msg = evt.message();
                 if msg.r#type() == ShortMessageType::SystemExclusiveStart {
-                    let reply_pattern = MIDI_DEVICE_INQUIRY_REPLY_PATTERN;
+                    let reply_pattern = &MIDI_DEVICE_INQUIRY_REPLY_PATTERN;
                     let reply_pattern =
                         reply_pattern.get_or_init(create_device_inquiry_reply_pattern);
                     let is_identity_reply = reply_pattern.matches(msg.as_slice());
@@ -594,7 +594,7 @@ impl MidiDeviceInquiryTask {
 
 const MIDI_DEVICE_INQUIRY_REQUEST: &[u8] = &[0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7];
 
-const MIDI_DEVICE_INQUIRY_REPLY_PATTERN: OnceLock<BytePattern> = OnceLock::new();
+static MIDI_DEVICE_INQUIRY_REPLY_PATTERN: OnceLock<BytePattern> = OnceLock::new();
 
 fn create_device_inquiry_reply_pattern() -> BytePattern {
     use Fixed as F;

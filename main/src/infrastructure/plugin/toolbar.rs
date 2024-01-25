@@ -11,7 +11,7 @@ pub fn add_toolbar_button(
     let reaper_menu_ini = reaper
         .medium_reaper()
         .get_resource_path(|p| p.join("reaper-menu.ini"));
-    const MISSING_CUSTOMIZATION: &'static str = "Because of limitations of the REAPER extension API, Helgobox can't automatically add toolbar buttons if you haven't already customized the toolbar at least once!\n\
+    const MISSING_CUSTOMIZATION: &str = "Because of limitations of the REAPER extension API, Helgobox can't automatically add toolbar buttons if you haven't already customized the toolbar at least once!\n\
         \n\
         Please add an arbitrary toolbar customization first and try again:\n\
         \n\

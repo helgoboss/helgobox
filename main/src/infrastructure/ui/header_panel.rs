@@ -2458,19 +2458,17 @@ impl HeaderPanel {
                 relative_file_path,
             } = &info.origin
             {
-                if info.file_type == PresetFileType::Lua {
-                    if self.view.require_window().confirm(
+                if info.file_type == PresetFileType::Lua && self.view.require_window().confirm(
                         "ReaLearn",
                         "This factory preset is written in Lua. Are you familiar with Lua and want to customize the Lua code to your own needs?\n\
                         \n\
                         If you press yes, ReaLearn will copy the factory Lua file to your personal preset directory.\n\
                         \n\
                         If you press no, ReaLearn will save your current mappings as JSON preset as usual.",
-                    ) {
-                        let new_preset_id = BackboneShell::get().compartment_preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
-                        self.session().borrow_mut().activate_preset(*compartment, Some(new_preset_id));
-                        return Ok(());
-                    }
+                ) {
+                    let new_preset_id = BackboneShell::get().compartment_preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
+                    self.session().borrow_mut().activate_preset(*compartment, Some(new_preset_id));
+                    return Ok(());
                 }
             }
         }

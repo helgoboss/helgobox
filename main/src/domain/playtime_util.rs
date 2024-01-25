@@ -31,7 +31,7 @@ pub fn resolve_virtual_track_by_playtime_column(
         .resolve(context, compartment)
         .map_err(|_| generic_error())?;
     let track = Backbone::get()
-        .with_clip_matrix(&context.control_context.instance(), |matrix| {
+        .with_clip_matrix(context.control_context.instance(), |matrix| {
             let column = matrix.get_column(clip_column_index)?;
             match track_context {
                 ClipColumnTrackContext::Playback => column.playback_track().cloned(),

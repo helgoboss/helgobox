@@ -113,6 +113,7 @@ impl InstancePanel {
     }
 
     pub fn open_unit_popup_menu(&self) {
+        #[allow(clippy::enum_variant_names)]
         enum MenuAction {
             RemoveCurrentUnit,
             ShowUnit(Option<UnitId>),
@@ -139,7 +140,7 @@ impl InstancePanel {
                         build_unit_label(&main_unit_model, None, None),
                         ItemOpts {
                             enabled: true,
-                            checked: displayed_unit_id == None,
+                            checked: displayed_unit_id.is_none(),
                         },
                         MenuAction::ShowUnit(None),
                     ),

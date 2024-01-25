@@ -38,7 +38,7 @@ fn update_auto_units() {
         .filter(|c| c.enabled);
     // Build global auto units
     let mut global_auto_units: HashMap<_, _> = controllers
-        .filter_map(|c| build_auto_unit_from_controller(c))
+        .filter_map(build_auto_unit_from_controller)
         .map(|au| (au.controller_id.clone(), au))
         .collect();
     // Sort all instances in a project-first
@@ -125,7 +125,7 @@ fn choose_suitable_controller_preset_id(
     if let Some(id) = &default_controller_preset_id {
         // Check if default preset meets main preset requirements. Then simply use that one.
         let controller_preset_info = controller_preset_manager
-            .find_preset_info_by_id(&id)
+            .find_preset_info_by_id(id)
             .context("default controller preset not found")?;
         let main_preset_suitability = get_suitability_of_controller_preset_for_main_preset(
             &controller_preset_info.specific_meta_data,
@@ -314,11 +314,11 @@ fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering
     let fx_a = a.processor_context.containing_fx();
     let fx_b = b.processor_context.containing_fx();
     match (fx_a.track(), fx_b.track()) {
-        (None, Some(_)) => return Greater,
-        (Some(_), None) => return Less,
+        (None, Some(_)) => Greater,
+        (Some(_), None) => Less,
         (None, None) => {
             // Both are on monitoring FX chain. Higher position in chain trumps lower position.
-            return fx_a.index().cmp(&fx_b.index());
+            fx_a.index().cmp(&fx_b.index())
         }
         (Some(track_a), Some(track_b)) => {
             // Both are on tracks. Other project trumps current project.
@@ -333,11 +333,11 @@ fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering
             };
             // Both instances are in the same project. Master track trumps normal track.
             match (track_a.index(), track_b.index()) {
-                (None, Some(_)) => return Greater,
-                (Some(_), None) => return Less,
+                (None, Some(_)) => Greater,
+                (Some(_), None) => Less,
                 (None, None) => {
                     // Both are on master track. Higher position in chain trumps lower position.
-                    return fx_a.index().cmp(&fx_b.index());
+                    fx_a.index().cmp(&fx_b.index())
                 }
                 (Some(index_a), Some(index_b)) => {
                     // Both are on normal tracks. Now ascending by track and index.

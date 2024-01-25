@@ -96,7 +96,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let is_on = Backbone::get()
-                .with_clip_matrix(&context.instance(), |matrix| match self.action {
+                .with_clip_matrix(context.instance(), |matrix| match self.action {
                     ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
                 })
                 .ok()?;
@@ -147,7 +147,7 @@ mod playtime_impl {
         ) -> Result<HitResponse, &'static str> {
             let response = Backbone::get()
                 .with_clip_matrix(
-                    &context.control_context.instance(),
+                    context.control_context.instance(),
                     |matrix| -> anyhow::Result<HitResponse> {
                         match self.action {
                             ClipColumnAction::Stop => {

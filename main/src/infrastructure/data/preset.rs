@@ -1,9 +1,7 @@
 use crate::application::{CompartmentPresetManager, CompartmentPresetModel};
 
 use crate::base::notification;
-use crate::base::notification::{
-    warn_user_about_anyhow_error, warn_user_on_anyhow_error,
-};
+use crate::base::notification::{warn_user_about_anyhow_error, warn_user_on_anyhow_error};
 use crate::domain::{
     CompartmentKind, FsDirLuaModuleFinder, IncludedDirLuaModuleFinder, LuaModuleContainer,
     LuaModuleFinder, SafeLua,
@@ -379,7 +377,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
     }
 
     pub fn find_preset_info_by_id(&self, id: &str) -> Option<&PresetInfo<S>> {
-        self.preset_infos.iter().find(|info| &info.common.id == id)
+        self.preset_infos.iter().find(|info| info.common.id == id)
     }
 
     pub fn preset_infos(&self) -> &[PresetInfo<S>] {
@@ -430,7 +428,9 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     .common
                     .origin
                 {
-                    PresetOrigin::User { absolute_file_path: _ } => {
+                    PresetOrigin::User {
+                        absolute_file_path: _,
+                    } => {
                         let relative_path = Path::new(&preset_info.common.id);
                         let mut components = relative_path.components();
                         let first_component = components
@@ -521,7 +521,7 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
     fn common_preset_info_by_id(&self, id: &str) -> Option<&CommonPresetInfo> {
         self.preset_infos
             .iter()
-            .find(|info| &info.common.id == id)
+            .find(|info| info.common.id == id)
             .map(|info| &info.common)
     }
 
@@ -597,8 +597,8 @@ fn load_preset_info<M: SpecificPresetMetaData>(
     file_content: &str,
 ) -> anyhow::Result<PresetInfo<M>> {
     let preset_meta_data_result = match basics.file_type {
-        PresetFileType::Json => CombinedPresetMetaData::from_json(&file_content),
-        PresetFileType::Lua => CombinedPresetMetaData::from_lua_code(&file_content),
+        PresetFileType::Json => CombinedPresetMetaData::from_json(file_content),
+        PresetFileType::Lua => CombinedPresetMetaData::from_lua_code(file_content),
     };
     let preset_meta_data = preset_meta_data_result.map_err(|e| {
         anyhow!("Couldn't read preset meta data from \"{origin}\". Details:\n\n{e}",)

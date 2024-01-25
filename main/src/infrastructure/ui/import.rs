@@ -293,7 +293,7 @@ pub fn deserialize_untagged_data_object_from_lua(
 }
 
 pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<String> {
-    Ok(serde_json::to_string_pretty(&object).context("couldn't serialize object")?)
+    serde_json::to_string_pretty(&object).context("couldn't serialize object")
 }
 
 /// Runs without importing the result and also doesn't have an execution time limit.

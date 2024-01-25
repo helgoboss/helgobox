@@ -224,11 +224,15 @@ impl Instance {
     }
 
     pub fn process_control_surface_change_events(&mut self, events: &[ChangeEvent]) {
-        if events.is_empty() {
-            return;
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = events;
         }
         #[cfg(feature = "playtime")]
         {
+            if events.is_empty() {
+                return;
+            }
             if let Some(matrix) = self.playtime.clip_matrix.as_mut() {
                 // Let matrix react to track changes etc.
                 matrix.process_reaper_change_events(events);

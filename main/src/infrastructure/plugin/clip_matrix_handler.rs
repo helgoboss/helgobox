@@ -98,10 +98,10 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
         instance_shell
             .additional_unit_models()
             .into_iter()
-            .filter_map(|unit_model| {
+            .map(|unit_model| {
                 let unit_model = unit_model.borrow();
                 let unit = unit_model.unit().borrow();
-                let control_unit = ControlUnit {
+                ControlUnit {
                     id: ControlUnitId::new(unit_model.unit_id().into()),
                     // TODO-medium CONTINUE Introduce unit naming, makes sense anyway
                     name: "".to_string(),
@@ -109,8 +109,7 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
                     top_left_corner: unit.control_unit_top_left_corner(),
                     column_count: unit.control_unit_column_count(),
                     row_count: unit.control_unit_row_count(),
-                };
-                Some(control_unit)
+                }
             })
             .collect()
     }

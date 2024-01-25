@@ -52,10 +52,10 @@ where
     }
 }
 
-fn find_and_execute_module<'lua, 'b>(
+fn find_and_execute_module<'lua>(
     finder: impl LuaModuleFinder + Clone + 'static,
     lua: &'lua Lua,
-    path: &'b str,
+    path: &str,
 ) -> anyhow::Result<Value<'lua>> {
     let root_info = || format!("\n\nModule root path: {}", finder.module_root_path());
     let path = Utf8Path::new(path);
@@ -87,9 +87,9 @@ fn find_and_execute_module<'lua, 'b>(
     execute_as_module(path.as_str(), source.as_ref(), Ok(finder), lua)
 }
 
-fn execute_as_module<'a, 'b, 'lua>(
-    name: &'a str,
-    code: &'b str,
+fn execute_as_module<'lua>(
+    name: &str,
+    code: &str,
     finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
     lua: &'lua Lua,
 ) -> anyhow::Result<Value<'lua>> {

@@ -107,7 +107,7 @@ mod playtime_impl {
             let value = value.to_unit_value()?;
             Backbone::get()
                 .with_clip_matrix(
-                    &context.control_context.instance(),
+                    context.control_context.instance(),
                     |matrix| -> anyhow::Result<HitResponse> {
                         matrix.seek_slot(self.slot_coordinates, value)?;
                         Ok(HitResponse::processed_with_effect())
@@ -186,7 +186,7 @@ mod playtime_impl {
     impl PlaytimeSlotSeekTarget {
         fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
             Backbone::get()
-                .with_clip_matrix(&context.instance(), |matrix| {
+                .with_clip_matrix(context.instance(), |matrix| {
                     let slot = matrix.find_slot(self.slot_coordinates)?;
                     let timeline = matrix.timeline();
                     let tempo = timeline.next_block().tempo_entry.props.tempo;
@@ -203,7 +203,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let val = Backbone::get()
-                .with_clip_matrix(&context.instance(), |matrix| {
+                .with_clip_matrix(context.instance(), |matrix| {
                     let relevant_content =
                         matrix.find_slot(self.slot_coordinates)?.relevant_contents();
                     let val = relevant_content

@@ -150,7 +150,7 @@ mod playtime_impl {
         ) -> anyhow::Result<HitResponse> {
             use ClipTransportAction::*;
             let on = value.is_on();
-            Backbone::get().with_clip_matrix_mut(&context.control_context.instance(), |matrix| {
+            Backbone::get().with_clip_matrix_mut(context.control_context.instance(), |matrix| {
                 let response = match self.basics.action {
                     Trigger => {
                         matrix.trigger_slot(self.basics.slot_coordinates, on)?;
@@ -381,7 +381,7 @@ mod playtime_impl {
         fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
             match key {
                 "slot_state.id" => Backbone::get()
-                    .with_clip_matrix(&context.instance(), |matrix| {
+                    .with_clip_matrix(context.instance(), |matrix| {
                         let id_string = match self.clip_play_state(matrix) {
                             None => "empty",
                             Some(s) => s.id_string(),
@@ -399,7 +399,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let val = Backbone::get()
-                .with_clip_matrix(&context.instance(), |matrix| {
+                .with_clip_matrix(context.instance(), |matrix| {
                     use ClipTransportAction::*;
                     let val = match self.basics.action {
                         Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop

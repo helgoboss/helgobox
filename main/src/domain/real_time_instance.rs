@@ -59,6 +59,7 @@ impl RealTimeInstance {
                 clip_matrix.lock().poll(block_props.to_playtime());
             }
         }
+        #[allow(clippy::never_loop)]
         for task in self.task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             match task {
                 #[cfg(feature = "playtime")]

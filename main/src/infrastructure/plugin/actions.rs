@@ -139,7 +139,7 @@ const DEFAULT_DEF: ActionDef = ActionDef {
 impl ActionDef {
     pub fn register(&self) {
         let requires_instance = self.requires_instance;
-        let op = self.op.clone();
+        let op = self.op;
         Reaper::get().register_action(
             self.command_name,
             self.build_full_action_name(),

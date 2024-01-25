@@ -210,7 +210,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             Backbone::get()
-                .with_clip_matrix(&context.instance(), |matrix| {
+                .with_clip_matrix(context.instance(), |matrix| {
                     let bool_value = match self.action {
                         ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => {
                             matrix.is_stoppable()

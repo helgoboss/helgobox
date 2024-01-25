@@ -108,7 +108,7 @@ fn convert_activation(
             ActivationConditionData {
                 activation_type: ActivationType::Modifiers,
                 modifier_condition_1: create_model(
-                    c.modifiers.as_ref().map(|m| m.get(0)).unwrap_or_default(),
+                    c.modifiers.as_ref().map(|m| m.first()).unwrap_or_default(),
                 )?,
                 modifier_condition_2: create_model(
                     c.modifiers.as_ref().map(|m| m.get(1)).unwrap_or_default(),

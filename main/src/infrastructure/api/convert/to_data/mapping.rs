@@ -105,10 +105,10 @@ fn convert_advanced(
         on_activate: convert_lifecycle_hook(on_activate)?,
         on_deactivate: convert_lifecycle_hook(on_deactivate)?,
     };
-    let value = serde_yaml::to_value(&extension_model)?;
+    let value = serde_yaml::to_value(extension_model)?;
     let mut mapping = into_yaml_mapping(value);
     if let Some(u) = unprocessed {
-        let unprocessed_value = serde_yaml::to_value(&u)?;
+        let unprocessed_value = serde_yaml::to_value(u)?;
         let unprocessed_mapping = into_yaml_mapping(unprocessed_value);
         for (key, value) in unprocessed_mapping.into_iter() {
             mapping.insert(key, value);

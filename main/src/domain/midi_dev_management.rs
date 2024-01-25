@@ -33,7 +33,7 @@ impl MidiInDevsConfig {
         }
     }
 
-    pub fn to_ini_entries(&self) -> impl Iterator<Item = (String, u32)> {
+    pub fn to_ini_entries(self) -> impl Iterator<Item = (String, u32)> {
         to_ini_entries("midiins", self.midiins)
             .chain(to_ini_entries("midiins_nowarn", self.midiins_nowarn))
     }
@@ -89,7 +89,7 @@ impl MidiOutDevsConfig {
         }
     }
 
-    pub fn to_ini_entries(&self) -> impl Iterator<Item = (String, u32)> {
+    pub fn to_ini_entries(self) -> impl Iterator<Item = (String, u32)> {
         to_ini_entries("midiouts", self.midiouts)
             .chain(to_ini_entries("midiouts_nowarn", self.midiouts_nowarn))
             .chain(to_ini_entries("midiouts_noreset", self.midiouts_noreset))

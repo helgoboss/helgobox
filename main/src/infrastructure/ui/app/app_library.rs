@@ -430,7 +430,7 @@ fn process_command(
         }
         // Event subscription commands
         GetOccasionalGlobalUpdates(_) => {
-            send_initial_events_to_app(instance_id, || create_initial_global_updates())
+            send_initial_events_to_app(instance_id, create_initial_global_updates)
                 .map_err(to_status)?;
         }
         GetOccasionalInstanceUpdates(req) => {

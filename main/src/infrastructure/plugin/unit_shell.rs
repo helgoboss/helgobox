@@ -52,6 +52,7 @@ pub struct UnitShell {
 }
 
 impl UnitShell {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         unit_id: UnitId,
         instance_id: InstanceId,

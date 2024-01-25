@@ -330,7 +330,7 @@ pub fn menu_containing_compartment_presets(
         .chain(build_compartment_preset_menu_entries(
             preset_manager.common_preset_infos(),
             |info| Some(info.id.clone()),
-            |info| current_value.is_some_and(|id| id == &info.id),
+            |info| current_value.is_some_and(|id| id == info.id),
         ))
         .collect(),
     )
