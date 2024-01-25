@@ -71,7 +71,7 @@ metrics = "0.22.0"
 ascii = "1.0"
 raw-window-handle = "0.4.2"
 winapi = { version = "0.3", features = ["winuser", "uxtheme"] }
-bindgen = "0.66.1"
+bindgen = "0.69.2"
 enumflags2 = "0.7.4"
 nanoid = "0.3.0"
 slug = "0.1.4"

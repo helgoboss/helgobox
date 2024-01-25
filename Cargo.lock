@@ -672,29 +672,6 @@ checksum = "bed554bd50246729a1ec158d08aa3235d1b69d94ad120ebe187e28894787e736"
 
 [[package]]
 name = "bindgen"
-version = "0.66.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b84e06fc203107bfbad243f4aba2af864eb7db3b1cf46ea0a023b0b433d2a7"
-dependencies = [
- "bitflags 2.4.1",
- "cexpr",
- "clang-sys",
- "lazy_static",
- "lazycell",
- "log",
- "peeking_take_while",
- "prettyplease",
- "proc-macro2 1.0.76",
- "quote 1.0.35",
- "regex",
- "rustc-hash",
- "shlex",
- "syn 2.0.48",
- "which 4.4.2",
-]
-
-[[package]]
-name = "bindgen"
 version = "0.69.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4c69fae65a523209d34240b60abe0c42d33d1045d445c0839d8a4894a736e2d"
@@ -5291,7 +5268,7 @@ dependencies = [
  "backtrace",
  "base",
  "baseview",
- "bindgen 0.66.1",
+ "bindgen",
  "built",
  "bytesize",
  "c_str_macro",
@@ -6423,7 +6400,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c3e8acdf2b1f4bb13f1813b40b52f3edf4cc94d8a55fe713a584f672a10388d"
 dependencies = [
- "bindgen 0.69.2",
+ "bindgen",
 ]
 
 [[package]]
@@ -6552,7 +6529,7 @@ dependencies = [
 name = "swell-ui"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.66.1",
+ "bindgen",
  "libloading 0.8.0",
  "objc2",
  "palette",
