@@ -4653,7 +4653,7 @@ dependencies = [
  "helgoboss-license-api",
  "helgoboss-license-processor",
  "helgoboss-midi",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "itertools",
  "metrics",
  "nanoid",
@@ -4757,7 +4757,7 @@ dependencies = [
  "fallible-iterator",
  "futures",
  "helgoboss-allocator",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "itertools",
  "lexical-sort",
  "nanoid",
@@ -5299,7 +5299,7 @@ dependencies = [
  "hostname",
  "image 0.22.5",
  "include_dir",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
  "itertools",
  "lazycell",
  "libloading 0.8.0",
@@ -5415,7 +5415,7 @@ name = "realearn-dialogs"
 version = "0.1.0"
 dependencies = [
  "derive_more",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
 ]
 
 [[package]]
