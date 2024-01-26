@@ -8,7 +8,7 @@ use axum::routing::{get, patch};
 use axum::Router;
 use std::io;
 use std::net::SocketAddr;
-use tower_http::cors::{any, CorsLayer};
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::infrastructure::server::data::WebSocketRequest;
 pub use crate::infrastructure::server::http::handlers::*;
@@ -86,7 +86,7 @@ fn create_router(
     router
         .layer(
             CorsLayer::new()
-                .allow_origin(any())
+                .allow_origin(Any)
                 .allow_methods(vec![
                     Method::GET,
                     Method::POST,

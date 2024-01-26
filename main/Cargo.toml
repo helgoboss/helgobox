@@ -90,27 +90,30 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
-axum = { version = "0.3", features = ["ws", "headers"] }
-axum-server = { version = "0.3", features = ["tls-rustls"] }
-tower-http = { version = "0.1", features = ["cors"] }
+# We can't update to 0.7 because of tonic not yet using http 1 (https://github.com/hyperium/tonic/issues/1579)
+axum = { version = "0.6.18", features = ["ws"] }
+# We can't update to 0.6.0 as long as axum is still on 0.6
+axum-server = { version = "0.5.1", features = ["tls-rustls"] }
+# We can't update to 0.5.0 as long as axum is still on 0.6
+tower-http = { version = "0.4.2", features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic.workspace = true
 prost.workspace = true
 # For generating projection QR code
-qrcode = { version = "0.11" }
+qrcode = { version = "0.13.0" }
 # For rendering projection QR code to PNG
-image = "0.22"
+image = "0.24.8"
 # For generating self-signed certificate for projection web server
-rcgen = "0.8.5"
+rcgen = "0.12.0"
 # For showing different ways of connecting to this computer (projection feature)
-dns-lookup = "1.0.4"
+dns-lookup = "2.0.4"
 hostname = "^0.3"
 # For rendering projection setup HTML page template
-askama = "0.8"
+askama = "0.12.1"
 # For persisting app configuration
 serde_ini = "0.2.0"
 # For opening projection setup page and companion app in local browser
-webbrowser = "0.5.5"
+webbrowser = "0.8.12"
 # For writing generated projection setup page to disk
 tempfile.workspace = true
 # For adding firewall rules
