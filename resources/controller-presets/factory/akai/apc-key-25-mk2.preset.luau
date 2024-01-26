@@ -13,9 +13,16 @@ local resolve_shift = false
 -- Requires
 
 local realearn = require("realearn")
-local midi_script = require("realearn_midi_source_script")
 
 -- Define MIDI scripts
+-- TODO-high CONTINUE Solve issue that it detects the "Keys" input as match
+-- TODO-high CONTINUE Make up for the lack of "Sustain" button ...
+-- TODO-high CONTINUE Maybe make record button actually record in REAPER?
+-- TODO-high CONTINUE Fix MIDI devs not being saved well in reaper.ini
+-- TODO-high CONTINUE This is nuts, we don't want this whole code in each pad mapping ;)
+-- TODO-high CONTINUE Experiment with https://stackoverflow.com/a/3269982
+-- TODO-high CONTINUE Actually make clip colors available and expose them in main preset (via syle prop)
+-- local midi_script = require("realearn_midi_source_script")
 local pad_script_lib = [[
 type FeedbackEntry = {
     behavior: number,
@@ -26,9 +33,8 @@ local medium = 0x93
 local bright = 0x96
 local pulsing = 0x9A
 local blinking = 0x9B
--- TODO
-local red_color = math.floor(4 / 127)
-local default_color = 50
+local red_color = 6
+local default_color = 3
 local feedback_table: { [string]: FeedbackEntry? } = {
     -- Off
     empty = {
@@ -72,15 +78,166 @@ local feedback_table: { [string]: FeedbackEntry? } = {
     },
 }
 
-function msb(value: number): number
-    return bit32.band(bit32.rshift(value, 7), 0x7F)
+local color_palette: { midi_script.RgbColor } = {
+    {r = 0x00, g= 0x00, b = 0x00},
+    {r = 0x1E, g= 0x1E, b = 0x1E},
+    {r = 0x7F, g= 0x7F, b = 0x7F},
+    {r = 0xFF, g= 0xFF, b = 0xFF},
+    {r = 0xFF, g= 0x4C, b = 0x4C},
+    {r = 0xFF, g= 0x00, b = 0x00},
+    {r = 0x59, g= 0x00, b = 0x00},
+    {r = 0x19, g= 0x00, b = 0x00},
+    {r = 0xFF, g= 0xBD, b = 0x6C},
+    {r = 0xFF, g= 0x54, b = 0x00},
+    {r = 0x59, g= 0x1D, b = 0x00},
+    {r = 0x27, g= 0x1B, b = 0x00},
+    {r = 0xFF, g= 0xFF, b = 0x4C},
+    {r = 0xFF, g= 0xFF, b = 0x00},
+    {r = 0x59, g= 0x59, b = 0x00},
+    {r = 0x19, g= 0x19, b = 0x00},
+    {r = 0x88, g= 0xFF, b = 0x4C},
+    {r = 0x54, g= 0xFF, b = 0x00},
+    {r = 0x1D, g= 0x59, b = 0x00},
+    {r = 0x14, g= 0x2B, b = 0x00},
+    {r = 0x4C, g= 0xFF, b = 0x4C},
+    {r = 0x00, g= 0xFF, b = 0x00},
+    {r = 0x00, g= 0x59, b = 0x00},
+    {r = 0x00, g= 0x19, b = 0x00},
+    {r = 0x4C, g= 0xFF, b = 0x5E},
+    {r = 0x00, g= 0xFF, b = 0x19},
+    {r = 0x00, g= 0x59, b = 0x0D},
+    {r = 0x00, g= 0x19, b = 0x02},
+    {r = 0x4C, g= 0xFF, b = 0x88},
+    {r = 0x00, g= 0xFF, b = 0x55},
+    {r = 0x00, g= 0x59, b = 0x1D},
+    {r = 0x00, g= 0x1F, b = 0x12},
+    {r = 0x4C, g= 0xFF, b = 0xB7},
+    {r = 0x00, g= 0xFF, b = 0x99},
+    {r = 0x00, g= 0x59, b = 0x35},
+    {r = 0x00, g= 0x19, b = 0x12},
+    {r = 0x4C, g= 0xC3, b = 0xFF},
+    {r = 0x00, g= 0xA9, b = 0xFF},
+    {r = 0x00, g= 0x41, b = 0x52},
+    {r = 0x00, g= 0x10, b = 0x19},
+    {r = 0x4C, g= 0x88, b = 0xFF},
+    {r = 0x00, g= 0x55, b = 0xFF},
+    {r = 0x00, g= 0x1D, b = 0x59},
+    {r = 0x00, g= 0x08, b = 0x19},
+    {r = 0x4C, g= 0x4C, b = 0xFF},
+    {r = 0x00, g= 0x00, b = 0xFF},
+    {r = 0x00, g= 0x00, b = 0x59},
+    {r = 0x00, g= 0x00, b = 0x19},
+    {r = 0x87, g= 0x4C, b = 0xFF},
+    {r = 0x54, g= 0x00, b = 0xFF},
+    {r = 0x19, g= 0x00, b = 0x64},
+    {r = 0x0F, g= 0x00, b = 0x30},
+    {r = 0xFF, g= 0x4C, b = 0xFF},
+    {r = 0xFF, g= 0x00, b = 0xFF},
+    {r = 0x59, g= 0x00, b = 0x59},
+    {r = 0x19, g= 0x00, b = 0x19},
+    {r = 0xFF, g= 0x4C, b = 0x87},
+    {r = 0xFF, g= 0x00, b = 0x54},
+    {r = 0x59, g= 0x00, b = 0x1D},
+    {r = 0x22, g= 0x00, b = 0x13},
+    {r = 0xFF, g= 0x15, b = 0x00},
+    {r = 0x99, g= 0x35, b = 0x00},
+    {r = 0x79, g= 0x51, b = 0x00},
+    {r = 0x43, g= 0x64, b = 0x00},
+    {r = 0x03, g= 0x39, b = 0x00},
+    {r = 0x00, g= 0x57, b = 0x35},
+    {r = 0x00, g= 0x54, b = 0x7F},
+    {r = 0x00, g= 0x00, b = 0xFF},
+    {r = 0x00, g= 0x45, b = 0x4F},
+    {r = 0x25, g= 0x00, b = 0xCC},
+    {r = 0x7F, g= 0x7F, b = 0x7F},
+    {r = 0x20, g= 0x20, b = 0x20},
+    {r = 0xFF, g= 0x00, b = 0x00},
+    {r = 0xBD, g= 0xFF, b = 0x2D},
+    {r = 0xAF, g= 0xED, b = 0x06},
+    {r = 0x64, g= 0xFF, b = 0x09},
+    {r = 0x10, g= 0x8B, b = 0x00},
+    {r = 0x00, g= 0xFF, b = 0x87},
+    {r = 0x00, g= 0xA9, b = 0xFF},
+    {r = 0x00, g= 0x2A, b = 0xFF},
+    {r = 0x3F, g= 0x00, b = 0xFF},
+    {r = 0x7A, g= 0x00, b = 0xFF},
+    {r = 0xB2, g= 0x1A, b = 0x7D},
+    {r = 0x40, g= 0x21, b = 0x00},
+    {r = 0xFF, g= 0x4A, b = 0x00},
+    {r = 0x88, g= 0xE1, b = 0x06},
+    {r = 0x72, g= 0xFF, b = 0x15},
+    {r = 0x00, g= 0xFF, b = 0x00},
+    {r = 0x3B, g= 0xFF, b = 0x26},
+    {r = 0x59, g= 0xFF, b = 0x71},
+    {r = 0x38, g= 0xFF, b = 0xCC},
+    {r = 0x5B, g= 0x8A, b = 0xFF},
+    {r = 0x31, g= 0x51, b = 0xC6},
+    {r = 0x87, g= 0x7F, b = 0xE9},
+    {r = 0xD3, g= 0x1D, b = 0xFF},
+    {r = 0xFF, g= 0x00, b = 0x5D},
+    {r = 0xFF, g= 0x7F, b = 0x00},
+    {r = 0xB9, g= 0xB0, b = 0x00},
+    {r = 0x90, g= 0xFF, b = 0x00},
+    {r = 0x83, g= 0x5D, b = 0x07},
+    {r = 0x39, g= 0x2b, b = 0x00},
+    {r = 0x14, g= 0x4C, b = 0x10},
+    {r = 0x0D, g= 0x50, b = 0x38},
+    {r = 0x15, g= 0x15, b = 0x2A},
+    {r = 0x16, g= 0x20, b = 0x5A},
+    {r = 0x69, g= 0x3C, b = 0x1C},
+    {r = 0xA8, g= 0x00, b = 0x0A},
+    {r = 0xDE, g= 0x51, b = 0x3D},
+    {r = 0xD8, g= 0x6A, b = 0x1C},
+    {r = 0xFF, g= 0xE1, b = 0x26},
+    {r = 0x9E, g= 0xE1, b = 0x2F},
+    {r = 0x67, g= 0xB5, b = 0x0F},
+    {r = 0x1E, g= 0x1E, b = 0x30},
+    {r = 0xDC, g= 0xFF, b = 0x6B},
+    {r = 0x80, g= 0xFF, b = 0xBD},
+    {r = 0x9A, g= 0x99, b = 0xFF},
+    {r = 0x8E, g= 0x66, b = 0xFF},
+    {r = 0x40, g= 0x40, b = 0x40},
+    {r = 0x75, g= 0x75, b = 0x75},
+    {r = 0xE0, g= 0xFF, b = 0xFF},
+    {r = 0xA0, g= 0x00, b = 0x00},
+    {r = 0x35, g= 0x00, b = 0x00},
+    {r = 0x1A, g= 0xD0, b = 0x00},
+    {r = 0x07, g= 0x42, b = 0x00},
+    {r = 0xB9, g= 0xB0, b = 0x00},
+    {r = 0x3F, g= 0x31, b = 0x00},
+    {r = 0xB3, g= 0x5F, b = 0x00},
+    {r = 0x4B, g= 0x15, b = 0x02},
+    {r = 0x40, g= 0x40, b = 0x40},
+    {r = 0x75, g= 0x75, b = 0x75},
+    {r = 0xE0, g= 0xFF, b = 0xFF},
+    {r = 0xA0, g= 0x00, b = 0x00},
+    {r = 0x35, g= 0x00, b = 0x00},
+    {r = 0x1A, g= 0xD0, b = 0x00},
+    {r = 0x07, g= 0x42, b = 0x00},
+    {r = 0xB9, g= 0xB0, b = 0x00},
+    {r = 0x3F, g= 0x31, b = 0x00},
+    {r = 0xB3, g= 0x5F, b = 0x00},
+    {r = 0x4B, g= 0x15, b = 0x02},
+}
+
+-- Returns the 0-based index within the given palette array.
+local function find_closest_color_in_palette(color: midi_script.RgbColor, palette: {midi_script.RgbColor}): number
+    local ifurthest = 0
+    local furthest = 3 * math.pow(255, 2) + 1
+    for i,c in palette do
+        if color.r == c.r and color.g == c.g and color.b == c.b then
+            return i - 1
+        end
+        local distance = math.pow((color.r - c.r), 2) + math.pow((color.g - c.g), 2) + math.pow((color.b - c.b), 2)
+        if distance < furthest then
+            furthest = distance
+            ifurthest = i - 1
+        end
+    end
+    return ifurthest
 end
 
-function lsb(value: number): number
-    return bit32.band(value, 0x7F)
-end
-
-function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_script.Context): midi_script.Output
+local function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_script.Context): midi_script.Output
     local address = pad_index
     local off_color = 0x00
     local off_output = {
@@ -134,52 +291,12 @@ function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_
                 },
             }
         end
+        -- Find color available on the controller that's closest to the desired RGB color
+        local closest_color = find_closest_color_in_palette(event_color, color_palette)
         return {
             address = address,
             messages = {
-                -- In the first message, we set the LED's behavior. The color doesn't matter because we are going
-                -- to override it in the 2nd message.
-                -- { entry.behavior, pad_index, 0x00 },
-                {
-                    -- MIDI System exclusive message start 
-                    0xF0,
-                    -- Manufacturers ID Byte (Akai)
-                    0x47,
-                    -- System Exclusive Device ID (all devices)
-                    0x7F,
-                    -- Product model ID (APC Key 25 mk2)
-                    0x4E,
-                    -- Message type identifier (RGB LED Color Lighting)
-                    0x24,
-                    -- Number of data bytes to follow (most significant)
-                    0x00,
-                    -- Number of data bytes to follow (least significant)
-                    -- This should only be 8 but according to https://github.com/TheKikGen/MPCLiveXplore-libs/blob/main/src/tmm-plugins/Iamforce-APCKEY25MK2.h,
-                    -- a bug in the firmware needs bytes 8 to 15 to be repeated, so we got 16 bytes in total.
-                    2 * 8,
-                    -- Start Pad
-                    pad_index,
-                    -- End Pad
-                    pad_index,
-                    -- Color data
-                    msb(event_color.r),
-                    lsb(event_color.r),
-                    msb(event_color.g),
-                    lsb(event_color.g),
-                    msb(event_color.b),
-                    lsb(event_color.b),
-                    -- Repetition due to bug
-                    pad_index,
-                    pad_index,
-                    msb(event_color.r),
-                    lsb(event_color.r),
-                    msb(event_color.g),
-                    lsb(event_color.g),
-                    msb(event_color.b),
-                    lsb(event_color.b),
-                    -- MIDI System exclusive message terminator
-                    0xF7,
-                },
+                { entry.behavior, pad_index, closest_color },
             },
         }
     end
@@ -350,6 +467,7 @@ for i = 0, 7 do
         source = realearn.Source.MidiControlChangeValue {
             channel = 0,
             controller_number = 48 + i,
+            character = "Relative3",
         },
         target = realearn.Target.Virtual {
             id = i,
