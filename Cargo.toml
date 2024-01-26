@@ -110,6 +110,7 @@ num = "0.4.1"
 logos = "0.13.0"
 camino = "1.1.6"
 auto_impl = "1.1.0"
+bytemuck = "1.13.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.
