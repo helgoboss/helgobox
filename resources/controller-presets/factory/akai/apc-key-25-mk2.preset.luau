@@ -27,7 +27,7 @@ local bright = 0x96
 local pulsing = 0x9A
 local blinking = 0x9B
 -- TODO
-local red_color = 4 / 127
+local red_color = math.floor(4 / 127)
 local default_color = 50
 local feedback_table: { [string]: FeedbackEntry? } = {
     -- Off
@@ -72,7 +72,7 @@ local feedback_table: { [string]: FeedbackEntry? } = {
     },
 }
 
-function msb(value: number): number 
+function msb(value: number): number
     return bit32.band(bit32.rshift(value, 7), 0x7F)
 end
 
@@ -96,7 +96,7 @@ function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_
     -- Handle numeric feedback
     if type(y) == "number" then
         -- Translate number to solid feedback color, just as with APC Key 25 mk1
-        local color = y / 127
+        local color = math.floor(y * 127)
         return {
             address = address,
             messages = {
@@ -138,16 +138,37 @@ function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_
             address = address,
             messages = {
                 -- In the first message, we set the LED's behavior. The color doesn't matter because we are going
-                -- to override in the 2nd message.
-                { entry.behavior, pad_index, 0x00 },
+                -- to override it in the 2nd message.
+                -- { entry.behavior, pad_index, 0x00 },
                 {
+                    -- MIDI System exclusive message start 
                     0xF0,
+                    -- Manufacturers ID Byte (Akai)
                     0x47,
+                    -- System Exclusive Device ID (all devices)
                     0x7F,
+                    -- Product model ID (APC Key 25 mk2)
                     0x4E,
+                    -- Message type identifier (RGB LED Color Lighting)
                     0x24,
+                    -- Number of data bytes to follow (most significant)
                     0x00,
-                    8,
+                    -- Number of data bytes to follow (least significant)
+                    -- This should only be 8 but according to https://github.com/TheKikGen/MPCLiveXplore-libs/blob/main/src/tmm-plugins/Iamforce-APCKEY25MK2.h,
+                    -- a bug in the firmware needs bytes 8 to 15 to be repeated, so we got 16 bytes in total.
+                    2 * 8,
+                    -- Start Pad
+                    pad_index,
+                    -- End Pad
+                    pad_index,
+                    -- Color data
+                    msb(event_color.r),
+                    lsb(event_color.r),
+                    msb(event_color.g),
+                    lsb(event_color.g),
+                    msb(event_color.b),
+                    lsb(event_color.b),
+                    -- Repetition due to bug
                     pad_index,
                     pad_index,
                     msb(event_color.r),
@@ -156,6 +177,7 @@ function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_
                     lsb(event_color.g),
                     msb(event_color.b),
                     lsb(event_color.b),
+                    -- MIDI System exclusive message terminator
                     0xF7,
                 },
             },
@@ -360,7 +382,7 @@ for col = 0, 7 do
             id = `{id}-feedback`,
             control_enabled = false,
             source = realearn.Source.MidiScript {
-                kind = "Lua",
+                script_kind = "Lua",
                 script = build_pad_script(key_number_offset + col),
             },
             target = realearn.Target.Virtual {

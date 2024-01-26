@@ -251,6 +251,19 @@ const SAFE_LUA_VARS: &[&str] = &[
     "os.clock",
     "os.difftime",
     "os.time",
+    // bit32 (Lua 5.2 & Luau intersection)
+    "bit32.arshift",
+    "bit32.band",
+    "bit32.bnot",
+    "bit32.bor",
+    "bit32.btest",
+    "bit32.bxor",
+    "bit32.extract",
+    "bit32.lrotate",
+    "bit32.lshift",
+    "bit32.replace",
+    "bit32.rrotate",
+    "bit32.rshift",
 ];
 
 /// An extended set of Lua vars that can be considered safe under certain circumstances.
