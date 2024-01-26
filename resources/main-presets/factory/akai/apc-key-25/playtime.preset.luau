@@ -6,14 +6,16 @@
 
 --!strict
 
+-- Configuration
+
+local use_column_stop_buttons = true
+
+-- Requires
+
 local util = require("util")
 local realearn = require("realearn")
 
 local partial_mapping = util.partial_mapping
-
--- Configuration
-
-local use_column_stop_buttons = true
 
 -- Types
 
@@ -931,10 +933,10 @@ for col = 0, column_count - 1 do
 	end
 end
 
-return {
+return realearn.Compartment {
 	parameters = util.sorted_by_index(params),
 	groups = util.to_array(groups),
-	mappings = mappings,
+	mappings = mappings :: any,
 	custom_data = {
 		playtime = {
 			control_unit = {

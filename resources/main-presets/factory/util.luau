@@ -9,6 +9,9 @@ local util = {}
 ---
 --- A partial mapping can be conveniently mixed with other partial mappings by using the + operator.
 --- This enables a very intuitive but still flexible way of writing mappings.
+---
+--- Ideally, we would return Partial & Mapping but Luau has still issues with that. In particular, it
+--- can't resolve the + operator when used in an intersection.
 function util.partial_mapping(m: realearn.Mapping): partial.Partial
 	return partial.Partial.new(m)
 end

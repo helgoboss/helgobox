@@ -6,77 +6,75 @@
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25]
 
+--!strict
+
 -- Configuration
+
 local resolve_shift = false
 
+-- Requires
+
+local realearn = require("realearn")
+
+
+-- Parameters
+
+local shift_param = realearn.Parameter {
+    index = 0,
+    name = "Shift",
+}
+local parameters: { realearn.Parameter }? = if resolve_shift then { shift_param } else nil
+
 -- Single buttons
-local parameters
-if resolve_shift then
-    parameters = {
-        {
-            index = 0,
-            name = "Shift",
-        }
-    }
-else
-    parameters = nil
-end
+
 local mappings = {
-    {
-        id = "ac49cd8a-cd98-4acd-84a0-276372aa8d05",
+    realearn.Mapping {
+        id = "sac",
         name = "SAC",
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 81,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = "stop-all-clips",
             character = "Button",
         },
     },
-    {
-        id = "22050182-480e-4267-b203-9ad641a72b44",
+    realearn.Mapping {
+        id = "sustain",
         name = "Sustain",
         feedback_enabled = false,
-        source = {
-            kind = "MidiControlChangeValue",
+        source = realearn.Source.MidiControlChangeValue {
             channel = 1,
             controller_number = 64,
             character = "Button",
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = "sustain",
             character = "Button",
         },
     },
-    {
-        id = "b09d6169-a7df-4dbe-b76c-73d30c8625c3",
+    realearn.Mapping {
+        id = "play",
         name = "Play",
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 91,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = "play",
             character = "Button",
         },
     },
-    {
-        id = "6c4745ac-39bb-4ed7-b290-2cc5aef49bbb",
+    realearn.Mapping {
+        id = "rec",
         name = "Rec",
         feedback_enabled = false,
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 93,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = "record",
             character = "Button",
         },
@@ -84,11 +82,10 @@ local mappings = {
 }
 
 -- Shift
-local no_shift_activation_condition
+local no_shift_activation_condition: realearn.ActivationCondition?
 if resolve_shift then
     -- The activation condition reflecting the state that shift is not pressed.
-    no_shift_activation_condition = {
-        kind = "Modifier",
+    no_shift_activation_condition = realearn.ActivationCondition.Modifier {
         modifiers = {
             {
                 parameter = 0,
@@ -97,19 +94,16 @@ if resolve_shift then
         },
     }
     -- Mapping to make shift button switch to other set of virtual control elements
-    local shift_mapping = {
+    local shift_mapping = realearn.Mapping {
         name = "Shift",
         feedback_enabled = false,
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 98,
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 100,
+        target = realearn.Target.CompartmentParameterValue {
+            parameter = realearn.CompartmentParameterDescriptor.ById {
+                index = 0,
             },
         },
     }
@@ -131,9 +125,8 @@ if resolve_shift then
         { key = 86, id = "track-select" },
     }
     for _, element in ipairs(alt_elements) do
-        local mapping = {
-            activation_condition = {
-                kind = "Modifier",
+        local mapping = realearn.Mapping {
+            activation_condition = realearn.ActivationCondition.Modifier {
                 modifiers = {
                     {
                         parameter = 0,
@@ -141,13 +134,11 @@ if resolve_shift then
                     },
                 },
             },
-            source = {
-                kind = "MidiNoteVelocity",
+            source = realearn.Source.MidiNoteVelocity {
                 channel = 0,
                 key_number = element.key,
             },
-            target = {
-                kind = "Virtual",
+            target = realearn.Target.Virtual {
                 id = element.id,
                 character = "Button",
             },
@@ -156,17 +147,15 @@ if resolve_shift then
     end
 else
     no_shift_activation_condition = nil
-    local mapping = {
-        id = "838cc9e6-5857-4dd2-952b-339f3f886f3d",
+    local mapping = realearn.Mapping {
+        id = "shift",
         name = "Shift",
         feedback_enabled = false,
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 98,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = "shift",
             character = "Button",
         },
@@ -177,16 +166,14 @@ end
 -- Knobs
 for i = 0, 7 do
     local human_i = i + 1
-    local mapping = {
-        id = "k" .. human_i,
+    local mapping = realearn.Mapping {
+        id = `k{human_i}`,
         feedback_enabled = false,
-        source = {
-            kind = "MidiControlChangeValue",
+        source = realearn.Source.MidiControlChangeValue {
             channel = 0,
             controller_number = 48 + i,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = i,
         },
     }
@@ -194,8 +181,7 @@ for i = 0, 7 do
 end
 
 -- Clip launch buttons
-local feedback_value_table = {
-    kind = "FromTextToDiscrete",
+local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
     value = {
         -- Off
         empty = 0,
@@ -224,19 +210,17 @@ for col = 0, 7 do
     for row = 0, 4 do
         local human_row = row + 1
         local key_number_offset = (4 - row) * 8
-        local id = "col" .. human_col .. "/row" .. human_row .. "/pad"
-        local mapping = {
+        local id = `col{human_col}/row{human_row}/pad`
+        local mapping = realearn.Mapping {
             id = id,
-            source = {
-                kind = "MidiNoteVelocity",
+            source = realearn.Source.MidiNoteVelocity {
                 channel = 0,
                 key_number = key_number_offset + col,
             },
             glue = {
                 feedback_value_table = feedback_value_table,
             },
-            target = {
-                kind = "Virtual",
+            target = realearn.Target.Virtual {
                 id = id,
                 character = "Button",
             },
@@ -248,17 +232,15 @@ end
 -- Clip stop buttons
 for col = 0, 7 do
     local human_col = col + 1
-    local id = "col" .. human_col .. "/stop"
-    local mapping = {
+    local id = `col{human_col}/stop`
+    local mapping = realearn.Mapping {
         id = id,
         activation_condition = no_shift_activation_condition,
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 64 + col,
         },
-        target = {
-            kind = "Virtual",
+        target = realearn.Target.Virtual {
             id = id,
             character = "Button",
         },
@@ -270,16 +252,14 @@ end
 for row = 0, 4 do
     local human_row = row + 1
     local id = "row" .. human_row .. "/play"
-    local mapping = {
+    local mapping = realearn.Mapping {
         id = id,
         activation_condition = no_shift_activation_condition,
-        source = {
-            kind = "MidiNoteVelocity",
+        source = realearn.Source.MidiNoteVelocity {
             channel = 0,
             key_number = 82 + row,
         },
-        target = {
-            kind = "Virtual",
+        target =realearn.Target.Virtual {
             id = id,
             character = "Button",
         },
@@ -1416,7 +1396,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "ac49cd8a-cd98-4acd-84a0-276372aa8d05",
+                "sac",
             },
             shape = "circle",
             width = 34,
@@ -1605,7 +1585,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "22050182-480e-4267-b203-9ad641a72b44",
+                "sustain",
             },
             shape = "rectangle",
             width = 98,
@@ -1626,7 +1606,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "b09d6169-a7df-4dbe-b76c-73d30c8625c3",
+                "play",
             },
             shape = "rectangle",
             width = 98,
@@ -1647,7 +1627,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "6c4745ac-39bb-4ed7-b290-2cc5aef49bbb",
+                "rec",
             },
             shape = "rectangle",
             width = 98,
@@ -1668,7 +1648,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "838cc9e6-5857-4dd2-952b-339f3f886f3d",
+                "shift",
             },
             shape = "rectangle",
             width = 98,
@@ -1680,7 +1660,7 @@ local companion_data = {
     ["gridSize"] = 32,
 }
 
-return {
+return realearn.Compartment {
     parameters = parameters,
     mappings = mappings,
     custom_data = {
