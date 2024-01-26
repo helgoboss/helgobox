@@ -981,7 +981,10 @@ impl UnitModel {
         cmd: MappingCommand,
         initiator: Option<u32>,
     ) {
-        let session = weak_session.upgrade().expect("session gone");
+        let Some(session) = weak_session.upgrade() else {
+            // If session is gone, it doesn't matter anyway
+            return;
+        };
         let mut session = session.borrow_mut();
         session.change_mapping_from_ui_expert(mapping, cmd, initiator, weak_session);
     }
