@@ -31,9 +31,6 @@ pub use preset_link::*;
 mod mapping_extension_model;
 pub use mapping_extension_model::*;
 
-mod midi_util;
-pub use midi_util::*;
-
 mod compartment_model;
 pub use compartment_model::*;
 

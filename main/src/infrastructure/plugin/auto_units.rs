@@ -1,9 +1,8 @@
 use crate::application::{
-    parse_hex_string, AutoUnitData, ControllerPresetUsage, ControllerSuitability,
-    MainPresetSuitability,
+    AutoUnitData, ControllerPresetUsage, ControllerSuitability, MainPresetSuitability,
 };
 use crate::base::notification::notify_user_on_anyhow_error;
-use crate::domain::{DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
+use crate::domain::{parse_hex_string, DeviceControlInput, DeviceFeedbackOutput, OscDeviceId};
 use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;

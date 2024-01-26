@@ -1,7 +1,7 @@
-use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension};
+use crate::domain::{
+    parse_hex_string, DisplayAsPrettyHex, LifecycleMidiData, LifecycleMidiMessage, MappingExtension,
+};
 
-use crate::application::parse_hex_string;
-use crate::domain::ui_util::DisplayRawMidi;
 use helgoboss_learn::RawMidiEvent;
 use serde::{Deserialize, Serialize};
 use serde_with::SerializeDisplay;
@@ -50,7 +50,7 @@ pub struct RawHexStringMidiMessage(pub Vec<u8>);
 
 impl Display for RawHexStringMidiMessage {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        DisplayRawMidi(&self.0).fmt(f)
+        DisplayAsPrettyHex(&self.0).fmt(f)
     }
 }
 

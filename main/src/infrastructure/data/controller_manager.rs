@@ -1,5 +1,4 @@
-use crate::domain::ui_util::format_raw_midi;
-use crate::domain::RequestMidiDeviceIdentityReply;
+use crate::domain::{format_as_pretty_hex, RequestMidiDeviceIdentityReply};
 use anyhow::Context;
 use nanoid::nanoid;
 use realearn_api::persistence::{
@@ -119,7 +118,7 @@ impl ControllerManager {
                     // Convenience feature: Set input port automatically
                     c.input_port = Some(MidiInputPort::new(reply.input_device_id.get() as u32));
                     c.identity_response =
-                        Some(format_raw_midi(&reply.device_inquiry_reply.message));
+                        Some(format_as_pretty_hex(&reply.device_inquiry_reply.message));
                 } else {
                     c.identity_response = None;
                 }

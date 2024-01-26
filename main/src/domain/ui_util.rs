@@ -1,4 +1,6 @@
-use crate::domain::{FeedbackReason, MatchOutcome, OwnedIncomingMidiMessage, Tag, UnitId};
+use crate::domain::{
+    format_as_pretty_hex, FeedbackReason, MatchOutcome, OwnedIncomingMidiMessage, Tag, UnitId,
+};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -9,7 +11,7 @@ use reaper_high::{Reaper, Volume};
 use reaper_medium::Db;
 use rosc::{OscMessage, OscPacket};
 use std::convert::TryInto;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(value.get())
@@ -161,31 +163,12 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
         Raw { events, .. } => {
             let event_strings: Vec<_> = events
                 .iter()
-                .map(|event| format_raw_midi(event.bytes()))
+                .map(|event| format_as_pretty_hex(event.bytes()))
                 .collect();
             event_strings.join(", ")
         }
-        BorrowedSysEx(bytes) => format_raw_midi(bytes),
+        BorrowedSysEx(bytes) => format_as_pretty_hex(bytes),
     }
-}
-
-/// Attention: This is not just used for UI purposes anymore! Move!
-pub struct DisplayRawMidi<'a>(pub &'a [u8]);
-
-impl<'a> Display for DisplayRawMidi<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (i, b) in self.0.iter().enumerate() {
-            if i > 0 {
-                f.write_str(" ")?;
-            }
-            write!(f, "{:02X?}", *b)?;
-        }
-        Ok(())
-    }
-}
-
-pub fn format_raw_midi(bytes: &[u8]) -> String {
-    DisplayRawMidi(bytes).to_string()
 }
 
 pub fn format_osc_packet(packet: &OscPacket) -> String {
@@ -213,7 +196,7 @@ pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {
     use OwnedIncomingMidiMessage::*;
     match msg {
         Short(m) => format_short_midi_message(m),
-        SysEx(m) => format_raw_midi(&m),
+        SysEx(m) => format_as_pretty_hex(&m),
     }
 }
 

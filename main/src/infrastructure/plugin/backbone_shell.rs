@@ -4,18 +4,19 @@ use crate::application::{
 };
 use crate::base::notification;
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, Backbone, ChangeInstanceFxArgs,
-    ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler, DeviceDiff,
-    EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId, HelgoboxWindowSnitch,
-    InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest, InstanceId,
-    InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor, MessageCaptureEvent,
-    MessageCaptureResult, MidiInDevsConfig, MidiOutDevsConfig, MidiScanResult, NormalAudioHookTask,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult, ProcessorContext,
-    QualifiedInstanceEvent, QualifiedMappingId, RealearnAccelerator, RealearnAudioHook,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, RealearnTarget,
-    RealearnTargetState, ReaperTarget, ReaperTargetType, RequestMidiDeviceIdentityCommand,
-    RequestMidiDeviceIdentityReply, SharedInstance, SharedMainProcessors, SharedRealTimeProcessor,
-    Tag, UnitContainer, UnitId, UnitOrchestrationEvent, WeakInstance, WeakUnit,
+    format_as_pretty_hex, ActionInvokedEvent, AdditionalFeedbackEvent, Backbone,
+    ChangeInstanceFxArgs, ChangeInstanceTrackArgs, CompartmentKind, ControlSurfaceEventHandler,
+    DeviceDiff, EnableInstancesArgs, Exclusivity, FeedbackAudioHookTask, GroupId,
+    HelgoboxWindowSnitch, InputDescriptor, InstanceContainerCommonArgs, InstanceFxChangeRequest,
+    InstanceId, InstanceTrackChangeRequest, LastTouchedTargetFilter, MainProcessor,
+    MessageCaptureEvent, MessageCaptureResult, MidiInDevsConfig, MidiOutDevsConfig, MidiScanResult,
+    NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, OscScanResult,
+    ProcessorContext, QualifiedInstanceEvent, QualifiedMappingId, RealearnAccelerator,
+    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnTarget, RealearnTargetState, ReaperTarget, ReaperTargetType,
+    RequestMidiDeviceIdentityCommand, RequestMidiDeviceIdentityReply, SharedInstance,
+    SharedMainProcessors, SharedRealTimeProcessor, Tag, UnitContainer, UnitId,
+    UnitOrchestrationEvent, WeakInstance, WeakUnit,
 };
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
@@ -39,7 +40,6 @@ use base::{
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
 use crate::base::notification::{alert, notify_user_about_anyhow_error};
-use crate::domain::ui_util::format_raw_midi;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
@@ -2589,6 +2589,10 @@ async fn maybe_create_controller_for_device_internal(
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
     //  Check if input already used by existing controller
     let identity_reply = identity_reply_result?;
+    tracing::debug!(
+        msg = "Received identity reply from MIDI device: ",
+        reply = %identity_reply.device_inquiry_reply
+    );
     let in_dev_id = identity_reply.input_device_id;
     let input_used_already = BackboneShell::get()
         .controller_manager
@@ -2648,7 +2652,7 @@ async fn maybe_create_controller_for_device_internal(
         enabled: true,
         palette_color: None,
         connection: Some(ControllerConnection::Midi(MidiControllerConnection {
-            identity_response: Some(format_raw_midi(
+            identity_response: Some(format_as_pretty_hex(
                 &identity_reply.device_inquiry_reply.message,
             )),
             input_port: Some(MidiInputPort::new(

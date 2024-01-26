@@ -1,7 +1,8 @@
 use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
-    IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, RealTimeProcessor, SharedRealTimeInstance, UnitId,
+    DisplayAsPrettyHex, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
+    MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
+    SharedRealTimeInstance, UnitId,
 };
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::record_duration;
@@ -14,6 +15,7 @@ use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,
 };
 use smallvec::SmallVec;
+use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
@@ -50,6 +52,12 @@ pub struct RequestMidiDeviceIdentityReply {
 #[derive(Debug)]
 pub struct MidiDeviceInquiryReply {
     pub message: ArrayVec<[u8; RawMidiEvent::MAX_LENGTH]>,
+}
+
+impl Display for MidiDeviceInquiryReply {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        DisplayAsPrettyHex(self.message.as_slice()).fmt(f)
+    }
 }
 
 // This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.

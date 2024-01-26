@@ -1,12 +1,12 @@
 use crate::domain::{
-    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, Backbone,
-    CompartmentKind, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
-    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
-    ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
-    FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    aggregate_target_values, format_as_pretty_hex, get_project_options, say,
+    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, CompoundFeedbackValue,
+    CompoundMappingSource, CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext,
+    ControlEvent, ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry,
+    ControlLogEntryKind, ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector,
+    FeedbackDestinations, FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
     GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
     InfoEvent, InstanceId, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
@@ -32,9 +32,9 @@ use std::cell::RefCell;
 
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
-    format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
-    log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_control,
-    log_target_output, log_virtual_control_input, log_virtual_feedback_output,
+    format_osc_message, format_osc_packet, log_lifecycle_output, log_real_control_input,
+    log_real_feedback_output, log_real_learn_input, log_target_control, log_target_output,
+    log_virtual_control_input, log_virtual_feedback_output,
 };
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
@@ -467,7 +467,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
             }
             LogTargetOutput { event } => {
-                log_target_output(self.unit_id(), format_raw_midi(event.bytes()));
+                log_target_output(self.unit_id(), format_as_pretty_hex(event.bytes()));
             }
             LogTargetControl { mapping_id, entry } => {
                 let logger = self

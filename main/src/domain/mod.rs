@@ -161,3 +161,6 @@ pub use midi_dev_management::*;
 
 #[cfg(feature = "playtime")]
 mod playtime_util;
+
+mod hex;
+pub use hex::*;
