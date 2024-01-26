@@ -1,12 +1,10 @@
---- name: APC Key 25
+--- name: APC Key 25 mk2
 --- author: helgoboss
 --- device_manufacturer: Akai
---- device_name: APC Key 25
---- midi_identity_pattern: F0 7E ? 06 02 47 27 00 19 01 * F7
+--- device_name: APC Key 25 mk2
+--- midi_identity_pattern: F0 7E ? 06 02 47 4E 00 19 05 * F7
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25]
-
---!strict
 
 -- Configuration
 
@@ -15,6 +13,165 @@ local resolve_shift = false
 -- Requires
 
 local realearn = require("realearn")
+local midi_script = require("realearn_midi_source_script")
+
+-- Define MIDI scripts
+local pad_script_lib = [[
+type FeedbackEntry = {
+    behavior: number,
+    color: number?,
+}
+local dark = 0x91
+local medium = 0x93
+local bright = 0x96
+local pulsing = 0x9A
+local blinking = 0x9B
+-- TODO
+local red_color = 4 / 127
+local default_color = 50
+local feedback_table: { [string]: FeedbackEntry? } = {
+    -- Off
+    empty = {
+        behavior = dark,
+        color = 0,
+    },
+    -- Yellow
+    stopped = {
+        behavior = dark,
+    },
+    -- Green blinking
+    scheduled_for_play_start = {
+        behavior = medium,
+    },
+    -- Green
+    playing = {
+        behavior = pulsing,
+    },
+    -- Yellow
+    paused = {
+        behavior = dark,
+    },
+    -- Yellow blinking
+    scheduled_for_play_stop = {
+        behavior = blinking,
+    },
+    -- Red blinking
+    scheduled_for_record_start = {
+        behavior = medium,
+        color = red_color,
+    },
+    -- Red
+    recording = {
+        behavior = pulsing,
+        color = red_color,
+    },
+    -- Yellow blinking
+    scheduled_for_record_stop = {
+        behavior = blinking,
+        color = red_color,
+    },
+}
+
+function msb(value: number): number 
+    return bit32.band(bit32.rshift(value, 7), 0x7F)
+end
+
+function lsb(value: number): number
+    return bit32.band(value, 0x7F)
+end
+
+function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_script.Context): midi_script.Output
+    local address = pad_index
+    local off_color = 0x00
+    local off_output = {
+        address = address,
+        messages = {
+            { bright, pad_index, off_color },
+        },
+    }
+    -- Handle "off" feedback
+    if y == nil then
+        return off_output
+    end
+    -- Handle numeric feedback
+    if type(y) == "number" then
+        -- Translate number to solid feedback color, just as with APC Key 25 mk1
+        local color = y / 127
+        return {
+            address = address,
+            messages = {
+                { bright, pad_index, color },
+            },
+        }
+    end
+    -- Handle text feedback
+    if type(y) == "string" then
+        -- This is a grid controller, typically used for controlling a clip matrix, so we should be able to
+        -- handle text feedback that conforms to Playtime's clip state convention.
+        local entry = feedback_table[y]
+        if entry == nil then
+            -- Unknown texts switch the LED off
+            return off_output
+        end
+        local explicit_color = entry.color
+        if explicit_color ~= nil then
+            -- Switch LED to explicit color
+            return {
+                address = address,
+                messages = {
+                    { entry.behavior, pad_index, explicit_color },
+                },
+            }
+        end
+        -- No explicit color means we should use the event color (which is set in the "Glue" section)
+        local event_color = context.feedback_event.color
+        if event_color == nil then
+            -- Event has default color / no specific color
+            return {
+                address = address,
+                messages = {
+                    { entry.behavior, pad_index, default_color },
+                },
+            }
+        end
+        return {
+            address = address,
+            messages = {
+                -- In the first message, we set the LED's behavior. The color doesn't matter because we are going
+                -- to override in the 2nd message.
+                { entry.behavior, pad_index, 0x00 },
+                {
+                    0xF0,
+                    0x47,
+                    0x7F,
+                    0x4E,
+                    0x24,
+                    0x00,
+                    8,
+                    pad_index,
+                    pad_index,
+                    msb(event_color.r),
+                    lsb(event_color.r),
+                    msb(event_color.g),
+                    lsb(event_color.g),
+                    msb(event_color.b),
+                    lsb(event_color.b),
+                    0xF7,
+                },
+            },
+        }
+    end
+    -- Complex feedback is highly individual. It doesn't make sense to handle this in a general-purpose controller preset.
+    return {
+        address = address,
+        messages = {},
+    }
+end
+]]
+
+local function build_pad_script(pad_index: number): string
+    return pad_script_lib .. `\nreturn pad_script({pad_index}, y, context)`
+end
 
 -- Parameters
 
@@ -119,8 +276,8 @@ if resolve_shift then
         { key = 71, id = "device" },
         { key = 82, id = "stop-clip" },
         { key = 83, id = "solo" },
-        { key = 84, id = "record-arm" },
-        { key = 85, id = "mute" },
+        { key = 84, id = "mute" },
+        { key = 85, id = "record-arm" },
         { key = 86, id = "track-select" },
     }
     for _, element in ipairs(alt_elements) do
@@ -180,28 +337,6 @@ for i = 0, 7 do
 end
 
 -- Clip launch buttons
-local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
-    value = {
-        -- Off
-        empty = 0,
-        -- Yellow
-        stopped = 5,
-        -- Green blinking
-        scheduled_for_play_start = 2,
-        -- Green
-        playing = 1,
-        -- Yellow
-        paused = 5,
-        -- Yellow blinking
-        scheduled_for_play_stop = 6,
-        -- Red blinking
-        scheduled_for_record_start = 4,
-        -- Red
-        recording = 3,
-        -- Yellow blinking
-        scheduled_for_record_stop = 6,
-    },
-}
 
 for col = 0, 7 do
     local human_col = col + 1
@@ -209,21 +344,32 @@ for col = 0, 7 do
         local human_row = row + 1
         local key_number_offset = (4 - row) * 8
         local id = `col{human_col}/row{human_row}/pad`
-        local mapping = realearn.Mapping {
+        local control_mapping = realearn.Mapping {
             id = id,
+            feedback_enabled = false,
             source = realearn.Source.MidiNoteVelocity {
                 channel = 0,
                 key_number = key_number_offset + col,
-            },
-            glue = {
-                feedback_value_table = feedback_value_table,
             },
             target = realearn.Target.Virtual {
                 id = id,
                 character = "Button",
             },
         }
-        table.insert(mappings, mapping)
+        local feedback_mapping = realearn.Mapping {
+            id = `{id}-feedback`,
+            control_enabled = false,
+            source = realearn.Source.MidiScript {
+                kind = "Lua",
+                script = build_pad_script(key_number_offset + col),
+            },
+            target = realearn.Target.Virtual {
+                id = id,
+                character = "Button",
+            },
+        }
+        table.insert(mappings, control_mapping)
+        table.insert(mappings, feedback_mapping)
     end
 end
 
