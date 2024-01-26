@@ -2659,7 +2659,7 @@ impl DomainEventHandler for WeakUnitModel {
             }
             UpdatedOnMappings(on_mappings) => {
                 session
-                    .borrow()
+                    .try_borrow()?
                     .unit
                     .borrow_mut()
                     .set_on_mappings(on_mappings);
