@@ -227,7 +227,10 @@ impl InstancePanel {
     fn open_unit_panel_as_child(&self, shell: &SharedInstanceShell, parent_window: Window) {
         let panel = shell
             .find_unit_panel_by_id(self.displayed_unit_id.get())
-            .expect("couldn't find unit panel");
+            .unwrap_or_else(|| {
+                self.displayed_unit_id.set(None);
+                shell.main_unit_shell().panel().clone()
+            });
         self.displayed_unit_panel
             .borrow_mut()
             .replace(panel.clone());
