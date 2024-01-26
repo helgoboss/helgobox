@@ -1,0 +1,4 @@
+indent_type = "Spaces"
+# This is important. We use Lua primarily for building large data structures and omitting
+# the parentheses is what makes this very readable.
+call_parentheses = "NoSingleTable"

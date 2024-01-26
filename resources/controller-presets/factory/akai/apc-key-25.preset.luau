@@ -16,7 +16,6 @@ local resolve_shift = false
 
 local realearn = require("realearn")
 
-
 -- Parameters
 
 local shift_param = realearn.Parameter {
@@ -202,7 +201,7 @@ local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
         -- Yellow blinking
         -- TODO-high-clip-engine Might be better to distinguish between scheduled_for_stop or scheduled_for_play_start instead.
         scheduled_for_record_stop = 6,
-    }
+    },
 }
 
 for col = 0, 7 do
@@ -259,13 +258,15 @@ for row = 0, 4 do
             channel = 0,
             key_number = 82 + row,
         },
-        target =realearn.Target.Virtual {
+        target = realearn.Target.Virtual {
             id = id,
             character = "Button",
         },
     }
     table.insert(mappings, mapping)
 end
+
+-- Controller layout
 
 local companion_data = {
     controls = {
