@@ -123,17 +123,17 @@ url = "2.1.1"
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
 itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
-env_logger = "0.8.2"
+env_logger = "0.10.1"
 # We want to forward slog logging to standard logging
 slog-stdlog = "4.1.1"
 # To open user guide in local PDF app
-open = "1"
+open = "5.0.1"
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
 semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
-async-channel = "1.5.1"
+async-channel = "2.1.1"
 # For displaying snapshot sizes
 bytesize.workspace = true
 # For OSC
@@ -171,7 +171,7 @@ xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
 strum.workspace = true
 metrics.workspace = true
-metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.13.0", default-features = false }
 # For parsing OSC argument value ranges
 nom.workspace = true
 # For obtaining dialog constants from dialog crate
@@ -214,14 +214,14 @@ tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" 
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
-sys-info = "0.7"
+sys-info = "0.9.1"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
 winapi.workspace = true
 
 
 [build-dependencies]
 # For making Git commit hash available to code
-built = { version = "0.5.1", features = ["git2", "chrono"] }
+built = { version = "0.7.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen.workspace = true
 # For compiling EEL and SWELL dialog resources
@@ -229,7 +229,7 @@ bindgen.workspace = true
 # in a convenient way. TODO-low-wait https://github.com/rust-lang/cc-rs/pull/671
 cc = { git = "https://github.com/petrochenkov/cc-rs.git", rev = "4d52bd211aeb2b4ddccd1b9c0a0841e03aaaef7c" }
 # For embedding dialog resource files on Windows
-embed-resource = "1.3"
+embed-resource = "2.4.1"
 # For RC dialog file generation
 realearn-dialogs = { path = "../dialogs" }
 
