@@ -2463,8 +2463,8 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
             }
             // Now, let's go
             for out_dev_id in added_devices.iter().copied() {
-                if let Err(e) = maybe_create_controller_for_device(out_dev_id).await {
-                    notification::warn(e.to_string());
+                if let Err(error) = maybe_create_controller_for_device(out_dev_id).await {
+                    tracing::warn!(msg = "Couldn't automatically create controller for device", %out_dev_id, %error);
                 }
             }
             IS_RUNNING.store(false, Ordering::Relaxed);
@@ -2673,6 +2673,11 @@ async fn maybe_create_controller_for_device(
     new_midi_ins.apply_to_reaper();
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
     // Persist the changes
+    tracing::debug!(
+        msg = "Persisting MIDI in/out dev changes...",
+        ?new_midi_ins,
+        ?new_midi_outs
+    );
     write_midi_devs_config_to_reaper_ini(new_midi_ins, new_midi_outs)?;
     // Auto-create controller
     tracing::debug!("Auto-creating controller...");

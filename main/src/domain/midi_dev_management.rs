@@ -41,18 +41,21 @@ impl MidiInDevsConfig {
 
 fn to_ini_entries(name: &str, devs: u128) -> impl Iterator<Item = (String, u32)> {
     [
-        (name.to_string(), (devs & 0x0000_0000_0000_FFFF) as u32),
+        (
+            name.to_string(),
+            (devs & 0x00000000_00000000_00000000_FFFFFFFF) as u32,
+        ),
         (
             format!("{name}_h"),
-            ((devs & 0x0000_0000_FFFF_0000) >> 4) as u32,
+            ((devs & 0x00000000_00000000_FFFFFFFF_00000000) >> 32) as u32,
         ),
         (
             format!("{name}_x"),
-            ((devs & 0x0000_FFFF_0000_0000) >> 8) as u32,
+            ((devs & 0x00000000_FFFFFFFF_00000000_00000000) >> 64) as u32,
         ),
         (
             format!("{name}_x_h"),
-            ((devs & 0xFFFF_0000_0000_0000) >> 12) as u32,
+            ((devs & 0xFFFFFFFF_00000000_00000000_00000000) >> 96) as u32,
         ),
     ]
     .into_iter()
