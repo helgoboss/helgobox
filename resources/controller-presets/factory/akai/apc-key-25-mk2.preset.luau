@@ -3,6 +3,11 @@
 --- device_manufacturer: Akai
 --- device_name: APC Key 25 mk2
 --- midi_identity_pattern: F0 7E ? 06 02 47 4E 00 19 05 * F7
+--- # This device exposes 2 USB MIDI ports, one for "Keys" and one for "Control". We are
+--- # interested in "Control". Both MIDI ports reply with the same device identity. If we
+--- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 
+--- # controller detection feature takes the "Keys" port ... and things wouldn't work!
+--- midi_output_port_pattern: "*Control*"
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25]
 
@@ -16,9 +21,9 @@ local realearn = require("realearn")
 
 -- Define MIDI scripts
 -- TODO-high CONTINUE Solve issue that it detects the "Keys" input as match
+-- TODO-high CONTINUE Fix MIDI devs not being saved well in reaper.ini. Maybe just a consequence of previous issue
 -- TODO-high CONTINUE Make up for the lack of "Sustain" button ...
 -- TODO-high CONTINUE Maybe make record button actually record in REAPER?
--- TODO-high CONTINUE Fix MIDI devs not being saved well in reaper.ini
 -- TODO-high CONTINUE This is nuts, we don't want this whole code in each pad mapping ;)
 -- TODO-high CONTINUE Experiment with https://stackoverflow.com/a/3269982
 -- TODO-high CONTINUE Actually make clip colors available and expose them in main preset (via syle prop)

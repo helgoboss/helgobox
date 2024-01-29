@@ -34,6 +34,7 @@ use std::str::FromStr;
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
+use wildmatch::WildMatch;
 
 pub type SharedControllerPresetManager = Rc<RefCell<FileBasedControllerPresetManager>>;
 pub type FileBasedControllerPresetManager =
@@ -55,8 +56,10 @@ impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
     pub fn find_controller_preset_compatible_with_device(
         &self,
         midi_identity_reply: &[u8],
+        midi_output_port_name: &str,
     ) -> Option<&PresetInfo<ControllerPresetMetaData>> {
         self.preset_infos.iter().find(|info| {
+            // Check device identity
             let Some(midi_identity_pattern) =
                 info.specific_meta_data.midi_identity_pattern.as_ref()
             else {
@@ -65,7 +68,17 @@ impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
             let Ok(byte_pattern) = BytePattern::from_str(midi_identity_pattern) else {
                 return false;
             };
-            byte_pattern.matches(midi_identity_reply)
+            let identity_matches = byte_pattern.matches(midi_identity_reply);
+            if !identity_matches {
+                return false;
+            }
+            // Additionally check device identity
+            let Some(port_pattern) = info.specific_meta_data.midi_output_port_pattern.as_ref()
+            else {
+                return true;
+            };
+            let wild_match = WildMatch::new(port_pattern);
+            wild_match.matches(midi_output_port_name)
         })
     }
 }

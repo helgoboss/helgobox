@@ -1,4 +1,5 @@
 use crate::domain::{ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput};
+use strum::EnumIs;
 
 /// Data about an automatically loaded unit.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -40,7 +41,7 @@ impl MainPresetSuitability {
 }
 
 /// Suitability of a controller preset for a connected controller.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, EnumIs)]
 pub enum ControllerSuitability {
     NotSuitable = 0,
     MaybeSuitable = 1,

@@ -10,12 +10,14 @@ use base::byte_pattern::BytePattern;
 use base::{tracing_debug, tracing_warn, Global};
 use realearn_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
+    MidiControllerConnection,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str::FromStr;
+use wildmatch::WildMatch;
 
 /// To be called whenever some event might lead to addition/removal of auto units.
 pub fn update_auto_units_async() {
@@ -209,48 +211,108 @@ fn get_suitability_of_controller_preset_for_controller(
     controller_preset_meta_data: &ControllerPresetMetaData,
     connection: &ControllerConnection,
 ) -> ControllerSuitability {
-    match &controller_preset_meta_data.midi_identity_pattern {
+    match connection {
+        ControllerConnection::Midi(con) => {
+            // This is a MIDI controller
+            let identity_pattern_suitability =
+                if let Some(p) = &controller_preset_meta_data.midi_identity_pattern {
+                    get_suitability_of_midi_identity_pattern_for_controller(p, con)
+                } else {
+                    // Controller preset doesn't define any identity pattern, which could just be laziness
+                    ControllerSuitability::MaybeSuitable
+                };
+            if identity_pattern_suitability.is_not_suitable() {
+                // Identity doesn't match, this is a no-go
+                return ControllerSuitability::NotSuitable;
+            }
+            let Some(output_port_pattern) = &controller_preset_meta_data.midi_output_port_pattern
+            else {
+                // Controller preset doesn't define any MIDI output port pattern. This is perfectly valid.
+                return identity_pattern_suitability;
+            };
+            // MIDI output port pattern given. Take it into account as well.
+            let Some(output_port) = con.output_port else {
+                // If the controller has not output, it can't match an output port pattern.
+                return ControllerSuitability::NotSuitable;
+            };
+            let out_dev_id = MidiOutputDeviceId::new(output_port.get() as _);
+            let out_dev_name = Reaper::get()
+                .midi_output_device_by_id(out_dev_id)
+                .name()
+                .into_string();
+            let wild_match = WildMatch::new(output_port_pattern);
+            if wild_match.matches(&out_dev_name) {
+                ControllerSuitability::Suitable
+            } else {
+                ControllerSuitability::NotSuitable
+            }
+        }
+        ControllerConnection::Osc(_) => {
+            // This is an OSC controller
+            if controller_preset_meta_data.midi_identity_pattern.is_some()
+                || controller_preset_meta_data
+                    .midi_output_port_pattern
+                    .is_some()
+            {
+                // We have a preset for a MIDI controller but this is an OSC controller.
+                ControllerSuitability::NotSuitable
+            } else {
+                // We don't have any checks for OSC
+                ControllerSuitability::MaybeSuitable
+            }
+        }
+    }
+}
+
+fn get_suitability_of_midi_identity_pattern_for_controller(
+    midi_identity_pattern: &str,
+    connection: &MidiControllerConnection,
+) -> ControllerSuitability {
+    match &connection.identity_response {
         None => {
-            // Controller preset doesn't define any pattern, which could just be laziness
+            // Controller doesn't expect any specific identity response.
             ControllerSuitability::MaybeSuitable
         }
-        Some(pattern) => {
-            match connection {
-                ControllerConnection::Midi(c) => match &c.identity_response {
-                    None => ControllerSuitability::MaybeSuitable,
-                    Some(identity_response) => {
-                        match BytePattern::from_str(pattern) {
-                            Ok(byte_pattern) => {
-                                match parse_hex_string(identity_response) {
-                                    Ok(identity_response_bytes) => {
-                                        if byte_pattern.matches(&identity_response_bytes) {
-                                            tracing_debug!("Pattern matches identity response");
-                                            ControllerSuitability::Suitable
-                                        } else {
-                                            ControllerSuitability::NotSuitable
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // Invalid response
-                                        tracing_warn!(
-                                            "Invalid MIDI identity response in controller: {identity_response}",
-                                        );
-                                        ControllerSuitability::NotSuitable
-                                    }
-                                }
-                            }
-                            Err(_) => {
-                                // Invalid pattern
-                                tracing_warn!(
-                                    "Invalid MIDI identity pattern in controller preset: {pattern}",
-                                );
-                                ControllerSuitability::NotSuitable
-                            }
-                        }
-                    }
-                },
-                ControllerConnection::Osc(_) => ControllerSuitability::NotSuitable,
+        Some(identity_response) => {
+            if midi_identity_response_matches_pattern(identity_response, midi_identity_pattern) {
+                ControllerSuitability::Suitable
+            } else {
+                ControllerSuitability::NotSuitable
             }
+        }
+    }
+}
+
+fn midi_identity_response_matches_pattern(
+    identity_response: &str,
+    midi_identity_pattern: &str,
+) -> bool {
+    match BytePattern::from_str(midi_identity_pattern) {
+        Ok(byte_pattern) => {
+            match parse_hex_string(identity_response) {
+                Ok(identity_response_bytes) => {
+                    if byte_pattern.matches(&identity_response_bytes) {
+                        tracing_debug!("Pattern matches identity response");
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Err(_) => {
+                    // Invalid response
+                    tracing_warn!(
+                        "Invalid MIDI identity response in controller: {identity_response}",
+                    );
+                    false
+                }
+            }
+        }
+        Err(_) => {
+            // Invalid pattern
+            tracing_warn!(
+                "Invalid MIDI identity pattern in controller preset: {midi_identity_pattern}",
+            );
+            false
         }
     }
 }

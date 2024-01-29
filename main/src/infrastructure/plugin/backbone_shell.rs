@@ -53,6 +53,7 @@ use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
+use fragile::Fragile;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -83,7 +84,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::null;
 use std::rc::{Rc, Weak};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -2453,9 +2454,22 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
             .notify_midi_output_devices_changed();
         update_auto_units_async();
         // Maybe create controller for each added device
-        for out_dev_id in diff.added_devices.iter().copied() {
-            maybe_create_controller_for_device(out_dev_id);
-        }
+        let added_devices = diff.added_devices.clone();
+        spawn_in_main_thread(async move {
+            // Prevent multiple tasks of this kind from running at the same time
+            static IS_RUNNING: AtomicBool = AtomicBool::new(false);
+            if IS_RUNNING.swap(true, Ordering::Relaxed) {
+                return Ok(());
+            }
+            // Now, let's go
+            for out_dev_id in added_devices.iter().copied() {
+                if let Err(e) = maybe_create_controller_for_device(out_dev_id).await {
+                    notification::warn(e.to_string());
+                }
+            }
+            IS_RUNNING.store(false, Ordering::Relaxed);
+            Ok(())
+        });
     }
 }
 
@@ -2551,7 +2565,9 @@ fn decompress_app() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn maybe_create_controller_for_device(out_dev_id: MidiOutputDeviceId) {
+async fn maybe_create_controller_for_device(
+    out_dev_id: MidiOutputDeviceId,
+) -> Result<(), Box<dyn Error>> {
     // Don't create controller if there is one already which uses that device
     let output_used_already = BackboneShell::get()
         .controller_manager
@@ -2560,40 +2576,41 @@ fn maybe_create_controller_for_device(out_dev_id: MidiOutputDeviceId) {
         .is_some();
     if output_used_already {
         // Output used already by existing controller
-        return;
+        return Ok(());
     }
-    // Create controller async
-    spawn_in_main_thread(maybe_create_controller_for_device_internal(out_dev_id));
-}
-
-async fn maybe_create_controller_for_device_internal(
-    out_dev_id: MidiOutputDeviceId,
-) -> Result<(), Box<dyn Error>> {
     // Make sure that MIDI output device is enabled
+    tracing::debug!(msg = "Temporarily enabling MIDI output device", %out_dev_id);
     let old_midi_outs = MidiOutDevsConfig::from_reaper();
     let tmp_midi_outs = old_midi_outs.with_dev_enabled(out_dev_id);
     tmp_midi_outs.apply_to_reaper();
-    // Temporily enable all input devices (so they can listen to the device identity reply)
+    // Temporarily enable all input devices (so they can listen to the device identity reply)
+    tracing::debug!(msg = "Temporarily enabling all input devices...");
     let old_midi_ins = MidiInDevsConfig::from_reaper();
     let tmp_midi_ins = MidiInDevsConfig::ALL_ENABLED;
     tmp_midi_ins.apply_to_reaper();
     // Apply changes
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
     // Send device identity request to MIDI output device
+    tracing::debug!(msg = "Sending device request to MIDI output device...", %out_dev_id);
     let identity_reply_result = BackboneShell::get()
         .request_midi_device_identity(out_dev_id, None)
         .await;
     // As soon as possible, reset MIDI devices to old state (we don't want to leave traces)
+    tracing::debug!(msg = "Resetting MIDI output and input devices to previous state...");
     old_midi_outs.apply_to_reaper();
     old_midi_ins.apply_to_reaper();
     Reaper::get().medium_reaper().low().midi_init(-1, -1);
-    //  Check if input already used by existing controller
+    // Process identity reply
     let identity_reply = identity_reply_result?;
+    let in_dev_id = identity_reply.input_device_id;
     tracing::debug!(
-        msg = "Received identity reply from MIDI device: ",
+        msg = "Received identity reply from MIDI device",
+        %out_dev_id,
+        %in_dev_id,
         reply = %identity_reply.device_inquiry_reply
     );
-    let in_dev_id = identity_reply.input_device_id;
+    //  Check if input already used by existing controller
+    tracing::debug!(msg = "Check if input used already used by existing controller...");
     let input_used_already = BackboneShell::get()
         .controller_manager
         .borrow()
@@ -2601,12 +2618,21 @@ async fn maybe_create_controller_for_device_internal(
         .is_some();
     if input_used_already {
         // Input already used by existing controller
+        tracing::debug!(msg = "Input already used");
         return Ok(());
     }
     // Neither output nor input used already. Maybe this is a known controller!
     let controller_preset_manager = BackboneShell::get().controller_preset_manager().borrow();
+    let out_port_name = Reaper::get()
+        .midi_output_device_by_id(out_dev_id)
+        .name()
+        .into_string();
+    tracing::debug!(msg = "Input not yet used. Finding matching controller preset...", %out_port_name);
     let controller_preset = controller_preset_manager
-        .find_controller_preset_compatible_with_device(&identity_reply.device_inquiry_reply.message)
+        .find_controller_preset_compatible_with_device(
+            &identity_reply.device_inquiry_reply.message,
+            &out_port_name,
+        )
         .ok_or("no controller preset matching device")?;
     let device_name = controller_preset
         .specific_meta_data
@@ -2614,6 +2640,9 @@ async fn maybe_create_controller_for_device_internal(
         .as_ref()
         .ok_or("controller preset doesn't have device name")?;
     // Search for suitable main preset
+    let controller_preset_id = &controller_preset.common.id;
+    tracing::debug!(msg = "Found controller preset", %controller_preset_id);
+    tracing::debug!(msg = "Finding main preset...");
     let main_preset_manager = BackboneShell::get().main_preset_manager().borrow();
     let conditions = MainPresetSelectionConditions {
         at_least_one_instance_has_playtime_clip_matrix: {
@@ -2632,6 +2661,7 @@ async fn maybe_create_controller_for_device_internal(
         &controller_preset.specific_meta_data.provided_schemes,
         conditions,
     );
+    tracing::debug!(msg = "Main preset result available", ?main_preset);
     let default_main_preset = main_preset.map(|mp| CompartmentPresetId::new(mp.common.id.clone()));
     // Make sure the involved MIDI devices are enabled
     tracing::debug!(
