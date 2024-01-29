@@ -3151,6 +3151,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
     ) {
         let new_control_is_enabled =
             self.potentially_enable_or_disable_control_very_internal(project_options);
+        // Important to send this to real-time processor even if state hasn't changed. It's possible that the
+        // real-time processor has requested a full resync and therefore discarded a previous state change.
+        self.channels.normal_real_time_task_sender.send_complaining(
+            NormalRealTimeTask::UpdateControlIsGloballyEnabled(self.control_is_globally_enabled),
+        );
         if let Some(new_control_is_enabled) = new_control_is_enabled {
             debug!(
                 self.logger,
@@ -3163,9 +3168,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 )
             };
             self.send_io_update_complaining(event);
-            self.channels.normal_real_time_task_sender.send_complaining(
-                NormalRealTimeTask::UpdateControlIsGloballyEnabled(new_control_is_enabled),
-            );
         }
     }
 
@@ -3177,6 +3179,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
     ) -> Option<bool> {
         let new_feedback_is_enabled =
             self.potentially_enable_or_disable_feedback_very_internal(project_options);
+        // Important to send this to real-time processor even if state hasn't changed. It's possible that the
+        // real-time processor has requested a full resync and therefore discarded a previous state change.
+        self.channels.normal_real_time_task_sender.send_complaining(
+            NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(self.feedback_is_globally_enabled),
+        );
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             debug!(
                 self.logger,
@@ -3186,9 +3193,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
             let changed_event = self
                 .feedback_output_usage_might_have_changed_event(any_main_mapping_is_effectively_on);
             self.send_io_update_complaining(changed_event);
-            self.channels.normal_real_time_task_sender.send_complaining(
-                NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(new_feedback_is_enabled),
-            );
         }
         new_feedback_is_enabled
     }
