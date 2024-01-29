@@ -20,8 +20,7 @@ local resolve_shift = false
 local realearn = require("realearn")
 
 -- Define MIDI scripts
--- TODO-high CONTINUE Solve issue that it detects the "Keys" input as match
--- TODO-high CONTINUE Fix MIDI devs not being saved well in reaper.ini. Maybe just a consequence of previous issue
+-- TODO-high CONTINUE Fix input not working
 -- TODO-high CONTINUE Make up for the lack of "Sustain" button ...
 -- TODO-high CONTINUE Maybe make record button actually record in REAPER?
 -- TODO-high CONTINUE This is nuts, we don't want this whole code in each pad mapping ;)

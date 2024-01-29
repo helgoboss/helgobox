@@ -119,7 +119,6 @@ pub struct UnitModel {
     mapping_subscriptions: EnumMap<CompartmentKind, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<CompartmentKind, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
-    normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: OnceCell<Box<dyn SessionUi>>,
@@ -218,7 +217,6 @@ impl UnitModel {
         unit_id: UnitId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
-        normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         instance_container: &'static dyn UnitContainer,
         controller_manager: impl CompartmentPresetManager + 'static,
@@ -293,7 +291,6 @@ impl UnitModel {
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
             normal_main_task_sender,
-            normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: OnceCell::new(),
             unit_container: instance_container,
@@ -765,22 +762,16 @@ impl UnitModel {
         //  learning (via REAPER action). That way we don't need the subject and also don't need
         //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::StartLearnSource {
-                allow_virtual_sources,
-            });
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             });
-        let rt_sender = self.normal_real_time_task_sender.clone();
         let main_sender = self.normal_main_task_sender.clone();
         self.incoming_msg_captured_subject
             .clone()
             .finalize(move || {
                 if reenable_control_after_touched {
-                    rt_sender.send_complaining(NormalRealTimeTask::ReturnToControlMode);
                     main_sender.send_complaining(NormalMainTask::ReturnToControlMode);
                 }
             })
@@ -1842,15 +1833,11 @@ impl UnitModel {
     }
 
     fn disable_control(&self) {
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::DisableControl);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::DisableControl);
     }
 
     fn enable_control(&self) {
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::ReturnToControlMode);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::ReturnToControlMode);
     }
@@ -2286,8 +2273,6 @@ impl UnitModel {
         self.log_debug_info_internal();
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::LogDebugInfo);
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::LogDebugInfo);
     }
 
     pub fn log_mapping(
@@ -2306,8 +2291,6 @@ impl UnitModel {
         debug!(self.logger, "{:?}", mapping);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::LogMapping(compartment, mapping_id));
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         Ok(())
     }
 
@@ -2489,8 +2472,6 @@ impl UnitModel {
         };
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::UpdateSettings(settings));
-        self.normal_real_time_task_sender
-            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
     }
 
     fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {

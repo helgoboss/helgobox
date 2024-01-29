@@ -1239,6 +1239,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     osc_arg_index_hint,
                 } => {
                     debug!(self.basics.logger, "Start learning source");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::StartLearnSource {
+                            allow_virtual_sources,
+                        });
                     self.basics.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
                         osc_arg_index_hint,
@@ -1246,10 +1252,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 DisableControl => {
                     debug!(self.basics.logger, "Disable control");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::DisableControl);
                     self.basics.control_mode = ControlMode::Disabled;
                 }
                 ReturnToControlMode => {
                     debug!(self.basics.logger, "Return to control mode");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::ReturnToControlMode);
                     self.basics.control_mode = ControlMode::Controlling;
                 }
                 UseIntegrationTestFeedbackSender(sender) => {
@@ -1391,6 +1405,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn update_settings(&mut self, settings: BasicSettings) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
@@ -2400,6 +2418,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn log_debug_info(&mut self) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::LogDebugInfo);
         // Summary
         let msg = format!(
             "\n\
@@ -2451,6 +2473,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn log_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         // Summary
         let mapping = self
             .all_mappings_in_compartment(compartment)

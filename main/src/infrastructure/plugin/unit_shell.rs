@@ -127,7 +127,6 @@ impl UnitShell {
             unit_id,
             &logger,
             processor_context.clone(),
-            normal_real_time_task_sender.clone(),
             normal_main_task_sender.clone(),
             BackboneShell::get(),
             BackboneShell::get().controller_preset_manager().clone(),
