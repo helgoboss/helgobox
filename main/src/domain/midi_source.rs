@@ -1,5 +1,5 @@
 use crate::base::CloneAsDefault;
-use crate::domain::FlexibleMidiSourceScript;
+use crate::domain::{AdditionalLuaMidiSourceScriptInput, FlexibleMidiSourceScript};
 use helgoboss_learn::{FeedbackValue, MidiSourceScript, MidiSourceScriptOutcome};
 use std::borrow::Cow;
 
@@ -27,15 +27,18 @@ type ScriptType = CloneAsDefault<Option<FlexibleMidiSourceScript<'static>>>;
 
 pub type MidiSource = helgoboss_learn::MidiSource<ScriptType>;
 
-impl MidiSourceScript for ScriptType {
+impl<'a> MidiSourceScript<'a> for ScriptType {
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'static>;
+
     fn execute(
         &self,
         input_value: FeedbackValue,
+        additional_input: Self::AdditionalInput,
     ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         let script = self
             .get()
             .as_ref()
             .ok_or(Cow::Borrowed("script was removed on clone"))?;
-        script.execute(input_value)
+        script.execute(input_value, additional_input)
     }
 }

@@ -53,7 +53,6 @@ use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
 use base::metrics_util::MetricsHook;
-use fragile::Fragile;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
 use once_cell::sync::Lazy;

@@ -12,6 +12,7 @@ export type Compartment = {
 	parameters: { Parameter }?,
 	groups: { Group }?,
 	mappings: { Mapping }?,
+	common_lua: string?,
 	custom_data: { [string]: any }?,
 	notes: string?,
 }

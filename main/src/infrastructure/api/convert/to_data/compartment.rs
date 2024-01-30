@@ -73,6 +73,7 @@ pub fn convert_compartment(
             .collect(),
         groups: context.groups,
         custom_data: compartment_content.custom_data.unwrap_or_default(),
+        common_lua: compartment_content.common_lua.unwrap_or_default(),
         notes: compartment_content.notes.unwrap_or_default(),
     };
     Ok(data)

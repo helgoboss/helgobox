@@ -10,18 +10,20 @@ pub struct CompartmentModel {
     pub default_group: GroupModel,
     pub groups: Vec<GroupModel>,
     pub mappings: Vec<MappingModel>,
-    /// At the moment, custom data is only used in the controller compartment.
+    pub common_lua: String,
     pub custom_data: HashMap<String, serde_json::Value>,
     pub notes: String,
 }
 
 pub enum CompartmentCommand {
     SetNotes(String),
+    SetCommonLua(String),
     ChangeMapping(MappingId, MappingCommand),
 }
 
 pub enum CompartmentProp {
     Notes,
+    CommonLua,
     InGroup(GroupId, Affected<GroupProp>),
     InMapping(MappingId, Affected<MappingProp>),
 }

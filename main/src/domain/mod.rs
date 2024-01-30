@@ -19,6 +19,9 @@ pub use audio_hook::*;
 mod mode;
 pub use mode::*;
 
+mod source;
+pub use source::*;
+
 mod midi_source;
 pub use midi_source::*;
 

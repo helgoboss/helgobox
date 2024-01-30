@@ -1,31 +1,34 @@
 use crate::domain::{
     prop_feedback_resolution, prop_is_affected_by, ActivationChange, ActivationCondition,
-    BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
-    ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
-    HitResponse, KeyMessage, KeySource, MappingActivationEffect, MappingControlContext,
-    MappingData, MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource,
-    Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
-    PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
-    RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    AdditionalLuaMidiSourceScriptInput, BoxedHitInstruction, CompartmentParamIndex,
+    CompoundChangeEvent, ControlContext, ControlEvent, ControlEventTimestamp, ControlOptions,
+    ExtendedProcessorContext, FeedbackResolution, FlexibleMidiSourceScript, GroupId, HitResponse,
+    KeyMessage, KeySource, MappingActivationEffect, MappingControlContext, MappingData,
+    MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource, Mode,
+    OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex, PluginParams,
+    RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
+    RealearnParameterChangePayload, RealearnParameterSource, RealearnSourceContext, RealearnTarget,
+    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
-    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
-    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
-    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
-    SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
+    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress,
+    MidiSourceScript, MidiSourceScriptOutcome, MidiSourceValue, ModeControlOptions,
+    ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue, OscSource,
+    OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent, SourceCharacter,
+    SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::borrow::Cow;
 use std::cell::Cell;
 
+use crate::base::CloneAsDefault;
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
@@ -37,6 +40,7 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
+use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -1167,7 +1171,7 @@ impl MainMapping {
         &self,
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
         logger: impl SourceFeedbackLogger,
     ) -> Option<SpecificCompoundFeedbackValue> {
         let options = ModeFeedbackOptions {
@@ -1189,7 +1193,7 @@ impl MainMapping {
         &self,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
@@ -1206,7 +1210,7 @@ impl MainMapping {
     /// Used when mappings get inactive.
     pub fn off_feedback(
         &self,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
         logger: impl SourceFeedbackLogger,
     ) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
@@ -1753,7 +1757,7 @@ impl CompoundMappingSource {
     pub fn feedback(
         &self,
         feedback_value: Cow<FeedbackValue>,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<PreliminarySourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
@@ -1848,7 +1852,7 @@ impl SpecificCompoundFeedbackValue {
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;
@@ -2397,7 +2401,8 @@ impl QualifiedMappingId {
     EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
-    Display,
+    strum::Display,
+    strum::AsRefStr,
     Serialize,
     Deserialize,
 )]
@@ -2405,9 +2410,9 @@ impl QualifiedMappingId {
 pub enum CompartmentKind {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
-    #[display(fmt = "controller compartment")]
+    #[strum(serialize = "controller compartment")]
     Controller,
-    #[display(fmt = "main compartment")]
+    #[strum(serialize = "main compartment")]
     Main,
 }
 

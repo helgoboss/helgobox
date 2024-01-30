@@ -43,7 +43,12 @@ pub struct CompartmentModelData {
         skip_serializing_if = "is_default"
     )]
     pub parameters: HashMap<String, ParamSetting>,
-    /// At the moment, custom data is only used in the controller compartment.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub common_lua: String,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -93,6 +98,7 @@ impl CompartmentModelData {
                 .iter()
                 .map(|(key, value)| (key.to_string(), value.clone()))
                 .collect(),
+            common_lua: model.common_lua.clone(),
             custom_data: model.custom_data.clone(),
             notes: model.notes.clone(),
         }
@@ -152,6 +158,7 @@ impl CompartmentModelData {
                 })
                 .collect(),
             groups,
+            common_lua: self.common_lua.clone(),
             custom_data: self.custom_data.clone(),
             notes: self.notes.clone(),
         };

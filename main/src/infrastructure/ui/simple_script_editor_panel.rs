@@ -37,7 +37,7 @@ impl LuaMidiScriptEngine {
 impl ScriptEngine for LuaMidiScriptEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let script = LuaMidiSourceScript::compile(&self.lua, code)?;
-        script.execute(create_midi_script_test_feedback_value())?;
+        script.execute(create_midi_script_test_feedback_value(), Default::default())?;
         Ok(Box::new(()))
     }
 
@@ -91,7 +91,7 @@ pub struct EelMidiScriptEngine;
 impl ScriptEngine for EelMidiScriptEngine {
     fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
         let script = EelMidiSourceScript::compile(code)?;
-        script.execute(create_midi_script_test_feedback_value())?;
+        script.execute(create_midi_script_test_feedback_value(), Default::default())?;
         Ok(Box::new(()))
     }
 

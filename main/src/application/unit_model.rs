@@ -6,15 +6,15 @@ use crate::application::{
     SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
     MASTER_TRACK_LABEL,
 };
-use crate::base::{prop, when, AsyncNotifier, Prop};
+use crate::base::{notification, prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, CompartmentKind,
-    CompartmentParamIndex, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    NormalRealTimeTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
+    CompartmentParamIndex, CompartmentSettings, CompoundMappingSource, ControlContext,
+    ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
+    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter,
+    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
     ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
     ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
     StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
@@ -35,7 +35,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
 use core::iter;
-use helgoboss_learn::{ControlResult, ControlValue, SourceContext, UnitValue};
+use helgoboss_learn::{ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
     FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
@@ -108,6 +108,7 @@ pub struct UnitModel {
     active_main_preset_id: Option<String>,
     processor_context: ProcessorContext,
     mappings: EnumMap<CompartmentKind, Vec<SharedMapping>>,
+    compartment_common_lua: EnumMap<CompartmentKind, String>,
     compartment_notes: EnumMap<CompartmentKind, String>,
     default_main_group: SharedGroup,
     default_controller_group: SharedGroup,
@@ -276,6 +277,7 @@ impl UnitModel {
             active_main_preset_id: None,
             processor_context: context,
             mappings: Default::default(),
+            compartment_common_lua: Default::default(),
             compartment_notes: Default::default(),
             default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
                 CompartmentKind::Main,
@@ -511,6 +513,9 @@ impl UnitModel {
     }
 
     fn full_sync(&mut self) {
+        for compartment in CompartmentKind::enum_iter() {
+            self.sync_compartment_settings(compartment);
+        }
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
@@ -817,9 +822,6 @@ impl UnitModel {
     }
 
     pub fn control_context(&self) -> ControlContext {
-        // TODO-low At the moment, we don't use the source context concept yet but as soon as we do,
-        //  we should share the same source context between main processor and session.
-        const SOURCE_CONTEXT: SourceContext = SourceContext;
         ControlContext {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
             feedback_real_time_task_sender: &self.feedback_real_time_task_sender,
@@ -830,7 +832,7 @@ impl UnitModel {
             unit: self.unit(),
             unit_id: self.unit_id(),
             output_logging_enabled: self.real_output_logging_enabled.get(),
-            source_context: &SOURCE_CONTEXT,
+            source_context: Default::default(),
             processor_context: &self.processor_context,
         }
     }
@@ -1228,6 +1230,10 @@ impl UnitModel {
                         One(InCompartment(compartment, One(Notes))) => {
                             session.mark_compartment_dirty(*compartment);
                         }
+                        One(InCompartment(compartment, One(CommonLua))) => {
+                            session.sync_compartment_settings(*compartment);
+                            session.mark_compartment_dirty(*compartment);
+                        }
                         One(InCompartment(compartment, One(InGroup(_, affected)))) => {
                             // Sync all mappings to processor if necessary (change of a single
                             // group can affect many mappings)
@@ -1296,6 +1302,10 @@ impl UnitModel {
             C::SetNotes(notes) => {
                 self.compartment_notes[compartment] = notes;
                 Some(Affected::One(CompartmentProp::Notes))
+            }
+            C::SetCommonLua(notes) => {
+                self.compartment_common_lua[compartment] = notes;
+                Some(Affected::One(CompartmentProp::CommonLua))
             }
         };
         Ok(affected)
@@ -2002,6 +2012,10 @@ impl UnitModel {
         id.as_deref()
     }
 
+    pub fn compartment_common_lua(&self, compartment: CompartmentKind) -> &str {
+        &self.compartment_common_lua[compartment]
+    }
+
     pub fn compartment_notes(&self, compartment: CompartmentKind) -> &str {
         &self.compartment_notes[compartment]
     }
@@ -2114,6 +2128,7 @@ impl UnitModel {
                 .borrow()
                 .custom_compartment_data(compartment)
                 .clone(),
+            common_lua: self.compartment_common_lua[compartment].clone(),
             notes: self.compartment_notes[compartment].clone(),
         }
     }
@@ -2153,6 +2168,7 @@ impl UnitModel {
             self.unit
                 .borrow_mut()
                 .set_custom_compartment_data(compartment, model.custom_data);
+            self.compartment_common_lua[compartment] = model.common_lua;
             self.compartment_notes[compartment] = model.notes;
         } else {
             self.clear_compartment_data(compartment);
@@ -2185,6 +2201,7 @@ impl UnitModel {
         self.unit
             .borrow_mut()
             .set_custom_compartment_data(compartment, Default::default());
+        self.compartment_common_lua[compartment] = Default::default();
         self.compartment_notes[compartment] = Default::default();
     }
 
@@ -2451,6 +2468,29 @@ impl UnitModel {
 
     pub fn unit(&self) -> &SharedUnit {
         &self.unit
+    }
+
+    fn sync_compartment_settings(&self, compartment: CompartmentKind) {
+        let common_lua_code = &self.compartment_common_lua[compartment];
+        let common_lua_value = if common_lua_code.trim().is_empty() {
+            None
+        } else {
+            match compile_common_lua(compartment, common_lua_code) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    notification::warn_user_about_anyhow_error(e);
+                    None
+                }
+            }
+        };
+        let settings = CompartmentSettings {
+            common_lua: common_lua_value,
+        };
+        self.normal_main_task_sender
+            .send_complaining(NormalMainTask::UpdateCompartmentSettings(
+                compartment,
+                settings,
+            ));
     }
 
     fn sync_settings(&self) {
@@ -2935,4 +2975,13 @@ const SESSION_GONE: &str = "session gone";
 
 pub fn get_appropriate_send_feedback_only_if_armed_default(control_input: ControlInput) -> bool {
     control_input == ControlInput::Midi(MidiControlInput::FxInput)
+}
+
+fn compile_common_lua(
+    compartment: CompartmentKind,
+    code: &str,
+) -> anyhow::Result<mlua::Value<'static>> {
+    let lua = unsafe { Backbone::main_thread_lua() };
+    let env = lua.create_fresh_environment(false)?;
+    lua.compile_and_execute(compartment.as_ref(), code, env)
 }

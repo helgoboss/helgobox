@@ -150,6 +150,24 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
+    main_custom_data: HashMap<String, serde_json::Value>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    controller_common_lua: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    main_common_lua: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
     controller_notes: String,
     #[serde(
         default,
@@ -364,6 +382,9 @@ impl Default for UnitData {
             mappings: vec![],
             controller_mappings: vec![],
             controller_custom_data: Default::default(),
+            main_custom_data: Default::default(),
+            controller_common_lua: Default::default(),
+            main_common_lua: Default::default(),
             controller_notes: Default::default(),
             main_notes: Default::default(),
             active_controller_id: None,
@@ -465,6 +486,13 @@ impl UnitData {
             controller_custom_data: unit
                 .custom_compartment_data(CompartmentKind::Controller)
                 .clone(),
+            main_custom_data: unit.custom_compartment_data(CompartmentKind::Main).clone(),
+            controller_common_lua: session
+                .compartment_common_lua(CompartmentKind::Controller)
+                .to_owned(),
+            main_common_lua: session
+                .compartment_common_lua(CompartmentKind::Main)
+                .to_owned(),
             controller_notes: session
                 .compartment_notes(CompartmentKind::Controller)
                 .to_owned(),
@@ -744,6 +772,14 @@ impl UnitData {
         apply_mappings(CompartmentKind::Controller, &self.controller_mappings)?;
         let _ = session.change(SessionCommand::ChangeCompartment(
             CompartmentKind::Controller,
+            CompartmentCommand::SetCommonLua(self.controller_common_lua.clone()),
+        ));
+        let _ = session.change(SessionCommand::ChangeCompartment(
+            CompartmentKind::Main,
+            CompartmentCommand::SetCommonLua(self.main_common_lua.clone()),
+        ));
+        let _ = session.change(SessionCommand::ChangeCompartment(
+            CompartmentKind::Controller,
             CompartmentCommand::SetNotes(self.controller_notes.clone()),
         ));
         let _ = session.change(SessionCommand::ChangeCompartment(
@@ -777,6 +813,7 @@ impl UnitData {
                 CompartmentKind::Controller,
                 self.controller_custom_data.clone(),
             );
+            unit.set_custom_compartment_data(CompartmentKind::Main, self.main_custom_data.clone());
             unit.parameter_manager().set_all_parameters(params);
             unit.set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific

@@ -7,6 +7,11 @@ use mlua::{Function, IntoLua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::error::Error;
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AdditionalLuaMidiSourceScriptInput<'a, 'lua> {
+    pub compartment_lua: Option<&'a mlua::Value<'lua>>,
+}
+
 #[derive(Debug)]
 pub struct LuaMidiSourceScript<'lua> {
     lua: &'lua SafeLua,
@@ -41,10 +46,13 @@ struct ScriptContext {
     feedback_event: ScriptFeedbackEvent,
 }
 
-impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
+impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'lua>;
+
     fn execute(
         &self,
         input_value: FeedbackValue,
+        additional_input: Self::AdditionalInput,
     ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         // TODO-medium We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
@@ -86,6 +94,13 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
             .as_ref()
             .to_value_with(&context, serialize_options)
             .unwrap();
+        if let Some(lua) = additional_input.compartment_lua {
+            context_lua_value
+                .as_table()
+                .unwrap()
+                .raw_set("common_lua", lua.clone())
+                .map_err(|_| "couldn't set common_lua")?;
+        }
         self.env
             .raw_set(self.context_key.clone(), context_lua_value)
             .map_err(|_| "couldn't set context variable")?;
@@ -143,7 +158,9 @@ mod tests {
             FeedbackStyle::default(),
             AbsoluteValue::Continuous(UnitValue::new(0.5)),
         );
-        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(fb_value), Default::default())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,
@@ -174,16 +191,22 @@ mod tests {
         let script = LuaMidiSourceScript::compile(&lua, text).unwrap();
         // When
         let matched_outcome = script
-            .execute(FeedbackValue::Textual(TextualFeedbackValue::new(
-                FeedbackStyle::default(),
-                "playing".into(),
-            )))
+            .execute(
+                FeedbackValue::Textual(TextualFeedbackValue::new(
+                    FeedbackStyle::default(),
+                    "playing".into(),
+                )),
+                Default::default(),
+            )
             .unwrap();
         let unmatched_outcome = script
-            .execute(FeedbackValue::Numeric(NumericFeedbackValue::new(
-                FeedbackStyle::default(),
-                AbsoluteValue::Continuous(UnitValue::MAX),
-            )))
+            .execute(
+                FeedbackValue::Numeric(NumericFeedbackValue::new(
+                    FeedbackStyle::default(),
+                    AbsoluteValue::Continuous(UnitValue::MAX),
+                )),
+                Default::default(),
+            )
             .unwrap();
         // Then
         assert_eq!(matched_outcome.address, None);
@@ -226,7 +249,9 @@ mod tests {
             background_color: None,
         };
         let value = NumericFeedbackValue::new(style, Default::default());
-        let outcome = script.execute(FeedbackValue::Numeric(value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(value), Default::default())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,

@@ -20,14 +20,15 @@ local resolve_shift = false
 local realearn = require("realearn")
 
 -- Define MIDI scripts
--- TODO-high CONTINUE Fix input not working
 -- TODO-high CONTINUE Make up for the lack of "Sustain" button ...
 -- TODO-high CONTINUE Maybe make record button actually record in REAPER?
 -- TODO-high CONTINUE This is nuts, we don't want this whole code in each pad mapping ;)
--- TODO-high CONTINUE Experiment with https://stackoverflow.com/a/3269982
 -- TODO-high CONTINUE Actually make clip colors available and expose them in main preset (via syle prop)
 -- local midi_script = require("realearn_midi_source_script")
-local pad_script_lib = [[
+local common_lua = [[
+
+local module = {}
+
 type FeedbackEntry = {
     behavior: number,
     color: number?,
@@ -241,7 +242,7 @@ local function find_closest_color_in_palette(color: midi_script.RgbColor, palett
     return ifurthest
 end
 
-local function pad_script(pad_index: number, y: midi_script.InputValue, context: midi_script.Context): midi_script.Output
+function module.pad_script(pad_index: number, y: midi_script.InputValue, context: midi_script.Context): midi_script.Output
     local address = pad_index
     local off_color = 0x00
     local off_output = {
@@ -310,10 +311,12 @@ local function pad_script(pad_index: number, y: midi_script.InputValue, context:
         messages = {},
     }
 end
+
+return module
 ]]
 
 local function build_pad_script(pad_index: number): string
-    return pad_script_lib .. `\nreturn pad_script({pad_index}, y, context)`
+    return `return context.common_lua.pad_script({pad_index}, y, context)`
 end
 
 -- Parameters
@@ -1953,6 +1956,7 @@ local companion_data = {
 return realearn.Compartment {
     parameters = parameters,
     mappings = mappings,
+    common_lua = common_lua,
     custom_data = {
         companion = companion_data,
     },
