@@ -1,6 +1,6 @@
 use crate::bindings::luau::luau_converter::Hook;
+use std::fs;
 use std::path::PathBuf;
-use std::{fs};
 use stylua_lib::OutputVerification;
 
 mod luau_converter;
@@ -21,6 +21,7 @@ pub fn export_luau() {
     }
     export_luau_internal(
         "realearn",
+        "Contains types and helper functions for building ReaLearn presets",
         [
             "src/persistence/compartment.rs",
             "src/persistence/glue.rs",
@@ -45,6 +46,7 @@ pub fn export_luau() {
     }
     export_luau_internal(
         "playtime",
+        "Contains types and helper functions for building Playtime presets",
         ["../playtime-api/src/persistence/mod.rs"],
         &PlaytimeApiExportHook,
         [],
@@ -54,6 +56,7 @@ pub fn export_luau() {
 
 fn export_luau_internal<'a>(
     name: &str,
+    description: &str,
     src_files: impl IntoIterator<Item = &'a str>,
     hook: &impl Hook,
     requires: impl AsRef<[&'a str]>,
@@ -85,7 +88,8 @@ fn export_luau_internal<'a>(
     for req in requires.as_ref() {
         writeln!(&mut luau_code, "local {req} = require(\"{req}\")").unwrap();
     }
-    write!(&mut luau_code, "\n{luau_file}").unwrap();
+    writeln!(&mut luau_code, "\n--- {description}").unwrap();
+    write!(&mut luau_code, "{luau_file}").unwrap();
     let luau_code = stylua_lib::format_code(
         &luau_code,
         Default::default(),
