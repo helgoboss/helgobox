@@ -4,6 +4,7 @@
 
 local playtime = require("playtime")
 
+--- Contains types and helper functions for building ReaLearn presets
 local module = {}
 
 --- Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.

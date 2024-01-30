@@ -1,5 +1,6 @@
 --!strict
 
+--- Contains types for building ReaLearn MIDI scripts in Lua.
 local module = {}
 
 --- Type of the `y` variable in MIDI scripts, which represents the input value of the MIDI script.

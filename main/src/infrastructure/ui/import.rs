@@ -363,6 +363,7 @@ fn execute_lua_import_script<'a>(
 ) -> anyhow::Result<mlua::Value<'a>> {
     let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)
+    // TODO-high This should either be removed or made official (by putting it into preset_runtime.luau)
     let realearn_table = {
         // Prepare
         let lua: &Lua = lua.as_ref();

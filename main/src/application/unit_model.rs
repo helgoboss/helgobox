@@ -8,18 +8,19 @@ use crate::application::{
 };
 use crate::base::{notification, prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    convert_plugin_param_index_range_to_iter, Backbone, BasicSettings, CompartmentKind,
-    CompartmentParamIndex, CompartmentSettings, CompoundMappingSource, ControlContext,
-    ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey,
-    IncomingCompoundSourceValue, InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter,
-    MainMapping, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
-    NormalMainTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
-    ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    convert_plugin_param_index_range_to_iter, create_lua_midi_script_source_runtime,
+    lua_module_path_without_ext, Backbone, BasicSettings, CompartmentKind, CompartmentParamIndex,
+    CompartmentSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
+    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
+    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
     StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
     TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
-    VirtualSource, VirtualSourceValue,
+    VirtualSource, VirtualSourceValue, LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME,
 };
 use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use derivative::Derivative;
@@ -2983,5 +2984,13 @@ fn compile_common_lua(
 ) -> anyhow::Result<mlua::Value<'static>> {
     let lua = unsafe { Backbone::main_thread_lua() };
     let env = lua.create_fresh_environment(false)?;
+    let require = lua.as_ref().create_function(move |lua, path: String| {
+        let val = match lua_module_path_without_ext(&path) {
+            LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME => create_lua_midi_script_source_runtime(lua),
+            _ => return Err(mlua::Error::runtime("Common compartment Lua scripts don't support the usage of 'require' for anything else than runtimes (at the moment)!"))
+        };
+        Ok(val)
+    })?;
+    env.set("require", require)?;
     lua.compile_and_execute(compartment.as_ref(), code, env)
 }

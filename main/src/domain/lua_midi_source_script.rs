@@ -1,9 +1,9 @@
-use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
+use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
 };
-use mlua::{Function, IntoLua, LuaSerdeExt, Table, Value};
+use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::error::Error;
 
@@ -19,6 +19,7 @@ pub struct LuaMidiSourceScript<'lua> {
     env: Table<'lua>,
     y_key: Value<'lua>,
     context_key: Value<'lua>,
+    require_key: Value<'lua>,
 }
 
 unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
@@ -36,6 +37,7 @@ impl<'lua> LuaMidiSourceScript<'lua> {
             function,
             y_key: "y".into_lua(lua.as_ref())?,
             context_key: "context".into_lua(lua.as_ref())?,
+            require_key: "require".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -89,6 +91,19 @@ impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
         // This is important, otherwise e.g. a None color ends up as some userdata and not nil.
         serialize_options.serialize_none_to_null = false;
         serialize_options.serialize_unit_to_null = false;
+        // Set require function
+        let require = self.lua.as_ref().create_function(move |lua, path: String| {
+            let val = match lua_module_path_without_ext(&path) {
+                LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME => create_lua_midi_script_source_runtime(lua),
+                _ => return Err(mlua::Error::runtime("MIDI scripts don't support the usage of 'require' for anything else than 'midi_script_source_runtime'!"))
+            };
+            Ok(val)
+            })
+            .map_err(|_| "couldn't create require function")?;
+        self.env
+            .raw_set(self.require_key.clone(), require)
+            .map_err(|_| "couldn't set require function")?;
+        // Set common Lua
         let context_lua_value = self
             .lua
             .as_ref()
@@ -132,6 +147,14 @@ struct LuaScriptOutcome {
     address: Option<u64>,
     messages: Vec<Vec<u8>>,
 }
+
+pub fn create_lua_midi_script_source_runtime(lua: &Lua) -> mlua::Value {
+    // At the moment, the MIDI script source runtime doesn't contain any functions, just types.
+    // That means it's only relevant for autocompletion in the IDE. We can return nil.
+    return Value::Nil;
+}
+
+pub const LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME: &str = "midi_script_source_runtime";
 
 #[cfg(test)]
 mod tests {

@@ -2,6 +2,7 @@
 
 --- Attention: This file is generated from Rust code! Don't modify it directly!
 
+--- Contains types and helper functions for building Playtime presets
 local module = {}
 
 export type Matrix = {

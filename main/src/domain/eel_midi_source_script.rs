@@ -118,7 +118,9 @@ mod tests {
             FeedbackStyle::default(),
             AbsoluteValue::Continuous(UnitValue::new(0.5)),
         );
-        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(fb_value), ())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,

@@ -57,6 +57,7 @@ fn find_and_execute_module<'lua>(
     lua: &'lua Lua,
     path: &str,
 ) -> anyhow::Result<Value<'lua>> {
+    // Validate
     let root_info = || format!("\n\nModule root path: {}", finder.module_root_path());
     let path = Utf8Path::new(path);
     if path.is_absolute() {
@@ -68,6 +69,20 @@ fn find_and_execute_module<'lua>(
     {
         bail!("Required paths containing . or .. are forbidden. They are always relative to the preset sub directory.{}", root_info());
     }
+    // Substitute preset runtime stub
+    if lua_module_path_without_ext(path.as_str()) == LUA_PRESET_RUNTIME_NAME {
+        let table = lua.create_table()?;
+        let finder = finder.clone();
+        let include_str = lua.create_function(move |_, path: String| {
+            let content = finder
+                .find_source_by_path(&path)
+                .map(|content| content.to_string());
+            Ok(content)
+        })?;
+        table.set("include_str", include_str)?;
+        return Ok(Value::Table(table));
+    }
+    // Find module and get its source
     let source = if path.extension().is_some() {
         // Extension given. Just get file directly.
         finder
@@ -84,7 +99,14 @@ fn find_and_execute_module<'lua>(
                 )
             })?
     };
+    // Execute module
     execute_as_module(path.as_str(), source.as_ref(), Ok(finder), lua)
+}
+
+pub fn lua_module_path_without_ext(path: &str) -> &str {
+    path.strip_suffix(".luau")
+        .or_else(|| path.strip_suffix(".lua"))
+        .unwrap_or(path)
 }
 
 fn execute_as_module<'lua>(
@@ -186,3 +208,5 @@ impl LuaModuleFinder for FsDirLuaModuleFinder {
         Some(content.into())
     }
 }
+
+const LUA_PRESET_RUNTIME_NAME: &str = "preset_runtime";
