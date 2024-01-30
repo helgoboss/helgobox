@@ -7,6 +7,7 @@ use std::path::Path;
 
 fn main() -> Result<()> {
     render_artwork()?;
+    println!("Finished rendering artwork");
     Ok(())
 }
 
