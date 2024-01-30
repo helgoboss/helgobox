@@ -38,7 +38,7 @@ impl SafeLua {
         name: &str,
         code: &str,
         env: Table<'a>,
-    ) -> Result<Function<'a>, Box<dyn Error>> {
+    ) -> anyhow::Result<Function<'a>> {
         let chunk = self
             .0
             .load(code)

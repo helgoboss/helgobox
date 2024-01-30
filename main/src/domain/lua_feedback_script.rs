@@ -1,4 +1,5 @@
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
+use anyhow::ensure;
 use base::Trafficker;
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
@@ -21,10 +22,8 @@ pub struct LuaFeedbackScript<'lua> {
 unsafe impl<'a> Send for LuaFeedbackScript<'a> {}
 
 impl<'lua> LuaFeedbackScript<'lua> {
-    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> Result<Self, Box<dyn Error>> {
-        if lua_script.trim().is_empty() {
-            return Err("script empty".into());
-        }
+    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {
+        ensure!(!lua_script.trim().is_empty(), "script empty");
         let env = lua.create_fresh_environment(false)?;
         let function = lua.compile_as_function("Feedback script", lua_script, env.clone())?;
         let script = Self {
@@ -48,6 +47,7 @@ impl<'lua> LuaFeedbackScript<'lua> {
         // requirements are unnecessarily strict. Because in our usage scenario (= synchronous
         // immediate execution, just once), the function can't go out of scope and we also don't
         // send anything to another thread.
+        // TODO-high CONTINUE Use the new Lua.scope feature instead!
         let trafficker = Trafficker::new(thin_ref);
         // Build input data
         let context_table = {

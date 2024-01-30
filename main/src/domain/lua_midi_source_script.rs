@@ -1,4 +1,5 @@
 use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
+use anyhow::{ensure, Context};
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
@@ -19,17 +20,15 @@ pub struct LuaMidiSourceScript<'lua> {
     env: Table<'lua>,
     y_key: Value<'lua>,
     context_key: Value<'lua>,
-    require_key: Value<'lua>,
 }
 
 unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
 
 impl<'lua> LuaMidiSourceScript<'lua> {
-    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> Result<Self, Box<dyn Error>> {
-        if lua_script.trim().is_empty() {
-            return Err("script empty".into());
-        }
+    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {
+        ensure!(!lua_script.trim().is_empty(), "script empty");
         let env = lua.create_fresh_environment(false)?;
+        // Compile
         let function = lua.compile_as_function("MIDI source script", lua_script, env.clone())?;
         let script = Self {
             lua,
@@ -37,7 +36,6 @@ impl<'lua> LuaMidiSourceScript<'lua> {
             function,
             y_key: "y".into_lua(lua.as_ref())?,
             context_key: "context".into_lua(lua.as_ref())?,
-            require_key: "require".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -87,40 +85,45 @@ impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
         self.env
             .raw_set(self.y_key.clone(), y_value)
             .map_err(|_| "couldn't set y variable")?;
-        let mut serialize_options = mlua::SerializeOptions::new();
         // This is important, otherwise e.g. a None color ends up as some userdata and not nil.
+        let mut serialize_options = mlua::SerializeOptions::new();
         serialize_options.serialize_none_to_null = false;
         serialize_options.serialize_unit_to_null = false;
-        // Set require function
-        let require = self.lua.as_ref().create_function(move |lua, path: String| {
-            let val = match lua_module_path_without_ext(&path) {
-                LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME => create_lua_midi_script_source_runtime(lua),
-                _ => return Err(mlua::Error::runtime("MIDI scripts don't support the usage of 'require' for anything else than 'midi_script_source_runtime'!"))
-            };
-            Ok(val)
-            })
-            .map_err(|_| "couldn't create require function")?;
-        self.env
-            .raw_set(self.require_key.clone(), require)
-            .map_err(|_| "couldn't set require function")?;
-        // Set common Lua
         let context_lua_value = self
             .lua
             .as_ref()
             .to_value_with(&context, serialize_options)
             .unwrap();
-        if let Some(lua) = additional_input.compartment_lua {
-            context_lua_value
-                .as_table()
-                .unwrap()
-                .raw_set("common_lua", lua.clone())
-                .map_err(|_| "couldn't set common_lua")?;
-        }
         self.env
             .raw_set(self.context_key.clone(), context_lua_value)
             .map_err(|_| "couldn't set context variable")?;
-        // Invoke script
-        let value: Value = self.function.call(()).map_err(|e| e.to_string())?;
+        // The rest is scoped because we want to create a scoped function
+        let value = self.lua
+            .as_ref()
+            .scope(|scope| {
+                // Set require function
+                let require = scope.create_function(move |lua, path: String| {
+                    let val = match lua_module_path_without_ext(&path) {
+                        LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME => create_lua_midi_script_source_runtime(lua),
+                        "compartment" => {
+                            additional_input.compartment_lua.cloned().unwrap_or(Value::Nil)
+                        },
+                        _ => return Err(mlua::Error::runtime(format!("MIDI scripts don't support the usage of 'require' for anything else than '{LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME}'!")))
+                    };
+                    Ok(val)
+                })
+                    .map_err(mlua::Error::runtime)?;
+                self.env.raw_set("require", require)
+                    .map_err(mlua::Error::runtime)?;
+                // Invoke script
+                let value: Value = self.function.call(()).map_err(mlua::Error::runtime)?;
+                Ok(value)
+            })
+            .map_err(|e| {
+                let error = e.to_string();
+                tracing::debug!(msg = "Failed to execute Lua MIDI source script", %error);
+                error
+            })?;
         // Process return value
         let outcome: LuaScriptOutcome = self
             .lua
@@ -148,7 +151,7 @@ struct LuaScriptOutcome {
     messages: Vec<Vec<u8>>,
 }
 
-pub fn create_lua_midi_script_source_runtime(lua: &Lua) -> mlua::Value {
+pub fn create_lua_midi_script_source_runtime(_lua: &Lua) -> mlua::Value {
     // At the moment, the MIDI script source runtime doesn't contain any functions, just types.
     // That means it's only relevant for autocompletion in the IDE. We can return nil.
     return Value::Nil;

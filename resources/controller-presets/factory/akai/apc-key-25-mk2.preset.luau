@@ -23,14 +23,10 @@ local preset_runtime = require("preset_runtime")
 local realearn = require("realearn")
 
 -- Define MIDI scripts
--- TODO-high CONTINUE Make up for the lack of "Sustain" button ...
--- TODO-high CONTINUE Maybe make record button actually record in REAPER?
--- TODO-high CONTINUE This is nuts, we don't want this whole code in each pad mapping ;)
--- TODO-high CONTINUE Actually make clip colors available and expose them in main preset (via syle prop)
 local common_lua = preset_runtime.include_str("akai/apc-key-25-mk2/compartment-common.luau")
 
 local function build_pad_script(pad_index: number): string
-    return `return context.common_lua.pad_script({pad_index}, y, context)`
+    return `return require("compartment").pad_script({pad_index}, y, context)`
 end
 
 -- Parameters
