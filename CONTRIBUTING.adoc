@@ -56,7 +56,7 @@ ReaLearn without feature `playtime`.
 
 === All operating systems
 
-If you have access to the private repositories, you need to add this to `$HOME/.cargo/config` (otherwise Cargo will have issues fetching them):
+If you have access to the private repositories (you probably don't), you need to add this to `$HOME/.cargo/config` (otherwise Cargo will have issues fetching them):
 
 [source,ini]
 ----
@@ -72,6 +72,12 @@ cargo build --features generate
 cargo fmt
 ----
 
+Luau language bindings are generated from Rust code by executing tests:
+
+[source,shell]
+----
+RUST_MIN_STACK=104857600 cargo test --package realearn-api --lib bindings::luau::export_luau
+----
 
 === Windows
 
