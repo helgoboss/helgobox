@@ -1,6 +1,5 @@
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
 use anyhow::ensure;
-use base::Trafficker;
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
     PropProvider, PropValue,
@@ -38,32 +37,25 @@ impl<'lua> LuaFeedbackScript<'lua> {
     fn feedback_internal(
         &self,
         input: FeedbackScriptInput,
-    ) -> Result<FeedbackScriptOutput, Box<dyn Error>> {
+    ) -> anyhow::Result<FeedbackScriptOutput> {
         let lua = self.lua.as_ref();
-        let thin_ref = &input.prop_provider;
-        // We need to use the Trafficker here because mlua requires the input to create_function()
-        // to be 'static and Send. However, here we have a Rust function that doesn't fulfill any
-        // of these requirements, so create_function() would complain. However, in this case, the
-        // requirements are unnecessarily strict. Because in our usage scenario (= synchronous
-        // immediate execution, just once), the function can't go out of scope and we also don't
-        // send anything to another thread.
-        // TODO-high CONTINUE Use the new Lua.scope feature instead!
-        let trafficker = Trafficker::new(thin_ref);
-        // Build input data
-        let context_table = {
-            let table = lua.create_table()?;
-            table.set("mode", 0)?;
-            let prop = lua.create_function(move |_, key: String| {
-                let prop_provider: &dyn PropProvider = unsafe { trafficker.get() };
-                let prop_value = prop_provider.get_prop_value(&key);
-                Ok(prop_value.map(LuaPropValue))
-            })?;
-            table.set("prop", prop)?;
-            table
-        };
-        self.env.raw_set(self.context_key.clone(), context_table)?;
-        // Invoke script
-        let value: Value = self.function.call(())?;
+        let value = lua.scope(|scope| {
+            // Build input data
+            let context_table = {
+                let table = lua.create_table()?;
+                table.set("mode", 0)?;
+                let prop = scope.create_function(move |_, key: String| {
+                    let prop_value = input.prop_provider.get_prop_value(&key);
+                    Ok(prop_value.map(LuaPropValue))
+                })?;
+                table.set("prop", prop)?;
+                table
+            };
+            self.env.raw_set(self.context_key.clone(), context_table)?;
+            // Invoke script
+            let value: Value = self.function.call(())?;
+            Ok(value)
+        })?;
         // Process return value
         let output: LuaScriptFeedbackOutput = self.lua.as_ref().from_value(value)?;
         let feedback_value = match output.feedback_event {

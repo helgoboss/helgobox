@@ -35,9 +35,6 @@ pub use small_ascii_string::*;
 mod sound;
 pub use sound::*;
 
-mod trafficker;
-pub use trafficker::*;
-
 pub mod validation_util;
 
 pub mod peak_util;
