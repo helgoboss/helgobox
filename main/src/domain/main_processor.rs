@@ -2101,6 +2101,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             unused_sources,
             changed_mappings,
         );
+        // Updating the "on" mappings is not exactly cheap as it turned out in
+        // https://github.com/helgoboss/realearn/issues/913. And it also turns out we can skip it in many cases
+        // by checking if all updates are empty.
+        if mapping_updates.is_empty() && target_updates.is_empty() {
+            return;
+        }
         // Propagate updates to real-time processor
         if !mapping_updates.is_empty() {
             self.basics
