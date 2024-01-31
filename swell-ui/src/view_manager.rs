@@ -1,7 +1,6 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{Pixels, Point, SharedView, View, WeakView, Window};
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
@@ -9,6 +8,7 @@ use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::ptr::null_mut;
 
+use base::hash_util::NonCryptoHashMap;
 use reaper_medium::Hwnd;
 use std::sync::Once;
 
@@ -47,7 +47,7 @@ pub(crate) fn create_window(
 #[derive(Default)]
 pub struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
-    view_map: HashMap<raw::HWND, WeakView<dyn View>>,
+    view_map: NonCryptoHashMap<raw::HWND, WeakView<dyn View>>,
 }
 
 impl ViewManager {

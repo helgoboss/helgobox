@@ -9,13 +9,13 @@ use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
+use base::hash_util::NonCryptoHashMap;
 use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::{instance_features, InstanceSettings};
 use reaper_high::Project;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::iter::once;
 use std::rc::Rc;
 use std::sync;
@@ -290,7 +290,7 @@ impl InstanceShell {
     /// in another way (global auto unit override).
     pub fn judge_auto_unit_candidates(
         &self,
-        auto_unit_candidates: &mut HashMap<String, AutoUnitData>,
+        auto_unit_candidates: &mut NonCryptoHashMap<String, AutoUnitData>,
     ) {
         // TODO-medium In future, we can build local auto units here, that is, check if the
         //  controller should be used in a different way in this instance and create an appropriate
@@ -324,7 +324,7 @@ impl InstanceShell {
     /// in other instances as well (would cause input/output conflicts).
     pub fn apply_auto_units(
         &self,
-        desired_auto_units: &mut HashMap<String, AutoUnitData>,
+        desired_auto_units: &mut NonCryptoHashMap<String, AutoUnitData>,
     ) -> anyhow::Result<()> {
         if !self.settings.get().borrow().control.global_control_enabled {
             // Global control is not enabled. Remove auto units if some exist.
@@ -387,7 +387,7 @@ impl InstanceShell {
 
     fn remove_auto_unit_if_requirements_met(
         &self,
-        auto_units: &mut HashMap<String, AutoUnitData>,
+        auto_units: &mut NonCryptoHashMap<String, AutoUnitData>,
         controller_id: &str,
     ) -> Option<AutoUnitData> {
         let auto_unit = auto_units.get(controller_id)?;

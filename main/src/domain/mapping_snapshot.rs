@@ -1,20 +1,21 @@
 use crate::domain::{MappingId, Tag, TagScope, VirtualMappingSnapshotIdForLoad};
+use base::hash_util::NonCryptoHashMap;
 use base::{convert_to_identifier, SmallAsciiString};
 use helgoboss_learn::AbsoluteValue;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::str::FromStr;
 
 #[derive(Debug, Default)]
 pub struct MappingSnapshotContainer {
-    snapshots: HashMap<MappingSnapshotId, MappingSnapshot>,
-    active_snapshot_id_by_tag: HashMap<Tag, MappingSnapshotId>,
+    snapshots: NonCryptoHashMap<MappingSnapshotId, MappingSnapshot>,
+    active_snapshot_id_by_tag: NonCryptoHashMap<Tag, MappingSnapshotId>,
 }
 
 impl MappingSnapshotContainer {
     /// Creates the container.
     pub fn new(
-        snapshots: HashMap<MappingSnapshotId, MappingSnapshot>,
-        active_snapshot_id_by_tag: HashMap<Tag, MappingSnapshotId>,
+        snapshots: NonCryptoHashMap<MappingSnapshotId, MappingSnapshot>,
+        active_snapshot_id_by_tag: NonCryptoHashMap<Tag, MappingSnapshotId>,
     ) -> Self {
         Self {
             snapshots,
@@ -85,7 +86,7 @@ impl MappingSnapshotContainer {
         })
     }
 
-    pub fn active_snapshot_id_by_tag(&self) -> &HashMap<Tag, MappingSnapshotId> {
+    pub fn active_snapshot_id_by_tag(&self) -> &NonCryptoHashMap<Tag, MappingSnapshotId> {
         &self.active_snapshot_id_by_tag
     }
 
@@ -102,11 +103,11 @@ impl MappingSnapshotContainer {
 
 #[derive(Debug, Default)]
 pub struct MappingSnapshot {
-    target_values: HashMap<MappingId, AbsoluteValue>,
+    target_values: NonCryptoHashMap<MappingId, AbsoluteValue>,
 }
 
 impl MappingSnapshot {
-    pub fn new(target_values: HashMap<MappingId, AbsoluteValue>) -> Self {
+    pub fn new(target_values: NonCryptoHashMap<MappingId, AbsoluteValue>) -> Self {
         Self { target_values }
     }
 

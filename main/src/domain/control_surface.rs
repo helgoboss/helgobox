@@ -18,6 +18,7 @@ use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
+use base::hash_util::NonCryptoHashMap;
 use base::metrics_util::measure_time;
 use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
@@ -28,8 +29,6 @@ use reaper_medium::{
 };
 use rxrust::prelude::*;
 use slog::debug;
-use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
 
@@ -60,9 +59,9 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
-    full_beats: HashMap<ReaProject, u32>,
+    full_beats: NonCryptoHashMap<ReaProject, u32>,
     fx_focus_state: Option<GetFocusedFx2Result>,
-    target_capture_senders: HashMap<Option<UnitId>, TargetCaptureSender>,
+    target_capture_senders: NonCryptoHashMap<Option<UnitId>, TargetCaptureSender>,
     osc_capture_sender: Option<OscCaptureSender>,
     osc_input_devices: Vec<OscInputDevice>,
     device_change_detector: MidiDeviceChangeDetector,
@@ -866,7 +865,7 @@ fn reset_midi_devices(
 fn process_touched_target(
     target: ReaperTarget,
     caused_by_realearn: bool,
-    target_capture_senders: &HashMap<Option<UnitId>, TargetCaptureSender>,
+    target_capture_senders: &NonCryptoHashMap<Option<UnitId>, TargetCaptureSender>,
 ) {
     let touch_event = TargetTouchEvent {
         target,

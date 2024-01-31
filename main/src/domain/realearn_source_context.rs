@@ -1,11 +1,11 @@
+use base::hash_util::NonCryptoHashMap;
 use helgoboss_learn::devices::x_touch::XTouchMackieLcdState;
 use reaper_medium::MidiOutputDeviceId;
-use std::collections::HashMap;
 
 /// Global state about sources.
 #[derive(Default)]
 pub struct RealearnSourceState {
-    x_touch_mackie_lcd_state_by_device: HashMap<MidiOutputDeviceId, XTouchMackieLcdState>,
+    x_touch_mackie_lcd_state_by_device: NonCryptoHashMap<MidiOutputDeviceId, XTouchMackieLcdState>,
 }
 
 impl RealearnSourceState {

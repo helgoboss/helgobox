@@ -6151,6 +6151,7 @@ dependencies = [
 name = "swell-ui"
 version = "0.1.0"
 dependencies = [
+ "base",
  "bindgen",
  "libloading 0.8.0",
  "objc2",

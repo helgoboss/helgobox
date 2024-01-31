@@ -1,14 +1,12 @@
-
 use crate::infrastructure::proto::{
-    occasional_matrix_update,
-    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_slot_update,
-    ClipAddress, OccasionalMatrixUpdate,
-    OccasionalTrackUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, SlotAddress,
+    occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
+    qualified_occasional_slot_update, ClipAddress, OccasionalMatrixUpdate, OccasionalTrackUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    SlotAddress,
 };
+use base::hash_util::NonCryptoHashMap;
 use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
 use reaper_high::{Guid, OrCurrentProject, Track};
-use std::collections::HashMap;
 use std::iter;
 
 pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalMatrixUpdate> {
@@ -52,7 +50,7 @@ pub fn create_initial_track_updates(
     let Some(matrix) = matrix else {
         return vec![];
     };
-    let track_by_guid: HashMap<Guid, Track> = matrix
+    let track_by_guid: NonCryptoHashMap<Guid, Track> = matrix
         .columns()
         .flat_map(|column| {
             column

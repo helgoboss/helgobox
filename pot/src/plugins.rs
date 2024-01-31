@@ -1,8 +1,8 @@
 use crate::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use base::file_util;
+use base::hash_util::NonCryptoHashMap;
 use ini::Ini;
 use regex::Match;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 
 #[derive(Clone, Debug, Default)]
 pub struct PluginDatabase {
-    plugins: HashMap<PluginId, Plugin>,
+    plugins: NonCryptoHashMap<PluginId, Plugin>,
     products: Vec<Product>,
     detected_legacy_vst3_scan: bool,
 }

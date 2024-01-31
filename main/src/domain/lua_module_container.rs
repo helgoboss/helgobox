@@ -11,7 +11,7 @@ use std::path::PathBuf;
 /// Allows executing Lua code as a module that may require other modules.
 pub struct LuaModuleContainer<F> {
     finder: Result<F, &'static str>,
-    // modules: HashMap<String, Value<'a>>,
+    // modules: NonCryptoHashMap<String, Value<'a>>,
 }
 
 /// Trait for resolving Lua modules.

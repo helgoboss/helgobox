@@ -13,6 +13,7 @@ use crate::domain::{
     MappingSnapshotContainer, ParameterManager, QualifiedMappingId, SharedInstance, Tag, TagScope,
     TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
+use base::hash_util::NonCryptoHashMap;
 use base::{serde_json_util, NamedChannelSender, SenderToNormalThread};
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
@@ -45,19 +46,19 @@ pub struct Unit {
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer,
     ///   but it's very related to the active mapping by group, so we decided to keep it here too.
-    mappings_by_group: EnumMap<CompartmentKind, HashMap<GroupId, Vec<MappingId>>>,
+    mappings_by_group: EnumMap<CompartmentKind, NonCryptoHashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
     /// - Persistent
     /// - Set by target "ReaLearn: Browse group mappings".
     /// - Non-redundant state!
-    active_mapping_by_group: EnumMap<CompartmentKind, HashMap<GroupId, MappingId>>,
+    active_mapping_by_group: EnumMap<CompartmentKind, NonCryptoHashMap<GroupId, MappingId>>,
     /// Additional info about mappings.
     ///
     /// - Not persistent
     /// - Completely derived from mappings, so it's redundant state.
     /// - Could be kept in main processor because it's only accessed by the processing layer.
-    mapping_infos: HashMap<QualifiedMappingId, MappingInfo>,
+    mapping_infos: NonCryptoHashMap<QualifiedMappingId, MappingInfo>,
     /// The mappings which are on.
     ///
     /// - Not persistent
@@ -371,7 +372,10 @@ impl Unit {
         self.id
     }
 
-    pub fn set_mapping_infos(&mut self, mapping_infos: HashMap<QualifiedMappingId, MappingInfo>) {
+    pub fn set_mapping_infos(
+        &mut self,
+        mapping_infos: NonCryptoHashMap<QualifiedMappingId, MappingInfo>,
+    ) {
         self.mapping_infos = mapping_infos;
     }
 
@@ -499,7 +503,7 @@ impl Unit {
     pub fn active_mapping_by_group(
         &self,
         compartment: CompartmentKind,
-    ) -> &HashMap<GroupId, MappingId> {
+    ) -> &NonCryptoHashMap<GroupId, MappingId> {
         &self.active_mapping_by_group[compartment]
     }
 
@@ -510,7 +514,7 @@ impl Unit {
     pub fn set_active_mapping_by_group(
         &mut self,
         compartment: CompartmentKind,
-        value: HashMap<GroupId, MappingId>,
+        value: NonCryptoHashMap<GroupId, MappingId>,
     ) {
         self.active_mapping_by_group[compartment] = value;
     }
@@ -545,7 +549,7 @@ impl Unit {
     pub fn set_mappings_by_group(
         &mut self,
         compartment: CompartmentKind,
-        mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
+        mappings_by_group: NonCryptoHashMap<GroupId, Vec<MappingId>>,
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
             if !mappings_by_group.contains_key(group_id) {

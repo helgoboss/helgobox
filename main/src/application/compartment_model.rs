@@ -2,6 +2,7 @@ use crate::application::{
     Affected, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp,
 };
 use crate::domain::{CompartmentParamIndex, GroupId, MappingId, ParamSetting};
+use base::hash_util::NonCryptoHashMap;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

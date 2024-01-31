@@ -6,8 +6,8 @@ use crate::application::{
 use crate::domain::{CompartmentKind, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
+use base::hash_util::NonCryptoHashMap;
 use helgoboss_learn::UnitValue;
-use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
@@ -79,7 +79,7 @@ enum PatchRequestOp {
 #[serde(rename_all = "camelCase")]
 pub struct ControllerRouting {
     main_preset: Option<LightMainPresetData>,
-    routes: HashMap<MappingKey, Vec<TargetDescriptor>>,
+    routes: NonCryptoHashMap<MappingKey, Vec<TargetDescriptor>>,
 }
 
 #[derive(Serialize)]
@@ -281,13 +281,10 @@ pub fn get_active_controller_updated_event(
 pub fn get_projection_feedback_event(
     session_id: &str,
     feedback_value: ProjectionFeedbackValue,
-) -> Event<HashMap<Rc<str>, UnitValue>> {
-    Event::patch(
-        format!("/realearn/session/{session_id}/feedback"),
-        hashmap! {
-            feedback_value.mapping_key => feedback_value.value
-        },
-    )
+) -> Event<NonCryptoHashMap<Rc<str>, UnitValue>> {
+    let mut map = HashMap::default();
+    map.insert(feedback_value.mapping_key, feedback_value.value);
+    Event::patch(format!("/realearn/session/{session_id}/feedback"), map)
 }
 
 pub fn get_session_updated_event(

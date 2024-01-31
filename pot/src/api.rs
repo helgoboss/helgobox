@@ -9,7 +9,8 @@ use enumset::EnumSet;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
 
-use std::collections::{HashMap, HashSet};
+use base::hash_util::NonCryptoHashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use std::str::FromStr;
@@ -331,7 +332,7 @@ impl Filters {
 
 #[derive(Debug, Default)]
 pub struct PotFavorites {
-    favorites: HashMap<DatabaseId, HashSet<InnerPresetId>>,
+    favorites: NonCryptoHashMap<DatabaseId, HashSet<InnerPresetId>>,
 }
 
 impl PotFavorites {

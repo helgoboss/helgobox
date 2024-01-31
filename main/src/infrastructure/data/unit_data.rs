@@ -19,6 +19,7 @@ use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_d
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use base::hash_util::NonCryptoHashMap;
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
@@ -200,7 +201,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    parameters: HashMap<String, ParameterData>,
+    parameters: NonCryptoHashMap<String, ParameterData>,
     // String key workaround because otherwise deserialization doesn't work with flattening,
     // which is used in CompartmentModelData.
     #[serde(
@@ -208,7 +209,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    controller_parameters: HashMap<String, ParameterData>,
+    controller_parameters: NonCryptoHashMap<String, ParameterData>,
     // New since 2.12.0-pre.5
     #[deprecated(note = "Moved to InstanceData")]
     #[serde(
@@ -307,7 +308,7 @@ struct CompartmentState {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    active_mapping_by_group: HashMap<GroupId, MappingId>,
+    active_mapping_by_group: NonCryptoHashMap<GroupId, MappingId>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -319,7 +320,7 @@ struct CompartmentState {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    active_mapping_snapshots: HashMap<Tag, MappingSnapshotId>,
+    active_mapping_snapshots: NonCryptoHashMap<Tag, MappingSnapshotId>,
 }
 
 impl CompartmentState {
@@ -863,7 +864,10 @@ impl UnitData {
     }
 }
 
-fn fill_compartment_params(data: &HashMap<String, ParameterData>, model: &mut CompartmentParams) {
+fn fill_compartment_params(
+    data: &NonCryptoHashMap<String, ParameterData>,
+    model: &mut CompartmentParams,
+) {
     for (index_string, p) in data.iter() {
         let index = index_string
             .parse::<u32>()
@@ -879,7 +883,7 @@ fn fill_compartment_params(data: &HashMap<String, ParameterData>, model: &mut Co
 fn get_parameter_data_map(
     plugin_params: &PluginParams,
     compartment: CompartmentKind,
-) -> HashMap<String, ParameterData> {
+) -> NonCryptoHashMap<String, ParameterData> {
     let compartment_params = plugin_params.compartment_params(compartment);
     compartment_param_index_iter()
         .filter_map(|i| {
@@ -982,8 +986,8 @@ pub trait DataToModelConversionContext {
 
 /// Defines a direct translation from keys to IDs.
 pub struct SimpleDataToModelConversionContext {
-    group_id_by_key: HashMap<GroupKey, GroupId>,
-    mapping_id_by_key: HashMap<MappingKey, MappingId>,
+    group_id_by_key: NonCryptoHashMap<GroupKey, GroupId>,
+    mapping_id_by_key: NonCryptoHashMap<MappingKey, MappingId>,
 }
 
 impl SimpleDataToModelConversionContext {
@@ -1074,17 +1078,17 @@ fn convert_mapping_snapshots_to_api_internal(
 
 fn convert_mapping_snapshots_to_model(
     api_snapshots: &[MappingSnapshot],
-    active_snapshot_id_by_tag: &HashMap<Tag, MappingSnapshotId>,
+    active_snapshot_id_by_tag: &NonCryptoHashMap<Tag, MappingSnapshotId>,
     conversion_context: &impl DataToModelConversionContext,
 ) -> Result<MappingSnapshotContainer, &'static str> {
     let snapshots: Result<
-        HashMap<MappingSnapshotId, crate::domain::MappingSnapshot>,
+        NonCryptoHashMap<MappingSnapshotId, crate::domain::MappingSnapshot>,
         &'static str,
     > = api_snapshots
         .iter()
         .map(|api_snapshot| {
             let id: MappingSnapshotId = api_snapshot.id.parse()?;
-            let target_values: Result<HashMap<_, _>, &'static str> = api_snapshot
+            let target_values: Result<NonCryptoHashMap<_, _>, &'static str> = api_snapshot
                 .mappings
                 .iter()
                 .map(|api_mapping| {

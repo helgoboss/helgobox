@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use base::hash_util::NonCryptoHashMap;
 
 use crate::domain::{CompartmentKind, CompartmentParamIndex, ParamSetting};
 use crate::infrastructure::api::convert::to_data::group::convert_group;
@@ -14,11 +14,11 @@ pub fn convert_compartment(
 ) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
         compartment: CompartmentKind,
-        parameters: HashMap<CompartmentParamIndex, ParamSetting>,
+        parameters: NonCryptoHashMap<CompartmentParamIndex, ParamSetting>,
         groups: Vec<GroupModelData>,
     }
     fn param_index_by_key(
-        parameters: &HashMap<CompartmentParamIndex, ParamSetting>,
+        parameters: &NonCryptoHashMap<CompartmentParamIndex, ParamSetting>,
         key: &str,
     ) -> Option<CompartmentParamIndex> {
         parameters
@@ -36,7 +36,7 @@ pub fn convert_compartment(
         }
     }
     let parameters = {
-        let res: ConversionResult<HashMap<_, _>> = compartment_content
+        let res: ConversionResult<NonCryptoHashMap<_, _>> = compartment_content
             .parameters
             .unwrap_or_default()
             .into_iter()

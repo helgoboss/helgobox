@@ -31,10 +31,11 @@ use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{OnceCell, Ref, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
+use base::hash_util::NonCryptoHashMap;
 use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
@@ -2569,7 +2570,7 @@ impl UnitModel {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: CompartmentKind) -> Vec<MainMapping> {
-        let group_map: HashMap<GroupId, Ref<GroupModel>> = self
+        let group_map: NonCryptoHashMap<GroupId, Ref<GroupModel>> = self
             .groups_including_default_group(compartment)
             .map(|group| {
                 let group = group.borrow();

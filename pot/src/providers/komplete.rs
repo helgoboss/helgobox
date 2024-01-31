@@ -15,11 +15,12 @@ use base::blocking_lock;
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
+use base::hash_util::NonCryptoHashMap;
 use chrono::NaiveDateTime;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter;
@@ -31,9 +32,9 @@ pub struct KompleteDatabase {
     persistent_id: PersistentDatabaseId,
     primary_preset_db: Mutex<PresetDb>,
     nks_filter_item_collections: NksFilterItemCollections,
-    nks_bank_id_by_product_id: HashMap<ProductId, u32>,
-    nks_product_id_by_bank_id: HashMap<u32, ProductId>,
-    nks_product_id_by_extension: HashMap<String, ProductId>,
+    nks_bank_id_by_product_id: NonCryptoHashMap<ProductId, u32>,
+    nks_product_id_by_bank_id: NonCryptoHashMap<u32, ProductId>,
+    nks_product_id_by_extension: NonCryptoHashMap<String, ProductId>,
     /// This returns a second connection to the preset database.
     ///
     /// At the moment, the UI thread continuously queries the database for the currently visible rows.

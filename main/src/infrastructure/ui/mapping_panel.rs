@@ -77,6 +77,7 @@ use crate::infrastructure::ui::{
     OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
     SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
 };
+use base::hash_util::NonCryptoHashMap;
 use base::Global;
 
 #[derive(Debug)]
@@ -650,7 +651,7 @@ impl MappingPanel {
                 let text = prompt_for_predefined_control_element_name(
                     window,
                     control_element_type,
-                    &HashMap::new(),
+                    &HashMap::default(),
                 )
                 .ok_or("nothing picked")?;
                 let element_id = text.parse().unwrap_or_default();
@@ -7206,7 +7207,7 @@ impl WindowExt for Window {
 
 fn group_mappings_by_virtual_control_element<'a>(
     mappings: impl Iterator<Item = &'a SharedMapping>,
-) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
+) -> NonCryptoHashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
     let key_fn = |m: &SharedMapping| {
         let m = m.borrow();
         match m.target_model.category() {
@@ -7556,7 +7557,7 @@ fn osc_arg_indexes() -> impl Iterator<Item = (isize, String)> {
 fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
-    grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
+    grouped_mappings: &NonCryptoHashMap<VirtualControlElement, Vec<&SharedMapping>>,
 ) -> Option<String> {
     let pure_menu = {
         use swell_ui::menu_tree::*;

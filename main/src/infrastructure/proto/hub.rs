@@ -143,6 +143,7 @@ mod playtime_impl {
         QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
         QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
     };
+    use base::hash_util::NonCryptoHashMap;
     use base::peak_util;
     use playtime_api::persistence::EvenQuantization;
     use playtime_clip_engine::{
@@ -704,8 +705,8 @@ mod playtime_impl {
             if sender.receiver_count() == 0 {
                 return;
             }
-            let column_update_by_track_guid: HashMap<Guid, ContinuousColumnUpdate> =
-                HashMap::with_capacity(matrix.column_count());
+            let column_update_by_track_guid: NonCryptoHashMap<Guid, ContinuousColumnUpdate> =
+                HashMap::with_capacity_and_hasher(matrix.column_count(), Default::default());
             let column_updates: Vec<_> = matrix
                 .columns()
                 .map(|column| {

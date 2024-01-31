@@ -1,9 +1,9 @@
+use base::hash_util::NonCryptoHashMap;
 use either::Either;
 use reaper_high::{
     ChangeEvent, Fx, FxAddedEvent, FxClosedEvent, FxEnabledChangedEvent, FxOpenedEvent,
     FxRemovedEvent, FxReorderedEvent, Guid, Reaper,
 };
-use std::collections::HashMap;
 use std::iter;
 
 /// It's a known fact that REAPER doesn't inform about changes on the monitoring FX chain via
@@ -20,7 +20,7 @@ use std::iter;
 ///   other checks (checked with REAPER 6.56).
 #[derive(Debug, Default)]
 pub struct MonitoringFxChainChangeDetector {
-    items: HashMap<Guid, Item>,
+    items: NonCryptoHashMap<Guid, Item>,
 }
 
 #[derive(Debug)]
@@ -41,8 +41,8 @@ impl MonitoringFxChainChangeDetector {
 }
 
 fn diff(
-    previous_items: &HashMap<Guid, Item>,
-    next_items: &HashMap<Guid, Item>,
+    previous_items: &NonCryptoHashMap<Guid, Item>,
+    next_items: &NonCryptoHashMap<Guid, Item>,
 ) -> Vec<ChangeEvent> {
     // Removed
     let mut at_least_one_removed = false;
@@ -124,7 +124,7 @@ fn diff(
         .collect()
 }
 
-fn gather_monitoring_fxs() -> HashMap<Guid, Item> {
+fn gather_monitoring_fxs() -> NonCryptoHashMap<Guid, Item> {
     Reaper::get()
         .monitoring_fx_chain()
         .fxs()

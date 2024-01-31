@@ -37,6 +37,7 @@ use crate::domain::ui_util::{
     log_real_feedback_output, log_real_learn_input, log_target_control, log_target_output,
     log_virtual_control_input, log_virtual_feedback_output,
 };
+use base::hash_util::NonCryptoHashMap;
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use indexmap::IndexSet;
@@ -101,7 +102,7 @@ struct Basics<EH: DomainEventHandler> {
     // TODO-low This reason is now outdated. We detected a general issue with reentrancy.
     //  https://github.com/helgoboss/reaper-rs/issues/54
     last_feedback_checksum_by_address:
-        RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
+        RefCell<NonCryptoHashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
     target_based_conditional_activation_processors:
         EnumMap<CompartmentKind, TargetBasedConditionalActivationProcessor>,
 }
@@ -229,7 +230,7 @@ struct Collections {
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<CompartmentKind, OrderedMappingIdSet>,
     parameters: PluginParams,
-    previous_target_values: EnumMap<CompartmentKind, HashMap<MappingId, AbsoluteValue>>,
+    previous_target_values: EnumMap<CompartmentKind, NonCryptoHashMap<MappingId, AbsoluteValue>>,
 }
 
 #[derive(Debug)]
@@ -1336,7 +1337,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 for compartment in CompartmentKind::enum_iter() {
                     self.handle_feedback_after_having_updated_all_mappings(
                         compartment,
-                        HashMap::new(),
+                        HashMap::default(),
                     );
                 }
             } else {
@@ -1442,8 +1443,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             compartment,
         );
         self.basics.clear_last_feedback();
-        let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
-        let mut mapping_infos: HashMap<QualifiedMappingId, MappingInfo> = HashMap::new();
+        let mut mappings_by_group: NonCryptoHashMap<GroupId, Vec<MappingId>> = HashMap::default();
+        let mut mapping_infos: NonCryptoHashMap<QualifiedMappingId, MappingInfo> =
+            HashMap::default();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         self.collections.target_touch_dependent_mappings[compartment].clear();
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
@@ -4473,4 +4475,4 @@ pub struct KeyProcessingResult {
     pub filter_out_event: bool,
 }
 
-type UnusedSources = HashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;
+type UnusedSources = NonCryptoHashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;

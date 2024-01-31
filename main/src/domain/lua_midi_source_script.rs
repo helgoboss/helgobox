@@ -1,12 +1,11 @@
 use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
-use anyhow::{ensure, Context};
+use anyhow::ensure;
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
 };
 use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
-use std::error::Error;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct AdditionalLuaMidiSourceScriptInput<'a, 'lua> {

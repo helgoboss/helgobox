@@ -1,12 +1,11 @@
 use crate::domain::{
     prop_feedback_resolution, prop_is_affected_by, ActivationChange, ActivationCondition,
-    AdditionalLuaMidiSourceScriptInput, BoxedHitInstruction, CompartmentParamIndex,
-    CompoundChangeEvent, ControlContext, ControlEvent, ControlEventTimestamp, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, FlexibleMidiSourceScript, GroupId, HitResponse,
-    KeyMessage, KeySource, MappingActivationEffect, MappingControlContext, MappingData,
-    MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource, Mode,
-    OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex, PluginParams,
-    RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
+    BoxedHitInstruction, CompartmentParamIndex, CompoundChangeEvent, ControlContext, ControlEvent,
+    ControlEventTimestamp, ControlOptions, ExtendedProcessorContext, FeedbackResolution, GroupId,
+    HitResponse, KeyMessage, KeySource, MappingActivationEffect, MappingControlContext,
+    MappingData, MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource,
+    Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
+    PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
     RealearnParameterChangePayload, RealearnParameterSource, RealearnSourceContext, RealearnTarget,
     ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
     TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
@@ -17,18 +16,16 @@ use derive_more::Display;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
-    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress,
-    MidiSourceScript, MidiSourceScriptOutcome, MidiSourceValue, ModeControlOptions,
-    ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue, OscSource,
-    OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent, SourceCharacter,
-    SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
+    ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
+    OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
+    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::borrow::Cow;
 use std::cell::Cell;
 
-use crate::base::CloneAsDefault;
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use base::hash_util::NonCryptoHashBuilder;
 use indexmap::map::IndexMap;

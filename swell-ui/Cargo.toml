@@ -6,6 +6,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+base.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 rxrust.workspace = true

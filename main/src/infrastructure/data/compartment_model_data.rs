@@ -9,6 +9,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
+use base::hash_util::NonCryptoHashMap;
 use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -42,7 +43,7 @@ pub struct CompartmentModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub parameters: HashMap<String, ParamSetting>,
+    pub parameters: NonCryptoHashMap<String, ParamSetting>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",

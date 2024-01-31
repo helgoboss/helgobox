@@ -152,7 +152,7 @@ impl Window {
                 raw::MB_YESNO as _,
             )
         };
-        result == raw::IDYES as _
+        result == raw::IDYES as i32
     }
 
     /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
@@ -170,9 +170,9 @@ impl Window {
                 raw::MB_YESNOCANCEL as _,
             )
         };
-        if result == raw::IDYES as _ {
+        if result == raw::IDYES as i32 {
             Some(true)
-        } else if result == raw::IDNO as _ {
+        } else if result == raw::IDNO as i32 {
             Some(false)
         } else {
             None

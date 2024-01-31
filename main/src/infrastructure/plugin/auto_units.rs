@@ -7,6 +7,7 @@ use crate::infrastructure::data::PresetInfo;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
 use base::byte_pattern::BytePattern;
+use base::hash_util::NonCryptoHashMap;
 use base::{tracing_debug, tracing_warn, Global};
 use realearn_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
@@ -15,7 +16,6 @@ use realearn_api::persistence::{
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::str::FromStr;
 use wildmatch::WildMatch;
 
@@ -38,7 +38,7 @@ fn update_auto_units() {
         .iter()
         .filter(|c| c.enabled);
     // Build global auto units
-    let mut global_auto_units: HashMap<_, _> = controllers
+    let mut global_auto_units: NonCryptoHashMap<_, _> = controllers
         .filter_map(build_auto_unit_from_controller)
         .map(|au| (au.controller_id.clone(), au))
         .collect();
