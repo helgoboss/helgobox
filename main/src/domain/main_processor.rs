@@ -56,11 +56,17 @@ use strum::EnumIter;
 
 /// This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
-/// This has been increased because the scenario in #913 brought it to the limits.
+/// This has been increased because the scenario in #913 made messages pile up in this channel.
 const NORMAL_TASK_BULK_SIZE: usize = 1000;
-const NORMAL_RT_TASK_BULK_SIZE: usize = 32;
-const FEEDBACK_TASK_BULK_SIZE: usize = 64;
-const CONTROL_TASK_BULK_SIZE: usize = 32;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const NORMAL_RT_TASK_BULK_SIZE: usize = 1000;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const CONTROL_TASK_BULK_SIZE: usize = 1000;
 // I raised this from 32 to the max channel size because of
 // https://github.com/helgoboss/realearn/issues/847 (otherwise it can easily happen with lots of
 // parameter modulation that the channel runs full)
