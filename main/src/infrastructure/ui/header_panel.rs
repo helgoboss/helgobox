@@ -7,7 +7,6 @@ use std::iter;
 
 use reaper_high::Reaper;
 
-use reaper_medium::MidiOutputDeviceId;
 use slog::debug;
 
 use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
@@ -44,8 +43,9 @@ use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::menus::{
     build_compartment_preset_menu_entries, get_midi_input_device_list_label,
     get_midi_output_device_list_label, get_osc_device_list_label,
-    menu_containing_compartment_presets, ControlInputMenuAction, OscDeviceManagementAction,
-    CONTROL_INPUT_FX_INPUT_LABEL, CONTROL_INPUT_KEYBOARD_LABEL,
+    menu_containing_compartment_presets, ControlInputMenuAction, FeedbackOutputMenuAction,
+    OscDeviceManagementAction, CONTROL_INPUT_KEYBOARD_LABEL, CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
+    FEEDBACK_OUTPUT_MIDI_FX_OUTPUT, FEEDBACK_OUTPUT_NONE_LABEL,
 };
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
@@ -71,8 +71,6 @@ use std::net::Ipv4Addr;
 use std::ops::{DerefMut, RangeInclusive};
 use strum::IntoEnumIterator;
 
-const OSC_INDEX_OFFSET: isize = 1000;
-const KEYBOARD_INDEX_OFFSET: isize = 2000;
 const PARAM_BATCH_SIZE: u32 = 5;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -153,7 +151,7 @@ impl HeaderPanel {
             return;
         }
         self.invalidate_control_input_button();
-        self.invalidate_feedback_output_combo_box();
+        self.invalidate_feedback_output_button();
     }
 
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
@@ -1328,7 +1326,7 @@ impl HeaderPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_control_input_button();
-        self.invalidate_feedback_output_combo_box();
+        self.invalidate_feedback_output_button();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
         self.invalidate_group_controls();
@@ -1566,21 +1564,13 @@ impl HeaderPanel {
     fn invalidate_control_input_button(&self) {
         let text = match self.session().borrow().control_input() {
             ControlInput::Midi(midi_control_input) => match midi_control_input {
-                MidiControlInput::FxInput => CONTROL_INPUT_FX_INPUT_LABEL.to_string(),
+                MidiControlInput::FxInput => CONTROL_INPUT_MIDI_FX_INPUT_LABEL.to_string(),
                 MidiControlInput::Device(dev_id) => {
                     let dev = Reaper::get().midi_input_device_by_id(dev_id);
                     get_midi_input_device_list_label(dev)
                 }
             },
-            ControlInput::Osc(osc_device_id) => {
-                let dev_manager = BackboneShell::get().osc_device_manager();
-                let dev_manager = dev_manager.borrow();
-                if let Some(dev) = dev_manager.find_device_by_id(&osc_device_id) {
-                    get_osc_device_list_label(dev, false)
-                } else {
-                    format!("OSC: <Not present> ({osc_device_id})")
-                }
-            }
+            ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
             ControlInput::Keyboard => CONTROL_INPUT_KEYBOARD_LABEL.to_string(),
         };
         self.view
@@ -1588,83 +1578,23 @@ impl HeaderPanel {
             .set_text(text);
     }
 
-    fn invalidate_feedback_output_combo_box(&self) {
-        self.invalidate_feedback_output_combo_box_options();
-        self.invalidate_feedback_output_combo_box_value();
-    }
-
-    fn invalidate_feedback_output_combo_box_options(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        let osc_device_manager = BackboneShell::get().osc_device_manager();
-        let osc_device_manager = osc_device_manager.borrow();
-        let osc_devices = osc_device_manager.devices();
-        b.fill_combo_box_with_data_small(
-            vec![
-                (-1isize, "<None>".to_string()),
-                (-100isize, generate_midi_device_heading()),
-                (-2isize, "<FX output>".to_string()),
-            ]
-            .into_iter()
-            .chain(
-                Reaper::get()
-                    .midi_output_devices()
-                    .filter(|d| d.is_available())
-                    .map(|dev| {
-                        (
-                            dev.id().get() as isize,
-                            get_midi_output_device_list_label(dev),
-                        )
-                    }),
-            )
-            .chain(iter::once((
-                -100isize,
-                generate_osc_device_heading(osc_devices.len()),
-            )))
-            .chain(
-                osc_devices
-                    .enumerate()
-                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(true))),
-            ),
-        )
-    }
-
-    fn invalidate_feedback_output_combo_box_value(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        match self.session().borrow().feedback_output() {
-            None => {
-                b.select_combo_box_item_by_data(-1).unwrap();
-            }
-            Some(feedback_output) => match feedback_output {
-                FeedbackOutput::Midi(o) => match o {
-                    MidiDestination::FxOutput => {
-                        b.select_combo_box_item_by_data(-2).unwrap();
-                    }
-                    MidiDestination::Device(dev_id) => b
-                        .select_combo_box_item_by_data(dev_id.get() as _)
-                        .unwrap_or_else(|_| {
-                            b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                        }),
-                },
-                FeedbackOutput::Osc(osc_device_id) => {
-                    match BackboneShell::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_index_by_id(&osc_device_id)
-                    {
-                        None => {
-                            b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
-                        }
-                        Some(i) => b
-                            .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                            .unwrap(),
-                    }
+    fn invalidate_feedback_output_button(&self) {
+        let text = match self.session().borrow().feedback_output() {
+            None => FEEDBACK_OUTPUT_NONE_LABEL.to_string(),
+            Some(FeedbackOutput::Midi(midi_dest)) => match midi_dest {
+                MidiDestination::FxOutput => FEEDBACK_OUTPUT_MIDI_FX_OUTPUT.to_string(),
+                MidiDestination::Device(dev_id) => {
+                    let dev = Reaper::get().midi_output_device_by_id(dev_id);
+                    get_midi_output_device_list_label(dev)
                 }
             },
-        }
+            Some(FeedbackOutput::Osc(osc_device_id)) => {
+                get_osc_dev_list_label(&osc_device_id, true)
+            }
+        };
+        self.view
+            .require_control(root::ID_FEEDBACK_OUTPUT_BUTTON)
+            .set_text(text);
     }
 
     fn update_search_expression(&self) {
@@ -1713,41 +1643,22 @@ impl HeaderPanel {
         }
     }
 
-    fn update_feedback_output(&self) {
-        let feedback_output = {
-            let b = self
-                .view
-                .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-            match b.selected_combo_box_item_data() {
-                -2 => Ok(Some(FeedbackOutput::Midi(MidiDestination::FxOutput))),
-                -1 => Ok(None),
-                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = BackboneShell::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
-                    {
-                        Ok(Some(FeedbackOutput::Osc(*dev.id())))
-                    } else {
-                        Err(())
-                    }
+    fn pick_feedback_output(&self) {
+        let current_value = self.session().borrow().feedback_output();
+        let result = self.view.require_window().open_popup_menu(
+            menus::feedback_output_menu(current_value),
+            Window::cursor_pos(),
+        );
+        if let Some(action) = result {
+            match action {
+                FeedbackOutputMenuAction::SelectFeedbackOutput(output) => {
+                    self.session().borrow_mut().feedback_output.set(output);
+                    update_auto_units_async();
                 }
-                midi_dev_id if midi_dev_id >= 0 => {
-                    let dev_id = MidiOutputDeviceId::new(midi_dev_id as _);
-                    Ok(Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))))
+                FeedbackOutputMenuAction::ManageOsc(action) => {
+                    self.execute_osc_dev_management_action(action);
                 }
-                _ => Err(()),
             }
-        };
-        if let Ok(feedback_output) = feedback_output {
-            self.session()
-                .borrow_mut()
-                .feedback_output
-                .set(feedback_output);
-            update_auto_units_async();
-        } else {
-            // This is most likely a section entry. Selection is not allowed.
-            self.invalidate_feedback_output_combo_box_value();
         }
     }
 
@@ -2510,7 +2421,7 @@ impl HeaderPanel {
             }
         });
         self.when(session.feedback_output.changed(), |view, _| {
-            view.invalidate_feedback_output_combo_box()
+            view.invalidate_feedback_output_button()
         });
         let main_state = self.main_state.borrow();
         self.when(
@@ -2581,7 +2492,7 @@ impl HeaderPanel {
         .with(Rc::downgrade(&self))
         .do_async(move |view, _| {
             view.invalidate_control_input_button();
-            view.invalidate_feedback_output_combo_box();
+            view.invalidate_feedback_output_button();
         });
         // Enables/disables save button depending on dirty state.
         when(
@@ -2636,6 +2547,7 @@ impl View for HeaderPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_CONTROL_INPUT_BUTTON => self.pick_control_input(),
+            root::ID_FEEDBACK_OUTPUT_BUTTON => self.pick_feedback_output(),
             root::ID_PRESET_BROWSE_BUTTON => self.browse_presets(),
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
@@ -2693,7 +2605,6 @@ impl View for HeaderPanel {
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
             root::ID_GROUP_COMBO_BOX => self.update_group(),
             root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
             _ => unreachable!(),
@@ -2726,21 +2637,6 @@ impl Drop for HeaderPanel {
         debug!(Reaper::get().logger(), "Dropping header panel...");
         self.close_open_child_panels();
     }
-}
-
-fn generate_midi_device_heading() -> String {
-    "----  MIDI  ----".to_owned()
-}
-
-fn generate_osc_device_heading(device_count: usize) -> String {
-    format!(
-        "----  OSC  ----{}",
-        if device_count == 0 {
-            " (add devices via right-click menu)"
-        } else {
-            ""
-        }
-    )
 }
 
 fn edit_preset_link_fx_id(mutator: &mut dyn PresetLinkMutator, old_fx_id: FxId) {
@@ -3101,5 +2997,15 @@ fn with_scoped_preset_link_mutator(
             let mutator = session.instance_preset_link_config_mut();
             f(mutator);
         }
+    }
+}
+
+fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> String {
+    let dev_manager = BackboneShell::get().osc_device_manager();
+    let dev_manager = dev_manager.borrow();
+    if let Some(dev) = dev_manager.find_device_by_id(&osc_device_id) {
+        get_osc_device_list_label(dev, is_output)
+    } else {
+        format!("OSC: <Not present> ({osc_device_id})")
     }
 }

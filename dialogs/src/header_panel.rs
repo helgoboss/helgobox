@@ -33,16 +33,16 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.id(),
             context.rect(row2.get(), 26, row2.span(io_label_width), text_height),
         ),
-        dropdown(
-            ids.named_id("ID_FEEDBACK_DEVICE_COMBO_BOX"),
+        pushbutton(
+            "<None>",
+            ids.named_id("ID_FEEDBACK_OUTPUT_BUTTON"),
             context.rect(
                 row2.space(space),
                 24,
                 row2.span(io_combo_box_width),
                 io_combo_box_height,
             ),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + NOT_WS_TABSTOP,
         // Quick actions
         pushbutton(
             "Menu",

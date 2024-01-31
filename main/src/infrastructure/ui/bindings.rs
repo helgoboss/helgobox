@@ -75,7 +75,7 @@ pub mod root {
     pub const ID_GROUP_PANEL_OK: u32 = 30001;
     pub const ID_HEADER_PANEL: u32 = 30043;
     pub const ID_CONTROL_INPUT_BUTTON: u32 = 30003;
-    pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 30005;
+    pub const ID_FEEDBACK_OUTPUT_BUTTON: u32 = 30005;
     pub const ID_MENU_BUTTON: u32 = 30006;
     pub const ID_IMPORT_BUTTON: u32 = 30007;
     pub const ID_EXPORT_BUTTON: u32 = 30008;

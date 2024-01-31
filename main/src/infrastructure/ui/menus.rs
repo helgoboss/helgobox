@@ -1,7 +1,8 @@
 use crate::application::{UnitModel, VirtualControlElementType, WeakUnitModel};
 use crate::domain::{
     compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
-    ControlInput, MappingId, MidiControlInput, OscDeviceId, ReaperTargetType, TargetSection,
+    ControlInput, FeedbackOutput, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
+    ReaperTargetType, TargetSection,
 };
 use crate::infrastructure::data::{CommonPresetInfo, OscDevice};
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
@@ -38,7 +39,7 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
             .partition(|dev| dev.input_status().is_connected())
     };
     let entries = iter::once(item_with_opts(
-        CONTROL_INPUT_FX_INPUT_LABEL,
+        CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
         ItemOpts {
             enabled: true,
             checked: current_value == fx_input,
@@ -51,7 +52,7 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
             .map(|dev| build_midi_input_dev_menu_item(dev, current_value)),
     )
     .chain(iter::once(menu(
-        "Unavailable MIDI devices",
+        "Unavailable MIDI input devices",
         closed_midi_devs
             .into_iter()
             .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
@@ -86,8 +87,80 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
     root_menu(entries.collect())
 }
 
-pub const CONTROL_INPUT_FX_INPUT_LABEL: &str = "MIDI: <FX input>";
+pub enum FeedbackOutputMenuAction {
+    SelectFeedbackOutput(Option<FeedbackOutput>),
+    ManageOsc(OscDeviceManagementAction),
+}
+
+pub fn feedback_output_menu(
+    current_value: Option<FeedbackOutput>,
+) -> Menu<FeedbackOutputMenuAction> {
+    let fx_output = Some(FeedbackOutput::Midi(MidiDestination::FxOutput));
+    let (open_midi_devs, closed_midi_devs): (Vec<_>, Vec<_>) = Reaper::get()
+        .midi_output_devices()
+        .filter(|d| d.is_available())
+        .partition(|dev| dev.is_open());
+    let osc_device_manager = BackboneShell::get().osc_device_manager();
+    let osc_device_manager = osc_device_manager.borrow();
+    let (open_osc_devs, closed_osc_devs): (Vec<_>, Vec<_>) = {
+        osc_device_manager
+            .devices()
+            .partition(|dev| dev.input_status().is_connected())
+    };
+    let entries = iter::once(item_with_opts(
+        FEEDBACK_OUTPUT_NONE_LABEL,
+        ItemOpts {
+            enabled: true,
+            checked: current_value.is_none(),
+        },
+        FeedbackOutputMenuAction::SelectFeedbackOutput(None),
+    ))
+    .chain(iter::once(separator()))
+    .chain(iter::once(item_with_opts(
+        FEEDBACK_OUTPUT_MIDI_FX_OUTPUT,
+        ItemOpts {
+            enabled: true,
+            checked: current_value == fx_output,
+        },
+        FeedbackOutputMenuAction::SelectFeedbackOutput(fx_output),
+    )))
+    .chain(
+        open_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_output_dev_menu_item(dev, current_value)),
+    )
+    .chain(iter::once(menu(
+        "Unavailable MIDI output devices",
+        closed_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_output_dev_menu_item(dev, current_value))
+            .collect(),
+    )))
+    .chain(iter::once(separator()))
+    .chain(
+        open_osc_devs
+            .into_iter()
+            .map(|dev| build_osc_output_dev_menu_item(dev, current_value)),
+    )
+    .chain(iter::once(menu(
+        "Unavailable OSC devices",
+        closed_osc_devs
+            .into_iter()
+            .map(|dev| build_osc_output_dev_menu_item(dev, current_value))
+            .collect(),
+    )))
+    .chain(iter::once(menu(
+        "Manage OSC devices",
+        osc_device_management_menu_entries(FeedbackOutputMenuAction::ManageOsc),
+    )))
+    .chain(iter::once(separator()));
+    root_menu(entries.collect())
+}
+
+pub const CONTROL_INPUT_MIDI_FX_INPUT_LABEL: &str = "MIDI: <FX input>";
 pub const CONTROL_INPUT_KEYBOARD_LABEL: &str = "Computer keyboard";
+pub const FEEDBACK_OUTPUT_MIDI_FX_OUTPUT: &str = "MIDI: <FX output>";
+pub const FEEDBACK_OUTPUT_NONE_LABEL: &str = "<None>";
 
 fn build_midi_input_dev_menu_item(
     dev: MidiInputDevice,
@@ -104,6 +177,21 @@ fn build_midi_input_dev_menu_item(
     )
 }
 
+fn build_midi_output_dev_menu_item(
+    dev: MidiOutputDevice,
+    current_value: Option<FeedbackOutput>,
+) -> Entry<FeedbackOutputMenuAction> {
+    let feedback_output = Some(FeedbackOutput::Midi(MidiDestination::Device(dev.id())));
+    item_with_opts(
+        get_midi_output_device_list_label(dev),
+        ItemOpts {
+            enabled: true,
+            checked: current_value == feedback_output,
+        },
+        FeedbackOutputMenuAction::SelectFeedbackOutput(feedback_output),
+    )
+}
+
 fn build_osc_input_dev_menu_item(
     dev: &OscDevice,
     current_value: ControlInput,
@@ -116,6 +204,21 @@ fn build_osc_input_dev_menu_item(
             checked: current_value == control_input,
         },
         ControlInputMenuAction::SelectControlInput(control_input),
+    )
+}
+
+fn build_osc_output_dev_menu_item(
+    dev: &OscDevice,
+    current_value: Option<FeedbackOutput>,
+) -> Entry<FeedbackOutputMenuAction> {
+    let feedback_output = Some(FeedbackOutput::Osc(*dev.id()));
+    item_with_opts(
+        get_osc_device_list_label(dev, true),
+        ItemOpts {
+            enabled: true,
+            checked: current_value == feedback_output,
+        },
+        FeedbackOutputMenuAction::SelectFeedbackOutput(feedback_output),
     )
 }
 
@@ -141,7 +244,7 @@ pub fn get_midi_output_device_list_label(dev: MidiOutputDevice) -> String {
 
 fn get_midi_device_list_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
     format!(
-        "MIDI: {}. {}{}",
+        "MIDI: [{}] {}{}",
         raw_id,
         // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
         // how MIDI devices encode their name. Indeed a user reported an error related to that:
