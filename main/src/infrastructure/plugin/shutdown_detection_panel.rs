@@ -1,5 +1,7 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
+use base::metrics_util::measure_time;
+use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug, Default)]
@@ -22,7 +24,20 @@ impl View for ShutdownDetectionPanel {
         &self.view
     }
 
+    fn opened(self: SharedView<Self>, _window: Window) -> bool {
+        _window.set_timer(989, Duration::from_millis(1));
+        false
+    }
+
     fn on_destroy(self: SharedView<Self>, _window: Window) {
         BackboneShell::get().shutdown();
+    }
+
+    fn timer(&self, id: usize) -> bool {
+        if id == 989 {
+            metrics::counter!("fast_timer").increment(1);
+            BackboneShell::get().run();
+        }
+        true
     }
 }

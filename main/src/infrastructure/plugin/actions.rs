@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::{sandbox, BackboneShell};
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
@@ -107,7 +107,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         command_name: "HB_SANDBOX",
         action_name: "Execute sandbox",
         developer: true,
-        op: sandbox::execute,
+        op: crate::infrastructure::plugin::sandbox::execute,
         ..DEFAULT_DEF
     },
 ];

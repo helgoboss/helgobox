@@ -66,9 +66,9 @@ use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
-    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
-    ReaProject, ReaperStr, RegistrationHandle, SectionContext, WindowContext,
+    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, ControlSurface, Hmenu,
+    HookCustomMenu, HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId,
+    MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -143,7 +143,7 @@ pub type RealearnSessionAccelerator =
     RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
 
 pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
+    Rc<RefCell<MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>>>;
 
 /// Just the old term as alias for easier class search.
 type _App = BackboneShell;
@@ -242,6 +242,7 @@ struct SleepingState {
 
 #[derive(Debug)]
 struct AwakeState {
+    control_surface: RealearnControlSurface,
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
     accelerator_handle: RegistrationHandle<RealearnSessionAccelerator>,
@@ -380,17 +381,19 @@ impl BackboneShell {
             .subscribe(|_| BackboneShell::get().reconnect_osc_devices());
         let shared_main_processors = SharedMainProcessors::default();
         // This doesn't yet activate the control surface (will happen on wake up)
-        let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            BackboneShell::logger(),
-            control_surface_main_task_receiver,
-            instance_event_receiver,
-            #[cfg(feature = "playtime")]
-            clip_matrix_event_receiver,
-            additional_feedback_event_receiver,
-            instance_orchestration_event_receiver,
-            shared_main_processors.clone(),
-            Box::new(BackboneControlSurfaceEventHandler),
-        ));
+        let control_surface = Rc::new(RefCell::new(MiddlewareControlSurface::new(
+            RealearnControlSurfaceMiddleware::new(
+                BackboneShell::logger(),
+                control_surface_main_task_receiver,
+                instance_event_receiver,
+                #[cfg(feature = "playtime")]
+                clip_matrix_event_receiver,
+                additional_feedback_event_receiver,
+                instance_orchestration_event_receiver,
+                shared_main_processors.clone(),
+                Box::new(BackboneControlSurfaceEventHandler),
+            ),
+        )));
         // This doesn't yet activate the audio hook (will happen on wake up)
         let audio_block_counter = Arc::new(AtomicU32::new(0));
         let audio_hook = RealearnAudioHook::new(
@@ -690,9 +693,13 @@ impl BackboneShell {
             .borrow_mut()
             .start(osc_output_devices);
         // Control surface
-        let middleware = sleeping_state.control_surface.middleware_mut();
-        middleware.set_osc_input_devices(osc_input_devices);
-        sleeping_state.control_surface.middleware().wake_up();
+        {
+            let mut cs = sleeping_state.control_surface.borrow_mut();
+            let middleware = cs.middleware_mut();
+            middleware.set_osc_input_devices(osc_input_devices);
+            cs.middleware().wake_up();
+        }
+        let clone = sleeping_state.control_surface.clone();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
@@ -705,6 +712,7 @@ impl BackboneShell {
             .expect("couldn't register ReaLearn accelerator");
         // Awake state
         let awake_state = AwakeState {
+            control_surface: *clone,
             control_surface_handle,
             audio_hook_handle,
             accelerator_handle,
@@ -740,8 +748,11 @@ impl BackboneShell {
             (accelerator, control_surface, audio_hook)
         };
         // Close OSC connections
-        let middleware = control_surface.middleware_mut();
-        middleware.clear_osc_input_devices();
+        {
+            let mut cs = control_surface.borrow_mut();
+            let middleware = cs.middleware_mut();
+            middleware.clear_osc_input_devices();
+        }
         self.osc_feedback_processor.borrow_mut().stop();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<Self>();
@@ -883,17 +894,28 @@ impl BackboneShell {
         &self.control_surface_main_task_sender
     }
 
+    pub fn run(&self) {
+        let state = self.state.borrow();
+        match &*state {
+            AppState::Sleeping(_) => {}
+            AppState::WakingUp => {}
+            AppState::Awake(s) => s.control_surface.borrow_mut().run(),
+            AppState::GoingToSleep => {}
+            AppState::Suspended => {}
+        }
+    }
+
     pub fn proto_hub(&self) -> &crate::infrastructure::proto::ProtoHub {
         &self.proto_hub
     }
 
     fn temporarily_reclaim_control_surface_ownership(
         &self,
-        f: impl FnOnce(&mut RealearnControlSurface),
+        f: impl FnOnce(&mut MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>),
     ) {
         let next_state = match self.state.replace(AppState::Suspended) {
             AppState::Sleeping(mut s) => {
-                f(&mut s.control_surface);
+                f(&mut s.control_surface.borrow_mut());
                 AppState::Sleeping(s)
             }
             AppState::Awake(s) => {
@@ -904,12 +926,13 @@ impl BackboneShell {
                         .expect("control surface was not registered")
                 };
                 // Execute necessary operations
-                f(&mut control_surface);
+                f(&mut control_surface.borrow_mut());
                 // Give it back to REAPER.
                 let control_surface_handle = session
                     .plugin_register_add_csurf_inst(control_surface)
                     .expect("couldn't reregister ReaLearn control surface");
                 let awake_state = AwakeState {
+                    control_surface: s.control_surface,
                     control_surface_handle,
                     audio_hook_handle: s.audio_hook_handle,
                     accelerator_handle: s.accelerator_handle,

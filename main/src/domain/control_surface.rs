@@ -32,6 +32,7 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
+use std::time::Duration;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
@@ -40,7 +41,7 @@ const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const INSTANCE_EVENT_BULK_SIZE: usize = 30;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
-const OSC_INCOMING_BULK_SIZE: usize = 32;
+const OSC_INCOMING_BULK_SIZE: usize = 1000;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -252,8 +253,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn run_internal(&mut self) {
-        let timestamp = ControlEventTimestamp::now();
+    fn run_internal(&mut self, timestamp: ControlEventTimestamp) {
         #[cfg(debug_assertions)]
         {
             // TODO-high This is propagated using main processors but it's a global event. We
@@ -297,7 +297,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_instance_events();
         self.emit_beats_as_feedback_events();
         self.detect_device_changes(timestamp);
-        self.process_incoming_osc_messages(timestamp);
         // Drive clip matrix
         #[cfg(feature = "playtime")]
         {
@@ -313,7 +312,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Process REAPER events that were accumulated within this call of run(). All events
         // accumulated up to this point are caused by ReaLearn itself.
         self.process_events(true);
-        self.counter += 1;
     }
 
     pub fn remove_instance(&mut self, id: InstanceId) {
@@ -709,8 +707,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_incoming_osc_messages(&mut self, timestamp: ControlEventTimestamp) {
-        pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
-        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); OSC_INCOMING_BULK_SIZE]> = self
+        pub type PacketVec = Vec<OscPacket>;
+        let packets_by_device: Vec<(OscDeviceId, PacketVec)> = self
             .osc_input_devices
             .iter_mut()
             .map(|dev| {
@@ -782,9 +780,16 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        measure_time("run_control_surface", || {
-            self.run_internal();
+        let timestamp = ControlEventTimestamp::now();
+        measure_time("osc", || {
+            self.process_incoming_osc_messages(timestamp);
         });
+        if self.counter % 30 == 0 {
+            measure_time("run_control_surface", || {
+                self.run_internal(timestamp);
+            });
+        }
+        self.counter += 1;
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
