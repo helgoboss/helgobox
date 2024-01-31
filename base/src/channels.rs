@@ -3,6 +3,7 @@ use reaper_high::Reaper;
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub trait NamedChannelSender {
     type Msg;
@@ -21,6 +22,7 @@ pub trait NamedChannelSender {
 pub struct SenderToNormalThread<T> {
     channel_name: &'static str,
     sender: Sender<T>,
+    complained_already: AtomicBool,
 }
 
 impl<T> Debug for SenderToNormalThread<T> {
@@ -41,7 +43,9 @@ impl<T> NamedChannelSender for SenderToNormalThread<T> {
 
     fn send_complaining(&self, msg: T) {
         let result = self.send_internal(msg);
-        if !receiver_is_disconnected(&result) {
+        if !receiver_is_disconnected(&result)
+            && !self.complained_already.swap(true, Ordering::Relaxed)
+        {
             // Complain
             result.unwrap();
         }
@@ -69,6 +73,7 @@ impl<T> SenderToNormalThread<T> {
             Self {
                 channel_name: name,
                 sender,
+                complained_already: AtomicBool::new(false),
             },
             receiver,
         )
@@ -91,6 +96,7 @@ impl<T> SenderToNormalThread<T> {
             Self {
                 channel_name: name,
                 sender,
+                complained_already: AtomicBool::new(false),
             },
             receiver,
         )
@@ -126,6 +132,7 @@ impl<T> Clone for SenderToNormalThread<T> {
         Self {
             channel_name: self.channel_name,
             sender: self.sender.clone(),
+            complained_already: AtomicBool::new(false),
         }
     }
 }
@@ -137,6 +144,7 @@ impl<T> Clone for SenderToNormalThread<T> {
 pub struct SenderToRealTimeThread<T> {
     channel_name: &'static str,
     sender: Sender<T>,
+    complained_already: AtomicBool,
 }
 
 impl<T> Clone for SenderToRealTimeThread<T> {
@@ -144,6 +152,7 @@ impl<T> Clone for SenderToRealTimeThread<T> {
         Self {
             channel_name: self.channel_name,
             sender: self.sender.clone(),
+            complained_already: AtomicBool::new(false),
         }
     }
 }
@@ -157,7 +166,9 @@ impl<T> NamedChannelSender for SenderToRealTimeThread<T> {
 
     fn send_complaining(&self, msg: T) {
         let result = self.send_internal(msg);
-        if !receiver_is_disconnected(&result) {
+        if !receiver_is_disconnected(&result)
+            && !self.complained_already.swap(true, Ordering::Relaxed)
+        {
             // Complain
             result.unwrap();
         }
@@ -171,6 +182,7 @@ impl<T> SenderToRealTimeThread<T> {
             Self {
                 channel_name: name,
                 sender,
+                complained_already: AtomicBool::new(false),
             },
             receiver,
         )
