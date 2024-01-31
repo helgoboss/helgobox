@@ -70,6 +70,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
     last_undesired_allocation_count: u32,
     event_handler: Box<dyn ControlSurfaceEventHandler>,
+    osc_buffer: Vec<OscPacket>,
 }
 
 #[cfg(feature = "playtime")]
@@ -248,6 +249,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             control_surface_event_receiver,
             last_undesired_allocation_count: 0,
             event_handler,
+            osc_buffer: Default::default(),
         }
     }
 
@@ -708,29 +710,21 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_incoming_osc_messages(&mut self, timestamp: ControlEventTimestamp) {
-        pub type PacketVec = Vec<OscPacket>;
-        let packets_by_device: Vec<(OscDeviceId, PacketVec)> = self
-            .osc_input_devices
-            .iter_mut()
-            .map(|dev| {
-                (
-                    *dev.id(),
-                    dev.poll_multiple(OSC_INCOMING_BULK_SIZE).collect(),
-                )
-            })
-            .collect();
-        for (dev_id, packets) in packets_by_device {
+        for dev in &mut self.osc_input_devices {
+            self.osc_buffer.clear();
+            self.osc_buffer
+                .extend(dev.poll_multiple(OSC_INCOMING_BULK_SIZE));
             for proc in &mut *self.main_processors.borrow_mut() {
-                if proc.wants_osc_from(&dev_id) {
-                    for packet in &packets {
+                if proc.wants_osc_from(dev.id()) {
+                    for packet in &self.osc_buffer {
                         let evt = ControlEvent::new(packet, timestamp);
                         proc.process_incoming_osc_packet(evt);
                     }
                 }
             }
             if let Some(sender) = &self.osc_capture_sender {
-                for packet in packets {
-                    process_incoming_osc_packet_for_learning(dev_id, sender, packet)
+                for packet in self.osc_buffer.drain(..) {
+                    process_incoming_osc_packet_for_learning(*dev.id(), sender, packet)
                 }
             }
         }
