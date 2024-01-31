@@ -1205,6 +1205,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_normal_tasks_from_session(&mut self, timestamp: ControlEventTimestamp) {
         let mut count = 0;
+        let mut conditions_changed = false;
         while let Ok(task) = self.basics.channels.normal_task_receiver.try_recv() {
             use NormalMainTask::*;
             match task {
@@ -1225,7 +1226,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.hit_target(id, value);
                 }
                 NotifyConditionsChanged => {
-                    self.notify_conditions_changed();
+                    conditions_changed = true;
                 }
                 UpdateSingleMapping(mapping) => {
                     self.update_single_mapping(mapping);
@@ -1287,6 +1288,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if count == NORMAL_TASK_BULK_SIZE {
                 break;
             }
+        }
+        if conditions_changed {
+            self.process_changed_conditions();
         }
     }
 
@@ -1356,7 +1360,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Shouldn't be called directly when the REAPER change event occurs but in the next main loop
     /// cycle. That's especially important for auto-load because REAPER first needs to digest info
     /// such as "Is the window open?" and "What FX is the focused FX?".
-    fn notify_conditions_changed(&mut self) {
+    fn process_changed_conditions(&mut self) {
         debug!(self.basics.logger, "Conditions changed");
         // Invoke auto-load if necessary
         if self
