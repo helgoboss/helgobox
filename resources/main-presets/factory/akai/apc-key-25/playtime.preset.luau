@@ -392,6 +392,9 @@ function slot_state_text_feedback()
 		glue = {
 			feedback = realearn.Feedback.Text({
 				text_expression = "{{ target.slot_state.id }}",
+				color = realearn.VirtualColor {
+					prop = "target.slot.color"
+				}
 			}),
 		},
 	})

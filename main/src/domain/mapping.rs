@@ -28,6 +28,7 @@ use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, NonCryptoIndexSet};
+use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
@@ -2258,6 +2259,30 @@ impl RealearnTarget for CompoundMappingTarget {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.track(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn clip_slot_address(&self) -> Option<SlotAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_slot_address(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn clip_column_address(&self) -> Option<ColumnAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_column_address(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn clip_row_address(&self) -> Option<RowAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_row_address(),
             Virtual(_) => None,
         }
     }

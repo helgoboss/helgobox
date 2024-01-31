@@ -7680,7 +7680,7 @@ fn show_feedback_popup_menu(
                         OpenColorPicker(color_target),
                     ),
                 ].into_iter()
-                    .chain(["target.track.color", "target.bookmark.color"].into_iter().map(|key| {
+                    .chain(["target.track.color", "target.bookmark.color", "target.slot.color"].into_iter().map(|key| {
                         item_with_opts(
                             key,
                             ItemOpts {

@@ -367,9 +367,9 @@ pub fn get_track_name(t: &Track, scope: TrackScope) -> String {
     }
 }
 
-pub fn get_track_color(t: &Track) -> Option<RgbColor> {
-    let reaper_medium::RgbColor { r, g, b } = t.custom_color()?;
-    Some(RgbColor::new(r, g, b))
+pub fn convert_reaper_color_to_helgoboss_learn(color: reaper_medium::RgbColor) -> RgbColor {
+    let reaper_medium::RgbColor { r, g, b } = color;
+    RgbColor::new(r, g, b)
 }
 
 pub trait UnitContainer: Debug {

@@ -1,7 +1,7 @@
 use crate::domain::{
-    get_fx_name, get_track_color, get_track_name, Backbone, CompoundChangeEvent,
-    CompoundMappingTarget, ControlContext, FeedbackResolution, MainMapping, RealearnTarget,
-    ReaperTarget, UnresolvedCompoundMappingTarget,
+    convert_reaper_color_to_helgoboss_learn, get_fx_name, get_track_name, Backbone,
+    CompoundChangeEvent, CompoundMappingTarget, ControlContext, FeedbackResolution, MainMapping,
+    RealearnTarget, ReaperTarget, UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, NumericValue, PropProvider, PropValue, Target};
@@ -248,6 +248,8 @@ enum TargetProps {
     RouteIndex(TargetRouteIndexProp),
     #[strum(serialize = "target.route.name")]
     RouteName(TargetRouteNameProp),
+    #[strum(serialize = "target.slot.color")]
+    PlaytimeSlotColor(TargetPlaytimeSlotColorProp),
 }
 
 #[enum_dispatch(GlobalProps)]
@@ -597,9 +599,52 @@ impl TargetProp for TargetTrackColorProp {
     }
 
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
-        Some(PropValue::Color(get_track_color(
-            args.object.target.track()?,
-        )?))
+        let color =
+            convert_reaper_color_to_helgoboss_learn(args.object.target.track()?.custom_color()?);
+        Some(PropValue::Color(color))
+    }
+}
+
+#[derive(Default)]
+struct TargetPlaytimeSlotColorProp;
+
+impl TargetProp for TargetPlaytimeSlotColorProp {
+    fn is_affected_by(&self, args: PropIsAffectedByArgs<MappingAndTarget>) -> bool {
+        #[cfg(not(feature = "playtime"))]
+        {
+            false
+        }
+        #[cfg(feature = "playtime")]
+        {
+            use playtime_clip_engine::base::*;
+            use playtime_clip_engine::rt::*;
+            matches!(
+                args.event,
+                CompoundChangeEvent::ClipMatrix(
+                    ClipMatrixEvent::TrackChanged(_)
+                        | ClipMatrixEvent::ClipChanged(QualifiedClipChangeEvent {
+                            event: ClipChangeEvent::Content | ClipChangeEvent::Everything,
+                            ..
+                        })
+                )
+            )
+        }
+    }
+
+    fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            None
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let slot_address = args.object.target.clip_slot_address()?;
+            let instance = args.control_context.instance.borrow();
+            let matrix = instance.clip_matrix()?;
+            let reaper_color = matrix.resolve_slot_color(slot_address)?;
+            let final_color = convert_reaper_color_to_helgoboss_learn(reaper_color);
+            Some(PropValue::Color(final_color))
+        }
     }
 }
 
