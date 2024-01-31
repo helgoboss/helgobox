@@ -1,14 +1,13 @@
 use std::convert::TryInto;
 
-use derive_more::Display;
 use std::rc::{Rc, Weak};
 
 use rxrust::prelude::*;
 use std::iter;
 
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_high::Reaper;
 
-use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
+use reaper_medium::MidiOutputDeviceId;
 use slog::debug;
 
 use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
@@ -43,7 +42,10 @@ use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::menus::{
-    build_compartment_preset_menu_entries, menu_containing_compartment_presets,
+    build_compartment_preset_menu_entries, get_midi_input_device_list_label,
+    get_midi_output_device_list_label, get_osc_device_list_label,
+    menu_containing_compartment_presets, ControlInputMenuAction, OscDeviceManagementAction,
+    CONTROL_INPUT_FX_INPUT_LABEL, CONTROL_INPUT_KEYBOARD_LABEL,
 };
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
@@ -52,7 +54,7 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
-    get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
+    get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
     MappingRowsPanel, PlainTextEngine, ScriptEditorInput, SearchExpression, SerializationFormat,
     SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
@@ -150,7 +152,7 @@ impl HeaderPanel {
         if !self.is_open() {
             return;
         }
-        self.invalidate_control_input_combo_box();
+        self.invalidate_control_input_button();
         self.invalidate_feedback_output_combo_box();
     }
 
@@ -314,13 +316,27 @@ impl HeaderPanel {
         );
     }
 
+    fn execute_osc_dev_management_action(&self, action: OscDeviceManagementAction) {
+        use OscDeviceManagementAction::*;
+        match action {
+            EditNewOscDevice => edit_new_osc_device(),
+            EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
+            RemoveOscDevice(dev_id) => remove_osc_device(self.view.require_window(), dev_id),
+            ToggleOscDeviceControl(dev_id) => {
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_control())
+            }
+            ToggleOscDeviceFeedback(dev_id) => {
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
+            }
+            ToggleOscDeviceBundles(dev_id) => BackboneShell::get()
+                .do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles()),
+        }
+    }
+
     fn open_main_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
         let app = BackboneShell::get();
         let pure_menu = {
-            use std::iter::once;
             use swell_ui::menu_tree::*;
-            let dev_manager = BackboneShell::get().osc_device_manager();
-            let dev_manager = dev_manager.borrow();
             let preset_link_manager = BackboneShell::get().preset_link_manager();
             let preset_link_manager = preset_link_manager.borrow();
             let main_preset_manager = BackboneShell::get().main_preset_manager();
@@ -649,45 +665,6 @@ impl HeaderPanel {
                     ],
                 ),
                 menu(
-                    "OSC devices",
-                    once(item("<New>", MainMenuAction::EditNewOscDevice))
-                        .chain(dev_manager.devices().map(|dev| {
-                            let dev_id = *dev.id();
-                            menu(
-                                dev.name(),
-                                vec![
-                                    item("Edit...", MainMenuAction::EditExistingOscDevice(dev_id)),
-                                    item("Remove", MainMenuAction::RemoveOscDevice(dev_id)),
-                                    item_with_opts(
-                                        "Enabled for control",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.is_enabled_for_control(),
-                                        },
-                                        MainMenuAction::ToggleOscDeviceControl(dev_id),
-                                    ),
-                                    item_with_opts(
-                                        "Enabled for feedback",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.is_enabled_for_feedback(),
-                                        },
-                                        MainMenuAction::ToggleOscDeviceFeedback(dev_id),
-                                    ),
-                                    item_with_opts(
-                                        "Can deal with OSC bundles",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.can_deal_with_bundles(),
-                                        },
-                                        MainMenuAction::ToggleOscDeviceBundles(dev_id),
-                                    ),
-                                ],
-                            )
-                        }))
-                        .collect(),
-                ),
-                menu(
                     "Global FX-to-preset links",
                     generate_fx_to_preset_links_menu_entries(
                         last_relevant_focused_fx_id.as_ref(),
@@ -739,19 +716,6 @@ impl HeaderPanel {
             MainMenuAction::DryRunLuaScript(text) => {
                 self.dry_run_lua_script(&text);
             }
-            MainMenuAction::EditNewOscDevice => edit_new_osc_device(),
-            MainMenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
-            MainMenuAction::RemoveOscDevice(dev_id) => {
-                remove_osc_device(self.view.require_window(), dev_id)
-            }
-            MainMenuAction::ToggleOscDeviceControl(dev_id) => {
-                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_control())
-            }
-            MainMenuAction::ToggleOscDeviceFeedback(dev_id) => {
-                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
-            }
-            MainMenuAction::ToggleOscDeviceBundles(dev_id) => BackboneShell::get()
-                .do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles()),
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
@@ -1363,7 +1327,7 @@ impl HeaderPanel {
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_control_input_combo_box();
+        self.invalidate_control_input_button();
         self.invalidate_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
@@ -1405,11 +1369,6 @@ impl HeaderPanel {
             matched_box.set_checked(session.let_matched_events_through.get());
             unmatched_box.set_checked(session.let_unmatched_events_through.get());
         }
-    }
-
-    fn invalidate_control_input_combo_box(&self) {
-        self.invalidate_control_input_combo_box_options();
-        self.invalidate_control_input_combo_box_value();
     }
 
     fn invalidate_compartment_combo_box(&self) {
@@ -1604,71 +1563,29 @@ impl HeaderPanel {
             .fill_combo_box_indexed(MainPresetAutoLoadMode::iter());
     }
 
-    fn invalidate_control_input_combo_box_options(&self) {
-        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        let osc_device_manager = BackboneShell::get().osc_device_manager();
-        let osc_device_manager = osc_device_manager.borrow();
-        let osc_devices = osc_device_manager.devices();
-        b.fill_combo_box_with_data_small(
-            [
-                (-100isize, generate_midi_device_heading()),
-                (-1isize, "<FX input>".to_string()),
-            ]
-            .into_iter()
-            .chain(
-                Reaper::get()
-                    .midi_input_devices()
-                    .filter(|d| d.is_available())
-                    .map(|dev| (dev.id().get() as isize, get_midi_input_device_label(dev))),
-            )
-            .chain(iter::once((
-                -100isize,
-                generate_osc_device_heading(osc_devices.len()),
-            )))
-            .chain(
-                osc_devices
-                    .enumerate()
-                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(false))),
-            )
-            .chain([
-                (-100isize, String::from("----  Keyboard  ----")),
-                (KEYBOARD_INDEX_OFFSET, String::from("Computer keyboard")),
-            ]),
-        )
-    }
-
-    fn invalidate_control_input_combo_box_value(&self) {
-        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        match self.session().borrow().control_input() {
+    fn invalidate_control_input_button(&self) {
+        let text = match self.session().borrow().control_input() {
             ControlInput::Midi(midi_control_input) => match midi_control_input {
-                MidiControlInput::FxInput => {
-                    b.select_combo_box_item_by_data(-1).unwrap();
+                MidiControlInput::FxInput => CONTROL_INPUT_FX_INPUT_LABEL.to_string(),
+                MidiControlInput::Device(dev_id) => {
+                    let dev = Reaper::get().midi_input_device_by_id(dev_id);
+                    get_midi_input_device_list_label(dev)
                 }
-                MidiControlInput::Device(dev_id) => b
-                    .select_combo_box_item_by_data(dev_id.get() as _)
-                    .unwrap_or_else(|_| {
-                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                    }),
             },
             ControlInput::Osc(osc_device_id) => {
-                match BackboneShell::get()
-                    .osc_device_manager()
-                    .borrow()
-                    .find_index_by_id(&osc_device_id)
-                {
-                    None => {
-                        b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
-                    }
-                    Some(i) => b
-                        .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                        .unwrap(),
-                };
+                let dev_manager = BackboneShell::get().osc_device_manager();
+                let dev_manager = dev_manager.borrow();
+                if let Some(dev) = dev_manager.find_device_by_id(&osc_device_id) {
+                    get_osc_device_list_label(dev, false)
+                } else {
+                    format!("OSC: <Not present> ({osc_device_id})")
+                }
             }
-            ControlInput::Keyboard => {
-                b.select_combo_box_item_by_data(KEYBOARD_INDEX_OFFSET)
-                    .unwrap();
-            }
-        }
+            ControlInput::Keyboard => CONTROL_INPUT_KEYBOARD_LABEL.to_string(),
+        };
+        self.view
+            .require_control(root::ID_CONTROL_INPUT_BUTTON)
+            .set_text(text);
     }
 
     fn invalidate_feedback_output_combo_box(&self) {
@@ -1694,7 +1611,12 @@ impl HeaderPanel {
                 Reaper::get()
                     .midi_output_devices()
                     .filter(|d| d.is_available())
-                    .map(|dev| (dev.id().get() as isize, get_midi_output_device_label(dev))),
+                    .map(|dev| {
+                        (
+                            dev.id().get() as isize,
+                            get_midi_output_device_list_label(dev),
+                        )
+                    }),
             )
             .chain(iter::once((
                 -100isize,
@@ -1772,36 +1694,22 @@ impl HeaderPanel {
         }
     }
 
-    fn update_control_input(&self) {
-        let control_input = {
-            let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-            match b.selected_combo_box_item_data() {
-                -1 => Ok(ControlInput::Midi(MidiControlInput::FxInput)),
-                KEYBOARD_INDEX_OFFSET => Ok(ControlInput::Keyboard),
-                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = BackboneShell::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
-                    {
-                        Ok(ControlInput::Osc(*dev.id()))
-                    } else {
-                        Err(())
-                    }
+    fn pick_control_input(&self) {
+        let current_value = self.session().borrow().control_input();
+        let result = self.view.require_window().open_popup_menu(
+            menus::control_input_menu(current_value),
+            Window::cursor_pos(),
+        );
+        if let Some(action) = result {
+            match action {
+                ControlInputMenuAction::SelectControlInput(input) => {
+                    self.session().borrow_mut().control_input.set(input);
+                    update_auto_units_async();
                 }
-                midi_dev_id if midi_dev_id >= 0 => {
-                    let dev_id = MidiInputDeviceId::new(midi_dev_id as _);
-                    Ok(ControlInput::Midi(MidiControlInput::Device(dev_id)))
+                ControlInputMenuAction::ManageOsc(action) => {
+                    self.execute_osc_dev_management_action(action);
                 }
-                _ => Err(()),
             }
-        };
-        if let Ok(control_input) = control_input {
-            self.session().borrow_mut().control_input.set(control_input);
-            update_auto_units_async();
-        } else {
-            // This is most likely a section entry. Selection is not allowed.
-            self.invalidate_control_input_combo_box_value();
         }
     }
 
@@ -2586,7 +2494,7 @@ impl HeaderPanel {
             view.invalidate_all_controls();
         });
         self.when(session.control_input.changed(), |view, _| {
-            view.invalidate_control_input_combo_box();
+            view.invalidate_control_input_button();
             view.invalidate_let_through_controls();
             let shared_session = view.session();
             let mut session = shared_session.borrow_mut();
@@ -2672,7 +2580,7 @@ impl HeaderPanel {
         )
         .with(Rc::downgrade(&self))
         .do_async(move |view, _| {
-            view.invalidate_control_input_combo_box();
+            view.invalidate_control_input_button();
             view.invalidate_feedback_output_combo_box();
         });
         // Enables/disables save button depending on dirty state.
@@ -2727,6 +2635,7 @@ impl View for HeaderPanel {
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            root::ID_CONTROL_INPUT_BUTTON => self.pick_control_input(),
             root::ID_PRESET_BROWSE_BUTTON => self.browse_presets(),
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
@@ -2784,7 +2693,6 @@ impl View for HeaderPanel {
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_input(),
             root::ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
             root::ID_GROUP_COMBO_BOX => self.update_group(),
             root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
@@ -2811,57 +2719,6 @@ impl View for HeaderPanel {
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let _ = self.open_main_menu(location);
     }
-}
-
-fn get_midi_input_device_label(dev: MidiInputDevice) -> String {
-    get_midi_device_label(
-        dev.name(),
-        dev.id().get(),
-        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
-    )
-}
-
-fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
-    get_midi_device_label(
-        dev.name(),
-        dev.id().get(),
-        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
-    )
-}
-
-#[derive(Display)]
-enum MidiDeviceStatus {
-    #[display(fmt = " <disconnected>")]
-    Disconnected,
-    #[display(fmt = " <connected but disabled>")]
-    ConnectedButDisabled,
-    #[display(fmt = "")]
-    Connected,
-}
-
-impl MidiDeviceStatus {
-    fn from_flags(open: bool, connected: bool) -> MidiDeviceStatus {
-        use MidiDeviceStatus::*;
-        match (open, connected) {
-            (false, false) => Disconnected,
-            (false, true) => ConnectedButDisabled,
-            // Shouldn't happen but cope with it.
-            (true, false) => Disconnected,
-            (true, true) => Connected,
-        }
-    }
-}
-
-fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
-    format!(
-        "{}. {}{}",
-        raw_id,
-        // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
-        // how MIDI devices encode their name. Indeed a user reported an error related to that:
-        // https://github.com/helgoboss/realearn/issues/78
-        name.into_inner().to_string_lossy(),
-        status
-    )
 }
 
 impl Drop for HeaderPanel {
@@ -3136,12 +2993,6 @@ enum MainMenuAction {
     ShowApp,
     CloseApp,
     OpenPresetFolder,
-    EditNewOscDevice,
-    EditExistingOscDevice(OscDeviceId),
-    RemoveOscDevice(OscDeviceId),
-    ToggleOscDeviceControl(OscDeviceId),
-    ToggleOscDeviceFeedback(OscDeviceId),
-    ToggleOscDeviceBundles(OscDeviceId),
     EditCompartmentParameter(CompartmentKind, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,

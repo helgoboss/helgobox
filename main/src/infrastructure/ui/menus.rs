@@ -1,19 +1,155 @@
 use crate::application::{UnitModel, VirtualControlElementType, WeakUnitModel};
 use crate::domain::{
     compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
-    MappingId, ReaperTargetType, TargetSection,
+    ControlInput, MappingId, MidiControlInput, OscDeviceId, ReaperTargetType, TargetSection,
 };
-use crate::infrastructure::data::CommonPresetInfo;
+use crate::infrastructure::data::{CommonPresetInfo, OscDevice};
 use crate::infrastructure::plugin::{ActionSection, BackboneShell, ACTION_DEFS};
 use crate::infrastructure::ui::Item;
 use camino::Utf8Path;
 use indexmap::IndexMap;
-use reaper_high::{FxChainContext, Reaper};
+use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
 
 use base::hash_util::NonCryptoIndexMap;
+use derive_more::Display;
+use reaper_medium::ReaperString;
 use std::iter;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::{item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu};
+use swell_ui::menu_tree::{
+    item, item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu,
+};
+
+pub enum ControlInputMenuAction {
+    SelectControlInput(ControlInput),
+    ManageOsc(OscDeviceManagementAction),
+}
+
+pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuAction> {
+    let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
+    let (open_midi_devs, closed_midi_devs): (Vec<_>, Vec<_>) = Reaper::get()
+        .midi_input_devices()
+        .filter(|d| d.is_available())
+        .partition(|dev| dev.is_open());
+    let osc_device_manager = BackboneShell::get().osc_device_manager();
+    let osc_device_manager = osc_device_manager.borrow();
+    let (open_osc_devs, closed_osc_devs): (Vec<_>, Vec<_>) = {
+        osc_device_manager
+            .devices()
+            .partition(|dev| dev.input_status().is_connected())
+    };
+    let entries = iter::once(item_with_opts(
+        CONTROL_INPUT_FX_INPUT_LABEL,
+        ItemOpts {
+            enabled: true,
+            checked: current_value == fx_input,
+        },
+        ControlInputMenuAction::SelectControlInput(fx_input),
+    ))
+    .chain(
+        open_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_input_dev_menu_item(dev, current_value)),
+    )
+    .chain(iter::once(menu(
+        "Unavailable MIDI devices",
+        closed_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
+            .collect(),
+    )))
+    .chain(iter::once(separator()))
+    .chain(
+        open_osc_devs
+            .into_iter()
+            .map(|dev| build_osc_input_dev_menu_item(dev, current_value)),
+    )
+    .chain(iter::once(menu(
+        "Unavailable OSC devices",
+        closed_osc_devs
+            .into_iter()
+            .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
+            .collect(),
+    )))
+    .chain(iter::once(menu(
+        "Manage OSC devices",
+        osc_device_management_menu_entries(ControlInputMenuAction::ManageOsc),
+    )))
+    .chain(iter::once(separator()))
+    .chain(iter::once(item_with_opts(
+        CONTROL_INPUT_KEYBOARD_LABEL,
+        ItemOpts {
+            enabled: true,
+            checked: current_value == ControlInput::Keyboard,
+        },
+        ControlInputMenuAction::SelectControlInput(ControlInput::Keyboard),
+    )));
+    root_menu(entries.collect())
+}
+
+pub const CONTROL_INPUT_FX_INPUT_LABEL: &str = "MIDI: <FX input>";
+pub const CONTROL_INPUT_KEYBOARD_LABEL: &str = "Computer keyboard";
+
+fn build_midi_input_dev_menu_item(
+    dev: MidiInputDevice,
+    current_value: ControlInput,
+) -> Entry<ControlInputMenuAction> {
+    let control_input = ControlInput::Midi(MidiControlInput::Device(dev.id()));
+    item_with_opts(
+        get_midi_input_device_list_label(dev),
+        ItemOpts {
+            enabled: true,
+            checked: current_value == control_input,
+        },
+        ControlInputMenuAction::SelectControlInput(control_input),
+    )
+}
+
+fn build_osc_input_dev_menu_item(
+    dev: &OscDevice,
+    current_value: ControlInput,
+) -> Entry<ControlInputMenuAction> {
+    let control_input = ControlInput::Osc(*dev.id());
+    item_with_opts(
+        get_osc_device_list_label(dev, false),
+        ItemOpts {
+            enabled: true,
+            checked: current_value == control_input,
+        },
+        ControlInputMenuAction::SelectControlInput(control_input),
+    )
+}
+
+pub fn get_osc_device_list_label(dev: &OscDevice, is_output: bool) -> String {
+    format!("OSC: {}", dev.get_list_label(is_output))
+}
+
+pub fn get_midi_input_device_list_label(dev: MidiInputDevice) -> String {
+    get_midi_device_list_label(
+        dev.name(),
+        dev.id().get(),
+        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
+    )
+}
+
+pub fn get_midi_output_device_list_label(dev: MidiOutputDevice) -> String {
+    get_midi_device_list_label(
+        dev.name(),
+        dev.id().get(),
+        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
+    )
+}
+
+fn get_midi_device_list_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
+    format!(
+        "MIDI: {}. {}{}",
+        raw_id,
+        // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
+        // how MIDI devices encode their name. Indeed a user reported an error related to that:
+        // https://github.com/helgoboss/realearn/issues/78
+        name.into_inner().to_string_lossy(),
+        status
+    )
+}
 
 pub fn extension_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
     ActionSection::iter()
@@ -410,6 +546,67 @@ fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
     })
 }
 
+pub enum OscDeviceManagementAction {
+    EditNewOscDevice,
+    EditExistingOscDevice(OscDeviceId),
+    RemoveOscDevice(OscDeviceId),
+    ToggleOscDeviceControl(OscDeviceId),
+    ToggleOscDeviceFeedback(OscDeviceId),
+    ToggleOscDeviceBundles(OscDeviceId),
+}
+
+fn osc_device_management_menu_entries<P>(
+    build_payload: impl Fn(OscDeviceManagementAction) -> P,
+) -> Vec<Entry<P>> {
+    let dev_manager = BackboneShell::get().osc_device_manager();
+    let dev_manager = dev_manager.borrow();
+    iter::once(item(
+        "<New>",
+        build_payload(OscDeviceManagementAction::EditNewOscDevice),
+    ))
+    .chain(dev_manager.devices().map(|dev| {
+        let dev_id = *dev.id();
+        menu(
+            dev.name(),
+            vec![
+                item(
+                    "Edit...",
+                    build_payload(OscDeviceManagementAction::EditExistingOscDevice(dev_id)),
+                ),
+                item(
+                    "Remove",
+                    build_payload(OscDeviceManagementAction::RemoveOscDevice(dev_id)),
+                ),
+                item_with_opts(
+                    "Enabled for control",
+                    ItemOpts {
+                        enabled: true,
+                        checked: dev.is_enabled_for_control(),
+                    },
+                    build_payload(OscDeviceManagementAction::ToggleOscDeviceControl(dev_id)),
+                ),
+                item_with_opts(
+                    "Enabled for feedback",
+                    ItemOpts {
+                        enabled: true,
+                        checked: dev.is_enabled_for_feedback(),
+                    },
+                    build_payload(OscDeviceManagementAction::ToggleOscDeviceFeedback(dev_id)),
+                ),
+                item_with_opts(
+                    "Can deal with OSC bundles",
+                    ItemOpts {
+                        enabled: true,
+                        checked: dev.can_deal_with_bundles(),
+                    },
+                    build_payload(OscDeviceManagementAction::ToggleOscDeviceBundles(dev_id)),
+                ),
+            ],
+        )
+    }))
+    .collect()
+}
+
 pub const NONE: &str = "<None>";
 pub const THIS: &str = "<This>";
 
@@ -432,5 +629,28 @@ pub fn assign_command_ids_recursively(entry: &mut Entry<&'static str>) {
             i.id = command_id.map(|id| id.get()).unwrap_or(0);
         }
         _ => {}
+    }
+}
+
+#[derive(Display)]
+enum MidiDeviceStatus {
+    #[display(fmt = " <disconnected>")]
+    Disconnected,
+    #[display(fmt = " <connected but disabled>")]
+    ConnectedButDisabled,
+    #[display(fmt = "")]
+    Connected,
+}
+
+impl MidiDeviceStatus {
+    fn from_flags(open: bool, connected: bool) -> MidiDeviceStatus {
+        use MidiDeviceStatus::*;
+        match (open, connected) {
+            (false, false) => Disconnected,
+            (false, true) => ConnectedButDisabled,
+            // Shouldn't happen but cope with it.
+            (true, false) => Disconnected,
+            (true, true) => Connected,
+        }
     }
 }

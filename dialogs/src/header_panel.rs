@@ -8,7 +8,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     let left_label_x = 7;
     let io_label_width = 24;
     let space = 3;
-    let (io_combo_box_width, io_combo_box_height) = (190, 16);
+    let (io_combo_box_width, io_combo_box_height) = (190, 14);
     let mut row1 = Adder(left_label_x);
     let mut row2 = Adder(left_label_x);
     let upper_part_controls = [
@@ -18,16 +18,16 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.id(),
             context.rect(row1.get(), 6, row1.span(io_label_width), text_height),
         ),
-        dropdown(
-            ids.named_id("ID_CONTROL_DEVICE_COMBO_BOX"),
+        pushbutton(
+            "MIDI: <FX input>",
+            ids.named_id("ID_CONTROL_INPUT_BUTTON"),
             context.rect(
                 row1.space(space),
                 4,
                 row1.span(io_combo_box_width),
                 io_combo_box_height,
             ),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + NOT_WS_TABSTOP,
         ltext(
             "Output",
             ids.id(),

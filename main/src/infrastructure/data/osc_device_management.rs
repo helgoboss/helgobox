@@ -12,6 +12,7 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
 use std::rc::Rc;
+use strum::EnumIs;
 
 pub type SharedOscDeviceManager = Rc<RefCell<OscDeviceManager>>;
 
@@ -351,7 +352,7 @@ impl OscDevice {
     }
 }
 
-#[derive(Display)]
+#[derive(Display, EnumIs)]
 pub enum OscDeviceStatus {
     #[display(fmt = " <needs config>")]
     Incomplete,
