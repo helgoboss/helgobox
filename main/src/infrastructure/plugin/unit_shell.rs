@@ -31,7 +31,10 @@ const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
 const NORMAL_REAL_TIME_TO_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
 const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
-const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
+/// I increased this for https://github.com/helgoboss/realearn/issues/913. More processed
+/// OSC messages processed at once in combination with target "FX parameter: Set value"
+/// caused this queue to explode.
+const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 20_000;
 
 #[derive(Debug)]
 pub struct UnitShell {

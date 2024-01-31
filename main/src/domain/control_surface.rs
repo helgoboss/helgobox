@@ -40,7 +40,7 @@ const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const INSTANCE_EVENT_BULK_SIZE: usize = 30;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
-const OSC_INCOMING_BULK_SIZE: usize = 32;
+const OSC_INCOMING_BULK_SIZE: usize = 1000;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -709,8 +709,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_incoming_osc_messages(&mut self, timestamp: ControlEventTimestamp) {
-        pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
-        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); OSC_INCOMING_BULK_SIZE]> = self
+        pub type PacketVec = Vec<OscPacket>;
+        let packets_by_device: Vec<(OscDeviceId, PacketVec)> = self
             .osc_input_devices
             .iter_mut()
             .map(|dev| {
