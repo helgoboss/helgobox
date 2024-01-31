@@ -54,9 +54,11 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use strum::EnumIter;
 
-// This can be come pretty big when multiple track volumes are adjusted at once.
+/// This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
-const NORMAL_TASK_BULK_SIZE: usize = 32;
+/// This has been increased because the scenario in #913 brought it to the limits.
+const NORMAL_TASK_BULK_SIZE: usize = 1000;
+const NORMAL_RT_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 // I raised this from 32 to the max channel size because of
@@ -1546,7 +1548,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .channels
             .normal_real_time_to_main_thread_task_receiver
             .try_iter()
-            .take(NORMAL_TASK_BULK_SIZE)
+            .take(NORMAL_RT_TASK_BULK_SIZE)
         {
             use NormalRealTimeToMainThreadTask::*;
             match task {
@@ -1654,12 +1656,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_compartment_parameter_feedback(&mut self, param_index: PluginParamIndex) {
         let change_event = CompoundChangeEvent::CompartmentParameter(param_index);
-        if ReaperTarget::changes_conditions(change_event) {
-            self.basics
-                .channels
-                .self_normal_sender
-                .send_complaining(NormalMainTask::NotifyConditionsChanged);
-        }
+        self.basics
+            .channels
+            .self_normal_sender
+            .send_complaining(NormalMainTask::NotifyConditionsChanged);
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
                 target,
