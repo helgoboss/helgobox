@@ -1,4 +1,4 @@
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{convert_into_other_hash_map, NonCryptoHashMap};
 
 use crate::domain::{CompartmentKind, CompartmentParamIndex, ParamSetting};
 use crate::infrastructure::api::convert::to_data::group::convert_group;
@@ -72,7 +72,10 @@ pub fn convert_compartment(
             .map(|(key, value)| (key.to_string(), value.clone()))
             .collect(),
         groups: context.groups,
-        custom_data: compartment_content.custom_data.unwrap_or_default(),
+        custom_data: compartment_content
+            .custom_data
+            .map(convert_into_other_hash_map)
+            .unwrap_or_default(),
         common_lua: compartment_content.common_lua.unwrap_or_default(),
         notes: compartment_content.notes.unwrap_or_default(),
     };

@@ -6,10 +6,10 @@ use crate::application::{
 use crate::domain::{CompartmentKind, MappingKey, ProjectionFeedbackValue};
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use helgoboss_learn::UnitValue;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
@@ -228,7 +228,7 @@ impl WebSocketRequest {
     }
 }
 
-pub type Topics = HashSet<Topic>;
+pub type Topics = NonCryptoHashSet<Topic>;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Topic {

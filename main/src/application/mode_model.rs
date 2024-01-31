@@ -10,6 +10,7 @@ use helgoboss_learn::{
 
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
 use crate::base::CloneAsDefault;
+use base::hash_util::clone_to_other_hash_map;
 use realearn_api::persistence::FeedbackValueTable;
 use std::time::Duration;
 
@@ -619,10 +620,14 @@ impl ModeModel {
             },
             feedback_value_table: self.feedback_value_table.as_ref().map(|t| match t {
                 FeedbackValueTable::FromTextToDiscrete(v) => {
-                    helgoboss_learn::FeedbackValueTable::FromTextToDiscrete(v.value.clone())
+                    helgoboss_learn::FeedbackValueTable::FromTextToDiscrete(
+                        clone_to_other_hash_map(&v.value),
+                    )
                 }
                 FeedbackValueTable::FromTextToContinuous(v) => {
-                    helgoboss_learn::FeedbackValueTable::FromTextToContinuous(v.value.clone())
+                    helgoboss_learn::FeedbackValueTable::FromTextToContinuous(
+                        clone_to_other_hash_map(&v.value),
+                    )
                 }
             }),
             make_absolute: if is_relevant(ModeParameter::MakeAbsolute) {

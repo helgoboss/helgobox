@@ -11,13 +11,12 @@ use crate::domain::{
 use anyhow::{anyhow, Context};
 use pot::{PotFavorites, PotFilterExcludes};
 
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use fragile::Fragile;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::TargetTouchCause;
 use reaper_high::Fx;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::RwLock;
@@ -38,10 +37,11 @@ pub struct Backbone {
     target_state: RefCell<RealearnTargetState>,
     last_touched_targets_container: RefCell<LastTouchedTargetsContainer>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
-    control_input_usages: RefCell<NonCryptoHashMap<DeviceControlInput, HashSet<UnitId>>>,
+    control_input_usages: RefCell<NonCryptoHashMap<DeviceControlInput, NonCryptoHashSet<UnitId>>>,
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
-    feedback_output_usages: RefCell<NonCryptoHashMap<DeviceFeedbackOutput, HashSet<UnitId>>>,
-    upper_floor_units: RefCell<HashSet<UnitId>>,
+    feedback_output_usages:
+        RefCell<NonCryptoHashMap<DeviceFeedbackOutput, NonCryptoHashSet<UnitId>>>,
+    upper_floor_units: RefCell<NonCryptoHashSet<UnitId>>,
     /// We hold pointers to all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
@@ -129,7 +129,7 @@ impl LastTouchedTargetsContainer {
 }
 
 pub struct LastTouchedTargetFilter<'a> {
-    pub included_target_types: &'a HashSet<ReaperTargetType>,
+    pub included_target_types: &'a NonCryptoHashSet<ReaperTargetType>,
     pub touch_cause: TargetTouchCause,
 }
 
@@ -380,7 +380,7 @@ impl Backbone {
         &self,
         instance_id: &UnitId,
         device: D,
-        usages: &RefCell<NonCryptoHashMap<D, HashSet<UnitId>>>,
+        usages: &RefCell<NonCryptoHashMap<D, NonCryptoHashSet<UnitId>>>,
     ) -> bool {
         let upper_floor_instances = self.upper_floor_units.borrow();
         if upper_floor_instances.is_empty() || upper_floor_instances.contains(instance_id) {
@@ -410,7 +410,7 @@ impl Backbone {
 
 /// Returns `true` if there was an actual change.
 fn update_io_usage<D: Eq + Hash + Copy>(
-    usages: &mut NonCryptoHashMap<D, HashSet<UnitId>>,
+    usages: &mut NonCryptoHashMap<D, NonCryptoHashSet<UnitId>>,
     instance_id: &UnitId,
     device: Option<D>,
 ) -> bool {

@@ -8,5 +8,6 @@ publish = false
 [dependencies]
 nom.workspace = true
 helgoboss-midi.workspace = true
+base.workspace = true
 realearn-api.workspace = true
 derive_more.workspace = true

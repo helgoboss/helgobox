@@ -2,11 +2,10 @@ use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedTrackParameterType,
 };
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{NamedChannelSender, SenderToNormalThread};
 use reaper_high::{Fx, GroupingBehavior, Track};
 use reaper_medium::{GangBehavior, MediaTrack};
-use std::collections::HashSet;
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
 /// holds the state. It's in this struct.
@@ -35,7 +34,7 @@ pub struct RealearnTargetState {
     /// For "Touch automation state" target.
     ///
     /// Not persistent.
-    touched_things: HashSet<TouchedThing>,
+    touched_things: NonCryptoHashSet<TouchedThing>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

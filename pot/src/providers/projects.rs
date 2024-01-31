@@ -9,7 +9,9 @@ use crate::{
 use std::borrow::Cow;
 
 use crate::plugins::{PluginCore, PluginDatabase};
-use base::hash_util::{calculate_persistent_non_crypto_hash_one_shot, PersistentHash};
+use base::hash_util::{
+    calculate_persistent_non_crypto_hash_one_shot, NonCryptoIndexMap, PersistentHash,
+};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexMap;
@@ -251,7 +253,7 @@ struct TrackPreset {
     preset_name: String,
     track_id: String,
     fx_chain_range: Range<usize>,
-    used_plugins: IndexMap<PluginId, PluginCore>,
+    used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
     content_hash: PersistentHash,
 }
 
@@ -287,7 +289,7 @@ fn extract_presets(
         name: Option<&'a str>,
         rfx_chain_start: Option<usize>,
         rfx_chain_end: Option<usize>,
-        used_plugins: IndexMap<PluginId, PluginCore>,
+        used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
     }
     impl<'a> P<'a> {
         pub fn new(track_id: &'a str) -> Self {

@@ -1,4 +1,3 @@
-use helgoboss_learn::UnitValue;
 use serde::{Deserialize, Deserializer};
 
 pub fn is_default<T: Default + PartialEq>(v: &T) -> bool {
@@ -11,14 +10,6 @@ pub fn bool_true() -> bool {
 
 pub fn is_bool_true(v: &bool) -> bool {
     *v
-}
-
-pub fn unit_value_one() -> UnitValue {
-    UnitValue::MAX
-}
-
-pub fn is_unit_value_one(v: &UnitValue) -> bool {
-    *v == UnitValue::MAX
 }
 
 /// Should only be used when the deserialization checks the data version number because only that

@@ -15,12 +15,12 @@ use base::blocking_lock;
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use chrono::NaiveDateTime;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter;
@@ -1410,7 +1410,7 @@ struct NonEmptyNksFilters {
 #[derive(Default)]
 struct NonEmptyNksFilter {
     /// The IDs of all filter items of this kind that have presets.
-    non_empty_ids: HashSet<u32>,
+    non_empty_ids: NonCryptoHashSet<u32>,
     /// Whether there are presets not associated to any filter item of this kind.
     has_non_associated_presets: bool,
 }
@@ -1440,7 +1440,7 @@ impl NonEmptyNksFilter {
 struct ParentNksFilterItem {
     id: u32,
     name: String,
-    child_ids: HashSet<u32>,
+    child_ids: NonCryptoHashSet<u32>,
 }
 
 impl ParentNksFilterItem {
@@ -1448,7 +1448,7 @@ impl ParentNksFilterItem {
         Self {
             id: r.id,
             name: r.level1.clone(),
-            child_ids: HashSet::from([r.id]),
+            child_ids: [r.id].into_iter().collect(),
         }
     }
 }
@@ -1478,7 +1478,7 @@ mod tests {
     use super::*;
 
     impl ParentNksFilterItem {
-        pub fn new(id: u32, name: String, child_ids: HashSet<u32>) -> Self {
+        pub fn new(id: u32, name: String, child_ids: NonCryptoHashSet<u32>) -> Self {
             Self {
                 id,
                 name,

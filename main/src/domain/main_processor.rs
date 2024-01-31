@@ -37,7 +37,7 @@ use crate::domain::ui_util::{
     log_real_feedback_output, log_real_learn_input, log_target_control, log_target_output,
     log_virtual_control_input, log_virtual_feedback_output,
 };
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use indexmap::IndexSet;
@@ -46,7 +46,7 @@ use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -1076,7 +1076,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Mapping activation is supported for both compartments and target activation
         // might change also in non-virtual controller mappings due to dynamic targets.
-        let mut changed_mappings = IndexSet::new();
+        let mut changed_mappings = NonCryptoIndexSet::default();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         // In order to avoid a mutable borrow of mappings and an immutable borrow of
         // parameters at the same time, we need to separate into READ activation
@@ -4384,7 +4384,7 @@ fn all_mappings_without_virtual_targets(
 
 #[derive(Debug, Default)]
 struct TargetBasedConditionalActivationProcessor {
-    mapping_relations: HashSet<MappingRelation>,
+    mapping_relations: NonCryptoHashSet<MappingRelation>,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]
@@ -4435,7 +4435,7 @@ impl TargetBasedConditionalActivationProcessor {
     }
 
     pub fn lead_mappings(&self) -> impl Iterator<Item = MappingId> {
-        let lead_mapping_id_set: HashSet<_> = self
+        let lead_mapping_id_set: NonCryptoHashSet<_> = self
             .mapping_relations
             .iter()
             .map(|rel| rel.lead_mapping)

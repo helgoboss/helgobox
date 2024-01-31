@@ -31,11 +31,10 @@ use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{OnceCell, Ref, RefCell};
-use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::domain;
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
 use helgoboss_learn::{ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
@@ -1415,7 +1414,7 @@ impl UnitModel {
         self.notify_mapping_list_changed(compartment, None);
     }
 
-    fn mapping_key_set(&self, compartment: CompartmentKind) -> HashSet<MappingKey> {
+    fn mapping_key_set(&self, compartment: CompartmentKind) -> NonCryptoHashSet<MappingKey> {
         self.mappings[compartment]
             .iter()
             .map(|m| m.borrow().key().clone())
@@ -1811,7 +1810,7 @@ impl UnitModel {
         weak_session: WeakUnitModel,
         mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
-        filter: (HashSet<ReaperTargetType>, TargetTouchCause),
+        filter: (NonCryptoHashSet<ReaperTargetType>, TargetTouchCause),
     ) {
         let instance_id = self.unit_id;
         if handle_control_disabling {

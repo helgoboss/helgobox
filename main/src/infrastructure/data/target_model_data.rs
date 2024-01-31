@@ -35,6 +35,7 @@ use realearn_api::persistence::{
     TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
 };
 
+use base::hash_util::NonCryptoHashSet;
 use realearn_api::persistence::{
     ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
     ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
@@ -524,7 +525,7 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default",
         alias = "targets"
     )]
-    pub included_targets: Option<HashSet<LearnableTargetKind>>,
+    pub included_targets: Option<NonCryptoHashSet<LearnableTargetKind>>,
     /// New since ReaLearn v2.15.0-pre.2
     #[serde(
         default,

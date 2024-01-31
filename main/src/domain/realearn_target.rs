@@ -27,6 +27,7 @@ use crate::domain::{
     TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
     TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
+use base::hash_util::NonCryptoHashSet;
 use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{
@@ -39,7 +40,6 @@ use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
 use strum::IntoEnumIterator;
 
@@ -376,7 +376,7 @@ pub trait UnitContainer: Debug {
     fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel>;
     fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedUnitModel>;
     /// Returns activated tags if they don't correspond to the tags in the args.
-    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<NonCryptoHashSet<Tag>>;
     fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;
     fn change_instance_track(&self, args: ChangeInstanceTrackArgs) -> Result<(), &'static str>;
 }
@@ -757,14 +757,14 @@ impl ReaperTargetType {
     }
 
     pub fn from_learnable_target_kinds(
-        set: HashSet<LearnableTargetKind>,
-    ) -> HashSet<ReaperTargetType> {
+        set: impl IntoIterator<Item = LearnableTargetKind>,
+    ) -> NonCryptoHashSet<ReaperTargetType> {
         set.into_iter()
             .map(ReaperTargetType::from_learnable_target_kind)
             .collect()
     }
 
-    pub fn all() -> HashSet<ReaperTargetType> {
+    pub fn all() -> NonCryptoHashSet<ReaperTargetType> {
         ReaperTargetType::iter().collect()
     }
 

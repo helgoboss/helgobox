@@ -17,6 +17,7 @@ use crate::infrastructure::data::{
     deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
     MigrationDescriptor, TargetModelData, TrackData, TrackDeserializationInput,
 };
+use base::hash_util::convert_into_other_hash_set;
 use realearn_api::persistence;
 use realearn_api::persistence::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget,
@@ -64,7 +65,7 @@ fn convert_real_target(
         }),
         LastTouched => T::LastTouched(LastTouchedTarget {
             commons,
-            included_targets: data.included_targets,
+            included_targets: data.included_targets.map(|s| s.into_iter().collect()),
             touch_cause: style.required_value(data.touch_cause),
         }),
         AutomationModeOverride => {
@@ -701,14 +702,16 @@ fn convert_real_target(
             modification: match data.mapping_modification_kind {
                 MappingModificationKind::LearnTarget => {
                     MappingModification::LearnTarget(LearnTargetMappingModification {
-                        included_targets: data.included_targets,
+                        included_targets: data.included_targets.map(|s| s.into_iter().collect()),
                         touch_cause: style.required_value(data.touch_cause),
                     })
                 }
                 MappingModificationKind::SetTargetToLastTouched => {
                     MappingModification::SetTargetToLastTouched(
                         SetTargetToLastTouchedMappingModification {
-                            included_targets: data.included_targets,
+                            included_targets: data
+                                .included_targets
+                                .map(convert_into_other_hash_set),
                             touch_cause: style.required_value(data.touch_cause),
                         },
                     )

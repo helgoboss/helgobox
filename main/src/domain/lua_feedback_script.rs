@@ -1,5 +1,6 @@
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
 use anyhow::ensure;
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
     PropProvider, PropValue,
@@ -7,7 +8,6 @@ use helgoboss_learn::{
 use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::error::Error;
 
 #[derive(Debug)]
@@ -96,7 +96,7 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
             .map_err(|e| e.to_string().into())
     }
 
-    fn used_props(&self) -> Result<HashSet<String>, Box<dyn Error>> {
+    fn used_props(&self) -> Result<NonCryptoHashSet<String>, Box<dyn Error>> {
         let prop_provider = TrackingPropProvider::default();
         let input = FeedbackScriptInput {
             prop_provider: &prop_provider,
@@ -108,7 +108,7 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
 
 #[derive(Default)]
 struct TrackingPropProvider {
-    used_props: RefCell<HashSet<String>>,
+    used_props: RefCell<NonCryptoHashSet<String>>,
 }
 
 impl PropProvider for TrackingPropProvider {

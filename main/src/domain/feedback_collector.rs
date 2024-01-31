@@ -2,12 +2,12 @@ use crate::domain::{
     FeedbackOutput, FinalRealFeedbackValue, FinalSourceFeedbackValue, MidiDestination,
     PreliminaryRealFeedbackValue, PreliminarySourceFeedbackValue, RealearnSourceState,
 };
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::devices::x_touch::XTouchMackieLcdState;
 use helgoboss_learn::{
     DisplaySpecAddress, MackieLcdScope, MidiSourceValue, RawFeedbackAddressInfo, RawMidiEvent,
     XTouchMackieLcdColorRequest,
 };
-use std::collections::HashSet;
 
 /// Responsible for collecting non-final feedback values and aggregating them into final ones.
 pub struct FeedbackCollector<'a> {
@@ -16,7 +16,7 @@ pub struct FeedbackCollector<'a> {
 
 struct XTouchMackieLcdFeedbackCollector<'a> {
     state: &'a mut XTouchMackieLcdState,
-    changed_x_touch_mackie_lcd_extenders: HashSet<u8>,
+    changed_x_touch_mackie_lcd_extenders: NonCryptoHashSet<u8>,
 }
 
 impl<'a> FeedbackCollector<'a> {

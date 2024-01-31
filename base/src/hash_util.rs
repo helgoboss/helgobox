@@ -1,5 +1,6 @@
+use indexmap::{IndexMap, IndexSet};
 use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, Hash, Hasher};
 use xxhash_rust::xxh3::{Xxh3, Xxh3Builder};
 
 /// The default choice for hashing in Helgobox.
@@ -13,6 +14,38 @@ pub type NonCryptoHashMap<K, V> = HashMap<K, V, NonCryptoHashBuilder>;
 
 /// The default choice for hash sets in Helgobox.
 pub type NonCryptoHashSet<T> = HashSet<T, NonCryptoHashBuilder>;
+
+/// The default choice for index maps in Helgobox.
+pub type NonCryptoIndexMap<K, V> = IndexMap<K, V, NonCryptoHashBuilder>;
+
+/// The default choice for index sets in Helgobox.
+pub type NonCryptoIndexSet<T> = IndexSet<T, NonCryptoHashBuilder>;
+
+pub fn clone_to_other_hash_map<
+    K: Eq + Hash + Clone,
+    V: Clone,
+    S1: BuildHasher,
+    S2: BuildHasher + Default,
+>(
+    non_crypto: &HashMap<K, V, S1>,
+) -> HashMap<K, V, S2> {
+    non_crypto
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+pub fn convert_into_other_hash_map<K: Eq + Hash, V, S1: BuildHasher, S2: BuildHasher + Default>(
+    non_crypto: HashMap<K, V, S1>,
+) -> HashMap<K, V, S2> {
+    non_crypto.into_iter().collect()
+}
+
+pub fn convert_into_other_hash_set<K: Eq + Hash, S1: BuildHasher, S2: BuildHasher + Default>(
+    non_crypto: HashSet<K, S1>,
+) -> HashSet<K, S2> {
+    non_crypto.into_iter().collect()
+}
 
 /// Calculates a 64-bit non-crypto hash directly from the given bytes.
 ///

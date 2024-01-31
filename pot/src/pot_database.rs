@@ -27,6 +27,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Deref;
 
+use base::hash_util::NonCryptoIndexSet;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
@@ -451,7 +452,7 @@ impl PotDatabase {
 pub struct BuildOutput {
     pub supported_filter_kinds: EnumSet<PotFilterKind>,
     pub filter_item_collections: FilterItemCollections,
-    pub preset_collection: IndexSet<PresetId>,
+    pub preset_collection: NonCryptoIndexSet<PresetId>,
     pub stats: Stats,
 }
 

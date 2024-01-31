@@ -18,6 +18,7 @@ use crate::infrastructure::data::{
     FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
 };
 use crate::{application, domain};
+use base::hash_util::convert_into_other_hash_set;
 use realearn_api::persistence::*;
 use reaper_high::Guid;
 use std::rc::Rc;
@@ -33,7 +34,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LastTouched,
-            included_targets: d.included_targets.clone(),
+            included_targets: d.included_targets.map(|m| m.into_iter().collect()),
             touch_cause: d.touch_cause.unwrap_or_default(),
             ..init(d.commons)
         },
@@ -887,8 +888,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 _ => Default::default(),
             },
             included_targets: match d.modification {
-                MappingModification::LearnTarget(t) => t.included_targets,
-                MappingModification::SetTargetToLastTouched(t) => t.included_targets,
+                MappingModification::LearnTarget(t) => {
+                    t.included_targets.map(convert_into_other_hash_set)
+                }
+                MappingModification::SetTargetToLastTouched(t) => {
+                    t.included_targets.map(convert_into_other_hash_set)
+                }
             },
             session_id: d.session,
             mapping_key: d.mapping.map(|id| id.into()),

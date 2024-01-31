@@ -1,10 +1,10 @@
 use crate::domain::ReaperTargetType;
+use base::hash_util::NonCryptoHashSet;
 use base::{NamedChannelSender, SenderToNormalThread};
 use derivative::Derivative;
 use egui::CentralPanel;
 use egui::Context;
 use realearn_api::persistence::{LearnableTargetKind, TargetTouchCause};
-use std::collections::HashSet;
 use strum::IntoEnumIterator;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {
@@ -57,7 +57,7 @@ pub fn run_ui(ctx: &Context, state: &mut State) {
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    pub included_targets: HashSet<LearnableTargetKind>,
+    pub included_targets: NonCryptoHashSet<LearnableTargetKind>,
     pub touch_cause: TargetTouchCause,
 }
 

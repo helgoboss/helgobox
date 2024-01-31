@@ -19,14 +19,13 @@ use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_d
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use realearn_api::persistence::{
     FxDescriptor, MappingInSnapshot, MappingSnapshot, TrackDescriptor,
 };
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -145,13 +144,13 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    controller_custom_data: HashMap<String, serde_json::Value>,
+    controller_custom_data: NonCryptoHashMap<String, serde_json::Value>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    main_custom_data: HashMap<String, serde_json::Value>,
+    main_custom_data: NonCryptoHashMap<String, serde_json::Value>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -241,7 +240,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    active_instance_tags: HashSet<Tag>,
+    active_instance_tags: NonCryptoHashSet<Tag>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -314,7 +313,7 @@ struct CompartmentState {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    active_mapping_tags: HashSet<Tag>,
+    active_mapping_tags: NonCryptoHashSet<Tag>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",

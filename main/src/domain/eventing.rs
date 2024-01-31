@@ -3,9 +3,9 @@ use crate::domain::{
     InfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
     ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{AbsoluteValue, ControlValue};
 use realearn_api::persistence::MappingModification;
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -14,7 +14,7 @@ use std::fmt::Debug;
 pub enum DomainEvent<'a> {
     CapturedIncomingMessage(MessageCaptureEvent),
     GlobalControlAndFeedbackStateChanged(GlobalControlAndFeedbackState),
-    UpdatedOnMappings(HashSet<QualifiedMappingId>),
+    UpdatedOnMappings(NonCryptoHashSet<QualifiedMappingId>),
     UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
     UpdatedSingleParameterValue {
         index: PluginParamIndex,

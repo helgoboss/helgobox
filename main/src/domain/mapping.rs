@@ -27,14 +27,11 @@ use std::borrow::Cow;
 use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
-use base::hash_util::NonCryptoHashBuilder;
-use indexmap::map::IndexMap;
-use indexmap::set::IndexSet;
+use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, NonCryptoIndexSet};
 use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
@@ -356,7 +353,7 @@ impl MainMapping {
         &self.tags
     }
 
-    pub fn has_any_tag(&self, tags: &HashSet<Tag>) -> bool {
+    pub fn has_any_tag(&self, tags: &NonCryptoHashSet<Tag>) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }
 
@@ -2589,8 +2586,8 @@ fn target_is_effectively_active(
     }
 }
 
-pub type OrderedMappingMap<T> = IndexMap<MappingId, T, NonCryptoHashBuilder>;
-pub type OrderedMappingIdSet = IndexSet<MappingId, NonCryptoHashBuilder>;
+pub type OrderedMappingMap<T> = NonCryptoIndexMap<MappingId, T>;
+pub type OrderedMappingIdSet = NonCryptoIndexSet<MappingId>;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MessageCaptureResult {

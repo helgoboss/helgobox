@@ -7,13 +7,13 @@ publish = false
 
 [dependencies]
 # Own
-helgoboss-learn.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-rx.workspace = true
 realearn-api.workspace = true
 helgoboss-allocator.workspace = true
+indexmap.workspace = true
 
 # 3rd-party
 serde.workspace = true

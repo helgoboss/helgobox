@@ -18,7 +18,7 @@ use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoIndexMap};
 use base::metrics_util::measure_time;
 use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
@@ -48,7 +48,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     change_event_queue: RefCell<Vec<ChangeEvent>>,
     monitoring_fx_chain_change_detector: MonitoringFxChainChangeDetector,
     rx_middleware: ControlSurfaceRxMiddleware,
-    instances: IndexMap<InstanceId, WeakInstance>,
+    instances: NonCryptoIndexMap<InstanceId, WeakInstance>,
     main_processors: SharedMainProcessors<EH>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     instance_event_receiver: Receiver<QualifiedInstanceEvent>,

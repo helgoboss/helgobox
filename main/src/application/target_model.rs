@@ -55,10 +55,10 @@ use crate::domain::{
 use crate::domain::{VirtualPlaytimeColumn, VirtualPlaytimeRow, VirtualPlaytimeSlot};
 use serde_repr::*;
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
+use base::hash_util::NonCryptoHashSet;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnDescriptor, ClipRowDescriptor, ClipSlotDescriptor,
     FxChainDescriptor, FxDescriptorCommons, FxToolAction, LearnTargetMappingModification,
@@ -170,7 +170,7 @@ pub enum TargetCommand {
     SetPotFilterItemKind(PotFilterKind),
     SetMappingModificationKind(MappingModificationKind),
     SetMappingRef(MappingRefModel),
-    SetLearnableTargetKinds(HashSet<LearnableTargetKind>),
+    SetLearnableTargetKinds(NonCryptoHashSet<LearnableTargetKind>),
     SetTouchCause(TargetTouchCause),
 }
 
@@ -801,7 +801,7 @@ pub struct TargetModel {
     // # For Pot targets
     pot_filter_item_kind: PotFilterKind,
     // # For targets that deal with target learning/touching
-    included_targets: HashSet<LearnableTargetKind>,
+    included_targets: NonCryptoHashSet<LearnableTargetKind>,
     touch_cause: TargetTouchCause,
 }
 
@@ -2570,7 +2570,9 @@ impl TargetModel {
                                 MappingModificationKind::LearnTarget => {
                                     MappingModification::LearnTarget(
                                         LearnTargetMappingModification {
-                                            included_targets: Some(self.included_targets.clone()),
+                                            included_targets: Some(
+                                                self.included_targets.iter().cloned().collect(),
+                                            ),
                                             touch_cause: Some(self.touch_cause),
                                         },
                                     )
@@ -2578,7 +2580,9 @@ impl TargetModel {
                                 MappingModificationKind::SetTargetToLastTouched => {
                                     MappingModification::SetTargetToLastTouched(
                                         SetTargetToLastTouchedMappingModification {
-                                            included_targets: Some(self.included_targets.clone()),
+                                            included_targets: Some(
+                                                self.included_targets.iter().cloned().collect(),
+                                            ),
                                             touch_cause: Some(self.touch_cause),
                                         },
                                     )
@@ -2752,7 +2756,7 @@ impl TargetModel {
         self.pot_filter_item_kind
     }
 
-    pub fn included_targets(&self) -> &HashSet<LearnableTargetKind> {
+    pub fn included_targets(&self) -> &NonCryptoHashSet<LearnableTargetKind> {
         &self.included_targets
     }
 

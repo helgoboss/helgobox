@@ -13,7 +13,6 @@ use base::hash_util::NonCryptoHashMap;
 use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,7 +54,7 @@ pub struct CompartmentModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub custom_data: HashMap<String, serde_json::Value>,
+    pub custom_data: NonCryptoHashMap<String, serde_json::Value>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",

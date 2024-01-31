@@ -18,7 +18,6 @@ use reaper_medium::{
 };
 use std::borrow::Cow;
 use std::cell::{Ref, RefMut};
-use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::CString;
 use std::fs;
@@ -53,7 +52,7 @@ pub mod preset_crawler;
 pub mod preview_recorder;
 use crate::preset_crawler::get_shim_file_path;
 use crate::preview_recorder::get_preview_file_path_from_hash;
-use base::hash_util::PersistentHash;
+use base::hash_util::{NonCryptoHashSet, NonCryptoIndexSet, PersistentHash};
 pub use escape_catcher::*;
 
 // - We have a global list of databases
@@ -305,7 +304,7 @@ impl<'a> InnerBuildInput<'a> {
 pub struct FilterInput<'a> {
     pub filters: &'a Filters,
     pub excludes: &'a PotFilterExcludes,
-    pub db_favorites: &'a HashSet<InnerPresetId>,
+    pub db_favorites: &'a NonCryptoHashSet<InnerPresetId>,
 }
 
 impl<'a> FilterInput<'a> {
@@ -552,7 +551,7 @@ pub struct PersistentState {
     preset_id: Option<String>,
 }
 
-type PresetCollection = IndexSet<PresetId>;
+type PresetCollection = NonCryptoIndexSet<PresetId>;
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct PersistentFilterSettings {

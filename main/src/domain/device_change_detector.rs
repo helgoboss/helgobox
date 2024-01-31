@@ -1,14 +1,14 @@
 use crate::domain::{MidiInDevsConfig, MidiOutDevsConfig};
+use base::hash_util::NonCryptoHashSet;
 use reaper_high::Reaper;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
-use std::collections::HashSet;
 use std::hash::Hash;
 
 #[derive(Debug, Default)]
 pub struct MidiDeviceChangeDetector {
-    old_connected_in_devs: HashSet<MidiInputDeviceId>,
+    old_connected_in_devs: NonCryptoHashSet<MidiInputDeviceId>,
     old_in_config: MidiInDevsConfig,
-    old_connected_out_devs: HashSet<MidiOutputDeviceId>,
+    old_connected_out_devs: NonCryptoHashSet<MidiOutputDeviceId>,
     old_out_config: MidiOutDevsConfig,
 }
 
@@ -18,7 +18,7 @@ impl MidiDeviceChangeDetector {
     }
 
     pub fn poll_for_midi_input_device_changes(&mut self) -> DeviceDiff<MidiInputDeviceId> {
-        let new_connected_devs: HashSet<_> = Reaper::get()
+        let new_connected_devs: NonCryptoHashSet<_> = Reaper::get()
             .midi_input_devices()
             .filter(|d| d.is_connected())
             .map(|d| d.id())
@@ -35,7 +35,7 @@ impl MidiDeviceChangeDetector {
     }
 
     pub fn poll_for_midi_output_device_changes(&mut self) -> DeviceDiff<MidiOutputDeviceId> {
-        let new_connected_devs: HashSet<_> = Reaper::get()
+        let new_connected_devs: NonCryptoHashSet<_> = Reaper::get()
             .midi_output_devices()
             .filter(|d| d.is_connected())
             .map(|d| d.id())
@@ -54,13 +54,17 @@ impl MidiDeviceChangeDetector {
 
 #[derive(Clone, Debug)]
 pub struct DeviceDiff<T> {
-    pub added_devices: HashSet<T>,
-    pub removed_devices: HashSet<T>,
+    pub added_devices: NonCryptoHashSet<T>,
+    pub removed_devices: NonCryptoHashSet<T>,
     pub device_config_changed: bool,
 }
 
 impl<T: Eq + Hash + Copy> DeviceDiff<T> {
-    fn new(old_devs: &HashSet<T>, new_devs: &HashSet<T>, device_config_changed: bool) -> Self {
+    fn new(
+        old_devs: &NonCryptoHashSet<T>,
+        new_devs: &NonCryptoHashSet<T>,
+        device_config_changed: bool,
+    ) -> Self {
         Self {
             added_devices: new_devs.difference(old_devs).copied().collect(),
             removed_devices: old_devs.difference(new_devs).copied().collect(),

@@ -605,7 +605,7 @@ dependencies = [
  "enigo",
  "futures-timer",
  "helgoboss-allocator",
- "helgoboss-learn",
+ "indexmap 2.1.0",
  "logos 0.13.0",
  "metrics",
  "once_cell",
@@ -2755,6 +2755,7 @@ name = "helgoboss-learn"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "base",
  "bytemuck",
  "derivative",
  "derive_more",
@@ -4977,6 +4978,7 @@ dependencies = [
 name = "realearn-csi"
 version = "0.1.0"
 dependencies = [
+ "base",
  "derive_more",
  "helgoboss-midi",
  "nom",

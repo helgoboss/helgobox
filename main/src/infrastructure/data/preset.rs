@@ -25,12 +25,12 @@ use rxrust::prelude::*;
 use serde::Deserialize;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt::Formatter;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
 
+use std::collections::HashSet;
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;

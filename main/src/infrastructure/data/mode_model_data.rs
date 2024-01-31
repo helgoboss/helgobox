@@ -1,7 +1,7 @@
 use crate::application::{Change, ModeCommand, ModeModel};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::BackboneShell;
-use base::default_util::{deserialize_null_default, is_default, is_unit_value_one, unit_value_one};
+use base::default_util::{deserialize_null_default, is_default};
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,
@@ -398,4 +398,12 @@ impl ModeModelData {
         model.change(P::SetFeedbackType(self.feedback_type));
         model.change(P::SetFeedbackValueTable(self.feedback_value_table.clone()));
     }
+}
+
+fn is_unit_value_one(v: &UnitValue) -> bool {
+    *v == UnitValue::MAX
+}
+
+fn unit_value_one() -> UnitValue {
+    UnitValue::MAX
 }

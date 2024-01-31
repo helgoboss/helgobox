@@ -52,6 +52,7 @@ use crate::infrastructure::plugin::{
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use anyhow::bail;
+use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
@@ -2286,8 +2287,8 @@ impl UnitContainer for BackboneShell {
         BackboneShell::get().find_unit_model_by_unit_id_ignoring_borrowed_ones(instance_id)
     }
 
-    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
-        let mut activated_inverse_tags = HashSet::new();
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<NonCryptoHashSet<Tag>> {
+        let mut activated_inverse_tags = HashSet::default();
         for session in self.unit_infos.borrow().iter() {
             if let Some(session) = session.unit_model.upgrade() {
                 let session = session.borrow();

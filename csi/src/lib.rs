@@ -1,3 +1,4 @@
+use base::hash_util::NonCryptoHashSet;
 use derive_more::Display;
 use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U14, U7};
 use realearn_api::persistence::{
@@ -8,7 +9,6 @@ use realearn_api::persistence::{
     MidiProgramChangeNumberSource, MidiRawSource, Source, SourceCharacter, Target,
     VirtualControlElementCharacter, VirtualControlElementId, VirtualTarget,
 };
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -127,7 +127,8 @@ impl CsiObject {
                     })
                     .collect();
                 let has_duplicate_widget_ids = {
-                    let id_set: HashSet<_> = results.iter().map(|r| r.widget_id.clone()).collect();
+                    let id_set: NonCryptoHashSet<_> =
+                        results.iter().map(|r| r.widget_id.clone()).collect();
                     results.len() != id_set.len()
                 };
                 if has_duplicate_widget_ids {

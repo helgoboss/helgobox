@@ -3,7 +3,6 @@ use crate::application::{
 };
 use crate::domain::{CompartmentParamIndex, GroupId, MappingId, ParamSetting};
 use base::hash_util::NonCryptoHashMap;
-use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct CompartmentModel {
@@ -12,7 +11,7 @@ pub struct CompartmentModel {
     pub groups: Vec<GroupModel>,
     pub mappings: Vec<MappingModel>,
     pub common_lua: String,
-    pub custom_data: HashMap<String, serde_json::Value>,
+    pub custom_data: NonCryptoHashMap<String, serde_json::Value>,
     pub notes: String,
 }
 

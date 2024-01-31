@@ -64,7 +64,7 @@ impl RealearnTarget for EnableMappingsTarget {
         }
         impl HitInstruction for EnableMappingsInstruction {
             fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
-                let mut activated_inverse_tags = HashSet::new();
+                let mut activated_inverse_tags = HashSet::default();
                 for m in context.mappings.values_mut() {
                     // Don't touch ourselves.
                     if m.id() == self.mapping_data.mapping_id {

@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -13,7 +12,7 @@ use crate::domain::{
     MappingSnapshotContainer, ParameterManager, QualifiedMappingId, SharedInstance, Tag, TagScope,
     TrackDescriptor, UnitId, VirtualMappingSnapshotIdForLoad, WeakInstance,
 };
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{serde_json_util, NamedChannelSender, SenderToNormalThread};
 
 pub type SharedUnit = Rc<RefCell<Unit>>;
@@ -65,7 +64,7 @@ pub struct Unit {
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
     /// - Completely derived from mappings, so it's redundant state.
     /// - It's needed by both processing layer and layers above.
-    on_mappings: Prop<HashSet<QualifiedMappingId>>,
+    on_mappings: Prop<NonCryptoHashSet<QualifiedMappingId>>,
     /// Whether control/feedback are globally active.
     ///
     /// Not persistent.
@@ -75,13 +74,13 @@ pub struct Unit {
     /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
-    active_mapping_tags: EnumMap<CompartmentKind, HashSet<Tag>>,
+    active_mapping_tags: EnumMap<CompartmentKind, NonCryptoHashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
     /// - Persistent
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
-    active_instance_tags: HashSet<Tag>,
+    active_instance_tags: NonCryptoHashSet<Tag>,
     /// Instance track.
     ///
     /// The instance track is persistent but it's persisted from the session, not from here.
@@ -105,7 +104,7 @@ pub struct Unit {
     mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
     mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     parameter_manager: Arc<ParameterManager>,
-    custom_compartment_data: EnumMap<CompartmentKind, HashMap<String, serde_json::Value>>,
+    custom_compartment_data: EnumMap<CompartmentKind, NonCryptoHashMap<String, serde_json::Value>>,
     control_unit_top_left_corner: playtime_api::persistence::SlotAddress,
 }
 
@@ -148,7 +147,7 @@ impl Unit {
     pub fn set_custom_compartment_data(
         &mut self,
         compartment: CompartmentKind,
-        data: HashMap<String, serde_json::Value>,
+        data: NonCryptoHashMap<String, serde_json::Value>,
     ) {
         self.custom_compartment_data[compartment] = data;
         self.notify_matrix_control_units_changed();
@@ -167,7 +166,7 @@ impl Unit {
     pub fn custom_compartment_data(
         &self,
         compartment: CompartmentKind,
-    ) -> &HashMap<String, serde_json::Value> {
+    ) -> &NonCryptoHashMap<String, serde_json::Value> {
         &self.custom_compartment_data[compartment]
     }
 
@@ -390,7 +389,7 @@ impl Unit {
     pub fn only_these_mapping_tags_are_active(
         &self,
         compartment: CompartmentKind,
-        tags: &HashSet<Tag>,
+        tags: &NonCryptoHashSet<Tag>,
     ) -> bool {
         tags == &self.active_mapping_tags[compartment]
     }
@@ -398,7 +397,7 @@ impl Unit {
     pub fn at_least_those_mapping_tags_are_active(
         &self,
         compartment: CompartmentKind,
-        tags: &HashSet<Tag>,
+        tags: &NonCryptoHashSet<Tag>,
     ) -> bool {
         tags.is_subset(&self.active_mapping_tags[compartment])
     }
@@ -406,7 +405,7 @@ impl Unit {
     pub fn activate_or_deactivate_mapping_tags(
         &mut self,
         compartment: CompartmentKind,
-        tags: &HashSet<Tag>,
+        tags: &NonCryptoHashSet<Tag>,
         activate: bool,
     ) {
         if activate {
@@ -417,7 +416,11 @@ impl Unit {
         self.notify_active_mapping_tags_changed(compartment);
     }
 
-    pub fn set_active_mapping_tags(&mut self, compartment: CompartmentKind, tags: HashSet<Tag>) {
+    pub fn set_active_mapping_tags(
+        &mut self,
+        compartment: CompartmentKind,
+        tags: NonCryptoHashSet<Tag>,
+    ) {
         self.active_mapping_tags[compartment] = tags;
         self.notify_active_mapping_tags_changed(compartment);
     }
@@ -427,15 +430,19 @@ impl Unit {
         self.event_sender.send_complaining(instance_event);
     }
 
-    pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
+    pub fn only_these_instance_tags_are_active(&self, tags: &NonCryptoHashSet<Tag>) -> bool {
         tags == &self.active_instance_tags
     }
 
-    pub fn at_least_those_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
+    pub fn at_least_those_instance_tags_are_active(&self, tags: &NonCryptoHashSet<Tag>) -> bool {
         tags.is_subset(&self.active_instance_tags)
     }
 
-    pub fn activate_or_deactivate_instance_tags(&mut self, tags: &HashSet<Tag>, activate: bool) {
+    pub fn activate_or_deactivate_instance_tags(
+        &mut self,
+        tags: &NonCryptoHashSet<Tag>,
+        activate: bool,
+    ) {
         if activate {
             self.active_instance_tags.extend(tags.iter().cloned());
         } else {
@@ -444,15 +451,15 @@ impl Unit {
         self.notify_active_instance_tags_changed();
     }
 
-    pub fn active_instance_tags(&self) -> &HashSet<Tag> {
+    pub fn active_instance_tags(&self) -> &NonCryptoHashSet<Tag> {
         &self.active_instance_tags
     }
 
-    pub fn set_active_instance_tags_without_notification(&mut self, tags: HashSet<Tag>) {
+    pub fn set_active_instance_tags_without_notification(&mut self, tags: NonCryptoHashSet<Tag>) {
         self.active_instance_tags = tags;
     }
 
-    pub fn set_active_instance_tags(&mut self, tags: HashSet<Tag>) {
+    pub fn set_active_instance_tags(&mut self, tags: NonCryptoHashSet<Tag>) {
         self.active_instance_tags = tags;
         self.notify_active_instance_tags_changed();
     }
@@ -482,7 +489,7 @@ impl Unit {
         self.global_control_and_feedback_state.changed()
     }
 
-    pub fn set_on_mappings(&mut self, on_mappings: HashSet<QualifiedMappingId>) {
+    pub fn set_on_mappings(&mut self, on_mappings: NonCryptoHashSet<QualifiedMappingId>) {
         self.on_mappings.set(on_mappings);
     }
 
@@ -507,7 +514,7 @@ impl Unit {
         &self.active_mapping_by_group[compartment]
     }
 
-    pub fn active_mapping_tags(&self, compartment: CompartmentKind) -> &HashSet<Tag> {
+    pub fn active_mapping_tags(&self, compartment: CompartmentKind) -> &NonCryptoHashSet<Tag> {
         &self.active_mapping_tags[compartment]
     }
 

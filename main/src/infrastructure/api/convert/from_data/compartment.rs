@@ -35,7 +35,7 @@ pub fn convert_compartment(
             style.required_value(v)
         },
         common_lua: style.required_value(data.common_lua),
-        custom_data: style.required_value(data.custom_data),
+        custom_data: style.required_value(data.custom_data.into_iter().collect()),
         notes: style.required_value(data.notes),
     };
     Ok(compartment)

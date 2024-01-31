@@ -3,12 +3,12 @@ use crate::domain::{
     Backbone, CompartmentKind, ExtendedProcessorContext, LastTouchedTargetFilter, ReaperTarget,
     ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use base::hash_util::NonCryptoHashSet;
 use realearn_api::persistence::TargetTouchCause;
-use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct UnresolvedLastTouchedTarget {
-    pub included_targets: HashSet<ReaperTargetType>,
+    pub included_targets: NonCryptoHashSet<ReaperTargetType>,
     pub touch_cause: TargetTouchCause,
 }
 

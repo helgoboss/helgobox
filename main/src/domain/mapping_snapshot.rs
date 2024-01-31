@@ -1,8 +1,7 @@
 use crate::domain::{MappingId, Tag, TagScope, VirtualMappingSnapshotIdForLoad};
-use base::hash_util::NonCryptoHashMap;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use base::{convert_to_identifier, SmallAsciiString};
 use helgoboss_learn::AbsoluteValue;
-use std::collections::HashSet;
 use std::str::FromStr;
 
 #[derive(Debug, Default)]
@@ -34,7 +33,7 @@ impl MappingSnapshotContainer {
     ///
     /// If the last loaded snapshot IDs differ between the tags, it also returns `None`.
     pub fn last_loaded_snapshot_id(&self, scope: &TagScope) -> Option<MappingSnapshotId> {
-        let active_snapshot_ids: HashSet<_> = scope
+        let active_snapshot_ids: NonCryptoHashSet<_> = scope
             .tags
             .iter()
             .map(|tag| self.active_snapshot_id_by_tag.get(tag))

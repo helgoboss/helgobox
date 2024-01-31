@@ -9,13 +9,12 @@ use crate::{
 use std::borrow::Cow;
 
 use crate::plugins::{PluginCore, PluginDatabase};
-use base::hash_util::{PersistentHash, PersistentHasher};
+use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -28,7 +27,7 @@ use walkdir::WalkDir;
 pub struct DirectoryDatabase {
     persistent_id: PersistentDatabaseId,
     root_dir: PathBuf,
-    valid_extensions: HashSet<&'static OsStr>,
+    valid_extensions: NonCryptoHashSet<&'static OsStr>,
     name: &'static str,
     description: &'static str,
     entries: Vec<PresetEntry>,
@@ -79,7 +78,7 @@ impl DirectoryDatabase {
 struct PresetEntry {
     preset_name: String,
     relative_path: String,
-    plugin_cores: IndexMap<PluginId, PluginCore>,
+    plugin_cores: NonCryptoIndexMap<PluginId, PluginCore>,
     content_hash: PersistentHash,
 }
 
@@ -207,7 +206,7 @@ impl Database for DirectoryDatabase {
 
 struct FileProcessingOutput {
     content_hash: PersistentHash,
-    used_plugins: IndexMap<PluginId, PluginCore>,
+    used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
 }
 
 /// Finds used plug-ins in a REAPER-XML-like text file (e.g. RPP, RfxChain, RTrackTemplate).
@@ -224,7 +223,7 @@ fn process_file(
     plugin_db: &PluginDatabase,
 ) -> Result<FileProcessingOutput, Box<dyn Error>> {
     let file = File::open(path)?;
-    let mut used_plugins = IndexMap::new();
+    let mut used_plugins = NonCryptoIndexMap::default();
     let mut buffer = String::new();
     let mut reader = BufReader::new(&file);
     let mut hasher = PersistentHasher::new();

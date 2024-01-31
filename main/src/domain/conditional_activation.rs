@@ -3,9 +3,9 @@ use crate::domain::{
     CompartmentParamIndex, CompartmentParams, EffectiveParamValue, ExpressionEvaluator, MappingId,
     RawParamValue, COMPARTMENT_PARAMETER_COUNT, EXPRESSION_NONE_VALUE,
 };
+use base::hash_util::NonCryptoHashSet;
 use base::regex;
 use helgoboss_learn::AbsoluteValue;
-use std::collections::HashSet;
 use std::error::Error;
 
 #[derive(Debug)]
@@ -309,7 +309,7 @@ impl EelCondition {
     }
 }
 
-fn extract_used_param_indexes(eel_script: &str) -> HashSet<u32> {
+fn extract_used_param_indexes(eel_script: &str) -> NonCryptoHashSet<u32> {
     let param_regex = regex!(r"\bp([0-9]+)\b");
     param_regex
         .captures_iter(eel_script)

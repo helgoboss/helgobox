@@ -10,6 +10,7 @@ use camino::Utf8Path;
 use indexmap::IndexMap;
 use reaper_high::{FxChainContext, Reaper};
 
+use base::hash_util::NonCryptoIndexMap;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu};
@@ -352,7 +353,8 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
     is_current_value: impl Fn(&CommonPresetInfo) -> bool + 'a,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     let preset_infos: Vec<_> = preset_infos.collect();
-    let mut categorized_infos: IndexMap<PresetCategory, Vec<&CommonPresetInfo>> = IndexMap::new();
+    let mut categorized_infos: NonCryptoIndexMap<PresetCategory, Vec<&CommonPresetInfo>> =
+        IndexMap::default();
     for info in preset_infos {
         let path = Utf8Path::new(&info.id);
         let category = if path.components().count() == 1 {
