@@ -778,10 +778,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         }
         if changes_conditions {
-            self.basics
-                .channels
-                .self_normal_sender
-                .send_complaining(NormalMainTask::NotifyConditionsChanged);
+            self.basics.notify_conditions_changed();
         }
     }
 
@@ -1036,6 +1033,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let param = self.collections.parameters.at_mut(index);
         let previous_value = param.raw_value();
         param.set_raw_value(value);
+        // When our own parameters change, it's THE example of a condition change.
+        self.basics.notify_conditions_changed();
         // Let compartment parameter targets know
         self.process_compartment_parameter_feedback(index);
         // Notify domain event handler
@@ -1662,10 +1661,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_compartment_parameter_feedback(&mut self, param_index: PluginParamIndex) {
         let change_event = CompoundChangeEvent::CompartmentParameter(param_index);
-        self.basics
-            .channels
-            .self_normal_sender
-            .send_complaining(NormalMainTask::NotifyConditionsChanged);
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
                 target,
@@ -1702,10 +1697,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             if ReaperTarget::changes_conditions(CompoundChangeEvent::Additional(event)) {
-                self.basics
-                    .channels
-                    .self_normal_sender
-                    .send_complaining(NormalMainTask::NotifyConditionsChanged);
+                self.basics.notify_conditions_changed();
             }
             // Okay, not fired that frequently, we can iterate over all mappings
             self.process_feedback_related_reaper_event(|mapping, target| {
@@ -1777,10 +1769,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // We don't have mutable access to self here (for good reentrancy reasons) so we
             // do the refresh in the next main loop cycle. This is what we always did, also when
             // this was still based on Rx!
-            self.basics
-                .channels
-                .self_normal_sender
-                .send_complaining(NormalMainTask::NotifyConditionsChanged);
+            self.basics.notify_conditions_changed();
         }
         // Process for feedback
         for event in events {
@@ -3148,6 +3137,12 @@ impl<'a, EH: DomainEventHandler> SourceFeedbackLogger for BasicSourceFeedbackLog
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn notify_conditions_changed(&self) {
+        self.channels
+            .self_normal_sender
+            .send_complaining(NormalMainTask::NotifyConditionsChanged);
+    }
+
     pub fn celebrate_success(&self) {
         self.event_handler
             .handle_event_ignoring_error(DomainEvent::TimeForCelebratingSuccess);
@@ -3529,36 +3524,32 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<Option<AbsoluteValue>> = m
-            .targets()
-            .iter()
-            .filter_map(|target| {
-                let target = match target {
-                    CompoundMappingTarget::Reaper(t) => t,
-                    _ => return None,
-                };
-                // Immediate value capturing. Makes OSC feedback *much* smoother in
-                // combination with high-throughput thread. Especially quick pulls
-                // of many faders at once profit from it because intermediate
-                // values are captured and immediately sent so user doesn't see
-                // stuttering faders on their device.
-                // It's important to capture the current value from the event because
-                // querying *at this time* from the target itself might result in
-                // the old value to be returned. This is the case with FX parameter
-                // changes for examples and especially in case of on/off targets this
-                // can lead to horribly wrong feedback. Previously we didn't have this
-                // issue because we always deferred to the next main loop cycle.
-                let (value_changed, new_value) = f(m, target);
-                if value_changed {
-                    at_least_one_target_is_affected = true;
-                }
-                Some(new_value)
-            })
-            .collect();
+        let new_values = m.targets().iter().filter_map(|target| {
+            let target = match target {
+                CompoundMappingTarget::Reaper(t) => t,
+                _ => return None,
+            };
+            // Immediate value capturing. Makes OSC feedback *much* smoother in
+            // combination with high-throughput thread. Especially quick pulls
+            // of many faders at once profit from it because intermediate
+            // values are captured and immediately sent so user doesn't see
+            // stuttering faders on their device.
+            // It's important to capture the current value from the event because
+            // querying *at this time* from the target itself might result in
+            // the old value to be returned. This is the case with FX parameter
+            // changes for examples and especially in case of on/off targets this
+            // can lead to horribly wrong feedback. Previously we didn't have this
+            // issue because we always deferred to the next main loop cycle.
+            let (value_changed, new_value) = f(m, target);
+            if value_changed {
+                at_least_one_target_is_affected = true;
+            }
+            Some(new_value)
+        });
+        let new_target_value = aggregate_target_values(new_values);
         if !at_least_one_target_is_affected {
             return;
         }
-        let new_target_value = aggregate_target_values(new_values.into_iter());
         // Feedback
         let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
         let with_projection_feedback = mapping_feedback_is_effectively_on;
