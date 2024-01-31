@@ -30,6 +30,7 @@ use std::cell::Cell;
 
 use crate::base::CloneAsDefault;
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
+use base::hash_util::NonCryptoHashBuilder;
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
 use reaper_high::{Fx, Project, Track, TrackRoute};
@@ -40,7 +41,6 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
-use std::marker::PhantomData;
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -2592,8 +2592,8 @@ fn target_is_effectively_active(
     }
 }
 
-pub type OrderedMappingMap<T> = IndexMap<MappingId, T>;
-pub type OrderedMappingIdSet = IndexSet<MappingId>;
+pub type OrderedMappingMap<T> = IndexMap<MappingId, T, NonCryptoHashBuilder>;
+pub type OrderedMappingIdSet = IndexSet<MappingId, NonCryptoHashBuilder>;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MessageCaptureResult {

@@ -1641,7 +1641,7 @@ fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller
 }
 
 fn ordered_map_with_capacity<T>(cap: usize) -> OrderedMappingMap<T> {
-    let mut map = OrderedMappingMap::with_capacity(cap);
+    let mut map = OrderedMappingMap::with_capacity_and_hasher(cap, Default::default());
     // This is a workaround for an indexmap bug which allocates space for entries on the
     // first extend/reserve call although it should have been done already when creating
     // it via with_capacity. Remember: We must not allocate in real-time thread!
