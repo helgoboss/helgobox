@@ -908,7 +908,15 @@ impl MainMapping {
         let mut at_least_one_target_caused_effect = false;
         let mut first_hit_instruction = None;
         use ModeControlResult::*;
-        let mut fresh_targets = if options.enforce_target_refresh {
+        let enforce_target_refresh = options.enforce_target_refresh
+            // Respect targets that want to keep their state by opting out from refresh. This is respected on a normal
+            // non-enforced refresh too!
+            && self
+            .unresolved_target
+            .as_ref()
+            .is_some_and(|t| t.can_be_affected_by_change_events());
+
+        let mut fresh_targets = if enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
             if !conditions_are_met {
                 // In this case we don't log and don't increase the invocation counter because
@@ -923,7 +931,7 @@ impl MainMapping {
             control_context: context,
             mapping_data: self.data(),
         };
-        let actual_targets = if options.enforce_target_refresh {
+        let actual_targets = if enforce_target_refresh {
             &mut fresh_targets
         } else {
             &mut self.targets
