@@ -36,7 +36,9 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::base::notification::notify_processing_result;
+use crate::base::notification::{
+    alert, notify_processing_result, notify_user_about_anyhow_error, notify_user_on_anyhow_error,
+};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -663,6 +665,24 @@ impl HeaderPanel {
                     ],
                 ),
                 menu(
+                    PRESET_RELATED_MENU_LABEL,
+                    vec![
+                        item(
+                            build_create_compartment_preset_workspace_label(compartment, false),
+                            MainMenuAction::CreateCompartmentPresetWorkspace,
+                        ),
+                        item(
+                            build_create_compartment_preset_workspace_label(compartment, true),
+                            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
+                        ),
+                        item("Open preset folder", MainMenuAction::OpenPresetFolder),
+                        item(
+                            "Reload all presets from disk",
+                            MainMenuAction::ReloadAllPresets,
+                        ),
+                    ],
+                ),
+                menu(
                     "Global FX-to-preset links",
                     generate_fx_to_preset_links_menu_entries(
                         last_relevant_focused_fx_id.as_ref(),
@@ -670,11 +690,6 @@ impl HeaderPanel {
                         preset_link_manager.config(),
                         PresetLinkScope::Global,
                     ),
-                ),
-                item("Open preset folder", MainMenuAction::OpenPresetFolder),
-                item(
-                    "Reload all presets from disk",
-                    MainMenuAction::ReloadAllPresets,
                 ),
             ];
             root_menu(entries)
@@ -774,6 +789,12 @@ impl HeaderPanel {
                 self.view.require_window().alert("ReaLearn", msg);
             }
             MainMenuAction::ChangeSessionId => self.change_session_id(),
+            MainMenuAction::CreateCompartmentPresetWorkspace => {
+                self.create_compartment_preset_workspace(false)
+            }
+            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets => {
+                self.create_compartment_preset_workspace(true)
+            }
             MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
@@ -2142,6 +2163,28 @@ impl HeaderPanel {
         Ok(())
     }
 
+    fn create_compartment_preset_workspace(&self, include_factory_presets: bool) {
+        let compartment = self.active_compartment();
+        let result = BackboneShell::get()
+            .compartment_preset_manager(compartment)
+            .borrow_mut()
+            .export_preset_workspace(include_factory_presets);
+        match result {
+            Ok(descriptor) => {
+                let name = descriptor.name;
+                let text = format!(
+                    "ReaLearn created a new {compartment} preset workspace named \"{name}\" for you.\n\
+                    \n\
+                    In the next step, ReaLearn will open the workspace folder in your file manager, where you can rename the folder and start developing presets. For details, consult the file \"README.md\" in the workspace root!
+                    "
+                );
+                self.view.require_window().alert("Success!", text);
+                let _ = open_in_file_manager(&descriptor.dir);
+            }
+            Err(e) => notify_user_about_anyhow_error(e),
+        }
+    }
+
     fn reload_all_presets(&self) {
         let _ = BackboneShell::get()
             .controller_preset_manager()
@@ -2276,17 +2319,19 @@ impl HeaderPanel {
                 relative_file_path,
             } = &info.origin
             {
-                if info.file_type == PresetFileType::Lua && self.view.require_window().confirm(
-                        "ReaLearn",
+                if info.file_type == PresetFileType::Lua {
+                    let menu_entry_label =
+                        build_create_compartment_preset_workspace_label(*compartment, true);
+                    let text = format!(
                         "This factory preset is written in Lua. Are you familiar with Lua and want to customize the Lua code to your own needs?\n\
                         \n\
-                        If you press yes, ReaLearn will copy the factory Lua file to your personal preset directory.\n\
+                        If yes, you should do this instead: Main menu => {PRESET_RELATED_MENU_LABEL} => {menu_entry_label}.\n\
                         \n\
-                        If you press no, ReaLearn will save your current mappings as JSON preset as usual.",
-                ) {
-                    let new_preset_id = BackboneShell::get().compartment_preset_manager(*compartment).borrow_mut().save_original_factory_preset_as_user_preset(relative_file_path)?;
-                    self.session().borrow_mut().activate_preset(*compartment, Some(new_preset_id));
-                    return Ok(());
+                        If you press no, ReaLearn will save your compartment as JSON preset, which is basically just a logic-less list of mappings.",
+                    );
+                    if !self.view.require_window().confirm("ReaLearn", text) {
+                        return Ok(());
+                    }
                 }
             }
         }
@@ -2520,6 +2565,18 @@ impl HeaderPanel {
     fn is_invoked_programmatically(&self) -> bool {
         self.is_invoked_programmatically.get()
     }
+}
+
+fn build_create_compartment_preset_workspace_label(
+    compartment: CompartmentKind,
+    include_factory_presets: bool,
+) -> String {
+    let suffix = if include_factory_presets {
+        " (including factory presets)"
+    } else {
+        ""
+    };
+    format!("Create {compartment} preset workspace{suffix}")
 }
 
 impl View for HeaderPanel {
@@ -2892,6 +2949,8 @@ enum MainMenuAction {
     EditCompartmentParameter(CompartmentKind, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,
+    CreateCompartmentPresetWorkspace,
+    CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
 }
 
 enum HelpMenuAction {
@@ -3009,3 +3068,5 @@ fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> Strin
         format!("OSC: <Not present> ({osc_device_id})")
     }
 }
+
+const PRESET_RELATED_MENU_LABEL: &str = "Preset-related";

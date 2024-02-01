@@ -30,6 +30,8 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
 
+use nanoid::nanoid;
+use slug::slugify;
 use std::collections::HashSet;
 use std::{fmt, fs};
 use strum::EnumIs;
@@ -137,10 +139,15 @@ pub trait CommonCompartmentPresetManager {
     fn remove_preset(&mut self, id: &str) -> anyhow::Result<()>;
     fn common_preset_infos(&self) -> Box<dyn Iterator<Item = &CommonPresetInfo> + '_>;
     fn common_preset_info_by_id(&self, id: &str) -> Option<&CommonPresetInfo>;
-    fn save_original_factory_preset_as_user_preset(
+    fn export_preset_workspace(
         &mut self,
-        relative_file_path: &Path,
-    ) -> anyhow::Result<String>;
+        include_factory_presets: bool,
+    ) -> anyhow::Result<PresetWorkspaceDescriptor>;
+}
+
+pub struct PresetWorkspaceDescriptor {
+    pub name: String,
+    pub dir: PathBuf,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -284,7 +291,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         let compartment = self.compartment;
         let factory_preset_dir = get_factory_preset_dir(compartment);
         let mut all_preset_infos = vec![];
-        walk_included_dir(factory_preset_dir, &mut |file| {
+        walk_included_dir(factory_preset_dir, false, &mut |file| {
             let relative_file_path = file.path();
             let Some(basics) = PresetBasics::from_relative_path(relative_file_path, "factory/")
             else {
@@ -538,21 +545,36 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
             .map(|info| &info.common)
     }
 
-    /// Returns ID of the newly created user preset.
-    fn save_original_factory_preset_as_user_preset(
+    fn export_preset_workspace(
         &mut self,
-        relative_file_path: &Path,
-    ) -> anyhow::Result<String> {
-        let relative_user_file_path = PathBuf::from(whoami::username()).join(relative_file_path);
-        let dest_file_path = self.preset_dir_path.join(&relative_user_file_path);
-        let preset_content = get_factory_preset_content(self.compartment, relative_file_path)?;
-        fs::create_dir_all(dest_file_path.parent().context("impossible")?)?;
-        fs::write(&dest_file_path, preset_content)?;
-        let basics = PresetBasics::from_relative_path(&relative_user_file_path, "")
-            .context("couldn't build ID from newly created user preset")?;
+        include_factory_presets: bool,
+    ) -> anyhow::Result<PresetWorkspaceDescriptor> {
+        let workspace_name = slugify(nanoid!(10));
+        let workspace_dir = self.preset_dir_path.join(&workspace_name);
+        let factory_dir = get_factory_preset_dir(self.compartment);
+        walk_included_dir(factory_dir, true, &mut |file| {
+            if !include_factory_presets {
+                if file.path().components().count() > 1
+                    && file
+                        .path()
+                        .components()
+                        .next()
+                        .is_some_and(|c| c.as_os_str() != ".vscode")
+                {
+                    return Ok(());
+                }
+            }
+            let abs_path = workspace_dir.join(file.path());
+            fs::create_dir_all(abs_path.parent().context("impossible")?)?;
+            fs::write(abs_path, file.contents())?;
+            Ok(())
+        });
         let _ = self.load_presets_from_disk();
-        let _ = open_in_file_manager(&dest_file_path);
-        Ok(basics.id)
+        let desc = PresetWorkspaceDescriptor {
+            name: workspace_name,
+            dir: workspace_dir,
+        };
+        Ok(desc)
     }
 }
 
@@ -582,20 +604,21 @@ pub static FACTORY_MAIN_PRESETS_DIR: Dir<'_> =
 
 fn walk_included_dir(
     dir: &Dir,
+    include_hidden: bool,
     on_file: &mut impl FnMut(&include_dir::File) -> anyhow::Result<()>,
 ) {
     use include_dir::DirEntry;
     for entry in dir.entries() {
         match entry {
             DirEntry::Dir(dir) => {
-                if is_hidden(dir.path().file_name().unwrap()) {
+                if !include_hidden && is_hidden(dir.path().file_name().unwrap()) {
                     // E.g. useful to prevent walking into .vscode folders
                     continue;
                 }
-                walk_included_dir(dir, on_file);
+                walk_included_dir(dir, include_hidden, on_file);
             }
             DirEntry::File(file) => {
-                if is_hidden(file.path().file_name().unwrap()) {
+                if !include_hidden && is_hidden(file.path().file_name().unwrap()) {
                     continue;
                 }
                 warn_user_on_anyhow_error(on_file(file));
