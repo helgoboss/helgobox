@@ -1,7 +1,7 @@
 use crate::domain::{
     CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
@@ -71,10 +71,6 @@ impl RealearnTarget for DummyTarget {
         false
     }
 
-    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        Some(RealTimeReaperTarget::Dummy(self.clone()))
-    }
-
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::Dummy)
     }
@@ -96,6 +92,5 @@ pub const DUMMY_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::ReaLearn,
     name: "Dummy target",
     short_name: "Dummy",
-    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };
