@@ -39,58 +39,26 @@ local parameters: { realearn.Parameter }? = if resolve_shift then { shift_param 
 
 -- Single buttons
 
+local function simple_button(id: string, name: string, key_number: number): realearn.Mapping
+    return realearn.Mapping {
+        id = id,
+        name = name,
+        feedback_enabled = false,
+        source = realearn.Source.MidiNoteVelocity {
+            channel = 0,
+            key_number = key_number,
+        },
+        target = realearn.Target.Virtual {
+            id = id,
+            character = "Button",
+        },
+    }
+end
+
 local mappings = {
-    realearn.Mapping {
-        id = "sac",
-        name = "SAC",
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 81,
-        },
-        target = realearn.Target.Virtual {
-            id = "stop-all-clips",
-            character = "Button",
-        },
-    },
-    realearn.Mapping {
-        id = "sustain",
-        name = "Sustain",
-        feedback_enabled = false,
-        source = realearn.Source.MidiControlChangeValue {
-            channel = 1,
-            controller_number = 64,
-            character = "Button",
-        },
-        target = realearn.Target.Virtual {
-            id = "sustain",
-            character = "Button",
-        },
-    },
-    realearn.Mapping {
-        id = "play",
-        name = "Play",
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 91,
-        },
-        target = realearn.Target.Virtual {
-            id = "play",
-            character = "Button",
-        },
-    },
-    realearn.Mapping {
-        id = "rec",
-        name = "Rec",
-        feedback_enabled = false,
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 93,
-        },
-        target = realearn.Target.Virtual {
-            id = "record",
-            character = "Button",
-        },
-    },
+    simple_button("stop-all-clips", "SAC", 81),
+    simple_button("play", "Play", 91),
+    simple_button("record", "Rec", 93),
 }
 
 -- Shift
@@ -159,19 +127,7 @@ if resolve_shift then
     end
 else
     no_shift_activation_condition = nil
-    local mapping = realearn.Mapping {
-        id = "shift",
-        name = "Shift",
-        feedback_enabled = false,
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 98,
-        },
-        target = realearn.Target.Virtual {
-            id = "shift",
-            character = "Button",
-        },
-    }
+    local mapping = simple_button("shift", "Shift", 98)
     table.insert(mappings, mapping)
 end
 
@@ -252,7 +208,7 @@ end
 -- Scene launch buttons
 for row = 0, 4 do
     local human_row = row + 1
-    local id = "row" .. human_row .. "/play"
+    local id = `row{human_row}/play`
     local mapping = realearn.Mapping {
         id = id,
         activation_condition = no_shift_activation_condition,
@@ -1399,7 +1355,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "sac",
+                "stop-all-clips",
             },
             shape = "circle",
             width = 34,
@@ -1576,27 +1532,6 @@ local companion_data = {
         },
         {
             height = 34,
-            id = "7935e4a0-512f-4e96-8746-b2c8f542c33d",
-            ["labelOne"] = {
-                angle = 0,
-                position = "center",
-                ["sizeConstrained"] = true,
-            },
-            ["labelTwo"] = {
-                angle = 0,
-                position = "belowBottom",
-                ["sizeConstrained"] = true,
-            },
-            mappings = {
-                "sustain",
-            },
-            shape = "rectangle",
-            width = 98,
-            x = 1120,
-            y = 256,
-        },
-        {
-            height = 34,
             id = "39506af3-b17e-45bb-a148-51ff39b4eeb5",
             ["labelOne"] = {
                 angle = 0,
@@ -1630,7 +1565,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "rec",
+                "record",
             },
             shape = "rectangle",
             width = 98,

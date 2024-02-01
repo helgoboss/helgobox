@@ -26,19 +26,26 @@ local parameters: { realearn.Parameter }? = if resolve_shift then { shift_param 
 
 -- Single buttons
 
-local mappings = {
-    realearn.Mapping {
-        id = "sac",
-        name = "SAC",
+local function simple_button(id: string, name: string, key_number: number): realearn.Mapping
+    return realearn.Mapping {
+        id = id,
+        name = name,
+        feedback_enabled = false,
         source = realearn.Source.MidiNoteVelocity {
             channel = 0,
-            key_number = 81,
+            key_number = key_number,
         },
         target = realearn.Target.Virtual {
-            id = "stop-all-clips",
+            id = id,
             character = "Button",
         },
-    },
+    }
+end
+
+local mappings = {
+    simple_button("stop-all-clips", "SAC", 81),
+    simple_button("play", "Play", 91),
+    simple_button("record", "Rec", 93),
     realearn.Mapping {
         id = "sustain",
         name = "Sustain",
@@ -50,31 +57,6 @@ local mappings = {
         },
         target = realearn.Target.Virtual {
             id = "sustain",
-            character = "Button",
-        },
-    },
-    realearn.Mapping {
-        id = "play",
-        name = "Play",
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 91,
-        },
-        target = realearn.Target.Virtual {
-            id = "play",
-            character = "Button",
-        },
-    },
-    realearn.Mapping {
-        id = "rec",
-        name = "Rec",
-        feedback_enabled = false,
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 93,
-        },
-        target = realearn.Target.Virtual {
-            id = "record",
             character = "Button",
         },
     },
@@ -146,19 +128,7 @@ if resolve_shift then
     end
 else
     no_shift_activation_condition = nil
-    local mapping = realearn.Mapping {
-        id = "shift",
-        name = "Shift",
-        feedback_enabled = false,
-        source = realearn.Source.MidiNoteVelocity {
-            channel = 0,
-            key_number = 98,
-        },
-        target = realearn.Target.Virtual {
-            id = "shift",
-            character = "Button",
-        },
-    }
+    local mapping = simple_button("shift", "Shift", 98)
     table.insert(mappings, mapping)
 end
 
@@ -249,7 +219,7 @@ end
 -- Scene launch buttons
 for row = 0, 4 do
     local human_row = row + 1
-    local id = "row" .. human_row .. "/play"
+    local id = `row{human_row}/play`
     local mapping = realearn.Mapping {
         id = id,
         activation_condition = no_shift_activation_condition,
@@ -1396,7 +1366,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "sac",
+                "stop-all-clips",
             },
             shape = "circle",
             width = 34,
@@ -1627,7 +1597,7 @@ local companion_data = {
                 ["sizeConstrained"] = true,
             },
             mappings = {
-                "rec",
+                "record",
             },
             shape = "rectangle",
             width = 98,
