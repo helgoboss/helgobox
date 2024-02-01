@@ -36,9 +36,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::base::notification::{
-    alert, notify_processing_result, notify_user_about_anyhow_error, notify_user_on_anyhow_error,
-};
+use crate::base::notification::{notify_processing_result, notify_user_about_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;

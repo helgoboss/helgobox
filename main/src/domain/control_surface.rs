@@ -20,7 +20,6 @@ use std::cell::RefCell;
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoIndexMap};
 use base::metrics_util::measure_time;
-use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetFocusedFx2Result, GetTouchStateArgs, MediaTrack,

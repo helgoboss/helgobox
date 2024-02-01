@@ -1439,10 +1439,6 @@ fn process_real_mapping(
                             t.hit(control_value, control_context)
                         }
                         RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
-                        RealTimeReaperTarget::Dummy(t) => {
-                            t.hit(control_value);
-                            Ok(())
-                        }
                     };
                     match hit_result {
                         Ok(_) => (

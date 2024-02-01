@@ -34,12 +34,6 @@ impl DummyTarget {
         Self::default()
     }
 
-    pub fn hit(&mut self, value: ControlValue) {
-        if let Ok(abs_value) = value.to_absolute_value() {
-            self.artificial_value = abs_value;
-        }
-    }
-
     fn control_type_and_character_simple(&self) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,

@@ -9,7 +9,6 @@ use crate::domain::{
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::plugin::BackboneShell;
-use crate::infrastructure::ui::util::open_in_file_manager;
 use anyhow::{anyhow, bail, Context};
 use base::byte_pattern::BytePattern;
 use base::file_util;

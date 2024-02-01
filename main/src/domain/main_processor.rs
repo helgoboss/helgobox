@@ -40,7 +40,6 @@ use crate::domain::ui_util::{
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
-use indexmap::IndexSet;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};

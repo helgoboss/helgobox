@@ -729,7 +729,6 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
-            Dummy(t) => t.current_value(()),
             // We can safely use a mutex (without contention) if the preview registers get_samples()
             // and this code here is called in the same real-time thread. If live FX multiprocessing
             // is enabled, this is not the case and then we can have contention and dropouts! If we
@@ -753,7 +752,6 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             ClipRow(t) => t.control_type(ctx),
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
-            Dummy(t) => t.control_type(()),
         }
     }
 }
@@ -1466,7 +1464,6 @@ pub enum RealTimeReaperTarget {
     ClipRow(crate::domain::RealTimeClipRowTarget),
     ClipMatrix(crate::domain::RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
-    Dummy(DummyTarget),
 }
 
 impl RealTimeReaperTarget {
