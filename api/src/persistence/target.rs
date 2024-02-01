@@ -1501,6 +1501,8 @@ pub enum ClipMatrixAction {
     SetRecordDurationToFourBars,
     #[display(fmt = "Set record duration to 8 bars")]
     SetRecordDurationToEightBars,
+    #[display(fmt = "Enable/disable click")]
+    ClickOnOffState,
 }
 
 impl Default for ClipMatrixAction {

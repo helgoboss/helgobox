@@ -86,37 +86,67 @@ mod playtime_impl {
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {
-        fn trigger(&self, matrix: &mut Matrix) -> anyhow::Result<()> {
+        fn invoke(&self, matrix: &mut Matrix, value: ControlValue) -> anyhow::Result<HitResponse> {
             match self.action {
                 ClipMatrixAction::Stop => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.stop();
                 }
                 ClipMatrixAction::Undo => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     let _ = matrix.undo();
                 }
                 ClipMatrixAction::Redo => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     let _ = matrix.redo();
                 }
                 ClipMatrixAction::BuildScene => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.build_scene_in_first_empty_row()?;
                 }
                 ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.set_record_duration(RecordLength::OpenEnd);
                 }
                 ClipMatrixAction::SetRecordDurationToOneBar => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.set_record_duration(record_duration_in_bars(1));
                 }
                 ClipMatrixAction::SetRecordDurationToTwoBars => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.set_record_duration(record_duration_in_bars(2));
                 }
                 ClipMatrixAction::SetRecordDurationToFourBars => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.set_record_duration(record_duration_in_bars(4));
                 }
                 ClipMatrixAction::SetRecordDurationToEightBars => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
                     matrix.set_record_duration(record_duration_in_bars(8));
                 }
+                ClipMatrixAction::ClickOnOffState => {
+                    matrix.set_click_enabled(value.is_on());
+                }
             }
-            Ok(())
+            Ok(HitResponse::processed_with_effect())
         }
     }
     impl RealearnTarget for PlaytimeMatrixActionTarget {
@@ -137,12 +167,10 @@ mod playtime_impl {
             let matrix = instance
                 .clip_matrix_mut()
                 .ok_or("couldn't acquire matrix")?;
-            if !value.is_on() {
-                return Ok(HitResponse::ignored());
-            }
-            self.trigger(matrix)
+            let response = self
+                .invoke(matrix, value)
                 .map_err(|_| "couldn't carry out matrix action")?;
-            Ok(HitResponse::processed_with_effect())
+            Ok(response)
         }
 
         fn process_change_event(
@@ -176,6 +204,12 @@ mod playtime_impl {
                 | ClipMatrixAction::SetRecordDurationToFourBars
                 | ClipMatrixAction::SetRecordDurationToEightBars => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::RecordDurationChanged) => {
+                        (true, None)
+                    }
+                    _ => (false, None),
+                },
+                ClipMatrixAction::ClickOnOffState => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClickEnabledChanged) => {
                         (true, None)
                     }
                     _ => (false, None),
@@ -236,6 +270,7 @@ mod playtime_impl {
                             matrix.settings().clip_record_settings.duration
                                 == record_duration_in_bars(8)
                         }
+                        ClipMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
                     };
                     Some(AbsoluteValue::from_bool(bool_value))
                 })
@@ -300,6 +335,7 @@ mod playtime_impl {
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
+            ClickOnOffState => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
         }
     }
     /// Panics if you pass zero.
