@@ -5,7 +5,7 @@
 --- midi_identity_pattern: F0 7E ? 06 02 00 20 29 51 00 00 00 * F7
 --- midi_output_port_pattern: "*Live*"
 --- realearn_version: 2.16.0-pre.8
---- provided_schemes: [novation/launchpad-pro]
+--- provided_schemes: [novation/launchpad-pro/live]
 
 --!strict
 
@@ -103,7 +103,7 @@ for col = 0, 7 do
             },
             target = realearn.Target.Virtual {
                 id = id,
-                character = "Button",
+                character = "Multi",
             },
         }
         table.insert(mappings, mapping)
