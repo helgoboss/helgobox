@@ -60,11 +60,11 @@ use std::error::Error;
 use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, ClipColumnDescriptor, ClipRowDescriptor, ClipSlotDescriptor,
-    FxChainDescriptor, FxDescriptorCommons, FxToolAction, LearnTargetMappingModification,
-    LearnableTargetKind, MappingModification, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, PotFilterKind,
-    SeekBehavior, SetTargetToLastTouchedMappingModification, TargetTouchCause,
+    Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
+    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    MouseButton, PlaytimeColumnDescriptor, PlaytimeRowDescriptor, PlaytimeSlotDescriptor,
+    PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification, TargetTouchCause,
     TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
@@ -146,14 +146,14 @@ pub enum TargetCommand {
     SetMouseActionType(MouseActionType),
     SetAxis(Axis),
     SetMouseButton(MouseButton),
-    SetClipSlot(realearn_api::persistence::ClipSlotDescriptor),
-    SetClipColumn(realearn_api::persistence::ClipColumnDescriptor),
-    SetClipRow(realearn_api::persistence::ClipRowDescriptor),
-    SetClipManagementAction(realearn_api::persistence::ClipManagementAction),
-    SetClipTransportAction(realearn_api::persistence::ClipTransportAction),
-    SetClipMatrixAction(realearn_api::persistence::ClipMatrixAction),
-    SetClipColumnAction(realearn_api::persistence::ClipColumnAction),
-    SetClipRowAction(realearn_api::persistence::ClipRowAction),
+    SetClipSlot(realearn_api::persistence::PlaytimeSlotDescriptor),
+    SetClipColumn(realearn_api::persistence::PlaytimeColumnDescriptor),
+    SetClipRow(realearn_api::persistence::PlaytimeRowDescriptor),
+    SetClipManagementAction(realearn_api::persistence::PlaytimeSlotManagementAction),
+    SetClipTransportAction(realearn_api::persistence::PlaytimeSlotTransportAction),
+    SetClipMatrixAction(realearn_api::persistence::PlaytimeMatrixAction),
+    SetClipColumnAction(realearn_api::persistence::PlaytimeColumnAction),
+    SetClipRowAction(realearn_api::persistence::PlaytimeRowAction),
     SetClipPlayStartTiming(Option<playtime_api::persistence::ClipPlayStartTiming>),
     SetClipPlayStopTiming(Option<playtime_api::persistence::ClipPlayStopTiming>),
     SetRecordOnlyIfTrackArmed(bool),
@@ -774,14 +774,14 @@ pub struct TargetModel {
     axis: Axis,
     mouse_button: MouseButton,
     // # For clip targets
-    clip_slot: realearn_api::persistence::ClipSlotDescriptor,
-    clip_column: realearn_api::persistence::ClipColumnDescriptor,
-    clip_row: realearn_api::persistence::ClipRowDescriptor,
-    clip_management_action: realearn_api::persistence::ClipManagementAction,
-    clip_transport_action: realearn_api::persistence::ClipTransportAction,
-    clip_matrix_action: realearn_api::persistence::ClipMatrixAction,
-    clip_column_action: realearn_api::persistence::ClipColumnAction,
-    clip_row_action: realearn_api::persistence::ClipRowAction,
+    clip_slot: realearn_api::persistence::PlaytimeSlotDescriptor,
+    clip_column: realearn_api::persistence::PlaytimeColumnDescriptor,
+    clip_row: realearn_api::persistence::PlaytimeRowDescriptor,
+    clip_management_action: realearn_api::persistence::PlaytimeSlotManagementAction,
+    clip_transport_action: realearn_api::persistence::PlaytimeSlotTransportAction,
+    clip_matrix_action: realearn_api::persistence::PlaytimeMatrixAction,
+    clip_column_action: realearn_api::persistence::PlaytimeColumnAction,
+    clip_row_action: realearn_api::persistence::PlaytimeRowAction,
     record_only_if_track_armed: bool,
     stop_column_if_slot_empty: bool,
     clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
@@ -1244,7 +1244,9 @@ impl TargetModel {
         self.osc_dev_id
     }
 
-    pub fn clip_management_action(&self) -> &realearn_api::persistence::ClipManagementAction {
+    pub fn clip_management_action(
+        &self,
+    ) -> &realearn_api::persistence::PlaytimeSlotManagementAction {
         &self.clip_management_action
     }
 
@@ -1729,13 +1731,13 @@ impl TargetModel {
             self.track_exclusivity = track_exclusivity;
         }
         if let Some(slot_address) = target.clip_slot_address() {
-            self.clip_slot = ClipSlotDescriptor::ByIndex(slot_address);
+            self.clip_slot = PlaytimeSlotDescriptor::ByIndex(slot_address);
         }
         if let Some(column_address) = target.clip_column_address() {
-            self.clip_column = ClipColumnDescriptor::ByIndex(column_address);
+            self.clip_column = PlaytimeColumnDescriptor::ByIndex(column_address);
         }
         if let Some(row_address) = target.clip_row_address() {
-            self.clip_row = ClipRowDescriptor::ByIndex(row_address);
+            self.clip_row = PlaytimeRowDescriptor::ByIndex(row_address);
         }
 
         match target {
@@ -2129,7 +2131,7 @@ impl TargetModel {
     }
 
     fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
-        use realearn_api::persistence::ClipSlotDescriptor::*;
+        use realearn_api::persistence::PlaytimeSlotDescriptor::*;
         let slot = match &self.clip_slot {
             Selected => VirtualPlaytimeSlot::Selected,
             ByIndex(address) => VirtualPlaytimeSlot::ByIndex(*address),
@@ -2155,7 +2157,7 @@ impl TargetModel {
     }
 
     fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
-        use realearn_api::persistence::ClipRowDescriptor::*;
+        use realearn_api::persistence::PlaytimeRowDescriptor::*;
         let row = match &self.clip_row {
             Selected => VirtualPlaytimeRow::Selected,
             ByIndex(address) => VirtualPlaytimeRow::ByIndex(address.index),
@@ -2638,50 +2640,57 @@ impl TargetModel {
         }
     }
 
-    pub fn clip_slot(&self) -> &realearn_api::persistence::ClipSlotDescriptor {
+    pub fn clip_slot(&self) -> &realearn_api::persistence::PlaytimeSlotDescriptor {
         &self.clip_slot
     }
 
-    pub fn clip_column(&self) -> &realearn_api::persistence::ClipColumnDescriptor {
+    pub fn clip_column(&self) -> &realearn_api::persistence::PlaytimeColumnDescriptor {
         &self.clip_column
     }
 
-    pub fn clip_row(&self) -> &realearn_api::persistence::ClipRowDescriptor {
+    pub fn clip_row(&self) -> &realearn_api::persistence::PlaytimeRowDescriptor {
         &self.clip_row
     }
 
-    pub fn clip_transport_action(&self) -> realearn_api::persistence::ClipTransportAction {
+    pub fn clip_transport_action(&self) -> realearn_api::persistence::PlaytimeSlotTransportAction {
         self.clip_transport_action
     }
 
-    pub fn clip_matrix_action(&self) -> realearn_api::persistence::ClipMatrixAction {
+    pub fn clip_matrix_action(&self) -> realearn_api::persistence::PlaytimeMatrixAction {
         self.clip_matrix_action
     }
 
-    pub fn clip_column_action(&self) -> realearn_api::persistence::ClipColumnAction {
+    pub fn clip_column_action(&self) -> realearn_api::persistence::PlaytimeColumnAction {
         self.clip_column_action
     }
 
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
         use playtime_api::runtime::SimpleMappingTarget;
-        use realearn_api::persistence::*;
+        use realearn_api::persistence;
         use ReaperTargetType::*;
         if self.category != TargetCategory::Reaper {
             return None;
         }
         let t = match self.r#type {
             PlaytimeSlotTransportAction
-                if self.clip_transport_action() == ClipTransportAction::Trigger =>
+                if self.clip_transport_action()
+                    == persistence::PlaytimeSlotTransportAction::Trigger =>
             {
                 SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
             }
-            PlaytimeColumnAction if self.clip_column_action() == ClipColumnAction::Stop => {
+            PlaytimeColumnAction
+                if self.clip_column_action() == persistence::PlaytimeColumnAction::Stop =>
+            {
                 SimpleMappingTarget::TriggerColumn(self.clip_column.fixed_address()?)
             }
-            PlaytimeRowAction if self.clip_row_action() == ClipRowAction::PlayScene => {
+            PlaytimeRowAction
+                if self.clip_row_action() == persistence::PlaytimeRowAction::PlayScene =>
+            {
                 SimpleMappingTarget::TriggerRow(self.clip_row.fixed_address()?)
             }
-            PlaytimeMatrixAction if self.clip_matrix_action() == ClipMatrixAction::Stop => {
+            PlaytimeMatrixAction
+                if self.clip_matrix_action() == persistence::PlaytimeMatrixAction::Stop =>
+            {
                 SimpleMappingTarget::TriggerMatrix
             }
             _ => return None,
@@ -2695,7 +2704,7 @@ impl TargetModel {
         }
     }
 
-    pub fn clip_row_action(&self) -> realearn_api::persistence::ClipRowAction {
+    pub fn clip_row_action(&self) -> realearn_api::persistence::PlaytimeRowAction {
         self.clip_row_action
     }
 
@@ -4168,7 +4177,7 @@ pub struct TrackPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
-    pub clip_column: realearn_api::persistence::ClipColumnDescriptor,
+    pub clip_column: realearn_api::persistence::PlaytimeColumnDescriptor,
     pub clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
 }
 
@@ -4181,11 +4190,11 @@ impl TrackPropValues {
             index: track.index().unwrap_or_default(),
             clip_column: {
                 match track.clip_column().unwrap_or(&Default::default()) {
-                    VirtualPlaytimeColumn::Selected => ClipColumnDescriptor::Selected,
-                    VirtualPlaytimeColumn::ByIndex(i) => ClipColumnDescriptor::ByIndex(
+                    VirtualPlaytimeColumn::Selected => PlaytimeColumnDescriptor::Selected,
+                    VirtualPlaytimeColumn::ByIndex(i) => PlaytimeColumnDescriptor::ByIndex(
                         playtime_api::persistence::ColumnAddress::new(*i),
                     ),
-                    VirtualPlaytimeColumn::Dynamic(_) => ClipColumnDescriptor::Dynamic {
+                    VirtualPlaytimeColumn::Dynamic(_) => PlaytimeColumnDescriptor::Dynamic {
                         expression: Default::default(),
                     },
                 }

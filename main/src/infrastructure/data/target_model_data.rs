@@ -37,8 +37,9 @@ use realearn_api::persistence::{
 
 use base::hash_util::NonCryptoHashSet;
 use realearn_api::persistence::{
-    ClipColumnAction, ClipColumnDescriptor, ClipColumnTrackContext, ClipManagementAction,
-    ClipMatrixAction, ClipRowAction, ClipRowDescriptor, ClipSlotDescriptor, ClipTransportAction,
+    ClipColumnTrackContext, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
+    PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
+    PlaytimeSlotTransportAction,
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -382,7 +383,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_management_action: ClipManagementAction,
+    pub clip_management_action: PlaytimeSlotManagementAction,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -409,7 +410,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_slot: Option<ClipSlotDescriptor>,
+    pub clip_slot: Option<PlaytimeSlotDescriptor>,
     /// Clip matrix column.
     ///
     /// For track targets, this contains the clip column from which we want to "borrow" the track.
@@ -422,14 +423,14 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_column: ClipColumnDescriptor,
+    pub clip_column: PlaytimeColumnDescriptor,
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_row: ClipRowDescriptor,
+    pub clip_row: PlaytimeRowDescriptor,
     /// New since ReaLearn v2.13.0-pre.4.
     ///
     /// Migrated from `transport_action` if not given.
@@ -438,28 +439,28 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_transport_action: Option<ClipTransportAction>,
+    pub clip_transport_action: Option<PlaytimeSlotTransportAction>,
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_column_action: ClipColumnAction,
+    pub clip_column_action: PlaytimeColumnAction,
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_row_action: ClipRowAction,
+    pub clip_row_action: PlaytimeRowAction,
     /// New since ReaLearn v2.13.0-pre.4.
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub clip_matrix_action: ClipMatrixAction,
+    pub clip_matrix_action: PlaytimeMatrixAction,
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(
         default,
@@ -896,7 +897,7 @@ impl TargetModelData {
         let slot_descriptor = self
             .clip_slot
             .clone()
-            .unwrap_or(ClipSlotDescriptor::ByIndex(
+            .unwrap_or(PlaytimeSlotDescriptor::ByIndex(
                 playtime_api::persistence::SlotAddress::new(self.slot_index, 0),
             ));
         model.change(C::SetClipSlot(slot_descriptor));
@@ -906,7 +907,7 @@ impl TargetModelData {
             self.clip_management_action.clone(),
         ));
         let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
-            use ClipTransportAction as T;
+            use PlaytimeSlotTransportAction as T;
             use TransportAction::*;
             match self.transport_action {
                 PlayStop => T::PlayStop,
@@ -1037,7 +1038,7 @@ impl TargetModelData {
 
 pub struct TrackSerializationOutput {
     pub track_data: TrackData,
-    pub clip_column: Option<realearn_api::persistence::ClipColumnDescriptor>,
+    pub clip_column: Option<realearn_api::persistence::PlaytimeColumnDescriptor>,
 }
 
 /// This function is so annoying because of backward compatibility. Once made the bad decision
@@ -1456,7 +1457,7 @@ pub struct TrackData {
 
 pub struct TrackDeserializationInput<'a> {
     pub track_data: &'a TrackData,
-    pub clip_column: &'a ClipColumnDescriptor,
+    pub clip_column: &'a PlaytimeColumnDescriptor,
 }
 
 /// This function is so annoying because of backward compatibility. Once made the bad decision

@@ -96,28 +96,28 @@ local sorted_knob_modes = util.sorted_by_index(knob_modes)
 
 local params: ParameterMap = {
     shift = {
-        index = 2,
+        index = 0,
         name = "Shift modifier",
     },
     column_mode = {
-        index = 3,
+        index = 1,
         name = "Column mode",
         value_count = column_mode_count,
         value_labels = util.extract_labels(sorted_column_modes),
     },
     knob_mode = {
-        index = 4,
+        index = 2,
         name = "Knob mode",
         value_count = knob_mode_count,
         value_labels = util.extract_labels(sorted_knob_modes),
     },
     send = {
-        index = 6,
+        index = 3,
         name = "Send",
         value_count = 2,
     },
     sustain = {
-        index = 7,
+        index = 4,
         name = "Sustain modifier",
     },
 }
@@ -136,21 +136,21 @@ function create_row_expression(row: number): string
     return create_index_expression("control_unit_row_index", row)
 end
 
-function create_slot_selector(col: number, row: number): realearn.ClipSlotDescriptor
-    return realearn.ClipSlotDescriptor.Dynamic {
+function create_slot_selector(col: number, row: number): realearn.PlaytimeSlotDescriptor
+    return realearn.PlaytimeSlotDescriptor.Dynamic {
         column_expression = create_col_expression(col),
         row_expression = create_row_expression(row),
     }
 end
 
-function create_column_selector(col: number): realearn.ClipColumnDescriptor
-    return realearn.ClipColumnDescriptor.Dynamic {
+function create_column_selector(col: number): realearn.PlaytimeColumnDescriptor
+    return realearn.PlaytimeColumnDescriptor.Dynamic {
         expression = create_col_expression(col),
     }
 end
 
-function create_row_selector(row: number): realearn.ClipRowDescriptor
-    return realearn.ClipRowDescriptor.Dynamic {
+function create_row_selector(row: number): realearn.PlaytimeRowDescriptor
+    return realearn.PlaytimeRowDescriptor.Dynamic {
         expression = create_row_expression(row),
     }
 end
@@ -292,7 +292,7 @@ local long_press = fire_after_timeout(1000)
 local single_press = fire_on_single_press(200)
 local double_press = fire_on_double_press()
 
-function clip_matrix_action(action: realearn.ClipMatrixAction)
+function clip_matrix_action(action: realearn.PlaytimeMatrixAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeMatrixAction {
             action = action,
@@ -300,7 +300,7 @@ function clip_matrix_action(action: realearn.ClipMatrixAction)
     }
 end
 
-function clip_column_action(col: number, action: realearn.ClipColumnAction)
+function clip_column_action(col: number, action: realearn.PlaytimeColumnAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeColumnAction {
             column = create_column_selector(col),
@@ -309,7 +309,7 @@ function clip_column_action(col: number, action: realearn.ClipColumnAction)
     }
 end
 
-function clip_row_action(row: number, action: realearn.ClipRowAction)
+function clip_row_action(row: number, action: realearn.PlaytimeRowAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeRowAction {
             row = create_row_selector(row),
@@ -350,7 +350,7 @@ end
 function clip_transport_action(
     col: number,
     row: number,
-    action: realearn.ClipTransportAction,
+    action: realearn.PlaytimeSlotTransportAction,
     record_only_if_track_armed: boolean
 )
     return partial_mapping {
@@ -363,7 +363,7 @@ function clip_transport_action(
     }
 end
 
-function clip_management_action(col: number, row: number, action: realearn.ClipManagementActionKind)
+function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementActionKind)
     return partial_mapping {
         target = realearn.Target.PlaytimeSlotManagementAction {
             slot = create_slot_selector(col, row),

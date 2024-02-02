@@ -3,7 +3,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::ClipColumnAction;
+use realearn_api::persistence::PlaytimeColumnAction;
 
 pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
     lua_only: true,
@@ -17,7 +17,7 @@ pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeColumnActionTarget {
     pub column: VirtualPlaytimeColumn,
-    pub action: ClipColumnAction,
+    pub action: PlaytimeColumnAction,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeColumnActionTarget {
@@ -41,13 +41,13 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeColumnActionTarget {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlaytimeColumnActionTarget {
     pub column_index: usize,
-    pub action: ClipColumnAction,
+    pub action: PlaytimeColumnAction,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RealTimeClipColumnTarget {
     column_index: usize,
-    action: ClipColumnAction,
+    action: PlaytimeColumnAction,
 }
 
 #[cfg(not(feature = "playtime"))]
@@ -88,7 +88,7 @@ mod playtime_impl {
     use playtime_api::persistence::ColumnAddress;
     use playtime_clip_engine::base::ClipMatrixEvent;
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-    use realearn_api::persistence::ClipColumnAction;
+    use realearn_api::persistence::PlaytimeColumnAction;
     use std::borrow::Cow;
 
     impl<'a> Target<'a> for PlaytimeColumnActionTarget {
@@ -97,7 +97,7 @@ mod playtime_impl {
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let is_on = Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| match self.action {
-                    ClipColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
+                    PlaytimeColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
                 })
                 .ok()?;
             Some(AbsoluteValue::from_bool(is_on))
@@ -113,7 +113,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
             match self.action {
-                ClipColumnAction::Stop => {
+                PlaytimeColumnAction::Stop => {
                     let matrix = context.clip_matrix().ok()?;
                     let matrix = matrix.lock();
                     let is_stoppable = matrix.column_is_stoppable(self.column_index);
@@ -150,7 +150,7 @@ mod playtime_impl {
                     context.control_context.instance(),
                     |matrix| -> anyhow::Result<HitResponse> {
                         match self.action {
-                            ClipColumnAction::Stop => {
+                            PlaytimeColumnAction::Stop => {
                                 if !value.is_on() {
                                     return Ok(HitResponse::ignored());
                                 }
@@ -171,7 +171,7 @@ mod playtime_impl {
             _: ControlContext,
         ) -> (bool, Option<AbsoluteValue>) {
             match self.action {
-                ClipColumnAction::Stop => match evt {
+                PlaytimeColumnAction::Stop => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
                         (true, None)
                     }
@@ -199,7 +199,7 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            if !matches!(self.action, ClipColumnAction::Stop) {
+            if !matches!(self.action, PlaytimeColumnAction::Stop) {
                 return None;
             }
             let t = RealTimeClipColumnTarget {
@@ -214,8 +214,8 @@ mod playtime_impl {
         }
     }
 
-    fn control_type_and_character(action: ClipColumnAction) -> (ControlType, TargetCharacter) {
-        use ClipColumnAction::*;
+    fn control_type_and_character(action: PlaytimeColumnAction) -> (ControlType, TargetCharacter) {
+        use PlaytimeColumnAction::*;
         match action {
             Stop => (
                 ControlType::AbsoluteContinuousRetriggerable,
@@ -231,7 +231,7 @@ mod playtime_impl {
             context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             match self.action {
-                ClipColumnAction::Stop => {
+                PlaytimeColumnAction::Stop => {
                     if !value.is_on() {
                         return Ok(());
                     }

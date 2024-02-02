@@ -3,11 +3,11 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::ClipMatrixAction;
+use realearn_api::persistence::PlaytimeMatrixAction;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeMatrixActionTarget {
-    pub action: ClipMatrixAction,
+    pub action: PlaytimeMatrixAction,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeMatrixActionTarget {
@@ -25,12 +25,12 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeMatrixActionTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlaytimeMatrixActionTarget {
-    pub action: ClipMatrixAction,
+    pub action: PlaytimeMatrixAction,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RealTimeClipMatrixTarget {
-    action: ClipMatrixAction,
+    action: PlaytimeMatrixAction,
 }
 
 pub const PLAYTIME_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
@@ -81,68 +81,68 @@ mod playtime_impl {
     use playtime_api::persistence::{EvenQuantization, RecordLength};
     use playtime_clip_engine::base::{ClipMatrixEvent, Matrix};
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-    use realearn_api::persistence::ClipMatrixAction;
+    use realearn_api::persistence::PlaytimeMatrixAction;
 
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {
         fn invoke(&self, matrix: &mut Matrix, value: ControlValue) -> anyhow::Result<HitResponse> {
             match self.action {
-                ClipMatrixAction::Stop => {
+                PlaytimeMatrixAction::Stop => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.stop();
                 }
-                ClipMatrixAction::Undo => {
+                PlaytimeMatrixAction::Undo => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     let _ = matrix.undo();
                 }
-                ClipMatrixAction::Redo => {
+                PlaytimeMatrixAction::Redo => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     let _ = matrix.redo();
                 }
-                ClipMatrixAction::BuildScene => {
+                PlaytimeMatrixAction::BuildScene => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.build_scene_in_first_empty_row()?;
                 }
-                ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                PlaytimeMatrixAction::SetRecordDurationToOpenEnd => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.set_record_duration(RecordLength::OpenEnd);
                 }
-                ClipMatrixAction::SetRecordDurationToOneBar => {
+                PlaytimeMatrixAction::SetRecordDurationToOneBar => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.set_record_duration(record_duration_in_bars(1));
                 }
-                ClipMatrixAction::SetRecordDurationToTwoBars => {
+                PlaytimeMatrixAction::SetRecordDurationToTwoBars => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.set_record_duration(record_duration_in_bars(2));
                 }
-                ClipMatrixAction::SetRecordDurationToFourBars => {
+                PlaytimeMatrixAction::SetRecordDurationToFourBars => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.set_record_duration(record_duration_in_bars(4));
                 }
-                ClipMatrixAction::SetRecordDurationToEightBars => {
+                PlaytimeMatrixAction::SetRecordDurationToEightBars => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     matrix.set_record_duration(record_duration_in_bars(8));
                 }
-                ClipMatrixAction::ClickOnOffState => {
+                PlaytimeMatrixAction::ClickOnOffState => {
                     matrix.set_click_enabled(value.is_on());
                 }
             }
@@ -179,7 +179,7 @@ mod playtime_impl {
             _: ControlContext,
         ) -> (bool, Option<AbsoluteValue>) {
             match self.action {
-                ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => match evt {
+                PlaytimeMatrixAction::Stop | PlaytimeMatrixAction::BuildScene => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
                         (true, None)
                     }
@@ -192,23 +192,23 @@ mod playtime_impl {
                     },
                     _ => (false, None),
                 },
-                ClipMatrixAction::Undo | ClipMatrixAction::Redo => match evt {
+                PlaytimeMatrixAction::Undo | PlaytimeMatrixAction::Redo => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
                         (true, None)
                     }
                     _ => (false, None),
                 },
-                ClipMatrixAction::SetRecordDurationToOpenEnd
-                | ClipMatrixAction::SetRecordDurationToOneBar
-                | ClipMatrixAction::SetRecordDurationToTwoBars
-                | ClipMatrixAction::SetRecordDurationToFourBars
-                | ClipMatrixAction::SetRecordDurationToEightBars => match evt {
+                PlaytimeMatrixAction::SetRecordDurationToOpenEnd
+                | PlaytimeMatrixAction::SetRecordDurationToOneBar
+                | PlaytimeMatrixAction::SetRecordDurationToTwoBars
+                | PlaytimeMatrixAction::SetRecordDurationToFourBars
+                | PlaytimeMatrixAction::SetRecordDurationToEightBars => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::RecordDurationChanged) => {
                         (true, None)
                     }
                     _ => (false, None),
                 },
-                ClipMatrixAction::ClickOnOffState => match evt {
+                PlaytimeMatrixAction::ClickOnOffState => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClickEnabledChanged) => {
                         (true, None)
                     }
@@ -226,7 +226,7 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            if !matches!(self.action, ClipMatrixAction::Stop) {
+            if !matches!(self.action, PlaytimeMatrixAction::Stop) {
                 return None;
             }
             let t = RealTimeClipMatrixTarget {
@@ -246,31 +246,31 @@ mod playtime_impl {
             Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| {
                     let bool_value = match self.action {
-                        ClipMatrixAction::Stop | ClipMatrixAction::BuildScene => {
+                        PlaytimeMatrixAction::Stop | PlaytimeMatrixAction::BuildScene => {
                             matrix.is_stoppable()
                         }
-                        ClipMatrixAction::Undo => matrix.can_undo(),
-                        ClipMatrixAction::Redo => matrix.can_redo(),
-                        ClipMatrixAction::SetRecordDurationToOpenEnd => {
+                        PlaytimeMatrixAction::Undo => matrix.can_undo(),
+                        PlaytimeMatrixAction::Redo => matrix.can_redo(),
+                        PlaytimeMatrixAction::SetRecordDurationToOpenEnd => {
                             matrix.settings().clip_record_settings.duration == RecordLength::OpenEnd
                         }
-                        ClipMatrixAction::SetRecordDurationToOneBar => {
+                        PlaytimeMatrixAction::SetRecordDurationToOneBar => {
                             matrix.settings().clip_record_settings.duration
                                 == record_duration_in_bars(1)
                         }
-                        ClipMatrixAction::SetRecordDurationToTwoBars => {
+                        PlaytimeMatrixAction::SetRecordDurationToTwoBars => {
                             matrix.settings().clip_record_settings.duration
                                 == record_duration_in_bars(2)
                         }
-                        ClipMatrixAction::SetRecordDurationToFourBars => {
+                        PlaytimeMatrixAction::SetRecordDurationToFourBars => {
                             matrix.settings().clip_record_settings.duration
                                 == record_duration_in_bars(4)
                         }
-                        ClipMatrixAction::SetRecordDurationToEightBars => {
+                        PlaytimeMatrixAction::SetRecordDurationToEightBars => {
                             matrix.settings().clip_record_settings.duration
                                 == record_duration_in_bars(8)
                         }
-                        ClipMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
+                        PlaytimeMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
                     };
                     Some(AbsoluteValue::from_bool(bool_value))
                 })
@@ -288,7 +288,7 @@ mod playtime_impl {
             context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             match self.action {
-                ClipMatrixAction::Stop => {
+                PlaytimeMatrixAction::Stop => {
                     if !value.is_on() {
                         return Ok(());
                     }
@@ -306,7 +306,7 @@ mod playtime_impl {
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
             match self.action {
-                ClipMatrixAction::Stop => {
+                PlaytimeMatrixAction::Stop => {
                     let matrix = context.clip_matrix().ok()?;
                     let matrix = matrix.lock();
                     let is_stoppable = matrix.is_stoppable();
@@ -320,8 +320,8 @@ mod playtime_impl {
             control_type_and_character(self.action).0
         }
     }
-    fn control_type_and_character(action: ClipMatrixAction) -> (ControlType, TargetCharacter) {
-        use ClipMatrixAction::*;
+    fn control_type_and_character(action: PlaytimeMatrixAction) -> (ControlType, TargetCharacter) {
+        use PlaytimeMatrixAction::*;
         match action {
             SetRecordDurationToOpenEnd
             | SetRecordDurationToOneBar

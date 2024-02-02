@@ -868,7 +868,7 @@ fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> pers
 fn convert_track_descriptor(
     data: TrackData,
     only_if_track_selected: bool,
-    clip_column: &realearn_api::persistence::ClipColumnDescriptor,
+    clip_column: &realearn_api::persistence::PlaytimeColumnDescriptor,
     style: ConversionStyle,
 ) -> Option<persistence::TrackDescriptor> {
     let input = TrackDeserializationInput {

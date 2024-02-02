@@ -3,12 +3,12 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualPlaytimeRow, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::ClipRowAction;
+use realearn_api::persistence::PlaytimeRowAction;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeRowActionTarget {
     pub row: VirtualPlaytimeRow,
-    pub action: ClipRowAction,
+    pub action: PlaytimeRowAction,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeRowActionTarget {
@@ -39,7 +39,7 @@ pub struct PlaytimeRowActionTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipRowTargetBasics {
     pub row_index: usize,
-    pub action: ClipRowAction,
+    pub action: PlaytimeRowAction,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -92,7 +92,7 @@ mod playtime_impl {
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
     use playtime_api::persistence::RowAddress;
-    use realearn_api::persistence::ClipRowAction;
+    use realearn_api::persistence::PlaytimeRowAction;
 
     impl PlaytimeRowActionTarget {
         fn hit_internal(
@@ -101,7 +101,7 @@ mod playtime_impl {
             context: MappingControlContext,
         ) -> anyhow::Result<HitResponse> {
             match self.basics.action {
-                ClipRowAction::PlayScene => {
+                PlaytimeRowAction::PlayScene => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
@@ -110,7 +110,7 @@ mod playtime_impl {
                     })?;
                     Ok(HitResponse::processed_with_effect())
                 }
-                ClipRowAction::BuildScene => {
+                PlaytimeRowAction::BuildScene => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
@@ -119,7 +119,7 @@ mod playtime_impl {
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
-                ClipRowAction::CopyOrPasteScene => {
+                PlaytimeRowAction::CopyOrPasteScene => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
@@ -132,7 +132,7 @@ mod playtime_impl {
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
-                ClipRowAction::ClearScene => {
+                PlaytimeRowAction::ClearScene => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
@@ -176,7 +176,7 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            if !matches!(self.basics.action, ClipRowAction::PlayScene) {
+            if !matches!(self.basics.action, PlaytimeRowAction::PlayScene) {
                 return None;
             }
             let t = RealTimeClipRowTarget {
@@ -191,10 +191,10 @@ mod playtime_impl {
 
         fn can_report_current_value(&self) -> bool {
             match self.basics.action {
-                ClipRowAction::PlayScene => false,
-                ClipRowAction::BuildScene => false,
-                ClipRowAction::CopyOrPasteScene => true,
-                ClipRowAction::ClearScene => true,
+                PlaytimeRowAction::PlayScene => false,
+                PlaytimeRowAction::BuildScene => false,
+                PlaytimeRowAction::CopyOrPasteScene => true,
+                PlaytimeRowAction::ClearScene => true,
             }
         }
     }
@@ -203,7 +203,7 @@ mod playtime_impl {
         type Context = ControlContext<'a>;
 
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-            use ClipRowAction::*;
+            use PlaytimeRowAction::*;
             match self.basics.action {
                 PlayScene => None,
                 BuildScene => None,
@@ -230,7 +230,7 @@ mod playtime_impl {
             context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
             match self.basics.action {
-                ClipRowAction::PlayScene => {
+                PlaytimeRowAction::PlayScene => {
                     if !value.is_on() {
                         return Ok(());
                     }
@@ -256,7 +256,7 @@ mod playtime_impl {
         }
     }
 
-    fn control_type_and_character(_action: ClipRowAction) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(_action: PlaytimeRowAction) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,

@@ -810,9 +810,9 @@ impl Default for VirtualPlaytimeColumn {
 
 impl VirtualPlaytimeColumn {
     pub fn from_descriptor(
-        descriptor: &realearn_api::persistence::ClipColumnDescriptor,
+        descriptor: &realearn_api::persistence::PlaytimeColumnDescriptor,
     ) -> Result<VirtualPlaytimeColumn, &'static str> {
-        use realearn_api::persistence::ClipColumnDescriptor::*;
+        use realearn_api::persistence::PlaytimeColumnDescriptor::*;
         let column = match descriptor {
             Selected => VirtualPlaytimeColumn::Selected,
             ByIndex(address) => VirtualPlaytimeColumn::ByIndex(address.index),

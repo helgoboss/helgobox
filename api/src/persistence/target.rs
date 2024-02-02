@@ -843,8 +843,8 @@ pub struct RouteTouchStateTarget {
 pub struct PlaytimeSlotTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
-    pub action: ClipTransportAction,
+    pub slot: PlaytimeSlotDescriptor,
+    pub action: PlaytimeSlotTransportAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_only_if_track_armed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -859,23 +859,23 @@ pub struct PlaytimeSlotTransportActionTarget {
 pub struct PlaytimeColumnActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub column: ClipColumnDescriptor,
-    pub action: ClipColumnAction,
+    pub column: PlaytimeColumnDescriptor,
+    pub action: PlaytimeColumnAction,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeRowActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub row: ClipRowDescriptor,
-    pub action: ClipRowAction,
+    pub row: PlaytimeRowDescriptor,
+    pub action: PlaytimeRowAction,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeMatrixActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub action: ClipMatrixAction,
+    pub action: PlaytimeMatrixAction,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -889,7 +889,7 @@ pub struct PlaytimeControlUnitScrollTarget {
 pub struct PlaytimeSlotSeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
+    pub slot: PlaytimeSlotDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_resolution: Option<FeedbackResolution>,
 }
@@ -898,20 +898,20 @@ pub struct PlaytimeSlotSeekTarget {
 pub struct PlaytimeSlotVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
+    pub slot: PlaytimeSlotDescriptor,
 }
 
 #[derive(PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeSlotManagementActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
-    pub action: ClipManagementAction,
+    pub slot: PlaytimeSlotDescriptor,
+    pub action: PlaytimeSlotManagementAction,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Display)]
 #[serde(tag = "kind")]
-pub enum ClipManagementAction {
+pub enum PlaytimeSlotManagementAction {
     #[display(fmt = "Clear slot")]
     ClearSlot,
     #[display(fmt = "Fill slot with selected item")]
@@ -922,9 +922,15 @@ pub enum ClipManagementAction {
     CopyOrPasteClip,
     #[display(fmt = "Adjust section length")]
     AdjustClipSectionLength(AdjustClipSectionLengthAction),
+    #[display(fmt = "Quantization on/off state")]
+    QuantizationOnOffState,
+    #[display(fmt = "Duplicate")]
+    Duplicate,
+    #[display(fmt = "Double")]
+    Double,
 }
 
-impl Default for ClipManagementAction {
+impl Default for PlaytimeSlotManagementAction {
     fn default() -> Self {
         Self::ClearSlot
     }
@@ -1351,7 +1357,7 @@ pub enum TransportAction {
     Display,
 )]
 #[repr(usize)]
-pub enum ClipTransportAction {
+pub enum PlaytimeSlotTransportAction {
     /// Triggers the slot according to the matrix settings (toggle, momentary, retrigger).
     #[display(fmt = "Trigger")]
     Trigger,
@@ -1406,7 +1412,7 @@ pub enum ClipTransportAction {
     Looped,
 }
 
-impl Default for ClipTransportAction {
+impl Default for PlaytimeSlotTransportAction {
     fn default() -> Self {
         Self::PlayStop
     }
@@ -1426,12 +1432,12 @@ impl Default for ClipTransportAction {
     Display,
 )]
 #[repr(usize)]
-pub enum ClipColumnAction {
+pub enum PlaytimeColumnAction {
     #[display(fmt = "Stop")]
     Stop,
 }
 
-impl Default for ClipColumnAction {
+impl Default for PlaytimeColumnAction {
     fn default() -> Self {
         Self::Stop
     }
@@ -1451,7 +1457,7 @@ impl Default for ClipColumnAction {
     Display,
 )]
 #[repr(usize)]
-pub enum ClipRowAction {
+pub enum PlaytimeRowAction {
     #[display(fmt = "Play")]
     PlayScene,
     #[display(fmt = "Build scene")]
@@ -1462,7 +1468,7 @@ pub enum ClipRowAction {
     CopyOrPasteScene,
 }
 
-impl Default for ClipRowAction {
+impl Default for PlaytimeRowAction {
     fn default() -> Self {
         Self::PlayScene
     }
@@ -1482,7 +1488,7 @@ impl Default for ClipRowAction {
     Display,
 )]
 #[repr(usize)]
-pub enum ClipMatrixAction {
+pub enum PlaytimeMatrixAction {
     #[display(fmt = "Stop")]
     Stop,
     #[display(fmt = "Undo")]
@@ -1505,7 +1511,7 @@ pub enum ClipMatrixAction {
     ClickOnOffState,
 }
 
-impl Default for ClipMatrixAction {
+impl Default for PlaytimeMatrixAction {
     fn default() -> Self {
         Self::Stop
     }
@@ -1593,7 +1599,7 @@ pub enum TrackDescriptor {
     FromClipColumn {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
-        column: ClipColumnDescriptor,
+        column: PlaytimeColumnDescriptor,
         context: ClipColumnTrackContext,
     },
 }
@@ -1923,7 +1929,7 @@ impl Default for TrackRouteKind {
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipSlotDescriptor {
+pub enum PlaytimeSlotDescriptor {
     Selected,
     ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
@@ -1932,12 +1938,12 @@ pub enum ClipSlotDescriptor {
     },
 }
 
-impl Display for ClipSlotDescriptor {
+impl Display for PlaytimeSlotDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ClipSlotDescriptor::Selected => f.write_str("Selected slot"),
-            ClipSlotDescriptor::ByIndex(address) => address.fmt(f),
-            ClipSlotDescriptor::Dynamic {
+            PlaytimeSlotDescriptor::Selected => f.write_str("Selected slot"),
+            PlaytimeSlotDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeSlotDescriptor::Dynamic {
                 column_expression,
                 row_expression,
             } => {
@@ -1951,13 +1957,13 @@ impl Display for ClipSlotDescriptor {
     }
 }
 
-impl Default for ClipSlotDescriptor {
+impl Default for PlaytimeSlotDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-impl ClipSlotDescriptor {
+impl PlaytimeSlotDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -1969,19 +1975,19 @@ impl ClipSlotDescriptor {
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipColumnDescriptor {
+pub enum PlaytimeColumnDescriptor {
     Selected,
     ByIndex(playtime_api::persistence::ColumnAddress),
     Dynamic { expression: String },
 }
 
-impl Default for ClipColumnDescriptor {
+impl Default for PlaytimeColumnDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-impl ClipColumnDescriptor {
+impl PlaytimeColumnDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -1991,35 +1997,35 @@ impl ClipColumnDescriptor {
     }
 }
 
-impl Display for ClipColumnDescriptor {
+impl Display for PlaytimeColumnDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ClipColumnDescriptor::Selected => f.write_str("Selected column"),
-            ClipColumnDescriptor::ByIndex(address) => address.fmt(f),
-            ClipColumnDescriptor::Dynamic { .. } => f.write_str("Dynamic column"),
+            PlaytimeColumnDescriptor::Selected => f.write_str("Selected column"),
+            PlaytimeColumnDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeColumnDescriptor::Dynamic { .. } => f.write_str("Dynamic column"),
         }
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipRowDescriptor {
+pub enum PlaytimeRowDescriptor {
     Selected,
     ByIndex(playtime_api::persistence::RowAddress),
     Dynamic { expression: String },
 }
 
-impl Display for ClipRowDescriptor {
+impl Display for PlaytimeRowDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ClipRowDescriptor::Selected => f.write_str("Selected row"),
-            ClipRowDescriptor::ByIndex(address) => address.fmt(f),
-            ClipRowDescriptor::Dynamic { .. } => f.write_str("Dynamic row"),
+            PlaytimeRowDescriptor::Selected => f.write_str("Selected row"),
+            PlaytimeRowDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeRowDescriptor::Dynamic { .. } => f.write_str("Dynamic row"),
         }
     }
 }
 
-impl ClipRowDescriptor {
+impl PlaytimeRowDescriptor {
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -2029,7 +2035,7 @@ impl ClipRowDescriptor {
     }
 }
 
-impl Default for ClipRowDescriptor {
+impl Default for PlaytimeRowDescriptor {
     fn default() -> Self {
         Self::Selected
     }

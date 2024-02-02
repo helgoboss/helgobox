@@ -4,13 +4,13 @@ use crate::domain::{
 };
 use playtime_api::persistence::SlotAddress;
 use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
-use realearn_api::persistence::ClipTransportAction;
+use realearn_api::persistence::PlaytimeSlotTransportAction;
 use reaper_high::Project;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeSlotTransportTarget {
     pub slot: VirtualPlaytimeSlot,
-    pub action: ClipTransportAction,
+    pub action: PlaytimeSlotTransportAction,
     pub options: ClipTransportOptions,
 }
 
@@ -56,7 +56,7 @@ pub struct PlaytimeSlotTransportTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTargetBasics {
     pub slot_coordinates: SlotAddress,
-    pub action: ClipTransportAction,
+    pub action: PlaytimeSlotTransportAction,
     pub options: ClipTransportOptions,
 }
 
@@ -127,7 +127,7 @@ mod playtime_impl {
             QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
         },
     };
-    use realearn_api::persistence::ClipTransportAction;
+    use realearn_api::persistence::PlaytimeSlotTransportAction;
     use reaper_high::Project;
     use std::borrow::Cow;
 
@@ -148,7 +148,7 @@ mod playtime_impl {
             value: ControlValue,
             context: MappingControlContext,
         ) -> anyhow::Result<HitResponse> {
-            use ClipTransportAction::*;
+            use PlaytimeSlotTransportAction::*;
             let on = value.is_on();
             Backbone::get().with_clip_matrix_mut(context.control_context.instance(), |matrix| {
                 let response = match self.basics.action {
@@ -319,7 +319,7 @@ mod playtime_impl {
                         event,
                     },
                 )) if *sc == self.basics.slot_coordinates => {
-                    use ClipTransportAction::*;
+                    use PlaytimeSlotTransportAction::*;
                     match event {
                         SlotChangeEvent::PlayState(new_state) => match self.basics.action {
                             Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
@@ -339,7 +339,7 @@ mod playtime_impl {
                         event,
                     },
                 )) if clip_address.slot_address == self.basics.slot_coordinates => {
-                    use ClipTransportAction::*;
+                    use PlaytimeSlotTransportAction::*;
                     match event {
                         ClipChangeEvent::Looped(new_state) => match self.basics.action {
                             Looped => (
@@ -366,7 +366,7 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            use ClipTransportAction::*;
+            use PlaytimeSlotTransportAction::*;
             if matches!(self.basics.action, RecordStop | RecordPlayStop | Looped) {
                 // These are not for real-time usage.
                 return None;
@@ -400,7 +400,7 @@ mod playtime_impl {
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let val = Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| {
-                    use ClipTransportAction::*;
+                    use PlaytimeSlotTransportAction::*;
                     let val = match self.basics.action {
                         Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
                         | RecordPlayStop => {
@@ -432,7 +432,7 @@ mod playtime_impl {
             value: ControlValue,
             context: RealTimeControlContext,
         ) -> Result<(), &'static str> {
-            use ClipTransportAction::*;
+            use PlaytimeSlotTransportAction::*;
             let on = value.is_on();
             let matrix = context.clip_matrix()?;
             let matrix = matrix.lock();
@@ -482,7 +482,7 @@ mod playtime_impl {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
-            use ClipTransportAction::*;
+            use PlaytimeSlotTransportAction::*;
             let matrix = context.clip_matrix().ok()?;
             let matrix = matrix.lock();
             let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
@@ -523,8 +523,10 @@ mod playtime_impl {
     }
     const NOT_RECORDING_BECAUSE_NOT_ARMED: &str = "not recording because not armed";
 
-    fn control_type_and_character(action: ClipTransportAction) -> (ControlType, TargetCharacter) {
-        use ClipTransportAction::*;
+    fn control_type_and_character(
+        action: PlaytimeSlotTransportAction,
+    ) -> (ControlType, TargetCharacter) {
+        use PlaytimeSlotTransportAction::*;
         match action {
             Trigger => (
                 ControlType::AbsoluteContinuousRetriggerable,

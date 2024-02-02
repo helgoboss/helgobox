@@ -278,19 +278,19 @@ impl ReaperTarget {
         match simple_target {
             TriggerMatrix => {
                 Self::PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget {
-                    action: realearn_api::persistence::ClipMatrixAction::Stop,
+                    action: realearn_api::persistence::PlaytimeMatrixAction::Stop,
                 })
             }
             TriggerColumn(t) => {
                 Self::PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget {
                     column_index: t.index,
-                    action: realearn_api::persistence::ClipColumnAction::Stop,
+                    action: realearn_api::persistence::PlaytimeColumnAction::Stop,
                 })
             }
             TriggerRow(t) => Self::PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget {
                 basics: crate::domain::ClipRowTargetBasics {
                     row_index: t.index,
-                    action: realearn_api::persistence::ClipRowAction::PlayScene,
+                    action: realearn_api::persistence::PlaytimeRowAction::PlayScene,
                 },
             }),
             TriggerSlot(t) => {
@@ -298,7 +298,7 @@ impl ReaperTarget {
                     project: Reaper::get().current_project(),
                     basics: crate::domain::ClipTransportTargetBasics {
                         slot_coordinates: t,
-                        action: realearn_api::persistence::ClipTransportAction::Trigger,
+                        action: realearn_api::persistence::PlaytimeSlotTransportAction::Trigger,
                         options: Default::default(),
                     },
                 })

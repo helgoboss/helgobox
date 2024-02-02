@@ -1013,7 +1013,7 @@ fn convert_automation_mode(mode: AutomationMode) -> RealearnAutomationMode {
 struct TrackDesc {
     track_data: TrackData,
     track_must_be_selected: bool,
-    clip_column: Option<ClipColumnDescriptor>,
+    clip_column: Option<PlaytimeColumnDescriptor>,
 }
 
 #[derive(Default)]

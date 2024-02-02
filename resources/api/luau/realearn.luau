@@ -1498,8 +1498,8 @@ export type Target_RouteTouchState = {
 export type Target_PlaytimeSlotTransportAction = {
 	kind: "PlaytimeSlotTransportAction",
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
-	action: ClipTransportAction,
+	slot: PlaytimeSlotDescriptor,
+	action: PlaytimeSlotTransportAction,
 	record_only_if_track_armed: boolean?,
 	stop_column_if_slot_empty: boolean?,
 	play_start_timing: playtime.ClipPlayStartTiming?,
@@ -1509,35 +1509,39 @@ export type Target_PlaytimeSlotTransportAction = {
 export type Target_PlaytimeColumnAction = {
 	kind: "PlaytimeColumnAction",
 	unit: TargetUnit?,
-	column: ClipColumnDescriptor,
-	action: ClipColumnAction,
+	column: PlaytimeColumnDescriptor,
+	action: PlaytimeColumnAction,
 }
 
 export type Target_PlaytimeRowAction = {
 	kind: "PlaytimeRowAction",
 	unit: TargetUnit?,
-	row: ClipRowDescriptor,
-	action: ClipRowAction,
+	row: PlaytimeRowDescriptor,
+	action: PlaytimeRowAction,
 }
 
-export type Target_PlaytimeMatrixAction = { kind: "PlaytimeMatrixAction", unit: TargetUnit?, action: ClipMatrixAction }
+export type Target_PlaytimeMatrixAction = {
+	kind: "PlaytimeMatrixAction",
+	unit: TargetUnit?,
+	action: PlaytimeMatrixAction,
+}
 
 export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", unit: TargetUnit?, axis: Axis }
 
 export type Target_PlaytimeSlotSeek = {
 	kind: "PlaytimeSlotSeek",
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
+	slot: PlaytimeSlotDescriptor,
 	feedback_resolution: FeedbackResolution?,
 }
 
-export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", unit: TargetUnit?, slot: ClipSlotDescriptor }
+export type Target_PlaytimeSlotVolume = { kind: "PlaytimeSlotVolume", unit: TargetUnit?, slot: PlaytimeSlotDescriptor }
 
 export type Target_PlaytimeSlotManagementAction = {
 	kind: "PlaytimeSlotManagementAction",
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
-	action: ClipManagementAction,
+	slot: PlaytimeSlotDescriptor,
+	action: PlaytimeSlotManagementAction,
 }
 
 export type Target_SendMidi = { kind: "SendMidi", unit: TargetUnit?, message: string?, destination: MidiDestination? }
@@ -2834,8 +2838,8 @@ end
 
 export type PlaytimeSlotTransportActionTarget = {
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
-	action: ClipTransportAction,
+	slot: PlaytimeSlotDescriptor,
+	action: PlaytimeSlotTransportAction,
 	record_only_if_track_armed: boolean?,
 	stop_column_if_slot_empty: boolean?,
 	play_start_timing: playtime.ClipPlayStartTiming?,
@@ -2850,8 +2854,8 @@ end
 
 export type PlaytimeColumnActionTarget = {
 	unit: TargetUnit?,
-	column: ClipColumnDescriptor,
-	action: ClipColumnAction,
+	column: PlaytimeColumnDescriptor,
+	action: PlaytimeColumnAction,
 }
 --- Creates a PlaytimeColumnActionTarget value.
 function module.PlaytimeColumnActionTarget(value: PlaytimeColumnActionTarget): PlaytimeColumnActionTarget
@@ -2860,8 +2864,8 @@ end
 
 export type PlaytimeRowActionTarget = {
 	unit: TargetUnit?,
-	row: ClipRowDescriptor,
-	action: ClipRowAction,
+	row: PlaytimeRowDescriptor,
+	action: PlaytimeRowAction,
 }
 --- Creates a PlaytimeRowActionTarget value.
 function module.PlaytimeRowActionTarget(value: PlaytimeRowActionTarget): PlaytimeRowActionTarget
@@ -2870,7 +2874,7 @@ end
 
 export type PlaytimeMatrixActionTarget = {
 	unit: TargetUnit?,
-	action: ClipMatrixAction,
+	action: PlaytimeMatrixAction,
 }
 --- Creates a PlaytimeMatrixActionTarget value.
 function module.PlaytimeMatrixActionTarget(value: PlaytimeMatrixActionTarget): PlaytimeMatrixActionTarget
@@ -2888,7 +2892,7 @@ end
 
 export type PlaytimeSlotSeekTarget = {
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
+	slot: PlaytimeSlotDescriptor,
 	feedback_resolution: FeedbackResolution?,
 }
 --- Creates a PlaytimeSlotSeekTarget value.
@@ -2898,7 +2902,7 @@ end
 
 export type PlaytimeSlotVolumeTarget = {
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
+	slot: PlaytimeSlotDescriptor,
 }
 --- Creates a PlaytimeSlotVolumeTarget value.
 function module.PlaytimeSlotVolumeTarget(value: PlaytimeSlotVolumeTarget): PlaytimeSlotVolumeTarget
@@ -2907,8 +2911,8 @@ end
 
 export type PlaytimeSlotManagementActionTarget = {
 	unit: TargetUnit?,
-	slot: ClipSlotDescriptor,
-	action: ClipManagementAction,
+	slot: PlaytimeSlotDescriptor,
+	action: PlaytimeSlotManagementAction,
 }
 --- Creates a PlaytimeSlotManagementActionTarget value.
 function module.PlaytimeSlotManagementActionTarget(
@@ -2917,68 +2921,103 @@ function module.PlaytimeSlotManagementActionTarget(
 	return value
 end
 
-export type ClipManagementAction_ClearSlot = { kind: "ClearSlot" }
+export type PlaytimeSlotManagementAction_ClearSlot = { kind: "ClearSlot" }
 
-export type ClipManagementAction_FillSlotWithSelectedItem = { kind: "FillSlotWithSelectedItem" }
+export type PlaytimeSlotManagementAction_FillSlotWithSelectedItem = { kind: "FillSlotWithSelectedItem" }
 
-export type ClipManagementAction_EditClip = { kind: "EditClip" }
+export type PlaytimeSlotManagementAction_EditClip = { kind: "EditClip" }
 
-export type ClipManagementAction_CopyOrPasteClip = { kind: "CopyOrPasteClip" }
+export type PlaytimeSlotManagementAction_CopyOrPasteClip = { kind: "CopyOrPasteClip" }
 
-export type ClipManagementAction_AdjustClipSectionLength = { kind: "AdjustClipSectionLength", factor: number }
-export type ClipManagementAction =
-	ClipManagementAction_ClearSlot
-	| ClipManagementAction_FillSlotWithSelectedItem
-	| ClipManagementAction_EditClip
-	| ClipManagementAction_CopyOrPasteClip
-	| ClipManagementAction_AdjustClipSectionLength
+export type PlaytimeSlotManagementAction_AdjustClipSectionLength = { kind: "AdjustClipSectionLength", factor: number }
 
---- A type that represents all possible kinds of ClipManagementAction.
-export type ClipManagementActionKind =
+export type PlaytimeSlotManagementAction_QuantizationOnOffState = { kind: "QuantizationOnOffState" }
+
+export type PlaytimeSlotManagementAction_Duplicate = { kind: "Duplicate" }
+
+export type PlaytimeSlotManagementAction_Double = { kind: "Double" }
+export type PlaytimeSlotManagementAction =
+	PlaytimeSlotManagementAction_ClearSlot
+	| PlaytimeSlotManagementAction_FillSlotWithSelectedItem
+	| PlaytimeSlotManagementAction_EditClip
+	| PlaytimeSlotManagementAction_CopyOrPasteClip
+	| PlaytimeSlotManagementAction_AdjustClipSectionLength
+	| PlaytimeSlotManagementAction_QuantizationOnOffState
+	| PlaytimeSlotManagementAction_Duplicate
+	| PlaytimeSlotManagementAction_Double
+
+--- A type that represents all possible kinds of PlaytimeSlotManagementAction.
+export type PlaytimeSlotManagementActionKind =
 	"ClearSlot"
 	| "FillSlotWithSelectedItem"
 	| "EditClip"
 	| "CopyOrPasteClip"
 	| "AdjustClipSectionLength"
+	| "QuantizationOnOffState"
+	| "Duplicate"
+	| "Double"
 
---- Helper table to create ClipManagementAction values of different kinds.
-module.ClipManagementAction = {}
+--- Helper table to create PlaytimeSlotManagementAction values of different kinds.
+module.PlaytimeSlotManagementAction = {}
 
---- Creates a ClipManagementAction of kind ClearSlot.
-function module.ClipManagementAction.ClearSlot(): ClipManagementAction_ClearSlot
+--- Creates a PlaytimeSlotManagementAction of kind ClearSlot.
+function module.PlaytimeSlotManagementAction.ClearSlot(): PlaytimeSlotManagementAction_ClearSlot
 	return {
 		kind = "ClearSlot",
 	}
 end
 
---- Creates a ClipManagementAction of kind FillSlotWithSelectedItem.
-function module.ClipManagementAction.FillSlotWithSelectedItem(): ClipManagementAction_FillSlotWithSelectedItem
+--- Creates a PlaytimeSlotManagementAction of kind FillSlotWithSelectedItem.
+function module.PlaytimeSlotManagementAction.FillSlotWithSelectedItem(
+): PlaytimeSlotManagementAction_FillSlotWithSelectedItem
 	return {
 		kind = "FillSlotWithSelectedItem",
 	}
 end
 
---- Creates a ClipManagementAction of kind EditClip.
-function module.ClipManagementAction.EditClip(): ClipManagementAction_EditClip
+--- Creates a PlaytimeSlotManagementAction of kind EditClip.
+function module.PlaytimeSlotManagementAction.EditClip(): PlaytimeSlotManagementAction_EditClip
 	return {
 		kind = "EditClip",
 	}
 end
 
---- Creates a ClipManagementAction of kind CopyOrPasteClip.
-function module.ClipManagementAction.CopyOrPasteClip(): ClipManagementAction_CopyOrPasteClip
+--- Creates a PlaytimeSlotManagementAction of kind CopyOrPasteClip.
+function module.PlaytimeSlotManagementAction.CopyOrPasteClip(): PlaytimeSlotManagementAction_CopyOrPasteClip
 	return {
 		kind = "CopyOrPasteClip",
 	}
 end
 
---- Creates a ClipManagementAction of kind AdjustClipSectionLength.
-function module.ClipManagementAction.AdjustClipSectionLength(
+--- Creates a PlaytimeSlotManagementAction of kind AdjustClipSectionLength.
+function module.PlaytimeSlotManagementAction.AdjustClipSectionLength(
 	value: AdjustClipSectionLengthAction
-): ClipManagementAction_AdjustClipSectionLength
+): PlaytimeSlotManagementAction_AdjustClipSectionLength
 	local t: any = table.clone(value)
 	t.kind = "AdjustClipSectionLength"
 	return t
+end
+
+--- Creates a PlaytimeSlotManagementAction of kind QuantizationOnOffState.
+function module.PlaytimeSlotManagementAction.QuantizationOnOffState(
+): PlaytimeSlotManagementAction_QuantizationOnOffState
+	return {
+		kind = "QuantizationOnOffState",
+	}
+end
+
+--- Creates a PlaytimeSlotManagementAction of kind Duplicate.
+function module.PlaytimeSlotManagementAction.Duplicate(): PlaytimeSlotManagementAction_Duplicate
+	return {
+		kind = "Duplicate",
+	}
+end
+
+--- Creates a PlaytimeSlotManagementAction of kind Double.
+function module.PlaytimeSlotManagementAction.Double(): PlaytimeSlotManagementAction_Double
+	return {
+		kind = "Double",
+	}
 end
 
 export type AdjustClipSectionLengthAction = {
@@ -3290,7 +3329,7 @@ export type MonitoringMode = "Off" | "Normal" | "TapeStyle"
 
 export type TransportAction = "PlayStop" | "PlayPause" | "Stop" | "Pause" | "Record" | "Repeat"
 
-export type ClipTransportAction =
+export type PlaytimeSlotTransportAction =
 	"Trigger"
 	| "PlayStop"
 	| "PlayPause"
@@ -3300,11 +3339,11 @@ export type ClipTransportAction =
 	| "RecordPlayStop"
 	| "Looped"
 
-export type ClipColumnAction = "Stop"
+export type PlaytimeColumnAction = "Stop"
 
-export type ClipRowAction = "PlayScene" | "BuildScene" | "ClearScene" | "CopyOrPasteScene"
+export type PlaytimeRowAction = "PlayScene" | "BuildScene" | "ClearScene" | "CopyOrPasteScene"
 
-export type ClipMatrixAction =
+export type PlaytimeMatrixAction =
 	"Stop"
 	| "Undo"
 	| "Redo"
@@ -3314,6 +3353,7 @@ export type ClipMatrixAction =
 	| "SetRecordDurationToTwoBars"
 	| "SetRecordDurationToFourBars"
 	| "SetRecordDurationToEightBars"
+	| "ClickOnOffState"
 
 export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSelection"
 
@@ -3366,7 +3406,7 @@ export type TrackDescriptor_ByName = {
 export type TrackDescriptor_FromClipColumn = {
 	address: "FromClipColumn",
 	track_must_be_selected: boolean?,
-	column: ClipColumnDescriptor,
+	column: PlaytimeColumnDescriptor,
 	context: ClipColumnTrackContext,
 }
 export type TrackDescriptor =
@@ -3463,7 +3503,7 @@ end
 --- Creates a TrackDescriptor of kind FromClipColumn.
 function module.TrackDescriptor.FromClipColumn(value: {
 	track_must_be_selected: boolean?,
-	column: ClipColumnDescriptor,
+	column: PlaytimeColumnDescriptor,
 	context: ClipColumnTrackContext,
 }): TrackDescriptor_FromClipColumn
 	local t: any = table.clone(value)
@@ -3845,108 +3885,114 @@ end
 
 export type TrackRouteKind = "Send" | "Receive" | "HardwareOutput"
 
-export type ClipSlotDescriptor_Selected = { address: "Selected" }
+export type PlaytimeSlotDescriptor_Selected = { address: "Selected" }
 
-export type ClipSlotDescriptor_ByIndex = { address: "ByIndex", column_index: number, row_index: number }
+export type PlaytimeSlotDescriptor_ByIndex = { address: "ByIndex", column_index: number, row_index: number }
 
-export type ClipSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
-export type ClipSlotDescriptor = ClipSlotDescriptor_Selected | ClipSlotDescriptor_ByIndex | ClipSlotDescriptor_Dynamic
+export type PlaytimeSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
+export type PlaytimeSlotDescriptor =
+	PlaytimeSlotDescriptor_Selected
+	| PlaytimeSlotDescriptor_ByIndex
+	| PlaytimeSlotDescriptor_Dynamic
 
---- A type that represents all possible kinds of ClipSlotDescriptor.
-export type ClipSlotDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+--- A type that represents all possible kinds of PlaytimeSlotDescriptor.
+export type PlaytimeSlotDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
 
---- Helper table to create ClipSlotDescriptor values of different kinds.
-module.ClipSlotDescriptor = {}
+--- Helper table to create PlaytimeSlotDescriptor values of different kinds.
+module.PlaytimeSlotDescriptor = {}
 
---- Creates a ClipSlotDescriptor of kind Selected.
-function module.ClipSlotDescriptor.Selected(): ClipSlotDescriptor_Selected
+--- Creates a PlaytimeSlotDescriptor of kind Selected.
+function module.PlaytimeSlotDescriptor.Selected(): PlaytimeSlotDescriptor_Selected
 	return {
 		address = "Selected",
 	}
 end
 
---- Creates a ClipSlotDescriptor of kind ByIndex.
-function module.ClipSlotDescriptor.ByIndex(value: playtime.SlotAddress): ClipSlotDescriptor_ByIndex
+--- Creates a PlaytimeSlotDescriptor of kind ByIndex.
+function module.PlaytimeSlotDescriptor.ByIndex(value: playtime.SlotAddress): PlaytimeSlotDescriptor_ByIndex
 	local t: any = table.clone(value)
 	t.address = "ByIndex"
 	return t
 end
 
---- Creates a ClipSlotDescriptor of kind Dynamic.
-function module.ClipSlotDescriptor.Dynamic(
+--- Creates a PlaytimeSlotDescriptor of kind Dynamic.
+function module.PlaytimeSlotDescriptor.Dynamic(
 	value: { column_expression: string, row_expression: string }
-): ClipSlotDescriptor_Dynamic
+): PlaytimeSlotDescriptor_Dynamic
 	local t: any = table.clone(value)
 	t.address = "Dynamic"
 	return t
 end
 
-export type ClipColumnDescriptor_Selected = { address: "Selected" }
+export type PlaytimeColumnDescriptor_Selected = { address: "Selected" }
 
-export type ClipColumnDescriptor_ByIndex = { address: "ByIndex", index: number }
+export type PlaytimeColumnDescriptor_ByIndex = { address: "ByIndex", index: number }
 
-export type ClipColumnDescriptor_Dynamic = { address: "Dynamic", expression: string }
-export type ClipColumnDescriptor =
-	ClipColumnDescriptor_Selected
-	| ClipColumnDescriptor_ByIndex
-	| ClipColumnDescriptor_Dynamic
+export type PlaytimeColumnDescriptor_Dynamic = { address: "Dynamic", expression: string }
+export type PlaytimeColumnDescriptor =
+	PlaytimeColumnDescriptor_Selected
+	| PlaytimeColumnDescriptor_ByIndex
+	| PlaytimeColumnDescriptor_Dynamic
 
---- A type that represents all possible kinds of ClipColumnDescriptor.
-export type ClipColumnDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+--- A type that represents all possible kinds of PlaytimeColumnDescriptor.
+export type PlaytimeColumnDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
 
---- Helper table to create ClipColumnDescriptor values of different kinds.
-module.ClipColumnDescriptor = {}
+--- Helper table to create PlaytimeColumnDescriptor values of different kinds.
+module.PlaytimeColumnDescriptor = {}
 
---- Creates a ClipColumnDescriptor of kind Selected.
-function module.ClipColumnDescriptor.Selected(): ClipColumnDescriptor_Selected
+--- Creates a PlaytimeColumnDescriptor of kind Selected.
+function module.PlaytimeColumnDescriptor.Selected(): PlaytimeColumnDescriptor_Selected
 	return {
 		address = "Selected",
 	}
 end
 
---- Creates a ClipColumnDescriptor of kind ByIndex.
-function module.ClipColumnDescriptor.ByIndex(value: playtime.ColumnAddress): ClipColumnDescriptor_ByIndex
+--- Creates a PlaytimeColumnDescriptor of kind ByIndex.
+function module.PlaytimeColumnDescriptor.ByIndex(value: playtime.ColumnAddress): PlaytimeColumnDescriptor_ByIndex
 	local t: any = table.clone(value)
 	t.address = "ByIndex"
 	return t
 end
 
---- Creates a ClipColumnDescriptor of kind Dynamic.
-function module.ClipColumnDescriptor.Dynamic(value: { expression: string }): ClipColumnDescriptor_Dynamic
+--- Creates a PlaytimeColumnDescriptor of kind Dynamic.
+function module.PlaytimeColumnDescriptor.Dynamic(value: { expression: string }): PlaytimeColumnDescriptor_Dynamic
 	local t: any = table.clone(value)
 	t.address = "Dynamic"
 	return t
 end
 
-export type ClipRowDescriptor_Selected = { address: "Selected" }
+export type PlaytimeRowDescriptor_Selected = { address: "Selected" }
 
-export type ClipRowDescriptor_ByIndex = { address: "ByIndex", index: number }
+export type PlaytimeRowDescriptor_ByIndex = { address: "ByIndex", index: number }
 
-export type ClipRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
-export type ClipRowDescriptor = ClipRowDescriptor_Selected | ClipRowDescriptor_ByIndex | ClipRowDescriptor_Dynamic
+export type PlaytimeRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
+export type PlaytimeRowDescriptor =
+	PlaytimeRowDescriptor_Selected
+	| PlaytimeRowDescriptor_ByIndex
+	| PlaytimeRowDescriptor_Dynamic
 
---- A type that represents all possible kinds of ClipRowDescriptor.
-export type ClipRowDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+--- A type that represents all possible kinds of PlaytimeRowDescriptor.
+export type PlaytimeRowDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
 
---- Helper table to create ClipRowDescriptor values of different kinds.
-module.ClipRowDescriptor = {}
+--- Helper table to create PlaytimeRowDescriptor values of different kinds.
+module.PlaytimeRowDescriptor = {}
 
---- Creates a ClipRowDescriptor of kind Selected.
-function module.ClipRowDescriptor.Selected(): ClipRowDescriptor_Selected
+--- Creates a PlaytimeRowDescriptor of kind Selected.
+function module.PlaytimeRowDescriptor.Selected(): PlaytimeRowDescriptor_Selected
 	return {
 		address = "Selected",
 	}
 end
 
---- Creates a ClipRowDescriptor of kind ByIndex.
-function module.ClipRowDescriptor.ByIndex(value: playtime.RowAddress): ClipRowDescriptor_ByIndex
+--- Creates a PlaytimeRowDescriptor of kind ByIndex.
+function module.PlaytimeRowDescriptor.ByIndex(value: playtime.RowAddress): PlaytimeRowDescriptor_ByIndex
 	local t: any = table.clone(value)
 	t.address = "ByIndex"
 	return t
 end
 
---- Creates a ClipRowDescriptor of kind Dynamic.
-function module.ClipRowDescriptor.Dynamic(value: { expression: string }): ClipRowDescriptor_Dynamic
+--- Creates a PlaytimeRowDescriptor of kind Dynamic.
+function module.PlaytimeRowDescriptor.Dynamic(value: { expression: string }): PlaytimeRowDescriptor_Dynamic
 	local t: any = table.clone(value)
 	t.address = "Dynamic"
 	return t

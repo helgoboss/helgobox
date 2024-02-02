@@ -10,8 +10,6 @@
 
 -- Configuration
 
-local use_column_stop_buttons = true
-
 -- Requires
 
 local util = require("util")
@@ -42,6 +40,33 @@ type GroupMap = { [string]: realearn.Group }
 
 local column_count = 8
 local row_count = 8
+local slot_mode_count = 100
+
+-- Column modes
+
+local slot_modes: ModeMap = {
+    normal = {
+        index = 0,
+        label = "Normal",
+    },
+    delete = {
+        index = 1,
+        label = "Delete",
+    },
+    quantise = {
+        index = 2,
+        label = "Quantise",
+    },
+    duplicate = {
+        index = 3,
+        label = "Duplicate",
+    },
+    double = {
+        index = 4,
+        label = "Double",
+    },
+}
+local sorted_slot_modes = util.sorted_by_index(slot_modes)
 
 -- Parameters
 
@@ -49,6 +74,12 @@ local params: ParameterMap = {
     shift = {
         index = 0,
         name = "Shift modifier",
+    },
+    slot_mode = {
+        index = 1,
+        name = "Slot mode",
+        value_count = slot_mode_count,
+        value_labels = util.extract_labels(sorted_slot_modes),
     },
 }
 
@@ -66,21 +97,21 @@ function create_row_expression(row: number): string
     return create_index_expression("control_unit_row_index", row)
 end
 
-function create_slot_selector(col: number, row: number): realearn.ClipSlotDescriptor
-    return realearn.ClipSlotDescriptor.Dynamic {
+function create_slot_selector(col: number, row: number): realearn.PlaytimeSlotDescriptor
+    return realearn.PlaytimeSlotDescriptor.Dynamic {
         column_expression = create_col_expression(col),
         row_expression = create_row_expression(row),
     }
 end
 
-function create_column_selector(col: number): realearn.ClipColumnDescriptor
-    return realearn.ClipColumnDescriptor.Dynamic {
+function create_column_selector(col: number): realearn.PlaytimeColumnDescriptor
+    return realearn.PlaytimeColumnDescriptor.Dynamic {
         expression = create_col_expression(col),
     }
 end
 
-function create_row_selector(row: number): realearn.ClipRowDescriptor
-    return realearn.ClipRowDescriptor.Dynamic {
+function create_row_selector(row: number): realearn.PlaytimeRowDescriptor
+    return realearn.PlaytimeRowDescriptor.Dynamic {
         expression = create_row_expression(row),
     }
 end
@@ -111,7 +142,7 @@ function slot_button(col: number, row: number)
     return multi(`col{col + 1}/row{row + 1}/pad`)
 end
 
-function clip_column_action(col: number, action: realearn.ClipColumnAction)
+function clip_column_action(col: number, action: realearn.PlaytimeColumnAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeColumnAction {
             column = create_column_selector(col),
@@ -120,7 +151,7 @@ function clip_column_action(col: number, action: realearn.ClipColumnAction)
     }
 end
 
-function clip_row_action(row: number, action: realearn.ClipRowAction)
+function clip_row_action(row: number, action: realearn.PlaytimeRowAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeRowAction {
             row = create_row_selector(row),
@@ -149,7 +180,7 @@ end
 function clip_transport_action(
     col: number,
     row: number,
-    action: realearn.ClipTransportAction,
+    action: realearn.PlaytimeSlotTransportAction,
     record_only_if_track_armed: boolean
 )
     return partial_mapping {
@@ -162,19 +193,24 @@ function clip_transport_action(
     }
 end
 
-function clip_matrix_action(action: realearn.ClipMatrixAction)
+function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementActionKind)
     return partial_mapping {
-        target = realearn.Target.PlaytimeMatrixAction {
-            action = action,
+		glue = {
+			button_filter = "PressOnly",
+		},
+        target = realearn.Target.PlaytimeSlotManagementAction {
+            slot = create_slot_selector(col, row),
+            action = {
+                kind = action,
+            } :: any,
         },
     }
 end
 
-function reaper_action(command: realearn.ReaperCommand)
+function clip_matrix_action(action: realearn.PlaytimeMatrixAction)
     return partial_mapping {
-        target = realearn.Target.ReaperAction {
-            command = command,
-            invocation = "Trigger",
+        target = realearn.Target.PlaytimeMatrixAction {
+            action = action,
         },
     }
 end
@@ -183,22 +219,6 @@ function toggle()
     return partial_mapping {
         glue = {
             absolute_mode = "ToggleButton",
-        },
-    }
-end
-
-function incremental()
-    return partial_mapping {
-        glue = {
-            absolute_mode = "IncrementalButton",
-        },
-    }
-end
-
-function wrap()
-    return partial_mapping {
-        glue = {
-            wrap = true,
         },
     }
 end
@@ -246,18 +266,33 @@ function group(g: realearn.Group)
     }
 end
 
-function set_mode(mode: Mode, mode_count: number, mode_param_index: number)
+function set_mode_momentary(mode: Mode, mode_count: number, mode_param_index: number)
     local target_value = mode.index / (mode_count - 1)
     return partial_mapping {
         name = mode.label,
-        glue = {
-            target_interval = { target_value, target_value },
-            out_of_range_behavior = "Min",
+        glue = realearn.Glue {
+            target_value_sequence = `0, {target_value}`,
+            feedback = realearn.Feedback.Numeric {
+                transformation = `x = y == {target_value}`,
+            },
         },
         target = realearn.Target.CompartmentParameterValue {
             parameter = realearn.FxParameterDescriptor.ById {
                 index = mode_param_index,
             },
+        },
+    }
+end
+
+function set_slot_mode(mode: Mode)
+    return set_mode_momentary(mode, slot_mode_count, params.slot_mode.index)
+end
+
+function slot_mode_is(slot_mode: Mode)
+    return partial_mapping {
+        activation_condition = realearn.ActivationCondition.Bank {
+            parameter = params.slot_mode.index,
+            bank_index = slot_mode.index,
         },
     }
 end
@@ -330,6 +365,10 @@ local mappings = {
     name("Scroll down") + button("cursor-down") + turbo() + scroll_vertically(1),
     name("Scroll left") + button("cursor-left") + turbo() + scroll_horizontally(-1),
     name("Scroll right") + button("cursor-right") + turbo() + scroll_horizontally(1),
+    name("Delete") + button("delete") + colors(0.12, 0.98) + set_slot_mode(slot_modes.delete),
+    name("Quantise") + button("quantize") + colors(0.12, 0.98) + set_slot_mode(slot_modes.quantise),
+    name("Duplicate") + button("duplicate") + colors(0.12, 0.98) + set_slot_mode(slot_modes.duplicate),
+    name("Double") + button("double") + colors(0.12, 0.98) + set_slot_mode(slot_modes.double),
 }
 
 -- For each row
@@ -338,15 +377,61 @@ for row = 0, row_count - 1 do
         mappings,
         name("Play scene") + feedback_disabled() + row_play_button(row) + clip_row_action(row, "PlayScene")
     )
-    table.insert(
-        mappings,
-        name("Play scene LED") + row_play_button(row) + led_on_off()
-    )
+    table.insert(mappings, name("Play scene LED") + row_play_button(row) + led_on_off())
 end
 
 -- For each slot
 for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
+        -- Control (normal)
+        table.insert(
+            mappings,
+            name("Rec/play/stop")
+                + group(groups.slot_play)
+                + slot_mode_is(slot_modes.normal)
+                + feedback_disabled()
+                + slot_button(col, row)
+                + toggle()
+                + clip_transport_action(col, row, "RecordPlayStop", true)
+        )
+        -- Control (delete)
+        table.insert(
+            mappings,
+            name("Clear slot")
+                + group(groups.slot_clear)
+                + slot_mode_is(slot_modes.delete)
+                + feedback_disabled()
+                + slot_button(col, row)
+                + clip_management_action(col, row, "ClearSlot")
+        )
+        -- Control (quantize)
+        table.insert(
+            mappings,
+            name("Quantize slot")
+                + group(groups.slot_quantize)
+                + slot_mode_is(slot_modes.quantise)
+                + feedback_disabled()
+                + slot_button(col, row)
+                + clip_management_action(col, row, "QuantizationOnOffState")
+        )
+        -- Control (duplicate)
+        table.insert(
+            mappings,
+            name("Duplicate slot")
+                + slot_mode_is(slot_modes.duplicate)
+                + feedback_disabled()
+                + slot_button(col, row)
+                + clip_management_action(col, row, "Duplicate")
+        )
+        -- Control (double)
+        table.insert(
+            mappings,
+            name("Double slot")
+                + slot_mode_is(slot_modes.double)
+                + feedback_disabled()
+                + slot_button(col, row)
+                + clip_management_action(col, row, "Double")
+        )
         -- Feedback
         table.insert(
             mappings,
@@ -355,16 +440,6 @@ for col = 0, column_count - 1 do
                 + control_disabled()
                 + slot_button(col, row)
                 + playtime_util.slot_state_text_feedback()
-                + clip_transport_action(col, row, "RecordPlayStop", true)
-        )
-        -- Control
-        table.insert(
-            mappings,
-            name("Rec/play/stop")
-                + group(groups.slot_play)
-                + feedback_disabled()
-                + slot_button(col, row)
-                + toggle()
                 + clip_transport_action(col, row, "RecordPlayStop", true)
         )
     end
