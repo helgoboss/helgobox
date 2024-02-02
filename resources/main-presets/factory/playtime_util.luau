@@ -43,4 +43,18 @@ function playtime_util.scroll_vertically(amount: number)
     return scroll("Y", amount)
 end
 
+
+function playtime_util.slot_state_text_feedback()
+    return util.partial_mapping {
+        glue = {
+            feedback = realearn.Feedback.Text {
+                text_expression = "{{ target.slot_state.id }}",
+                color = realearn.VirtualColor {
+                    prop = "target.slot.color",
+                },
+            },
+        },
+    }
+end
+
 return playtime_util

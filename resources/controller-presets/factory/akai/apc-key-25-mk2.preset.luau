@@ -23,6 +23,7 @@ local preset_runtime = require("preset_runtime")
 local realearn = require("realearn")
 
 -- Define MIDI scripts
+
 local common_lua = preset_runtime.include_str("akai/apc-key-25-mk2/compartment-common.luau")
 
 local function build_pad_script(pad_index: number): string

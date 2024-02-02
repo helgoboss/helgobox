@@ -162,19 +162,6 @@ function clip_transport_action(
     }
 end
 
-function slot_state_text_feedback()
-    return partial_mapping {
-        glue = {
-            feedback = realearn.Feedback.Text {
-                text_expression = "{{ target.slot_state.id }}",
-                color = realearn.VirtualColor {
-                    prop = "target.slot.color",
-                },
-            },
-        },
-    }
-end
-
 function clip_matrix_action(action: realearn.ClipMatrixAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeMatrixAction {
@@ -367,7 +354,7 @@ for col = 0, column_count - 1 do
                 + group(groups.slot_feedback)
                 + control_disabled()
                 + slot_button(col, row)
-                + slot_state_text_feedback()
+                + playtime_util.slot_state_text_feedback()
                 + clip_transport_action(col, row, "RecordPlayStop", true)
         )
         -- Control

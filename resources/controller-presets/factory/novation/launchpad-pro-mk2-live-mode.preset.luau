@@ -14,6 +14,14 @@
 local preset_runtime = require("preset_runtime")
 local realearn = require("realearn")
 
+-- Define MIDI scripts
+
+local common_lua = preset_runtime.include_str("novation/launchpad-pro-mk2-live-mode/compartment-common.luau")
+
+local function build_pad_script(pad_index: number): string
+    return `return require("compartment").pad_script({pad_index}, y, context)`
+end
+
 -- Single buttons
 
 local function simple_button(id: string, name: string, cc: number): realearn.Mapping
@@ -61,52 +69,38 @@ local mappings = {
 
 -- Clip launch buttons
 
-local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
-    value = {
-        -- Off
-        empty = 0,
-        -- Yellow
-        stopped = 1,
-        -- Green blinking
-        scheduled_for_play_start = 15,
-        -- Green
-        playing = 17,
-        -- Yellow
-        paused = 5,
-        -- Yellow blinking
-        scheduled_for_play_stop = 15,
-        -- Red blinking
-        scheduled_for_record_start = 5,
-        -- Red
-        recording = 6,
-        -- Yellow blinking
-        scheduled_for_record_stop = 5,
-    }
-}
-
 for col = 0, 7 do
     local human_col = col + 1
     for row = 0, 7 do
         local human_row = row + 1
         local key_number_offset = 11 + (7 - row) * 10
         local id = `col{human_col}/row{human_row}/pad`
-        -- TODO-high Support RGB
-        local mapping = realearn.Mapping {
+        local control_mapping = realearn.Mapping {
             id = id,
-            source = {
-                kind = "MidiNoteVelocity",
+            feedback_enabled = false,
+            source = realearn.Source.MidiNoteVelocity {
                 channel = 0,
                 key_number = key_number_offset + col,
-            },
-            glue = {
-                feedback_value_table = feedback_value_table,
             },
             target = realearn.Target.Virtual {
                 id = id,
                 character = "Multi",
             },
         }
-        table.insert(mappings, mapping)
+        local feedback_mapping = realearn.Mapping {
+            id = `{id}-feedback`,
+            control_enabled = false,
+            source = realearn.Source.MidiScript {
+                script_kind = "Lua",
+                script = build_pad_script(key_number_offset + col),
+            },
+            target = realearn.Target.Virtual {
+                id = id,
+                character = "Multi",
+            },
+        }
+        table.insert(mappings, control_mapping)
+        table.insert(mappings, feedback_mapping)
     end
 end
 
@@ -130,5 +124,6 @@ for row = 0, 7 do
 end
 
 return realearn.Compartment {
+    common_lua = common_lua,
     mappings = mappings,
 }
