@@ -213,7 +213,7 @@ auto_impl.workspace = true
 tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
 
 [target.'cfg(windows)'.dependencies]
-# For detecting the Windows version (to determine whether special charactes can be displayed)
+# For detecting the Windows version (to determine whether special characters can be displayed)
 sys-info = "0.9.1"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
 winapi.workspace = true
@@ -232,6 +232,10 @@ cc = { git = "https://github.com/petrochenkov/cc-rs.git", rev = "4d52bd211aeb2b4
 embed-resource = "2.4.1"
 # For RC dialog file generation
 realearn-dialogs = { path = "../dialogs" }
+
+[dev-dependencies]
+# For the EEL memory consumption test
+sysinfo = "0.30.5"
 
 [lib]
 name = "realearn"

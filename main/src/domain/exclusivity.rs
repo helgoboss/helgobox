@@ -343,7 +343,7 @@ mod tests {
         provider: &TestProvider,
         exclusivity: TrackExclusivity,
         current_index: u32,
-    ) -> NonCryptoHashSet<u32> {
+    ) -> HashSet<u32> {
         let mut affected_indexes = HashSet::new();
         handle_exclusivity(
             provider,

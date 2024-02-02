@@ -146,10 +146,10 @@ mod tests {
         // When
         let used_props = script.used_props().unwrap();
         // Then
-        assert_eq!(
-            used_props,
-            HashSet::from(["hello".to_string(), "bye".to_string()])
-        );
+        let expected: NonCryptoHashSet<_> = ["hello".to_string(), "bye".to_string()]
+            .into_iter()
+            .collect();
+        assert_eq!(used_props, expected);
     }
 
     #[test]
