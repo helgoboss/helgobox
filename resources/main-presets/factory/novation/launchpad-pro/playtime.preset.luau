@@ -41,8 +41,9 @@ type GroupMap = { [string]: realearn.Group }
 local column_count = 8
 local row_count = 8
 local slot_mode_count = 100
+local column_mode_count = 100
 
--- Column modes
+-- Slot modes
 
 local slot_modes: ModeMap = {
     normal = {
@@ -68,6 +69,36 @@ local slot_modes: ModeMap = {
 }
 local sorted_slot_modes = util.sorted_by_index(slot_modes)
 
+-- Column modes
+
+-- Using a function has the advantage that the resulting table is sealed and rejects property accesses with different properties
+local function create_column_modes()
+    return {
+        normal = {
+            index = 0,
+            label = "Normal",
+        },
+        record_arm = {
+            index = 1,
+            label = "Record Arm",
+        },
+        track_select = {
+            index = 2,
+            label = "Track Select",
+        },
+        mute = {
+            index = 3,
+            label = "Mute",
+        },
+        solo = {
+            index = 4,
+            label = "Solo",
+        },
+    }
+end
+local column_modes = create_column_modes()
+local sorted_column_modes = util.sorted_by_index(column_modes)
+
 -- Parameters
 
 local params: ParameterMap = {
@@ -80,6 +111,12 @@ local params: ParameterMap = {
         name = "Slot mode",
         value_count = slot_mode_count,
         value_labels = util.extract_labels(sorted_slot_modes),
+    },
+    column_mode = {
+        index = 2,
+        name = "Column mode",
+        value_count = column_mode_count,
+        value_labels = util.extract_labels(sorted_column_modes),
     },
 }
 
@@ -195,9 +232,9 @@ end
 
 function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementActionKind)
     return partial_mapping {
-		glue = {
-			button_filter = "PressOnly",
-		},
+        glue = {
+            button_filter = "PressOnly",
+        },
         target = realearn.Target.PlaytimeSlotManagementAction {
             slot = create_slot_selector(col, row),
             action = {
@@ -277,9 +314,52 @@ function set_mode_momentary(mode: Mode, mode_count: number, mode_param_index: nu
             },
         },
         target = realearn.Target.CompartmentParameterValue {
-            parameter = realearn.FxParameterDescriptor.ById {
+            parameter = realearn.CompartmentParameterDescriptor.ById {
                 index = mode_param_index,
             },
+        },
+    }
+end
+
+function compartment_parameter_target(index: number)
+    return partial_mapping {
+        target = realearn.Target.CompartmentParameterValue {
+            parameter = realearn.CompartmentParameterDescriptor.ById {
+                index = index,
+            },
+        }
+    }
+end
+
+function set_mode_toggle(mode: Mode, mode_count: number, mode_param_index: number)
+    local target_value = mode.index / (mode_count - 1)
+    return partial_mapping {
+        name = mode.label,
+        glue = realearn.Glue {
+			button_filter = "PressOnly",
+			control_transformation = `y = y == {target_value} ? 0 : {target_value}`,
+            feedback = realearn.Feedback.Numeric {
+                transformation = `x = y == {target_value}`,
+            },
+        },
+        target = realearn.Target.CompartmentParameterValue {
+            parameter = realearn.CompartmentParameterDescriptor.ById {
+                index = mode_param_index,
+            },
+        },
+    }
+end
+
+--- Sets the value back to zero if the button is pressed longer and then released.
+---
+--- Can be used to turn toggle buttons into momentary buttons when pressed longer.
+function auto_release()
+    return partial_mapping {
+        glue = realearn.Glue {
+			target_interval = {0.0 , 0.0 },
+            fire_mode = realearn.FireMode.Normal {
+                press_duration_interval = { 300, 10000 }
+            }
         },
     }
 end
@@ -288,11 +368,28 @@ function set_slot_mode(mode: Mode)
     return set_mode_momentary(mode, slot_mode_count, params.slot_mode.index)
 end
 
+function set_column_mode(mode: Mode)
+    return set_mode_toggle(mode, column_mode_count, params.column_mode.index)
+end
+
 function slot_mode_is(slot_mode: Mode)
     return partial_mapping {
         activation_condition = realearn.ActivationCondition.Bank {
             parameter = params.slot_mode.index,
             bank_index = slot_mode.index,
+        },
+    }
+end
+
+function shift_is(on: boolean)
+    return partial_mapping {
+        activation_condition = realearn.ActivationCondition.Modifier {
+            modifiers = {
+                {
+                    parameter = params.shift.index,
+                    on = on,
+                },
+            },
         },
     }
 end
@@ -359,8 +456,10 @@ util.set_keys_as_ids(groups)
 local mappings = {
     name("Shift") + button("shift") + colors(0.12, 0.98) + set_param(params.shift.index),
     name("Click") + button("click") + colors(0.12, 0.98) + toggle() + clip_matrix_action("ClickOnOffState"),
-    name("Undo") + button("undo") + feedback_disabled() + clip_matrix_action("Undo"),
-    name("Undo LED") + button("undo") + colors(0.12, 0.98) + led_on_off(),
+    name("Undo") + button("undo") + feedback_disabled() + shift_is(false) + clip_matrix_action("Undo"),
+    name("Undo LED") + button("undo") + shift_is(false) + colors(0.12, 0.98) + led_on_off(),
+    name("Redo") + button("undo") + feedback_disabled() + shift_is(true) + clip_matrix_action("Redo"),
+    name("Redo LED") + button("undo") + shift_is(true) + colors(0.23, 0.70) + led_on_off(),
     name("Scroll up") + button("cursor-up") + turbo() + scroll_vertically(-1),
     name("Scroll down") + button("cursor-down") + turbo() + scroll_vertically(1),
     name("Scroll left") + button("cursor-left") + turbo() + scroll_horizontally(-1),
@@ -370,6 +469,22 @@ local mappings = {
     name("Duplicate") + button("duplicate") + colors(0.12, 0.98) + set_slot_mode(slot_modes.duplicate),
     name("Double") + button("double") + colors(0.12, 0.98) + set_slot_mode(slot_modes.double),
 }
+
+function add_column_mode_mappings(n: string, b: string, m: Mode)
+	table.insert(
+		mappings,
+		name(n) + button(b) + colors(0.12, 0.98) + set_column_mode(m)
+	)
+	table.insert(
+		mappings,
+		name(`{n} auto-release`) + feedback_disabled() + button(b) + auto_release() + compartment_parameter_target(params.column_mode.index)
+	)
+end
+
+add_column_mode_mappings("Record Arm", "record-arm", column_modes.record_arm)
+add_column_mode_mappings("Track Select", "track-select", column_modes.track_select)
+add_column_mode_mappings("Mute", "mute", column_modes.mute)
+add_column_mode_mappings("Solo", "solo", column_modes.solo)
 
 -- For each row
 for row = 0, row_count - 1 do

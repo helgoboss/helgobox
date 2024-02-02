@@ -459,7 +459,7 @@ function set_mode(mode: Mode, mode_count: number, mode_param_index: number)
             out_of_range_behavior = "Min",
         },
         target = realearn.Target.CompartmentParameterValue {
-            parameter = realearn.FxParameterDescriptor.ById {
+            parameter = realearn.CompartmentParameterDescriptor.ById {
                 index = mode_param_index,
             },
         },
