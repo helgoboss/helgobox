@@ -222,7 +222,7 @@ end
 function shift_or_sustain_pressed()
     return partial_mapping {
         activation_condition = realearn.ActivationCondition.Expression {
-            condition = "p[2] || p[7]",
+            condition = `p[{params.shift.index}] || p[{params.sustain.index}]`,
         },
     }
 end
@@ -655,7 +655,6 @@ if use_column_stop_buttons then
         name("Scroll up")
             + shift_or_sustain
             + button("col1/stop")
-            + feedback_disabled()
             + turbo()
             + scroll_vertically(-1)
     )
@@ -664,7 +663,6 @@ if use_column_stop_buttons then
         name("Scroll down")
             + shift_or_sustain
             + button("col2/stop")
-            + feedback_disabled()
             + turbo()
             + scroll_vertically(1)
     )
@@ -673,7 +671,6 @@ if use_column_stop_buttons then
         name("Scroll left")
             + shift_or_sustain
             + button("col3/stop")
-            + feedback_disabled()
             + turbo()
             + scroll_horizontally(-1)
     )
@@ -682,7 +679,6 @@ if use_column_stop_buttons then
         name("Scroll right")
             + shift_or_sustain
             + button("col4/stop")
-            + feedback_disabled()
             + turbo()
             + scroll_horizontally(1)
     )
