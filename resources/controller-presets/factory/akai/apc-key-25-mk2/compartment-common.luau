@@ -16,48 +16,41 @@ local blinking = 0x9B
 local red_color = 6
 local default_color = 3
 local feedback_table: { [string]: FeedbackEntry? } = {
-    -- Off
     empty = {
         behavior = dark,
         color = 0,
     },
-    -- Yellow
     stopped = {
         behavior = dark,
     },
-    -- Green blinking
     scheduled_for_play_start = {
         behavior = medium,
     },
-    -- Green
     playing = {
         behavior = pulsing,
     },
-    -- Yellow
     paused = {
         behavior = dark,
     },
-    -- Yellow blinking
     scheduled_for_play_stop = {
         behavior = blinking,
     },
-    -- Red blinking
     scheduled_for_record_start = {
         behavior = medium,
         color = red_color,
     },
-    -- Red
     recording = {
         behavior = pulsing,
         color = red_color,
     },
-    -- Yellow blinking
     scheduled_for_record_stop = {
         behavior = blinking,
         color = red_color,
     },
 }
 
+--- Although I got the true RGB colors to work, it was impossible to combine them with blinking
+--- or pulsing behavior. So back to good old color palette.
 local color_palette: { midi_script.RgbColor } = {
     {r = 0x00, g= 0x00, b = 0x00},
     {r = 0x1E, g= 0x1E, b = 0x1E},
@@ -200,7 +193,7 @@ local color_palette: { midi_script.RgbColor } = {
     {r = 0x4B, g= 0x15, b = 0x02},
 }
 
--- Returns the 0-based index within the given palette array.
+--- Returns the 0-based index within the given palette array.
 local function find_closest_color_in_palette(color: midi_script.RgbColor, palette: {midi_script.RgbColor}): number
     local ifurthest = 0
     local furthest = 3 * math.pow(255, 2) + 1

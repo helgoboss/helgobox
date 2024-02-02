@@ -4,6 +4,8 @@ local midi_script = require("midi_script_source_runtime")
 
 local module = {}
 
+--- There's no way to put pads in a pulsing state with the true RGB sys-ex messages, so
+--- we are back to an old-fashioned color palette. Whatever, close enough.
 local color_palette: { midi_script.RgbColor } = {
     { r = 0x61, g = 0x61, b = 0x61 },
     { r = 0xb3, g = 0xb3, b = 0xb3 },
@@ -135,7 +137,7 @@ local color_palette: { midi_script.RgbColor } = {
     { r = 0xc2, g = 0x76, b = 0x61 },
 }
 
--- Returns the 0-based index within the given palette array.
+--- Returns the 0-based index within the given palette array.
 local function find_closest_color_in_palette(color: midi_script.RgbColor, palette: { midi_script.RgbColor }): number
     local ifurthest = 0
     local furthest = 3 * math.pow(255, 2) + 1
@@ -157,68 +159,65 @@ type FeedbackEntry = {
     color: number?,
 }
 local solid = 0x90
-local medium = 0x90
-local bright = 0x90
+local flashing = 0x91
 local pulsing = 0x92
-local blinking = 0x91
+local black_color = 0
+local white_color = 3
 local red_color = 5
-local default_color = 3
+
 local feedback_table: { [string]: FeedbackEntry? } = {
-    -- Off
     empty = {
         behavior = solid,
-        color = 0,
+        color = black_color,
     },
-    -- Yellow
     stopped = {
         behavior = solid,
     },
-    -- Green blinking
     scheduled_for_play_start = {
-        behavior = medium,
+        behavior = flashing,
     },
-    -- Green
     playing = {
         behavior = pulsing,
     },
-    -- Yellow
     paused = {
         behavior = solid,
     },
-    -- Yellow blinking
     scheduled_for_play_stop = {
-        behavior = blinking,
+        behavior = flashing,
     },
-    -- Red blinking
     scheduled_for_record_start = {
-        behavior = medium,
+        behavior = flashing,
         color = red_color,
     },
-    -- Red
     recording = {
         behavior = pulsing,
         color = red_color,
     },
-    -- Yellow blinking
     scheduled_for_record_stop = {
-        behavior = blinking,
+        behavior = flashing,
         color = red_color,
     },
 }
 
-local function build_explicit_color_msgs(
+local function build_messages(
     pad_index: number,
     behavior: number,
-    explicit_color: number
+    color_index: number
 ): { midi_script.MidiMessage }
-    if behavior == solid then
+    if behavior == pulsing then
         return {
-            { 0x90, pad_index, explicit_color },
+            { 0x92, pad_index, color_index },
+        }
+    elseif behavior == flashing then
+        -- Flashing between actual color and black
+        return {
+            { 0x90, pad_index, color_index },
+            { 0x91, pad_index, black_color },
         }
     else
+        -- Solid
         return {
-            { 0x90, pad_index, red_color },
-            { behavior, pad_index, explicit_color },
+            { 0x90, pad_index, color_index },
         }
     end
 end
@@ -229,7 +228,7 @@ local function get_palette_color_index(entry: FeedbackEntry, rgb_color: midi_scr
         return color_index
     end
     if rgb_color == nil then
-        return default_color
+        return white_color
     end
     return find_closest_color_in_palette(rgb_color, color_palette)
 end
@@ -240,10 +239,9 @@ function module.pad_script(
     context: midi_script.Context
 ): midi_script.Output
     local address = pad_index
-    local off_color = 0x00
     local off_output = {
         address = pad_index,
-        messages = build_explicit_color_msgs(pad_index, solid, off_color),
+        messages = build_messages(pad_index, solid, black_color),
     }
     -- Handle "off" feedback
     if y == nil then
@@ -252,11 +250,11 @@ function module.pad_script(
     -- Handle numeric feedback
     if type(y) == "number" then
         -- Translate number to solid feedback color
-        local color = math.floor(y * 127)
+        local color_index = math.floor(y * 127)
         return {
             address = address,
             messages = {
-                { solid, pad_index, color },
+                { solid, pad_index, color_index },
             },
         }
     end
@@ -272,7 +270,7 @@ function module.pad_script(
         local color_index = get_palette_color_index(entry, context.feedback_event.color)
         return {
             address = pad_index,
-            messages = build_explicit_color_msgs(pad_index, entry.behavior, color_index),
+            messages = build_messages(pad_index, entry.behavior, color_index),
         }
     end
     -- Complex feedback is highly individual. It doesn't make sense to handle this in a general-purpose controller preset.
