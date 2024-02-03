@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::Path;
 
 mod base;
+mod color_panel;
 pub mod constants;
 mod empty_panel;
 mod ext;
@@ -153,6 +154,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     };
     let simple_editor_panel_dialog = simple_editor_panel::create(context.global(), &mut ids);
     let empty_panel_dialog = empty_panel::create(context.global(), &mut ids);
+    let color_panel_dialog = color_panel::create(context.global(), &mut ids);
     let resource = Resource {
         dialogs: vec![
             group_panel_dialog,
@@ -166,6 +168,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             main_panel_dialog,
             simple_editor_panel_dialog,
             empty_panel_dialog,
+            color_panel_dialog,
             hidden_panel::create(context.global(), &mut ids),
         ],
     };

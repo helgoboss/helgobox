@@ -205,12 +205,9 @@ pub trait View: Debug {
     /// WM_CTLCOLORDLG
     ///
     /// Can return a custom background brush for painting that dialog.
-    fn control_color_dialog(
-        self: SharedView<Self>,
-        hdc: raw::HDC,
-        _hwnd: raw::HWND,
-    ) -> raw::HBRUSH {
+    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
         let _ = hdc;
+        let _ = window;
         null_mut()
     }
 
@@ -249,21 +246,21 @@ pub trait View: Debug {
     // =================================================
 
     /// Opens this view in the given parent window.
-    fn open(self: SharedView<Self>, parent_window: Window)
+    fn open(self: SharedView<Self>, parent_window: Window) -> Option<Window>
     where
         Self: Sized + 'static,
     {
         let resource_id = self.dialog_resource_id();
-        create_window(self, resource_id, Some(parent_window));
+        create_window(self, resource_id, Some(parent_window))
     }
 
     /// Opens this view in a free window.
-    fn open_without_parent(self: SharedView<Self>)
+    fn open_without_parent(self: SharedView<Self>) -> Option<Window>
     where
         Self: Sized + 'static,
     {
         let resource_id = self.dialog_resource_id();
-        create_window(self, resource_id, None);
+        create_window(self, resource_id, None)
     }
 
     /// Closes this view.

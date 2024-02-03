@@ -83,7 +83,7 @@ impl InstancePanel {
             .unwrap_or_else(|| util::main_panel_dimensions().in_pixels())
     }
 
-    pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) {
+    pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) -> Option<Window> {
         #[cfg(target_family = "windows")]
         {
             // On Windows, the first time opening the dialog window is just to determine the best

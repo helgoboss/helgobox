@@ -1,5 +1,6 @@
 #![allow(non_camel_case_types, clippy::upper_case_acronyms)]
 
+use crate::base::Condition::SkipOnMacOs;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::fmt;

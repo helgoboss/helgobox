@@ -7,6 +7,7 @@ use crate::infrastructure::ui::{
     util, DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
     SharedIndependentPanelManager, SharedMainState,
 };
+use palette::Srgb;
 use realearn_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
@@ -19,7 +20,10 @@ use crate::application::{
 };
 use crate::domain::{CompartmentKind, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use crate::infrastructure::data::MappingModelData;
-use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
+use crate::infrastructure::ui::util::colors;
+use swell_ui::{
+    BrushDescriptor, DialogUnits, Pixels, Point, SharedView, View, ViewContext, ViewManager, Window,
+};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -669,11 +673,11 @@ impl View for MappingRowsPanel {
     }
 
     fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
-        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
+        util::view::control_color_static_default(hdc, colors::row_background())
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
+    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+        util::view::control_color_dialog_default(hdc, colors::row_background())
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {

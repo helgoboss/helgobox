@@ -2416,7 +2416,7 @@ pub struct BackboneHelgoboxWindowSnitch;
 
 impl HelgoboxWindowSnitch for BackboneHelgoboxWindowSnitch {
     fn find_closest_realearn_view(&self, window: Window) -> Option<SharedView<dyn View>> {
-        let view_manager = ViewManager::get().borrow();
+        let view_manager = ViewManager::get();
         let mut current_window = Some(window);
         while let Some(w) = current_window {
             if let Some(v) = view_manager.get_associated_view(w) {

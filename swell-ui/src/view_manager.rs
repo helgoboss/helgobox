@@ -1,16 +1,23 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use crate::{Pixels, Point, SharedView, View, WeakView, Window};
-use std::cell::{Cell, RefCell};
+use crate::{
+    Brush, BrushCache, BrushDescriptor, Pixels, Point, SharedView, ValidBrushHandle, View,
+    WeakView, Window,
+};
+use std::cell::{Cell, RefCell, RefMut};
 
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::ptr::null_mut;
+use std::rc::Rc;
 
 use base::hash_util::NonCryptoHashMap;
-use reaper_medium::Hwnd;
-use std::sync::Once;
+use fragile::Fragile;
+use palette::Srgb;
+use reaper_low::raw::HBRUSH;
+use reaper_medium::{Hbrush, Hwnd};
+use std::sync::{Once, OnceLock};
 
 /// Creates a window according to the given dialog resource.
 ///
@@ -22,9 +29,9 @@ pub(crate) fn create_window(
     view: SharedView<dyn View>,
     resource_id: u32,
     parent_window: Option<Window>,
-) {
+) -> Option<Window> {
     let swell = Swell::get();
-    unsafe {
+    let hwnd = unsafe {
         // This will call the dialog procedure `view_dialog_proc`. In order to still know which
         // of the many view objects we are dealing with, we make use of the lparam parameter of
         // `CreateDialogParamA` by passing it an address which points to the concrete view.
@@ -37,8 +44,9 @@ pub(crate) fn create_window(
             parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
             Some(view_dialog_proc),
             convert_view_ref_to_address(&view),
-        );
-    }
+        )
+    };
+    Window::new(hwnd)
 }
 
 /// This struct manages the mapping from windows to views.
@@ -47,42 +55,58 @@ pub(crate) fn create_window(
 #[derive(Default)]
 pub struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
-    view_map: NonCryptoHashMap<raw::HWND, WeakView<dyn View>>,
+    view_map: RefCell<NonCryptoHashMap<raw::HWND, WeakView<dyn View>>>,
+    brush_cache: BrushCache,
 }
 
 impl ViewManager {
+    pub fn get_solid_brush(&'static self, color: Srgb<u8>) -> HBRUSH {
+        self.brush_cache
+            .get_brush(BrushDescriptor::solid(color))
+            .map(|handle| handle.as_ptr())
+            .unwrap_or(null_mut())
+    }
+
     /// If the given window is one of ours (one that drives our views) and the associated view
     /// still exists, it returns that associated view.
     pub fn get_associated_view(&self, window: Window) -> Option<SharedView<dyn View>> {
-        let view = self.view_map.get(&window.raw())?;
+        let view_map = self.view_map.borrow();
+        let view = view_map.get(&window.raw())?;
         view.upgrade()
     }
 
     /// Returns the global window manager instance
-    pub fn get() -> &'static RefCell<ViewManager> {
-        static mut VIEW_MANAGER: Option<RefCell<ViewManager>> = None;
-        static INIT_VIEW_MANAGER: Once = Once::new();
+    pub fn get() -> &'static ViewManager {
+        static VIEW_MANAGER: OnceLock<Fragile<ViewManager>> = OnceLock::new();
         // We need to initialize the manager lazily because it's impossible to do that using a const
         // function (at least in Rust stable).
-        INIT_VIEW_MANAGER.call_once(|| {
-            unsafe { VIEW_MANAGER = Some(RefCell::new(ViewManager::default())) };
-        });
-        unsafe { VIEW_MANAGER.as_mut().unwrap() }
+        VIEW_MANAGER
+            .get_or_init(|| Fragile::new(ViewManager::default()))
+            .get()
     }
 
     /// Registers a new HWND-to-view mapping
-    fn register_view(&mut self, hwnd: raw::HWND, view: &SharedView<dyn View>) {
-        self.view_map.insert(hwnd, SharedView::downgrade(view));
+    fn register_view(&self, hwnd: raw::HWND, view: &SharedView<dyn View>) {
+        self.view_map
+            .borrow_mut()
+            .insert(hwnd, SharedView::downgrade(view));
     }
 
     /// Looks up a view by its corresponding HWND
-    fn lookup_view(&self, hwnd: raw::HWND) -> Option<&WeakView<dyn View>> {
-        self.view_map.get(&hwnd)
+    fn lookup_view(&self, hwnd: raw::HWND) -> Option<SharedView<dyn View>> {
+        let view_map = self.view_map.borrow();
+        let weak_view = view_map.get(&hwnd)?;
+        weak_view.upgrade().or_else(|| {
+            // Not existing. The primary owner (most likely a parent view) dropped
+            // it already.
+            tracing::warn!("Requested ui is registered in ui map but has been dropped already");
+            None
+        })
     }
 
     /// Unregisters a HWND-to-View mapping
-    fn unregister_view(&mut self, hwnd: raw::HWND) {
-        self.view_map.remove(&hwnd);
+    fn unregister_view(&self, hwnd: raw::HWND) {
+        self.view_map.borrow_mut().remove(&hwnd);
     }
 }
 
@@ -137,31 +161,16 @@ unsafe extern "C" fn view_dialog_proc(
                 // view reference. At subsequent calls, this address is not passed anymore
                 // but only the HWND. So we need to save a HWND-to-view mapping now.
                 let view_ref = interpret_address_as_view_ref(lparam as _);
-                ViewManager::get()
-                    .borrow_mut()
-                    .register_view(hwnd, view_ref);
+                ViewManager::get().register_view(hwnd, view_ref);
                 view_ref.clone()
             } else {
                 // Try to find view corresponding to given HWND
-                match ViewManager::get().borrow().lookup_view(hwnd) {
+                match ViewManager::get().lookup_view(hwnd) {
                     None => {
                         // View is not (yet) registered. Do default stuff.
                         return 0;
                     }
-                    Some(v) => {
-                        // View is registered. See if it's still existing.
-                        if let Some(view) = v.upgrade() {
-                            // Still existing
-                            view
-                        } else {
-                            // Not existing. The primary owner (most likely a parent view) dropped
-                            // it already.
-                            tracing::warn!(
-                                "Requested ui is registered in ui map but has been dropped already"
-                            );
-                            return 0;
-                        }
-                    }
+                    Some(v) => v,
                 }
             };
             // Found view.
@@ -186,7 +195,7 @@ unsafe extern "C" fn view_dialog_proc(
                     view_context.closed_subject.borrow_mut().next(());
                     view_context.window.replace(None);
                     view.on_destroy(window);
-                    ViewManager::get().borrow_mut().unregister_view(hwnd);
+                    ViewManager::get().unregister_view(hwnd);
                     1
                 }
                 // This is called on Linux when receiving a keyboard message via SendMessage.
@@ -271,7 +280,10 @@ unsafe extern "C" fn view_dialog_proc(
                     brush as _
                 }
                 raw::WM_CTLCOLORDLG => {
-                    let brush = view.control_color_dialog(wparam as raw::HDC, lparam as raw::HWND);
+                    let brush = view.control_color_dialog(
+                        wparam as raw::HDC,
+                        Window::new(lparam as raw::HWND).expect("WM_CTLCOLORDLG control is null"),
+                    );
                     brush as _
                 }
                 raw::WM_TIMER => {

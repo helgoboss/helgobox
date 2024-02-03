@@ -207,6 +207,10 @@ rust-ini.workspace = true
 camino.workspace = true
 # For not having to manually implement Lua module finder trait for smart pointers
 auto_impl.workspace = true
+# For some color in the otherwise boring GUI
+palette.workspace = true
+# For easily defining colors
+hex-literal = "0.4.1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

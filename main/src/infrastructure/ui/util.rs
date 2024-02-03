@@ -149,54 +149,48 @@ pub mod symbols {
 }
 
 pub mod view {
-    use once_cell::sync::Lazy;
+    use palette::Srgb;
     use reaper_low::{raw, Swell};
     use std::ptr::null_mut;
+    use swell_ui::{ValidBrushHandle, ViewManager};
 
-    pub fn control_color_static_default(hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
+    pub fn control_color_static_default(hdc: raw::HDC, color: Srgb<u8>) -> raw::HBRUSH {
         unsafe {
             Swell::get().SetBkMode(hdc, raw::TRANSPARENT as _);
         }
-        brush.unwrap_or(null_mut())
+        ViewManager::get().get_solid_brush(color)
     }
 
-    pub fn control_color_dialog_default(_hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
-        brush.unwrap_or(null_mut())
+    pub fn control_color_dialog_default(_hdc: raw::HDC, color: Srgb<u8>) -> raw::HBRUSH {
+        ViewManager::get().get_solid_brush(color)
+    }
+}
+
+pub mod colors {
+    use palette::Srgb;
+
+    pub fn row_background() -> Srgb<u8> {
+        SHADED_WHITE
     }
 
-    pub fn mapping_row_background_brush() -> Option<raw::HBRUSH> {
-        static BRUSH: Lazy<Option<isize>> = Lazy::new(create_mapping_row_background_brush);
-        let brush = (*BRUSH)?;
-        Some(brush as _)
-    }
-
-    /// Use with care! Should be freed after use.
-    fn create_mapping_row_background_brush() -> Option<isize> {
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
-        {
-            if swell_ui::Window::dark_mode_is_enabled() {
-                None
-            } else {
-                const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);
-                Some(create_brush(SHADED_WHITE))
-            }
-        }
-        #[cfg(target_os = "linux")]
-        {
-            None
-        }
-    }
-
-    /// Use with care! Should be freed after use.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    fn create_brush(color: (u8, u8, u8)) -> isize {
-        Swell::get().CreateSolidBrush(rgb(color)) as _
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    fn rgb((r, g, b): (u8, u8, u8)) -> std::os::raw::c_int {
-        Swell::RGB(r, g, b) as _
-    }
+    pub const SHADED_WHITE: Srgb<u8> = Srgb::new(248, 248, 248);
+    pub const SKY_100: Srgb<u8> = Srgb::new(0xE0, 0xF2, 0xFE);
+    pub const SKY_200: Srgb<u8> = Srgb::new(0xba, 0xe6, 0xfd);
+    pub const SKY_900: Srgb<u8> = Srgb::new(0x0C, 0x4A, 0x6E);
+    pub const SKY_950: Srgb<u8> = Srgb::new(0x08, 0x2F, 0x49);
+    pub const EMERALD_100: Srgb<u8> = Srgb::new(0xD1, 0xFA, 0xE5);
+    pub const EMERALD_200: Srgb<u8> = Srgb::new(0xa7, 0xf3, 0xd0);
+    pub const EMERALD_900: Srgb<u8> = Srgb::new(0x06, 0x4E, 0x3B);
+    pub const EMERALD_950: Srgb<u8> = Srgb::new(0x02, 0x2C, 0x22);
+    pub const AMBER_100: Srgb<u8> = Srgb::new(0xFE, 0xF3, 0xC7);
+    pub const AMBER_200: Srgb<u8> = Srgb::new(0xfd, 0xe6, 0x8a);
+    pub const AMBER_900: Srgb<u8> = Srgb::new(0x78, 0x35, 0x0F);
+    pub const AMBER_950: Srgb<u8> = Srgb::new(0x45, 0x1A, 0x03);
+    pub const SLATE_100: Srgb<u8> = Srgb::new(0xF1, 0xF5, 0xF9);
+    pub const SLATE_200: Srgb<u8> = Srgb::new(0xE2, 0xE8, 0xF0);
+    pub const SLATE_300: Srgb<u8> = Srgb::new(0xCB, 0xD5, 0xE1);
+    pub const SLATE_900: Srgb<u8> = Srgb::new(0x0F, 0x17, 0x2A);
+    pub const SLATE_950: Srgb<u8> = Srgb::new(0x02, 0x06, 0x17);
 }
 
 pub fn open_in_browser(url: &str) {

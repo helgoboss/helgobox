@@ -82,4 +82,5 @@ mod egui_views;
 
 pub mod menus;
 
+pub mod color_panel;
 pub mod instance_panel;

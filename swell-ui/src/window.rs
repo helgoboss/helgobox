@@ -700,6 +700,38 @@ impl Window {
         Some(res)
     }
 
+    pub fn set_everything_in_dialog_units(
+        self,
+        position: Point<DialogUnits>,
+        size: Dimensions<DialogUnits>,
+        z_order: ZOrder,
+    ) {
+        self.set_everything_in_pixels(
+            self.convert_to_pixels(position),
+            self.convert_to_pixels(size),
+            z_order,
+        );
+    }
+
+    pub fn set_everything_in_pixels(
+        self,
+        position: Point<Pixels>,
+        size: Dimensions<Pixels>,
+        z_order: ZOrder,
+    ) {
+        unsafe {
+            Swell::get().SetWindowPos(
+                self.raw,
+                z_order.to_raw(),
+                position.x.as_raw(),
+                position.y.as_raw(),
+                size.width.as_raw(),
+                size.height.as_raw(),
+                0,
+            );
+        }
+    }
+
     pub fn move_to_pixels(self, point: Point<Pixels>) {
         unsafe {
             Swell::get().SetWindowPos(
@@ -954,4 +986,18 @@ fn make_long(lo: u32, hi: u32) -> isize {
 
 fn key_is_down(key: u32) -> bool {
     Swell::get().GetAsyncKeyState(key as _) & 0x8000 != 0
+}
+
+pub enum ZOrder {
+    Bottom,
+    Top,
+}
+
+impl ZOrder {
+    fn to_raw(&self) -> raw::HWND {
+        match self {
+            ZOrder::Bottom => 1 as _,
+            ZOrder::Top => 0 as _,
+        }
+    }
 }

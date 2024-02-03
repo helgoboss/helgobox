@@ -18,7 +18,7 @@ use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{mapping_row_panel_height, symbols};
+use crate::infrastructure::ui::util::{colors, mapping_row_panel_height, symbols};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
@@ -900,11 +900,11 @@ impl View for MappingRowPanel {
     }
 
     fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
-        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
+        util::view::control_color_static_default(hdc, colors::row_background())
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
+    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+        util::view::control_color_dialog_default(hdc, colors::row_background())
     }
 
     fn timer(&self, id: usize) -> bool {

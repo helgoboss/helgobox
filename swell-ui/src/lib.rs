@@ -21,6 +21,9 @@ pub use string_types::*;
 
 pub mod menu_tree;
 
+mod brush;
+pub use brush::*;
+
 #[cfg(target_os = "macos")]
 mod macos;
 

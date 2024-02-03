@@ -31,7 +31,8 @@ use realearn_api::persistence::{
     MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+    DialogUnits, Dimensions, Pixels, Point, SharedView, SwellStringArg, View, ViewContext,
+    WeakView, Window, ZOrder,
 };
 
 use crate::application::{
@@ -66,10 +67,11 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::color_panel::ColorPanel;
 use crate::infrastructure::ui::menus::get_param_name;
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
-    parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
+    open_child_panel_dyn, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
@@ -86,6 +88,11 @@ pub struct MappingPanel {
     session: WeakUnitModel,
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<UnitPanel>,
+    mapping_color_panel: SharedView<ColorPanel>,
+    source_color_panel: SharedView<ColorPanel>,
+    target_color_panel: SharedView<ColorPanel>,
+    glue_color_panel: SharedView<ColorPanel>,
+    help_color_panel: SharedView<ColorPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
@@ -133,6 +140,31 @@ impl MappingPanel {
             session: session.clone(),
             mapping: None.into(),
             main_panel,
+            mapping_color_panel: SharedView::new(ColorPanel::new(
+                "Mapping",
+                colors::SLATE_100,
+                colors::SLATE_900,
+            )),
+            source_color_panel: SharedView::new(ColorPanel::new(
+                "Source",
+                colors::SKY_200,
+                colors::SKY_900,
+            )),
+            target_color_panel: SharedView::new(ColorPanel::new(
+                "Target",
+                colors::EMERALD_200,
+                colors::EMERALD_950,
+            )),
+            glue_color_panel: SharedView::new(ColorPanel::new(
+                "Glue",
+                colors::AMBER_200,
+                colors::AMBER_950,
+            )),
+            help_color_panel: SharedView::new(ColorPanel::new(
+                "",
+                colors::SLATE_300,
+                colors::SLATE_950,
+            )),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
                 Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(MAPPING_PANEL_SCALING),
@@ -3897,7 +3929,9 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn enable_if(&self, condition: bool, control_resource_ids: &[u32]) {
         for id in control_resource_ids {
-            self.view.require_control(*id).set_visible(condition);
+            if let Some(control) = self.view.require_window().find_control(*id) {
+                control.set_visible(condition);
+            }
         }
     }
 
@@ -6836,6 +6870,11 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
+        position_color_panel(&self.mapping_color_panel, window, 0, 0, 451, 67);
+        position_color_panel(&self.source_color_panel, window, 0, 67, 175, 165);
+        position_color_panel(&self.target_color_panel, window, 175, 67, 276, 165);
+        position_color_panel(&self.glue_color_panel, window, 0, 232, 451, 239);
+        position_color_panel(&self.help_color_panel, window, 0, 471, 451, 61);
         true
     }
 
@@ -7969,4 +8008,21 @@ const ACTIVITY_INFO: &str = "Activity info";
 enum Side {
     Left,
     Right,
+}
+
+fn position_color_panel(
+    panel: &SharedView<ColorPanel>,
+    parent_window: Window,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) {
+    if let Some(w) = panel.clone().open(parent_window) {
+        w.set_everything_in_dialog_units(
+            Point::new(DialogUnits(x), DialogUnits(y)).scale(MAPPING_PANEL_SCALING),
+            Dimensions::new(DialogUnits(width), DialogUnits(height)).scale(MAPPING_PANEL_SCALING),
+            ZOrder::Bottom,
+        );
+    }
 }
