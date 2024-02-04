@@ -302,6 +302,5 @@ pub mod root {
     #[allow(dead_code)]
     pub const ID_EMPTY_PANEL: u32 = 30245;
     pub const ID_COLOR_PANEL: u32 = 30246;
-    pub const ID_COLOR_PANEL_LABEL: u32 = 30247;
-    pub const ID_HIDDEN_PANEL: u32 = 30248;
+    pub const ID_HIDDEN_PANEL: u32 = 30247;
 }
