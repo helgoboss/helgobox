@@ -6,6 +6,7 @@ use std::fmt::Debug;
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util;
+use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::MAPPING_PANEL_SCALING;
 use swell_ui::{
     Color, DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window,
@@ -15,16 +16,14 @@ use swell_ui::{
 #[derive(Debug)]
 pub struct ColorPanel {
     view: ViewContext,
-    light_theme_color: Color,
-    dark_theme_color: Color,
+    color_pair: ColorPair,
 }
 
 impl ColorPanel {
-    pub fn new(light_theme_color: Color, dark_theme_color: Color) -> Self {
+    pub fn new(color_pair: ColorPair) -> Self {
         Self {
             view: Default::default(),
-            light_theme_color,
-            dark_theme_color,
+            color_pair,
         }
     }
 }
@@ -39,12 +38,7 @@ impl View for ColorPanel {
     }
 
     fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-        let color = if Window::dark_mode_is_enabled() {
-            self.dark_theme_color
-        } else {
-            self.light_theme_color
-        };
-        util::view::control_color_dialog_default(hdc, color)
+        util::view::get_brush(self.color_pair)
     }
 }
 

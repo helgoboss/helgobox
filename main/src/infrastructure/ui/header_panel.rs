@@ -38,6 +38,7 @@ use crate::infrastructure::ui::bindings::root;
 
 use crate::base::notification::{notify_processing_result, notify_user_about_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::menus::{
@@ -48,8 +49,8 @@ use crate::infrastructure::ui::menus::{
     FEEDBACK_OUTPUT_MIDI_FX_OUTPUT, FEEDBACK_OUTPUT_NONE_LABEL,
 };
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
-    open_in_file_manager,
+    close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
+    open_in_file_manager, HEADER_PANEL_SCALING, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
@@ -81,6 +82,7 @@ pub struct HeaderPanel {
     instance_panel: WeakView<InstancePanel>,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
+    show_color_panel: SharedView<ColorPanel>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -101,6 +103,7 @@ impl HeaderPanel {
             instance_panel,
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
+            show_color_panel: SharedView::new(ColorPanel::new(colors::show_background())),
             panel_manager,
             group_panel: Default::default(),
             extra_panel: Default::default(),
@@ -2588,6 +2591,15 @@ impl View for HeaderPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.taborder_first();
+        position_color_panel(
+            &self.show_color_panel,
+            window,
+            0,
+            44,
+            470,
+            17,
+            &HEADER_PANEL_SCALING,
+        );
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression(None);

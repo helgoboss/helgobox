@@ -77,18 +77,9 @@ impl MappingRowPanel {
             view: Default::default(),
             session,
             main_state,
-            main_color_panel: SharedView::new(ColorPanel::new(
-                colors::mapping(),
-                colors::tailwind::SKY_900,
-            )),
-            source_color_panel: SharedView::new(ColorPanel::new(
-                colors::source(),
-                colors::tailwind::SKY_900,
-            )),
-            target_color_panel: SharedView::new(ColorPanel::new(
-                colors::target(),
-                colors::tailwind::EMERALD_950,
-            )),
+            main_color_panel: SharedView::new(ColorPanel::new(colors::mapping())),
+            source_color_panel: SharedView::new(ColorPanel::new(colors::source())),
+            target_color_panel: SharedView::new(ColorPanel::new(colors::target())),
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
@@ -885,13 +876,14 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
+        const COLOR_PANEL_HEIGHT: u32 = 47;
         position_color_panel(
             &self.source_color_panel,
             window,
             43,
             0,
             94,
-            46,
+            COLOR_PANEL_HEIGHT,
             &GLOBAL_SCALING,
         );
         position_color_panel(
@@ -900,7 +892,7 @@ impl View for MappingRowPanel {
             161,
             0,
             182,
-            46,
+            COLOR_PANEL_HEIGHT,
             &GLOBAL_SCALING,
         );
         position_color_panel(
@@ -909,7 +901,7 @@ impl View for MappingRowPanel {
             0,
             0,
             460,
-            46,
+            COLOR_PANEL_HEIGHT,
             &GLOBAL_SCALING,
         );
         window.move_to_dialog_units(Point::new(
@@ -943,14 +935,6 @@ impl View for MappingRowPanel {
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let _ = self.open_context_menu(location);
-    }
-
-    fn control_color_static(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
-        util::view::control_color_static_default(hdc, colors::row_background())
-    }
-
-    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
-        util::view::control_color_dialog_default(hdc, colors::row_background())
     }
 
     fn timer(&self, id: usize) -> bool {

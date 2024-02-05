@@ -673,14 +673,6 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
-        util::view::control_color_static_default(hdc, colors::row_background())
-    }
-
-    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
-        util::view::control_color_dialog_default(hdc, colors::row_background())
-    }
-
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let _ = self.open_context_menu(location);
     }

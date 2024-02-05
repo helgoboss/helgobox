@@ -2,6 +2,7 @@ use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
 use anyhow::Context;
 use base::tracing_debug;
 use reaper_high::Reaper;
+use reaper_medium::{Hbrush, Hdc};
 use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Debug;
 use std::sync;
@@ -10,7 +11,8 @@ use std::sync::Arc;
 use crate::domain::{InstanceId, SharedInstance, UnitId};
 use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell};
 use crate::infrastructure::ui::bindings::root;
-use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
+use crate::infrastructure::ui::util::colors;
+use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, ViewManager, Window};
 
 #[derive(Debug)]
 pub struct InstancePanel {
@@ -290,6 +292,10 @@ impl View for InstancePanel {
     fn on_destroy(self: SharedView<Self>, _window: Window) {
         // No need to keep currently displayed unit panel in memory when window closed
         self.displayed_unit_panel.borrow_mut().take();
+    }
+
+    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+        util::view::get_brush(colors::instance_panel_background())
     }
 }
 

@@ -149,91 +149,111 @@ pub mod symbols {
 }
 
 pub mod view {
+    use crate::infrastructure::ui::util::colors::ColorPair;
     use reaper_low::{raw, Swell};
     use reaper_medium::{Hbrush, Hdc};
-    use swell_ui::{Color, ViewManager};
+    use swell_ui::{Color, ViewManager, Window};
 
-    pub fn control_color_static_default(hdc: Hdc, color: Color) -> Option<Hbrush> {
-        unsafe {
-            Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
-        }
-        ViewManager::get().get_solid_brush(color)
-    }
-
-    pub fn control_color_dialog_default(_hdc: Hdc, color: Color) -> Option<Hbrush> {
+    pub fn get_brush(color_pair: ColorPair) -> Option<Hbrush> {
+        let color = if Window::dark_mode_is_enabled() {
+            color_pair.dark
+        } else {
+            color_pair.light
+        };
         ViewManager::get().get_solid_brush(color)
     }
 }
 
 pub mod colors {
-    use palette::Lighten;
-    use swell_ui::{color, colors, Color};
-    use tailwind::*;
+    use palette::rgb::Rgb;
+    use palette::{Darken, Hsl, IntoColor, Lighten, Srgb};
+    use swell_ui::{color, Color};
 
-    pub fn row_background() -> Color {
-        SHADED_WHITE
+    #[derive(Copy, Clone, Debug)]
+    pub struct ColorPair {
+        pub light: Color,
+        pub dark: Color,
     }
 
-    pub fn mapping() -> Color {
-        MAPPING_PANEL_COLOR_PALETTE.get(0)
-    }
-
-    pub fn source() -> Color {
-        MAPPING_PANEL_COLOR_PALETTE.get(1)
-    }
-
-    pub fn target() -> Color {
-        MAPPING_PANEL_COLOR_PALETTE.get(2)
-    }
-
-    pub fn glue() -> Color {
-        MAPPING_PANEL_COLOR_PALETTE.get(3)
-    }
-
-    pub fn help() -> Color {
-        MAPPING_PANEL_COLOR_PALETTE.get(4)
-    }
-
-    struct ColorPalette {
-        lighten: f32,
-        colors: [Color; 5],
-    }
-
-    impl ColorPalette {
-        pub fn get(&self, index: usize) -> Color {
-            let original_color = self.colors[index];
-            if self.lighten == 0.0 {
-                original_color
-            } else {
-                original_color.to_linear().lighten(self.lighten).into()
+    impl ColorPair {
+        pub fn generate_from_light(light: Color) -> Self {
+            Self {
+                light,
+                dark: invert_lightness(light),
             }
         }
     }
 
-    // Inspired by https://colorhunt.co/palette/96b6c5adc4ceeee0c9f1f0e8
-    // // 54. VERY GOOD, maybe target blue a tiny bit too dark
-    // const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
-    //     lighten: 0.2,
-    //     colors: [
-    //         color!("F1F0E8"),
-    //         color!("EEE0C9"),
-    //         color!("ADC4CE"),
-    //         color!("F1F0E8"),
-    //         color!("F1F0E8"),
-    //     ],
-    // };
+    fn invert_lightness(color: Color) -> Color {
+        let hsl = color.to_hsl();
+        Hsl::new_const(hsl.hue, hsl.saturation, 1.0 - hsl.lightness).into()
+    }
 
-    // 54b.
+    struct ColorPalette {
+        /// For the light theme, lightens all colors by this factor.
+        lighten_for_light_theme: f32,
+        /// For dark theme, lightens all colors by this factor *after* inverting their lightness.
+        lighten_for_dark_theme: f32,
+        colors: [Color; 5],
+    }
+
+    impl ColorPalette {
+        pub fn get(&self, index: usize) -> ColorPair {
+            let original_color = self.colors[index];
+            let light_color = original_color
+                .to_linear_srgb()
+                .lighten(self.lighten_for_light_theme)
+                .into();
+            ColorPair {
+                light: light_color,
+                dark: invert_lightness(original_color)
+                    .to_linear_srgb()
+                    .lighten(self.lighten_for_dark_theme)
+                    .into(),
+            }
+        }
+    }
+
+    pub fn instance_panel_background() -> ColorPair {
+        ColorPair::generate_from_light(tailwind::GRAY_200)
+    }
+
+    pub fn show_background() -> ColorPair {
+        ColorPair::generate_from_light(tailwind::GRAY_300.to_linear_srgb().lighten(0.2).into())
+    }
+
+    pub fn mapping() -> ColorPair {
+        MAPPING_PANEL_COLOR_PALETTE.get(0)
+    }
+
+    pub fn source() -> ColorPair {
+        MAPPING_PANEL_COLOR_PALETTE.get(1)
+    }
+
+    pub fn target() -> ColorPair {
+        MAPPING_PANEL_COLOR_PALETTE.get(2)
+    }
+
+    pub fn glue() -> ColorPair {
+        MAPPING_PANEL_COLOR_PALETTE.get(3)
+    }
+
+    pub fn help() -> ColorPair {
+        MAPPING_PANEL_COLOR_PALETTE.get(4)
+    }
+
+    /// Inspired by https://colorhunt.co/palette/96b6c5adc4ceeee0c9f1f0e8
     const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
-        lighten: 0.0,
+        lighten_for_light_theme: 0.4,
+        lighten_for_dark_theme: 0.0,
         colors: [
-            color!("F1F0E8"),
+            tailwind::GRAY_200,
             // The original color of the palette was ADC4CE, but that stands out too much.
             // This one is 20% lighter.
             color!("BDD0D8"),
             color!("EEE0C9"),
             color!("F1F0E8"),
-            color!("F1F0E8"),
+            tailwind::GRAY_200,
         ],
     };
 
@@ -266,10 +286,6 @@ pub mod colors {
     //         color!("637A9F"),
     //     ],
     // };
-
-    colors! {
-        SHADED_WHITE = "F8F8F8";
-    }
 
     pub mod tailwind {
         use swell_ui::colors;
@@ -602,7 +618,7 @@ pub const MAPPING_PANEL_SCALING: DialogScaling = DialogScaling {
     height_scale: root::MAPPING_PANEL_HEIGHT_SCALE,
 };
 
-const HEADER_PANEL_SCALING: DialogScaling = DialogScaling {
+pub const HEADER_PANEL_SCALING: DialogScaling = DialogScaling {
     x_scale: root::HEADER_PANEL_X_SCALE,
     y_scale: root::HEADER_PANEL_Y_SCALE,
     width_scale: root::HEADER_PANEL_WIDTH_SCALE,

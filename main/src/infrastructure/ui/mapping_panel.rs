@@ -142,26 +142,11 @@ impl MappingPanel {
             session: session.clone(),
             mapping: None.into(),
             main_panel,
-            mapping_color_panel: SharedView::new(ColorPanel::new(
-                colors::mapping(),
-                colors::tailwind::SLATE_900,
-            )),
-            source_color_panel: SharedView::new(ColorPanel::new(
-                colors::source(),
-                colors::tailwind::SKY_900,
-            )),
-            target_color_panel: SharedView::new(ColorPanel::new(
-                colors::target(),
-                colors::tailwind::EMERALD_950,
-            )),
-            glue_color_panel: SharedView::new(ColorPanel::new(
-                colors::glue(),
-                colors::tailwind::AMBER_950,
-            )),
-            help_color_panel: SharedView::new(ColorPanel::new(
-                colors::help(),
-                colors::tailwind::SLATE_950,
-            )),
+            mapping_color_panel: SharedView::new(ColorPanel::new(colors::mapping())),
+            source_color_panel: SharedView::new(ColorPanel::new(colors::source())),
+            target_color_panel: SharedView::new(ColorPanel::new(colors::target())),
+            glue_color_panel: SharedView::new(ColorPanel::new(colors::glue())),
+            help_color_panel: SharedView::new(ColorPanel::new(colors::help())),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
                 Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(&MAPPING_PANEL_SCALING),

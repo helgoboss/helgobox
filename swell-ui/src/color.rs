@@ -1,5 +1,5 @@
 use palette::rgb::Rgb;
-use palette::{LinSrgb, Srgb};
+use palette::{encoding, Hsl, IntoColor, LinSrgb, Srgb};
 use reaper_low::Swell;
 
 /// Construct a color like this: `color!("EFEFEF")`
@@ -34,7 +34,7 @@ pub struct Color {
 }
 
 impl Color {
-    /// Converts an arbitrary palette crate color to our color type.
+    /// Converts an arbitrary palette RGB color to our color type.
     pub fn from_palette<S, T>(color: Rgb<S, T>) -> Self
     where
         Srgb<u8>: From<Rgb<S, T>>,
@@ -54,18 +54,22 @@ impl Color {
         Self { r, g, b }
     }
 
-    /// Converts this color to an arbitrary palette crate color type.
-    pub fn to_palette<S, T>(&self) -> Rgb<S, T>
-    where
-        Rgb<S, T>: From<Srgb<u8>>,
-    {
-        let srgb = Srgb::new(self.r, self.g, self.b);
-        srgb.into()
+    /// Converts this color to its closest palette color type (24-bit sRGB without alpha).
+    pub fn to_palette(&self) -> Srgb<u8> {
+        Srgb::new(self.r, self.g, self.b)
     }
 
-    /// Convenience function to start working with the color.
-    pub fn to_linear(&self) -> LinSrgb {
-        self.to_palette()
+    /// Convenience function to start working with the color in the RGB color space.
+    ///
+    /// Can be converted back into our color type using `.into()`.
+    pub fn to_linear_srgb(&self) -> LinSrgb {
+        self.to_palette().into_linear()
+    }
+
+    /// Convenience function to start working with the color in the HSL color space.
+    pub fn to_hsl(&self) -> Hsl {
+        let srgb: Srgb = self.to_palette().into_format();
+        srgb.into_color()
     }
 
     /// Converts this color to a single integer as expected by Win32/SWELL.
@@ -83,11 +87,10 @@ where
     }
 }
 
-impl<S, T> From<Color> for Rgb<S, T>
-where
-    Rgb<S, T>: From<Srgb<u8>>,
-{
-    fn from(value: Color) -> Self {
-        value.to_palette()
+impl From<Hsl> for Color {
+    fn from(value: Hsl) -> Self {
+        let srgb: Srgb = value.into_color();
+        let srgb: Srgb<u8> = srgb.into_format();
+        Color::from_palette(srgb)
     }
 }
