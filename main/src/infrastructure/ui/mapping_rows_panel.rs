@@ -11,6 +11,7 @@ use palette::Srgb;
 use realearn_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
+use reaper_medium::{Hbrush, Hdc};
 use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
@@ -672,11 +673,11 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
         util::view::control_color_static_default(hdc, colors::row_background())
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
         util::view::control_color_dialog_default(hdc, colors::row_background())
     }
 

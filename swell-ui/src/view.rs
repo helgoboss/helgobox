@@ -2,6 +2,7 @@ use crate::{create_window, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
 use rxrust::prelude::*;
 
+use reaper_medium::{Hbrush, Hdc};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::ptr::null_mut;
@@ -196,19 +197,19 @@ pub trait View: Debug {
     /// WM_CTLCOLORSTATIC
     ///
     /// Can return a custom background brush for painting that control.
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
         let _ = hdc;
         let _ = window;
-        null_mut()
+        None
     }
 
     /// WM_CTLCOLORDLG
     ///
     /// Can return a custom background brush for painting that dialog.
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
+    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
         let _ = hdc;
         let _ = window;
-        null_mut()
+        None
     }
 
     /// Timer with the given ID fires.

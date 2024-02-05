@@ -149,48 +149,376 @@ pub mod symbols {
 }
 
 pub mod view {
-    use palette::Srgb;
     use reaper_low::{raw, Swell};
-    use std::ptr::null_mut;
-    use swell_ui::{ValidBrushHandle, ViewManager};
+    use reaper_medium::{Hbrush, Hdc};
+    use swell_ui::{Color, ViewManager};
 
-    pub fn control_color_static_default(hdc: raw::HDC, color: Srgb<u8>) -> raw::HBRUSH {
+    pub fn control_color_static_default(hdc: Hdc, color: Color) -> Option<Hbrush> {
         unsafe {
-            Swell::get().SetBkMode(hdc, raw::TRANSPARENT as _);
+            Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
         }
         ViewManager::get().get_solid_brush(color)
     }
 
-    pub fn control_color_dialog_default(_hdc: raw::HDC, color: Srgb<u8>) -> raw::HBRUSH {
+    pub fn control_color_dialog_default(_hdc: Hdc, color: Color) -> Option<Hbrush> {
         ViewManager::get().get_solid_brush(color)
     }
 }
 
 pub mod colors {
-    use palette::Srgb;
+    use palette::Lighten;
+    use swell_ui::{color, colors, Color};
+    use tailwind::*;
 
-    pub fn row_background() -> Srgb<u8> {
+    pub fn row_background() -> Color {
         SHADED_WHITE
     }
 
-    pub const SHADED_WHITE: Srgb<u8> = Srgb::new(248, 248, 248);
-    pub const SKY_100: Srgb<u8> = Srgb::new(0xE0, 0xF2, 0xFE);
-    pub const SKY_200: Srgb<u8> = Srgb::new(0xba, 0xe6, 0xfd);
-    pub const SKY_900: Srgb<u8> = Srgb::new(0x0C, 0x4A, 0x6E);
-    pub const SKY_950: Srgb<u8> = Srgb::new(0x08, 0x2F, 0x49);
-    pub const EMERALD_100: Srgb<u8> = Srgb::new(0xD1, 0xFA, 0xE5);
-    pub const EMERALD_200: Srgb<u8> = Srgb::new(0xa7, 0xf3, 0xd0);
-    pub const EMERALD_900: Srgb<u8> = Srgb::new(0x06, 0x4E, 0x3B);
-    pub const EMERALD_950: Srgb<u8> = Srgb::new(0x02, 0x2C, 0x22);
-    pub const AMBER_100: Srgb<u8> = Srgb::new(0xFE, 0xF3, 0xC7);
-    pub const AMBER_200: Srgb<u8> = Srgb::new(0xfd, 0xe6, 0x8a);
-    pub const AMBER_900: Srgb<u8> = Srgb::new(0x78, 0x35, 0x0F);
-    pub const AMBER_950: Srgb<u8> = Srgb::new(0x45, 0x1A, 0x03);
-    pub const SLATE_100: Srgb<u8> = Srgb::new(0xF1, 0xF5, 0xF9);
-    pub const SLATE_200: Srgb<u8> = Srgb::new(0xE2, 0xE8, 0xF0);
-    pub const SLATE_300: Srgb<u8> = Srgb::new(0xCB, 0xD5, 0xE1);
-    pub const SLATE_900: Srgb<u8> = Srgb::new(0x0F, 0x17, 0x2A);
-    pub const SLATE_950: Srgb<u8> = Srgb::new(0x02, 0x06, 0x17);
+    pub fn mapping() -> Color {
+        MAPPING_PANEL_COLOR_PALETTE.get(0)
+    }
+
+    pub fn source() -> Color {
+        MAPPING_PANEL_COLOR_PALETTE.get(1)
+    }
+
+    pub fn target() -> Color {
+        MAPPING_PANEL_COLOR_PALETTE.get(2)
+    }
+
+    pub fn glue() -> Color {
+        MAPPING_PANEL_COLOR_PALETTE.get(3)
+    }
+
+    pub fn help() -> Color {
+        MAPPING_PANEL_COLOR_PALETTE.get(4)
+    }
+
+    struct ColorPalette {
+        lighten: f32,
+        colors: [Color; 5],
+    }
+
+    impl ColorPalette {
+        pub fn get(&self, index: usize) -> Color {
+            let original_color = self.colors[index];
+            if self.lighten == 0.0 {
+                original_color
+            } else {
+                original_color.to_linear().lighten(self.lighten).into()
+            }
+        }
+    }
+
+    // Inspired by https://colorhunt.co/palette/96b6c5adc4ceeee0c9f1f0e8
+    // // 54. VERY GOOD, maybe target blue a tiny bit too dark
+    // const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
+    //     lighten: 0.2,
+    //     colors: [
+    //         color!("F1F0E8"),
+    //         color!("EEE0C9"),
+    //         color!("ADC4CE"),
+    //         color!("F1F0E8"),
+    //         color!("F1F0E8"),
+    //     ],
+    // };
+
+    // 54b.
+    const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
+        lighten: 0.0,
+        colors: [
+            color!("F1F0E8"),
+            // The original color of the palette was ADC4CE, but that stands out too much.
+            // This one is 20% lighter.
+            color!("BDD0D8"),
+            color!("EEE0C9"),
+            color!("F1F0E8"),
+            color!("F1F0E8"),
+        ],
+    };
+
+    // // 2. Nice pastel colors
+    // const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
+    //     lighten: 0.0,
+    //     colors: [SLATE_200, SKY_100, ORANGE_100, SLATE_100, SLATE_200],
+    // };
+
+    // 24. Not too bad. But too much similarity between source and target color.
+    // const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
+    //     lighten: 0.5,
+    //     colors: [
+    //         color!("C9D7DD"),
+    //         color!("FFF3CF"),
+    //         color!("E8C872"),
+    //         color!("C9D7DD"),
+    //         color!("637A9F"),
+    //     ],
+    // };
+
+    // // Alternative
+    // const MAPPING_PANEL_COLOR_PALETTE: ColorPalette = ColorPalette {
+    //     lighten: 0.5,
+    //     colors: [
+    //         color!("637A9F"),
+    //         color!("FFF3CF"),
+    //         color!("E8C872"),
+    //         color!("C9D7DD"),
+    //         color!("637A9F"),
+    //     ],
+    // };
+
+    colors! {
+        SHADED_WHITE = "F8F8F8";
+    }
+
+    pub mod tailwind {
+        use swell_ui::colors;
+
+        colors! {
+            SLATE_50 = "f8fafc";
+            SLATE_100 = "f1f5f9";
+            SLATE_200 = "e2e8f0";
+            SLATE_300 = "cbd5e1";
+            SLATE_400 = "94a3b8";
+            SLATE_500 = "64748b";
+            SLATE_600 = "475569";
+            SLATE_700 = "334155";
+            SLATE_800 = "1e293b";
+            SLATE_900 = "0f172a";
+            SLATE_950 = "020617";
+            GRAY_50 = "f9fafb";
+            GRAY_100 = "f3f4f6";
+            GRAY_200 = "e5e7eb";
+            GRAY_300 = "d1d5db";
+            GRAY_400 = "9ca3af";
+            GRAY_500 = "6b7280";
+            GRAY_600 = "4b5563";
+            GRAY_700 = "374151";
+            GRAY_800 = "1f2937";
+            GRAY_900 = "111827";
+            GRAY_950 = "030712";
+            ZINC_50 = "fafafa";
+            ZINC_100 = "f4f4f5";
+            ZINC_200 = "e4e4e7";
+            ZINC_300 = "d4d4d8";
+            ZINC_400 = "a1a1aa";
+            ZINC_500 = "71717a";
+            ZINC_600 = "52525b";
+            ZINC_700 = "3f3f46";
+            ZINC_800 = "27272a";
+            ZINC_900 = "18181b";
+            ZINC_950 = "09090b";
+            NEUTRAL_50 = "fafafa";
+            NEUTRAL_100 = "f5f5f5";
+            NEUTRAL_200 = "e5e5e5";
+            NEUTRAL_300 = "d4d4d4";
+            NEUTRAL_400 = "a3a3a3";
+            NEUTRAL_500 = "737373";
+            NEUTRAL_600 = "525252";
+            NEUTRAL_700 = "404040";
+            NEUTRAL_800 = "262626";
+            NEUTRAL_900 = "171717";
+            NEUTRAL_950 = "0a0a0a";
+            STONE_50 = "fafaf9";
+            STONE_100 = "f5f5f4";
+            STONE_200 = "e7e5e4";
+            STONE_300 = "d6d3d1";
+            STONE_400 = "a8a29e";
+            STONE_500 = "78716c";
+            STONE_600 = "57534e";
+            STONE_700 = "44403c";
+            STONE_800 = "292524";
+            STONE_900 = "1c1917";
+            STONE_950 = "0c0a09";
+            RED_50 = "fef2f2";
+            RED_100 = "fee2e2";
+            RED_200 = "fecaca";
+            RED_300 = "fca5a5";
+            RED_400 = "f87171";
+            RED_500 = "ef4444";
+            RED_600 = "dc2626";
+            RED_700 = "b91c1c";
+            RED_800 = "991b1b";
+            RED_900 = "7f1d1d";
+            RED_950 = "450a0a";
+            ORANGE_50 = "fff7ed";
+            ORANGE_100 = "ffedd5";
+            ORANGE_200 = "fed7aa";
+            ORANGE_300 = "fdba74";
+            ORANGE_400 = "fb923c";
+            ORANGE_500 = "f97316";
+            ORANGE_600 = "ea580c";
+            ORANGE_700 = "c2410c";
+            ORANGE_800 = "9a3412";
+            ORANGE_900 = "7c2d12";
+            ORANGE_950 = "431407";
+            AMBER_50 = "fffbeb";
+            AMBER_100 = "fef3c7";
+            AMBER_200 = "fde68a";
+            AMBER_300 = "fcd34d";
+            AMBER_400 = "fbbf24";
+            AMBER_500 = "f59e0b";
+            AMBER_600 = "d97706";
+            AMBER_700 = "b45309";
+            AMBER_800 = "92400e";
+            AMBER_900 = "78350f";
+            AMBER_950 = "451a03";
+            YELLOW_50 = "fefce8";
+            YELLOW_100 = "fef9c3";
+            YELLOW_200 = "fef08a";
+            YELLOW_300 = "fde047";
+            YELLOW_400 = "facc15";
+            YELLOW_500 = "eab308";
+            YELLOW_600 = "ca8a04";
+            YELLOW_700 = "a16207";
+            YELLOW_800 = "854d0e";
+            YELLOW_900 = "713f12";
+            YELLOW_950 = "422006";
+            LIME_50 = "f7fee7";
+            LIME_100 = "ecfccb";
+            LIME_200 = "d9f99d";
+            LIME_300 = "bef264";
+            LIME_400 = "a3e635";
+            LIME_500 = "84cc16";
+            LIME_600 = "65a30d";
+            LIME_700 = "4d7c0f";
+            LIME_800 = "3f6212";
+            LIME_900 = "365314";
+            LIME_950 = "1a2e05";
+            GREEN_50 = "f0fdf4";
+            GREEN_100 = "dcfce7";
+            GREEN_200 = "bbf7d0";
+            GREEN_300 = "86efac";
+            GREEN_400 = "4ade80";
+            GREEN_500 = "22c55e";
+            GREEN_600 = "16a34a";
+            GREEN_700 = "15803d";
+            GREEN_800 = "166534";
+            GREEN_900 = "14532d";
+            GREEN_950 = "052e16";
+            EMERALD_50 = "ecfdf5";
+            EMERALD_100 = "d1fae5";
+            EMERALD_200 = "a7f3d0";
+            EMERALD_300 = "6ee7b7";
+            EMERALD_400 = "34d399";
+            EMERALD_500 = "10b981";
+            EMERALD_600 = "059669";
+            EMERALD_700 = "047857";
+            EMERALD_800 = "065f46";
+            EMERALD_900 = "064e3b";
+            EMERALD_950 = "022c22";
+            TEAL_50 = "f0fdfa";
+            TEAL_100 = "ccfbf1";
+            TEAL_200 = "99f6e4";
+            TEAL_300 = "5eead4";
+            TEAL_400 = "2dd4bf";
+            TEAL_500 = "14b8a6";
+            TEAL_600 = "0d9488";
+            TEAL_700 = "0f766e";
+            TEAL_800 = "115e59";
+            TEAL_900 = "134e4a";
+            TEAL_950 = "042f2e";
+            CYAN_50 = "ecfeff";
+            CYAN_100 = "cffafe";
+            CYAN_200 = "a5f3fc";
+            CYAN_300 = "67e8f9";
+            CYAN_400 = "22d3ee";
+            CYAN_500 = "06b6d4";
+            CYAN_600 = "0891b2";
+            CYAN_700 = "0e7490";
+            CYAN_800 = "155e75";
+            CYAN_900 = "164e63";
+            CYAN_950 = "083344";
+            SKY_50 = "f0f9ff";
+            SKY_100 = "e0f2fe";
+            SKY_200 = "bae6fd";
+            SKY_300 = "7dd3fc";
+            SKY_400 = "38bdf8";
+            SKY_500 = "0ea5e9";
+            SKY_600 = "0284c7";
+            SKY_700 = "0369a1";
+            SKY_800 = "075985";
+            SKY_900 = "0c4a6e";
+            SKY_950 = "082f49";
+            BLUE_50 = "eff6ff";
+            BLUE_100 = "dbeafe";
+            BLUE_200 = "bfdbfe";
+            BLUE_300 = "93c5fd";
+            BLUE_400 = "60a5fa";
+            BLUE_500 = "3b82f6";
+            BLUE_600 = "2563eb";
+            BLUE_700 = "1d4ed8";
+            BLUE_800 = "1e40af";
+            BLUE_900 = "1e3a8a";
+            BLUE_950 = "172554";
+            INDIGO_50 = "eef2ff";
+            INDIGO_100 = "e0e7ff";
+            INDIGO_200 = "c7d2fe";
+            INDIGO_300 = "a5b4fc";
+            INDIGO_400 = "818cf8";
+            INDIGO_500 = "6366f1";
+            INDIGO_600 = "4f46e5";
+            INDIGO_700 = "4338ca";
+            INDIGO_800 = "3730a3";
+            INDIGO_900 = "312e81";
+            INDIGO_950 = "1e1b4b";
+            VIOLET_50 = "f5f3ff";
+            VIOLET_100 = "ede9fe";
+            VIOLET_200 = "ddd6fe";
+            VIOLET_300 = "c4b5fd";
+            VIOLET_400 = "a78bfa";
+            VIOLET_500 = "8b5cf6";
+            VIOLET_600 = "7c3aed";
+            VIOLET_700 = "6d28d9";
+            VIOLET_800 = "5b21b6";
+            VIOLET_900 = "4c1d95";
+            VIOLET_950 = "2e1065";
+            PURPLE_50 = "faf5ff";
+            PURPLE_100 = "f3e8ff";
+            PURPLE_200 = "e9d5ff";
+            PURPLE_300 = "d8b4fe";
+            PURPLE_400 = "c084fc";
+            PURPLE_500 = "a855f7";
+            PURPLE_600 = "9333ea";
+            PURPLE_700 = "7e22ce";
+            PURPLE_800 = "6b21a8";
+            PURPLE_900 = "581c87";
+            PURPLE_950 = "3b0764";
+            FUCHSIA_50 = "fdf4ff";
+            FUCHSIA_100 = "fae8ff";
+            FUCHSIA_200 = "f5d0fe";
+            FUCHSIA_300 = "f0abfc";
+            FUCHSIA_400 = "e879f9";
+            FUCHSIA_500 = "d946ef";
+            FUCHSIA_600 = "c026d3";
+            FUCHSIA_700 = "a21caf";
+            FUCHSIA_800 = "86198f";
+            FUCHSIA_900 = "701a75";
+            FUCHSIA_950 = "4a044e";
+            PINK_50 = "fdf2f8";
+            PINK_100 = "fce7f3";
+            PINK_200 = "fbcfe8";
+            PINK_300 = "f9a8d4";
+            PINK_400 = "f472b6";
+            PINK_500 = "ec4899";
+            PINK_600 = "db2777";
+            PINK_700 = "be185d";
+            PINK_800 = "9d174d";
+            PINK_900 = "831843";
+            PINK_950 = "500724";
+            ROSE_50 = "fff1f2";
+            ROSE_100 = "ffe4e6";
+            ROSE_200 = "fecdd3";
+            ROSE_300 = "fda4af";
+            ROSE_400 = "fb7185";
+            ROSE_500 = "f43f5e";
+            ROSE_600 = "e11d48";
+            ROSE_700 = "be123c";
+            ROSE_800 = "9f1239";
+            ROSE_900 = "881337";
+            ROSE_950 = "4c0519";
+        }
+    }
 }
 
 pub fn open_in_browser(url: &str) {
@@ -260,7 +588,7 @@ pub fn compartment_parameter_dropdown_contents(
     })
 }
 
-const GLOBAL_SCALING: DialogScaling = DialogScaling {
+pub const GLOBAL_SCALING: DialogScaling = DialogScaling {
     x_scale: root::GLOBAL_X_SCALE,
     y_scale: root::GLOBAL_Y_SCALE,
     width_scale: root::GLOBAL_WIDTH_SCALE,

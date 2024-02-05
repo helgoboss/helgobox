@@ -16,6 +16,8 @@ raw-window-handle.workspace = true
 tracing.workspace = true
 palette.workspace = true
 fragile.workspace = true
+# For easily defining colors
+hex-literal = "0.4.1"
 
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true

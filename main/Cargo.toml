@@ -209,8 +209,6 @@ camino.workspace = true
 auto_impl.workspace = true
 # For some color in the otherwise boring GUI
 palette.workspace = true
-# For easily defining colors
-hex-literal = "0.4.1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

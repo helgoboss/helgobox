@@ -1,7 +1,6 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{
-    Brush, BrushCache, BrushDescriptor, Pixels, Point, SharedView, ValidBrushHandle, View,
-    WeakView, Window,
+    Brush, BrushCache, BrushDescriptor, Color, Pixels, Point, SharedView, View, WeakView, Window,
 };
 use std::cell::{Cell, RefCell, RefMut};
 
@@ -16,7 +15,7 @@ use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
 use palette::Srgb;
 use reaper_low::raw::HBRUSH;
-use reaper_medium::{Hbrush, Hwnd};
+use reaper_medium::{Hbrush, Hdc, Hwnd};
 use std::sync::{Once, OnceLock};
 
 /// Creates a window according to the given dialog resource.
@@ -60,11 +59,8 @@ pub struct ViewManager {
 }
 
 impl ViewManager {
-    pub fn get_solid_brush(&'static self, color: Srgb<u8>) -> HBRUSH {
-        self.brush_cache
-            .get_brush(BrushDescriptor::solid(color))
-            .map(|handle| handle.as_ptr())
-            .unwrap_or(null_mut())
+    pub fn get_solid_brush(&'static self, color: Color) -> Option<Hbrush> {
+        self.brush_cache.get_brush(BrushDescriptor::solid(color))
     }
 
     /// If the given window is one of ours (one that drives our views) and the associated view
@@ -273,18 +269,18 @@ unsafe extern "C" fn view_dialog_proc(
                 raw::WM_ERASEBKGND => isize::from(view.erase_background(wparam as raw::HDC)),
                 raw::WM_CTLCOLORSTATIC => {
                     let brush = view.control_color_static(
-                        wparam as raw::HDC,
+                        Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORSTATIC is null"),
                         Window::new(lparam as raw::HWND)
                             .expect("WM_CTLCOLORSTATIC control is null"),
                     );
-                    brush as _
+                    brush.map(|b| b.as_ptr()).unwrap_or(null_mut()) as _
                 }
                 raw::WM_CTLCOLORDLG => {
                     let brush = view.control_color_dialog(
-                        wparam as raw::HDC,
+                        Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORDLG is null"),
                         Window::new(lparam as raw::HWND).expect("WM_CTLCOLORDLG control is null"),
                     );
-                    brush as _
+                    brush.map(|b| b.as_ptr()).unwrap_or(null_mut()) as _
                 }
                 raw::WM_TIMER => {
                     if view.timer(wparam) {

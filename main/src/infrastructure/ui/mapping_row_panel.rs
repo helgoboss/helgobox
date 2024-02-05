@@ -17,8 +17,11 @@ use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
+use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{colors, mapping_row_panel_height, symbols};
+use crate::infrastructure::ui::util::{
+    colors, mapping_row_panel_height, symbols, GLOBAL_SCALING, MAPPING_PANEL_SCALING,
+};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
@@ -28,6 +31,7 @@ use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
 use reaper_low::raw;
+use reaper_medium::{Hbrush, Hdc};
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
@@ -45,6 +49,9 @@ pub struct MappingRowPanel {
     view: ViewContext,
     session: WeakUnitModel,
     main_state: SharedMainState,
+    main_color_panel: SharedView<ColorPanel>,
+    source_color_panel: SharedView<ColorPanel>,
+    target_color_panel: SharedView<ColorPanel>,
     row_index: u32,
     is_last_row: bool,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
@@ -70,6 +77,18 @@ impl MappingRowPanel {
             view: Default::default(),
             session,
             main_state,
+            main_color_panel: SharedView::new(ColorPanel::new(
+                colors::mapping(),
+                colors::tailwind::SKY_900,
+            )),
+            source_color_panel: SharedView::new(ColorPanel::new(
+                colors::source(),
+                colors::tailwind::SKY_900,
+            )),
+            target_color_panel: SharedView::new(ColorPanel::new(
+                colors::target(),
+                colors::tailwind::EMERALD_950,
+            )),
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
@@ -866,6 +885,33 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
+        position_color_panel(
+            &self.source_color_panel,
+            window,
+            43,
+            0,
+            94,
+            46,
+            &GLOBAL_SCALING,
+        );
+        position_color_panel(
+            &self.target_color_panel,
+            window,
+            161,
+            0,
+            182,
+            46,
+            &GLOBAL_SCALING,
+        );
+        position_color_panel(
+            &self.main_color_panel,
+            window,
+            0,
+            0,
+            460,
+            46,
+            &GLOBAL_SCALING,
+        );
         window.move_to_dialog_units(Point::new(
             DialogUnits(0),
             mapping_row_panel_height() * self.row_index,
@@ -899,11 +945,11 @@ impl View for MappingRowPanel {
         let _ = self.open_context_menu(location);
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
         util::view::control_color_static_default(hdc, colors::row_background())
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
+    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, _: Window) -> Option<Hbrush> {
         util::view::control_color_dialog_default(hdc, colors::row_background())
     }
 

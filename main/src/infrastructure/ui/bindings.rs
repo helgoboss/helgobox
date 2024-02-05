@@ -107,10 +107,12 @@ pub mod root {
     pub const ID_FILTER_BY_TARGET_BUTTON: u32 = 30038;
     pub const ID_CLEAR_TARGET_FILTER_BUTTON: u32 = 30039;
     pub const ID_MAPPING_PANEL: u32 = 30192;
+    pub const ID_MAPPING_PANEL_LABEL: u32 = 30044;
     pub const ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX: u32 = 30046;
     pub const ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX: u32 = 30047;
     pub const ID_MAPPING_ADVANCED_BUTTON: u32 = 30048;
     pub const ID_MAPPING_FIND_IN_LIST_BUTTON: u32 = 30049;
+    pub const ID_SOURCE_PANEL_LABEL: u32 = 30050;
     pub const ID_SOURCE_LEARN_BUTTON: u32 = 30051;
     pub const ID_SOURCE_CATEGORY_COMBO_BOX: u32 = 30053;
     pub const ID_SOURCE_TYPE_LABEL_TEXT: u32 = 30054;
@@ -133,6 +135,7 @@ pub mod root {
     pub const ID_SOURCE_OSC_ADDRESS_LABEL_TEXT: u32 = 30071;
     pub const ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL: u32 = 30072;
     pub const ID_SOURCE_SCRIPT_DETAIL_BUTTON: u32 = 30073;
+    pub const ID_TARGET_PANEL_LABEL: u32 = 30074;
     pub const ID_TARGET_LEARN_BUTTON: u32 = 30075;
     pub const ID_TARGET_MENU_BUTTON: u32 = 30076;
     pub const ID_TARGET_HINT: u32 = 30077;
@@ -174,6 +177,7 @@ pub mod root {
     pub const ID_TARGET_VALUE_EDIT_CONTROL: u32 = 30114;
     pub const ID_TARGET_VALUE_TEXT: u32 = 30115;
     pub const ID_TARGET_UNIT_BUTTON: u32 = 30116;
+    pub const ID_GLUE_PANEL_LABEL: u32 = 30117;
     pub const ID_SETTINGS_RESET_BUTTON: u32 = 30118;
     pub const ID_SETTINGS_SOURCE_LABEL: u32 = 30119;
     #[allow(dead_code)]

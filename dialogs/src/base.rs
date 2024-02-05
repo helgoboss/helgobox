@@ -689,6 +689,7 @@ pub enum Style {
     DS_FIXEDSYS,
     DS_CENTER,
     WS_POPUP,
+    WS_BORDER,
     WS_VISIBLE,
     WS_CAPTION,
     WS_SYSMENU,

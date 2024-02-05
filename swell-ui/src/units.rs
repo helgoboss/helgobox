@@ -142,7 +142,7 @@ impl Point<DialogUnits> {
         }
     }
 
-    pub fn scale(self, scaling: DialogScaling) -> Self {
+    pub fn scale(self, scaling: &DialogScaling) -> Self {
         Self {
             x: self.x.scale(scaling.x_scale),
             y: self.y.scale(scaling.y_scale),
@@ -202,7 +202,7 @@ impl Dimensions<DialogUnits> {
         self.to_point().in_pixels().to_dimensions()
     }
 
-    pub fn scale(self, scaling: DialogScaling) -> Self {
+    pub fn scale(self, scaling: &DialogScaling) -> Self {
         Self {
             width: self.width.scale(scaling.width_scale),
             height: self.height.scale(scaling.height_scale),

@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 use std::rc::Rc;
 use std::time::Duration;
 use std::{cmp, iter};
@@ -9,11 +9,12 @@ use std::{cmp, iter};
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
+use palette::Darken;
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
-use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_low::{raw, Swell};
+use reaper_medium::{Hbrush, Hdc, InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
 
@@ -31,8 +32,8 @@ use realearn_api::persistence::{
     MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    DialogUnits, Dimensions, Pixels, Point, SharedView, SwellStringArg, View, ViewContext,
-    WeakView, Window, ZOrder,
+    Color, DialogUnits, Dimensions, Pixels, Point, SharedView, SwellStringArg, View, ViewContext,
+    ViewManager, WeakView, Window, ZOrder,
 };
 
 use crate::application::{
@@ -67,17 +68,18 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::color_panel::ColorPanel;
+use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
 use crate::infrastructure::ui::menus::get_param_name;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
     open_child_panel_dyn, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
-    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
-    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
-    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
+    menus, util, EelControlTransformationEngine, EelFeedbackTransformationEngine,
+    EelMidiScriptEngine, ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine,
+    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
+    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
+    UnitPanel, YamlEditorPanel,
 };
 use base::hash_util::NonCryptoHashMap;
 use base::Global;
@@ -141,33 +143,28 @@ impl MappingPanel {
             mapping: None.into(),
             main_panel,
             mapping_color_panel: SharedView::new(ColorPanel::new(
-                "Mapping",
-                colors::SLATE_100,
-                colors::SLATE_900,
+                colors::mapping(),
+                colors::tailwind::SLATE_900,
             )),
             source_color_panel: SharedView::new(ColorPanel::new(
-                "Source",
-                colors::SKY_200,
-                colors::SKY_900,
+                colors::source(),
+                colors::tailwind::SKY_900,
             )),
             target_color_panel: SharedView::new(ColorPanel::new(
-                "Target",
-                colors::EMERALD_200,
-                colors::EMERALD_950,
+                colors::target(),
+                colors::tailwind::EMERALD_950,
             )),
             glue_color_panel: SharedView::new(ColorPanel::new(
-                "Glue",
-                colors::AMBER_200,
-                colors::AMBER_950,
+                colors::glue(),
+                colors::tailwind::AMBER_950,
             )),
             help_color_panel: SharedView::new(ColorPanel::new(
-                "",
-                colors::SLATE_300,
-                colors::SLATE_950,
+                colors::help(),
+                colors::tailwind::SLATE_950,
             )),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(MAPPING_PANEL_SCALING),
+                Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(&MAPPING_PANEL_SCALING),
                 None,
             )),
             is_invoked_programmatically: false.into(),
@@ -6870,11 +6867,51 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
-        position_color_panel(&self.mapping_color_panel, window, 0, 0, 451, 67);
-        position_color_panel(&self.source_color_panel, window, 0, 67, 175, 165);
-        position_color_panel(&self.target_color_panel, window, 175, 67, 276, 165);
-        position_color_panel(&self.glue_color_panel, window, 0, 232, 451, 239);
-        position_color_panel(&self.help_color_panel, window, 0, 471, 451, 61);
+        position_color_panel(
+            &self.mapping_color_panel,
+            window,
+            0,
+            0,
+            451,
+            67,
+            &MAPPING_PANEL_SCALING,
+        );
+        position_color_panel(
+            &self.source_color_panel,
+            window,
+            0,
+            67,
+            175,
+            165,
+            &MAPPING_PANEL_SCALING,
+        );
+        position_color_panel(
+            &self.target_color_panel,
+            window,
+            175,
+            67,
+            276,
+            165,
+            &MAPPING_PANEL_SCALING,
+        );
+        position_color_panel(
+            &self.glue_color_panel,
+            window,
+            0,
+            232,
+            451,
+            239,
+            &MAPPING_PANEL_SCALING,
+        );
+        position_color_panel(
+            &self.help_color_panel,
+            window,
+            0,
+            471,
+            451,
+            61,
+            &MAPPING_PANEL_SCALING,
+        );
         true
     }
 
@@ -7171,6 +7208,26 @@ impl View for MappingPanel {
         });
         false
     }
+
+    // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+    //     let swell = Swell::get();
+    //     let resource_id = unsafe { swell.GetWindowLong(window.raw(), raw::GWL_ID) } as u32;
+    //     dbg!(resource_id);
+    //     let set_text_color = |color: Color| unsafe {
+    //         swell.SetBkMode(hdc.as_ptr(), raw::OPAQUE as _);
+    //         let darker_color: Color = color.to_linear().darken(0.4).into();
+    //         swell.SetTextColor(hdc.as_ptr(), darker_color.to_raw() as _);
+    //     };
+    //     match resource_id {
+    //         root::ID_MAPPING_PANEL_LABEL => set_text_color(colors::mapping()),
+    //         root::ID_SOURCE_PANEL_LABEL => set_text_color(colors::source()),
+    //         root::ID_TARGET_PANEL_LABEL => set_text_color(colors::target()),
+    //         root::ID_GLUE_PANEL_LABEL => set_text_color(colors::glue()),
+    //         _ => {}
+    //     }
+    //     set_text_color(colors::target());
+    //     ViewManager::get().get_solid_brush(Color::rgb(255, 0, 0))
+    // }
 
     fn timer(&self, id: usize) -> bool {
         if id == SOURCE_MATCH_INDICATOR_TIMER_ID {
@@ -8008,21 +8065,4 @@ const ACTIVITY_INFO: &str = "Activity info";
 enum Side {
     Left,
     Right,
-}
-
-fn position_color_panel(
-    panel: &SharedView<ColorPanel>,
-    parent_window: Window,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-) {
-    if let Some(w) = panel.clone().open(parent_window) {
-        w.set_everything_in_dialog_units(
-            Point::new(DialogUnits(x), DialogUnits(y)).scale(MAPPING_PANEL_SCALING),
-            Dimensions::new(DialogUnits(width), DialogUnits(height)).scale(MAPPING_PANEL_SCALING),
-            ZOrder::Bottom,
-        );
-    }
 }
