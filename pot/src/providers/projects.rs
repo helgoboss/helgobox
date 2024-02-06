@@ -14,7 +14,6 @@ use base::hash_util::{
 };
 use either::Either;
 use enumset::{enum_set, EnumSet};
-use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 

@@ -1,16 +1,11 @@
-use palette::Srgb;
-use reaper_low::raw;
-use reaper_low::raw::{HBRUSH, HDC};
 use reaper_medium::{Hbrush, Hdc};
 use std::fmt::Debug;
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util;
 use crate::infrastructure::ui::util::colors::ColorPair;
-use crate::infrastructure::ui::util::MAPPING_PANEL_SCALING;
 use swell_ui::{
-    Color, DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window,
-    ZOrder,
+    DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window, ZOrder,
 };
 
 #[derive(Debug)]
@@ -37,7 +32,7 @@ impl View for ColorPanel {
         &self.view
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+    fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
         util::view::get_brush(self.color_pair)
     }
 }

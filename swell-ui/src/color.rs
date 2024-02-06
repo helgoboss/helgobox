@@ -1,5 +1,5 @@
 use palette::rgb::Rgb;
-use palette::{encoding, Hsl, IntoColor, LinSrgb, Srgb};
+use palette::{Hsl, IntoColor, LinSrgb, Srgb};
 use reaper_low::Swell;
 
 /// Construct a color like this: `color!("EFEFEF")`

@@ -18,7 +18,7 @@ pub struct CompartmentModel {
 pub enum CompartmentCommand {
     SetNotes(String),
     SetCommonLua(String),
-    ChangeMapping(MappingId, MappingCommand),
+    ChangeMapping(MappingId, Box<MappingCommand>),
 }
 
 pub enum CompartmentProp {

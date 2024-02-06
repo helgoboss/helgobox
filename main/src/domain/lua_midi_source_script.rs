@@ -153,7 +153,7 @@ struct LuaScriptOutcome {
 pub fn create_lua_midi_script_source_runtime(_lua: &Lua) -> mlua::Value {
     // At the moment, the MIDI script source runtime doesn't contain any functions, just types.
     // That means it's only relevant for autocompletion in the IDE. We can return nil.
-    return Value::Nil;
+    Value::Nil
 }
 
 pub const LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME: &str = "midi_script_source_runtime";

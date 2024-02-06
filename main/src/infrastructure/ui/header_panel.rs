@@ -50,7 +50,7 @@ use crate::infrastructure::ui::menus::{
 };
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
-    open_in_file_manager, HEADER_PANEL_SCALING, MAPPING_PANEL_SCALING,
+    open_in_file_manager, HEADER_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
@@ -2315,11 +2315,7 @@ impl HeaderPanel {
         let compartment = self.active_compartment();
         let active_preset_info = self.get_active_preset_info(compartment);
         if let Some(info) = &active_preset_info {
-            if let PresetOrigin::Factory {
-                compartment,
-                relative_file_path,
-            } = &info.origin
-            {
+            if let PresetOrigin::Factory { compartment, .. } = &info.origin {
                 if info.file_type == PresetFileType::Lua {
                     let menu_entry_label =
                         build_create_compartment_preset_workspace_label(*compartment, true);
@@ -3072,7 +3068,7 @@ fn with_scoped_preset_link_mutator(
 fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> String {
     let dev_manager = BackboneShell::get().osc_device_manager();
     let dev_manager = dev_manager.borrow();
-    if let Some(dev) = dev_manager.find_device_by_id(&osc_device_id) {
+    if let Some(dev) = dev_manager.find_device_by_id(osc_device_id) {
         get_osc_device_list_label(dev, is_output)
     } else {
         format!("OSC: <Not present> ({osc_device_id})")

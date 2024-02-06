@@ -1,7 +1,7 @@
 use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
-use reaper_low::{raw, Reaper, Swell};
+use reaper_low::{raw, Swell};
 use reaper_medium::Hwnd;
 use std::ffi::CString;
 use std::fmt::Display;

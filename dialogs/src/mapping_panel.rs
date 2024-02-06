@@ -10,11 +10,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         //     ids.named_id("ID_MAPPING_PANEL_LABEL"),
         //     context.rect(7, 1, 435, 67),
         // ),
-        ltext(
-            "Mapping",
-            ids.named_id("ID_MAPPING_PANEL_LABEL"),
-            context.rect(7, 1, 435, 9),
-        ),
+        ltext("Mapping", ids.id(), context.rect(7, 1, 435, 9)),
         ltext("Feedback", ids.id(), context.rect(11, 53, 34, 9)) + NOT_WS_GROUP,
         combobox(
             ids.named_id("ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX"),
@@ -45,11 +41,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         //     ids.named_id("ID_SOURCE_PANEL_LABEL"),
         //     context.rect(7, 67, 165, 165),
         // ) + WS_GROUP,
-        ltext(
-            "Source",
-            ids.named_id("ID_SOURCE_PANEL_LABEL"),
-            context.rect(7, 67, 165, 9),
-        ) + WS_GROUP,
+        ltext("Source", ids.id(), context.rect(7, 67, 165, 9)) + WS_GROUP,
         pushbutton(
             "Learn",
             ids.named_id("ID_SOURCE_LEARN_BUTTON"),
@@ -160,11 +152,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         //     ids.named_id("ID_TARGET_PANEL_LABEL"),
         //     context.rect(177, 67, 265, 165),
         // ),
-        ltext(
-            "Target",
-            ids.named_id("ID_TARGET_PANEL_LABEL"),
-            context.rect(177, 67, 265, 9),
-        ),
+        ltext("Target", ids.id(), context.rect(177, 67, 265, 9)),
         pushbutton(
             "Learn",
             ids.named_id("ID_TARGET_LEARN_BUTTON"),
@@ -372,11 +360,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         //     ids.named_id("ID_GLUE_PANEL_LABEL"),
         //     context.rect(7, 232, 435, 239),
         // ),
-        ltext(
-            "Glue",
-            ids.named_id("ID_GLUE_PANEL_LABEL"),
-            context.rect(7, 232, 435, 9),
-        ),
+        ltext("Glue", ids.id(), context.rect(7, 232, 435, 9)),
         pushbutton(
             "Reset to defaults",
             ids.named_id("ID_SETTINGS_RESET_BUTTON"),

@@ -1,10 +1,5 @@
-
-
-use reaper_high::{Reaper};
-use reaper_medium::{
-    ReaperString,
-};
-
+use reaper_high::Reaper;
+use reaper_medium::ReaperString;
 
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -12,17 +7,17 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::InstanceShell;
 
 use crate::infrastructure::proto::{
-    event_reply, occasional_global_update,
-    occasional_instance_update, AudioInputChannel, AudioInputChannels, ContinuousColumnUpdate, ContinuousMatrixUpdate,
+    event_reply, occasional_global_update, occasional_instance_update, AudioInputChannel,
+    AudioInputChannels, ContinuousColumnUpdate, ContinuousMatrixUpdate,
     GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
     GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply,
-    MidiDeviceStatus, MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices,
-    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
+    GetOccasionalTrackUpdatesReply, MidiDeviceStatus, MidiInputDevice, MidiInputDevices,
+    MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
+    OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
+    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use realearn_api::runtime::{ControllerPreset, MainPreset};
 

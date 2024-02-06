@@ -552,16 +552,15 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
         let workspace_dir = self.preset_dir_path.join(&workspace_name);
         let factory_dir = get_factory_preset_dir(self.compartment);
         walk_included_dir(factory_dir, true, &mut |file| {
-            if !include_factory_presets {
-                if file.path().components().count() > 1
-                    && file
-                        .path()
-                        .components()
-                        .next()
-                        .is_some_and(|c| c.as_os_str() != ".vscode")
-                {
-                    return Ok(());
-                }
+            if !include_factory_presets
+                && file.path().components().count() > 1
+                && file
+                    .path()
+                    .components()
+                    .next()
+                    .is_some_and(|c| c.as_os_str() != ".vscode")
+            {
+                return Ok(());
             }
             let abs_path = workspace_dir.join(file.path());
             fs::create_dir_all(abs_path.parent().context("impossible")?)?;

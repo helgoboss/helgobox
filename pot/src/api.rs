@@ -354,8 +354,7 @@ impl PotFavorites {
     }
 
     pub fn db_favorites(&self, db_id: DatabaseId) -> &NonCryptoHashSet<InnerPresetId> {
-        static EMPTY_HASH_SET: Lazy<NonCryptoHashSet<InnerPresetId>> =
-            Lazy::new(|| HashSet::default());
+        static EMPTY_HASH_SET: Lazy<NonCryptoHashSet<InnerPresetId>> = Lazy::new(HashSet::default);
         self.favorites.get(&db_id).unwrap_or(&EMPTY_HASH_SET)
     }
 }

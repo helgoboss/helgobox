@@ -12,7 +12,7 @@ use crate::domain::{InstanceId, SharedInstance, UnitId};
 use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::colors;
-use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, ViewManager, Window};
+use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct InstancePanel {
@@ -294,7 +294,7 @@ impl View for InstancePanel {
         self.displayed_unit_panel.borrow_mut().take();
     }
 
-    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+    fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
         util::view::get_brush(colors::instance_panel_background())
     }
 }

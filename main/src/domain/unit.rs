@@ -346,7 +346,7 @@ impl Unit {
         self.event_sender
             .send_complaining(UnitEvent::MappingSnapshotActivated {
                 compartment,
-                tag_scope: tag_scope.clone(),
+                tag_scope: Box::new(tag_scope.clone()),
                 snapshot_id: snapshot_id.clone(),
             })
     }
@@ -603,7 +603,7 @@ pub enum UnitEvent {
     /// For the "ReaLearn: Load mapping snapshot" target.
     MappingSnapshotActivated {
         compartment: CompartmentKind,
-        tag_scope: TagScope,
+        tag_scope: Box<TagScope>,
         snapshot_id: VirtualMappingSnapshotIdForLoad,
     },
     MappingWhichLearnsSourceChanged {

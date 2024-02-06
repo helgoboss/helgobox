@@ -1,22 +1,19 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{
-    Brush, BrushCache, BrushDescriptor, Color, Pixels, Point, SharedView, View, WeakView, Window,
+    BrushCache, BrushDescriptor, Color, Pixels, Point, SharedView, View, WeakView, Window,
 };
-use std::cell::{Cell, RefCell, RefMut};
+use std::cell::{Cell, RefCell};
 
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::ptr::null_mut;
-use std::rc::Rc;
 
 use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
-use palette::Srgb;
-use reaper_low::raw::HBRUSH;
 use reaper_medium::{Hbrush, Hdc, Hwnd};
-use std::sync::{Once, OnceLock};
+use std::sync::OnceLock;
 
 /// Creates a window according to the given dialog resource.
 ///

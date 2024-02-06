@@ -1,6 +1,7 @@
 use anyhow::anyhow;
-use mlua::{ChunkMode, Function, Lua, Table, Value};
+use mlua::{ChunkMode, Function, Lua, Table, Value, VmState};
 use std::error::Error;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -69,21 +70,17 @@ impl SafeLua {
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
     pub fn start_execution_time_limit_countdown(self) -> anyhow::Result<Self> {
-        // TODO-high CONTINUE Implement with Luau interrupts
-        // const MAX_DURATION: Duration = Duration::from_millis(200);
-        // let _instant = Instant::now();
-        // self.0.set_hook(
-        //     HookTriggers::new().every_nth_instruction(10),
-        //     move |_lua, _debug| {
-        //         if instant.elapsed() > MAX_DURATION {
-        //             Err(mlua::Error::ExternalError(Arc::new(
-        //                 RealearnScriptError::Timeout,
-        //             )))
-        //         } else {
-        //             Ok(())
-        //         }
-        //     },
-        // );
+        const MAX_DURATION: Duration = Duration::from_millis(200);
+        let instant = Instant::now();
+        self.0.set_interrupt(move |_lua| {
+            if instant.elapsed() > MAX_DURATION {
+                Err(mlua::Error::ExternalError(Arc::new(
+                    RealearnScriptError::Timeout,
+                )))
+            } else {
+                Ok(VmState::Continue)
+            }
+        });
         Ok(self)
     }
 }

@@ -4,14 +4,12 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
-    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
+    DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
     SharedIndependentPanelManager, SharedMainState,
 };
-use palette::Srgb;
 use realearn_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
-use reaper_medium::{Hbrush, Hdc};
 use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
@@ -21,10 +19,7 @@ use crate::application::{
 };
 use crate::domain::{CompartmentKind, MappingId, MappingMatchedEvent, QualifiedMappingId};
 use crate::infrastructure::data::MappingModelData;
-use crate::infrastructure::ui::util::colors;
-use swell_ui::{
-    BrushDescriptor, DialogUnits, Pixels, Point, SharedView, View, ViewContext, ViewManager, Window,
-};
+use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {

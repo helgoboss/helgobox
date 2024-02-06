@@ -1,10 +1,8 @@
 use crate::Color;
 use base::hash_util::NonCryptoHashMap;
-use palette::Srgb;
-use reaper_low::raw::HBRUSH;
 use reaper_low::Swell;
 use reaper_medium::Hbrush;
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 
 #[derive(Debug, Default)]
 pub struct BrushCache {

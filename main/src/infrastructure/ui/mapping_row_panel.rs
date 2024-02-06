@@ -19,19 +19,15 @@ use crate::infrastructure::ui::bindings::root::{
 };
 use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{
-    colors, mapping_row_panel_height, symbols, GLOBAL_SCALING, MAPPING_PANEL_SCALING,
-};
+use crate::infrastructure::ui::util::{colors, mapping_row_panel_height, symbols, GLOBAL_SCALING};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
+    get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
     SerializationFormat, SharedMainState,
 };
 use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
-use reaper_low::raw;
-use reaper_medium::{Hbrush, Hdc};
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};

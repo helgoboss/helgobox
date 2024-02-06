@@ -2631,7 +2631,7 @@ impl TargetModel {
                         })
                     }
                 };
-                Ok(UnresolvedCompoundMappingTarget::Reaper(target))
+                Ok(UnresolvedCompoundMappingTarget::Reaper(Box::new(target)))
             }
             Virtual => {
                 let virtual_target = VirtualTarget::new(self.create_control_element());

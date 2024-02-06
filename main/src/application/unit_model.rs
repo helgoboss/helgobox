@@ -1042,7 +1042,7 @@ impl UnitModel {
         self.change_with_notification(
             SessionCommand::ChangeCompartment(
                 id.compartment,
-                CompartmentCommand::ChangeMapping(id.id, val),
+                CompartmentCommand::ChangeMapping(id.id, Box::new(val)),
             ),
             None,
             weak_session,
@@ -1298,7 +1298,7 @@ impl UnitModel {
         let affected = match cmd {
             C::ChangeMapping(mapping_id, cmd) => self.changing_mapping_by_id(
                 QualifiedMappingId::new(compartment, mapping_id),
-                move |ctx| Ok(ctx.mapping.change(cmd)),
+                move |ctx| Ok(ctx.mapping.change(*cmd)),
             )?,
             C::SetNotes(notes) => {
                 self.compartment_notes[compartment] = notes;

@@ -6,7 +6,6 @@ use base::future_util::millis;
 use base::hash_util::NonCryptoIndexMap;
 use base::{blocking_lock_arc, file_util, hash_util};
 use base::{Mouse, MouseCursorPosition};
-use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;

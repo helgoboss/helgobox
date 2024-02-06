@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 use std::rc::Rc;
 use std::time::Duration;
 use std::{cmp, iter};
@@ -9,12 +9,11 @@ use std::{cmp, iter};
 use derive_more::Display;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
-use palette::Darken;
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
-use reaper_low::{raw, Swell};
-use reaper_medium::{Hbrush, Hdc, InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_low::raw;
+use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
 
@@ -32,8 +31,7 @@ use realearn_api::persistence::{
     MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    Color, DialogUnits, Dimensions, Pixels, Point, SharedView, SwellStringArg, View, ViewContext,
-    ViewManager, WeakView, Window, ZOrder,
+    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
 
 use crate::application::{
@@ -75,11 +73,10 @@ use crate::infrastructure::ui::util::{
     open_child_panel_dyn, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
-    menus, util, EelControlTransformationEngine, EelFeedbackTransformationEngine,
-    EelMidiScriptEngine, ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine,
-    MappingHeaderPanel, MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine,
-    ScriptEditorInput, ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine,
-    UnitPanel, YamlEditorPanel,
+    menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
+    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
+    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
+    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
 };
 use base::hash_util::NonCryptoHashMap;
 use base::Global;
@@ -1739,7 +1736,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target_menu(&mut self) {
         enum MenuAction {
-            SetTarget(ReaperTarget),
+            SetTarget(Box<ReaperTarget>),
             GoToTarget,
         }
         let compartment = self.mapping.compartment();
@@ -1756,7 +1753,7 @@ impl<'a> MutableMappingPanel<'a> {
                     // let target_type_label = ReaperTargetType::from_target(&t);
                     let target_label = TargetModelFormatVeryShort(&target_model);
                     // let label = format!("{target_type_label} / {target_label}");
-                    item(target_label.to_string(), MenuAction::SetTarget(t))
+                    item(target_label.to_string(), MenuAction::SetTarget(Box::new(t)))
                 })
                 .collect();
             root_menu(vec![

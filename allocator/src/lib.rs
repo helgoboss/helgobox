@@ -260,8 +260,6 @@ where
 
     /// For deallocation of foreign structs (e.g. C structs), the layout is not given.
     fn check(&self, layout: Option<Layout>) {
-        #[cfg(not(debug_assertions))]
-        let _ = layout;
         #[cfg(debug_assertions)]
         {
             let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
@@ -290,6 +288,7 @@ where
                 // }
             }
         }
+        let _ = layout;
     }
 }
 

@@ -12,7 +12,6 @@ use crate::plugins::{PluginCore, PluginDatabase};
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
-use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 use std::error::Error;

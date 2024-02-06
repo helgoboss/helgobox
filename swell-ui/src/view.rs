@@ -5,7 +5,6 @@ use rxrust::prelude::*;
 use reaper_medium::{Hbrush, Hdc};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
-use std::ptr::null_mut;
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///

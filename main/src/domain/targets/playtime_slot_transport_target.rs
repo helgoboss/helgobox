@@ -119,7 +119,6 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
-    use playtime_clip_engine::base::Column;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,

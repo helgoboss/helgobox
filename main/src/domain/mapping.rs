@@ -574,10 +574,10 @@ impl MainMapping {
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
         matches!(
-            self.unresolved_target,
+            &self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
-                UnresolvedReaperTarget::LastTouched(_)
-            ))
+                t
+            )) if matches!(**t, UnresolvedReaperTarget::LastTouched(_))
         )
     }
 
@@ -1967,7 +1967,7 @@ impl FinalSourceFeedbackValue {
 
 #[derive(Debug)]
 pub enum UnresolvedCompoundMappingTarget {
-    Reaper(UnresolvedReaperTarget),
+    Reaper(Box<UnresolvedReaperTarget>),
     Virtual(VirtualTarget),
 }
 
@@ -1983,7 +1983,7 @@ impl UnresolvedCompoundMappingTarget {
                 let reaper_targets = t.resolve(context, compartment)?;
                 reaper_targets
                     .into_iter()
-                    .map(CompoundMappingTarget::Reaper)
+                    .map(|t| CompoundMappingTarget::Reaper(Box::new(t)))
                     .collect()
             }
             Virtual(t) => vec![CompoundMappingTarget::Virtual(*t)],
@@ -2020,7 +2020,7 @@ impl UnresolvedCompoundMappingTarget {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum CompoundMappingTarget {
-    Reaper(ReaperTarget),
+    Reaper(Box<ReaperTarget>),
     Virtual(VirtualTarget),
 }
 

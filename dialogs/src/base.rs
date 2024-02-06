@@ -1,6 +1,5 @@
 #![allow(non_camel_case_types, clippy::upper_case_acronyms)]
 
-use crate::base::Condition::SkipOnMacOs;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::fmt;
@@ -689,7 +688,6 @@ pub enum Style {
     DS_FIXEDSYS,
     DS_CENTER,
     WS_POPUP,
-    WS_BORDER,
     WS_VISIBLE,
     WS_CAPTION,
     WS_SYSMENU,

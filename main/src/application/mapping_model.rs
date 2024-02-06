@@ -685,7 +685,7 @@ impl<'a> MappingModelWithContext<'a> {
             .iter()
             .flatten()
             .any(|t| match t {
-                CompoundMappingTarget::Reaper(t) => t == target,
+                CompoundMappingTarget::Reaper(t) => &**t == target,
                 _ => false,
             })
     }

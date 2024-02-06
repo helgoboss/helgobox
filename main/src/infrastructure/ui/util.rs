@@ -150,9 +150,8 @@ pub mod symbols {
 
 pub mod view {
     use crate::infrastructure::ui::util::colors::ColorPair;
-    use reaper_low::{raw, Swell};
-    use reaper_medium::{Hbrush, Hdc};
-    use swell_ui::{Color, ViewManager, Window};
+    use reaper_medium::Hbrush;
+    use swell_ui::{ViewManager, Window};
 
     pub fn get_brush(color_pair: ColorPair) -> Option<Hbrush> {
         let color = if Window::dark_mode_is_enabled() {
@@ -165,8 +164,7 @@ pub mod view {
 }
 
 pub mod colors {
-    use palette::rgb::Rgb;
-    use palette::{Darken, Hsl, IntoColor, Lighten, Srgb};
+    use palette::{Hsl, Lighten};
     use swell_ui::{color, Color};
 
     #[derive(Copy, Clone, Debug)]
