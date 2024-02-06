@@ -327,7 +327,7 @@ function compartment_parameter_target(index: number)
             parameter = realearn.CompartmentParameterDescriptor.ById {
                 index = index,
             },
-        }
+        },
     }
 end
 
@@ -336,8 +336,8 @@ function set_mode_toggle(mode: Mode, mode_count: number, mode_param_index: numbe
     return partial_mapping {
         name = mode.label,
         glue = realearn.Glue {
-			button_filter = "PressOnly",
-			control_transformation = `y = y == {target_value} ? 0 : {target_value}`,
+            button_filter = "PressOnly",
+            control_transformation = `y = y == {target_value} ? 0 : {target_value}`,
             feedback = realearn.Feedback.Numeric {
                 transformation = `x = y == {target_value}`,
             },
@@ -356,10 +356,10 @@ end
 function auto_release()
     return partial_mapping {
         glue = realearn.Glue {
-			target_interval = {0.0 , 0.0 },
+            target_interval = { 0.0, 0.0 },
             fire_mode = realearn.FireMode.Normal {
-                press_duration_interval = { 300, 10000 }
-            }
+                press_duration_interval = { 300, 10000 },
+            },
         },
     }
 end
@@ -377,6 +377,23 @@ function slot_mode_is(slot_mode: Mode)
         activation_condition = realearn.ActivationCondition.Bank {
             parameter = params.slot_mode.index,
             bank_index = slot_mode.index,
+        },
+    }
+end
+
+function column_mode_is(column_mode: Mode)
+    return partial_mapping {
+        activation_condition = realearn.ActivationCondition.Bank {
+            parameter = params.column_mode.index,
+            bank_index = column_mode.index,
+        },
+    }
+end
+
+function column_mode_is_normal_and_slot_mode_is(slot_mode: Mode)
+    return partial_mapping {
+        activation_condition = realearn.ActivationCondition.Expression {
+            condition = `p[{params.column_mode.index}] == {column_modes.normal.index} && p[{params.slot_mode.index}] == {slot_mode.index}`,
         },
     }
 end
@@ -471,14 +488,15 @@ local mappings = {
 }
 
 function add_column_mode_mappings(n: string, b: string, m: Mode)
-	table.insert(
-		mappings,
-		name(n) + button(b) + colors(0.12, 0.98) + set_column_mode(m)
-	)
-	table.insert(
-		mappings,
-		name(`{n} auto-release`) + feedback_disabled() + button(b) + auto_release() + compartment_parameter_target(params.column_mode.index)
-	)
+    table.insert(mappings, name(n) + button(b) + colors(0.12, 0.98) + set_column_mode(m))
+    table.insert(
+        mappings,
+        name(`{n} auto-release`)
+            + feedback_disabled()
+            + button(b)
+            + auto_release()
+            + compartment_parameter_target(params.column_mode.index)
+    )
 end
 
 add_column_mode_mappings("Record Arm", "record-arm", column_modes.record_arm)
@@ -498,12 +516,26 @@ end
 -- For each slot
 for col = 0, column_count - 1 do
     for row = 0, row_count - 1 do
+        local function create_normal_control_condition(slot_mode: Mode)
+            if row == row_count - 1 then
+                -- The last row is special. If the column mode is not the normal one, it will carry out different functions.
+                return column_mode_is_normal_and_slot_mode_is(slot_mode)
+            end
+            return slot_mode_is(slot_mode)
+        end
+        local function create_normal_feedback_condition()
+            if row == row_count - 1 then
+                -- The last row is special. If the column mode is not the normal one, it will carry out different functions.
+                return column_mode_is(column_modes.normal)
+            end
+            return partial_mapping {}
+        end
         -- Control (normal)
         table.insert(
             mappings,
             name("Rec/play/stop")
                 + group(groups.slot_play)
-                + slot_mode_is(slot_modes.normal)
+                + create_normal_control_condition(slot_modes.normal)
                 + feedback_disabled()
                 + slot_button(col, row)
                 + toggle()
@@ -514,7 +546,7 @@ for col = 0, column_count - 1 do
             mappings,
             name("Clear slot")
                 + group(groups.slot_clear)
-                + slot_mode_is(slot_modes.delete)
+                + create_normal_control_condition(slot_modes.delete)
                 + feedback_disabled()
                 + slot_button(col, row)
                 + clip_management_action(col, row, "ClearSlot")
@@ -524,7 +556,7 @@ for col = 0, column_count - 1 do
             mappings,
             name("Quantize slot")
                 + group(groups.slot_quantize)
-                + slot_mode_is(slot_modes.quantise)
+                + create_normal_control_condition(slot_modes.quantise)
                 + feedback_disabled()
                 + slot_button(col, row)
                 + clip_management_action(col, row, "QuantizationOnOffState")
@@ -533,7 +565,7 @@ for col = 0, column_count - 1 do
         table.insert(
             mappings,
             name("Duplicate slot")
-                + slot_mode_is(slot_modes.duplicate)
+                + create_normal_control_condition(slot_modes.duplicate)
                 + feedback_disabled()
                 + slot_button(col, row)
                 + clip_management_action(col, row, "Duplicate")
@@ -542,7 +574,7 @@ for col = 0, column_count - 1 do
         table.insert(
             mappings,
             name("Double slot")
-                + slot_mode_is(slot_modes.double)
+                + create_normal_control_condition(slot_modes.double)
                 + feedback_disabled()
                 + slot_button(col, row)
                 + clip_management_action(col, row, "Double")
@@ -552,6 +584,7 @@ for col = 0, column_count - 1 do
             mappings,
             name("Slot feedback")
                 + group(groups.slot_feedback)
+                + create_normal_feedback_condition()
                 + control_disabled()
                 + slot_button(col, row)
                 + playtime_util.slot_state_text_feedback()
@@ -559,6 +592,47 @@ for col = 0, column_count - 1 do
         )
     end
 end
+
+-- For the last row of slots
+for col = 0, column_count - 1 do
+    -- Record-arm track
+    table.insert(
+        mappings,
+        name("Record Arm")
+            + column_mode_is(column_modes.record_arm)
+            + slot_button(col, row_count - 1)
+            + toggle()
+            + column_track_target(col, "TrackArmState", true)
+    )
+    -- Select track
+    table.insert(
+        mappings,
+        name("Track Select")
+            + column_mode_is(column_modes.track_select)
+            + slot_button(col, row_count - 1)
+            + toggle()
+            + column_track_target(col, "TrackSelectionState", true)
+    )
+    -- Mute track
+    table.insert(
+        mappings,
+        name("Mute")
+            + column_mode_is(column_modes.mute)
+            + slot_button(col, row_count - 1)
+            + toggle()
+            + column_track_target(col, "TrackMuteState")
+    )
+    -- Solo track
+    table.insert(
+        mappings,
+        name("Solo")
+            + column_mode_is(column_modes.solo)
+            + slot_button(col, row_count - 1)
+            + toggle()
+            + column_track_target(col, "TrackSoloState")
+    )
+end
+
 
 return realearn.Compartment {
     parameters = util.sorted_by_index(params),
