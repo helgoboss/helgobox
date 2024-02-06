@@ -270,20 +270,20 @@ where
                 // Increase our counter (will be displayed in ReaLearn status line)
                 UNDESIRED_ALLOCATION_COUNTER.fetch_add(1, Ordering::Relaxed);
                 // Comment out if you don't want to log the violation
-                permit_alloc(|| {
-                    if let Some(layout) = layout {
-                        eprintln!(
-                            "Undesired memory (de)allocation of {} bytes from:\n{:?}",
-                            layout.size(),
-                            backtrace::Backtrace::new()
-                        );
-                    } else {
-                        eprintln!(
-                            "Undesired memory (de)allocation of a foreign value from:\n{:?}",
-                            backtrace::Backtrace::new()
-                        );
-                    }
-                });
+                // permit_alloc(|| {
+                //     if let Some(layout) = layout {
+                //         eprintln!(
+                //             "Undesired memory (de)allocation of {} bytes from:\n{:?}",
+                //             layout.size(),
+                //             backtrace::Backtrace::new()
+                //         );
+                //     } else {
+                //         eprintln!(
+                //             "Undesired memory (de)allocation of a foreign value from:\n{:?}",
+                //             backtrace::Backtrace::new()
+                //         );
+                //     }
+                // });
                 // Comment out if you don't want to abort
                 // if let Some(layout) = layout {
                 //     std::alloc::handle_alloc_error(layout);
