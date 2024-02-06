@@ -12,6 +12,7 @@
 
 -- Requires
 
+local partial = require("partial")
 local util = require("util")
 local realearn = require("realearn")
 local playtime_util = require("playtime_util")
@@ -93,6 +94,10 @@ local function create_column_modes()
         solo = {
             index = 4,
             label = "Solo",
+        },
+        stop_clip = {
+            index = 5,
+            label = "Stop clip",
         },
     }
 end
@@ -214,11 +219,7 @@ function column_track_target(col: number, track_target_kind: realearn.TargetKind
     }
 end
 
-function clip_transport_action(
-    col: number,
-    row: number,
-    action: realearn.PlaytimeSlotTransportAction
-)
+function clip_transport_action(col: number, row: number, action: realearn.PlaytimeSlotTransportAction)
     return partial_mapping {
         target = realearn.Target.PlaytimeSlotTransportAction {
             slot = create_slot_selector(col, row),
@@ -286,10 +287,22 @@ function name(n: string)
     }
 end
 
+--- Sets the source interval for the purpose of displaying different LED colors for off/on states.
+---
+--- Both `off` and `on` should be integers between 0 and 127, representing the Launchpad colors.
+---
+--- In feedback direction, source min is sent when the target is off, source max is sent when it's on.
+--- For Launchpad buttons, those values influence the LED color. 
+---
+--- Attention: Since the source interval also influences the control direction, this should in most cases
+--- be used only for feedback-only mappings.
 function colors(off: number, on: number)
+    if off > on then
+        error("on color must be >= off color")
+    end
     return partial_mapping {
         glue = realearn.Glue {
-            source_interval = { off, on },
+            source_interval = { off / 127, on / 127 }
         },
     }
 end
@@ -416,25 +429,45 @@ end
 
 -- Mappings
 
+local normal_colors = colors(23, 122)
+local shift_colors = colors(1, 3)
+local arm_colors = colors(7, 72)
+local select_colors = colors(39, 78)
+local mute_colors = colors(15, 74)
+local solo_colors = colors(47, 66)
+local stop_clip_colors = colors(7, 72)
+
 local mappings = {
-    name("Shift") + button("shift") + colors(0.12, 0.98) + set_param(params.shift.index),
-    name("Click") + button("click") + colors(0.12, 0.98) + toggle() + clip_matrix_action("ClickOnOffState"),
+    name("Shift") + button("shift") + shift_colors + set_param(params.shift.index),
+    name("Click") + button("click") + normal_colors + toggle() + clip_matrix_action("ClickOnOffState"),
     name("Undo") + button("undo") + feedback_disabled() + shift_is(false) + clip_matrix_action("Undo"),
-    name("Undo LED") + button("undo") + shift_is(false) + colors(0.12, 0.98) + led_on_off(),
+    name("Undo LED") + button("undo") + shift_is(false) + normal_colors + led_on_off(),
     name("Redo") + button("undo") + feedback_disabled() + shift_is(true) + clip_matrix_action("Redo"),
-    name("Redo LED") + button("undo") + shift_is(true) + colors(0.23, 0.70) + led_on_off(),
-    name("Scroll up") + button("cursor-up") + turbo() + scroll_vertically(-1),
-    name("Scroll down") + button("cursor-down") + turbo() + scroll_vertically(1),
-    name("Scroll left") + button("cursor-left") + turbo() + scroll_horizontally(-1),
-    name("Scroll right") + button("cursor-right") + turbo() + scroll_horizontally(1),
-    name("Delete") + button("delete") + colors(0.12, 0.98) + set_slot_mode(slot_modes.delete),
-    name("Quantise") + button("quantize") + colors(0.12, 0.98) + set_slot_mode(slot_modes.quantise),
-    name("Duplicate") + button("duplicate") + colors(0.12, 0.98) + set_slot_mode(slot_modes.duplicate),
-    name("Double") + button("double") + colors(0.12, 0.98) + set_slot_mode(slot_modes.double),
+    name("Redo LED") + button("undo") + shift_is(true) + shift_colors + led_on_off(),
+    name("Delete") + button("delete") + normal_colors + set_slot_mode(slot_modes.delete),
+    name("Quantise") + button("quantize") + normal_colors + set_slot_mode(slot_modes.quantise),
+    name("Duplicate") + button("duplicate") + normal_colors + set_slot_mode(slot_modes.duplicate),
+    name("Double") + button("double") + normal_colors + set_slot_mode(slot_modes.double),
 }
 
-function add_column_mode_mappings(n: string, b: string, m: Mode)
-    table.insert(mappings, name(n) + button(b) + colors(0.12, 0.98) + set_column_mode(m))
+function add_scroll_mappings(b: string, target: partial.Partial)
+    table.insert(
+        mappings,
+        name(b) + button(b) + feedback_disabled() + turbo() + target
+    )
+    table.insert(
+        mappings,
+        name(b) + button(b) + control_disabled() + colors(0, 23) + target
+    )
+end
+
+add_scroll_mappings("cursor-up", scroll_vertically(-1))
+add_scroll_mappings("cursor-down", scroll_vertically(1))
+add_scroll_mappings("cursor-left", scroll_horizontally(-1))
+add_scroll_mappings("cursor-right", scroll_horizontally(1))
+
+function add_column_mode_mappings(n: string, b: string, m: Mode, partial: partial.Partial)
+    table.insert(mappings, name(n) + button(b) + partial + set_column_mode(m))
     table.insert(
         mappings,
         name(`{n} auto-release`)
@@ -445,10 +478,12 @@ function add_column_mode_mappings(n: string, b: string, m: Mode)
     )
 end
 
-add_column_mode_mappings("Record Arm", "record-arm", column_modes.record_arm)
-add_column_mode_mappings("Track Select", "track-select", column_modes.track_select)
-add_column_mode_mappings("Mute", "mute", column_modes.mute)
-add_column_mode_mappings("Solo", "solo", column_modes.solo)
+
+add_column_mode_mappings("Record Arm", "record-arm", column_modes.record_arm, arm_colors)
+add_column_mode_mappings("Track Select", "track-select", column_modes.track_select, select_colors)
+add_column_mode_mappings("Mute", "mute", column_modes.mute, mute_colors)
+add_column_mode_mappings("Solo", "solo", column_modes.solo, solo_colors)
+add_column_mode_mappings("Stop clip", "stop-clip", column_modes.stop_clip, stop_clip_colors)
 
 -- For each row
 for row = 0, row_count - 1 do
@@ -543,6 +578,7 @@ for col = 0, column_count - 1 do
             + column_mode_is(column_modes.record_arm)
             + slot_button(col, row_count - 1)
             + toggle()
+            + arm_colors
             + column_track_target(col, "TrackArmState", true)
     )
     -- Select track
@@ -552,6 +588,7 @@ for col = 0, column_count - 1 do
             + column_mode_is(column_modes.track_select)
             + slot_button(col, row_count - 1)
             + toggle()
+            + select_colors
             + column_track_target(col, "TrackSelectionState", true)
     )
     -- Mute track
@@ -561,6 +598,7 @@ for col = 0, column_count - 1 do
             + column_mode_is(column_modes.mute)
             + slot_button(col, row_count - 1)
             + toggle()
+            + mute_colors
             + column_track_target(col, "TrackMuteState")
     )
     -- Solo track
@@ -570,10 +608,19 @@ for col = 0, column_count - 1 do
             + column_mode_is(column_modes.solo)
             + slot_button(col, row_count - 1)
             + toggle()
+            + solo_colors
             + column_track_target(col, "TrackSoloState")
     )
+    -- Stop column
+    table.insert(
+        mappings,
+        name("Stop column")
+            + column_mode_is(column_modes.stop_clip)
+            + slot_button(col, row_count - 1)
+            + stop_clip_colors
+            + clip_column_action(col, "Stop")
+    )
 end
-
 
 return realearn.Compartment {
     parameters = util.sorted_by_index(params),
