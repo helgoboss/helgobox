@@ -876,7 +876,7 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
-        const COLOR_PANEL_HEIGHT: u32 = 47;
+        const COLOR_PANEL_HEIGHT: u32 = 48;
         position_color_panel(
             &self.source_color_panel,
             window,
