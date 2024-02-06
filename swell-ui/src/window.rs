@@ -1,7 +1,7 @@
 use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
-use reaper_low::{raw, Swell};
+use reaper_low::{raw, Reaper, Swell};
 use reaper_medium::Hwnd;
 use std::ffi::CString;
 use std::fmt::Display;
@@ -52,19 +52,15 @@ impl Window {
         Point::new(Pixels(point.x as _), Pixels(point.y as _))
     }
 
-    /// On Linux, this always returns `false` at the moment.
     pub fn dark_mode_is_enabled() -> bool {
         #[cfg(target_os = "macos")]
         {
             Swell::get().SWELL_osx_is_dark_mode(0)
         }
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         unsafe {
             use palette::{IntoColor, Srgb};
-            let color = winapi::um::uxtheme::GetThemeSysColor(
-                null_mut(),
-                winapi::um::winuser::COLOR_WINDOW,
-            );
+            let color = Swell::get().GetSysColor(raw::COLOR_WINDOW);
             let (r, g, b) = (
                 Swell::GetRValue(color),
                 Swell::GetGValue(color),
@@ -73,10 +69,6 @@ impl Window {
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
             let luma = rgb.into_luma();
             luma.luma < 0.5
-        }
-        #[cfg(target_os = "linux")]
-        {
-            false
         }
     }
 
