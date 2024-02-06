@@ -41,7 +41,7 @@ pub struct Backbone {
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages:
         RefCell<NonCryptoHashMap<DeviceFeedbackOutput, NonCryptoHashSet<UnitId>>>,
-    upper_floor_units: RefCell<NonCryptoHashSet<UnitId>>,
+    superior_units: RefCell<NonCryptoHashSet<UnitId>>,
     /// We hold pointers to all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
@@ -160,7 +160,7 @@ impl Backbone {
             last_touched_targets_container: Default::default(),
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
-            upper_floor_units: Default::default(),
+            superior_units: Default::default(),
             instances: Default::default(),
             was_processing_keyboard_input: Default::default(),
             global_pot_filter_exclude_list: Default::default(),
@@ -238,16 +238,16 @@ impl Backbone {
         container.find(filter).cloned()
     }
 
-    pub fn lives_on_upper_floor(&self, instance_id: &UnitId) -> bool {
-        self.upper_floor_units.borrow().contains(instance_id)
+    pub fn is_superior(&self, instance_id: &UnitId) -> bool {
+        self.superior_units.borrow().contains(instance_id)
     }
 
-    pub fn add_to_upper_floor(&self, instance_id: UnitId) {
-        self.upper_floor_units.borrow_mut().insert(instance_id);
+    pub fn make_superior(&self, instance_id: UnitId) {
+        self.superior_units.borrow_mut().insert(instance_id);
     }
 
-    pub fn remove_from_upper_floor(&self, instance_id: &UnitId) {
-        self.upper_floor_units.borrow_mut().remove(instance_id);
+    pub fn make_inferior(&self, instance_id: &UnitId) {
+        self.superior_units.borrow_mut().remove(instance_id);
     }
 
     //
@@ -382,8 +382,8 @@ impl Backbone {
         device: D,
         usages: &RefCell<NonCryptoHashMap<D, NonCryptoHashSet<UnitId>>>,
     ) -> bool {
-        let upper_floor_instances = self.upper_floor_units.borrow();
-        if upper_floor_instances.is_empty() || upper_floor_instances.contains(instance_id) {
+        let superior_instances = self.superior_units.borrow();
+        if superior_instances.is_empty() || superior_instances.contains(instance_id) {
             // There's no instance living on a higher floor.
             true
         } else {
@@ -396,9 +396,7 @@ impl Backbone {
                 } else {
                     // Other instances use this device as well.
                     // Allow usage only if none of these instances are on the upper floor.
-                    !instances
-                        .iter()
-                        .any(|id| upper_floor_instances.contains(id))
+                    !instances.iter().any(|id| superior_instances.contains(id))
                 }
             } else {
                 // No instance using this device (shouldn't happen because at least we use it).

@@ -567,11 +567,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             None
                         },
                     );
-                    if feedback_dev_usage_changed && backbone_state.lives_on_upper_floor(&e.unit_id)
-                    {
+                    if feedback_dev_usage_changed && backbone_state.is_superior(&e.unit_id) {
                         debug!(
                             self.logger,
-                            "Upper-floor unit {} {} feedback output",
+                            "Superior unit {} {} feedback output",
                             e.unit_id,
                             if e.feedback_output_used {
                                 "claimed"
@@ -580,7 +579,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             }
                         );
                         if let Some(feedback_output) = e.feedback_output {
-                            // Give lower-floor instances the chance to cancel or reactivate.
+                            // Give inferior instances the chance to cancel or reactivate.
                             self.main_processors
                                 .borrow()
                                 .iter()

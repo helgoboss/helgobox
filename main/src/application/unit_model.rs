@@ -2453,9 +2453,9 @@ impl UnitModel {
     fn sync_upper_floor_membership(&self) {
         let backbone_state = Backbone::get();
         if self.lives_on_upper_floor.get() {
-            backbone_state.add_to_upper_floor(self.unit_id);
+            backbone_state.make_superior(self.unit_id);
         } else {
-            backbone_state.remove_from_upper_floor(&self.unit_id);
+            backbone_state.make_inferior(&self.unit_id);
         }
     }
 
