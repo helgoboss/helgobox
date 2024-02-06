@@ -560,7 +560,7 @@ mod playtime_impl {
         match action {
             Trigger => (
                 ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Trigger,
+                TargetCharacter::Continuous,
             ),
             // Retriggerable because we want to be able to retrigger play!
             PlayStop | PlayPause | RecordPlayStop => (

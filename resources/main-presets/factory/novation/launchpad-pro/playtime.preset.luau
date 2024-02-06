@@ -217,15 +217,12 @@ end
 function clip_transport_action(
     col: number,
     row: number,
-    action: realearn.PlaytimeSlotTransportAction,
-    record_only_if_track_armed: boolean
+    action: realearn.PlaytimeSlotTransportAction
 )
     return partial_mapping {
         target = realearn.Target.PlaytimeSlotTransportAction {
             slot = create_slot_selector(col, row),
             action = action,
-            record_only_if_track_armed = record_only_if_track_armed,
-            stop_column_if_slot_empty = true,
         },
     }
 end
@@ -417,57 +414,6 @@ function led_on_off()
     }
 end
 
--- Groups
-
-local groups: GroupMap = {
-    slot_modes = {
-        name = "Slot modes",
-    },
-    column_modes = {
-        name = "Column modes",
-    },
-    record_settings = {
-        name = "Record settings",
-    },
-    knob_modes = {
-        name = "Knob modes",
-    },
-    slot_feedback = {
-        name = "Slot feedback",
-    },
-    slot_play = {
-        name = "Slot play",
-    },
-    slot_clear = {
-        name = "Slot clear",
-    },
-    slot_quantize = {
-        name = "Slot quantize",
-    },
-    slot_copy_or_paste = {
-        name = "Slot copy or paste",
-    },
-    slot_double = {
-        name = "Slot double section",
-    },
-    slot_halve = {
-        name = "Slot halve section",
-    },
-    row_play_scene = {
-        name = "Row play scene",
-    },
-    row_build_scene = {
-        name = "Row build scene",
-    },
-    row_copy_or_paste_scene = {
-        name = "Row copy or paste scene",
-    },
-    row_clear_scene = {
-        name = "Row clear scene",
-    },
-}
-util.set_keys_as_ids(groups)
-
 -- Mappings
 
 local mappings = {
@@ -533,19 +479,16 @@ for col = 0, column_count - 1 do
         -- Control (normal)
         table.insert(
             mappings,
-            name("Rec/play/stop")
-                + group(groups.slot_play)
+            name("Trigger slot")
                 + create_normal_control_condition(slot_modes.normal)
                 + feedback_disabled()
                 + slot_button(col, row)
-                + toggle()
-                + clip_transport_action(col, row, "RecordPlayStop", true)
+                + clip_transport_action(col, row, "Trigger")
         )
         -- Control (delete)
         table.insert(
             mappings,
             name("Clear slot")
-                + group(groups.slot_clear)
                 + create_normal_control_condition(slot_modes.delete)
                 + feedback_disabled()
                 + slot_button(col, row)
@@ -555,7 +498,6 @@ for col = 0, column_count - 1 do
         table.insert(
             mappings,
             name("Quantize slot")
-                + group(groups.slot_quantize)
                 + create_normal_control_condition(slot_modes.quantise)
                 + feedback_disabled()
                 + slot_button(col, row)
@@ -583,12 +525,11 @@ for col = 0, column_count - 1 do
         table.insert(
             mappings,
             name("Slot feedback")
-                + group(groups.slot_feedback)
                 + create_normal_feedback_condition()
                 + control_disabled()
                 + slot_button(col, row)
                 + playtime_util.slot_state_text_feedback()
-                + clip_transport_action(col, row, "RecordPlayStop", true)
+                + clip_transport_action(col, row, "Trigger")
         )
     end
 end
@@ -636,7 +577,6 @@ end
 
 return realearn.Compartment {
     parameters = util.sorted_by_index(params),
-    groups = util.to_array(groups),
     mappings = mappings :: any,
     custom_data = {
         playtime = {

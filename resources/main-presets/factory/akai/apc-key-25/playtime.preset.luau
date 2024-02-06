@@ -350,15 +350,12 @@ end
 function clip_transport_action(
     col: number,
     row: number,
-    action: realearn.PlaytimeSlotTransportAction,
-    record_only_if_track_armed: boolean
+    action: realearn.PlaytimeSlotTransportAction
 )
     return partial_mapping {
         target = realearn.Target.PlaytimeSlotTransportAction {
             slot = create_slot_selector(col, row),
             action = action,
-            record_only_if_track_armed = record_only_if_track_armed,
-            stop_column_if_slot_empty = true,
         },
     }
 end
@@ -820,18 +817,17 @@ for col = 0, column_count - 1 do
                 + control_disabled()
                 + slot_button(col, row)
                 + playtime_util.slot_state_text_feedback()
-                + clip_transport_action(col, row, "RecordPlayStop", true)
+                + clip_transport_action(col, row, "Trigger")
         )
         -- Control
         table.insert(
             mappings,
-            name("Rec/play/stop")
+            name("Slot trigger")
                 + group(groups.slot_play)
                 + feedback_disabled()
                 + no_mod
                 + slot_button(col, row)
-                + toggle()
-                + clip_transport_action(col, row, "RecordPlayStop", true)
+                + clip_transport_action(col, row, "Trigger")
         )
         table.insert(
             mappings,
