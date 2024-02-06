@@ -1546,12 +1546,12 @@ mod tests {
         assert_eq!(
             bank_collections.parent_items,
             vec![
-                ParentNksFilterItem::new(1, "a".to_string(), HashSet::from([1, 2, 3])),
-                ParentNksFilterItem::new(4, "b".to_string(), HashSet::from([4, 5, 6])),
-                ParentNksFilterItem::new(7, "c".to_string(), HashSet::from([7, 8])),
-                ParentNksFilterItem::new(9, "d".to_string(), HashSet::from([9])),
-                ParentNksFilterItem::new(10, "e".to_string(), HashSet::from([10])),
-                ParentNksFilterItem::new(11, "f".to_string(), HashSet::from([11, 12])),
+                ParentNksFilterItem::new(1, "a".to_string(), [1, 2, 3].into_iter().collect()),
+                ParentNksFilterItem::new(4, "b".to_string(), [4, 5, 6].into_iter().collect()),
+                ParentNksFilterItem::new(7, "c".to_string(), [7, 8].into_iter().collect()),
+                ParentNksFilterItem::new(9, "d".to_string(), [9].into_iter().collect()),
+                ParentNksFilterItem::new(10, "e".to_string(), [10].into_iter().collect()),
+                ParentNksFilterItem::new(11, "f".to_string(), [11, 12].into_iter().collect())
             ]
         );
         assert_eq!(

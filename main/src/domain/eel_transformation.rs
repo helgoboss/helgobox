@@ -190,8 +190,6 @@ const CONTROL_AND_STOP_MAGIC: f64 = 8965019.0;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::bindings::root;
-    use anyhow::Context;
     use bytesize::ByteSize;
     use helgoboss_learn::TransformationInputMetaData;
     use sysinfo::ProcessRefreshKind;

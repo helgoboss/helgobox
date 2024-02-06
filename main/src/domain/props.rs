@@ -612,6 +612,7 @@ impl TargetProp for TargetPlaytimeSlotColorProp {
     fn is_affected_by(&self, args: PropIsAffectedByArgs<MappingAndTarget>) -> bool {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = args;
             false
         }
         #[cfg(feature = "playtime")]
@@ -634,6 +635,7 @@ impl TargetProp for TargetPlaytimeSlotColorProp {
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         #[cfg(not(feature = "playtime"))]
         {
+            let _ = args;
             None
         }
         #[cfg(feature = "playtime")]
