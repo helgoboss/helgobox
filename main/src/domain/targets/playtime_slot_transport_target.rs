@@ -119,6 +119,7 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
+    use playtime_clip_engine::base::Column;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
@@ -128,7 +129,7 @@ mod playtime_impl {
         },
     };
     use realearn_api::persistence::PlaytimeSlotTransportAction;
-    use reaper_high::Project;
+    use reaper_high::{ChangeEvent, Project, Track};
     use std::borrow::Cow;
 
     impl PlaytimeSlotTransportTarget {
@@ -141,6 +142,14 @@ mod playtime_impl {
                 return None;
             }
             Some(slot.play_state())
+        }
+
+        pub fn playback_track<'a>(
+            &self,
+            matrix: &'a playtime_clip_engine::base::Matrix,
+        ) -> Option<&'a Track> {
+            let column = matrix.find_column(self.basics.slot_coordinates.column_index)?;
+            column.playback_track().ok()
         }
 
         fn hit_internal(
@@ -324,6 +333,10 @@ mod playtime_impl {
                         SlotChangeEvent::PlayState(new_state) => match self.basics.action {
                             Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
                             | RecordPlayStop => {
+                                tracing::debug!(
+                                    "Changed play state of {} to {new_state:?}",
+                                    self.basics.slot_coordinates
+                                );
                                 let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                                 (true, Some(AbsoluteValue::Continuous(uv)))
                             }
@@ -333,6 +346,7 @@ mod playtime_impl {
                         _ => (false, None),
                     }
                 }
+                CompoundChangeEvent::Reaper(ChangeEvent::TrackArmChanged(_)) => (true, None),
                 CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
                     QualifiedClipChangeEvent {
                         clip_address,
@@ -383,7 +397,19 @@ mod playtime_impl {
                 "slot_state.id" => Backbone::get()
                     .with_clip_matrix(context.instance(), |matrix| {
                         let id_string = match self.clip_play_state(matrix) {
-                            None => "empty",
+                            None => {
+                                // Slot is empty
+                                match self.playback_track(matrix) {
+                                    None => "empty",
+                                    Some(col) => {
+                                        if col.is_armed(false) {
+                                            "armed"
+                                        } else {
+                                            "empty"
+                                        }
+                                    }
+                                }
+                            }
                             Some(s) => s.id_string(),
                         };
                         Some(PropValue::Text(id_string.into()))
@@ -405,6 +431,10 @@ mod playtime_impl {
                         Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
                         | RecordPlayStop => {
                             let play_state = self.clip_play_state(matrix)?;
+                            tracing::trace!(
+                                "Current play state of {}: {play_state:?}",
+                                self.basics.slot_coordinates
+                            );
                             clip_play_state_unit_value(self.basics.action, play_state)
                         }
                         Looped => {

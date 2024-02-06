@@ -20,6 +20,10 @@ local feedback_table: { [string]: FeedbackEntry? } = {
         behavior = dark,
         color = 0,
     },
+    armed = {
+        behavior = dark,
+        color = red_color,
+    },
     stopped = {
         behavior = dark,
     },

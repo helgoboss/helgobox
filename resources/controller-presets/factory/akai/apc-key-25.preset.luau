@@ -154,6 +154,8 @@ local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
     value = {
         -- Off
         empty = 0,
+        -- Red
+        armed = 0,
         -- Yellow
         stopped = 5,
         -- Green blinking
