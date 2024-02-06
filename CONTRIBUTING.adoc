@@ -293,6 +293,10 @@ Prometheus is usually available at http://localhost:9090/.
 
 == Debug
 
+=== Debug REAPER scanning ReaLearn
+
+Set `vst_scan=1` in the `[reaper]` section of `reaper.ini`. That makes the debugged REAPER process itself do the scanning.
+
 === Obtain debug symbols
 
 Debug symbols are stripped from release builds but stored as build artifact of the GitHub Actions "Create release"
