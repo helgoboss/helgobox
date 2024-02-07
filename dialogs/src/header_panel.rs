@@ -16,14 +16,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Input",
             ids.id(),
-            context.rect(row1.get(), 6, row1.span(io_label_width), text_height),
+            context.rect(row1.get(), 5, row1.span(io_label_width), text_height),
         ),
         pushbutton(
             "MIDI: <FX input>",
             ids.named_id("ID_CONTROL_INPUT_BUTTON"),
             context.rect(
                 row1.space(space),
-                4,
+                3,
                 row1.span(io_combo_box_width),
                 io_combo_box_height,
             ),
@@ -31,14 +31,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Output",
             ids.id(),
-            context.rect(row2.get(), 26, row2.span(io_label_width), text_height),
+            context.rect(row2.get(), 25, row2.span(io_label_width), text_height),
         ),
         pushbutton(
             "<None>",
             ids.named_id("ID_FEEDBACK_OUTPUT_BUTTON"),
             context.rect(
                 row2.space(space),
-                24,
+                23,
                 row2.span(io_combo_box_width),
                 io_combo_box_height,
             ),
@@ -73,17 +73,17 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Let through:",
             ids.named_id("ID_LET_THROUGH_LABEL_TEXT"),
-            context.rect(270, 26, 42, 9),
+            context.rect(270, 25, 42, 9),
         ),
         context.checkbox(
             "Matched events",
             ids.named_id("ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            rect(319, 26, 67, 8),
+            rect(319, 25, 67, 8),
         ) + WS_TABSTOP,
         context.checkbox(
             "Unmatched events",
             ids.named_id("ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            rect(392, 26, 76, 8),
+            rect(392, 25, 76, 8),
         ) + WS_TABSTOP,
     ];
     let show_controls = [
