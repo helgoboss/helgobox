@@ -164,7 +164,7 @@ pub mod view {
 }
 
 pub mod colors {
-    use palette::{Hsl, Lighten};
+    use palette::{Darken, Hsl, Lighten};
     use swell_ui::{color, Color};
 
     #[derive(Copy, Clone, Debug)]
@@ -178,6 +178,13 @@ pub mod colors {
             Self {
                 light,
                 dark: invert_lightness(light),
+            }
+        }
+
+        pub fn intensify(&self, factor: f32) -> Self {
+            Self {
+                light: self.light.to_linear_srgb().darken(factor).into(),
+                dark: self.light.to_linear_srgb().lighten(factor).into(),
             }
         }
     }

@@ -1,8 +1,8 @@
-use crate::{create_window, Pixels, Point, SharedView, Window};
+use crate::{create_window, DeviceContext, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
 use rxrust::prelude::*;
 
-use reaper_medium::{Hbrush, Hdc};
+use reaper_medium::Hbrush;
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 
@@ -197,16 +197,20 @@ pub trait View: Debug {
     /// WM_ERASEBKGND
     ///
     /// Should return `true` if processed.
-    fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
-        let _ = hdc;
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        let _ = device_context;
         false
     }
 
     /// WM_CTLCOLORSTATIC
     ///
     /// Can return a custom background brush for painting that control.
-    fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-        let _ = hdc;
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        let _ = device_context;
         let _ = window;
         None
     }
@@ -214,8 +218,12 @@ pub trait View: Debug {
     /// WM_CTLCOLORDLG
     ///
     /// Can return a custom background brush for painting that dialog.
-    fn control_color_dialog(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-        let _ = hdc;
+    fn control_color_dialog(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        let _ = device_context;
         let _ = window;
         None
     }

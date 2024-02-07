@@ -2,7 +2,7 @@ use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
 use anyhow::Context;
 use base::tracing_debug;
 use reaper_high::Reaper;
-use reaper_medium::{Hbrush, Hdc};
+use reaper_medium::Hbrush;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Debug;
 use std::sync;
@@ -12,7 +12,7 @@ use crate::domain::{InstanceId, SharedInstance, UnitId};
 use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::colors;
-use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
+use swell_ui::{DeviceContext, Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct InstancePanel {
@@ -294,7 +294,11 @@ impl View for InstancePanel {
         self.displayed_unit_panel.borrow_mut().take();
     }
 
-    fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
+    fn control_color_dialog(
+        self: SharedView<Self>,
+        _device_context: DeviceContext,
+        _window: Window,
+    ) -> Option<Hbrush> {
         util::view::get_brush_for_color_pair(colors::instance_panel_background())
     }
 }

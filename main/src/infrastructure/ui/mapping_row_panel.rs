@@ -19,7 +19,9 @@ use crate::infrastructure::ui::bindings::root::{
 };
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{colors, mapping_row_panel_height, symbols, GLOBAL_SCALING};
+use crate::infrastructure::ui::util::{
+    colors, mapping_row_panel_height, symbols, view, GLOBAL_SCALING,
+};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
     get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
@@ -28,6 +30,8 @@ use crate::infrastructure::ui::{
 use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
+use reaper_low::Swell;
+use reaper_medium::Hbrush;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
@@ -35,7 +39,7 @@ use std::error::Error;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DeviceContext, DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -186,13 +190,6 @@ impl MappingRowPanel {
         self.invalidate_feedback_check_box(mapping);
         self.invalidate_on_indicator(mapping);
         self.invalidate_button_enabled_states();
-    }
-
-    fn invalidate_divider(&self) {
-        self.view
-            .require_window()
-            .require_control(root::ID_MAPPING_ROW_DIVIDER)
-            .set_visible(!self.is_last_row);
     }
 
     fn invalidate_name_labels(&self, mapping: &MappingModel) {
@@ -872,16 +869,60 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
-        self.source_color_panel.clone().open(window);
-        self.target_color_panel.clone().open(window);
-        self.mapping_color_panel.clone().open(window);
+        if cfg!(unix) {
+            self.source_color_panel.clone().open(window);
+            self.target_color_panel.clone().open(window);
+            // Must be the last because we want it below the others
+            self.mapping_color_panel.clone().open(window);
+        }
         window.move_to_dialog_units(Point::new(
             DialogUnits(0),
             mapping_row_panel_height() * self.row_index,
         ));
         self.init_symbol_controls();
-        self.invalidate_divider();
         false
+    }
+
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        // Must be the first because we want it below the others
+        self.mapping_color_panel
+            .paint_manually(device_context, window);
+        self.source_color_panel
+            .paint_manually(device_context, window);
+        self.target_color_panel
+            .paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense.
+            return None;
+        }
+        // let set_text_color = |color: Color| unsafe {
+        //     swell.SetBkMode(hdc.as_ptr(), raw::OPAQUE as _);
+        //     // let darker_color: Color = color.to_linear().darken(0.4).into();
+        //     // swell.SetTextColor(hdc.as_ptr(), darker_color.to_raw() as _);
+        // };
+        device_context.set_bk_mode_to_transparent();
+        let color_pair = match window.resource_id() {
+            root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT => colors::source(),
+            root::ID_MAPPING_ROW_TARGET_LABEL_TEXT => colors::target(),
+            root::ID_MAPPING_ROW_MAPPING_LABEL | root::ID_MAPPING_ROW_GROUP_LABEL => {
+                colors::mapping().intensify(0.2)
+            }
+            _ => colors::mapping(),
+        };
+        view::get_brush_for_color_pair(color_pair)
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {

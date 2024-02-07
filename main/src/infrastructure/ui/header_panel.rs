@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 
 use slog::debug;
 
-use swell_ui::{Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
     get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
@@ -50,7 +50,7 @@ use crate::infrastructure::ui::menus::{
 };
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
-    open_in_file_manager, HEADER_PANEL_SCALING,
+    open_in_file_manager, view, HEADER_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
@@ -65,6 +65,7 @@ use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use anyhow::{bail, Context};
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
+use reaper_medium::Hbrush;
 use semver::Version;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
@@ -2587,12 +2588,43 @@ impl View for HeaderPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.taborder_first();
-        self.show_color_panel.clone().open(window);
+        if cfg!(unix) {
+            self.show_color_panel.clone().open(window);
+        }
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression(None);
         self.register_listeners();
         true
+    }
+
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        self.show_color_panel.paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense.
+            return None;
+        }
+        device_context.set_bk_mode_to_transparent();
+        let color_pair = match window.resource_id() {
+            root::ID_HEADER_PANEL_SHOW_LABEL_TEXT
+            | root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON
+            | root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => colors::show_background(),
+            _ => return None,
+        };
+        view::get_brush_for_color_pair(color_pair)
     }
 
     fn on_destroy(self: SharedView<Self>, _window: Window) {
@@ -3072,9 +3104,9 @@ const PRESET_RELATED_MENU_LABEL: &str = "Preset-related";
 fn build_show_color_panel_desc() -> ColorPanelDesc {
     ColorPanelDesc {
         x: 0,
-        y: 44,
-        width: 470,
-        height: 17,
+        y: 41,
+        width: 469,
+        height: 21,
         color_pair: colors::show_background(),
         scaling: HEADER_PANEL_SCALING,
     }

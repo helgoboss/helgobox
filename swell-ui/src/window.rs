@@ -84,6 +84,10 @@ impl Window {
         self.raw
     }
 
+    pub fn resource_id(&self) -> u32 {
+        unsafe { Swell::get().GetWindowLong(self.raw, raw::GWL_ID) as u32 }
+    }
+
     pub fn size(self) -> Dimensions<Pixels> {
         let rect = self.rect();
         Dimensions::new(

@@ -10,12 +10,12 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Mapping 1",
             ids.named_id("ID_MAPPING_ROW_MAPPING_LABEL"),
-            context.rect(14, 3, 225, 9),
+            context.rect(14, 0, 225, 9),
         ) + NOT_WS_GROUP,
         context.checkbox(
             "",
             ids.named_id("IDC_MAPPING_ROW_ENABLED_CHECK_BOX"),
-            rect(2, 2, 10, 10),
+            rect(2, 0, 10, 10),
         ) + WS_GROUP,
         // Mapping actions
         pushbutton(
@@ -48,12 +48,12 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         context.checkbox(
             "=>",
             ids.named_id("ID_MAPPING_ROW_CONTROL_CHECK_BOX"),
-            rect(138, 15, 24, 8),
+            rect(140, 15, 24, 8),
         ),
         context.checkbox(
             "<=",
             ids.named_id("ID_MAPPING_ROW_FEEDBACK_CHECK_BOX"),
-            rect(138, 30, 24, 8),
+            rect(140, 30, 24, 8),
         ),
         // Source and target labels
         ctext(
@@ -64,18 +64,13 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ctext(
             "FX Param Target\r\nbla\r\nbla\r\nmoin",
             ids.named_id("ID_MAPPING_ROW_TARGET_LABEL_TEXT"),
-            context.rect(161, 12, 182, 34),
+            context.rect(164, 12, 179, 34),
         ) + NOT_WS_GROUP,
-        // Divider
-        divider(
-            ids.named_id("ID_MAPPING_ROW_DIVIDER"),
-            context.rect(0, 46, MAIN_PANEL_WIDTH, 1),
-        ),
         // Group label
         rtext(
             "Group 1",
             ids.named_id("ID_MAPPING_ROW_GROUP_LABEL"),
-            context.rect(245, 3, 202, 9),
+            context.rect(239, 0, 208, 9),
         ) + NOT_WS_GROUP,
         // Match indicator
         ltext(

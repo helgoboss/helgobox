@@ -1,5 +1,5 @@
 use reaper_low::{raw, Swell};
-use reaper_medium::{Hbrush, Hdc};
+use reaper_medium::Hbrush;
 use std::fmt::Debug;
 use std::ptr::null_mut;
 
@@ -7,7 +7,7 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util;
 use crate::infrastructure::ui::util::colors::ColorPair;
 use swell_ui::{
-    DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, ViewManager,
+    DeviceContext, DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext,
     Window, ZOrder,
 };
 
@@ -30,7 +30,7 @@ impl ColorPanel {
     }
 
     /// Used on Windows only.
-    pub fn paint_manually(&self, hdc: Hdc, window: Window) {
+    pub fn paint_manually(&self, device_context: DeviceContext, window: Window) {
         let swell = Swell::get();
         let pos: Point<_> = window.convert_to_pixels(self.desc.scaled_position());
         let size: Dimensions<_> = window.convert_to_pixels(self.desc.scaled_size());
@@ -44,7 +44,7 @@ impl ColorPanel {
             .map(|b| b.as_ptr())
             .unwrap_or(null_mut());
         unsafe {
-            swell.FillRect(hdc.as_ptr(), &rc, brush);
+            swell.FillRect(device_context.as_ptr(), &rc, brush);
         }
     }
 }
@@ -67,7 +67,11 @@ impl View for ColorPanel {
         false
     }
 
-    fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
+    fn control_color_dialog(
+        self: SharedView<Self>,
+        _device_context: DeviceContext,
+        _window: Window,
+    ) -> Option<Hbrush> {
         util::view::get_brush_for_color_pair(self.desc.color_pair)
     }
 }

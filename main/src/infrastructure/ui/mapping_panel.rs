@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 use std::rc::Rc;
 use std::time::Duration;
 use std::{cmp, iter};
@@ -13,7 +13,7 @@ use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
 use reaper_low::{raw, Swell};
-use reaper_medium::{Hbrush, Hdc, InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_medium::{Hbrush, InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
 
@@ -31,8 +31,8 @@ use realearn_api::persistence::{
     MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    Color, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, ViewManager,
-    WeakView, Window,
+    DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
+    Window,
 };
 
 use crate::application::{
@@ -6860,6 +6860,36 @@ impl View for MappingPanel {
         true
     }
 
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        self.mapping_color_panel
+            .paint_manually(device_context, window);
+        self.source_color_panel
+            .paint_manually(device_context, window);
+        self.target_color_panel
+            .paint_manually(device_context, window);
+        self.glue_color_panel.paint_manually(device_context, window);
+        self.help_color_panel.paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        _window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense.
+            return None;
+        }
+        device_context.set_bk_mode_to_transparent();
+        Hbrush::new(Swell::get().GetStockObject(raw::NULL_BRUSH as _) as _)
+    }
+
     fn close_requested(self: SharedView<Self>) -> bool {
         self.hide();
         true
@@ -7153,51 +7183,6 @@ impl View for MappingPanel {
         });
         false
     }
-
-    fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
-        if cfg!(unix) {
-            // On macOS/Linux we use color panels as real child windows.
-            return false;
-        }
-        let window = self.view.require_window();
-        self.mapping_color_panel.paint_manually(hdc, window);
-        self.source_color_panel.paint_manually(hdc, window);
-        self.target_color_panel.paint_manually(hdc, window);
-        self.glue_color_panel.paint_manually(hdc, window);
-        self.help_color_panel.paint_manually(hdc, window);
-        true
-    }
-
-    fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-        if cfg!(target_os = "macos") {
-            // On macOS, we fortunately don't need to do this nonsense.
-            return None;
-        }
-        unsafe {
-            Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
-        }
-        Hbrush::new(Swell::get().GetStockObject(raw::NULL_BRUSH as _) as _)
-    }
-
-    // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-    //     let swell = Swell::get();
-    //     let resource_id = unsafe { swell.GetWindowLong(window.raw(), raw::GWL_ID) } as u32;
-    //     dbg!(resource_id);
-    //     let set_text_color = |color: Color| unsafe {
-    //         swell.SetBkMode(hdc.as_ptr(), raw::OPAQUE as _);
-    //         let darker_color: Color = color.to_linear().darken(0.4).into();
-    //         swell.SetTextColor(hdc.as_ptr(), darker_color.to_raw() as _);
-    //     };
-    //     match resource_id {
-    //         root::ID_MAPPING_PANEL_LABEL => set_text_color(colors::mapping()),
-    //         root::ID_SOURCE_PANEL_LABEL => set_text_color(colors::source()),
-    //         root::ID_TARGET_PANEL_LABEL => set_text_color(colors::target()),
-    //         root::ID_GLUE_PANEL_LABEL => set_text_color(colors::glue()),
-    //         _ => {}
-    //     }
-    //     set_text_color(colors::target());
-    //     ViewManager::get().get_solid_brush(Color::rgb(255, 0, 0))
-    // }
 
     fn timer(&self, id: usize) -> bool {
         if id == SOURCE_MATCH_INDICATOR_TIMER_ID {

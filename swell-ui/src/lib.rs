@@ -6,6 +6,9 @@ pub use hex_literal::hex;
 mod window;
 pub use window::*;
 
+mod device_context;
+pub use device_context::*;
+
 mod menu;
 pub use menu::*;
 

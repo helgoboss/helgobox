@@ -1,6 +1,7 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{
-    BrushCache, BrushDescriptor, Color, Pixels, Point, SharedView, View, WeakView, Window,
+    BrushCache, BrushDescriptor, Color, DeviceContext, Pixels, Point, SharedView, View, WeakView,
+    Window,
 };
 use std::cell::{Cell, RefCell};
 
@@ -267,12 +268,14 @@ unsafe extern "C" fn view_dialog_proc(
                     1
                 }
                 raw::WM_PAINT => isize::from(view.paint()),
-                raw::WM_ERASEBKGND => isize::from(view.erase_background(
+                raw::WM_ERASEBKGND => isize::from(view.erase_background(DeviceContext::new(
                     Hdc::new(wparam as raw::HDC).expect("HDC in WM_ERASEBKGND is null"),
-                )),
+                ))),
                 raw::WM_CTLCOLORSTATIC => {
                     let brush = view.control_color_static(
-                        Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORSTATIC is null"),
+                        DeviceContext::new(
+                            Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORSTATIC is null"),
+                        ),
                         Window::new(lparam as raw::HWND)
                             .expect("WM_CTLCOLORSTATIC control is null"),
                     );
@@ -280,7 +283,9 @@ unsafe extern "C" fn view_dialog_proc(
                 }
                 raw::WM_CTLCOLORDLG => {
                     let brush = view.control_color_dialog(
-                        Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORDLG is null"),
+                        DeviceContext::new(
+                            Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORDLG is null"),
+                        ),
                         Window::new(lparam as raw::HWND).expect("WM_CTLCOLORDLG control is null"),
                     );
                     brush.map(|b| b.as_ptr()).unwrap_or(null_mut()) as _

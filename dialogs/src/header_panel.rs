@@ -87,7 +87,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + WS_TABSTOP,
     ];
     let show_controls = [
-        ltext("Show", ids.id(), context.rect(7, 48, 24, 9)),
+        ltext(
+            "Show",
+            ids.named_id("ID_HEADER_PANEL_SHOW_LABEL_TEXT"),
+            context.rect(7, 48, 24, 9),
+        ),
         radio_button(
             "Controller compartment (for picking a controller preset)",
             ids.named_id("ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON"),
@@ -215,8 +219,8 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     ];
     let divider_controls = [
         divider(ids.id(), context.rect(0, 41, HEADER_PANEL_WIDTH, 1)),
-        divider(ids.id(), context.rect(0, 123, HEADER_PANEL_WIDTH, 1)),
         divider(ids.id(), context.rect(0, 62, HEADER_PANEL_WIDTH, 1)),
+        // divider(ids.id(), context.rect(0, 123, HEADER_PANEL_WIDTH, 1)),
     ];
     Dialog {
         id: ids.named_id("ID_HEADER_PANEL"),
