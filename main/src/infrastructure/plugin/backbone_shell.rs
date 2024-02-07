@@ -34,7 +34,7 @@ use crate::infrastructure::ui::{menus, MessagePanel};
 use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
-    make_available_globally_in_main_thread_on_demand, spawn_in_main_thread, Global,
+    make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
     NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread,
 };
 
@@ -461,20 +461,16 @@ impl BackboneShell {
     }
 
     pub fn dispose(&mut self) {
-        let _ = Reaper::get().go_to_sleep();
-        self.message_panel.close();
-        self.party_is_over_subject.next(());
         // This is ugly but we need it on Windows where getting the current thread can lead to
         // "use of std::thread::current() is not possible after the thread's local data has been destroyed"
         // when exiting REAPER. The following code essentially ignores this.
-        {
-            let old_panic_hook = std::panic::take_hook();
-            std::panic::set_hook(Box::new(|_| {}));
-            let _ = std::panic::catch_unwind(|| {
-                let _ = unregister_api();
-            });
-            std::panic::set_hook(old_panic_hook);
-        }
+        // See https://github.com/rust-lang/rust/issues/110708
+        panic_util::ignore_panics(|| {
+            let _ = Reaper::get().go_to_sleep();
+            self.message_panel.close();
+            self.party_is_over_subject.next(());
+            let _ = unregister_api();
+        });
     }
 
     pub fn detailed_version_label() -> &'static str {
