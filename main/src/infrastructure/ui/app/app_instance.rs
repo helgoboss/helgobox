@@ -5,7 +5,7 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::{event_reply, reply, Empty, EventReply, ProtoReceivers, Reply};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use prost::Message;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -82,72 +82,39 @@ pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance 
         };
         share(instance)
     } else {
-        panic!("OS not supported yet");
+        share(DummyAppInstance)
     }
 }
 
-/// App will run within a SWELL window that is provided by ReaLearn (`AppPanel`).
-///
-/// This is currently only a good choice on Windows. On macOS, the app uses an NSViewController
-/// that's supposed to be attached to the NSWindow in order to manage its content view (NSView).
-/// But SWELL doesn't just provide the NSWindow, it also provides and manages the content view.
-/// Letting the content view be managed by both the NSViewController and SWELL is not possible.
-///
-/// There's the possibility to use child windows on macOS but this means that if the app itself
-/// tries to access and control its containing window, it's going to affect the *child* window
-/// and not the window provided ReaLearn. It also needs more attention when it comes to
-/// keyboard shortcut forwarding and comes with probably a whole bunch of other corner cases.
-/// It's still an interesting possibility, especially when it comes to implementing docking.
 #[derive(Debug)]
-pub struct ParentedAppInstance {
-    panel: SharedView<AppPanel>,
-}
+struct DummyAppInstance;
 
-impl AppInstance for ParentedAppInstance {
+impl AppInstance for DummyAppInstance {
     fn is_running(&self) -> bool {
-        self.panel.is_open()
+        false
     }
 
     fn is_visible(&self) -> bool {
-        if let Some(window) = self.panel.view.window() {
-            window.is_visible()
-        } else {
-            false
-        }
+        false
     }
 
-    fn start_or_show(&mut self, owning_window: Window) -> Result<()> {
-        if let Some(window) = self.panel.view_context().window() {
-            // If window already open (and maybe just hidden), simply show it.
-            window.show();
-            return Ok(());
-        }
-        // Fail fast if library not available
-        BackboneShell::get_app_library()?;
-        // Then open. This actually only opens the SWELL window. The real stuff is done
-        // in the "opened" handler of the SWELL window.
-        self.panel.clone().open(owning_window);
-        Ok(())
+    fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
+        bail!("not implemented for Linux")
     }
 
     fn hide(&mut self) -> Result<()> {
-        let window = self.panel.view.window().context("App was not open")?;
-        window.hide();
-        Ok(())
+        bail!("not implemented for Linux")
     }
 
     fn stop(&mut self) -> Result<()> {
-        self.panel.close();
-        Ok(())
+        bail!("not implemented for Linux")
     }
 
-    fn send(&self, reply: &Reply) -> Result<()> {
-        self.panel.send_to_app(reply)
+    fn send(&self, _reply: &Reply) -> Result<()> {
+        bail!("not implemented for Linux")
     }
 
-    fn notify_app_is_ready(&mut self, callback: AppCallback) {
-        self.panel.notify_app_is_ready(callback);
-    }
+    fn notify_app_is_ready(&mut self, _callback: AppCallback) {}
 }
 
 /// App will run in its own window.
