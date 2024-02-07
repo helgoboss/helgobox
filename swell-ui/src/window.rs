@@ -1,5 +1,4 @@
 use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
-use palette::luma::Luma;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
@@ -68,7 +67,7 @@ impl Window {
                 Swell::GetBValue(color as _),
             );
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
-            let luma: Luma = rgb.into_color();
+            let luma: palette::luma::Luma = rgb.into_color();
             luma.luma < 0.5
         }
     }
