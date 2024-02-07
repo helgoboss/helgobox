@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 use std::rc::Rc;
 use std::time::Duration;
 use std::{cmp, iter};
@@ -12,8 +12,8 @@ use itertools::Itertools;
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
-use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_low::{raw, Swell};
+use reaper_medium::{Hbrush, Hdc, InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
 
@@ -31,7 +31,8 @@ use realearn_api::persistence::{
     MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+    Color, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, ViewManager,
+    WeakView, Window,
 };
 
 use crate::application::{
@@ -66,7 +67,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::menus::get_param_name;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
@@ -139,11 +140,11 @@ impl MappingPanel {
             session: session.clone(),
             mapping: None.into(),
             main_panel,
-            mapping_color_panel: SharedView::new(ColorPanel::new(colors::mapping())),
-            source_color_panel: SharedView::new(ColorPanel::new(colors::source())),
-            target_color_panel: SharedView::new(ColorPanel::new(colors::target())),
-            glue_color_panel: SharedView::new(ColorPanel::new(colors::glue())),
-            help_color_panel: SharedView::new(ColorPanel::new(colors::help())),
+            mapping_color_panel: SharedView::new(ColorPanel::new(build_mapping_color_panel_desc())),
+            source_color_panel: SharedView::new(ColorPanel::new(build_source_color_panel_desc())),
+            target_color_panel: SharedView::new(ColorPanel::new(build_target_color_panel_desc())),
+            glue_color_panel: SharedView::new(ColorPanel::new(build_glue_color_panel_desc())),
+            help_color_panel: SharedView::new(ColorPanel::new(build_help_color_panel_desc())),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
                 Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(&MAPPING_PANEL_SCALING),
@@ -6849,51 +6850,11 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
-        position_color_panel(
-            &self.mapping_color_panel,
-            window,
-            0,
-            0,
-            451,
-            67,
-            &MAPPING_PANEL_SCALING,
-        );
-        position_color_panel(
-            &self.source_color_panel,
-            window,
-            0,
-            67,
-            175,
-            165,
-            &MAPPING_PANEL_SCALING,
-        );
-        position_color_panel(
-            &self.target_color_panel,
-            window,
-            175,
-            67,
-            276,
-            165,
-            &MAPPING_PANEL_SCALING,
-        );
-        position_color_panel(
-            &self.glue_color_panel,
-            window,
-            0,
-            232,
-            451,
-            239,
-            &MAPPING_PANEL_SCALING,
-        );
-        position_color_panel(
-            &self.help_color_panel,
-            window,
-            0,
-            471,
-            451,
-            61,
-            &MAPPING_PANEL_SCALING,
-        );
+        self.mapping_color_panel.clone().open(window);
+        self.source_color_panel.clone().open(window);
+        self.target_color_panel.clone().open(window);
+        self.glue_color_panel.clone().open(window);
+        self.help_color_panel.clone().open(window);
         true
     }
 
@@ -7190,6 +7151,37 @@ impl View for MappingPanel {
         });
         false
     }
+
+    // fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
+    //     unsafe {
+    //         let swell = Swell::get();
+    //         let mut rc = raw::RECT {
+    //             left: 0,
+    //             top: 0,
+    //             right: 0,
+    //             bottom: 0,
+    //         };
+    //         let hwnd = self.view.require_window().raw();
+    //         swell.GetClientRect(hwnd, &mut rc as *mut _);
+    //         swell.FillRect(
+    //             hdc.as_ptr(),
+    //             &rc,
+    //             ViewManager::get()
+    //                 .get_solid_brush(Color::rgb(255, 0, 0))
+    //                 .map(|b| b.as_ptr())
+    //                 .unwrap_or(null_mut()),
+    //         );
+    //     }
+    //     true
+    // }
+
+    // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+    //     unsafe {
+    //         Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
+    //     }
+    //     Swell::get().GetStockObject()
+    //     ViewManager::get().get_solid_brush(Color::rgb(0, 0, 0))
+    // }
 
     // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
     //     let swell = Swell::get();
@@ -8047,4 +8039,59 @@ const ACTIVITY_INFO: &str = "Activity info";
 enum Side {
     Left,
     Right,
+}
+
+fn build_mapping_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 0,
+        width: 451,
+        height: 67,
+        color_pair: colors::mapping(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_source_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 67,
+        width: 175,
+        height: 165,
+        color_pair: colors::source(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_target_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 175,
+        y: 67,
+        width: 276,
+        height: 165,
+        color_pair: colors::target(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_glue_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 232,
+        width: 451,
+        height: 239,
+        color_pair: colors::glue(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_help_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 471,
+        width: 451,
+        height: 61,
+        color_pair: colors::help(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
 }

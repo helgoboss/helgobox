@@ -38,7 +38,7 @@ use crate::infrastructure::ui::bindings::root;
 
 use crate::base::notification::{notify_processing_result, notify_user_about_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
-use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::menus::{
@@ -103,7 +103,7 @@ impl HeaderPanel {
             instance_panel,
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
-            show_color_panel: SharedView::new(ColorPanel::new(colors::show_background())),
+            show_color_panel: SharedView::new(ColorPanel::new(build_show_color_panel_desc())),
             panel_manager,
             group_panel: Default::default(),
             extra_panel: Default::default(),
@@ -2587,15 +2587,7 @@ impl View for HeaderPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.taborder_first();
-        position_color_panel(
-            &self.show_color_panel,
-            window,
-            0,
-            44,
-            470,
-            17,
-            &HEADER_PANEL_SCALING,
-        );
+        self.show_color_panel.clone().open(window);
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression(None);
@@ -3076,3 +3068,14 @@ fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> Strin
 }
 
 const PRESET_RELATED_MENU_LABEL: &str = "Preset-related";
+
+fn build_show_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 44,
+        width: 470,
+        height: 17,
+        color_pair: colors::show_background(),
+        scaling: HEADER_PANEL_SCALING,
+    }
+}

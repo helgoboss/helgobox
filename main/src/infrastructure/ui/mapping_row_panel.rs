@@ -17,7 +17,7 @@ use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::ui::color_panel::{position_color_panel, ColorPanel};
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{colors, mapping_row_panel_height, symbols, GLOBAL_SCALING};
 use crate::infrastructure::ui::{
@@ -45,7 +45,7 @@ pub struct MappingRowPanel {
     view: ViewContext,
     session: WeakUnitModel,
     main_state: SharedMainState,
-    main_color_panel: SharedView<ColorPanel>,
+    mapping_color_panel: SharedView<ColorPanel>,
     source_color_panel: SharedView<ColorPanel>,
     target_color_panel: SharedView<ColorPanel>,
     row_index: u32,
@@ -73,9 +73,9 @@ impl MappingRowPanel {
             view: Default::default(),
             session,
             main_state,
-            main_color_panel: SharedView::new(ColorPanel::new(colors::mapping())),
-            source_color_panel: SharedView::new(ColorPanel::new(colors::source())),
-            target_color_panel: SharedView::new(ColorPanel::new(colors::target())),
+            mapping_color_panel: SharedView::new(ColorPanel::new(build_mapping_color_panel_desc())),
+            source_color_panel: SharedView::new(ColorPanel::new(build_source_color_panel_desc())),
+            target_color_panel: SharedView::new(ColorPanel::new(build_target_color_panel_desc())),
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
@@ -872,34 +872,9 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
-        const COLOR_PANEL_HEIGHT: u32 = 48;
-        position_color_panel(
-            &self.source_color_panel,
-            window,
-            43,
-            0,
-            94,
-            COLOR_PANEL_HEIGHT,
-            &GLOBAL_SCALING,
-        );
-        position_color_panel(
-            &self.target_color_panel,
-            window,
-            161,
-            0,
-            182,
-            COLOR_PANEL_HEIGHT,
-            &GLOBAL_SCALING,
-        );
-        position_color_panel(
-            &self.main_color_panel,
-            window,
-            0,
-            0,
-            460,
-            COLOR_PANEL_HEIGHT,
-            &GLOBAL_SCALING,
-        );
+        self.source_color_panel.clone().open(window);
+        self.target_color_panel.clone().open(window);
+        self.mapping_color_panel.clone().open(window);
         window.move_to_dialog_units(Point::new(
             DialogUnits(0),
             mapping_row_panel_height() * self.row_index,
@@ -1139,3 +1114,38 @@ struct MappingTriple {
     mapping_id: MappingId,
     group_id: GroupId,
 }
+
+fn build_mapping_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 0,
+        width: 460,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::mapping(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+fn build_source_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 43,
+        y: 0,
+        width: 94,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::source(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+fn build_target_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 161,
+        y: 0,
+        width: 182,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::target(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+const COLOR_PANEL_HEIGHT: u32 = 48;

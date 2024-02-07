@@ -267,7 +267,9 @@ unsafe extern "C" fn view_dialog_proc(
                     1
                 }
                 raw::WM_PAINT => isize::from(view.paint()),
-                raw::WM_ERASEBKGND => isize::from(view.erase_background(wparam as raw::HDC)),
+                raw::WM_ERASEBKGND => isize::from(view.erase_background(
+                    Hdc::new(wparam as raw::HDC).expect("HDC in WM_ERASEBKGND is null"),
+                )),
                 raw::WM_CTLCOLORSTATIC => {
                     let brush = view.control_color_static(
                         Hdc::new(wparam as raw::HDC).expect("HDC in WM_CTLCOLORSTATIC is null"),

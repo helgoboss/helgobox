@@ -219,6 +219,7 @@ impl<T: Copy> From<Point<T>> for Dimensions<T> {
 /// This is not the scaling applied by SWELL but the one applied before by us when generating
 /// the RC file. In future we might produce different RC files for different operating systems.
 /// Then this is maybe the only scaling info we need and we can ditch SWELL scaling.
+#[derive(Debug)]
 pub struct DialogScaling {
     pub x_scale: f64,
     pub y_scale: f64,

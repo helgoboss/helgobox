@@ -197,7 +197,7 @@ pub trait View: Debug {
     /// WM_ERASEBKGND
     ///
     /// Should return `true` if processed.
-    fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
+    fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
         let _ = hdc;
         false
     }

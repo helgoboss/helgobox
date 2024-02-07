@@ -8,17 +8,21 @@ use swell_ui::{
     DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window, ZOrder,
 };
 
+/// A panel painted in a certain color and put below a specific section of the parent window.
+///
+/// We use the color panel on macOS and Linux only because Windows doesn't seem to like
+/// overlapping child windows, it flickers like hell.
 #[derive(Debug)]
 pub struct ColorPanel {
     view: ViewContext,
-    color_pair: ColorPair,
+    desc: ColorPanelDesc,
 }
 
 impl ColorPanel {
-    pub fn new(color_pair: ColorPair) -> Self {
+    pub fn new(desc: ColorPanelDesc) -> Self {
         Self {
             view: Default::default(),
-            color_pair,
+            desc,
         }
     }
 }
@@ -32,25 +36,28 @@ impl View for ColorPanel {
         &self.view
     }
 
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
+        window.set_everything_in_dialog_units(
+            Point::new(DialogUnits(self.desc.x), DialogUnits(self.desc.y))
+                .scale(&self.desc.scaling),
+            Dimensions::new(DialogUnits(self.desc.width), DialogUnits(self.desc.height))
+                .scale(&self.desc.scaling),
+            ZOrder::Bottom,
+        );
+        false
+    }
+
     fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
-        util::view::get_brush(self.color_pair)
+        util::view::get_brush(self.desc.color_pair)
     }
 }
 
-pub fn position_color_panel(
-    panel: &SharedView<ColorPanel>,
-    parent_window: Window,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    scaling: &DialogScaling,
-) {
-    if let Some(w) = panel.clone().open(parent_window) {
-        w.set_everything_in_dialog_units(
-            Point::new(DialogUnits(x), DialogUnits(y)).scale(scaling),
-            Dimensions::new(DialogUnits(width), DialogUnits(height)).scale(scaling),
-            ZOrder::Bottom,
-        );
-    }
+#[derive(Debug)]
+pub struct ColorPanelDesc {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub color_pair: ColorPair,
+    pub scaling: DialogScaling,
 }
