@@ -103,7 +103,7 @@ impl Menu {
             let swell_string_arg = text.into();
             let sub_menu = Swell::get().CreatePopupMenu();
             let mut mi = raw::MENUITEMINFO {
-                fMask: raw::MIIM_TYPE | raw::MIIM_SUBMENU,
+                fMask: raw::MIIM_TYPE | raw::MIIM_DATA | raw::MIIM_SUBMENU,
                 hSubMenu: sub_menu,
                 dwTypeData: swell_string_arg.as_ptr() as _,
                 ..Default::default()
