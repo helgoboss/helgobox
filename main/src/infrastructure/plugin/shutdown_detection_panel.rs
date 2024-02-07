@@ -22,6 +22,10 @@ impl View for ShutdownDetectionPanel {
         &self.view
     }
 
+    fn show_window_on_init(&self) -> bool {
+        false
+    }
+
     fn on_destroy(self: SharedView<Self>, _window: Window) {
         BackboneShell::get().shutdown();
     }
