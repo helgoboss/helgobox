@@ -225,12 +225,12 @@ fn get_suitability_of_controller_preset_for_controller(
                 // Identity doesn't match, this is a no-go
                 return ControllerSuitability::NotSuitable;
             }
-            let Some(output_port_pattern) = &controller_preset_meta_data.midi_output_port_pattern
-            else {
-                // Controller preset doesn't define any MIDI output port pattern. This is perfectly valid.
+            let patterns = &controller_preset_meta_data.midi_output_port_patterns;
+            if patterns.is_empty() {
+                // Controller preset doesn't define any MIDI output port patterns. This is perfectly valid.
                 return identity_pattern_suitability;
-            };
-            // MIDI output port pattern given. Take it into account as well.
+            }
+            // MIDI output port patterns given. Take them into account as well.
             let Some(output_port) = con.output_port else {
                 // If the controller has not output, it can't match an output port pattern.
                 return ControllerSuitability::NotSuitable;
@@ -240,9 +240,8 @@ fn get_suitability_of_controller_preset_for_controller(
                 .midi_output_device_by_id(out_dev_id)
                 .name()
                 .into_string();
-            let wild_match = WildMatch::new(output_port_pattern);
-            if wild_match.matches(&out_dev_name) {
-                ControllerSuitability::Suitable
+            if midi_output_port_patterns_match(patterns, &out_dev_name) {
+                identity_pattern_suitability
             } else {
                 ControllerSuitability::NotSuitable
             }
@@ -250,9 +249,9 @@ fn get_suitability_of_controller_preset_for_controller(
         ControllerConnection::Osc(_) => {
             // This is an OSC controller
             if controller_preset_meta_data.midi_identity_pattern.is_some()
-                || controller_preset_meta_data
-                    .midi_output_port_pattern
-                    .is_some()
+                || !controller_preset_meta_data
+                    .midi_output_port_patterns
+                    .is_empty()
             {
                 // We have a preset for a MIDI controller but this is an OSC controller.
                 ControllerSuitability::NotSuitable
@@ -411,4 +410,15 @@ fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering
             }
         }
     }
+}
+
+pub fn midi_output_port_patterns_match(patterns: &Vec<String>, out_port_name: &str) -> bool {
+    if patterns.is_empty() {
+        return true;
+    }
+    let lower_case_out_port_name = out_port_name.to_lowercase();
+    patterns.iter().any(|pattern| {
+        let wild_match = WildMatch::new(&pattern.to_lowercase());
+        wild_match.matches(&lower_case_out_port_name)
+    })
 }

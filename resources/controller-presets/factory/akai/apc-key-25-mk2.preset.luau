@@ -7,7 +7,7 @@
 --- # interested in "Control". Both MIDI ports reply with the same device identity. If we
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
---- midi_output_port_pattern: "*Control*"
+--- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25]
 

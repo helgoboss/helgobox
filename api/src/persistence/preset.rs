@@ -62,7 +62,7 @@ pub struct ControllerPresetMetaData {
         skip_serializing_if = "Option::is_none"
     )]
     pub midi_identity_pattern: Option<String>,
-    /// MIDI identity compatibility pattern.
+    /// Possible MIDI identity compatibility patterns.
     ///
     /// Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto
     /// units.
@@ -70,12 +70,10 @@ pub struct ControllerPresetMetaData {
     /// It should only be provided if the device in question doesn't reply to device queries or if it exposes
     /// multiple ports which all respond with the same device identity and only one of the ports is the correct one.
     /// Example: APC Key 25 mk2, which exposes a "Control" and a "Keys" port.
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub midi_output_port_pattern: Option<String>,
+    ///
+    /// It's a list because names often differ between operating systems. ReaLearn will match any in the list.
+    #[serde(default)]
+    pub midi_output_port_patterns: Vec<String>,
     /// Provided virtual control schemes.
     ///
     /// Will be used for finding the correct controller preset when calculating auto units.

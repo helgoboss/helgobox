@@ -8,7 +8,7 @@ use crate::domain::{
 };
 use crate::infrastructure::api::convert::to_data::convert_compartment;
 use crate::infrastructure::data::CompartmentPresetData;
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{midi_output_port_patterns_match, BackboneShell};
 use anyhow::{anyhow, bail, Context};
 use base::byte_pattern::BytePattern;
 use base::file_util;
@@ -35,7 +35,6 @@ use std::collections::HashSet;
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
-use wildmatch::WildMatch;
 
 pub type SharedControllerPresetManager = Rc<RefCell<FileBasedControllerPresetManager>>;
 pub type FileBasedControllerPresetManager =
@@ -74,12 +73,10 @@ impl FileBasedCompartmentPresetManager<ControllerPresetMetaData> {
                 return false;
             }
             // Additionally check device identity
-            let Some(port_pattern) = info.specific_meta_data.midi_output_port_pattern.as_ref()
-            else {
-                return true;
-            };
-            let wild_match = WildMatch::new(port_pattern);
-            wild_match.matches(midi_output_port_name)
+            midi_output_port_patterns_match(
+                &info.specific_meta_data.midi_output_port_patterns,
+                midi_output_port_name,
+            )
         })
     }
 }

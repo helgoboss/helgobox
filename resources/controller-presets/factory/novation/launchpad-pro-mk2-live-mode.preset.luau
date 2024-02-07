@@ -3,7 +3,7 @@
 --- device_manufacturer: Novation
 --- device_name: Launchpad Pro mk2
 --- midi_identity_pattern: F0 7E ? 06 02 00 20 29 51 00 00 00 * F7
---- midi_output_port_pattern: "*Live*"
+--- midi_output_port_patterns: ["*Live*", "Launchpad Pro"]
 --- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [novation/launchpad-pro/live]
 
