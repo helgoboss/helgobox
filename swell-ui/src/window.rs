@@ -1,4 +1,5 @@
 use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
+use palette::luma::Luma;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
@@ -58,16 +59,16 @@ impl Window {
             Swell::get().SWELL_osx_is_dark_mode(0)
         }
         #[cfg(any(target_os = "windows", target_os = "linux"))]
-        unsafe {
+        {
             use palette::{IntoColor, Srgb};
-            let color = Swell::get().GetSysColor(raw::COLOR_WINDOW);
+            let color = Swell::get().GetSysColor(raw::COLOR_WINDOW as _);
             let (r, g, b) = (
-                Swell::GetRValue(color),
-                Swell::GetGValue(color),
-                Swell::GetBValue(color),
+                Swell::GetRValue(color as _),
+                Swell::GetGValue(color as _),
+                Swell::GetBValue(color as _),
             );
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
-            let luma = rgb.into_luma();
+            let luma: Luma = rgb.into_color();
             luma.luma < 0.5
         }
     }
