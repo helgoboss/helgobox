@@ -93,6 +93,7 @@ cargo run helgobox-artwork-processor
 In the following you will find the complete instructions for Windows 10, including Rust setup. Points where you have to consider the target
 architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
 
+. Enable "Developer mode" in the Windows settings (this is needed because ReaLearn uses link:https://stackoverflow.com/a/59761201[Symlinks within its Git repository])
 . Setup "Build tools for Visual Studio 2019"
 * Rust uses native build toolchains. On Windows, it's necessary to use the MSVC (Microsoft Visual Studio
  C++) toolchain because REAPER plug-ins only work with that.
