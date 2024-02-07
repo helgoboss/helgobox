@@ -1,11 +1,14 @@
+use reaper_low::{raw, Swell};
 use reaper_medium::{Hbrush, Hdc};
 use std::fmt::Debug;
+use std::ptr::null_mut;
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util;
 use crate::infrastructure::ui::util::colors::ColorPair;
 use swell_ui::{
-    DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, Window, ZOrder,
+    DialogScaling, DialogUnits, Dimensions, Point, SharedView, View, ViewContext, ViewManager,
+    Window, ZOrder,
 };
 
 /// A panel painted in a certain color and put below a specific section of the parent window.
@@ -25,6 +28,25 @@ impl ColorPanel {
             desc,
         }
     }
+
+    /// Used on Windows only.
+    pub fn paint_manually(&self, hdc: Hdc, window: Window) {
+        let swell = Swell::get();
+        let pos: Point<_> = window.convert_to_pixels(self.desc.scaled_position());
+        let size: Dimensions<_> = window.convert_to_pixels(self.desc.scaled_size());
+        let rc = raw::RECT {
+            left: pos.x.get() as _,
+            top: pos.y.get() as _,
+            right: (pos.x + size.width).get() as _,
+            bottom: (pos.y + size.height).get() as _,
+        };
+        let brush = util::view::get_brush_for_color_pair(self.desc.color_pair)
+            .map(|b| b.as_ptr())
+            .unwrap_or(null_mut());
+        unsafe {
+            swell.FillRect(hdc.as_ptr(), &rc, brush);
+        }
+    }
 }
 
 impl View for ColorPanel {
@@ -38,17 +60,15 @@ impl View for ColorPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.set_everything_in_dialog_units(
-            Point::new(DialogUnits(self.desc.x), DialogUnits(self.desc.y))
-                .scale(&self.desc.scaling),
-            Dimensions::new(DialogUnits(self.desc.width), DialogUnits(self.desc.height))
-                .scale(&self.desc.scaling),
+            self.desc.scaled_position(),
+            self.desc.scaled_size(),
             ZOrder::Bottom,
         );
         false
     }
 
     fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
-        util::view::get_brush(self.desc.color_pair)
+        util::view::get_brush_for_color_pair(self.desc.color_pair)
     }
 }
 
@@ -60,4 +80,14 @@ pub struct ColorPanelDesc {
     pub height: u32,
     pub color_pair: ColorPair,
     pub scaling: DialogScaling,
+}
+
+impl ColorPanelDesc {
+    pub fn scaled_position(&self) -> Point<DialogUnits> {
+        Point::new(DialogUnits(self.x), DialogUnits(self.y)).scale(&self.scaling)
+    }
+
+    pub fn scaled_size(&self) -> Dimensions<DialogUnits> {
+        Dimensions::new(DialogUnits(self.width), DialogUnits(self.height)).scale(&self.scaling)
+    }
 }

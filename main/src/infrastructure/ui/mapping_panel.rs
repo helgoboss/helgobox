@@ -6850,11 +6850,13 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
-        self.mapping_color_panel.clone().open(window);
-        self.source_color_panel.clone().open(window);
-        self.target_color_panel.clone().open(window);
-        self.glue_color_panel.clone().open(window);
-        self.help_color_panel.clone().open(window);
+        if cfg!(unix) {
+            self.mapping_color_panel.clone().open(window);
+            self.source_color_panel.clone().open(window);
+            self.target_color_panel.clone().open(window);
+            self.glue_color_panel.clone().open(window);
+            self.help_color_panel.clone().open(window);
+        }
         true
     }
 
@@ -7152,36 +7154,30 @@ impl View for MappingPanel {
         false
     }
 
-    // fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
-    //     unsafe {
-    //         let swell = Swell::get();
-    //         let mut rc = raw::RECT {
-    //             left: 0,
-    //             top: 0,
-    //             right: 0,
-    //             bottom: 0,
-    //         };
-    //         let hwnd = self.view.require_window().raw();
-    //         swell.GetClientRect(hwnd, &mut rc as *mut _);
-    //         swell.FillRect(
-    //             hdc.as_ptr(),
-    //             &rc,
-    //             ViewManager::get()
-    //                 .get_solid_brush(Color::rgb(255, 0, 0))
-    //                 .map(|b| b.as_ptr())
-    //                 .unwrap_or(null_mut()),
-    //         );
-    //     }
-    //     true
-    // }
+    fn erase_background(self: SharedView<Self>, hdc: Hdc) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        self.mapping_color_panel.paint_manually(hdc, window);
+        self.source_color_panel.paint_manually(hdc, window);
+        self.target_color_panel.paint_manually(hdc, window);
+        self.glue_color_panel.paint_manually(hdc, window);
+        self.help_color_panel.paint_manually(hdc, window);
+        true
+    }
 
-    // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
-    //     unsafe {
-    //         Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
-    //     }
-    //     Swell::get().GetStockObject()
-    //     ViewManager::get().get_solid_brush(Color::rgb(0, 0, 0))
-    // }
+    fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense.
+            return None;
+        }
+        unsafe {
+            Swell::get().SetBkMode(hdc.as_ptr(), raw::TRANSPARENT as _);
+        }
+        Hbrush::new(Swell::get().GetStockObject(raw::NULL_BRUSH as _) as _)
+    }
 
     // fn control_color_static(self: SharedView<Self>, hdc: Hdc, window: Window) -> Option<Hbrush> {
     //     let swell = Swell::get();

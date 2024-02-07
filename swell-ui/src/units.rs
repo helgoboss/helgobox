@@ -68,6 +68,14 @@ impl Sub for Pixels {
     }
 }
 
+impl Add for Pixels {
+    type Output = Pixels;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Pixels(self.0 + rhs.0)
+    }
+}
+
 /// Point in a coordinate system.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Point<T> {

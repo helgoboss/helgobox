@@ -295,7 +295,7 @@ impl View for InstancePanel {
     }
 
     fn control_color_dialog(self: SharedView<Self>, _hdc: Hdc, _window: Window) -> Option<Hbrush> {
-        util::view::get_brush(colors::instance_panel_background())
+        util::view::get_brush_for_color_pair(colors::instance_panel_background())
     }
 }
 

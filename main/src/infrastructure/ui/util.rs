@@ -153,7 +153,7 @@ pub mod view {
     use reaper_medium::Hbrush;
     use swell_ui::{ViewManager, Window};
 
-    pub fn get_brush(color_pair: ColorPair) -> Option<Hbrush> {
+    pub fn get_brush_for_color_pair(color_pair: ColorPair) -> Option<Hbrush> {
         let color = if Window::dark_mode_is_enabled() {
             color_pair.dark
         } else {
