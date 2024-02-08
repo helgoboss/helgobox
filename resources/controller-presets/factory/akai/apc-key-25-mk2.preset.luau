@@ -9,7 +9,7 @@
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
 --- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
 --- realearn_version: 2.16.0-pre.8
---- provided_schemes: [akai/apc-key-25]
+--- provided_schemes: [akai/apc-key-25-mk2]
 
 --!strict
 
@@ -24,7 +24,7 @@ local realearn = require("realearn")
 
 -- Define MIDI scripts
 
-local common_lua = preset_runtime.include_str("akai/apc-key-25-mk2/compartment-common.luau")
+local common_lua = preset_runtime.include_str("akai/apc-key-25-mk2-lib/compartment-common.luau")
 
 local function build_pad_script(pad_index: number): string
     return `return require("compartment").pad_script({pad_index}, y, context)`

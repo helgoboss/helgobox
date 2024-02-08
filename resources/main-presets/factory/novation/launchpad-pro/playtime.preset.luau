@@ -307,12 +307,6 @@ function colors(off: number, on: number)
     }
 end
 
-function group(g: realearn.Group)
-    return partial_mapping {
-        group = g.id,
-    }
-end
-
 function set_mode_momentary(mode: Mode, mode_count: number, mode_param_index: number)
     local target_value = mode.index / (mode_count - 1)
     return partial_mapping {
