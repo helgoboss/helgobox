@@ -12,7 +12,7 @@ use itertools::Itertools;
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
-use reaper_low::{raw, Swell};
+use reaper_low::raw;
 use reaper_medium::{Hbrush, InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
@@ -69,9 +69,10 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::menus::get_param_name;
+use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
-    open_child_panel_dyn, parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    open_child_panel_dyn, parse_tags_from_csv, symbols, view, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
@@ -6880,14 +6881,16 @@ impl View for MappingPanel {
     fn control_color_static(
         self: SharedView<Self>,
         device_context: DeviceContext,
-        _window: Window,
+        window: Window,
     ) -> Option<Hbrush> {
         if cfg!(target_os = "macos") {
-            // On macOS, we fortunately don't need to do this nonsense.
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
             return None;
         }
         device_context.set_bk_mode_to_transparent();
-        Hbrush::new(Swell::get().GetStockObject(raw::NULL_BRUSH as _) as _)
+        let section = Section::from_resource_id(window.resource_id())?;
+        view::get_brush_for_color_pair(section.color_pair())
     }
 
     fn close_requested(self: SharedView<Self>) -> bool {
@@ -8074,5 +8077,181 @@ fn build_help_color_panel_desc() -> ColorPanelDesc {
         height: 61,
         color_pair: colors::help(),
         scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+enum Section {
+    Mapping,
+    Source,
+    Target,
+    Glue,
+    Help,
+}
+
+impl Section {
+    pub fn from_resource_id(id: u32) -> Option<Self> {
+        use root::*;
+        let section = match id {
+            ID_MAPPING_PANEL_MAPPING_LABEL
+            | ID_MAPPING_PANEL_FEEDBACK_LABEL
+            | ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX
+            | ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX
+            | ID_MAPPING_ADVANCED_BUTTON
+            | ID_MAPPING_FIND_IN_LIST_BUTTON => Self::Mapping,
+            ID_MAPPING_PANEL_SOURCE_LABEL
+            | ID_SOURCE_LEARN_BUTTON
+            | ID_MAPPING_PANEL_SOURCE_CATEGORY_LABEL
+            | ID_SOURCE_CATEGORY_COMBO_BOX
+            | ID_SOURCE_TYPE_LABEL_TEXT
+            | ID_SOURCE_TYPE_COMBO_BOX
+            | ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT
+            | ID_SOURCE_CHANNEL_LABEL
+            | ID_SOURCE_CHANNEL_COMBO_BOX
+            | ID_SOURCE_LINE_3_EDIT_CONTROL
+            | ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX
+            | ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT
+            | ID_SOURCE_RPN_CHECK_BOX
+            | ID_SOURCE_LINE_4_COMBO_BOX_1
+            | ID_SOURCE_NUMBER_EDIT_CONTROL
+            | ID_SOURCE_NUMBER_COMBO_BOX
+            | ID_SOURCE_LINE_4_BUTTON
+            | ID_SOURCE_CHARACTER_LABEL_TEXT
+            | ID_SOURCE_CHARACTER_COMBO_BOX
+            | ID_SOURCE_LINE_5_EDIT_CONTROL
+            | ID_SOURCE_14_BIT_CHECK_BOX
+            | ID_SOURCE_OSC_ADDRESS_LABEL_TEXT
+            | ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL
+            | ID_SOURCE_SCRIPT_DETAIL_BUTTON => Self::Source,
+            ID_MAPPING_PANEL_TARGET_LABEL
+            | ID_TARGET_LEARN_BUTTON
+            | ID_TARGET_MENU_BUTTON
+            | ID_TARGET_HINT
+            | ID_MAPPING_PANEL_TARGET_TYPE_LABEL
+            | ID_TARGET_CATEGORY_COMBO_BOX
+            | ID_TARGET_TYPE_BUTTON
+            | ID_TARGET_LINE_2_LABEL_2
+            | ID_TARGET_LINE_2_LABEL_3
+            | ID_TARGET_LINE_2_LABEL_1
+            | ID_TARGET_LINE_2_COMBO_BOX_1
+            | ID_TARGET_LINE_2_EDIT_CONTROL
+            | ID_TARGET_LINE_2_COMBO_BOX_2
+            | ID_TARGET_LINE_2_BUTTON
+            | ID_TARGET_LINE_3_LABEL_1
+            | ID_TARGET_LINE_3_COMBO_BOX_1
+            | ID_TARGET_LINE_3_EDIT_CONTROL
+            | ID_TARGET_LINE_3_COMBO_BOX_2
+            | ID_TARGET_LINE_3_LABEL_2
+            | ID_TARGET_LINE_3_LABEL_3
+            | ID_TARGET_LINE_3_BUTTON
+            | ID_TARGET_LINE_4_LABEL_1
+            | ID_TARGET_LINE_4_COMBO_BOX_1
+            | ID_TARGET_LINE_4_EDIT_CONTROL
+            | ID_TARGET_LINE_4_COMBO_BOX_2
+            | ID_TARGET_LINE_4_LABEL_2
+            | ID_TARGET_LINE_4_BUTTON
+            | ID_TARGET_LINE_4_LABEL_3
+            | ID_TARGET_LINE_5_LABEL_1
+            | ID_TARGET_LINE_5_EDIT_CONTROL
+            | ID_TARGET_CHECK_BOX_1
+            | ID_TARGET_CHECK_BOX_2
+            | ID_TARGET_CHECK_BOX_3
+            | ID_TARGET_CHECK_BOX_4
+            | ID_TARGET_CHECK_BOX_5
+            | ID_TARGET_CHECK_BOX_6
+            | ID_TARGET_VALUE_LABEL_TEXT
+            | ID_TARGET_VALUE_OFF_BUTTON
+            | ID_TARGET_VALUE_ON_BUTTON
+            | ID_TARGET_VALUE_SLIDER_CONTROL
+            | ID_TARGET_VALUE_EDIT_CONTROL
+            | ID_TARGET_VALUE_TEXT
+            | ID_TARGET_UNIT_BUTTON => Self::Target,
+            ID_MAPPING_PANEL_GLUE_LABEL
+            | ID_SETTINGS_RESET_BUTTON
+            | ID_SETTINGS_SOURCE_LABEL
+            | ID_SETTINGS_SOURCE_GROUP
+            | ID_SETTINGS_SOURCE_MIN_LABEL
+            | ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_SOURCE_MAX_LABEL
+            | ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL
+            | ID_MODE_OUT_OF_RANGE_LABEL_TEXT
+            | ID_MODE_OUT_OF_RANGE_COMBOX_BOX
+            | ID_MODE_GROUP_INTERACTION_LABEL_TEXT
+            | ID_MODE_GROUP_INTERACTION_COMBO_BOX
+            | ID_SETTINGS_TARGET_LABEL_TEXT
+            | ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT
+            | ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL
+            | ID_SETTINGS_TARGET_GROUP
+            | ID_SETTINGS_MIN_TARGET_LABEL_TEXT
+            | ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_MIN_TARGET_VALUE_TEXT
+            | ID_SETTINGS_MAX_TARGET_LABEL_TEXT
+            | ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_MAX_TARGET_VALUE_TEXT
+            | ID_SETTINGS_REVERSE_CHECK_BOX
+            | IDC_MODE_FEEDBACK_TYPE_COMBO_BOX
+            | ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL
+            | IDC_MODE_FEEDBACK_TYPE_BUTTON
+            | ID_MODE_KNOB_FADER_GROUP_BOX
+            | ID_SETTINGS_MODE_LABEL
+            | ID_SETTINGS_MODE_COMBO_BOX
+            | ID_MODE_TAKEOVER_LABEL
+            | ID_MODE_TAKEOVER_MODE
+            | ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON
+            | ID_MODE_RELATIVE_GROUP_BOX
+            | ID_SETTINGS_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_STEP_SIZE_GROUP
+            | ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL
+            | ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT
+            | ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL
+            | ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT
+            | ID_MODE_RELATIVE_FILTER_COMBO_BOX
+            | ID_SETTINGS_ROTATE_CHECK_BOX
+            | ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX
+            | ID_MODE_BUTTON_GROUP_BOX
+            | ID_MODE_FIRE_COMBO_BOX
+            | ID_MODE_BUTTON_FILTER_COMBO_BOX
+            | ID_MODE_FIRE_LINE_2_LABEL_1
+            | ID_MODE_FIRE_LINE_2_SLIDER_CONTROL
+            | ID_MODE_FIRE_LINE_2_EDIT_CONTROL
+            | ID_MODE_FIRE_LINE_2_LABEL_2
+            | ID_MODE_FIRE_LINE_3_LABEL_1
+            | ID_MODE_FIRE_LINE_3_SLIDER_CONTROL
+            | ID_MODE_FIRE_LINE_3_EDIT_CONTROL
+            | ID_MODE_FIRE_LINE_3_LABEL_2 => Self::Glue,
+            ID_MAPPING_HELP_SUBJECT_LABEL
+            | ID_MAPPING_HELP_APPLICABLE_TO_LABEL
+            | ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX
+            | ID_MAPPING_HELP_LEFT_CONTENT_LABEL
+            | IDC_MAPPING_MATCHED_INDICATOR_TEXT
+            | ID_MAPPING_HELP_RIGHT_CONTENT_LABEL
+            | IDC_BEEP_ON_SUCCESS_CHECK_BOX
+            | ID_MAPPING_PANEL_PREVIOUS_BUTTON
+            | ID_MAPPING_PANEL_OK
+            | ID_MAPPING_PANEL_NEXT_BUTTON
+            | IDC_MAPPING_ENABLED_CHECK_BOX => Self::Help,
+            _ => return None,
+        };
+        Some(section)
+    }
+
+    pub fn color_pair(&self) -> ColorPair {
+        match self {
+            Section::Mapping => colors::mapping(),
+            Section::Source => colors::source(),
+            Section::Target => colors::target(),
+            Section::Glue => colors::glue(),
+            Section::Help => colors::help(),
+        }
     }
 }

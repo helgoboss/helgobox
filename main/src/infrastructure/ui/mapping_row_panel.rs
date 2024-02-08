@@ -901,14 +901,10 @@ impl View for MappingRowPanel {
         window: Window,
     ) -> Option<Hbrush> {
         if cfg!(target_os = "macos") {
-            // On macOS, we fortunately don't need to do this nonsense.
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
             return None;
         }
-        // let set_text_color = |color: Color| unsafe {
-        //     swell.SetBkMode(hdc.as_ptr(), raw::OPAQUE as _);
-        //     // let darker_color: Color = color.to_linear().darken(0.4).into();
-        //     // swell.SetTextColor(hdc.as_ptr(), darker_color.to_raw() as _);
-        // };
         device_context.set_bk_mode_to_transparent();
         let color_pair = match window.resource_id() {
             root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT => colors::source(),

@@ -2614,7 +2614,8 @@ impl View for HeaderPanel {
         window: Window,
     ) -> Option<Hbrush> {
         if cfg!(target_os = "macos") {
-            // On macOS, we fortunately don't need to do this nonsense.
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
             return None;
         }
         device_context.set_bk_mode_to_transparent();
