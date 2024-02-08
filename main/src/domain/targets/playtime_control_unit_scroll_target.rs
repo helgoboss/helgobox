@@ -81,13 +81,22 @@ mod playtime_impl {
             &self,
             context: ControlContext,
             slot_address: SlotAddress,
-        ) -> AbsoluteValue {
+        ) -> Option<AbsoluteValue> {
             let index = match self.axis {
                 Axis::X => slot_address.column_index,
                 Axis::Y => slot_address.row_index,
             };
             let count = self.value_count(context);
-            AbsoluteValue::Discrete(Fraction::new(index as u32, count.saturating_sub(1)))
+            if count < 2 {
+                // The count is 1 if the control unit column/row count fits exactly the size of the matrix.
+                // It's 0 if the matrix is even smaller. In both cases, navigation is pointless, so we should return
+                // `None`.
+                return None;
+            }
+            Some(AbsoluteValue::Discrete(Fraction::new(
+                index as u32,
+                count.saturating_sub(1),
+            )))
         }
     }
 
@@ -136,7 +145,7 @@ mod playtime_impl {
                     ClipMatrixEvent::EverythingChanged | ClipMatrixEvent::ControlUnitsChanged,
                 ) => (true, None),
                 CompoundChangeEvent::Unit(UnitEvent::ControlUnitTopLeftCornerChanged(address)) => {
-                    (true, Some(self.calculate_value(context, *address)))
+                    (true, self.calculate_value(context, *address))
                 }
                 _ => (false, None),
             }
@@ -157,7 +166,7 @@ mod playtime_impl {
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let unit = context.unit.borrow();
             let current_value = unit.control_unit_top_left_corner();
-            Some(self.calculate_value(context, current_value))
+            self.calculate_value(context, current_value)
         }
 
         fn control_type(&self, context: Self::Context) -> ControlType {
