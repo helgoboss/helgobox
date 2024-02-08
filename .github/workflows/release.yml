@@ -80,7 +80,9 @@ jobs:
 #            profile: release
 #            features: ""
     env:
-      MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only (and only if not overridden).
+      # This is relevant for macOS builds only (and only if not overridden).
+      # TODO-high This is temporarily 10.9 (should be 10.7) until  https://github.com/rust-lang/cc-rs/issues/902 is fixed
+      MACOSX_DEPLOYMENT_TARGET: 10.9
     steps:
       # Prepare (all)
       - name: Checkout
@@ -120,6 +122,8 @@ jobs:
       - name: cargo test (for generating dialogs with php)
         if: matrix.use-cross == true
         uses: actions-rs/cargo@v1
+        env:
+          RUST_MIN_STACK: 5242880
         with:
           command: test
           args: --features "${{ matrix.features }}"
