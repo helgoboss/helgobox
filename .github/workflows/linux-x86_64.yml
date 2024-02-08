@@ -72,6 +72,8 @@ jobs:
           command: build
       - name: cargo test
         uses: actions-rs/cargo@v1
+        env:
+          RUST_MIN_STACK: 5242880
         with:
           command: test
           args: -- --nocapture

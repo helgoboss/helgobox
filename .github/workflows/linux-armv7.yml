@@ -40,6 +40,8 @@ jobs:
           override: true
       - name: cargo test (for generating dialogs with php)
         uses: actions-rs/cargo@v1
+        env:
+          RUST_MIN_STACK: 5242880
         with:
           command: test
       - name: cargo build
