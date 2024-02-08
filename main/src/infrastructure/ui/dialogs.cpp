@@ -14,8 +14,8 @@
 #define SWELL_DLG_SCALE_AUTOGEN 1.0
 #define SWELL_DLG_SCALE_AUTOGEN_YADJ 1.0
 #else
-#define SWELL_DLG_SCALE_AUTOGEN 1.0
-#define SWELL_DLG_SCALE_AUTOGEN_YADJ 1.0
+#define SWELL_DLG_SCALE_AUTOGEN 1.9
+#define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.92
 #endif
 #include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
 #define CBS_HASSTRINGS 0
