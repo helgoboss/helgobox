@@ -1,6 +1,6 @@
 use crate::base::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use derive_more::Display;
 use rx_util::Notifier;
@@ -12,6 +12,7 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::PathBuf;
 use std::rc::Rc;
+use strum::EnumIs;
 
 pub type SharedOscDeviceManager = Rc<RefCell<OscDeviceManager>>;
 
@@ -24,16 +25,14 @@ pub struct OscDeviceManager {
 
 impl OscDeviceManager {
     pub fn new(osc_device_config_file_path: PathBuf) -> OscDeviceManager {
-        let mut manager = OscDeviceManager {
+        OscDeviceManager {
             config: Default::default(),
             osc_device_config_file_path,
             changed_subject: Default::default(),
-        };
-        let _ = manager.load();
-        manager
+        }
     }
 
-    fn load(&mut self) -> Result<(), String> {
+    pub fn load_osc_devices_from_disk(&mut self) -> Result<(), String> {
         let json = fs::read_to_string(&self.osc_device_config_file_path)
             .map_err(|_| "couldn't read OSC device config file".to_string())?;
         let config: OscDeviceConfig = serde_json::from_str(&json)
@@ -220,7 +219,8 @@ impl OscDevice {
         OscInputDevice::bind(
             self.id,
             socket,
-            App::logger().new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
+            BackboneShell::logger()
+                .new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
         )
     }
 
@@ -236,7 +236,8 @@ impl OscDevice {
             self.id,
             socket,
             dest_addr,
-            App::logger().new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
+            BackboneShell::logger()
+                .new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
             self.can_deal_with_bundles,
         );
         Ok(dev)
@@ -351,7 +352,7 @@ impl OscDevice {
     }
 }
 
-#[derive(Display)]
+#[derive(Display, EnumIs)]
 pub enum OscDeviceStatus {
     #[display(fmt = " <needs config>")]
     Incomplete,

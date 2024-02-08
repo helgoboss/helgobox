@@ -7,16 +7,17 @@ publish = false
 
 [dependencies]
 # Own
-helgoboss-learn.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-rx.workspace = true
 realearn-api.workspace = true
 helgoboss-allocator.workspace = true
+indexmap.workspace = true
 
 # 3rd-party
 serde.workspace = true
+serde_json.workspace = true
 xxhash-rust.workspace = true
 walkdir.workspace = true
 crossbeam-channel.workspace = true
@@ -30,3 +31,5 @@ device_query = "1.1.1"
 derive_more.workspace = true
 slog.workspace = true
 either.workspace = true
+logos.workspace = true
+thiserror.workspace = true

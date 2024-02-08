@@ -52,31 +52,23 @@ impl Window {
         Point::new(Pixels(point.x as _), Pixels(point.y as _))
     }
 
-    /// On Linux, this always returns `false` at the moment.
     pub fn dark_mode_is_enabled() -> bool {
         #[cfg(target_os = "macos")]
         {
             Swell::get().SWELL_osx_is_dark_mode(0)
         }
-        #[cfg(target_os = "windows")]
-        unsafe {
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        {
             use palette::{IntoColor, Srgb};
-            let color = winapi::um::uxtheme::GetThemeSysColor(
-                null_mut(),
-                winapi::um::winuser::COLOR_WINDOW,
-            );
+            let color = Swell::get().GetSysColor(raw::COLOR_WINDOW as _);
             let (r, g, b) = (
-                Swell::GetRValue(color),
-                Swell::GetGValue(color),
-                Swell::GetBValue(color),
+                Swell::GetRValue(color as _),
+                Swell::GetGValue(color as _),
+                Swell::GetBValue(color as _),
             );
             let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
-            let luma = rgb.into_luma();
+            let luma: palette::luma::Luma = rgb.into_color();
             luma.luma < 0.5
-        }
-        #[cfg(target_os = "linux")]
-        {
-            false
         }
     }
 
@@ -90,6 +82,10 @@ impl Window {
 
     pub fn raw(self) -> raw::HWND {
         self.raw
+    }
+
+    pub fn resource_id(&self) -> u32 {
+        unsafe { Swell::get().GetWindowLong(self.raw, raw::GWL_ID) as u32 }
     }
 
     pub fn size(self) -> Dimensions<Pixels> {
@@ -152,7 +148,7 @@ impl Window {
                 raw::MB_YESNO as _,
             )
         };
-        result == raw::IDYES as _
+        result == raw::IDYES as i32
     }
 
     /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
@@ -170,9 +166,9 @@ impl Window {
                 raw::MB_YESNOCANCEL as _,
             )
         };
-        if result == raw::IDYES as _ {
+        if result == raw::IDYES as i32 {
             Some(true)
-        } else if result == raw::IDNO as _ {
+        } else if result == raw::IDNO as i32 {
             Some(false)
         } else {
             None
@@ -665,7 +661,7 @@ impl Window {
         }
     }
 
-    pub fn open_popup_menu(self, menu: Menu, location: Point<Pixels>) -> Option<u32> {
+    pub fn open_popup_menu_internal(self, menu: Menu, location: Point<Pixels>) -> Option<u32> {
         let swell = Swell::get();
         let result = unsafe {
             swell.TrackPopupMenu(
@@ -684,7 +680,7 @@ impl Window {
         Some(result as _)
     }
 
-    pub fn open_simple_popup_menu<T>(
+    pub fn open_popup_menu<T>(
         self,
         mut pure_menu: menu_tree::Menu<T>,
         location: Point<Pixels>,
@@ -692,12 +688,44 @@ impl Window {
         let menu_bar = MenuBar::new_popup_menu();
         pure_menu.index(1);
         menu_tree::fill_menu(menu_bar.menu(), &pure_menu);
-        let result_index = self.open_popup_menu(menu_bar.menu(), location)?;
+        let result_index = self.open_popup_menu_internal(menu_bar.menu(), location)?;
         let res = pure_menu
             .find_item_by_id(result_index)
             .expect("selected menu item not found")
-            .invoke_handler();
+            .result;
         Some(res)
+    }
+
+    pub fn set_everything_in_dialog_units(
+        self,
+        position: Point<DialogUnits>,
+        size: Dimensions<DialogUnits>,
+        z_order: ZOrder,
+    ) {
+        self.set_everything_in_pixels(
+            self.convert_to_pixels(position),
+            self.convert_to_pixels(size),
+            z_order,
+        );
+    }
+
+    pub fn set_everything_in_pixels(
+        self,
+        position: Point<Pixels>,
+        size: Dimensions<Pixels>,
+        z_order: ZOrder,
+    ) {
+        unsafe {
+            Swell::get().SetWindowPos(
+                self.raw,
+                z_order.to_raw(),
+                position.x.as_raw(),
+                position.y.as_raw(),
+                size.width.as_raw(),
+                size.height.as_raw(),
+                0,
+            );
+        }
     }
 
     pub fn move_to_pixels(self, point: Point<Pixels>) {
@@ -954,4 +982,18 @@ fn make_long(lo: u32, hi: u32) -> isize {
 
 fn key_is_down(key: u32) -> bool {
     Swell::get().GetAsyncKeyState(key as _) & 0x8000 != 0
+}
+
+pub enum ZOrder {
+    Bottom,
+    Top,
+}
+
+impl ZOrder {
+    fn to_raw(&self) -> raw::HWND {
+        match self {
+            ZOrder::Bottom => 1 as _,
+            ZOrder::Top => 0 as _,
+        }
+    }
 }

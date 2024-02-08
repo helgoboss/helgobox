@@ -4,7 +4,7 @@ impl<'a> ScopedContext<'a> {
     pub fn checkbox(&self, caption: Caption, id: Id, rect: Rect) -> Control {
         use Style::*;
         // We want to completely ignore the given checkbox height, but we want it to scale.
-        let fixed_rect = self.rect_flexible(Rect { height: 10, ..rect });
+        let fixed_rect = self.rect_flexible(Rect { height: 8, ..rect });
         control(
             caption,
             id,

@@ -19,6 +19,9 @@ pub use audio_hook::*;
 mod mode;
 pub use mode::*;
 
+mod source;
+pub use source::*;
+
 mod midi_source;
 pub use midi_source::*;
 
@@ -78,11 +81,11 @@ pub use realearn_target_context::*;
 mod realearn_source_context;
 pub use realearn_source_context::*;
 
-mod backbone_state;
-pub use backbone_state::*;
+mod backbone;
+pub use backbone::*;
 
-mod instance_state;
-pub use instance_state::*;
+mod unit;
+pub use unit::*;
 
 mod osc;
 pub use osc::*;
@@ -135,11 +138,32 @@ pub use accelerator::*;
 mod parameter;
 pub use parameter::*;
 
+mod parameter_manager;
+pub use parameter_manager::*;
+
 mod control_event;
 pub use control_event::*;
 
 mod lua_support;
 pub use lua_support::*;
 
+mod lua_module_container;
+pub use lua_module_container::*;
+
 mod info_event;
 pub use info_event::*;
+
+mod instance;
+pub use instance::*;
+
+mod real_time_instance;
+pub use real_time_instance::*;
+
+mod midi_dev_management;
+pub use midi_dev_management::*;
+
+#[cfg(feature = "playtime")]
+mod playtime_util;
+
+mod hex;
+pub use hex::*;

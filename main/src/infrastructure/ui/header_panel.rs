@@ -1,80 +1,89 @@
 use std::convert::TryInto;
 
-use derive_more::Display;
 use std::rc::{Rc, Weak};
 
 use rxrust::prelude::*;
-use std::{iter, sync};
+use std::iter;
 
-use enum_iterator::IntoEnumIterator;
+use reaper_high::Reaper;
 
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-
-use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, Affected, CompartmentCommand, CompartmentProp,
-    ControllerPreset, FxId, FxPresetLinkConfig, MainPreset, MainPresetAutoLoadMode, MappingCommand,
-    MappingModel, Preset, PresetLinkMutator, PresetManager, SessionCommand, SessionProp,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
+    Affected, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, MainPresetAutoLoadMode, MappingCommand,
+    MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping, SharedUnitModel,
+    VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
-    convert_compartment_param_index_range_to_iter, BackboneState, Compartment,
+    convert_compartment_param_index_range_to_iter, Backbone, CompartmentKind,
     CompartmentParamIndex, ControlInput, FeedbackOutput, GroupId, MessageCaptureEvent, OscDeviceId,
     ParamSetting, ReaperTarget, StayActiveWhenProjectInBackground, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentModelData, ExtendedPresetManager, FileBasedMainPresetManager, MappingModelData,
-    OscDevice,
+    CommonCompartmentPresetManager, CommonPresetInfo, CompartmentModelData,
+    FileBasedMainPresetManager, InstanceOrUnitData, MappingModelData, OscDevice, PresetFileType,
+    PresetOrigin, UnitData,
 };
 use crate::infrastructure::plugin::{
-    warn_about_failed_server_start, App, RealearnPluginParameters,
+    update_auto_units_async, warn_about_failed_server_start, BackboneShell,
 };
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::base::notification::notify_processing_result;
+use crate::base::notification::{notify_processing_result, notify_user_about_anyhow_error};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
+use crate::infrastructure::ui::instance_panel::InstancePanel;
+use crate::infrastructure::ui::menus::{
+    build_compartment_preset_menu_entries, get_midi_input_device_list_label,
+    get_midi_output_device_list_label, get_osc_device_list_label,
+    menu_containing_compartment_presets, ControlInputMenuAction, FeedbackOutputMenuAction,
+    OscDeviceManagementAction, CONTROL_INPUT_KEYBOARD_LABEL, CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
+    FEEDBACK_OUTPUT_MIDI_FX_OUTPUT, FEEDBACK_OUTPUT_NONE_LABEL,
+};
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, open_child_panel, open_child_panel_dyn, open_in_browser,
-    open_in_file_manager,
+    close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
+    open_in_file_manager, view, HEADER_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
-    get_text_from_clipboard, serialize_data_object, serialize_data_object_to_json,
+    get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
     MappingRowsPanel, PlainTextEngine, ScriptEditorInput, SearchExpression, SerializationFormat,
     SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
     UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use anyhow::{bail, Context};
 use itertools::Itertools;
 use realearn_api::persistence::Envelope;
+use reaper_medium::Hbrush;
 use semver::Version;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
 use std::ops::{DerefMut, RangeInclusive};
+use strum::IntoEnumIterator;
 
-const OSC_INDEX_OFFSET: isize = 1000;
-const KEYBOARD_INDEX_OFFSET: isize = 2000;
 const PARAM_BATCH_SIZE: u32 = 5;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
 pub struct HeaderPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakUnitModel,
+    instance_panel: WeakView<InstancePanel>,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
-    plugin_parameters: sync::Weak<RealearnPluginParameters>,
+    show_color_panel: SharedView<ColorPanel>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     extra_panel: RefCell<Option<SharedView<dyn View>>>,
@@ -84,17 +93,18 @@ pub struct HeaderPanel {
 
 impl HeaderPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakUnitModel,
         main_state: SharedMainState,
-        plugin_parameters: sync::Weak<RealearnPluginParameters>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
+        instance_panel: WeakView<InstancePanel>,
     ) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
             session: session.clone(),
+            instance_panel,
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
-            plugin_parameters,
+            show_color_panel: SharedView::new(ColorPanel::new(build_show_color_panel_desc())),
             panel_manager,
             group_panel: Default::default(),
             extra_panel: Default::default(),
@@ -144,8 +154,8 @@ impl HeaderPanel {
         if !self.is_open() {
             return;
         }
-        self.invalidate_control_input_combo_box();
-        self.invalidate_feedback_output_combo_box();
+        self.invalidate_control_input_button();
+        self.invalidate_feedback_output_button();
     }
 
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
@@ -173,7 +183,7 @@ impl HeaderPanel {
         }
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -187,7 +197,7 @@ impl HeaderPanel {
         f();
     }
 
-    fn active_compartment(&self) -> Compartment {
+    fn active_compartment(&self) -> CompartmentKind {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -212,11 +222,11 @@ impl HeaderPanel {
         } else {
             let compartment = self.active_compartment();
             let control_element_type = match compartment {
-                Compartment::Controller => match self.prompt_for_control_element_type() {
+                CompartmentKind::Controller => match self.prompt_for_control_element_type() {
                     None => return,
                     Some(t) => t,
                 },
-                Compartment::Main => {
+                CompartmentKind::Main => {
                     // Doesn't matter
                     VirtualControlElementType::Multi
                 }
@@ -235,15 +245,56 @@ impl HeaderPanel {
         let menu = {
             use swell_ui::menu_tree::*;
             root_menu(vec![
-                item("Multis (faders, knobs, encoders, ...)", || {
-                    VirtualControlElementType::Multi
-                }),
-                item("Buttons", || VirtualControlElementType::Button),
+                item(
+                    "Multis (faders, knobs, encoders, ...)",
+                    VirtualControlElementType::Multi,
+                ),
+                item("Buttons", VirtualControlElementType::Button),
             ])
         };
         self.view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos())
+            .open_popup_menu(menu, Window::cursor_pos())
+    }
+
+    fn browse_presets(&self) {
+        let menu = {
+            let compartment = self.active_compartment();
+            let session = self.session();
+            let session = session.borrow();
+            let active_preset_id = session.active_preset_id(compartment);
+            menu_containing_compartment_presets(compartment, active_preset_id)
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_popup_menu(menu, Window::cursor_pos());
+        if let Some(selected_preset_id) = result {
+            self.update_preset(selected_preset_id);
+        }
+    }
+
+    fn update_preset(&self, preset_id: Option<String>) {
+        self.main_state.borrow_mut().stop_filter_learning();
+        let session = self.session();
+        let compartment = self.active_compartment();
+        let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
+        if compartment_is_dirty
+            && !self
+                .view
+                .require_window()
+                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
+        {
+            self.invalidate_preset_browse_button();
+            return;
+        }
+        let mut session = session.borrow_mut();
+        match compartment {
+            CompartmentKind::Controller => {
+                session.activate_controller_preset(preset_id);
+            }
+            CompartmentKind::Main => session.activate_main_preset(preset_id),
+        };
     }
 
     fn add_group(&self) {
@@ -267,21 +318,34 @@ impl HeaderPanel {
         );
     }
 
-    fn open_main_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
-        let app = App::get();
+    fn execute_osc_dev_management_action(&self, action: OscDeviceManagementAction) {
+        use OscDeviceManagementAction::*;
+        match action {
+            EditNewOscDevice => edit_new_osc_device(),
+            EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
+            RemoveOscDevice(dev_id) => remove_osc_device(self.view.require_window(), dev_id),
+            ToggleOscDeviceControl(dev_id) => {
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_control())
+            }
+            ToggleOscDeviceFeedback(dev_id) => {
+                BackboneShell::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
+            }
+            ToggleOscDeviceBundles(dev_id) => BackboneShell::get()
+                .do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles()),
+        }
+    }
+
+    fn open_main_menu(&self, location: Point<Pixels>) -> anyhow::Result<()> {
+        let app = BackboneShell::get();
         let pure_menu = {
-            use std::iter::once;
             use swell_ui::menu_tree::*;
-            let dev_manager = App::get().osc_device_manager();
-            let dev_manager = dev_manager.borrow();
-            let preset_link_manager = App::get().preset_link_manager();
+            let preset_link_manager = BackboneShell::get().preset_link_manager();
             let preset_link_manager = preset_link_manager.borrow();
-            let main_preset_manager = App::get().main_preset_manager();
+            let main_preset_manager = BackboneShell::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
             let text_from_clipboard = Rc::new(get_text_from_clipboard().unwrap_or_default());
             let text_from_clipboard_clone = text_from_clipboard.clone();
-            #[cfg(feature = "playtime")]
-            let app_is_open = self.panel_manager().borrow().app_instance_is_running();
+            let app_is_open = self.instance_panel().app_instance_is_running();
             let data_object_from_clipboard = if text_from_clipboard.is_empty() {
                 None
             } else {
@@ -289,17 +353,13 @@ impl HeaderPanel {
             };
             let clipboard_could_contain_lua =
                 !text_from_clipboard.is_empty() && data_object_from_clipboard.is_none();
+            let instance_shell = self.instance_panel().shell().unwrap();
             let session = self.session();
             let session = session.borrow();
-            #[cfg(feature = "playtime")]
-            let has_clip_matrix = session
-                .instance_state()
-                .borrow()
-                .owned_clip_matrix()
-                .is_some();
+            let has_clip_matrix = session.instance().borrow().has_clip_matrix();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
-            let last_relevant_focused_fx_id = BackboneState::get()
+            let last_relevant_focused_fx_id = Backbone::get()
                 .last_relevant_focused_fx_id(session.processor_context().containing_fx())
                 .and_then(|fx| {
                     if fx.is_available() {
@@ -309,36 +369,43 @@ impl HeaderPanel {
                     }
                 });
             let entries = vec![
-                item("Copy listed mappings", || {
-                    MainMenuAction::CopyListedMappingsAsJson
-                }),
+                // "View" scope
+                item(
+                    "Copy listed mappings",
+                    MainMenuAction::CopyListedMappingsAsJson,
+                ),
                 {
                     if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
                             format!("Paste {} mappings (replace all in group)", env.value.len()),
-                            move || MainMenuAction::PasteReplaceAllInGroup(env),
+                            MainMenuAction::PasteReplaceAllInGroup(env),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
                     }
                 },
-                item("Auto-name listed mappings", || {
-                    MainMenuAction::AutoNameListedMappings
-                }),
-                item("Name listed mappings after source", || {
-                    MainMenuAction::NameListedMappingsAfterSource
-                }),
-                item("Make sources of all main mappings virtual", || {
-                    MainMenuAction::MakeSourcesOfMainMappingsVirtual
-                }),
-                item("Make targets of listed mappings sticky", || {
-                    MainMenuAction::MakeTargetsOfListedMappingsSticky
-                }),
+                item(
+                    "Auto-name listed mappings",
+                    MainMenuAction::AutoNameListedMappings,
+                ),
+                item(
+                    "Name listed mappings after source",
+                    MainMenuAction::NameListedMappingsAfterSource,
+                ),
+                item(
+                    "Make sources of all main mappings virtual",
+                    MainMenuAction::MakeSourcesOfMainMappingsVirtual,
+                ),
+                item(
+                    "Make targets of listed mappings sticky",
+                    MainMenuAction::MakeTargetsOfListedMappingsSticky,
+                ),
                 menu(
                     "Move listed mappings to group",
-                    iter::once(item("<New group>", || {
-                        MainMenuAction::MoveListedMappingsToGroup(None)
-                    }))
+                    iter::once(item(
+                        "<New group>",
+                        MainMenuAction::MoveListedMappingsToGroup(None),
+                    ))
                     .chain(session.groups_sorted(compartment).map(move |g| {
                         let g = g.borrow();
                         let g_id = g.id();
@@ -348,7 +415,7 @@ impl HeaderPanel {
                                 enabled: group_id != Some(g_id),
                                 checked: false,
                             },
-                            move || MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
+                            MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
                         )
                     }))
                     .collect(),
@@ -356,16 +423,15 @@ impl HeaderPanel {
                 menu(
                     "Advanced",
                     vec![
-                        item("Copy listed mappings as Lua", || {
-                            MainMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
-                        }),
+                        item(
+                            "Copy listed mappings as Lua",
+                            MainMenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal),
+                        ),
                         item(
                             "Copy listed mappings as Lua (include default values)",
-                            || {
-                                MainMenuAction::CopyListedMappingsAsLua(
-                                    ConversionStyle::IncludeDefaultValues,
-                                )
-                            },
+                            MainMenuAction::CopyListedMappingsAsLua(
+                                ConversionStyle::IncludeDefaultValues,
+                            ),
                         ),
                         item_with_opts(
                             "Paste from Lua (replace all in group)",
@@ -373,9 +439,7 @@ impl HeaderPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || {
-                                MainMenuAction::PasteFromLuaReplaceAllInGroup(text_from_clipboard)
-                            },
+                            MainMenuAction::PasteFromLuaReplaceAllInGroup(text_from_clipboard),
                         ),
                         item_with_opts(
                             "Dry-run Lua script from clipboard",
@@ -383,22 +447,22 @@ impl HeaderPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
+                            MainMenuAction::DryRunLuaScript(text_from_clipboard_clone),
                         ),
-                        #[cfg(feature = "playtime")]
                         item_with_opts(
                             "Freeze clip matrix",
                             ItemOpts {
                                 enabled: has_clip_matrix,
                                 checked: false,
                             },
-                            || MainMenuAction::FreezeClipMatrix,
+                            MainMenuAction::FreezeClipMatrix,
                         ),
                     ],
                 ),
                 separator(),
+                // Unit scope
                 menu(
-                    "Options",
+                    "Unit options",
                     vec![
                         item_with_opts(
                             "Auto-correct settings",
@@ -406,7 +470,7 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.auto_correct_settings.get(),
                             },
-                            || MainMenuAction::ToggleAutoCorrectSettings,
+                            MainMenuAction::ToggleAutoCorrectSettings,
                         ),
                         item_with_opts(
                             "Send feedback only if track armed",
@@ -421,7 +485,7 @@ impl HeaderPanel {
                                     checked: session.send_feedback_only_if_armed.get(),
                                 }
                             },
-                            || MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
+                            MainMenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
                             "Reset feedback when releasing source",
@@ -429,27 +493,27 @@ impl HeaderPanel {
                                 enabled: true,
                                 checked: session.reset_feedback_when_releasing_source.get(),
                             },
-                            || MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
+                            MainMenuAction::ToggleResetFeedbackWhenReleasingSource,
                         ),
                         item_with_opts(
-                            "Make instance superior",
+                            "Make unit superior",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
                             },
-                            || MainMenuAction::ToggleUpperFloorMembership,
+                            MainMenuAction::ToggleUpperFloorMembership,
                         ),
                         item_with_opts(
-                            "Use instance-wide FX-to-preset links only",
+                            "Use unit-wide FX-to-preset links only",
                             ItemOpts {
                                 enabled: true,
-                                checked: session.use_instance_preset_links_only(),
+                                checked: session.use_unit_preset_links_only(),
                             },
-                            || MainMenuAction::ToggleUseInstancePresetLinksOnly,
+                            MainMenuAction::ToggleUseUnitPresetLinksOnly,
                         ),
                         menu(
                             "Stay active when project in background",
-                            StayActiveWhenProjectInBackground::into_enum_iter()
+                            StayActiveWhenProjectInBackground::iter()
                                 .map(|option| {
                                     item_with_opts(
                                         option.to_string(),
@@ -460,16 +524,23 @@ impl HeaderPanel {
                                                 .get()
                                                 == option,
                                         },
-                                        move || {
-                                            MainMenuAction::SetStayActiveWhenProjectInBackground(
-                                                option,
-                                            )
-                                        },
+                                        MainMenuAction::SetStayActiveWhenProjectInBackground(
+                                            option,
+                                        ),
                                     )
                                 })
                                 .collect(),
                         ),
                     ],
+                ),
+                menu(
+                    "Unit-wide FX-to-preset links",
+                    generate_fx_to_preset_links_menu_entries(
+                        last_relevant_focused_fx_id.as_ref(),
+                        &main_preset_manager,
+                        session.instance_preset_link_config(),
+                        PresetLinkScope::Instance,
+                    ),
                 ),
                 menu(
                     "Compartment parameters",
@@ -493,12 +564,13 @@ impl HeaderPanel {
                                             .compartment_params(compartment)
                                             .get_parameter_name(i);
                                         let range = range.clone();
-                                        item(format!("{param_name}..."), move || {
+                                        item(
+                                            format!("{param_name}..."),
                                             MainMenuAction::EditCompartmentParameter(
                                                 compartment,
                                                 range,
-                                            )
-                                        })
+                                            ),
+                                        )
                                     })
                                     .collect(),
                             )
@@ -506,72 +578,111 @@ impl HeaderPanel {
                         .collect(),
                 ),
                 menu(
-                    "Instance-wide FX-to-preset links",
-                    generate_fx_to_preset_links_menu_entries(
-                        last_relevant_focused_fx_id.as_ref(),
-                        &main_preset_manager,
-                        session.instance_preset_link_config(),
-                        PresetLinkScope::Instance,
-                    ),
+                    "Logging",
+                    vec![
+                        item("Log debug info (now)", MainMenuAction::LogDebugInfo),
+                        item_with_opts(
+                            "Log real control messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_input_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleRealInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log virtual control messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_input_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleVirtualInputLogging,
+                        ),
+                        item_with_opts(
+                            "Log target control",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.target_control_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleTargetControlLogging,
+                        ),
+                        item_with_opts(
+                            "Log virtual feedback messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.virtual_output_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleVirtualOutputLogging,
+                        ),
+                        item_with_opts(
+                            "Log real feedback messages",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.real_output_logging_enabled.get(),
+                            },
+                            MainMenuAction::ToggleRealOutputLogging,
+                        ),
+                    ],
+                ),
+                item("Send feedback now", MainMenuAction::SendFeedbackNow),
+                separator(),
+                // Instance scope
+                menu(
+                    "Instance options",
+                    vec![item_with_opts(
+                        "Enable global control (auto units)",
+                        ItemOpts {
+                            enabled: true,
+                            checked: instance_shell.settings().control.global_control_enabled,
+                        },
+                        MainMenuAction::ToggleGlobalControl,
+                    )],
+                ),
+                item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
+                item("Show App (not usable yet)", MainMenuAction::ShowApp),
+                item_with_opts(
+                    "Close App (not usable yet)",
+                    ItemOpts {
+                        enabled: app_is_open,
+                        checked: false,
+                    },
+                    MainMenuAction::CloseApp,
                 ),
                 separator(),
+                // Global scope
                 menu(
                     "Server",
                     vec![
                         item(
-                            if App::get().server_is_running() {
+                            if BackboneShell::get().server_is_running() {
                                 "Disable and stop!"
-                            } else if App::get().config().server_is_enabled() {
+                            } else if BackboneShell::get().config().server_is_enabled() {
                                 "Start! (currently enabled but failed to start)"
                             } else {
                                 "Enable and start!"
                             },
-                            || MainMenuAction::ToggleServer,
+                            MainMenuAction::ToggleServer,
                         ),
-                        item("Add firewall rule", || MainMenuAction::AddFirewallRule),
-                        item("Change session ID...", || MainMenuAction::ChangeSessionId),
+                        item("Add firewall rule", MainMenuAction::AddFirewallRule),
+                        item("Change unit ID...", MainMenuAction::ChangeSessionId),
                     ],
                 ),
                 menu(
-                    "OSC devices",
-                    once(item("<New>", || MainMenuAction::EditNewOscDevice))
-                        .chain(dev_manager.devices().map(|dev| {
-                            let dev_id = *dev.id();
-                            menu(
-                                dev.name(),
-                                vec![
-                                    item("Edit...", move || {
-                                        MainMenuAction::EditExistingOscDevice(dev_id)
-                                    }),
-                                    item("Remove", move || MainMenuAction::RemoveOscDevice(dev_id)),
-                                    item_with_opts(
-                                        "Enabled for control",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.is_enabled_for_control(),
-                                        },
-                                        move || MainMenuAction::ToggleOscDeviceControl(dev_id),
-                                    ),
-                                    item_with_opts(
-                                        "Enabled for feedback",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.is_enabled_for_feedback(),
-                                        },
-                                        move || MainMenuAction::ToggleOscDeviceFeedback(dev_id),
-                                    ),
-                                    item_with_opts(
-                                        "Can deal with OSC bundles",
-                                        ItemOpts {
-                                            enabled: true,
-                                            checked: dev.can_deal_with_bundles(),
-                                        },
-                                        move || MainMenuAction::ToggleOscDeviceBundles(dev_id),
-                                    ),
-                                ],
-                            )
-                        }))
-                        .collect(),
+                    PRESET_RELATED_MENU_LABEL,
+                    vec![
+                        item(
+                            build_create_compartment_preset_workspace_label(compartment, false),
+                            MainMenuAction::CreateCompartmentPresetWorkspace,
+                        ),
+                        item(
+                            build_create_compartment_preset_workspace_label(compartment, true),
+                            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
+                        ),
+                        item("Open preset folder", MainMenuAction::OpenPresetFolder),
+                        item(
+                            "Reload all presets from disk",
+                            MainMenuAction::ReloadAllPresets,
+                        ),
+                    ],
                 ),
                 menu(
                     "Global FX-to-preset links",
@@ -582,78 +693,14 @@ impl HeaderPanel {
                         PresetLinkScope::Global,
                     ),
                 ),
-                item("Open preset folder", || MainMenuAction::OpenPresetFolder),
-                item("Reload all presets from disk", || {
-                    MainMenuAction::ReloadAllPresets
-                }),
-                item("Open Pot Browser", || MainMenuAction::OpenPotBrowser),
-                #[cfg(feature = "playtime")]
-                item("Show App (not usable yet)", || MainMenuAction::ShowApp),
-                #[cfg(feature = "playtime")]
-                item_with_opts(
-                    "Close App (not usable yet)",
-                    ItemOpts {
-                        enabled: app_is_open,
-                        checked: false,
-                    },
-                    || MainMenuAction::CloseApp,
-                ),
-                separator(),
-                menu(
-                    "Logging",
-                    vec![
-                        item("Log debug info (now)", || MainMenuAction::LogDebugInfo),
-                        item_with_opts(
-                            "Log real control messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.real_input_logging_enabled.get(),
-                            },
-                            || MainMenuAction::ToggleRealInputLogging,
-                        ),
-                        item_with_opts(
-                            "Log virtual control messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.virtual_input_logging_enabled.get(),
-                            },
-                            || MainMenuAction::ToggleVirtualInputLogging,
-                        ),
-                        item_with_opts(
-                            "Log target control",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.target_control_logging_enabled.get(),
-                            },
-                            || MainMenuAction::ToggleTargetControlLogging,
-                        ),
-                        item_with_opts(
-                            "Log virtual feedback messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.virtual_output_logging_enabled.get(),
-                            },
-                            || MainMenuAction::ToggleVirtualOutputLogging,
-                        ),
-                        item_with_opts(
-                            "Log real feedback messages",
-                            ItemOpts {
-                                enabled: true,
-                                checked: session.real_output_logging_enabled.get(),
-                            },
-                            || MainMenuAction::ToggleRealOutputLogging,
-                        ),
-                    ],
-                ),
-                item("Send feedback now", || MainMenuAction::SendFeedbackNow),
             ];
             root_menu(entries)
         };
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
-            .ok_or("no entry selected")?;
+            .open_popup_menu(pure_menu, location)
+            .context("no entry selected")?;
         match result {
             MainMenuAction::None => {}
             MainMenuAction::CopyListedMappingsAsJson => {
@@ -684,28 +731,14 @@ impl HeaderPanel {
             MainMenuAction::DryRunLuaScript(text) => {
                 self.dry_run_lua_script(&text);
             }
-            MainMenuAction::EditNewOscDevice => edit_new_osc_device(),
-            MainMenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
-            MainMenuAction::RemoveOscDevice(dev_id) => {
-                remove_osc_device(self.view.require_window(), dev_id)
-            }
-            MainMenuAction::ToggleOscDeviceControl(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
-            }
-            MainMenuAction::ToggleOscDeviceFeedback(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
-            }
-            MainMenuAction::ToggleOscDeviceBundles(dev_id) => {
-                App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
-            }
             MainMenuAction::EditCompartmentParameter(compartment, range) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, range);
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::FreezeClipMatrix => {
                 self.freeze_clip_matrix();
             }
             MainMenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
+            MainMenuAction::ToggleGlobalControl => self.toggle_global_control(),
             MainMenuAction::ToggleRealInputLogging => self.toggle_real_input_logging(),
             MainMenuAction::ToggleVirtualInputLogging => self.toggle_virtual_input_logging(),
             MainMenuAction::ToggleRealOutputLogging => self.toggle_real_output_logging(),
@@ -741,8 +774,8 @@ impl HeaderPanel {
                     };
                 }
             }
-            MainMenuAction::ToggleUseInstancePresetLinksOnly => {
-                self.toggle_use_instance_preset_links_only()
+            MainMenuAction::ToggleUseUnitPresetLinksOnly => {
+                self.toggle_use_unit_preset_links_only()
             }
             MainMenuAction::AddFirewallRule => {
                 let (http_port, https_port, grpc_port) = {
@@ -758,15 +791,19 @@ impl HeaderPanel {
                 self.view.require_window().alert("ReaLearn", msg);
             }
             MainMenuAction::ChangeSessionId => self.change_session_id(),
+            MainMenuAction::CreateCompartmentPresetWorkspace => {
+                self.create_compartment_preset_workspace(false)
+            }
+            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets => {
+                self.create_compartment_preset_workspace(true)
+            }
             MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::ShowApp => {
                 self.show_app();
             }
-            #[cfg(feature = "playtime")]
             MainMenuAction::CloseApp => {
                 self.close_app();
             }
@@ -796,24 +833,26 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item("User guide for this version (PDF, offline)", || {
-                    HelpMenuAction::OpenOfflineUserGuide
-                }),
-                item("User guide for latest version (HTML, online)", || {
-                    HelpMenuAction::OpenOnlineUserGuide
-                }),
-                item("List of controllers", || HelpMenuAction::OpenControllerList),
-                item("Forum", || HelpMenuAction::OpenForum),
-                item("Contact developer", || HelpMenuAction::ContactDeveloper),
-                item("Website", || HelpMenuAction::OpenWebsite),
-                item("Donate", || HelpMenuAction::Donate),
+                item(
+                    "User guide for this version (PDF, offline)",
+                    HelpMenuAction::OpenOfflineUserGuide,
+                ),
+                item(
+                    "User guide for latest version (HTML, online)",
+                    HelpMenuAction::OpenOnlineUserGuide,
+                ),
+                item("List of controllers", HelpMenuAction::OpenControllerList),
+                item("Forum", HelpMenuAction::OpenForum),
+                item("Contact developer", HelpMenuAction::ContactDeveloper),
+                item("Website", HelpMenuAction::OpenWebsite),
+                item("Donate", HelpMenuAction::Donate),
             ];
             root_menu(entries)
         };
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match result {
             HelpMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
@@ -854,7 +893,7 @@ impl HeaderPanel {
             .iter()
             .map(|m| MappingModelData::from_model(&m.borrow(), &compartment_in_session))
             .collect();
-        DataObject::Mappings(App::create_envelope(mapping_datas))
+        DataObject::Mappings(BackboneShell::create_envelope(mapping_datas))
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -1000,7 +1039,7 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn get_listened_mappings(&self, compartment: Compartment) -> Vec<SharedMapping> {
+    fn get_listened_mappings(&self, compartment: CompartmentKind) -> Vec<SharedMapping> {
         let main_state = self.main_state.borrow();
         let session = self.session();
         let session = session.borrow();
@@ -1015,22 +1054,23 @@ impl HeaderPanel {
     }
 
     fn dry_run_lua_script(&self, text: &str) {
-        let result = dry_run_lua_script(text);
-        self.notify_user_on_error(result);
+        let result = dry_run_lua_script(text, self.active_compartment());
+        self.notify_user_on_anyhow_error(result);
     }
 
     fn paste_from_lua_replace_all_in_group_internal(
         &self,
         text: &str,
     ) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         let api_mappings = api_object
             .into_mappings()
             .ok_or("Can only paste a list of mappings into a mapping group.")?;
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
         self.paste_replace_all_in_group(Envelope::new(api_mappings.version, data_mappings));
@@ -1094,7 +1134,7 @@ impl HeaderPanel {
                     .borrow()
                     .incoming_msg_captured(
                         true,
-                        active_compartment != Compartment::Controller,
+                        active_compartment != CompartmentKind::Controller,
                         None,
                     )
                     .take_until(learning.changed_to(false))
@@ -1192,22 +1232,24 @@ impl HeaderPanel {
             );
     }
 
-    #[cfg(feature = "playtime")]
     // TODO-high-clip-matrix As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
-        let weak_session = self.session.clone();
-        base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
-            let shared_session = weak_session.upgrade().expect("session gone");
-            let shared_instance_state = { shared_session.borrow().instance_state().clone() };
-            shared_instance_state
-                .borrow_mut()
-                .owned_clip_matrix_mut()
-                .expect("this instance has no clip matrix")
-                .freeze()
-                .await;
-            Ok(())
-        });
+        #[cfg(feature = "playtime")]
+        {
+            let weak_session = self.session.clone();
+            base::Global::future_support().spawn_in_main_thread_from_main_thread(async move {
+                let shared_session = weak_session.upgrade().expect("session gone");
+                let instance = shared_session.borrow().instance().clone();
+                instance
+                    .borrow_mut()
+                    .clip_matrix_mut()
+                    .expect("this instance has no clip matrix")
+                    .freeze()
+                    .await;
+                Ok(())
+            });
+        }
     }
 
     fn toggle_send_feedback_only_if_armed(&self) {
@@ -1236,6 +1278,13 @@ impl HeaderPanel {
             .borrow_mut()
             .auto_correct_settings
             .set_with(|prev| !*prev);
+    }
+
+    fn toggle_global_control(&self) {
+        self.instance_panel()
+            .shell()
+            .unwrap()
+            .toggle_global_control();
     }
 
     fn toggle_real_input_logging(&self) {
@@ -1273,11 +1322,11 @@ impl HeaderPanel {
             .set_with(|prev| !*prev);
     }
 
-    fn toggle_use_instance_preset_links_only(&self) {
+    fn toggle_use_unit_preset_links_only(&self) {
         let session = self.session();
         let mut session = session.borrow_mut();
-        let new_state = !session.use_instance_preset_links_only();
-        session.set_use_instance_preset_links_only(new_state);
+        let new_state = !session.use_unit_preset_links_only();
+        session.set_use_unit_preset_links_only(new_state);
     }
 
     fn toggle_upper_floor_membership(&self) {
@@ -1289,7 +1338,7 @@ impl HeaderPanel {
             new_state
         };
         if enabled {
-            let msg = "This ReaLearn instance is now superior. When this instance is active (contains active main mappings), it will disable other ReaLearn instances with the same control input and/or feedback output that don't have this setting turned on.";
+            let msg = "This ReaLearn unit is now superior. When this unit is active (contains active main mappings), it will disable other ReaLearn unit with the same control input and/or feedback output that don't have this setting turned on.";
             self.view.require_window().alert("ReaLearn", msg);
         };
     }
@@ -1299,8 +1348,8 @@ impl HeaderPanel {
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_control_input_combo_box();
-        self.invalidate_feedback_output_combo_box();
+        self.invalidate_control_input_button();
+        self.invalidate_feedback_output_button();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
         self.invalidate_group_controls();
@@ -1343,11 +1392,6 @@ impl HeaderPanel {
         }
     }
 
-    fn invalidate_control_input_combo_box(&self) {
-        self.invalidate_control_input_combo_box_options();
-        self.invalidate_control_input_combo_box_value();
-    }
-
     fn invalidate_compartment_combo_box(&self) {
         let controller_radio = self
             .view
@@ -1356,11 +1400,11 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_MAIN_COMPARTMENT_RADIO_BUTTON);
         match self.active_compartment() {
-            Compartment::Controller => {
+            CompartmentKind::Controller => {
                 controller_radio.check();
                 main_radio.uncheck();
             }
-            Compartment::Main => {
+            CompartmentKind::Main => {
                 controller_radio.uncheck();
                 main_radio.check()
             }
@@ -1370,7 +1414,7 @@ impl HeaderPanel {
     fn invalidate_preset_auto_load_mode_combo_box(&self) {
         let label = self.view.require_control(root::ID_AUTO_LOAD_LABEL_TEXT);
         let combo = self.view.require_control(root::ID_AUTO_LOAD_COMBO_BOX);
-        if self.active_compartment() == Compartment::Main {
+        if self.active_compartment() == CompartmentKind::Main {
             label.show();
             combo.show();
             combo
@@ -1465,24 +1509,19 @@ impl HeaderPanel {
 
     fn invalidate_preset_controls(&self) {
         self.invalidate_preset_label_text();
-        self.invalidate_preset_combo_box();
+        self.invalidate_preset_browse_button();
         self.invalidate_preset_buttons();
         self.invalidate_preset_auto_load_mode_combo_box();
     }
 
     fn invalidate_preset_label_text(&self) {
         let text = match self.active_compartment() {
-            Compartment::Controller => "Controller preset",
-            Compartment::Main => "Main preset",
+            CompartmentKind::Controller => "Controller preset",
+            CompartmentKind::Main => "Main preset",
         };
         self.view
             .require_control(root::ID_PRESET_LABEL_TEXT)
             .set_text(text);
-    }
-
-    fn invalidate_preset_combo_box(&self) {
-        self.fill_preset_combo_box();
-        self.invalidate_preset_combo_box_value();
     }
 
     fn invalidate_preset_buttons(&self) {
@@ -1496,17 +1535,21 @@ impl HeaderPanel {
                 let session = self.session();
                 let session = session.borrow();
                 let compartment = self.active_compartment();
-                let preset_is_active_and_exists =
+                let user_preset_is_active_and_exists =
                     if let Some(preset_id) = session.active_preset_id(compartment) {
-                        App::get().preset_manager(compartment).exists(preset_id)
+                        BackboneShell::get()
+                            .compartment_preset_manager(compartment)
+                            .borrow()
+                            .common_preset_info_by_id(preset_id)
+                            .is_some_and(|info| info.origin.is_user())
                     } else {
                         false
                     };
                 let preset_is_dirty = session.compartment_or_preset_is_dirty(compartment);
                 (
-                    preset_is_active_and_exists && preset_is_dirty,
+                    user_preset_is_active_and_exists && preset_is_dirty,
                     true,
-                    preset_is_active_and_exists,
+                    user_preset_is_active_and_exists,
                 )
             }
         };
@@ -1515,192 +1558,66 @@ impl HeaderPanel {
         delete_button.set_enabled(delete_button_enabled);
     }
 
-    fn fill_preset_combo_box(&self) {
-        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
-        let preset_manager = App::get().preset_manager(self.active_compartment());
-        let all_entries = [(-1isize, "<None>".to_string())].into_iter().chain(
-            preset_manager
-                .preset_infos()
-                .into_iter()
-                .enumerate()
-                .map(|(i, info)| {
-                    let label = if info.name == info.id {
-                        info.name
-                    } else {
-                        format!("{} ({})", info.name, info.id)
-                    };
-                    (i as isize, label)
-                }),
-        );
-        combo.fill_combo_box_with_data_small(all_entries);
-    }
-
-    fn invalidate_preset_combo_box_value(&self) {
-        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+    fn invalidate_preset_browse_button(&self) {
+        let button = self.view.require_control(root::ID_PRESET_BROWSE_BUTTON);
         let enabled = !self.mappings_are_read_only();
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
-        let preset_manager = App::get().preset_manager(compartment);
-        let data = match session.active_preset_id(compartment) {
-            None => -1isize,
-            Some(id) => match preset_manager.find_index_by_id(id) {
+        let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
+        let text = match session.active_preset_id(compartment) {
+            None => "<None>".to_string(),
+            Some(id) => match preset_manager.borrow().common_preset_info_by_id(id) {
                 None => {
-                    combo.select_new_combo_box_item(format!("<Not present> ({id})"));
-                    return;
+                    format!("<Not present> ({id})")
                 }
-                Some(i) => i as isize,
+                Some(info) => info.meta_data.name.clone(),
             },
         };
-        combo.select_combo_box_item_by_data(data).unwrap();
-        combo.set_enabled(enabled);
+        button.set_text(text);
+        button.set_enabled(enabled);
     }
 
     fn fill_preset_auto_load_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
-            .fill_combo_box_indexed(MainPresetAutoLoadMode::into_enum_iter());
+            .fill_combo_box_indexed(MainPresetAutoLoadMode::iter());
     }
 
-    fn invalidate_control_input_combo_box_options(&self) {
-        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        let osc_device_manager = App::get().osc_device_manager();
-        let osc_device_manager = osc_device_manager.borrow();
-        let osc_devices = osc_device_manager.devices();
-        b.fill_combo_box_with_data_small(
-            [
-                (-100isize, generate_midi_device_heading()),
-                (-1isize, "<FX input>".to_string()),
-            ]
-            .into_iter()
-            .chain(
-                Reaper::get()
-                    .midi_input_devices()
-                    .filter(|d| d.is_available())
-                    .map(|dev| (dev.id().get() as isize, get_midi_input_device_label(dev))),
-            )
-            .chain(iter::once((
-                -100isize,
-                generate_osc_device_heading(osc_devices.len()),
-            )))
-            .chain(
-                osc_devices
-                    .enumerate()
-                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(false))),
-            )
-            .chain([
-                (-100isize, String::from("----  Keyboard  ----")),
-                (KEYBOARD_INDEX_OFFSET, String::from("Computer keyboard")),
-            ]),
-        )
-    }
-
-    fn invalidate_control_input_combo_box_value(&self) {
-        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        match self.session().borrow().control_input() {
+    fn invalidate_control_input_button(&self) {
+        let text = match self.session().borrow().control_input() {
             ControlInput::Midi(midi_control_input) => match midi_control_input {
-                MidiControlInput::FxInput => {
-                    b.select_combo_box_item_by_data(-1).unwrap();
-                }
-                MidiControlInput::Device(dev_id) => b
-                    .select_combo_box_item_by_data(dev_id.get() as _)
-                    .unwrap_or_else(|_| {
-                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                    }),
-            },
-            ControlInput::Osc(osc_device_id) => {
-                match App::get()
-                    .osc_device_manager()
-                    .borrow()
-                    .find_index_by_id(&osc_device_id)
-                {
-                    None => {
-                        b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
-                    }
-                    Some(i) => b
-                        .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                        .unwrap(),
-                };
-            }
-            ControlInput::Keyboard => {
-                b.select_combo_box_item_by_data(KEYBOARD_INDEX_OFFSET)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn invalidate_feedback_output_combo_box(&self) {
-        self.invalidate_feedback_output_combo_box_options();
-        self.invalidate_feedback_output_combo_box_value();
-    }
-
-    fn invalidate_feedback_output_combo_box_options(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        let osc_device_manager = App::get().osc_device_manager();
-        let osc_device_manager = osc_device_manager.borrow();
-        let osc_devices = osc_device_manager.devices();
-        b.fill_combo_box_with_data_small(
-            vec![
-                (-1isize, "<None>".to_string()),
-                (-100isize, generate_midi_device_heading()),
-                (-2isize, "<FX output>".to_string()),
-            ]
-            .into_iter()
-            .chain(
-                Reaper::get()
-                    .midi_output_devices()
-                    .filter(|d| d.is_available())
-                    .map(|dev| (dev.id().get() as isize, get_midi_output_device_label(dev))),
-            )
-            .chain(iter::once((
-                -100isize,
-                generate_osc_device_heading(osc_devices.len()),
-            )))
-            .chain(
-                osc_devices
-                    .enumerate()
-                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(true))),
-            ),
-        )
-    }
-
-    fn invalidate_feedback_output_combo_box_value(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        match self.session().borrow().feedback_output() {
-            None => {
-                b.select_combo_box_item_by_data(-1).unwrap();
-            }
-            Some(feedback_output) => match feedback_output {
-                FeedbackOutput::Midi(o) => match o {
-                    MidiDestination::FxOutput => {
-                        b.select_combo_box_item_by_data(-2).unwrap();
-                    }
-                    MidiDestination::Device(dev_id) => b
-                        .select_combo_box_item_by_data(dev_id.get() as _)
-                        .unwrap_or_else(|_| {
-                            b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
-                        }),
-                },
-                FeedbackOutput::Osc(osc_device_id) => {
-                    match App::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_index_by_id(&osc_device_id)
-                    {
-                        None => {
-                            b.select_new_combo_box_item(format!("<Not present> ({osc_device_id})"));
-                        }
-                        Some(i) => b
-                            .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
-                            .unwrap(),
-                    }
+                MidiControlInput::FxInput => CONTROL_INPUT_MIDI_FX_INPUT_LABEL.to_string(),
+                MidiControlInput::Device(dev_id) => {
+                    let dev = Reaper::get().midi_input_device_by_id(dev_id);
+                    get_midi_input_device_list_label(dev)
                 }
             },
-        }
+            ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
+            ControlInput::Keyboard => CONTROL_INPUT_KEYBOARD_LABEL.to_string(),
+        };
+        self.view
+            .require_control(root::ID_CONTROL_INPUT_BUTTON)
+            .set_text(text);
+    }
+
+    fn invalidate_feedback_output_button(&self) {
+        let text = match self.session().borrow().feedback_output() {
+            None => FEEDBACK_OUTPUT_NONE_LABEL.to_string(),
+            Some(FeedbackOutput::Midi(midi_dest)) => match midi_dest {
+                MidiDestination::FxOutput => FEEDBACK_OUTPUT_MIDI_FX_OUTPUT.to_string(),
+                MidiDestination::Device(dev_id) => {
+                    let dev = Reaper::get().midi_output_device_by_id(dev_id);
+                    get_midi_output_device_list_label(dev)
+                }
+            },
+            Some(FeedbackOutput::Osc(osc_device_id)) => {
+                get_osc_dev_list_label(&osc_device_id, true)
+            }
+        };
+        self.view
+            .require_control(root::ID_FEEDBACK_OUTPUT_BUTTON)
+            .set_text(text);
     }
 
     fn update_search_expression(&self) {
@@ -1730,76 +1647,45 @@ impl HeaderPanel {
         }
     }
 
-    fn update_control_input(&self) {
-        let control_input = {
-            let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-            match b.selected_combo_box_item_data() {
-                -1 => Ok(ControlInput::Midi(MidiControlInput::FxInput)),
-                KEYBOARD_INDEX_OFFSET => Ok(ControlInput::Keyboard),
-                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = App::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
-                    {
-                        Ok(ControlInput::Osc(*dev.id()))
-                    } else {
-                        Err(())
-                    }
+    fn pick_control_input(&self) {
+        let current_value = self.session().borrow().control_input();
+        let result = self.view.require_window().open_popup_menu(
+            menus::control_input_menu(current_value),
+            Window::cursor_pos(),
+        );
+        if let Some(action) = result {
+            match action {
+                ControlInputMenuAction::SelectControlInput(input) => {
+                    self.session().borrow_mut().control_input.set(input);
+                    update_auto_units_async();
                 }
-                midi_dev_id if midi_dev_id >= 0 => {
-                    let dev_id = MidiInputDeviceId::new(midi_dev_id as _);
-                    Ok(ControlInput::Midi(MidiControlInput::Device(dev_id)))
+                ControlInputMenuAction::ManageOsc(action) => {
+                    self.execute_osc_dev_management_action(action);
                 }
-                _ => Err(()),
             }
-        };
-        if let Ok(control_input) = control_input {
-            self.session().borrow_mut().control_input.set(control_input);
-        } else {
-            // This is most likely a section entry. Selection is not allowed.
-            self.invalidate_control_input_combo_box_value();
         }
     }
 
-    fn update_feedback_output(&self) {
-        let feedback_output = {
-            let b = self
-                .view
-                .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-            match b.selected_combo_box_item_data() {
-                -2 => Ok(Some(FeedbackOutput::Midi(MidiDestination::FxOutput))),
-                -1 => Ok(None),
-                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
-                    if let Some(dev) = App::get()
-                        .osc_device_manager()
-                        .borrow()
-                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
-                    {
-                        Ok(Some(FeedbackOutput::Osc(*dev.id())))
-                    } else {
-                        Err(())
-                    }
+    fn pick_feedback_output(&self) {
+        let current_value = self.session().borrow().feedback_output();
+        let result = self.view.require_window().open_popup_menu(
+            menus::feedback_output_menu(current_value),
+            Window::cursor_pos(),
+        );
+        if let Some(action) = result {
+            match action {
+                FeedbackOutputMenuAction::SelectFeedbackOutput(output) => {
+                    self.session().borrow_mut().feedback_output.set(output);
+                    update_auto_units_async();
                 }
-                midi_dev_id if midi_dev_id >= 0 => {
-                    let dev_id = MidiOutputDeviceId::new(midi_dev_id as _);
-                    Ok(Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))))
+                FeedbackOutputMenuAction::ManageOsc(action) => {
+                    self.execute_osc_dev_management_action(action);
                 }
-                _ => Err(()),
             }
-        };
-        if let Ok(feedback_output) = feedback_output {
-            self.session()
-                .borrow_mut()
-                .feedback_output
-                .set(feedback_output);
-        } else {
-            // This is most likely a section entry. Selection is not allowed.
-            self.invalidate_feedback_output_combo_box_value();
         }
     }
 
-    fn update_compartment(&self, compartment: Compartment) {
+    fn update_compartment(&self, compartment: CompartmentKind) {
         let mut main_state = self.main_state.borrow_mut();
         main_state.stop_filter_learning();
         main_state.active_compartment.set(compartment);
@@ -1899,39 +1785,6 @@ impl HeaderPanel {
             .activate_main_preset_auto_load_mode(mode);
     }
 
-    fn update_preset(&self) {
-        self.main_state.borrow_mut().stop_filter_learning();
-        let session = self.session();
-        let compartment = self.active_compartment();
-        let preset_manager = App::get().preset_manager(compartment);
-        let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
-        if compartment_is_dirty
-            && !self
-                .view
-                .require_window()
-                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
-        {
-            self.invalidate_preset_combo_box_value();
-            return;
-        }
-        let preset_id = match self
-            .view
-            .require_control(root::ID_PRESET_COMBO_BOX)
-            .selected_combo_box_item_data()
-        {
-            -1 => None,
-            i if i >= 0 => preset_manager.find_id_by_index(i as usize),
-            _ => unreachable!(),
-        };
-        let mut session = session.borrow_mut();
-        match compartment {
-            Compartment::Controller => {
-                session.activate_controller_preset(preset_id);
-            }
-            Compartment::Main => session.activate_main_preset(preset_id),
-        };
-    }
-
     fn mappings_are_read_only(&self) -> bool {
         self.session()
             .borrow()
@@ -1945,7 +1798,7 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
         button.set_text(learn_button_text);
-        let enabled = !(self.active_compartment() == Compartment::Main
+        let enabled = !(self.active_compartment() == CompartmentKind::Main
             && self.session().borrow().main_preset_is_auto_loaded());
         button.set_enabled(enabled);
     }
@@ -2007,92 +1860,96 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
-    pub fn import_from_clipboard(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let text =
-            get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
-        let plugin_parameters = self
-            .plugin_parameters
-            .upgrade()
-            .expect("plugin params gone");
+    fn instance_panel(&self) -> SharedView<InstancePanel> {
+        self.instance_panel.upgrade().expect("instance panel gone")
+    }
+
+    pub fn import_from_clipboard(&self) -> anyhow::Result<()> {
+        let text = get_text_from_clipboard().context("Couldn't read from clipboard.")?;
         let res = {
             let session = self.session();
             let session = session.borrow();
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        App::warn_if_envelope_version_higher(res.value.version());
+        BackboneShell::warn_if_envelope_version_higher(res.value.version());
         use UntaggedDataObject::*;
         match res.value {
             PresetLike(preset_data) => {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
             }
-            Tagged(DataObject::Session(Envelope { value: d, ..})) => {
+            Tagged(DataObject::Instance(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
-                    "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
+                    "Do you want to continue replacing the complete ReaLearn instance with the data in the clipboard?",
                 ) {
-                    plugin_parameters.apply_session_data(&d);
+                    let instance_panel = self.instance_panel();
+                    instance_panel.show_unit(None);
+                    let instance_shell = instance_panel.shell()?;
+                    instance_shell.apply_data(InstanceOrUnitData::InstanceData(*d))?;
                 }
             }
-            #[cfg(feature = "playtime")]
-            Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
-                use playtime_api::persistence::FlexibleMatrix;
-                let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
-                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(r) => match r {
-                        crate::domain::ClipMatrixRef::Own(m) => {
-                            get_clip_matrix_label(m.column_count())
-                        }
-                        crate::domain::ClipMatrixRef::Foreign(instance_id) => {
-                            format!("clip matrix reference (to instance {instance_id})")
-                        }
-                    },
-                };
-                let new_matrix_label = match &*value {
-                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(m) => {
-                        let column_count = match m {
-                            FlexibleMatrix::Unsigned(m) => m.column_count(),
-                            FlexibleMatrix::Signed(m) => {
-                                m.decode_value()?.column_count()
-                            }
-                        };
-                        get_clip_matrix_label(column_count)
-                    }
-                };
+            Tagged(DataObject::Unit(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
-                    format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
+                    "Do you want to continue replacing this complete ReaLearn unit with the data in the clipboard?",
                 ) {
                     let session = self.session();
-                    let session = session.borrow();
-                    let mut instance_state = session.instance_state().borrow_mut();
-                    if let Some(matrix) = *value {
-                        crate::application::get_or_insert_owned_clip_matrix(self.session.clone(), &mut instance_state).load(matrix)?;
-                    } else {
-                        BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
+                    d.apply_to_model(&session)?;
+                }
+            }
+            Tagged(DataObject::ClipMatrix(Envelope { value, .. })) => {
+                #[cfg(not(feature = "playtime"))]
+                {
+                    let _ = value;
+                    bail!("Playtime not available");
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    use playtime_api::persistence::FlexibleMatrix;
+                    let old_matrix_label = match self.session().borrow().instance().borrow().clip_matrix() {
+                        None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                        Some(matrix) => get_clip_matrix_label(matrix.column_count())
+                    };
+                    let new_matrix_label = match &*value {
+                        None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                        Some(m) => {
+                            let column_count = match m {
+                                FlexibleMatrix::Unsigned(m) => m.column_count(),
+                                FlexibleMatrix::Signed(m) => {
+                                    m.decode_value()?.column_count()
+                                }
+                            };
+                            get_clip_matrix_label(column_count)
+                        }
+                    };
+                    if self.view.require_window().confirm(
+                        "ReaLearn",
+                        format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
+                    ) {
+                        self.instance_panel().shell()?.load_clip_matrix(*value)?;
                     }
                 }
             }
             Tagged(DataObject::MainCompartment(Envelope {value, version })) => {
-                let compartment = Compartment::Main;
+                let compartment = CompartmentKind::Main;
                 self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::ControllerCompartment(Envelope {value, version })) => {
-                let compartment = Compartment::Controller;
+                let compartment = CompartmentKind::Controller;
                 self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
             Tagged(DataObject::Mappings{..}) => {
-                return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
+                bail!("The clipboard contains just a lose collection of mappings. Please import them using the context menus.")
             }
             Tagged(DataObject::Mapping{..}) => {
-                return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
+                bail!("The clipboard contains just one single mapping. Please import it using the context menus.")
             }
             _ => {
-                return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
+                bail!("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.")
             }
         }
         if !res.annotations.is_empty() {
@@ -2106,7 +1963,7 @@ impl HeaderPanel {
 
     fn import_compartment(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         version: Option<&Version>,
         data: Box<CompartmentModelData>,
     ) {
@@ -2129,11 +1986,11 @@ impl HeaderPanel {
         }
     }
 
-    pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
+    pub fn export_to_clipboard(&self) -> anyhow::Result<()> {
         enum MenuAction {
             None,
-            ExportSession(SerializationFormat),
-            #[cfg(feature = "playtime")]
+            ExportInstance(SerializationFormat),
+            ExportUnit(SerializationFormat),
             ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
         }
@@ -2146,34 +2003,48 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item("Export session as JSON", || {
-                    MenuAction::ExportSession(SerializationFormat::JsonDataObject)
-                }),
-                #[cfg(feature = "playtime")]
-                item("Export clip matrix as JSON", || {
-                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
-                }),
-                #[cfg(feature = "playtime")]
-                item("Export clip matrix as Lua", || {
-                    MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
-                        ConversionStyle::Minimal,
-                    ))
-                }),
-                item(format!("Export {compartment} as JSON"), || {
-                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
-                }),
-                item(format!("Export {compartment} as Lua"), || {
+                item(
+                    "Export instance as JSON",
+                    MenuAction::ExportInstance(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    "Export unit as JSON",
+                    MenuAction::ExportUnit(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    format!("Export {compartment} as JSON"),
+                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject),
+                ),
+                item(
+                    format!("Export {compartment} as Lua"),
                     MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
                         ConversionStyle::Minimal,
-                    ))
-                }),
+                    )),
+                ),
                 item(
                     format!("Export {compartment} as Lua (include default values)"),
-                    || {
-                        MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
-                            ConversionStyle::IncludeDefaultValues,
-                        ))
+                    MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                        ConversionStyle::IncludeDefaultValues,
+                    )),
+                ),
+                separator(),
+                item_with_opts(
+                    "Export clip matrix as JSON",
+                    ItemOpts {
+                        enabled: cfg!(feature = "playtime"),
+                        checked: false,
                     },
+                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject),
+                ),
+                item_with_opts(
+                    "Export clip matrix as Lua",
+                    ItemOpts {
+                        enabled: cfg!(feature = "playtime"),
+                        checked: false,
+                    },
+                    MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
+                        ConversionStyle::Minimal,
+                    )),
                 ),
             ];
             root_menu(entries)
@@ -2181,7 +2052,7 @@ impl HeaderPanel {
         let result = match self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, Window::cursor_pos())
+            .open_popup_menu(pure_menu, Window::cursor_pos())
         {
             None => return Ok(()),
             Some(i) => i,
@@ -2189,39 +2060,55 @@ impl HeaderPanel {
         // Execute action
         match result {
             MenuAction::None => {}
-            MenuAction::ExportSession(_) => {
-                let plugin_parameters = self
-                    .plugin_parameters
+            MenuAction::ExportInstance(_) => {
+                let instance_panel = self
+                    .instance_panel
                     .upgrade()
-                    .expect("plugin params gone");
-                let session_data = plugin_parameters.create_session_data();
-                let data_object = DataObject::Session(App::create_envelope(Box::new(session_data)));
+                    .context("instance panel gone")?;
+                let instance_shell = instance_panel.shell()?;
+                let data = instance_shell.create_data();
+                let data_object =
+                    DataObject::Instance(BackboneShell::create_envelope(Box::new(data)));
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
             }
-            #[cfg(feature = "playtime")]
+            MenuAction::ExportUnit(_) => {
+                let session = self.session();
+                let session_data = UnitData::from_model(&session.borrow());
+                let data_object =
+                    DataObject::Unit(BackboneShell::create_envelope(Box::new(session_data)));
+                let json = serialize_data_object_to_json(data_object).unwrap();
+                copy_text_to_clipboard(json);
+            }
             MenuAction::ExportClipMatrix(format) => {
-                let matrix = self
-                    .session()
-                    .borrow()
-                    .instance_state()
-                    .borrow()
-                    .owned_clip_matrix()
-                    .map(|matrix| matrix.save());
-                let envelope = App::create_envelope(Box::new(matrix));
-                let data_object = DataObject::ClipMatrix(envelope);
-                let text = serialize_data_object(data_object, format)?;
-                copy_text_to_clipboard(text);
+                #[cfg(not(feature = "playtime"))]
+                {
+                    let _ = format;
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    let matrix = self
+                        .session()
+                        .borrow()
+                        .instance()
+                        .borrow()
+                        .clip_matrix()
+                        .map(|matrix| matrix.save());
+                    let envelope = BackboneShell::create_envelope(Box::new(matrix));
+                    let data_object = DataObject::ClipMatrix(envelope);
+                    let text = serialize_data_object(data_object, format)?;
+                    copy_text_to_clipboard(text);
+                }
             }
             MenuAction::ExportCompartment(format) => {
                 let session = self.session();
                 let session = session.borrow();
                 let model = session.extract_compartment_model(compartment);
                 let data = CompartmentModelData::from_model(&model);
-                let envelope = App::create_envelope(Box::new(data));
+                let envelope = BackboneShell::create_envelope(Box::new(data));
                 let data_object = match compartment {
-                    Compartment::Controller => DataObject::ControllerCompartment(envelope),
-                    Compartment::Main => DataObject::MainCompartment(envelope),
+                    CompartmentKind::Controller => DataObject::ControllerCompartment(envelope),
+                    CompartmentKind::Main => DataObject::MainCompartment(envelope),
                 };
                 let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
@@ -2236,11 +2123,23 @@ impl HeaderPanel {
         }
     }
 
+    fn notify_user_on_anyhow_error(&self, result: anyhow::Result<()>) {
+        if let Err(e) = result {
+            self.notify_user_about_anyhow_error(e);
+        }
+    }
+
     fn notify_user_about_error(&self, e: Box<dyn Error>) {
         self.view.require_window().alert("ReaLearn", e.to_string());
     }
 
-    fn delete_active_preset(&self) -> Result<(), &'static str> {
+    fn notify_user_about_anyhow_error(&self, e: anyhow::Error) {
+        self.view
+            .require_window()
+            .alert("ReaLearn", format!("{e:#}"));
+    }
+
+    fn delete_active_preset(&self) -> anyhow::Result<()> {
         if !self
             .view
             .require_window()
@@ -2251,25 +2150,52 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let mut preset_manager = App::get().preset_manager(compartment);
+        let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
         let active_preset_id = session
             .active_preset_id(compartment)
-            .ok_or("no preset selected")?
+            .context("no preset selected")?
             .to_string();
         match compartment {
-            Compartment::Controller => session.activate_controller_preset(None),
-            Compartment::Main => session.activate_main_preset(None),
+            CompartmentKind::Controller => session.activate_controller_preset(None),
+            CompartmentKind::Main => session.activate_main_preset(None),
         };
-        preset_manager.remove_preset(&active_preset_id)?;
+        preset_manager
+            .borrow_mut()
+            .remove_preset(&active_preset_id)?;
         Ok(())
     }
 
+    fn create_compartment_preset_workspace(&self, include_factory_presets: bool) {
+        let compartment = self.active_compartment();
+        let result = BackboneShell::get()
+            .compartment_preset_manager(compartment)
+            .borrow_mut()
+            .export_preset_workspace(include_factory_presets);
+        match result {
+            Ok(descriptor) => {
+                let name = descriptor.name;
+                let text = format!(
+                    "ReaLearn created a new {compartment} preset workspace named \"{name}\" for you.\n\
+                    \n\
+                    In the next step, ReaLearn will open the workspace folder in your file manager, where you can rename the folder and start developing presets. For details, consult the file \"README.md\" in the workspace root!
+                    "
+                );
+                self.view.require_window().alert("Success!", text);
+                let _ = open_in_file_manager(&descriptor.dir);
+            }
+            Err(e) => notify_user_about_anyhow_error(e),
+        }
+    }
+
     fn reload_all_presets(&self) {
-        let _ = App::get()
+        let _ = BackboneShell::get()
             .controller_preset_manager()
             .borrow_mut()
-            .load_presets();
-        let _ = App::get().main_preset_manager().borrow_mut().load_presets();
+            .load_presets_from_disk();
+        let _ = BackboneShell::get()
+            .main_preset_manager()
+            .borrow_mut()
+            .load_presets_from_disk();
     }
 
     pub fn show_pot_browser(&self) {
@@ -2289,7 +2215,7 @@ impl HeaderPanel {
     #[cfg(feature = "egui")]
     fn show_pot_browser_internal(&self) -> Result<(), Box<dyn Error>> {
         let session = self.session();
-        let pot_unit = session.borrow().instance_state().borrow_mut().pot_unit()?;
+        let pot_unit = session.borrow().instance().borrow_mut().pot_unit()?;
         let panel = crate::infrastructure::ui::PotBrowserPanel::new(pot_unit);
         open_child_panel_dyn(
             &self.pot_browser_panel,
@@ -2299,18 +2225,16 @@ impl HeaderPanel {
         Ok(())
     }
 
-    #[cfg(feature = "playtime")]
     fn show_app(&self) {
-        self.panel_manager().borrow().start_or_show_app_instance();
+        self.instance_panel().start_or_show_app_instance();
     }
 
-    #[cfg(feature = "playtime")]
     fn close_app(&self) {
-        self.panel_manager().borrow().stop_app_instance();
+        self.instance_panel().stop_app_instance();
     }
 
     fn open_preset_folder(&self) {
-        let path = App::realearn_preset_dir_path();
+        let path = BackboneShell::realearn_preset_dir_path();
         let result = open_in_file_manager(&path).map_err(|e| e.into());
         self.notify_user_on_error(result);
     }
@@ -2329,32 +2253,34 @@ impl HeaderPanel {
         }
     }
 
-    fn save_active_preset(&self) -> Result<(), &'static str> {
+    fn save_active_preset(&self) -> anyhow::Result<()> {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
         let preset_id = session
             .active_preset_id(compartment)
-            .ok_or("no active preset")?;
+            .context("no active preset")?;
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            Compartment::Controller => {
-                let preset_manager = App::get().controller_preset_manager();
+            CompartmentKind::Controller => {
+                let preset_manager = BackboneShell::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
+                    .borrow()
                     .find_by_id(preset_id)
-                    .ok_or("controller preset not found")?;
-                controller_preset.update_realearn_data(compartment_model);
+                    .context("controller preset not found")?;
+                controller_preset.set_model(compartment_model);
                 preset_manager
                     .borrow_mut()
                     .update_preset(controller_preset)?;
             }
-            Compartment::Main => {
-                let preset_manager = App::get().main_preset_manager();
+            CompartmentKind::Main => {
+                let preset_manager = BackboneShell::get().main_preset_manager();
                 let mut main_preset = preset_manager
+                    .borrow()
                     .find_by_id(preset_id)
-                    .ok_or("main preset not found")?;
-                main_preset.update_data(compartment_model);
+                    .context("main preset not found")?;
+                main_preset.set_model(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -2365,7 +2291,7 @@ impl HeaderPanel {
     fn change_session_id(&self) {
         self.view.require_window().alert(
             "ReaLearn",
-            "Please change the session ID using the \"Instance data...\" button on the bottom right!",
+            "Please change the unit ID using the \"Unit data...\" button on the bottom right!",
         );
     }
 
@@ -2375,8 +2301,42 @@ impl HeaderPanel {
         self.view.require_window().confirm("ReaLearn", msg)
     }
 
-    fn save_as_preset(&self) -> Result<(), &'static str> {
-        let preset_name = match dialog_util::prompt_for("Preset name", "") {
+    fn get_active_preset_info(&self, compartment: CompartmentKind) -> Option<CommonPresetInfo> {
+        let session = self.session();
+        let session = session.borrow();
+        let preset_id = session.active_preset_id(compartment)?;
+        BackboneShell::get()
+            .compartment_preset_manager(compartment)
+            .borrow()
+            .common_preset_info_by_id(preset_id)
+            .cloned()
+    }
+
+    fn save_as_preset(&self) -> anyhow::Result<()> {
+        let compartment = self.active_compartment();
+        let active_preset_info = self.get_active_preset_info(compartment);
+        if let Some(info) = &active_preset_info {
+            if let PresetOrigin::Factory { compartment, .. } = &info.origin {
+                if info.file_type == PresetFileType::Lua {
+                    let menu_entry_label =
+                        build_create_compartment_preset_workspace_label(*compartment, true);
+                    let text = format!(
+                        "This factory preset is written in Lua. Are you familiar with Lua and want to customize the Lua code to your own needs?\n\
+                        \n\
+                        If yes, you should do this instead: Main menu => {PRESET_RELATED_MENU_LABEL} => {menu_entry_label}.\n\
+                        \n\
+                        If you press no, ReaLearn will save your compartment as JSON preset, which is basically just a logic-less list of mappings.",
+                    );
+                    if !self.view.require_window().confirm("ReaLearn", text) {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        let current_preset_name = active_preset_info
+            .map(|info| info.meta_data.name)
+            .unwrap_or_default();
+        let preset_name = match dialog_util::prompt_for("Preset name", &current_preset_name) {
             None => return Ok(()),
             Some(n) => n,
         };
@@ -2386,23 +2346,30 @@ impl HeaderPanel {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let compartment = self.active_compartment();
-        let preset_id = slug::slugify(&preset_name);
+        let preset_id = format!("{}/{}", whoami::username(), slug::slugify(&preset_name));
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
-            Compartment::Controller => {
-                let controller =
-                    ControllerPreset::new(preset_id.clone(), preset_name, compartment_model);
-                App::get()
+            CompartmentKind::Controller => {
+                let controller = CompartmentPresetModel::new(
+                    preset_id.clone(),
+                    preset_name,
+                    CompartmentKind::Controller,
+                    compartment_model,
+                );
+                BackboneShell::get()
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
                 session.activate_controller_preset(Some(preset_id));
             }
-            Compartment::Main => {
-                let main_preset =
-                    MainPreset::new(preset_id.clone(), preset_name, compartment_model);
-                App::get()
+            CompartmentKind::Main => {
+                let main_preset = CompartmentPresetModel::new(
+                    preset_id.clone(),
+                    preset_name,
+                    CompartmentKind::Main,
+                    compartment_model,
+                );
+                BackboneShell::get()
                     .main_preset_manager()
                     .borrow_mut()
                     .add_preset(main_preset)?;
@@ -2424,11 +2391,12 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         session.log_debug_info();
-        App::get().log_debug_info(session.id());
+        BackboneShell::get().log_debug_info(session.unit_key());
     }
 
     fn open_user_guide_offline(&self) {
-        let user_guide_pdf = App::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
+        let user_guide_pdf =
+            BackboneShell::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
         if open::that(user_guide_pdf).is_err() {
             self.view.require_window().alert(
                 "ReaLearn",
@@ -2480,7 +2448,7 @@ impl HeaderPanel {
             view.invalidate_all_controls();
         });
         self.when(session.control_input.changed(), |view, _| {
-            view.invalidate_control_input_combo_box();
+            view.invalidate_control_input_button();
             view.invalidate_let_through_controls();
             let shared_session = view.session();
             let mut session = shared_session.borrow_mut();
@@ -2490,13 +2458,13 @@ impl HeaderPanel {
                 session.let_unmatched_events_through.set(true);
             }
             if session.auto_correct_settings.get() {
-                session
-                    .send_feedback_only_if_armed
-                    .set(control_input == ControlInput::Midi(MidiControlInput::FxInput));
+                session.send_feedback_only_if_armed.set(
+                    get_appropriate_send_feedback_only_if_armed_default(control_input),
+                );
             }
         });
         self.when(session.feedback_output.changed(), |view, _| {
-            view.invalidate_feedback_output_combo_box()
+            view.invalidate_feedback_output_button()
         });
         let main_state = self.main_state.borrow();
         self.when(
@@ -2541,11 +2509,16 @@ impl HeaderPanel {
             view.invalidate_group_controls();
         });
         when(
-            App::get()
+            BackboneShell::get()
                 .controller_preset_manager()
                 .borrow()
                 .changed()
-                .merge(App::get().main_preset_manager().borrow().changed())
+                .merge(
+                    BackboneShell::get()
+                        .main_preset_manager()
+                        .borrow()
+                        .changed(),
+                )
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2553,7 +2526,7 @@ impl HeaderPanel {
             view.invalidate_preset_controls();
         });
         when(
-            App::get()
+            BackboneShell::get()
                 .osc_device_manager()
                 .borrow()
                 .changed()
@@ -2561,14 +2534,14 @@ impl HeaderPanel {
         )
         .with(Rc::downgrade(&self))
         .do_async(move |view, _| {
-            view.invalidate_control_input_combo_box();
-            view.invalidate_feedback_output_combo_box();
+            view.invalidate_control_input_button();
+            view.invalidate_feedback_output_button();
         });
         // Enables/disables save button depending on dirty state.
         when(
-            session.compartment_is_dirty[Compartment::Controller]
+            session.compartment_is_dirty[CompartmentKind::Controller]
                 .changed()
-                .merge(session.compartment_is_dirty[Compartment::Main].changed())
+                .merge(session.compartment_is_dirty[CompartmentKind::Main].changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2592,6 +2565,18 @@ impl HeaderPanel {
     }
 }
 
+fn build_create_compartment_preset_workspace_label(
+    compartment: CompartmentKind,
+    include_factory_presets: bool,
+) -> String {
+    let suffix = if include_factory_presets {
+        " (including factory presets)"
+    } else {
+        ""
+    };
+    format!("Create {compartment} preset workspace{suffix}")
+}
+
 impl View for HeaderPanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_HEADER_PANEL
@@ -2603,6 +2588,9 @@ impl View for HeaderPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.taborder_first();
+        if cfg!(unix) {
+            self.show_color_panel.clone().open(window);
+        }
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression(None);
@@ -2610,12 +2598,45 @@ impl View for HeaderPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        self.show_color_panel.paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        device_context.set_bk_mode_to_transparent();
+        let color_pair = match window.resource_id() {
+            root::ID_HEADER_PANEL_SHOW_LABEL_TEXT
+            | root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON
+            | root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => colors::show_background(),
+            _ => return None,
+        };
+        view::get_brush_for_color_pair(color_pair)
+    }
+
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         self.main_state.borrow_mut().stop_filter_learning();
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            root::ID_CONTROL_INPUT_BUTTON => self.pick_control_input(),
+            root::ID_FEEDBACK_OUTPUT_BUTTON => self.pick_feedback_output(),
+            root::ID_PRESET_BROWSE_BUTTON => self.browse_presets(),
             root::ID_GROUP_ADD_BUTTON => self.add_group(),
             root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
             root::ID_GROUP_EDIT_BUTTON => self.edit_group(),
@@ -2637,10 +2658,10 @@ impl View for HeaderPanel {
             }
             root::ID_IMPORT_BUTTON => {
                 let result = self.import_from_clipboard();
-                self.notify_user_on_error(result);
+                self.notify_user_on_anyhow_error(result);
             }
             root::ID_EXPORT_BUTTON => {
-                self.notify_user_on_error(self.export_to_clipboard());
+                self.notify_user_on_anyhow_error(self.export_to_clipboard());
             }
             root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => {
                 self.update_let_matched_events_through()
@@ -2661,20 +2682,19 @@ impl View for HeaderPanel {
                 self.companion_app_presenter.show_app_info();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
-                self.update_compartment(Compartment::Controller)
+                self.update_compartment(CompartmentKind::Controller)
             }
-            root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => self.update_compartment(Compartment::Main),
+            root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => {
+                self.update_compartment(CompartmentKind::Main)
+            }
             _ => {}
         }
     }
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_input(),
-            root::ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
             root::ID_GROUP_COMBO_BOX => self.update_group(),
             root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
-            root::ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }
@@ -2700,77 +2720,11 @@ impl View for HeaderPanel {
     }
 }
 
-fn get_midi_input_device_label(dev: MidiInputDevice) -> String {
-    get_midi_device_label(
-        dev.name(),
-        dev.id().get(),
-        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
-    )
-}
-
-fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
-    get_midi_device_label(
-        dev.name(),
-        dev.id().get(),
-        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
-    )
-}
-
-#[derive(Display)]
-enum MidiDeviceStatus {
-    #[display(fmt = " <disconnected>")]
-    Disconnected,
-    #[display(fmt = " <connected but disabled>")]
-    ConnectedButDisabled,
-    #[display(fmt = "")]
-    Connected,
-}
-
-impl MidiDeviceStatus {
-    fn from_flags(open: bool, connected: bool) -> MidiDeviceStatus {
-        use MidiDeviceStatus::*;
-        match (open, connected) {
-            (false, false) => Disconnected,
-            (false, true) => ConnectedButDisabled,
-            // Shouldn't happen but cope with it.
-            (true, false) => Disconnected,
-            (true, true) => Connected,
-        }
-    }
-}
-
-fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
-    format!(
-        "{}. {}{}",
-        raw_id,
-        // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
-        // how MIDI devices encode their name. Indeed a user reported an error related to that:
-        // https://github.com/helgoboss/realearn/issues/78
-        name.into_inner().to_string_lossy(),
-        status
-    )
-}
-
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
         self.close_open_child_panels();
     }
-}
-
-fn generate_midi_device_heading() -> String {
-    "----  MIDI  ----".to_owned()
-}
-
-fn generate_osc_device_heading(device_count: usize) -> String {
-    format!(
-        "----  OSC  ----{}",
-        if device_count == 0 {
-            " (add devices via right-click menu)"
-        } else {
-            ""
-        }
-    )
 }
 
 fn edit_preset_link_fx_id(mutator: &mut dyn PresetLinkMutator, old_fx_id: FxId) {
@@ -2831,7 +2785,7 @@ fn edit_new_osc_device() {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .add_device(dev)
@@ -2839,7 +2793,7 @@ fn edit_new_osc_device() {
 }
 
 fn edit_existing_osc_device(dev_id: OscDeviceId) {
-    let dev = App::get()
+    let dev = BackboneShell::get()
         .osc_device_manager()
         .borrow()
         .find_device_by_id(&dev_id)
@@ -2850,7 +2804,7 @@ fn edit_existing_osc_device(dev_id: OscDeviceId) {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .update_device(dev)
@@ -2864,7 +2818,7 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
     ) {
         return;
     }
-    App::get()
+    BackboneShell::get()
         .osc_device_manager()
         .borrow_mut()
         .remove_device_by_id(dev_id)
@@ -2872,8 +2826,8 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
 }
 
 fn edit_compartment_parameter(
-    session: SharedSession,
-    compartment: Compartment,
+    session: SharedUnitModel,
+    compartment: CompartmentKind,
     range: RangeInclusive<CompartmentParamIndex>,
 ) -> Result<(), &'static str> {
     let current_settings: Vec<_> = {
@@ -2999,9 +2953,9 @@ enum MainMenuAction {
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
     PasteFromLuaReplaceAllInGroup(Rc<String>),
     DryRunLuaScript(Rc<String>),
-    #[cfg(feature = "playtime")]
     FreezeClipMatrix,
     ToggleAutoCorrectSettings,
+    ToggleGlobalControl,
     ToggleRealInputLogging,
     ToggleVirtualInputLogging,
     ToggleRealOutputLogging,
@@ -3012,7 +2966,7 @@ enum MainMenuAction {
     ToggleUpperFloorMembership,
     SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,
-    ToggleUseInstancePresetLinksOnly,
+    ToggleUseUnitPresetLinksOnly,
     AddFirewallRule,
     ChangeSessionId,
     EditPresetLinkFxId(PresetLinkScope, FxId),
@@ -3020,20 +2974,14 @@ enum MainMenuAction {
     LinkToPreset(PresetLinkScope, FxId, String),
     ReloadAllPresets,
     OpenPotBrowser,
-    #[cfg(feature = "playtime")]
     ShowApp,
-    #[cfg(feature = "playtime")]
     CloseApp,
     OpenPresetFolder,
-    EditNewOscDevice,
-    EditExistingOscDevice(OscDeviceId),
-    RemoveOscDevice(OscDeviceId),
-    ToggleOscDeviceControl(OscDeviceId),
-    ToggleOscDeviceFeedback(OscDeviceId),
-    ToggleOscDeviceBundles(OscDeviceId),
-    EditCompartmentParameter(Compartment, RangeInclusive<CompartmentParamIndex>),
+    EditCompartmentParameter(CompartmentKind, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,
+    CreateCompartmentPresetWorkspace,
+    CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
 }
 
 enum HelpMenuAction {
@@ -3070,13 +3018,15 @@ fn generate_fx_to_preset_links_menu_entries(
         menu(
             format!("<Add link from FX \"{fx_id}\" to ...>"),
             main_preset_manager
-                .preset_iter()
+                .preset_infos()
+                .iter()
                 .map(move |p| {
                     let fx_id = fx_id.clone();
-                    let preset_id = p.id().to_owned();
-                    item(p.name(), move || {
-                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
-                    })
+                    let preset_id = p.common.id.clone();
+                    item(
+                        &p.common.meta_data.name,
+                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
+                    )
                 })
                 .collect(),
         )
@@ -3090,29 +3040,25 @@ fn generate_fx_to_preset_links_menu_entries(
         let preset_id_0 = link.preset_id.clone();
         menu(
             link.fx_id.to_string(),
-            once(item("<Edit FX ID...>", move || {
-                MainMenuAction::EditPresetLinkFxId(scope, fx_id_0)
-            }))
-            .chain(once(item("<Remove link>", move || {
-                MainMenuAction::RemovePresetLink(scope, fx_id_1)
-            })))
-            .chain(main_preset_manager.preset_iter().map(move |p| {
-                let fx_id = fx_id_2.clone();
-                let preset_id = p.id().to_owned();
-                item_with_opts(
-                    p.name(),
-                    ItemOpts {
-                        enabled: true,
-                        checked: p.id() == preset_id_0,
-                    },
-                    move || MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
-                )
-            }))
+            once(item(
+                "<Edit FX ID...>",
+                MainMenuAction::EditPresetLinkFxId(scope, fx_id_0),
+            ))
+            .chain(once(item(
+                "<Remove link>",
+                MainMenuAction::RemovePresetLink(scope, fx_id_1),
+            )))
+            .chain(build_compartment_preset_menu_entries(
+                main_preset_manager.common_preset_infos(),
+                move |info| {
+                    let fx_id = fx_id_2.clone();
+                    let preset_id = info.id.clone();
+                    MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
+                },
+                |info| info.id == preset_id_0,
+            ))
             .chain(once(
-                if main_preset_manager
-                    .find_index_by_id(&link.preset_id)
-                    .is_some()
-                {
+                if main_preset_manager.find_by_id(&link.preset_id).is_some() {
                     Entry::Nothing
                 } else {
                     disabled_item(format!("<Not present> ({})", link.preset_id))
@@ -3126,12 +3072,12 @@ fn generate_fx_to_preset_links_menu_entries(
 
 fn with_scoped_preset_link_mutator(
     scope: PresetLinkScope,
-    session: &WeakSession,
+    session: &WeakUnitModel,
     f: impl FnOnce(&mut dyn PresetLinkMutator),
 ) {
     match scope {
         PresetLinkScope::Global => {
-            let preset_link_manager = App::get().preset_link_manager();
+            let preset_link_manager = BackboneShell::get().preset_link_manager();
             let mut mutator = preset_link_manager.borrow_mut();
             f(mutator.deref_mut());
         }
@@ -3141,5 +3087,28 @@ fn with_scoped_preset_link_mutator(
             let mutator = session.instance_preset_link_config_mut();
             f(mutator);
         }
+    }
+}
+
+fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> String {
+    let dev_manager = BackboneShell::get().osc_device_manager();
+    let dev_manager = dev_manager.borrow();
+    if let Some(dev) = dev_manager.find_device_by_id(osc_device_id) {
+        get_osc_device_list_label(dev, is_output)
+    } else {
+        format!("OSC: <Not present> ({osc_device_id})")
+    }
+}
+
+const PRESET_RELATED_MENU_LABEL: &str = "Preset-related";
+
+fn build_show_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 41,
+        width: 469,
+        height: 21,
+        color_pair: colors::show_background(),
+        scaling: HEADER_PANEL_SCALING,
     }
 }

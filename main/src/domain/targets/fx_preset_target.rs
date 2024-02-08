@@ -1,8 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
     HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(self
             .fx_descriptor
@@ -187,7 +187,8 @@ impl<'a> Target<'a> for FxPresetTarget {
 }
 
 pub const FX_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Browse presets",
+    section: TargetSection::Fx,
+    name: "Browse presets",
     short_name: "Browse FX presets",
     hint: "Automatic feedback since REAPER v6.13",
     supports_track: true,

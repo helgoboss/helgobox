@@ -1,16 +1,16 @@
 use crate::domain::{
-    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse, InstanceState,
-    InstanceStateChanged, MainMapping, MappingControlContext, MappingControlResult,
-    MappingSnapshotId, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext,
+    ExtendedProcessorContext, HitInstruction, HitInstructionContext, HitInstructionResponse,
+    HitResponse, MainMapping, MappingControlContext, MappingControlResult, MappingSnapshotId,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
+    TargetTypeDef, Unit, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingSnapshotDescForLoad;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     /// Mappings which are in the snapshot but not in the tag scope will be ignored.
     pub scope: TagScope,
     /// If `false`, mappings which are contained in the snapshot but are now inactive
@@ -78,7 +78,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::LoadMappingSnapshot(
             LoadMappingSnapshotTarget {
@@ -94,7 +94,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub active_mappings_only: bool,
     pub snapshot_id: VirtualMappingSnapshotIdForLoad,
@@ -143,7 +143,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::MappingSnapshotActivated {
+            CompoundChangeEvent::Unit(UnitEvent::MappingSnapshotActivated {
                 compartment,
                 tag_scope,
                 ..
@@ -159,7 +159,7 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         let is_active = instance_state
             .mapping_snapshot_container(self.compartment)
             .snapshot_is_active(&self.scope, &self.snapshot_id);
@@ -172,14 +172,15 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
 }
 
 pub const LOAD_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Load mapping snapshot",
+    section: TargetSection::ReaLearn,
+    name: "Load mapping snapshot",
     short_name: "Load mapping snapshot",
     supports_tags: true,
     ..DEFAULT_TARGET
 };
 
 struct LoadMappingSnapshotInstruction {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     scope: TagScope,
     active_mappings_only: bool,
     snapshot: VirtualMappingSnapshotIdForLoad,
@@ -227,7 +228,7 @@ impl LoadMappingSnapshotInstruction {
                     context.processor_context,
                     ControlValue::from_absolute(snapshot_value),
                     context.basic_settings.target_control_logger(
-                        context.processor_context.control_context.instance_state,
+                        context.processor_context.control_context.unit,
                         ControlLogContext::LoadingMappingSnapshot,
                         m.qualified_id(),
                     ),
@@ -240,7 +241,7 @@ impl LoadMappingSnapshotInstruction {
             .collect()
     }
 
-    fn mark_snapshot_as_active(&self, instance_state: &mut InstanceState) {
+    fn mark_snapshot_as_active(&self, instance_state: &mut Unit) {
         instance_state.mark_snapshot_active(self.compartment, &self.scope, &self.snapshot);
     }
 }
@@ -252,7 +253,7 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
                 self.load_snapshot(&mut context, |m| m.initial_target_value())
             }
             VirtualMappingSnapshotIdForLoad::ById(id) => {
-                let instance_state = context.control_context.instance_state.borrow();
+                let instance_state = context.control_context.unit.borrow();
                 let snapshot_container =
                     instance_state.mapping_snapshot_container(self.compartment);
                 let snapshot = snapshot_container.find_snapshot_by_id(id);
@@ -262,7 +263,7 @@ impl HitInstruction for LoadMappingSnapshotInstruction {
             }
         };
         // Mark snapshot as active.
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         self.mark_snapshot_as_active(&mut instance_state);
         HitInstructionResponse::CausedEffect(results)
     }

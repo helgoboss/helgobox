@@ -7,7 +7,6 @@ publish = false
 
 [features]
 default = []
-playtime = ["dep:playtime-api"]
 
 [dependencies]
 # For being able to use the API macro
@@ -16,12 +15,22 @@ reaper-low.workspace = true
 serde.workspace = true
 semver.workspace = true
 serde_json.workspace = true
-playtime-api = { workspace = true, optional = true }
+playtime-api.workspace = true
 derive_more.workspace = true
-enum-iterator.workspace = true
+strum.workspace = true
 num_enum.workspace = true
 enum-map.workspace = true
-enumset.workspace = true
+enumset = { workspace = true, features = ["serde", "alloc"]}
 
 [dev-dependencies]
+# For testing Lua compatibility
 mlua.workspace = true
+# For generating Luau type definitions from our Rust APIs
+syn = { version = "2.0.48", features = ["full", "extra-traits"] }
+# For generating Luau type definitions from our Rust APIs
+darling = "0.20.3"
+# For generating Luau type definitions from our Rust APIs
+heck = "0.4.0"
+# For formatting generated Luau Type definitions
+stylua = { version = "0.19.1", features = ["luau"] }
+anyhow.workspace = true

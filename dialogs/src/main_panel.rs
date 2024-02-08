@@ -18,27 +18,35 @@ pub fn create(
         }
     };
     let line_spacing = 12;
+    let text_line_left = 66;
+    let text_line_right = MAIN_PANEL_WIDTH - text_line_left;
+    let text_line_width = text_line_right - text_line_left;
     let controls = vec![
         divider(ids.id(), create_rect(0, 0, MAIN_PANEL_WIDTH, 1)),
         ctext(
             "Status 1",
             ids.named_id("ID_MAIN_PANEL_STATUS_1_TEXT"),
-            create_rect(60, 5, 344, 9),
+            create_rect(text_line_left, 5, text_line_width, 9),
         ) + NOT_WS_GROUP,
         ctext(
             "Status 2",
             ids.named_id("ID_MAIN_PANEL_STATUS_2_TEXT"),
-            create_rect(60, 5 + line_spacing, 344, 9),
+            create_rect(text_line_left, 5 + line_spacing, text_line_width, 9),
         ) + NOT_WS_GROUP,
         pushbutton(
-            "Instance data...",
+            "Unit",
+            ids.named_id("IDC_UNIT_BUTTON"),
+            create_rect(8, 5 + line_spacing, 56, 14),
+        ),
+        pushbutton(
+            "Unit data...",
             ids.named_id("IDC_EDIT_TAGS_BUTTON"),
             create_rect(406, 5 + line_spacing, 56, 14),
         ),
         ctext(
             "ReaLearn",
             ids.named_id("ID_MAIN_PANEL_VERSION_TEXT"),
-            create_rect(60, 5 + line_spacing * 2, 344, 9),
+            create_rect(text_line_left, 5 + line_spacing * 2, text_line_width, 9),
         ),
     ];
     Dialog {

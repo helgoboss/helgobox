@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use crate::hash_util::NonCryptoHashSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -15,8 +15,8 @@ where
     T::Item: Eq + Hash + Display,
 {
     use std::fmt::Write;
-    let mut uniq = HashSet::new();
-    let duplicates: HashSet<_> = iter
+    let mut uniq = NonCryptoHashSet::default();
+    let duplicates: NonCryptoHashSet<_> = iter
         .into_iter()
         .filter_map(|d| {
             if uniq.contains(&d) {

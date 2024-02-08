@@ -1,9 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::{
     current_value_of_bookmark, find_bookmark, format_value_as_on_off, with_seek_behavior,
-    AdditionalFeedbackEvent, Compartment, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -29,7 +29,7 @@ impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         let res = find_bookmark(
@@ -236,7 +236,8 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
 }
 
 pub const GO_TO_BOOKMARK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Marker/region: Go to",
+    section: TargetSection::Bookmark,
+    name: "Go to",
     short_name: "Go to bookmark",
     supports_seek_behavior: true,
     ..DEFAULT_TARGET

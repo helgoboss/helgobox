@@ -1,11 +1,11 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, Compartment, CompoundChangeEvent,
+    format_value_as_on_off, AdditionalFeedbackEvent, CompartmentKind, CompoundChangeEvent,
     ControlContext, DomainEvent, DomainEventHandler, ExtendedProcessorContext, HitInstruction,
-    HitInstructionContext, HitInstructionResponse, HitResponse, InstanceId, InstanceState,
-    InstanceStateChanged, MappingControlContext, MappingId, MappingKey,
-    MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    HitInstructionContext, HitInstructionResponse, HitResponse, MappingControlContext, MappingId,
+    MappingKey, MappingModificationRequestedEvent, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, Unit, UnitEvent,
+    UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use realearn_api::persistence::MappingModification;
@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct UnresolvedModifyMappingTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_ref: MappingRef,
     pub modification: MappingModification,
 }
@@ -43,7 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ModifyMapping(ModifyMappingTarget {
             compartment: self.compartment,
@@ -57,7 +57,7 @@ impl UnresolvedReaperTargetDef for UnresolvedModifyMappingTarget {
 pub struct ModifyMappingTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub modification: MappingModification,
     pub mapping_ref: MappingRef,
 }
@@ -81,8 +81,8 @@ impl RealearnTarget for ModifyMappingTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         struct ModifyMappingInstruction {
-            compartment: Compartment,
-            instance_id: Option<InstanceId>,
+            compartment: CompartmentKind,
+            instance_id: Option<UnitId>,
             mapping_id: MappingId,
             modification: MappingModification,
             value: ControlValue,
@@ -99,7 +99,7 @@ impl RealearnTarget for ModifyMappingTarget {
                 if let Some(instance_id) = self.instance_id {
                     if let Some(session) = context
                         .control_context
-                        .instance_container
+                        .unit_container
                         .find_session_by_instance_id(instance_id)
                     {
                         let session = Rc::downgrade(&session);
@@ -121,14 +121,14 @@ impl RealearnTarget for ModifyMappingTarget {
             } => {
                 let session = context
                     .control_context
-                    .instance_container
+                    .unit_container
                     .find_session_by_id(session_id)
-                    .ok_or("other ReaLearn instance not found")?;
+                    .ok_or("other ReaLearn unit not found")?;
                 let session = session.borrow();
                 let mapping_id = session
                     .find_mapping_id_by_key(self.compartment, mapping_key)
-                    .ok_or("mapping in other ReaLearn instance not found")?;
-                (Some(*session.instance_id()), mapping_id)
+                    .ok_or("mapping in other ReaLearn unit not found")?;
+                (Some(session.unit_id()), mapping_id)
             }
         };
         let instruction = ModifyMappingInstruction {
@@ -156,10 +156,10 @@ impl RealearnTarget for ModifyMappingTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match &self.modification {
             MappingModification::LearnTarget(_) => match evt {
-                CompoundChangeEvent::Instance(
-                    InstanceStateChanged::MappingWhichLearnsTargetChanged { .. },
-                ) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
-                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Instance { .. })
+                CompoundChangeEvent::Unit(UnitEvent::MappingWhichLearnsTargetChanged {
+                    ..
+                }) if matches!(&self.mapping_ref, MappingRef::OwnMapping { .. }) => (true, None),
+                CompoundChangeEvent::Additional(AdditionalFeedbackEvent::Unit { .. })
                     if matches!(&self.mapping_ref, MappingRef::ForeignMapping { .. }) =>
                 {
                     (true, None)
@@ -185,7 +185,7 @@ impl RealearnTarget for ModifyMappingTarget {
 }
 
 struct GetArgs<'a> {
-    instance_state: &'a InstanceState,
+    instance_state: &'a Unit,
     id: QualifiedMappingId,
 }
 
@@ -198,7 +198,7 @@ impl ModifyMappingTarget {
         match &self.mapping_ref {
             MappingRef::OwnMapping { mapping_id } => {
                 let args = GetArgs {
-                    instance_state: &context.instance_state.borrow(),
+                    instance_state: &context.unit.borrow(),
                     id: QualifiedMappingId::new(self.compartment, *mapping_id),
                 };
                 get(args)
@@ -207,11 +207,11 @@ impl ModifyMappingTarget {
                 session_id,
                 mapping_key,
             } => {
-                let session = context.instance_container.find_session_by_id(session_id)?;
+                let session = context.unit_container.find_session_by_id(session_id)?;
                 let session = session.borrow();
                 let mapping_id = session.find_mapping_id_by_key(self.compartment, mapping_key)?;
                 let args = GetArgs {
-                    instance_state: &session.instance_state().borrow(),
+                    instance_state: &session.unit().borrow(),
                     id: QualifiedMappingId::new(self.compartment, mapping_id),
                 };
                 get(args)
@@ -242,7 +242,8 @@ fn bool_to_current_value(on: bool) -> Option<AbsoluteValue> {
 }
 
 pub const LEARN_MAPPING_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Modify mapping",
+    section: TargetSection::ReaLearn,
+    name: "Modify mapping",
     short_name: "Modify mapping",
     supports_included_targets: true,
     ..DEFAULT_TARGET

@@ -3,17 +3,18 @@ use crate::provider_database::{
     DatabaseId, FIL_HAS_PREVIEW_TRUE, FIL_IS_FAVORITE_TRUE, FIL_IS_USER_PRESET_FALSE,
     FIL_IS_USER_PRESET_TRUE,
 };
-use crate::{FilterItem, Preset};
-use enum_iterator::IntoEnumIterator;
+use crate::{FilterItem, PotPreset};
 use enum_map::EnumMap;
 use enumset::EnumSet;
 use once_cell::sync::Lazy;
 use realearn_api::persistence::PotFilterKind;
+use std::collections::HashSet;
 
-use std::collections::{HashMap, HashSet};
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 
 /// An ID for uniquely identifying a preset along with its corresponding database.
 ///
@@ -160,7 +161,7 @@ impl<T> IntoIterator for GenericFilterItemCollections<T> {
 }
 
 impl<T: HasFilterItemId> GenericFilterItemCollections<T> {
-    pub fn narrow_down(&mut self, kind: PotFilterKind, includes: &HashSet<FilterItemId>) {
+    pub fn narrow_down(&mut self, kind: PotFilterKind, includes: &NonCryptoHashSet<FilterItemId>) {
         self.0[kind].retain(|item| includes.contains(&item.id()))
     }
 }
@@ -224,7 +225,7 @@ impl Filters {
 
     pub fn favorite_matches(
         &self,
-        favorites: &HashSet<InnerPresetId>,
+        favorites: &NonCryptoHashSet<InnerPresetId>,
         preset_id: InnerPresetId,
     ) -> bool {
         match self.get(PotFilterKind::IsFavorite) {
@@ -276,7 +277,7 @@ impl Filters {
     }
 
     pub fn clear_excluded_ones(&mut self, exclude_list: &PotFilterExcludes) {
-        for kind in PotFilterKind::into_enum_iter() {
+        for kind in PotFilterKind::iter() {
             if let Some(id) = self.0[kind] {
                 if exclude_list.contains(kind, id) {
                     self.0[kind] = None;
@@ -331,7 +332,7 @@ impl Filters {
 
 #[derive(Debug, Default)]
 pub struct PotFavorites {
-    favorites: HashMap<DatabaseId, HashSet<InnerPresetId>>,
+    favorites: NonCryptoHashMap<DatabaseId, NonCryptoHashSet<InnerPresetId>>,
 }
 
 impl PotFavorites {
@@ -352,15 +353,15 @@ impl PotFavorites {
         }
     }
 
-    pub fn db_favorites(&self, db_id: DatabaseId) -> &HashSet<InnerPresetId> {
-        static EMPTY_HASH_SET: Lazy<HashSet<InnerPresetId>> = Lazy::new(HashSet::new);
+    pub fn db_favorites(&self, db_id: DatabaseId) -> &NonCryptoHashSet<InnerPresetId> {
+        static EMPTY_HASH_SET: Lazy<NonCryptoHashSet<InnerPresetId>> = Lazy::new(HashSet::default);
         self.favorites.get(&db_id).unwrap_or(&EMPTY_HASH_SET)
     }
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct PotFilterExcludes {
-    exluded_items: EnumMap<PotFilterKind, HashSet<FilterItemId>>,
+    exluded_items: EnumMap<PotFilterKind, NonCryptoHashSet<FilterItemId>>,
 }
 
 impl PotFilterExcludes {
@@ -407,7 +408,7 @@ impl PotFilterExcludes {
 
 #[derive(Debug)]
 pub struct CurrentPreset {
-    pub preset: Preset,
+    pub preset: PotPreset,
     pub macro_param_banks: Vec<MacroParamBank>,
 }
 
@@ -510,7 +511,7 @@ pub enum PotFxParamId {
 }
 
 impl CurrentPreset {
-    pub fn preset(&self) -> &Preset {
+    pub fn preset(&self) -> &PotPreset {
         &self.preset
     }
 

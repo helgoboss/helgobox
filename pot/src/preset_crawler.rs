@@ -3,9 +3,9 @@ use crate::{
 };
 use base::enigo::EnigoMouse;
 use base::future_util::millis;
+use base::hash_util::NonCryptoIndexMap;
 use base::{blocking_lock_arc, file_util, hash_util};
 use base::{Mouse, MouseCursorPosition};
-use indexmap::IndexMap;
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;
@@ -19,7 +19,7 @@ pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;
 
 #[derive(Debug)]
 pub struct PresetCrawlingState {
-    crawled_presets: IndexMap<String, CrawledPreset>,
+    crawled_presets: NonCryptoIndexMap<String, CrawledPreset>,
     duplicate_preset_names: Vec<String>,
     same_preset_name_in_a_row: Option<String>,
     same_preset_name_in_a_row_attempts: u32,
@@ -75,7 +75,7 @@ impl PresetCrawlingState {
         self.total_bytes_crawled
     }
 
-    pub fn crawled_presets(&self) -> &IndexMap<String, CrawledPreset> {
+    pub fn crawled_presets(&self) -> &NonCryptoIndexMap<String, CrawledPreset> {
         &self.crawled_presets
     }
 

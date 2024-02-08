@@ -2,10 +2,10 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    get_effective_tracks, with_gang_behavior, Compartment, CompoundChangeEvent, ControlContext,
+    get_effective_tracks, with_gang_behavior, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackGangBehavior,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -162,7 +162,8 @@ impl<'a> Target<'a> for TrackVolumeTarget {
 }
 
 pub const TRACK_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Set volume",
+    section: TargetSection::Track,
+    name: "Set volume",
     short_name: "Track volume",
     supports_track: true,
     supports_gang_selected: true,

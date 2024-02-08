@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
-    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
+    DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
     SharedIndependentPanelManager, SharedMainState,
 };
 use realearn_api::persistence::Envelope;
@@ -15,16 +15,17 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+    Affected, SessionProp, SharedMapping, SharedUnitModel, UnitModel, WeakUnitModel,
 };
-use crate::domain::{Compartment, MappingId, MappingMatchedEvent, QualifiedMappingId};
+use crate::domain::{CompartmentKind, MappingId, MappingMatchedEvent, QualifiedMappingId};
+use crate::infrastructure::data::MappingModelData;
 use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
     position: Point<DialogUnits>,
-    session: WeakSession,
+    session: WeakUnitModel,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
@@ -33,7 +34,7 @@ pub struct MappingRowsPanel {
 
 impl MappingRowsPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakUnitModel,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
         position: Point<DialogUnits>,
@@ -48,7 +49,6 @@ impl MappingRowsPanel {
                         i,
                         panel_manager.clone(),
                         main_state.clone(),
-                        i == row_count - 1,
                     );
                     SharedView::new(panel)
                 })
@@ -61,7 +61,7 @@ impl MappingRowsPanel {
         }
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -113,7 +113,7 @@ impl MappingRowsPanel {
     }
 
     /// Doesn't switch compartment!
-    fn ensure_mapping_is_visible(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn ensure_mapping_is_visible(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         let index = match self.determine_index_of_mapping_in_list(compartment, mapping_id) {
             None => return,
             Some(i) => i,
@@ -146,7 +146,7 @@ impl MappingRowsPanel {
 
     fn determine_index_of_mapping_in_list(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_id: MappingId,
     ) -> Option<usize> {
         let shared_session = self.session();
@@ -156,7 +156,7 @@ impl MappingRowsPanel {
         mappings.position(|m| m.borrow().id() == mapping_id)
     }
 
-    pub fn edit_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
+    pub fn edit_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         if let Some(m) = self
             .session()
             .borrow()
@@ -170,7 +170,7 @@ impl MappingRowsPanel {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn active_compartment(&self) -> Compartment {
+    fn active_compartment(&self) -> CompartmentKind {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -318,9 +318,9 @@ impl MappingRowsPanel {
     }
 
     pub fn filtered_mappings<'a>(
-        session: &'a Session,
+        session: &'a UnitModel,
         main_state: &'a MainState,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         ignore_group: bool,
     ) -> impl Iterator<Item = &'a SharedMapping> {
         let filter_is_active = main_state.filter_and_displayed_group_is_active();
@@ -368,7 +368,7 @@ impl MappingRowsPanel {
     }
 
     fn mapping_matches_filter(
-        session: &Session,
+        session: &UnitModel,
         main_state: &MainState,
         mapping: &SharedMapping,
         ignore_group: bool,
@@ -414,9 +414,9 @@ impl MappingRowsPanel {
 
     fn invalidate_empty_group_controls(
         &self,
-        session: &Session,
+        session: &UnitModel,
         main_state: &MainState,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         displayed_mapping_count: usize,
     ) {
         let (label_text, button_text) = if displayed_mapping_count == 0 {
@@ -452,9 +452,9 @@ impl MappingRowsPanel {
 
     fn determine_empty_mapping_list_case(
         &self,
-        session: &Session,
+        session: &UnitModel,
         main_state: &MainState,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> EmptyMappingListCase {
         if session.mapping_count(compartment) == 0 {
             EmptyMappingListCase::CompartmentEmpty
@@ -533,17 +533,16 @@ impl MappingRowsPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        #[derive(Default)]
+        enum MenuAction {
+            #[default]
+            None,
+            PasteMappings(Vec<MappingModelData>),
+        }
         let pure_menu = {
             use swell_ui::menu_tree::*;
-            let shared_session = self.session();
             let data_object_from_clipboard = get_text_from_clipboard()
                 .and_then(|text| deserialize_data_object_from_json(&text).ok());
-            let main_state = self.main_state.borrow();
-            let group_id = main_state
-                .displayed_group_for_active_compartment()
-                .map(|f| f.group_id())
-                .unwrap_or_default();
-            let compartment = main_state.active_compartment.get();
             let entries = vec![{
                 let desc = match data_object_from_clipboard {
                     Some(DataObject::Mapping(Envelope { value: m, .. })) => Some((
@@ -556,25 +555,37 @@ impl MappingRowsPanel {
                     _ => None,
                 };
                 if let Some((label, datas)) = desc {
-                    item(label, move || {
-                        let _ = paste_mappings(
-                            Envelope::new(None, datas),
-                            shared_session,
-                            compartment,
-                            None,
-                            group_id,
-                        );
-                    })
+                    item(label, MenuAction::PasteMappings(datas))
                 } else {
                     disabled_item("Paste")
                 }
             }];
             root_menu(entries)
         };
-        self.view
+        let menu_action = self
+            .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
+        match menu_action {
+            MenuAction::None => {}
+            MenuAction::PasteMappings(datas) => {
+                let shared_session = self.session();
+                let main_state = self.main_state.borrow();
+                let group_id = main_state
+                    .displayed_group_for_active_compartment()
+                    .map(|f| f.group_id())
+                    .unwrap_or_default();
+                let compartment = main_state.active_compartment.get();
+                let _ = paste_mappings(
+                    Envelope::new(None, datas),
+                    shared_session,
+                    compartment,
+                    None,
+                    group_id,
+                );
+            }
+        }
         Ok(())
     }
 
@@ -621,7 +632,7 @@ impl View for MappingRowsPanel {
     }
 
     #[allow(unused_variables)]
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn on_destroy(self: SharedView<Self>, window: Window) {
         #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()
@@ -654,14 +665,6 @@ impl View for MappingRowsPanel {
         let new_scroll_pos = self.scroll_pos(code).expect("impossible");
         self.scroll(new_scroll_pos);
         true
-    }
-
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
-        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
-    }
-
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {

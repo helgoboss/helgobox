@@ -36,7 +36,7 @@ pub fn convert_source(
     };
     use SourceCategory::*;
     let source = match data.category {
-        Never => persistence::Source::NoneSource,
+        Never => persistence::Source::None,
         Midi => {
             use MidiSourceType::*;
             match data.r#type {
@@ -113,10 +113,7 @@ pub fn convert_source(
                     };
                     persistence::Source::MidiPolyphonicKeyPressureAmount(s)
                 }
-                ClockTempo => {
-                    let s = persistence::MidiClockTempoSource;
-                    persistence::Source::MidiClockTempo(s)
-                }
+                ClockTempo => persistence::Source::MidiClockTempo,
                 ClockTransport => {
                     let s = persistence::MidiClockTransportSource {
                         message: convert_transport_msg(data.message),
@@ -210,8 +207,7 @@ pub fn convert_source(
                             persistence::Source::SiniConE24Display(s)
                         }
                         LaunchpadProScrollingText => {
-                            let s = persistence::LaunchpadProScrollingTextDisplaySource;
-                            persistence::Source::LaunchpadProScrollingTextDisplay(s)
+                            persistence::Source::LaunchpadProScrollingTextDisplay
                         }
                     }
                 }
@@ -238,12 +234,8 @@ pub fn convert_source(
         Reaper => {
             use ReaperSourceType::*;
             match data.reaper_source_type {
-                MidiDeviceChanges => {
-                    persistence::Source::MidiDeviceChanges(persistence::MidiDeviceChangesSource)
-                }
-                RealearnInstanceStart => persistence::Source::RealearnInstanceStart(
-                    persistence::RealearnInstanceStartSource,
-                ),
+                MidiDeviceChanges => persistence::Source::MidiDeviceChanges,
+                RealearnUnitStart => persistence::Source::RealearnInstanceStart,
                 Timer => persistence::Source::Timer(persistence::TimerSource {
                     duration: data.timer_millis,
                 }),
@@ -252,7 +244,7 @@ pub fn convert_source(
                         parameter_index: data.parameter_index.get(),
                     })
                 }
-                Speech => persistence::Source::Speech(persistence::SpeechSource {}),
+                Speech => persistence::Source::Speech,
             }
         }
         Virtual => {

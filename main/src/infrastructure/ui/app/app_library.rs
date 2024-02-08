@@ -1,16 +1,16 @@
-use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::services::playtime_service::AppMatrixProvider;
+use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::proto;
+use crate::infrastructure::proto::{
+    create_initial_global_updates, create_initial_instance_updates, event_reply, query_result,
+    reply, request, EventReply, ProtoRequestHandler, QueryReply, QueryResult, Reply, Request,
+};
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
+
+#[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
-use playtime_clip_engine::proto;
-use playtime_clip_engine::proto::{
-    create_initial_clip_updates, create_initial_matrix_updates, create_initial_slot_updates,
-    create_initial_track_updates, event_reply, query_result, reply, request,
-    ClipEngineRequestHandler, EventReply, MatrixProvider, QueryReply, QueryResult, Reply, Request,
-};
 use prost::Message;
 use reaper_high::Reaper;
 use reaper_low::raw::HWND;
@@ -113,7 +113,7 @@ impl AppLibrary {
     pub fn start_app_instance(
         &self,
         parent_window: Option<Window>,
-        session_id: String,
+        instance_id: String,
     ) -> Result<AppHandle> {
         let app_base_dir_str = self
             .app_base_dir
@@ -121,8 +121,8 @@ impl AppLibrary {
             .ok_or(anyhow!("app base dir is not an UTF-8 string"))?;
         let app_base_dir_c_string = CString::new(app_base_dir_str)
             .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
-        let session_id_c_string =
-            CString::new(session_id).map_err(|_| anyhow!("session ID contains a nul byte"))?;
+        let instance_id_c_string =
+            CString::new(instance_id).map_err(|_| anyhow!("instance ID contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
             let app_handle = unsafe {
@@ -134,7 +134,7 @@ impl AppLibrary {
                     parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
-                    session_id_c_string.as_ptr(),
+                    instance_id_c_string.as_ptr(),
                     Reaper::get().main_window().as_ptr(),
                 )
             };
@@ -218,7 +218,7 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
         return;
     };
     // Process request
-    if let Err(error) = process_request(request.matrix_id, request_value) {
+    if let Err(error) = process_request(request.instance_id, request_value) {
         tracing::error!(msg = "error in synchronous phase of request processing", %error);
     }
 }
@@ -231,7 +231,7 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
 /// # Errors
 ///
 /// Returns an error if something in the synchronous part of the request processing went wrong.
-fn process_request(matrix_id: String, request_value: request::Value) -> Result<()> {
+fn process_request(instance_id: String, request_value: request::Value) -> Result<()> {
     use proto::request::Value;
     match request_value {
         // It's a command (fire-and-forget)
@@ -239,7 +239,7 @@ fn process_request(matrix_id: String, request_value: request::Value) -> Result<(
             let command_request_value = command_request
                 .value
                 .context("incoming app command request didn't have value")?;
-            process_command_request(matrix_id, command_request_value)
+            process_command_request(instance_id, command_request_value)
                 .context("processing command request")?;
             Ok(())
         }
@@ -250,7 +250,7 @@ fn process_request(matrix_id: String, request_value: request::Value) -> Result<(
                 .context("incoming app query request didn't have query")?
                 .value
                 .context("incoming app query didn't have value")?;
-            process_query_request(matrix_id, query_request.id, query_request_value)
+            process_query_request(instance_id, query_request.id, query_request_value)
                 .context("processing query request")?;
             Ok(())
         }
@@ -349,18 +349,21 @@ fn prepare_app_start() {
 /// # Errors
 ///
 /// Returns an error if the main thread task queue is full.
-fn process_command_request(matrix_id: String, value: proto::command_request::Value) -> Result<()> {
+fn process_command_request(
+    instance_id: String,
+    value: proto::command_request::Value,
+) -> Result<()> {
     // We need to execute commands on the main thread!
     Global::task_support().do_in_main_thread_asap(move || {
         // Execute command
-        let result = process_command(value);
+        let result = process_command(&instance_id, value);
         // Handle possible error
         if let Err(status) = result {
             // Log error
             tracing::error!(msg = "error in asynchronous phase of command request processing", %status);
             // Send it to the app as notification
             let _ = send_to_app(
-                &matrix_id,
+                &instance_id,
                 reply::Value::EventReply(EventReply {
                     value: Some(event_reply::Value::ErrorMessage(status.message().to_string())),
                 }),
@@ -370,36 +373,36 @@ fn process_command_request(matrix_id: String, value: proto::command_request::Val
     Ok(())
 }
 
-fn process_query_request(matrix_id: String, id: u32, query: proto::query::Value) -> Result<()> {
+fn process_query_request(instance_id: String, id: u32, query: proto::query::Value) -> Result<()> {
     use proto::query::Value::*;
-    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
+    let handler = ProtoRequestHandler;
     match query {
         ProveAuthenticity(req) => {
-            send_query_reply_to_app(matrix_id, id, async move {
+            send_query_reply_to_app(instance_id, id, async move {
                 let value = handler.prove_authenticity(req).await?.into_inner();
                 Ok(query_result::Value::ProveAuthenticityReply(value))
             });
         }
         GetClipDetail(req) => {
-            send_query_reply_to_app(matrix_id, id, async move {
+            send_query_reply_to_app(instance_id, id, async move {
                 let value = handler.get_clip_detail(req).await?.into_inner();
                 Ok(query_result::Value::GetClipDetailReply(value))
             });
         }
         GetProjectDir(req) => {
-            send_query_reply_to_app(matrix_id, id, async move {
+            send_query_reply_to_app(instance_id, id, async move {
                 let value = handler.get_project_dir(req).await?.into_inner();
                 Ok(query_result::Value::GetProjectDirReply(value))
             });
         }
         GetHostInfo(req) => {
-            send_query_reply_to_app(matrix_id, id, async move {
+            send_query_reply_to_app(instance_id, id, async move {
                 let value = handler.get_host_info(req).await?.into_inner();
                 Ok(query_result::Value::GetHostInfoReply(value))
             });
         }
         GetArrangementInfo(req) => {
-            send_query_reply_to_app(matrix_id, id, async move {
+            send_query_reply_to_app(instance_id, id, async move {
                 let value = handler.get_arrangement_info(req).await?.into_inner();
                 Ok(query_result::Value::GetArrangementInfoReply(value))
             });
@@ -408,9 +411,11 @@ fn process_query_request(matrix_id: String, id: u32, query: proto::query::Value)
     Ok(())
 }
 
-fn process_command(req: proto::command_request::Value) -> std::result::Result<(), Status> {
-    // TODO-low This should be a more generic command handler in future (not just clip engine)
-    let handler = ClipEngineRequestHandler::new(AppMatrixProvider);
+fn process_command(
+    instance_id: &str,
+    req: proto::command_request::Value,
+) -> std::result::Result<(), Status> {
+    let handler = ProtoRequestHandler;
     use proto::command_request::Value::*;
     match req {
         // Embedding
@@ -423,27 +428,91 @@ fn process_command(req: proto::command_request::Value) -> std::result::Result<()
                 .borrow_mut()
                 .notify_app_is_ready(app_callback);
         }
-        TriggerApp(_) => {
-            unimplemented!()
-        }
         // Event subscription commands
-        GetOccasionalMatrixUpdates(req) => {
-            send_initial_events_to_app(&req.matrix_id, create_initial_matrix_updates)
+        GetOccasionalGlobalUpdates(_) => {
+            send_initial_events_to_app(instance_id, create_initial_global_updates)
                 .map_err(to_status)?;
+        }
+        GetOccasionalInstanceUpdates(req) => {
+            send_initial_events_to_app(instance_id, || {
+                let instance_shell = BackboneShell::get()
+                    .find_instance_shell_by_instance_id_str(&req.instance_id)
+                    .unwrap();
+                create_initial_instance_updates(&instance_shell)
+            })
+            .map_err(to_status)?;
+        }
+        GetOccasionalMatrixUpdates(req) => {
+            #[cfg(not(feature = "playtime"))]
+            {
+                let _ = req;
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_matrix_updates,
+                )
+                .map_err(to_status)?;
+            }
         }
         GetOccasionalTrackUpdates(req) => {
-            send_initial_events_to_app(&req.matrix_id, create_initial_track_updates)
+            #[cfg(not(feature = "playtime"))]
+            {
+                let _ = req;
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_track_updates,
+                )
                 .map_err(to_status)?;
+            }
         }
         GetOccasionalSlotUpdates(req) => {
-            send_initial_events_to_app(&req.matrix_id, create_initial_slot_updates)
+            #[cfg(not(feature = "playtime"))]
+            {
+                let _ = req;
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_slot_updates,
+                )
                 .map_err(to_status)?;
+            }
         }
         GetOccasionalClipUpdates(req) => {
-            send_initial_events_to_app(&req.matrix_id, create_initial_clip_updates)
+            #[cfg(not(feature = "playtime"))]
+            {
+                let _ = req;
+                return playtime_not_available();
+            }
+            #[cfg(feature = "playtime")]
+            {
+                send_initial_matrix_events_to_app(
+                    instance_id,
+                    &req.matrix_id,
+                    proto::create_initial_clip_updates,
+                )
                 .map_err(to_status)?;
+            }
         }
         // Normal commands
+        SaveController(req) => {
+            handler.save_controller(req)?;
+        }
+        DeleteController(req) => {
+            handler.delete_controller(req)?;
+        }
         TriggerMatrix(req) => {
             handler.trigger_matrix(req)?;
         }
@@ -534,27 +603,46 @@ fn process_command(req: proto::command_request::Value) -> std::result::Result<()
         SetSequenceInfo(req) => {
             handler.set_sequence_info(req)?;
         }
+        SetInstanceSettings(req) => {
+            handler.set_instance_settings(req)?;
+        }
     }
     Ok(())
 }
 
 fn send_initial_events_to_app<T: Into<event_reply::Value>>(
+    instance_id: &str,
+    create_reply: impl FnOnce() -> T + Copy,
+) -> Result<()> {
+    let reply = create_reply().into();
+    send_event_reply_to_app(instance_id, reply)
+}
+
+/// The matrix ID should actually always be the same as the instance ID. We use different
+/// parameters because one is for identifying the matrix and the other one the destination app
+/// instance. In practice, there's a one-to-one relationship between
+/// Helgobox instance <=> Matrix instance <=> App instance.
+#[cfg(feature = "playtime")]
+fn send_initial_matrix_events_to_app<T: Into<event_reply::Value>>(
+    instance_id: &str,
     matrix_id: &str,
     create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
 ) -> Result<()> {
-    let event_reply_value = AppMatrixProvider
-        .with_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
+    let reply = BackboneShell::get()
+        .with_clip_matrix(matrix_id, |matrix| create_reply(Some(matrix)).into())
         .unwrap_or_else(|_| create_reply(None).into());
+    send_event_reply_to_app(instance_id, reply)
+}
+
+fn send_event_reply_to_app(instance_id: &str, value: event_reply::Value) -> Result<()> {
     send_to_app(
-        matrix_id,
-        reply::Value::EventReply(EventReply {
-            value: Some(event_reply_value),
-        }),
+        instance_id,
+        reply::Value::EventReply(EventReply { value: Some(value) }),
     )
 }
 
 fn send_query_reply_to_app(
-    matrix_id: String,
+    instance_id: String,
     id: u32,
     future: impl Future<Output = Result<query_result::Value, Status>> + Send + 'static,
 ) {
@@ -569,13 +657,13 @@ fn send_query_reply_to_app(
                 value: Some(query_result_value),
             }),
         });
-        send_to_app(&matrix_id, reply_value)?;
+        send_to_app(&instance_id, reply_value)?;
         Ok(())
     });
 }
 
-fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
-    let app_instance = find_app_instance(session_id)?;
+fn send_to_app(instance_id: &str, reply_value: reply::Value) -> Result<()> {
+    let app_instance = find_app_instance(instance_id)?;
     let reply = Reply {
         value: Some(reply_value),
     };
@@ -583,11 +671,11 @@ fn send_to_app(session_id: &str, reply_value: reply::Value) -> Result<()> {
     Ok(())
 }
 
-fn find_app_instance(session_id: &str) -> Result<SharedAppInstance> {
-    App::get()
-        .find_main_panel_by_session_id(session_id)
-        .context("instance not found")?
-        .app_instance()
+fn find_app_instance(instance_id: &str) -> Result<SharedAppInstance> {
+    let instance_panel = BackboneShell::get()
+        .find_instance_panel_by_instance_id(instance_id.parse()?)
+        .ok_or_else(|| anyhow!("Helgobox instance {instance_id} not found"))?;
+    Ok(instance_panel.app_instance().clone())
 }
 
 fn to_status(err: anyhow::Error) -> Status {
@@ -597,3 +685,8 @@ fn to_status(err: anyhow::Error) -> Status {
 /// The minimum version of the app API that the host (ReaLearn) requires to properly
 /// communicates with it. Keep this up-to-date!
 pub const MIN_APP_API_VERSION: Version = Version::new(1, 0, 0);
+
+#[cfg(not(feature = "playtime"))]
+fn playtime_not_available() -> Result<(), Status> {
+    Err(Status::not_found("Playtime feature not available"))
+}

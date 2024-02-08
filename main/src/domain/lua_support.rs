@@ -1,4 +1,5 @@
-use mlua::{ChunkMode, Function, HookTriggers, Lua, Table, Value};
+use anyhow::anyhow;
+use mlua::{ChunkMode, Function, Lua, Table, Value, VmState};
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -8,7 +9,7 @@ pub struct SafeLua(Lua);
 
 impl SafeLua {
     /// Creates the Lua state.
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         let lua = Lua::new();
         // TODO-medium Maybe we can avoid having to build the safe Lua environment for each
         //  compilation/create-fresh-env step by doing something like the following.
@@ -38,12 +39,12 @@ impl SafeLua {
         name: &str,
         code: &str,
         env: Table<'a>,
-    ) -> Result<Function<'a>, Box<dyn Error>> {
+    ) -> anyhow::Result<Function<'a>> {
         let chunk = self
             .0
             .load(code)
-            .set_name(name)?
-            .set_environment(env)?
+            .set_name(name)
+            .set_environment(env)
             .set_mode(ChunkMode::Text);
         let function = chunk.into_function()?;
         Ok(function)
@@ -55,55 +56,63 @@ impl SafeLua {
         name: &str,
         code: &str,
         env: Table<'a>,
-    ) -> Result<Value<'a>, Box<dyn Error>> {
-        let lua_chunk = self
-            .0
-            .load(code)
-            .set_name(name)?
-            .set_mode(ChunkMode::Text)
-            .set_environment(env)?;
-        let value = lua_chunk.eval().map_err(|e| match e {
-            // Box the cause if it's a callback error (used for the execution time limit feature).
-            mlua::Error::CallbackError { cause, .. } => {
-                let boxed: Box<dyn Error> = Box::new(cause);
-                boxed
-            }
-            e => Box::new(e),
-        })?;
-        Ok(value)
+    ) -> anyhow::Result<Value<'a>> {
+        compile_and_execute(&self.0, name, code, env)
     }
 
     /// Creates a fresh environment for this Lua state.
     ///
     /// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
     /// fresh Lua state for each execution.
-    pub fn create_fresh_environment(
-        &self,
-        allow_side_effects: bool,
-    ) -> Result<Table, Box<dyn Error>> {
-        build_safe_lua_env(&self.0, self.0.globals(), allow_side_effects)
+    pub fn create_fresh_environment(&self, allow_side_effects: bool) -> anyhow::Result<Table> {
+        create_fresh_environment(&self.0, allow_side_effects)
     }
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
-    pub fn start_execution_time_limit_countdown(
-        self,
-        max_duration: Duration,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn start_execution_time_limit_countdown(self) -> anyhow::Result<Self> {
+        const MAX_DURATION: Duration = Duration::from_millis(200);
         let instant = Instant::now();
-        self.0.set_hook(
-            HookTriggers::every_nth_instruction(10),
-            move |_lua, _debug| {
-                if instant.elapsed() > max_duration {
-                    Err(mlua::Error::ExternalError(Arc::new(
-                        RealearnScriptError::Timeout,
-                    )))
-                } else {
-                    Ok(())
-                }
-            },
-        )?;
+        self.0.set_interrupt(move |_lua| {
+            if instant.elapsed() > MAX_DURATION {
+                Err(mlua::Error::ExternalError(Arc::new(
+                    RealearnScriptError::Timeout,
+                )))
+            } else {
+                Ok(VmState::Continue)
+            }
+        });
         Ok(self)
     }
+}
+
+/// Creates a fresh environment for this Lua state.
+///
+/// Setting `allow_side_effects` unlocks a few more vars, but only use that if you boot up a
+/// fresh Lua state for each execution.
+pub fn create_fresh_environment(lua: &Lua, allow_side_effects: bool) -> anyhow::Result<Table> {
+    build_safe_lua_env(lua, lua.globals(), allow_side_effects)
+}
+
+/// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
+pub fn compile_and_execute<'a>(
+    lua: &'a Lua,
+    name: &str,
+    code: &str,
+    env: Table<'a>,
+) -> anyhow::Result<Value<'a>> {
+    let lua_chunk = lua
+        .load(code)
+        .set_name(name)
+        .set_mode(ChunkMode::Text)
+        .set_environment(env);
+    let value = lua_chunk.eval().map_err(|e| match e {
+        // Box the cause if it's a callback error (used for the execution time limit feature).
+        mlua::Error::CallbackError { cause, .. } => {
+            anyhow!(cause)
+        }
+        e => anyhow!(e),
+    })?;
+    Ok(value)
 }
 
 impl AsRef<Lua> for SafeLua {
@@ -129,7 +138,7 @@ fn build_safe_lua_env<'a>(
     lua: &'a Lua,
     original_env: Table,
     allow_side_effects: bool,
-) -> Result<Table<'a>, Box<dyn Error>> {
+) -> anyhow::Result<Table<'a>> {
     let safe_env = lua.create_table()?;
     for var in SAFE_LUA_VARS {
         copy_var_to_table(lua, &safe_env, &original_env, var)?;
@@ -147,7 +156,7 @@ fn copy_var_to_table(
     dest_table: &Table,
     src_table: &Table,
     var: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> anyhow::Result<()> {
     if let Some(dot_index) = var.find('.') {
         // Nested variable
         let parent_var = &var[0..dot_index];
@@ -201,6 +210,8 @@ const SAFE_LUA_VARS: &[&str] = &[
     "string.reverse",
     "string.sub",
     "string.upper",
+    // "table.clone" is available in Luau only
+    "table.clone",
     "table.insert",
     "table.maxn",
     "table.remove",
@@ -237,6 +248,19 @@ const SAFE_LUA_VARS: &[&str] = &[
     "os.clock",
     "os.difftime",
     "os.time",
+    // bit32 (Lua 5.2 & Luau intersection)
+    "bit32.arshift",
+    "bit32.band",
+    "bit32.bnot",
+    "bit32.bor",
+    "bit32.btest",
+    "bit32.bxor",
+    "bit32.extract",
+    "bit32.lrotate",
+    "bit32.lshift",
+    "bit32.replace",
+    "bit32.rrotate",
+    "bit32.rshift",
 ];
 
 /// An extended set of Lua vars that can be considered safe under certain circumstances.

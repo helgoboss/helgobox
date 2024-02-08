@@ -1,8 +1,8 @@
 use crate::domain::{
     get_effective_tracks, get_track_name, percentage_for_scoped_track_within_project,
-    ChangeInstanceTrackArgs, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    ChangeInstanceTrackArgs, CompartmentKind, ControlContext, ExtendedProcessorContext,
+    HitResponse, InstanceTrackChangeRequest, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let tracks = get_effective_tracks(context, &self.track_descriptor.track, compartment)
             .and_then(|tracks| {
@@ -43,7 +43,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
                 })
                 .collect(),
             Err(e) => {
-                if self.action == TrackToolAction::SetAsInstanceTrack {
+                if self.action == TrackToolAction::SetAsUnitTrack {
                     // If we just want to *set* the (unresolved) track as instance track, we
                     // don't need a resolved target.
                     let target = ReaperTarget::TrackTool(TrackToolTarget {
@@ -122,10 +122,10 @@ impl RealearnTarget for TrackToolTarget {
         }
         let request = match self.action {
             TrackToolAction::DoNothing => return Ok(HitResponse::ignored()),
-            TrackToolAction::SetAsInstanceTrack => InstanceTrackChangeRequest::SetFromMapping(
+            TrackToolAction::SetAsUnitTrack => InstanceTrackChangeRequest::SetFromMapping(
                 context.mapping_data.qualified_mapping_id(),
             ),
-            TrackToolAction::PinAsInstanceTrack => {
+            TrackToolAction::PinAsUnitTrack => {
                 let track = self.track.as_ref().ok_or("track could not be resolved")?;
                 let guid = if track.is_master_track() {
                     None
@@ -143,7 +143,7 @@ impl RealearnTarget for TrackToolTarget {
         };
         context
             .control_context
-            .instance_container
+            .unit_container
             .change_instance_track(args)?;
         Ok(HitResponse::processed_with_effect())
     }
@@ -167,7 +167,7 @@ impl<'a> Target<'a> for TrackToolTarget {
                 );
                 Some(percentage)
             }
-            TrackToolAction::SetAsInstanceTrack | TrackToolAction::PinAsInstanceTrack => {
+            TrackToolAction::SetAsUnitTrack | TrackToolAction::PinAsUnitTrack => {
                 // In future, we might support feedback here.
                 None
             }
@@ -180,6 +180,7 @@ impl<'a> Target<'a> for TrackToolTarget {
 }
 
 pub const TRACK_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Track,
     name: "Track",
     short_name: "Track",
     supports_track: true,

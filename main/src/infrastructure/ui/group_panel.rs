@@ -1,5 +1,5 @@
 use crate::application::{
-    Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession,
+    Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakUnitModel,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::MAPPING_PANEL_SCALING;
@@ -14,12 +14,12 @@ pub struct GroupPanel {
 }
 
 impl GroupPanel {
-    pub fn new(session: WeakSession, group: WeakGroup) -> GroupPanel {
+    pub fn new(session: WeakUnitModel, group: WeakGroup) -> GroupPanel {
         GroupPanel {
             view: Default::default(),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(7), DialogUnits(5)).scale(MAPPING_PANEL_SCALING),
+                Point::new(DialogUnits(7), DialogUnits(5)).scale(&MAPPING_PANEL_SCALING),
                 Some(group),
             )),
         }

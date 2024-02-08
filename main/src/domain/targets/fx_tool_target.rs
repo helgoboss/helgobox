@@ -1,7 +1,7 @@
 use crate::domain::{
-    get_fx_name, ChangeInstanceFxArgs, Compartment, ControlContext, ExtendedProcessorContext,
+    get_fx_name, ChangeInstanceFxArgs, CompartmentKind, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceFxChangeRequest, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target};
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fxs = self
             .fx_descriptor
@@ -44,7 +44,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxToolTarget {
                 })
                 .collect(),
             Err(e) => {
-                if self.action == FxToolAction::SetAsInstanceFx {
+                if self.action == FxToolAction::SetAsUnitFx {
                     // If we just want to *set* the (unresolved) FX as instance FX, we
                     // don't need a resolved target.
                     let target = ReaperTarget::FxTool(FxToolTarget {
@@ -124,10 +124,10 @@ impl RealearnTarget for FxToolTarget {
         }
         let request = match self.action {
             FxToolAction::DoNothing => return Ok(HitResponse::ignored()),
-            FxToolAction::SetAsInstanceFx => {
+            FxToolAction::SetAsUnitFx => {
                 InstanceFxChangeRequest::SetFromMapping(context.mapping_data.qualified_mapping_id())
             }
-            FxToolAction::PinAsInstanceFx => {
+            FxToolAction::PinAsUnitFx => {
                 let fx = self.fx.as_ref().ok_or("FX could not be resolved")?;
                 InstanceFxChangeRequest::Pin {
                     track_guid: fx.track().and_then(|t| {
@@ -150,7 +150,7 @@ impl RealearnTarget for FxToolTarget {
         };
         context
             .control_context
-            .instance_container
+            .unit_container
             .change_instance_fx(args)?;
         Ok(HitResponse::processed_with_effect())
     }
@@ -170,7 +170,7 @@ impl<'a> Target<'a> for FxToolTarget {
                 let fx_index = fx.index();
                 percentage_for_fx_within_chain(fx.chain(), fx_index)
             }
-            FxToolAction::SetAsInstanceFx | FxToolAction::PinAsInstanceFx => {
+            FxToolAction::SetAsUnitFx | FxToolAction::PinAsUnitFx => {
                 // In future, we might support feedback here.
                 None
             }
@@ -183,6 +183,7 @@ impl<'a> Target<'a> for FxToolTarget {
 }
 
 pub const FX_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    section: TargetSection::Fx,
     name: "FX",
     short_name: "FX",
     supports_fx: true,

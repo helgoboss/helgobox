@@ -1,33 +1,36 @@
 use crate::application::{
-    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, Session, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
-    WeakSession,
+    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, SessionProp,
+    SharedMapping, SharedUnitModel, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
+    UnitModel, WeakUnitModel,
 };
 use crate::base::when;
-use crate::domain::{Compartment, GroupId, GroupKey, MappingId, QualifiedMappingId};
+use crate::domain::{CompartmentKind, GroupId, GroupKey, MappingId, QualifiedMappingId};
 
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
     ActivationConditionData, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
-use crate::infrastructure::ui::util::{mapping_row_panel_height, symbols};
+use crate::infrastructure::ui::util::{
+    colors, mapping_row_panel_height, symbols, view, GLOBAL_SCALING,
+};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
+    get_text_from_clipboard, serialize_data_object, DataObject, IndependentPanelManager,
     SerializationFormat, SharedMainState,
 };
 use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
-use reaper_low::raw;
+use reaper_medium::Hbrush;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
@@ -35,7 +38,7 @@ use std::error::Error;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DeviceContext, DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -43,10 +46,12 @@ pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 #[derive(Debug)]
 pub struct MappingRowPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakUnitModel,
     main_state: SharedMainState,
+    mapping_color_panel: SharedView<ColorPanel>,
+    source_color_panel: SharedView<ColorPanel>,
+    target_color_panel: SharedView<ColorPanel>,
     row_index: u32,
-    is_last_row: bool,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
     // performance issues. That means there's a fixed number of mapping rows and they just
     // display different mappings depending on the current scroll position. If there are less
@@ -60,21 +65,22 @@ pub struct MappingRowPanel {
 
 impl MappingRowPanel {
     pub fn new(
-        session: WeakSession,
+        session: WeakUnitModel,
         row_index: u32,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
-        is_last_row: bool,
     ) -> MappingRowPanel {
         MappingRowPanel {
             view: Default::default(),
             session,
             main_state,
+            mapping_color_panel: SharedView::new(ColorPanel::new(build_mapping_color_panel_desc())),
+            source_color_panel: SharedView::new(ColorPanel::new(build_source_color_panel_desc())),
+            target_color_panel: SharedView::new(ColorPanel::new(build_target_color_panel_desc())),
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
             panel_manager,
-            is_last_row,
         }
     }
 
@@ -182,13 +188,6 @@ impl MappingRowPanel {
         self.invalidate_button_enabled_states();
     }
 
-    fn invalidate_divider(&self) {
-        self.view
-            .require_window()
-            .require_control(root::ID_MAPPING_ROW_DIVIDER)
-            .set_visible(!self.is_last_row);
-    }
-
     fn invalidate_name_labels(&self, mapping: &MappingModel) {
         let main_state = self.main_state.borrow();
         // Left label
@@ -231,7 +230,7 @@ impl MappingRowPanel {
             .set_text(right_label);
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -240,7 +239,7 @@ impl MappingRowPanel {
         let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
-            let controller_mappings = session.mappings(Compartment::Controller);
+            let controller_mappings = session.mappings(CompartmentKind::Controller);
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();
@@ -302,7 +301,7 @@ impl MappingRowPanel {
         let text = if self
             .session()
             .borrow()
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_learning_source(mapping.qualified_id())
         {
@@ -319,7 +318,7 @@ impl MappingRowPanel {
         let text = if self
             .session()
             .borrow()
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_learning_target(mapping.qualified_id())
         {
@@ -416,7 +415,7 @@ impl MappingRowPanel {
     fn register_listeners(self: &SharedView<Self>) {
         let session = self.session();
         let session = session.borrow();
-        let instance_state = session.instance_state().borrow();
+        let instance_state = session.unit().borrow();
         self.when(
             instance_state.mapping_which_learns_source().changed(),
             |view| {
@@ -499,7 +498,7 @@ impl MappingRowPanel {
         Ok(())
     }
 
-    fn active_compartment(&self) -> Compartment {
+    fn active_compartment(&self) -> CompartmentKind {
         self.main_state.borrow().active_compartment.get()
     }
 
@@ -565,7 +564,7 @@ impl MappingRowPanel {
     fn change_mapping(&self, cmd: MappingCommand) {
         let mapping = self.require_mapping();
         let mut mapping = mapping.borrow_mut();
-        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
+        UnitModel::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
@@ -575,14 +574,15 @@ impl MappingRowPanel {
     }
 
     fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         if !matches!(api_object, ApiObject::Mapping(Envelope { value: _, .. })) {
             return Err("There's more than one mapping in the clipboard.".into());
         }
         let data_object = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_object(api_object, &compartment_in_session)?
         };
         paste_data_object_in_place(data_object, self.session(), self.mapping_triple()?)?;
@@ -590,14 +590,15 @@ impl MappingRowPanel {
     }
 
     fn paste_from_lua_insert_below(&self, text: &str) -> Result<(), Box<dyn Error>> {
-        let api_object = deserialize_api_object_from_lua(text)?;
+        let active_compartment = self.active_compartment();
+        let api_object = deserialize_api_object_from_lua(text, active_compartment)?;
         let api_mappings = api_object
             .into_mappings()
             .ok_or("Can only insert a list of mappings.")?;
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = session.compartment_in_session(self.active_compartment());
+            let compartment_in_session = session.compartment_in_session(active_compartment);
             DataObject::try_from_api_mappings(api_mappings.value, &compartment_in_session)?
         };
         let triple = self.mapping_triple()?;
@@ -657,7 +658,7 @@ impl MappingRowPanel {
             let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
             let group_id = mapping.group_id();
             let entries = vec![
-                item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
+                item("Copy", MenuAction::CopyPart(ObjectType::Mapping)),
                 {
                     let desc = match data_object_from_clipboard {
                         Some(DataObject::Mapping(Envelope { value: m, version })) => Some((
@@ -685,7 +686,7 @@ impl MappingRowPanel {
                         _ => None,
                     };
                     if let Some((label, obj)) = desc {
-                        item(label, move || MenuAction::PasteObjectInPlace(obj))
+                        item(label, MenuAction::PasteObjectInPlace(obj))
                     } else {
                         disabled_item("Paste (replace)")
                     }
@@ -706,7 +707,7 @@ impl MappingRowPanel {
                         _ => None,
                     };
                     if let Some((label, datas)) = desc {
-                        item(label, move || MenuAction::PasteMappings(datas))
+                        item(label, MenuAction::PasteMappings(datas))
                     } else {
                         disabled_item("Paste (insert below)")
                     }
@@ -714,17 +715,18 @@ impl MappingRowPanel {
                 menu(
                     "Copy part",
                     vec![
-                        item("Copy activation condition", || {
-                            MenuAction::CopyPart(ObjectType::ActivationCondition)
-                        }),
-                        item("Copy source", || MenuAction::CopyPart(ObjectType::Source)),
-                        item("Copy glue", || MenuAction::CopyPart(ObjectType::Glue)),
-                        item("Copy target", || MenuAction::CopyPart(ObjectType::Target)),
+                        item(
+                            "Copy activation condition",
+                            MenuAction::CopyPart(ObjectType::ActivationCondition),
+                        ),
+                        item("Copy source", MenuAction::CopyPart(ObjectType::Source)),
+                        item("Copy glue", MenuAction::CopyPart(ObjectType::Glue)),
+                        item("Copy target", MenuAction::CopyPart(ObjectType::Target)),
                     ],
                 ),
                 menu(
                     "Move to group",
-                    iter::once(item("<New group>", || MenuAction::MoveMappingToGroup(None)))
+                    iter::once(item("<New group>", MenuAction::MoveMappingToGroup(None)))
                         .chain(session.groups_sorted(compartment).map(move |g| {
                             let g = g.borrow();
                             let g_id = g.id();
@@ -734,7 +736,7 @@ impl MappingRowPanel {
                                     enabled: group_id != g_id,
                                     checked: false,
                                 },
-                                move || MenuAction::MoveMappingToGroup(Some(g_id)),
+                                MenuAction::MoveMappingToGroup(Some(g_id)),
                             )
                         }))
                         .collect(),
@@ -742,19 +744,23 @@ impl MappingRowPanel {
                 menu(
                     "Advanced",
                     vec![
-                        item("Copy as Lua", || {
-                            MenuAction::CopyMappingAsLua(ConversionStyle::Minimal)
-                        }),
-                        item("Copy as Lua (include default values)", || {
-                            MenuAction::CopyMappingAsLua(ConversionStyle::IncludeDefaultValues)
-                        }),
+                        item(
+                            "Copy as Lua",
+                            MenuAction::CopyMappingAsLua(ConversionStyle::Minimal),
+                        ),
+                        item(
+                            "Copy as Lua (include default values)",
+                            MenuAction::CopyMappingAsLua(ConversionStyle::IncludeDefaultValues),
+                        ),
                         item_with_opts(
                             "Paste from Lua (replace)",
                             ItemOpts {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
+                            MenuAction::PasteFromLuaReplace(
+                                text_from_clipboard.unwrap_or_default(),
+                            ),
                         ),
                         item_with_opts(
                             "Paste from Lua (insert below)",
@@ -762,13 +768,11 @@ impl MappingRowPanel {
                                 enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
-                            move || {
-                                MenuAction::PasteFromLuaInsertBelow(
-                                    text_from_clipboard_clone.unwrap(),
-                                )
-                            },
+                            MenuAction::PasteFromLuaInsertBelow(
+                                text_from_clipboard_clone.unwrap_or_default(),
+                            ),
                         ),
-                        item("Log debug info (now)", || MenuAction::LogDebugInfo),
+                        item("Log debug info (now)", MenuAction::LogDebugInfo),
                     ],
                 ),
             ];
@@ -777,7 +781,7 @@ impl MappingRowPanel {
         let result = self
             .view
             .require_window()
-            .open_simple_popup_menu(pure_menu, location)
+            .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         let triple = self.mapping_triple()?;
         match result {
@@ -861,13 +865,56 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.hide();
+        if cfg!(unix) {
+            self.source_color_panel.clone().open(window);
+            self.target_color_panel.clone().open(window);
+            // Must be the last because we want it below the others
+            self.mapping_color_panel.clone().open(window);
+        }
         window.move_to_dialog_units(Point::new(
             DialogUnits(0),
             mapping_row_panel_height() * self.row_index,
         ));
         self.init_symbol_controls();
-        self.invalidate_divider();
         false
+    }
+
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        // Must be the first because we want it below the others
+        self.mapping_color_panel
+            .paint_manually(device_context, window);
+        self.source_color_panel
+            .paint_manually(device_context, window);
+        self.target_color_panel
+            .paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        device_context.set_bk_mode_to_transparent();
+        let color_pair = match window.resource_id() {
+            root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT => colors::source(),
+            root::ID_MAPPING_ROW_TARGET_LABEL_TEXT => colors::target(),
+            root::ID_MAPPING_ROW_MAPPING_LABEL | root::ID_MAPPING_ROW_GROUP_LABEL => {
+                colors::show_background()
+            }
+            _ => colors::mapping(),
+        };
+        view::get_brush_for_color_pair(color_pair)
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
@@ -894,14 +941,6 @@ impl View for MappingRowPanel {
         let _ = self.open_context_menu(location);
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
-        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
-    }
-
-    fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
-    }
-
     fn timer(&self, id: usize) -> bool {
         if id == SOURCE_MATCH_INDICATOR_TIMER_ID {
             self.view
@@ -922,8 +961,8 @@ impl Drop for MappingRowPanel {
 }
 
 fn move_mapping_to_group(
-    session: SharedSession,
-    compartment: Compartment,
+    session: SharedUnitModel,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     group_id: Option<GroupId>,
 ) -> Result<(), &'static str> {
@@ -941,8 +980,8 @@ fn move_mapping_to_group(
 }
 
 fn copy_mapping_object(
-    session: SharedSession,
-    compartment: Compartment,
+    session: SharedUnitModel,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     object_type: ObjectType,
     format: SerializationFormat,
@@ -955,25 +994,24 @@ fn copy_mapping_object(
     let mapping = mapping.borrow();
     let compartment_in_session = session.compartment_in_session(compartment);
     let data_object = match object_type {
-        Mapping => DataObject::Mapping(App::create_envelope(Box::new(
+        Mapping => DataObject::Mapping(BackboneShell::create_envelope(Box::new(
             MappingModelData::from_model(&mapping, &compartment_in_session),
         ))),
-        Source => DataObject::Source(App::create_envelope(Box::new(SourceModelData::from_model(
-            &mapping.source_model,
-        )))),
-        Glue => DataObject::Glue(App::create_envelope(Box::new(ModeModelData::from_model(
-            &mapping.mode_model,
-        )))),
-        Target => DataObject::Target(App::create_envelope(Box::new(TargetModelData::from_model(
-            &mapping.target_model,
-            &compartment_in_session,
-        )))),
-        ActivationCondition => DataObject::ActivationCondition(App::create_envelope(Box::new(
-            ActivationConditionData::from_model(
+        Source => DataObject::Source(BackboneShell::create_envelope(Box::new(
+            SourceModelData::from_model(&mapping.source_model),
+        ))),
+        Glue => DataObject::Glue(BackboneShell::create_envelope(Box::new(
+            ModeModelData::from_model(&mapping.mode_model),
+        ))),
+        Target => DataObject::Target(BackboneShell::create_envelope(Box::new(
+            TargetModelData::from_model(&mapping.target_model, &compartment_in_session),
+        ))),
+        ActivationCondition => DataObject::ActivationCondition(BackboneShell::create_envelope(
+            Box::new(ActivationConditionData::from_model(
                 &mapping.activation_condition_model,
                 &compartment_in_session,
-            ),
-        ))),
+            )),
+        )),
     };
     let text = serialize_data_object(data_object, format)?;
     copy_text_to_clipboard(text);
@@ -990,7 +1028,7 @@ enum ObjectType {
 
 fn paste_data_object_in_place(
     data_object: DataObject,
-    shared_session: SharedSession,
+    shared_session: SharedUnitModel,
     triple: MappingTriple,
 ) -> Result<(), &'static str> {
     let mut session = shared_session.borrow_mut();
@@ -998,7 +1036,7 @@ fn paste_data_object_in_place(
         .find_mapping_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?
         .clone();
-    App::warn_if_envelope_version_higher(data_object.version());
+    BackboneShell::warn_if_envelope_version_higher(data_object.version());
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope {
@@ -1059,8 +1097,8 @@ fn paste_data_object_in_place(
 #[allow(clippy::needless_collect)]
 pub fn paste_mappings(
     mapping_datas: Envelope<Vec<MappingModelData>>,
-    session: SharedSession,
-    compartment: Compartment,
+    session: SharedUnitModel,
+    compartment: CompartmentKind,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,
 ) -> Result<(), Box<dyn Error>> {
@@ -1105,7 +1143,42 @@ pub fn paste_mappings(
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
 
 struct MappingTriple {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     mapping_id: MappingId,
     group_id: GroupId,
 }
+
+fn build_mapping_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 0,
+        width: 460,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::mapping(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+fn build_source_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 43,
+        y: 0,
+        width: 94,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::source(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+fn build_target_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 161,
+        y: 0,
+        width: 182,
+        height: COLOR_PANEL_HEIGHT,
+        color_pair: colors::target(),
+        scaling: GLOBAL_SCALING,
+    }
+}
+
+const COLOR_PANEL_HEIGHT: u32 = 48;

@@ -2,20 +2,18 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    FiledBasedPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
-    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, Preset, PresetCommon,
-    PresetKind, SearchInput,
+    FiledBasedPotPresetKind, FilterInput, InnerBuildInput, InnerPresetId, PersistentDatabaseId,
+    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId, PotPreset, PotPresetCommon,
+    PotPresetKind, SearchInput,
 };
 use std::borrow::Cow;
 
 use crate::plugins::{PluginCore, PluginDatabase};
-use base::hash_util::{PersistentHash, PersistentHasher};
+use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, PersistentHasher};
 use either::Either;
 use enumset::{enum_set, EnumSet};
-use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
-use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -28,7 +26,7 @@ use walkdir::WalkDir;
 pub struct DirectoryDatabase {
     persistent_id: PersistentDatabaseId,
     root_dir: PathBuf,
-    valid_extensions: HashSet<&'static OsStr>,
+    valid_extensions: NonCryptoHashSet<&'static OsStr>,
     name: &'static str,
     description: &'static str,
     entries: Vec<PresetEntry>,
@@ -79,7 +77,7 @@ impl DirectoryDatabase {
 struct PresetEntry {
     preset_name: String,
     relative_path: String,
-    plugin_cores: IndexMap<PluginId, PluginCore>,
+    plugin_cores: NonCryptoIndexMap<PluginId, PluginCore>,
     content_hash: PersistentHash,
 }
 
@@ -167,10 +165,14 @@ impl Database for DirectoryDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        ctx: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
-        let preset = Preset {
-            common: PresetCommon {
+        let preset = PotPreset {
+            common: PotPresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
                     create_persistent_inner_id(preset_entry),
@@ -192,7 +194,7 @@ impl Database for DirectoryDatabase {
                 is_available: !preset_entry.plugin_cores.is_empty(),
                 metadata: Default::default(),
             },
-            kind: PresetKind::FileBased(FiledBasedPresetKind {
+            kind: PotPresetKind::FileBased(FiledBasedPotPresetKind {
                 file_ext: get_file_extension(&preset_entry.relative_path).to_string(),
                 path: self.root_dir.join(&preset_entry.relative_path),
             }),
@@ -203,7 +205,7 @@ impl Database for DirectoryDatabase {
 
 struct FileProcessingOutput {
     content_hash: PersistentHash,
-    used_plugins: IndexMap<PluginId, PluginCore>,
+    used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
 }
 
 /// Finds used plug-ins in a REAPER-XML-like text file (e.g. RPP, RfxChain, RTrackTemplate).
@@ -220,7 +222,7 @@ fn process_file(
     plugin_db: &PluginDatabase,
 ) -> Result<FileProcessingOutput, Box<dyn Error>> {
     let file = File::open(path)?;
-    let mut used_plugins = IndexMap::new();
+    let mut used_plugins = NonCryptoIndexMap::default();
     let mut buffer = String::new();
     let mut reader = BufReader::new(&file);
     let mut hasher = PersistentHasher::new();

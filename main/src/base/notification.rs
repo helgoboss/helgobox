@@ -15,6 +15,16 @@ pub fn notify_processing_result(heading: &str, msgs: Vec<String>) {
     Reaper::get().show_console_msg(msg);
 }
 
+pub fn warn_user_on_anyhow_error(result: anyhow::Result<()>) {
+    if let Err(e) = result {
+        warn_user_about_anyhow_error(e)
+    }
+}
+
+pub fn warn_user_about_anyhow_error(error: anyhow::Error) {
+    warn(format!("{error:#}"));
+}
+
 pub fn warn(msg: String) {
     static PREV_MSG: Lazy<Mutex<String>> = Lazy::new(Default::default);
     let mut prev_msg = PREV_MSG.lock().unwrap();
@@ -48,7 +58,7 @@ pub fn notify_user_about_error(e: Box<dyn Error>) {
 
 #[allow(dead_code)]
 pub fn notify_user_about_anyhow_error(e: anyhow::Error) {
-    alert(e.to_string());
+    alert(format!("{e:#}"));
 }
 
 pub fn alert<'a>(msg: impl Into<ReaperStringArg<'a>>) {

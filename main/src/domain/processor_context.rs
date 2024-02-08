@@ -1,7 +1,8 @@
 use crate::domain::{ControlContext, PluginParams};
+use anyhow::{bail, Context};
 use derivative::Derivative;
 use reaper_high::{Fx, FxChainContext, Project, Reaper, Track};
-use reaper_low::{static_vst_plugin_context, PluginContext};
+use reaper_low::{static_plugin_context, PluginContext};
 use reaper_medium::{MainThreadScope, ParamId, TrackFxLocation, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::host::Host;
@@ -53,12 +54,12 @@ pub struct ProcessorContext {
 pub const HELGOBOX_INSTANCE_ID: &str = "instance_id";
 
 impl ProcessorContext {
-    pub fn from_host(host: HostCallback) -> Result<ProcessorContext, &'static str> {
+    pub fn from_host(host: HostCallback) -> anyhow::Result<ProcessorContext> {
         let fx = get_containing_fx(&host)?;
         let project = fx.project();
         let bypass_param = fx
             .parameter_by_id(ParamId::Bypass)
-            .ok_or("bypass parameter not found")?;
+            .context("bypass parameter not found")?;
         let context = ProcessorContext {
             host,
             containing_fx: fx,
@@ -106,12 +107,12 @@ impl ProcessorContext {
 /// Calling this in the `new()` method is too early. The containing FX can't generally be found
 /// when we just open a REAPER project. We must wait for `init()` to be called. No! Even longer.
 /// We need to wait until the next main loop cycle.
-fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
-    let aeffect = NonNull::new(host.raw_effect()).expect("must not be null");
+fn get_containing_fx(host: &HostCallback) -> anyhow::Result<Fx> {
+    let aeffect = NonNull::new(host.raw_effect()).context("aeffect must not be null")?;
     // We must not use the plug-in context from the global `Reaper` instance because this was
     // probably initialized by the extension entry point or another instance.
-    let plugin_context = PluginContext::from_vst_plugin(host, static_vst_plugin_context())
-        .map_err(|_| "host callback not available")?;
+    let plugin_context = PluginContext::from_vst_plugin(host, static_plugin_context())
+        .context("host callback not available")?;
     let plugin_context = reaper_medium::PluginContext::<'_, MainThreadScope>::new(&plugin_context);
     let vst_context = match plugin_context.type_specific() {
         TypeSpecificPluginContext::Vst(ctx) => ctx,
@@ -122,7 +123,7 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
         // called in the main loop cycle after loading the VST.
         vst_context
             .request_containing_fx_location(aeffect)
-            .ok_or("This version of ReaLearn needs REAPER >= v6.11.")?
+            .context("This version of ReaLearn needs REAPER >= v6.11.")?
     };
     let fx = if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
         let project = unsafe { vst_context.request_containing_project(aeffect) };
@@ -131,22 +132,20 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
             TrackFxLocation::NormalFxChain(index) => (track.normal_fx_chain(), index),
             TrackFxLocation::InputFxChain(index) => (track.input_fx_chain(), index),
             TrackFxLocation::Unknown(_) => {
-                return Err("Unknown ReaLearn FX location");
+                bail!("Unknown ReaLearn FX location");
             }
         };
         fx_chain
             .fx_by_index(index)
-            .ok_or("couldn't find containing FX on track FX chains")?
+            .context("couldn't find containing FX on track FX chains")?
     } else if let Some(_take) = unsafe { vst_context.request_containing_take(aeffect) } {
-        return Err("ReaLearn as take FX is not supported yet");
+        bail!("ReaLearn as take FX is not supported yet");
     } else {
         let TrackFxLocation::InputFxChain(index) = fx_location else {
-            return Err(
-                "ReaLearn FX has no track but also doesn't seem to be on monitoring FX chain",
-            );
+            bail!("ReaLearn FX has no track but also doesn't seem to be on monitoring FX chain",);
         };
         Reaper::get().monitoring_fx_chain().fx_by_index(index)
-            .ok_or("Couldn't find containing FX on monitoring FX chain. It's okay if this occurs during plug-in scanning.")?
+            .context("Couldn't find containing FX on monitoring FX chain. It's okay if this occurs during plug-in scanning.")?
     };
     Ok(fx)
 }

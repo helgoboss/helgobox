@@ -1,11 +1,11 @@
-use crate::infrastructure::data::ControllerPresetData;
+use crate::infrastructure::data::CompartmentPresetData;
 use crate::infrastructure::server::data::{
     get_controller_preset_data, get_controller_routing_by_session_id, patch_controller,
     ControllerRouting, DataError, DataErrorCategory, PatchRequest, SessionResponseData, Topics,
 };
 use crate::infrastructure::server::http::{send_initial_events, ServerClients, WebSocketClient};
 use crate::infrastructure::server::MetricsReporter;
-use axum::body::{boxed, Body, BoxBody};
+use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket};
 use axum::extract::Path;
 use axum::http::{Response, StatusCode};
@@ -34,7 +34,7 @@ pub async fn session_handler(
 /// Needs to be executed in the main thread!
 pub async fn session_controller_handler(
     Path(session_id): Path<String>,
-) -> Result<Json<ControllerPresetData>, SimpleResponse> {
+) -> Result<Json<CompartmentPresetData>, SimpleResponse> {
     let controller_data = get_controller_preset_data(session_id).map_err(translate_data_error)?;
     Ok(Json(controller_data))
 }
@@ -57,7 +57,7 @@ pub async fn patch_controller_handler(
     Ok(StatusCode::OK)
 }
 
-pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<BoxBody> {
+pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<Body> {
     Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "application/pkix-cert")
@@ -65,18 +65,18 @@ pub fn create_cert_response(cert: String, cert_file_name: &str) -> Response<BoxB
             "Content-Disposition",
             format!("attachment; filename=\"{cert_file_name}\""),
         )
-        .body(boxed(Body::from(cert)))
+        .body(Body::from(cert))
         .unwrap()
 }
 
-pub async fn create_metrics_response(metrics_reporter: MetricsReporter) -> Response<BoxBody> {
+pub async fn create_metrics_response(metrics_reporter: MetricsReporter) -> Response<Body> {
     let (status_code, text) = match metrics_reporter.render_as_prometheus() {
         Ok(t) => (StatusCode::OK, t),
         Err(e) => (StatusCode::NOT_IMPLEMENTED, e.to_string()),
     };
     Response::builder()
         .status(status_code)
-        .body(boxed(Body::from(text)))
+        .body(Body::from(text))
         .unwrap()
 }
 

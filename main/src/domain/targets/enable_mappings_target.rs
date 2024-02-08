@@ -1,9 +1,10 @@
 use crate::domain::{
-    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, DomainEvent,
+    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext, DomainEvent,
     Exclusivity, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
-    HitInstructionResponse, HitResponse, InstanceStateChanged, MappingControlContext, MappingData,
+    HitInstructionResponse, HitResponse, MappingControlContext, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -11,7 +12,7 @@ use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct UnresolvedEnableMappingsTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub exclusivity: Exclusivity,
 }
@@ -20,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
             compartment: self.compartment,
@@ -34,7 +35,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableMappingsTarget {
 pub struct EnableMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub scope: TagScope,
     pub exclusivity: Exclusivity,
 }
@@ -55,7 +56,7 @@ impl RealearnTarget for EnableMappingsTarget {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
         struct EnableMappingsInstruction {
-            compartment: Compartment,
+            compartment: CompartmentKind,
             scope: TagScope,
             mapping_data: MappingData,
             is_enable: bool,
@@ -63,7 +64,7 @@ impl RealearnTarget for EnableMappingsTarget {
         }
         impl HitInstruction for EnableMappingsInstruction {
             fn execute(self: Box<Self>, context: HitInstructionContext) -> HitInstructionResponse {
-                let mut activated_inverse_tags = HashSet::new();
+                let mut activated_inverse_tags = HashSet::default();
                 for m in context.mappings.values_mut() {
                     // Don't touch ourselves.
                     if m.id() == self.mapping_data.mapping_id {
@@ -94,7 +95,7 @@ impl RealearnTarget for EnableMappingsTarget {
                         ),
                     );
                 }
-                let mut instance_state = context.control_context.instance_state.borrow_mut();
+                let mut instance_state = context.control_context.unit.borrow_mut();
                 use Exclusivity::*;
                 if self.exclusivity == Exclusive
                     || (self.exclusivity == ExclusiveOnOnly && self.is_enable)
@@ -139,10 +140,11 @@ impl RealearnTarget for EnableMappingsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingTags {
-                compartment,
-                ..
-            }) if *compartment == self.compartment => (true, None),
+            CompoundChangeEvent::Unit(UnitEvent::ActiveMappingTags { compartment, .. })
+                if *compartment == self.compartment =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }
@@ -160,7 +162,7 @@ impl<'a> Target<'a> for EnableMappingsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         use Exclusivity::*;
         let active = match self.exclusivity {
             NonExclusive => instance_state
@@ -182,7 +184,8 @@ impl<'a> Target<'a> for EnableMappingsTarget {
 }
 
 pub const ENABLE_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Enable/disable mappings",
+    section: TargetSection::ReaLearn,
+    name: "Enable/disable mappings",
     short_name: "Enable/disable mappings",
     supports_tags: true,
     supports_exclusivity: true,

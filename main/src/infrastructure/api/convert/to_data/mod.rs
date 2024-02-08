@@ -1,9 +1,10 @@
 use crate::application::{BankConditionModel, ModifierConditionModel};
-use crate::domain::CompartmentParamIndex;
+use crate::domain::{CompartmentKind, CompartmentParamIndex};
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::{ActivationConditionData, OscValueRange};
 use crate::{application, domain};
+use anyhow::anyhow;
 pub use compartment::*;
 use enumflags2::BitFlags;
 pub use mapping::*;
@@ -79,6 +80,7 @@ fn convert_osc_value_range(v: Option<Interval<f64>>) -> OscValueRange {
 }
 
 pub trait ApiToDataConversionContext {
+    fn compartment(&self) -> CompartmentKind;
     fn param_index_by_key(&self, key: &str) -> Option<CompartmentParamIndex>;
 }
 
@@ -106,7 +108,7 @@ fn convert_activation(
             ActivationConditionData {
                 activation_type: ActivationType::Modifiers,
                 modifier_condition_1: create_model(
-                    c.modifiers.as_ref().map(|m| m.get(0)).unwrap_or_default(),
+                    c.modifiers.as_ref().map(|m| m.first()).unwrap_or_default(),
                 )?,
                 modifier_condition_2: create_model(
                     c.modifiers.as_ref().map(|m| m.get(1)).unwrap_or_default(),
@@ -150,9 +152,9 @@ fn resolve_parameter_ref(
     param_index_by_key: &impl Fn(&str) -> Option<CompartmentParamIndex>,
 ) -> ConversionResult<CompartmentParamIndex> {
     let res = match param_ref {
-        ParamRef::Index(i) => CompartmentParamIndex::try_from(*i)?,
+        ParamRef::Index(i) => CompartmentParamIndex::try_from(*i).map_err(anyhow::Error::msg)?,
         ParamRef::Key(key) => {
-            param_index_by_key(key).ok_or_else(|| format!("Parameter {key} not defined"))?
+            param_index_by_key(key).ok_or_else(|| anyhow!("Parameter {key} not defined"))?
         }
     };
     Ok(res)

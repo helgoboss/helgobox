@@ -1,12 +1,13 @@
 use crate::domain::{
-    format_value_as_on_off, get_track_routes, Compartment, ControlContext,
+    format_value_as_on_off, get_track_routes, CompartmentKind, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackRouteDescriptor,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
 use reaper_medium::EditMode;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedRouteTouchStateTarget {
@@ -18,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteTouchStateTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
@@ -120,7 +121,8 @@ impl<'a> Target<'a> for RouteTouchStateTarget {
 }
 
 pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Set automation touch state",
+    section: TargetSection::Send,
+    name: "Set automation touch state",
     short_name: "Send touch state",
     supports_track: true,
     supports_send: true,
@@ -137,7 +139,7 @@ pub const ROUTE_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     Default,
     serde::Serialize,
     serde::Deserialize,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,

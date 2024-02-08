@@ -5,9 +5,9 @@ use askama::Template;
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::base::when;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 
 use qrcode::QrCode;
 
@@ -20,14 +20,14 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct CompanionAppPresenter {
-    session: WeakSession,
+    session: WeakUnitModel,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     /// `true` as soon as requested within this ReaLearn session execution at least once
     app_info_requested: Cell<bool>,
 }
 
 impl CompanionAppPresenter {
-    pub fn new(session: WeakSession) -> Rc<CompanionAppPresenter> {
+    pub fn new(session: WeakUnitModel) -> Rc<CompanionAppPresenter> {
         let m = CompanionAppPresenter {
             session,
             party_is_over_subject: Default::default(),
@@ -45,12 +45,13 @@ impl CompanionAppPresenter {
     }
 
     fn update_app_info(&self) -> PathBuf {
-        let dir = App::get_temp_dir().expect("app setup temp dir not lazily created");
+        let dir = BackboneShell::get_temp_dir().expect("app setup temp dir not lazily created");
         let session = self.session();
         let session = session.borrow();
-        let app = App::get();
+        let app = BackboneShell::get();
         let server = app.server().borrow();
-        let full_companion_app_url = server.generate_full_companion_app_url(session.id(), false);
+        let full_companion_app_url =
+            server.generate_full_companion_app_url(session.unit_key(), false);
         let server_is_running = server.is_running();
         let qr_code_image_file_name = "qr-code.png";
         let (width, height) = self
@@ -67,14 +68,15 @@ impl CompanionAppPresenter {
             qr_code_image_width: width,
             qr_code_image_height: height,
             companion_web_app_url: config.companion_web_app_url().to_string(),
-            full_companion_web_app_url: server.generate_full_companion_app_url(session.id(), true),
+            full_companion_web_app_url: server
+                .generate_full_companion_app_url(session.unit_key(), true),
             server_host: server
                 .local_ip()
                 .map(|ip| ip.to_string())
                 .unwrap_or_else(|| "<could not be determined>".to_string()),
             server_http_port: server.http_port(),
             server_https_port: server.https_port(),
-            session_id: session.id().to_string(),
+            session_id: session.unit_key().to_string(),
             os: std::env::consts::OS,
         };
         let index_file = dir.path().join("index.html");
@@ -88,7 +90,7 @@ impl CompanionAppPresenter {
         index_file
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -113,11 +115,11 @@ impl CompanionAppPresenter {
     }
 
     fn register_listeners(self: &Rc<Self>) {
-        let app = App::get();
+        let app = BackboneShell::get();
         when(
             app.changed()
                 .merge(app.server().borrow().changed())
-                .merge(self.session().borrow().id.changed())
+                .merge(self.session().borrow().unit_key.changed())
                 .take_until(self.party_is_over()),
         )
         .with(Rc::downgrade(self))

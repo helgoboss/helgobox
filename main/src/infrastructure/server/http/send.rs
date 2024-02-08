@@ -1,8 +1,8 @@
 //! Contains functions for sending data to WebSocket clients.
-use crate::application::{Session, SharedSession};
+use crate::application::{SharedUnitModel, UnitModel};
 use crate::base::when;
 use crate::domain::ProjectionFeedbackValue;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::data::{
     get_active_controller_updated_event, get_controller_routing_updated_event,
     get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
@@ -40,7 +40,10 @@ pub fn send_initial_session(
     client: &WebSocketClient,
     session_id: &str,
 ) -> Result<(), &'static str> {
-    let event = if App::get().find_session_by_id(session_id).is_some() {
+    let event = if BackboneShell::get()
+        .find_session_by_id(session_id)
+        .is_some()
+    {
         get_session_updated_event(session_id, Some(SessionResponseData {}))
     } else {
         get_session_updated_event(session_id, None)
@@ -52,7 +55,7 @@ fn send_initial_controller_routing(
     client: &WebSocketClient,
     session_id: &str,
 ) -> Result<(), &'static str> {
-    let event = if let Some(session) = App::get().find_session_by_id(session_id) {
+    let event = if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
         get_controller_routing_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_controller_routing_updated_event(session_id, None)
@@ -61,7 +64,7 @@ fn send_initial_controller_routing(
 }
 
 fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let event = if let Some(session) = App::get().find_session_by_id(session_id) {
+    let event = if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
         get_active_controller_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_active_controller_updated_event(session_id, None)
@@ -69,28 +72,28 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
-pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
+pub fn send_updated_active_controller(session: &UnitModel) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
-            session_id: session.id().to_string(),
+            session_id: session.unit_key().to_string(),
         },
         || {
             Some(get_active_controller_updated_event(
-                session.id(),
+                session.unit_key(),
                 Some(session),
             ))
         },
     )
 }
 
-pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
+pub fn send_updated_controller_routing(session: &UnitModel) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ControllerRouting {
-            session_id: session.id().to_string(),
+            session_id: session.unit_key().to_string(),
         },
         || {
             Some(get_controller_routing_updated_event(
-                session.id(),
+                session.unit_key(),
                 Some(session),
             ))
         },
@@ -129,7 +132,7 @@ pub fn for_each_client<T: Serialize>(
     op: impl Fn(&WebSocketClient, &T),
     cache: impl FnOnce() -> T,
 ) -> Result<(), &'static str> {
-    let server = App::get().server().borrow();
+    let server = BackboneShell::get().server().borrow();
     if !server.is_running() {
         return Ok(());
     }
@@ -173,9 +176,9 @@ pub fn send_sessions_to_subscribed_clients() {
     .unwrap();
 }
 
-pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
+pub fn keep_informing_clients_about_session_events(shared_session: &SharedUnitModel) {
     let session = shared_session.borrow();
-    let instance_state = session.instance_state().borrow();
+    let instance_state = session.unit().borrow();
     when(
         instance_state
             .on_mappings_changed()
@@ -185,17 +188,26 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     .do_async(|session, _| {
         let _ = send_updated_controller_routing(&session.borrow());
     });
-    when(App::get().controller_preset_manager().borrow().changed())
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            let _ = send_updated_active_controller(&session.borrow());
-        });
-    when(session.everything_changed().merge(session.id.changed()))
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            send_sessions_to_subscribed_clients();
-            let session = session.borrow();
-            let _ = send_updated_active_controller(&session);
-            let _ = send_updated_controller_routing(&session);
-        });
+    when(
+        BackboneShell::get()
+            .controller_preset_manager()
+            .borrow()
+            .changed(),
+    )
+    .with(Rc::downgrade(shared_session))
+    .do_async(|session, _| {
+        let _ = send_updated_active_controller(&session.borrow());
+    });
+    when(
+        session
+            .everything_changed()
+            .merge(session.unit_key.changed()),
+    )
+    .with(Rc::downgrade(shared_session))
+    .do_async(|session, _| {
+        send_sessions_to_subscribed_clients();
+        let session = session.borrow();
+        let _ = send_updated_active_controller(&session);
+        let _ = send_updated_controller_routing(&session);
+    });
 }

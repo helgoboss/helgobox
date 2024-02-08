@@ -1,8 +1,13 @@
 mod view_manager;
 pub use view_manager::*;
 
+pub use hex_literal::hex;
+
 mod window;
 pub use window::*;
+
+mod device_context;
+pub use device_context::*;
 
 mod menu;
 pub use menu::*;
@@ -20,6 +25,13 @@ mod string_types;
 pub use string_types::*;
 
 pub mod menu_tree;
+
+#[macro_use]
+mod color;
+pub use color::*;
+
+mod brush;
+pub use brush::*;
 
 #[cfg(target_os = "macos")]
 mod macos;

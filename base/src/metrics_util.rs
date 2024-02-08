@@ -85,7 +85,7 @@ pub fn record_occurrence(id: &'static str) {
     if !metrics_are_enabled() {
         return;
     }
-    metrics::increment_counter!(id);
+    metrics::counter!(id).increment(1);
 }
 
 /// Asynchronously measures and records the time of the given operation and exposes it at the
@@ -128,7 +128,7 @@ fn keep_recording_metrics(receiver: Receiver<MetricsRecorderCommand>) {
         match task {
             MetricsRecorderCommand::Finish => break,
             MetricsRecorderCommand::Histogram { id, delta } => {
-                metrics::histogram!(id, delta);
+                metrics::histogram!(id).record(delta);
             }
         }
     }

@@ -1,11 +1,12 @@
 use egui::{Context, Visuals};
+use fragile::Fragile;
 use reaper_low::firewall;
 use swell_ui::{SwellWindow, Window};
 
 pub mod advanced_script_editor;
 pub mod target_filter_panel;
 
-pub fn open<S: Send + 'static>(
+pub fn open<S: 'static>(
     window: Window,
     title: impl Into<String>,
     state: S,
@@ -36,18 +37,34 @@ pub fn open<S: Send + 'static>(
         gl_config: Some(Default::default()),
     };
     let window = get_egui_parent_window(window);
+    // egui-baseview requires the state to be Send but we want to support state that is not Send,
+    // that's why we use Fragile, which checks that we access the state from the main thread only.
+    //
+    // It's slightly inconvenient to require Send because the Advanced Script Editor has state that
+    // contains `ScriptEditorInput` which uses a Box<dyn ScriptEngine>. We would have to make this
+    // Send and this would either require some restructuring (viable but too lazy now) or make mlua
+    // use the "send" feature, which would have a big effect on the Lua integration (that would be
+    // possible but would make everything harder for no win, because we currently don't want to use Lua in
+    // any other thread than the main thread anyway).
+    // Fortunately, at least on macOS and Windows, the Send requirement of egui-baseview seems to be
+    // not really necessary since the state is only being used from the main thread anyway.
+    // It think with baseview for X11, it's a different story. It seems to be running on its own thread
+    // there. But we don't have egui enabled on Linux anyway - exactly for that reason. Because that
+    // it's not the main thread there also causes other issues. I was hoping to one day write an egui
+    // integration for X11 that just uses the main thread.
+    let fragile_state = Fragile::new(state);
     egui_baseview::EguiWindow::open_parented(
         &window,
         settings,
-        state,
-        |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, _state: &mut S| {
+        fragile_state,
+        |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, _state: &mut Fragile<S>| {
             firewall(|| {
                 init_ui(ctx, Window::dark_mode_is_enabled());
             });
         },
-        move |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, state: &mut S| {
+        move |ctx: &egui::Context, _queue: &mut egui_baseview::Queue, state: &mut Fragile<S>| {
             firewall(|| {
-                run_ui(ctx, state);
+                run_ui(ctx, state.get_mut());
             });
         },
     );

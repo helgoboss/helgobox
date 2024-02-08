@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::Hash;
 
 #[derive(PartialEq, Default, Serialize, Deserialize)]
 pub struct Glue {
@@ -60,13 +59,18 @@ pub struct Glue {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum FeedbackValueTable {
-    FromTextToDiscrete(FeedbackValueTableContent<String, u32>),
-    FromTextToContinuous(FeedbackValueTableContent<String, f64>),
+    FromTextToDiscrete(DiscreteFeedbackValueTableContent),
+    FromTextToContinuous(ContinuousFeedbackValueTableContent),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub struct FeedbackValueTableContent<K: Eq + Hash, V> {
-    pub value: HashMap<K, V>,
+pub struct DiscreteFeedbackValueTableContent {
+    pub value: HashMap<String, u32>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct ContinuousFeedbackValueTableContent {
+    pub value: HashMap<String, f64>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
@@ -98,7 +102,7 @@ pub enum FireMode {
     AfterTimeout(AfterTimeoutFireMode),
     AfterTimeoutKeepFiring(AfterTimeoutKeepFiringFireMode),
     OnSinglePress(OnSinglePressFireMode),
-    OnDoublePress(OnDoublePressFireMode),
+    OnDoublePress,
 }
 
 impl Default for FireMode {
@@ -131,9 +135,6 @@ pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
-
-#[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
-pub struct OnDoublePressFireMode;
 
 #[derive(Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

@@ -12,7 +12,7 @@ The purpose of this document is to write about experiences with specific control
 combination with ReaLearn.
 
 There's a broad variety of general-purpose MIDI controllers out there and there will be
-even more in future. Of course I don't have the resources to test them all, there are way too many. That's why
+even more in the future. Of course, I don't have the resources to test them all, there are way too many. That's why
 this section very much depends on user contributions. Feel free to write an email to link:mailto:&#x69;&#x6e;&#x66;&#x6f;&#64;&#x68;&#101;&#108;g&#111;&#x62;&#x6f;s&#x73;&#46;&#111;&#114;&#x67;[&#x69;&#x6e;&#x66;&#x6f;&#64;&#x68;&#101;&#108;g&#111;&#x62;&#x6f;s&#x73;&#46;&#111;&#114;&#x67;],
 https://github.com/helgoboss/realearn/issues[raise an issue] at GitHub or open a pull request
 if you have tested a controller and would like to add something to this section.
@@ -24,7 +24,7 @@ Disclaimer: The information in this document is given to the best of my knowledg
 
 === Mackie Control
 
-*Covered domains:* DAW
+*Provided schemes:* DAW
 
 Although the term "Mackie Control" refers to a real controller device, it's nowadays most famous as a protocol standard for DAW controllers. This particular ReaLearn controller preset supports large parts of this standard. You can think of this standard as …
 

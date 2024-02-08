@@ -1,12 +1,11 @@
 #![allow(dead_code)]
-use crate::application::WeakSession;
-use crate::infrastructure::plugin::App;
+use crate::application::WeakUnitModel;
+use crate::domain::InstanceId;
+use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::proto::{event_reply, reply, Empty, EventReply, ProtoReceivers, Reply};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
-use anyhow::{anyhow, Context, Result};
-use playtime_clip_engine::proto::{
-    event_reply, reply, ClipEngineReceivers, Empty, EventReply, Reply,
-};
+use anyhow::{anyhow, bail, Context, Result};
 use prost::Message;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -14,7 +13,6 @@ use std::rc::Rc;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use tokio::task::JoinHandle;
-use validator::HasLen;
 
 pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
 
@@ -35,7 +33,7 @@ pub trait AppInstance: Debug {
 }
 
 #[allow(clippy::if_same_then_else)]
-pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
+pub fn create_shared_app_instance(instance_id: InstanceId) -> SharedAppInstance {
     fn share(value: impl AppInstance + 'static) -> SharedAppInstance {
         Rc::new(RefCell::new(value))
     }
@@ -64,7 +62,7 @@ pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
         // };
         // share(instance)
         let instance = StandaloneAppInstance {
-            session,
+            instance_id,
             running_state: None,
         };
         share(instance)
@@ -79,77 +77,44 @@ pub fn create_shared_app_instance(session: WeakSession) -> SharedAppInstance {
         // it's not something I want to do now as long as we don't support docking anyway.
         // Therefore: Standalone mode on macOS!
         let instance = StandaloneAppInstance {
-            session,
+            instance_id,
             running_state: None,
         };
         share(instance)
     } else {
-        panic!("OS not supported yet");
+        share(DummyAppInstance)
     }
 }
 
-/// App will run within a SWELL window that is provided by ReaLearn (`AppPanel`).
-///
-/// This is currently only a good choice on Windows. On macOS, the app uses an NSViewController
-/// that's supposed to be attached to the NSWindow in order to manage its content view (NSView).
-/// But SWELL doesn't just provide the NSWindow, it also provides and manages the content view.
-/// Letting the content view be managed by both the NSViewController and SWELL is not possible.
-///
-/// There's the possibility to use child windows on macOS but this means that if the app itself
-/// tries to access and control its containing window, it's going to affect the *child* window
-/// and not the window provided ReaLearn. It also needs more attention when it comes to
-/// keyboard shortcut forwarding and comes with probably a whole bunch of other corner cases.
-/// It's still an interesting possibility, especially when it comes to implementing docking.
 #[derive(Debug)]
-pub struct ParentedAppInstance {
-    panel: SharedView<AppPanel>,
-}
+struct DummyAppInstance;
 
-impl AppInstance for ParentedAppInstance {
+impl AppInstance for DummyAppInstance {
     fn is_running(&self) -> bool {
-        self.panel.is_open()
+        false
     }
 
     fn is_visible(&self) -> bool {
-        if let Some(window) = self.panel.view.window() {
-            window.is_visible()
-        } else {
-            false
-        }
+        false
     }
 
-    fn start_or_show(&mut self, owning_window: Window) -> Result<()> {
-        if let Some(window) = self.panel.view_context().window() {
-            // If window already open (and maybe just hidden), simply show it.
-            window.show();
-            return Ok(());
-        }
-        // Fail fast if library not available
-        App::get_app_library()?;
-        // Then open. This actually only opens the SWELL window. The real stuff is done
-        // in the "opened" handler of the SWELL window.
-        self.panel.clone().open(owning_window);
-        Ok(())
+    fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
+        bail!("not implemented for Linux")
     }
 
     fn hide(&mut self) -> Result<()> {
-        let window = self.panel.view.window().context("App was not open")?;
-        window.hide();
-        Ok(())
+        bail!("not implemented for Linux")
     }
 
     fn stop(&mut self) -> Result<()> {
-        self.panel.close();
-        Ok(())
+        bail!("not implemented for Linux")
     }
 
-    fn send(&self, reply: &Reply) -> Result<()> {
-        self.panel.send_to_app(reply)
+    fn send(&self, _reply: &Reply) -> Result<()> {
+        bail!("not implemented for Linux")
     }
 
-    fn notify_app_is_ready(&mut self, callback: AppCallback) {
-        self.panel.notify_app_is_ready(callback);
-    }
+    fn notify_app_is_ready(&mut self, _callback: AppCallback) {}
 }
 
 /// App will run in its own window.
@@ -157,7 +122,7 @@ impl AppInstance for ParentedAppInstance {
 /// This is possible on all OS.
 #[derive(Debug)]
 struct StandaloneAppInstance {
-    session: WeakSession,
+    instance_id: InstanceId,
     running_state: Option<StandaloneAppRunningState>,
 }
 
@@ -188,13 +153,14 @@ impl AppInstance for StandaloneAppInstance {
     }
 
     fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
-        let app_library = App::get_app_library()?;
+        let app_library = BackboneShell::get_app_library()?;
         if let Some(running_state) = &self.running_state {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
             return Ok(());
         }
-        let session_id = extract_session_id(&self.session)?;
-        let app_handle = app_library.start_app_instance(None, session_id)?;
+        // TODO-medium This doesn't need to be a string anymore
+        let instance_id = self.instance_id.to_string();
+        let app_handle = app_library.start_app_instance(None, instance_id)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
@@ -234,14 +200,12 @@ impl AppInstance for StandaloneAppInstance {
         let Some(running_state) = &mut self.running_state else {
             return;
         };
-        let Ok(session_id) = extract_session_id(&self.session) else {
-            return;
-        };
+        let session_id = self.instance_id.to_string();
         // Handshake finished! The app has the host callback and we have the app callback.
         running_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
         let mut receivers = subscribe_to_events();
-        let join_handle = App::get().spawn_in_async_runtime(async move {
+        let join_handle = BackboneShell::get().spawn_in_async_runtime(async move {
             receivers
                 .keep_processing_updates(&session_id, &|event_reply| {
                     let reply = Reply {
@@ -258,14 +222,14 @@ impl AppInstance for StandaloneAppInstance {
 #[derive(Debug)]
 pub struct AppPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakUnitModel,
     running_state: RefCell<Option<ParentedAppRunningState>>,
 }
 
 #[derive(Debug)]
 struct ParentedAppRunningState {
     common_state: CommonAppRunningState,
-    event_receivers: Option<ClipEngineReceivers>,
+    event_receivers: Option<ProtoReceivers>,
 }
 
 impl ParentedAppRunningState {
@@ -291,7 +255,7 @@ struct CommonAppRunningState {
 }
 
 impl AppPanel {
-    pub fn new(session: WeakSession) -> Self {
+    pub fn new(session: WeakUnitModel) -> Self {
         Self {
             view: Default::default(),
             session,
@@ -331,7 +295,7 @@ impl AppPanel {
 
     fn open_internal(&self, window: Window) -> Result<()> {
         window.set_text("Playtime");
-        let app_library = App::get_app_library()?;
+        let app_library = BackboneShell::get_app_library()?;
         let session_id = extract_session_id(&self.session)?;
         let app_handle = app_library.start_app_instance(Some(window), session_id)?;
         let running_state = ParentedAppRunningState {
@@ -363,7 +327,7 @@ impl CommonAppRunningState {
     }
 
     pub fn is_visible(&self) -> bool {
-        let Ok(app_library) = App::get_app_library() else {
+        let Ok(app_library) = BackboneShell::get_app_library() else {
             return false;
         };
         app_library
@@ -372,11 +336,11 @@ impl CommonAppRunningState {
     }
 
     pub fn hide(&self) -> Result<()> {
-        App::get_app_library()?.hide_app_instance(self.app_handle)
+        BackboneShell::get_app_library()?.hide_app_instance(self.app_handle)
     }
 
     pub fn stop(&self, window: Option<Window>) -> Result<()> {
-        App::get_app_library()?.stop_app_instance(window, self.app_handle)
+        BackboneShell::get_app_library()?.stop_app_instance(window, self.app_handle)
     }
 }
 
@@ -400,7 +364,7 @@ impl View for AppPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn on_destroy(self: SharedView<Self>, window: Window) {
         self.stop(window).unwrap();
     }
 
@@ -457,7 +421,7 @@ impl View for AppPanel {
         let Some(session) = self.session.upgrade() else {
             return false;
         };
-        open_state.send_pending_events(session.borrow().id());
+        open_state.send_pending_events(session.borrow().unit_key());
         true
     }
 
@@ -484,7 +448,7 @@ const TIMER_ID: usize = 322;
 
 fn send_to_app(app_callback: AppCallback, reply: &Reply) {
     let vec = reply.encode_to_vec();
-    let length = vec.length();
+    let length = vec.len();
     let boxed_slice = vec.into_boxed_slice();
     // The app side is responsible for freeing the memory!
     // We really need to pass owned data to the app because it's written in Dart and Dart code
@@ -499,8 +463,11 @@ fn send_to_app(app_callback: AppCallback, reply: &Reply) {
 /// Signature of the function that's used from the host in order to call the external app.
 pub type AppCallback = unsafe extern "C" fn(data: *const u8, length: i32);
 
-fn subscribe_to_events() -> ClipEngineReceivers {
-    App::get().clip_engine_hub().senders().subscribe_to_all()
+fn subscribe_to_events() -> ProtoReceivers {
+    BackboneShell::get()
+        .proto_hub()
+        .senders()
+        .subscribe_to_all()
 }
 
 // TODO-high-ms4 We extract the session ID manually whenever we start the app instead of assigning
@@ -510,11 +477,11 @@ fn subscribe_to_events() -> ClipEngineReceivers {
 //  and hold a global mapping from session ID to instance ID in the app. Or maybe better: We use
 //  the instance ID whenever we are embedded, not the session ID! Then the "matrix ID" refers
 //  to the instance ID when embedded and to the session ID when remote.
-fn extract_session_id(session: &WeakSession) -> Result<String> {
+fn extract_session_id(session: &WeakUnitModel) -> Result<String> {
     Ok(session
         .upgrade()
         .ok_or_else(|| anyhow!("session gone"))?
         .borrow()
-        .id()
+        .unit_key()
         .to_string())
 }

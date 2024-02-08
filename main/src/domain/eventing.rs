@@ -1,11 +1,11 @@
 use crate::domain::{
-    Compartment, CompoundMappingTarget, ControlLogContext, ControlLogEntry, InfoEvent, MappingId,
-    MessageCaptureResult, PluginParamIndex, PluginParams, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue,
+    CompartmentKind, CompoundMappingTarget, ControlLogContext, ControlLogEntry, FeedbackLogEntry,
+    InfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
+    ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{AbsoluteValue, ControlValue};
 use realearn_api::persistence::MappingModification;
-use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -14,7 +14,7 @@ use std::fmt::Debug;
 pub enum DomainEvent<'a> {
     CapturedIncomingMessage(MessageCaptureEvent),
     GlobalControlAndFeedbackStateChanged(GlobalControlAndFeedbackState),
-    UpdatedOnMappings(HashSet<QualifiedMappingId>),
+    UpdatedOnMappings(NonCryptoHashSet<QualifiedMappingId>),
     UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
     UpdatedSingleParameterValue {
         index: PluginParamIndex,
@@ -25,23 +25,12 @@ pub enum DomainEvent<'a> {
     Info(&'a InfoEvent),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
-    TargetControlled(TargetControlEvent),
+    HandleTargetControl(TargetControlEvent),
+    HandleSourceFeedback(SourceFeedbackEvent<'a>),
     FullResyncRequested,
     MidiDevicesChanged,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
     MappingModificationRequested(MappingModificationRequestedEvent),
-    /// Only emitted for the instance owning the matrix.
-    #[cfg(feature = "playtime")]
-    ClipMatrixChanged {
-        matrix: &'a playtime_clip_engine::base::Matrix,
-        events: &'a [playtime_clip_engine::base::ClipMatrixEvent],
-        is_poll: bool,
-    },
-    #[cfg(feature = "playtime")]
-    ControlSurfaceChangeEventsForClipEngine(
-        &'a playtime_clip_engine::base::Matrix,
-        &'a [reaper_high::ChangeEvent],
-    ),
     TimeForCelebratingSuccess,
     ConditionsChanged,
 }
@@ -67,14 +56,14 @@ pub struct UpdatedSingleMappingOnStateEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingEnabledChangeRequestedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub is_enabled: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct MappingModificationRequestedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub modification: MappingModification,
     pub value: ControlValue,
@@ -82,12 +71,12 @@ pub struct MappingModificationRequestedEvent {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingMatchedEvent {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
 }
 
 impl MappingMatchedEvent {
-    pub fn new(compartment: Compartment, mapping_id: MappingId) -> Self {
+    pub fn new(compartment: CompartmentKind, mapping_id: MappingId) -> Self {
         MappingMatchedEvent {
             compartment,
             mapping_id,
@@ -100,6 +89,12 @@ pub struct TargetControlEvent {
     pub id: QualifiedMappingId,
     pub log_context: ControlLogContext,
     pub log_entry: ControlLogEntry,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct SourceFeedbackEvent<'a> {
+    pub id: QualifiedMappingId,
+    pub log_entry: FeedbackLogEntry<'a>,
 }
 
 impl TargetControlEvent {
@@ -118,7 +113,7 @@ impl TargetControlEvent {
 
 #[derive(Debug)]
 pub struct TargetValueChangedEvent<'a> {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub targets: &'a [CompoundMappingTarget],
     pub new_value: AbsoluteValue,
@@ -131,7 +126,7 @@ pub trait DomainEventHandler: Debug {
 
     fn handle_event(&self, event: DomainEvent) -> Result<(), Box<dyn Error>>;
 
-    fn notify_mapping_matched(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn notify_mapping_matched(&self, compartment: CompartmentKind, mapping_id: MappingId) {
         self.handle_event_ignoring_error(DomainEvent::MappingMatched(MappingMatchedEvent::new(
             compartment,
             mapping_id,

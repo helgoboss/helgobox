@@ -126,7 +126,7 @@ fn embed_dialog_resources(rc_file: impl AsRef<Path>) {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile(rc_file);
+    embed_resource::compile(rc_file, embed_resource::NONE);
 }
 
 #[cfg(feature = "generate")]

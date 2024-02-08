@@ -1,4 +1,6 @@
-use crate::domain::{FeedbackReason, InstanceId, MatchOutcome, OwnedIncomingMidiMessage, Tag};
+use crate::domain::{
+    format_as_pretty_hex, FeedbackReason, MatchOutcome, OwnedIncomingMidiMessage, Tag, UnitId,
+};
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -9,7 +11,7 @@ use reaper_high::{Reaper, Volume};
 use reaper_medium::Db;
 use rosc::{OscMessage, OscPacket};
 use std::convert::TryInto;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(value.get())
@@ -61,7 +63,7 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
     }
 }
 
-#[cfg(feature = "playtime")]
+#[allow(unused)]
 pub fn db_unit_value(volume: Db) -> UnitValue {
     volume_unit_value(Volume::from_db(volume))
 }
@@ -94,48 +96,48 @@ pub fn format_control_input_with_match_result(
     format!("{msg} ({match_result})")
 }
 
-pub fn log_virtual_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Virtual control", msg);
+pub fn log_virtual_control_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Virtual control", msg);
 }
 
-pub fn log_real_control_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Real control", msg);
+pub fn log_real_control_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Real control", msg);
 }
 
-pub fn log_real_learn_input(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Real learn", msg);
+pub fn log_real_learn_input(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Real learn", msg);
 }
 
-pub fn log_target_control(instance_id: &InstanceId, msg: impl Display) {
-    log(instance_id, "Target control", msg);
+pub fn log_target_control(unit_id: UnitId, msg: impl Display) {
+    log(unit_id, "Target control", msg);
 }
 
-pub fn log_virtual_feedback_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::VirtualFeedback, msg);
+pub fn log_virtual_feedback_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::VirtualFeedback, msg);
 }
 
 pub fn log_real_feedback_output(
-    instance_id: &InstanceId,
+    unit_id: UnitId,
     feedback_reason: FeedbackReason,
     msg: impl Display,
 ) {
     log_output(
-        instance_id,
+        unit_id,
         OutputReason::RealFeedback,
         format!("{msg} ({feedback_reason:?})"),
     );
 }
 
-pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::Lifecycle, msg);
+pub fn log_lifecycle_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::Lifecycle, msg);
 }
 
-pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::TargetOutput, msg);
+pub fn log_target_output(unit_id: UnitId, msg: impl Display) {
+    log_output(unit_id, OutputReason::TargetOutput, msg);
 }
 
-pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
-    log(instance_id, reason, msg);
+pub fn log_output(unit_id: UnitId, reason: OutputReason, msg: impl Display) {
+    log(unit_id, reason, msg);
 }
 
 #[derive(Copy, Clone, Debug, Display)]
@@ -161,30 +163,12 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
         Raw { events, .. } => {
             let event_strings: Vec<_> = events
                 .iter()
-                .map(|event| format_raw_midi(event.bytes()))
+                .map(|event| format_as_pretty_hex(event.bytes()))
                 .collect();
             event_strings.join(", ")
         }
-        BorrowedSysEx(bytes) => format_raw_midi(bytes),
+        BorrowedSysEx(bytes) => format_as_pretty_hex(bytes),
     }
-}
-
-pub struct DisplayRawMidi<'a>(pub &'a [u8]);
-
-impl<'a> Display for DisplayRawMidi<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (i, b) in self.0.iter().enumerate() {
-            if i > 0 {
-                f.write_str(" ")?;
-            }
-            write!(f, "{:02X?}", *b)?;
-        }
-        Ok(())
-    }
-}
-
-pub fn format_raw_midi(bytes: &[u8]) -> String {
-    DisplayRawMidi(bytes).to_string()
 }
 
 pub fn format_osc_packet(packet: &OscPacket) -> String {
@@ -212,16 +196,16 @@ pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {
     use OwnedIncomingMidiMessage::*;
     match msg {
         Short(m) => format_short_midi_message(m),
-        SysEx(m) => format_raw_midi(&m),
+        SysEx(m) => format_as_pretty_hex(&m),
     }
 }
 
-fn log(instance_id: &InstanceId, label: impl Display, msg: impl Display) {
+fn log(unit_id: UnitId, label: impl Display, msg: impl Display) {
     let reaper = Reaper::get();
     reaper.show_console_msg(format!(
         "{:.3} | ReaLearn {} | {:<16} | {}\n",
         reaper.medium_reaper().low().time_precise(),
-        instance_id,
+        unit_id,
         label,
         msg
     ));

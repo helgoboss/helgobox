@@ -1,10 +1,10 @@
 use crate::domain::{Exclusivity, Tag};
-use std::collections::HashSet;
+use base::hash_util::NonCryptoHashSet;
 use std::hash::Hash;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TagScope {
-    pub tags: HashSet<Tag>,
+    pub tags: NonCryptoHashSet<Tag>,
 }
 
 impl TagScope {
@@ -61,7 +61,7 @@ impl TagScope {
 }
 
 fn has_any_of<'a, T: 'a + Eq + Hash>(
-    self_tags: &HashSet<T>,
+    self_tags: &NonCryptoHashSet<T>,
     other_tags: impl IntoIterator<Item = &'a T>,
 ) -> bool {
     other_tags.into_iter().any(|t| self_tags.contains(t))

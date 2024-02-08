@@ -1,7 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_fx_params, Compartment, ControlContext, ExtendedProcessorContext,
-    FxParameterDescriptor, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, get_fx_params, CompartmentKind, ControlContext,
+    ExtendedProcessorContext, FxParameterDescriptor, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, FxParameter, Project, Track};
@@ -15,7 +16,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTouchStateTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
         let targets = params
@@ -98,7 +99,8 @@ impl<'a> Target<'a> for FxParameterTouchStateTarget {
 }
 
 pub const FX_PARAMETER_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX parameter: Set automation touch state",
+    section: TargetSection::FxParameter,
+    name: "Set automation touch state",
     short_name: "FX parameter touch state",
     supports_track: true,
     supports_fx: true,

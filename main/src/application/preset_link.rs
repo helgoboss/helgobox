@@ -1,5 +1,4 @@
 use base::default_util::is_default;
-use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +6,7 @@ use derive_more::Display;
 use reaper_high::Fx;
 use std::fmt;
 use std::fmt::Formatter;
+use strum::EnumIter;
 
 pub trait PresetLinkManager: fmt::Debug {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String>;
@@ -201,7 +201,7 @@ impl FxId {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -212,8 +212,8 @@ pub enum MainPresetAutoLoadMode {
     #[display(fmt = "Off")]
     Off,
     #[serde(rename = "focused-fx")]
-    #[display(fmt = "Based on instance FX")]
-    InstanceFx,
+    #[display(fmt = "Based on unit FX")]
+    UnitFx,
 }
 
 impl Default for MainPresetAutoLoadMode {

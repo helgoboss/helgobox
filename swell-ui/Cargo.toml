@@ -6,16 +6,21 @@ edition = "2021"
 publish = false
 
 [dependencies]
+base.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 rxrust.workspace = true
 rx-util.workspace = true
 scopeguard.workspace = true
 raw-window-handle.workspace = true
+tracing.workspace = true
+palette.workspace = true
+fragile.workspace = true
+# For easily defining colors
+hex-literal = "0.4.1"
 
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
-palette = "0.5"
 libloading.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]

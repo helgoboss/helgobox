@@ -1,14 +1,15 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks, touched_unit_value,
-    AdditionalFeedbackEvent, BackboneState, Compartment, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, Backbone, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use std::borrow::Cow;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedTrackTouchStateTarget {
@@ -21,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackTouchStateTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -63,7 +64,7 @@ impl RealearnTarget for TrackTouchStateTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let target_context = BackboneState::target_state();
+        let target_context = Backbone::target_state();
         change_track_prop(
             &self.track,
             self.exclusivity,
@@ -127,7 +128,7 @@ impl<'a> Target<'a> for TrackTouchStateTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let is_touched = BackboneState::target_state()
+        let is_touched = Backbone::target_state()
             .borrow()
             .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
         Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))
@@ -139,7 +140,8 @@ impl<'a> Target<'a> for TrackTouchStateTarget {
 }
 
 pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Set automation touch state",
+    section: TargetSection::Track,
+    name: "Set automation touch state",
     short_name: "Track touch state",
     supports_track: true,
     supports_track_exclusivity: true,
@@ -156,7 +158,7 @@ pub const TRACK_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     Default,
     serde_repr::Serialize_repr,
     serde_repr::Deserialize_repr,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,

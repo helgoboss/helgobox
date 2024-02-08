@@ -1,8 +1,8 @@
 use crate::domain::{CompartmentParamIndex, ModifierCondition};
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 #[derive(
     Copy,
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,

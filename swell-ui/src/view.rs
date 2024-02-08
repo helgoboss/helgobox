@@ -1,10 +1,10 @@
-use crate::{create_window, Pixels, Point, SharedView, Window};
+use crate::{create_window, DeviceContext, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
 use rxrust::prelude::*;
 
+use reaper_medium::Hbrush;
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
-use std::ptr::null_mut;
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///
@@ -71,6 +71,15 @@ pub trait View: Debug {
 
     /// WM_INITDIALOG.
     ///
+    /// Should return `true` if you want the window to be actually shown when it's created.
+    ///
+    /// Only if `true`, `opened` will be called in the next step.
+    fn show_window_on_init(&self) -> bool {
+        true
+    }
+
+    /// WM_INITDIALOG.
+    ///
     /// Should return `true` if keyboard focus is desired.
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
         false
@@ -84,7 +93,7 @@ pub trait View: Debug {
     }
 
     /// WM_DESTROY.
-    fn closed(self: SharedView<Self>, _window: Window) {}
+    fn on_destroy(self: SharedView<Self>, _window: Window) {}
 
     /// WM_SHOWWINDOW.
     ///
@@ -188,18 +197,22 @@ pub trait View: Debug {
     /// WM_ERASEBKGND
     ///
     /// Should return `true` if processed.
-    fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
-        let _ = hdc;
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        let _ = device_context;
         false
     }
 
     /// WM_CTLCOLORSTATIC
     ///
     /// Can return a custom background brush for painting that control.
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
-        let _ = hdc;
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        let _ = device_context;
         let _ = window;
-        null_mut()
+        None
     }
 
     /// WM_CTLCOLORDLG
@@ -207,11 +220,12 @@ pub trait View: Debug {
     /// Can return a custom background brush for painting that dialog.
     fn control_color_dialog(
         self: SharedView<Self>,
-        hdc: raw::HDC,
-        _hwnd: raw::HWND,
-    ) -> raw::HBRUSH {
-        let _ = hdc;
-        null_mut()
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        let _ = device_context;
+        let _ = window;
+        None
     }
 
     /// Timer with the given ID fires.
@@ -249,21 +263,21 @@ pub trait View: Debug {
     // =================================================
 
     /// Opens this view in the given parent window.
-    fn open(self: SharedView<Self>, parent_window: Window)
+    fn open(self: SharedView<Self>, parent_window: Window) -> Option<Window>
     where
         Self: Sized + 'static,
     {
         let resource_id = self.dialog_resource_id();
-        create_window(self, resource_id, Some(parent_window));
+        create_window(self, resource_id, Some(parent_window))
     }
 
     /// Opens this view in a free window.
-    fn open_without_parent(self: SharedView<Self>)
+    fn open_without_parent(self: SharedView<Self>) -> Option<Window>
     where
         Self: Sized + 'static,
     {
         let resource_id = self.dialog_resource_id();
-        create_window(self, resource_id, None);
+        create_window(self, resource_id, None)
     }
 
     /// Closes this view.

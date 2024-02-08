@@ -1,7 +1,7 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
@@ -12,7 +12,7 @@ impl UnresolvedReaperTargetDef for UnresolvedDummyTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Dummy(DummyTarget::new())])
     }
@@ -32,12 +32,6 @@ pub struct DummyTarget {
 impl DummyTarget {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn hit(&mut self, value: ControlValue) {
-        if let Ok(abs_value) = value.to_absolute_value() {
-            self.artificial_value = abs_value;
-        }
     }
 
     fn control_type_and_character_simple(&self) -> (ControlType, TargetCharacter) {
@@ -71,10 +65,6 @@ impl RealearnTarget for DummyTarget {
         false
     }
 
-    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        Some(RealTimeReaperTarget::Dummy(self.clone()))
-    }
-
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::Dummy)
     }
@@ -93,8 +83,8 @@ impl<'a> Target<'a> for DummyTarget {
 }
 
 pub const DUMMY_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Dummy target",
+    section: TargetSection::ReaLearn,
+    name: "Dummy target",
     short_name: "Dummy",
-    supports_real_time_control: true,
     ..DEFAULT_TARGET
 };

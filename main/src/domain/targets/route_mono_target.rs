@@ -1,7 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, get_track_routes, mute_unit_value, Compartment, ControlContext,
+    format_value_as_on_off, get_track_routes, mute_unit_value, CompartmentKind, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     TrackRouteDescriptor, UnresolvedReaperTargetDef, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     DEFAULT_TARGET,
 };
@@ -19,7 +19,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteMonoTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
@@ -118,7 +118,8 @@ impl<'a> Target<'a> for RouteMonoTarget {
 }
 
 pub const ROUTE_MONO_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Mono/stereo",
+    section: TargetSection::Send,
+    name: "Mono/stereo",
     short_name: "Send mono/stereo",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

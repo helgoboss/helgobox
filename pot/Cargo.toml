@@ -21,7 +21,6 @@ wildmatch.workspace = true
 serde.workspace = true
 derive_more.workspace = true
 tokio.workspace = true
-enum-iterator.workspace = true
 enum-map.workspace = true
 once_cell.workspace = true
 lexical-sort = "0.3.1"
@@ -30,16 +29,16 @@ splitty = "1.0.1"
 rust-ini.workspace = true
 walkdir.workspace = true
 either.workspace = true
-fallible-iterator = "0.2"
+fallible-iterator = "0.3.0"
 riff-io = "0.1.2"
-rusqlite = { version = "0.28.0", features = ["bundled"] }
+rusqlite = { version = "0.30.0", features = ["bundled"] }
 rmp-serde.workspace = true
 serde_json.workspace = true
 dirs.workspace = true
 futures.workspace = true
 derivative.workspace = true
 tempfile.workspace = true
-sanitize-filename = "0.4.0"
+sanitize-filename = "0.5.0"
 tracing.workspace = true
 regex.workspace = true
 helgoboss-allocator.workspace = true

@@ -67,7 +67,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 let interval = helgoboss_learn::Interval::try_new(
                     api_interval.0 as u64,
                     api_interval.1 as u64,
-                )?;
+                )
+                .map_err(anyhow::Error::msg)?;
                 (interval.min_val(), interval.max_val())
             }
             OnSinglePress(m) => {
@@ -85,7 +86,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 let min = m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64;
                 (min, min)
             }
-            OnDoublePress(_) => (0, 0),
+            OnDoublePress => (0, 0),
         }
     };
     let data = ModeModelData {
@@ -142,7 +143,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 AfterTimeout(_) => T::AfterTimeout,
                 AfterTimeoutKeepFiring(_) => T::AfterTimeoutKeepFiring,
                 OnSinglePress(_) => T::OnSinglePress,
-                OnDoublePress(_) => T::OnDoublePress,
+                OnDoublePress => T::OnDoublePress,
             }
         },
         round_target_value: g
@@ -204,7 +205,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             }
         },
         target_value_sequence: if let Some(s) = g.target_value_sequence {
-            s.parse()?
+            s.parse().map_err(anyhow::Error::msg)?
         } else {
             Default::default()
         },
@@ -220,7 +221,8 @@ fn convert_step_factor_interval(
     let result = helgoboss_learn::Interval::try_new(
         i.0.try_into().unwrap_or(DiscreteIncrement::POSITIVE_MIN),
         i.1.try_into().unwrap_or(DiscreteIncrement::POSITIVE_MIN),
-    )?;
+    )
+    .map_err(anyhow::Error::msg)?;
     Ok(result)
 }
 
@@ -231,15 +233,19 @@ fn convert_step_size_interval(
     let result = helgoboss_learn::Interval::try_new(
         uv_interval.min_val().to_symmetric(),
         uv_interval.max_val().to_symmetric(),
-    )?;
+    )
+    .map_err(anyhow::Error::msg)?;
     Ok(result)
 }
 
 fn convert_unit_value_interval(
     interval: Interval<f64>,
 ) -> ConversionResult<helgoboss_learn::Interval<UnitValue>> {
-    let result =
-        helgoboss_learn::Interval::try_new(interval.0.try_into()?, interval.1.try_into()?)?;
+    let result = helgoboss_learn::Interval::try_new(
+        interval.0.try_into().map_err(anyhow::Error::msg)?,
+        interval.1.try_into().map_err(anyhow::Error::msg)?,
+    )
+    .map_err(anyhow::Error::msg)?;
     Ok(result)
 }
 

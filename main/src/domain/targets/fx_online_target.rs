@@ -1,7 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, fx_online_unit_value, Compartment, ControlContext,
+    format_value_as_on_off, fx_online_unit_value, CompartmentKind, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, FxDescriptor, HitResponse, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxOnlineTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(self
             .fx_descriptor
@@ -100,7 +100,8 @@ impl<'a> Target<'a> for FxOnlineTarget {
 }
 
 pub const FX_ONLINE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Set online/offline",
+    section: TargetSection::Fx,
+    name: "Set online/offline",
     short_name: "On/off-line FX",
     supports_track: true,
     supports_fx: true,

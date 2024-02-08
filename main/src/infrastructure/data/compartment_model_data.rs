@@ -1,19 +1,18 @@
-use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, Session};
+use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, UnitModel};
 use crate::domain::{
-    Compartment, CompartmentParamIndex, GroupId, GroupKey, InstanceId, MappingId, MappingKey,
-    ParamSetting,
+    CompartmentKind, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
+    UnitId,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
     SimpleDataToModelConversionContext,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
+use base::hash_util::NonCryptoHashMap;
 use base::validation_util::{ensure_no_duplicate, ValidationError};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,14 +42,19 @@ pub struct CompartmentModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub parameters: HashMap<String, ParamSetting>,
-    /// At the moment, custom data is only used in the controller compartment.
+    pub parameters: NonCryptoHashMap<String, ParamSetting>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub custom_data: HashMap<String, serde_json::Value>,
+    pub common_lua: String,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub custom_data: NonCryptoHashMap<String, serde_json::Value>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -70,8 +74,8 @@ impl ModelToDataConversionContext for CompartmentModel {
         Some(mapping.key().clone())
     }
 
-    fn session_id_by_instance_id(&self, instance_id: InstanceId) -> Option<String> {
-        App::get().find_session_id_by_instance_id(instance_id)
+    fn session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
+        BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }
 
@@ -94,6 +98,7 @@ impl CompartmentModelData {
                 .iter()
                 .map(|(key, value)| (key.to_string(), value.clone()))
                 .collect(),
+            common_lua: model.common_lua.clone(),
             custom_data: model.custom_data.clone(),
             notes: model.notes.clone(),
         }
@@ -104,9 +109,9 @@ impl CompartmentModelData {
     pub fn to_model(
         &self,
         version: Option<&Version>,
-        compartment: Compartment,
-        session: Option<&Session>,
-    ) -> Result<CompartmentModel, Box<dyn Error>> {
+        compartment: CompartmentKind,
+        session: Option<&UnitModel>,
+    ) -> anyhow::Result<CompartmentModel> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
@@ -128,7 +133,7 @@ impl CompartmentModelData {
             .iter()
             .map(|g| g.to_model(compartment, false, &conversion_context))
             .collect();
-        let mappings: Result<Vec<_>, _> = self
+        let mappings: anyhow::Result<Vec<_>> = self
             .mappings
             .iter()
             .map(|m| {
@@ -138,7 +143,7 @@ impl CompartmentModelData {
                     version,
                     &conversion_context,
                 )
-                .map_err(|e| e.to_owned())
+                .map_err(anyhow::Error::msg)
             })
             .collect();
         let model = CompartmentModel {
@@ -153,6 +158,7 @@ impl CompartmentModelData {
                 })
                 .collect(),
             groups,
+            common_lua: self.common_lua.clone(),
             custom_data: self.custom_data.clone(),
             notes: self.notes.clone(),
         };

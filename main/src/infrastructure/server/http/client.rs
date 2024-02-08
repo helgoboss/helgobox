@@ -1,13 +1,13 @@
 //! Contains the mainly technical HTTP/WebSocket server code.
 
 use crate::infrastructure::server::data::{Topic, Topics};
+use base::hash_util::NonCryptoHashMap;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
 // We don't take the async RwLock by Tokio because we need to access this in sync code, too!
-pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>;
+pub type ServerClients = Arc<std::sync::RwLock<NonCryptoHashMap<usize, WebSocketClient>>>;
 
 #[derive(Debug, Clone)]
 pub struct WebSocketClient {

@@ -1,10 +1,10 @@
 use crate::base::{prop, Prop};
 use crate::domain::{
-    Compartment, CompoundMappingSource, GroupId, IncomingCompoundSourceValue, MessageCaptureResult,
-    ReaperTarget, Tag, VirtualSourceValue,
+    CompartmentKind, CompoundMappingSource, GroupId, IncomingCompoundSourceValue,
+    MessageCaptureResult, ReaperTarget, Tag, VirtualSourceValue,
 };
 
-use crate::application::{MappingModel, Session};
+use crate::application::{MappingModel, UnitModel};
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -20,8 +20,8 @@ pub struct MainState {
     pub is_learning_target_filter: Prop<bool>,
     pub source_filter: Prop<Option<SourceFilter>>,
     pub is_learning_source_filter: Prop<bool>,
-    pub active_compartment: Prop<Compartment>,
-    pub displayed_group: EnumMap<Compartment, Prop<Option<GroupFilter>>>,
+    pub active_compartment: Prop<CompartmentKind>,
+    pub displayed_group: EnumMap<CompartmentKind, Prop<Option<GroupFilter>>>,
     pub search_expression: Prop<SearchExpression>,
     pub scroll_status: Prop<ScrollStatus>,
 }
@@ -84,10 +84,10 @@ impl Default for MainState {
             is_learning_target_filter: prop(false),
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
-            active_compartment: prop(Compartment::Main),
+            active_compartment: prop(CompartmentKind::Main),
             displayed_group: enum_map! {
-                Compartment::Controller => prop(Some(GroupFilter::default())),
-                Compartment::Main => prop(Some(GroupFilter::default())),
+                CompartmentKind::Controller => prop(Some(GroupFilter::default())),
+                CompartmentKind::Main => prop(Some(GroupFilter::default())),
             },
             search_expression: Default::default(),
             scroll_status: Default::default(),
@@ -98,7 +98,7 @@ impl Default for MainState {
 impl MainState {
     pub fn clear_all_filters_and_displayed_group(&mut self) {
         self.clear_all_filters();
-        for c in Compartment::enum_iter() {
+        for c in CompartmentKind::enum_iter() {
             self.clear_displayed_group(c);
         }
     }
@@ -106,9 +106,9 @@ impl MainState {
     pub fn displayed_group_for_any_compartment_changed(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.displayed_group[Compartment::Controller]
+        self.displayed_group[CompartmentKind::Controller]
             .changed()
-            .merge(self.displayed_group[Compartment::Main].changed())
+            .merge(self.displayed_group[CompartmentKind::Main].changed())
     }
 
     pub fn displayed_group_for_active_compartment(&self) -> Option<GroupFilter> {
@@ -126,7 +126,7 @@ impl MainState {
         self.stop_filter_learning();
     }
 
-    pub fn clear_displayed_group(&mut self, compartment: Compartment) {
+    pub fn clear_displayed_group(&mut self, compartment: CompartmentKind) {
         self.displayed_group[compartment].set(None);
     }
 
@@ -193,7 +193,7 @@ impl SearchExpression {
         self.wild_match.matches(&text.to_lowercase())
     }
 
-    pub fn matches_any_tag_in_group(&self, mapping: &MappingModel, session: &Session) -> bool {
+    pub fn matches_any_tag_in_group(&self, mapping: &MappingModel, session: &UnitModel) -> bool {
         if self.tag.is_none() {
             return false;
         }

@@ -1,6 +1,5 @@
 use crate::SwellStringArg;
 use reaper_low::{raw, Swell};
-use std::marker::PhantomData;
 
 /// Represents a top-level menu bar with resource management.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -51,17 +50,13 @@ impl Drop for MenuBar {
 /// Doesn't need to implement Drop because Windows will destroy all sub menus automatically
 /// when the root menu is destroyed.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct Menu<'a> {
+pub struct Menu {
     raw: raw::HMENU,
-    p: PhantomData<&'a ()>,
 }
 
-impl<'a> Menu<'a> {
-    fn new(raw: raw::HMENU) -> Self {
-        Self {
-            raw,
-            p: Default::default(),
-        }
+impl Menu {
+    pub fn new(raw: raw::HMENU) -> Self {
+        Self { raw }
     }
 
     pub fn raw(self) -> raw::HMENU {
@@ -84,7 +79,6 @@ impl<'a> Menu<'a> {
 
     pub fn add_item<'b>(self, item_id: u32, text: impl Into<SwellStringArg<'b>>) {
         unsafe {
-            let swell = Swell::get();
             let swell_string_arg = text.into();
             let mut mi = raw::MENUITEMINFO {
                 fMask: raw::MIIM_TYPE | raw::MIIM_DATA | raw::MIIM_ID,
@@ -92,37 +86,46 @@ impl<'a> Menu<'a> {
                 dwTypeData: swell_string_arg.as_ptr() as _,
                 ..Default::default()
             };
-            swell.InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+            Swell::get().InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+        }
+    }
+
+    pub fn entry_count(&self) -> Result<u32, &'static str> {
+        let res = unsafe { Swell::get().GetMenuItemCount(self.raw) };
+        if res == -1 {
+            return Err("couldn't menu get entry count");
+        }
+        Ok(res as u32)
+    }
+
+    pub fn add_menu<'b>(self, text: impl Into<SwellStringArg<'b>>) -> Menu {
+        unsafe {
+            let swell_string_arg = text.into();
+            let sub_menu = Swell::get().CreatePopupMenu();
+            let mut mi = raw::MENUITEMINFO {
+                fMask: raw::MIIM_TYPE | raw::MIIM_DATA | raw::MIIM_SUBMENU,
+                hSubMenu: sub_menu,
+                dwTypeData: swell_string_arg.as_ptr() as _,
+                ..Default::default()
+            };
+            Swell::get().InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+            Menu::new(sub_menu)
         }
     }
 
     pub fn add_separator(self) {
         unsafe {
-            let swell = Swell::get();
             let mut mi = raw::MENUITEMINFO {
                 fMask: raw::MIIM_TYPE,
                 fType: raw::MF_SEPARATOR,
                 ..Default::default()
             };
-            swell.InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+            Swell::get().InsertMenuItem(self.raw, -1, 1, &mut mi as _);
         }
     }
 
     pub fn get_sub_menu_at(&self, index: u32) -> Option<Menu> {
         get_sub_menu_at(self.raw, index)
-    }
-
-    pub fn turn_into_submenu(&self, item_id: u32) -> Menu {
-        let sub_menu = Swell::get().CreatePopupMenu();
-        let mut mi = raw::MENUITEMINFO {
-            fMask: raw::MIIM_SUBMENU,
-            hSubMenu: sub_menu,
-            ..Default::default()
-        };
-        unsafe {
-            Swell::get().SetMenuItemInfo(self.raw, item_id as _, 0, &mut mi as _);
-        }
-        Menu::new(sub_menu)
     }
 
     pub fn set_item_text<'b>(self, item_id: u32, text: impl Into<SwellStringArg<'b>>) {
@@ -152,7 +155,7 @@ impl<'a> Menu<'a> {
     }
 }
 
-fn get_sub_menu_at<'a>(raw: raw::HMENU, index: u32) -> Option<Menu<'a>> {
+fn get_sub_menu_at(raw: raw::HMENU, index: u32) -> Option<Menu> {
     let menu = unsafe { Swell::get().GetSubMenu(raw, index as _) };
     if menu.is_null() {
         return None;

@@ -1,13 +1,13 @@
 use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
-use base::Trafficker;
+use anyhow::ensure;
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{
     FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, FeedbackValue, NumericValue,
     PropProvider, PropValue,
 };
-use mlua::{Function, Lua, LuaSerdeExt, Table, ToLua, Value};
+use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::error::Error;
 
 #[derive(Debug)]
@@ -21,17 +21,15 @@ pub struct LuaFeedbackScript<'lua> {
 unsafe impl<'a> Send for LuaFeedbackScript<'a> {}
 
 impl<'lua> LuaFeedbackScript<'lua> {
-    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> Result<Self, Box<dyn Error>> {
-        if lua_script.trim().is_empty() {
-            return Err("script empty".into());
-        }
+    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {
+        ensure!(!lua_script.trim().is_empty(), "script empty");
         let env = lua.create_fresh_environment(false)?;
         let function = lua.compile_as_function("Feedback script", lua_script, env.clone())?;
         let script = Self {
             lua,
             env,
             function,
-            context_key: "context".to_lua(lua.as_ref())?,
+            context_key: "context".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -39,31 +37,25 @@ impl<'lua> LuaFeedbackScript<'lua> {
     fn feedback_internal(
         &self,
         input: FeedbackScriptInput,
-    ) -> Result<FeedbackScriptOutput, Box<dyn Error>> {
+    ) -> anyhow::Result<FeedbackScriptOutput> {
         let lua = self.lua.as_ref();
-        let thin_ref = &input.prop_provider;
-        // We need to use the Trafficker here because mlua requires the input to create_function()
-        // to be 'static and Send. However, here we have a Rust function that doesn't fulfill any
-        // of these requirements, so create_function() would complain. However, in this case, the
-        // requirements are unnecessarily strict. Because in our usage scenario (= synchronous
-        // immediate execution, just once), the function can't go out of scope and we also don't
-        // send anything to another thread.
-        let trafficker = Trafficker::new(thin_ref);
-        // Build input data
-        let context_table = {
-            let table = lua.create_table()?;
-            table.set("mode", 0)?;
-            let prop = lua.create_function(move |_, key: String| {
-                let prop_provider: &dyn PropProvider = unsafe { trafficker.get() };
-                let prop_value = prop_provider.get_prop_value(&key);
-                Ok(prop_value.map(LuaPropValue))
-            })?;
-            table.set("prop", prop)?;
-            table
-        };
-        self.env.raw_set(self.context_key.clone(), context_table)?;
-        // Invoke script
-        let value: Value = self.function.call(())?;
+        let value = lua.scope(|scope| {
+            // Build input data
+            let context_table = {
+                let table = lua.create_table()?;
+                table.set("mode", 0)?;
+                let prop = scope.create_function(move |_, key: String| {
+                    let prop_value = input.prop_provider.get_prop_value(&key);
+                    Ok(prop_value.map(LuaPropValue))
+                })?;
+                table.set("prop", prop)?;
+                table
+            };
+            self.env.raw_set(self.context_key.clone(), context_table)?;
+            // Invoke script
+            let value: Value = self.function.call(())?;
+            Ok(value)
+        })?;
         // Process return value
         let output: LuaScriptFeedbackOutput = self.lua.as_ref().from_value(value)?;
         let feedback_value = match output.feedback_event {
@@ -77,20 +69,20 @@ impl<'lua> LuaFeedbackScript<'lua> {
 
 struct LuaPropValue(PropValue);
 
-impl<'lua> ToLua<'lua> for LuaPropValue {
-    fn to_lua(self, lua: &'lua Lua) -> mlua::Result<Value<'lua>> {
+impl<'lua> IntoLua<'lua> for LuaPropValue {
+    fn into_lua(self, lua: &'lua Lua) -> mlua::Result<Value<'lua>> {
         match self.0 {
-            PropValue::Normalized(p) => p.get().to_lua(lua),
-            PropValue::Index(i) => i.to_lua(lua),
-            PropValue::Numeric(NumericValue::Decimal(i)) => i.to_lua(lua),
-            PropValue::Numeric(NumericValue::Discrete(i)) => i.to_lua(lua),
-            PropValue::Boolean(state) => state.to_lua(lua),
-            PropValue::Text(t) => t.to_lua(lua),
+            PropValue::Normalized(p) => p.get().into_lua(lua),
+            PropValue::Index(i) => i.into_lua(lua),
+            PropValue::Numeric(NumericValue::Decimal(i)) => i.into_lua(lua),
+            PropValue::Numeric(NumericValue::Discrete(i)) => i.into_lua(lua),
+            PropValue::Boolean(state) => state.into_lua(lua),
+            PropValue::Text(t) => t.into_lua(lua),
             PropValue::Color(c) => {
                 let script_color = ScriptColor::from(c);
                 lua.to_value(&script_color)
             }
-            PropValue::DurationInMillis(d) => d.to_lua(lua),
+            PropValue::DurationInMillis(d) => d.into_lua(lua),
         }
     }
 }
@@ -104,7 +96,7 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
             .map_err(|e| e.to_string().into())
     }
 
-    fn used_props(&self) -> Result<HashSet<String>, Box<dyn Error>> {
+    fn used_props(&self) -> Result<NonCryptoHashSet<String>, Box<dyn Error>> {
         let prop_provider = TrackingPropProvider::default();
         let input = FeedbackScriptInput {
             prop_provider: &prop_provider,
@@ -116,7 +108,7 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
 
 #[derive(Default)]
 struct TrackingPropProvider {
-    used_props: RefCell<HashSet<String>>,
+    used_props: RefCell<NonCryptoHashSet<String>>,
 }
 
 impl PropProvider for TrackingPropProvider {
@@ -154,10 +146,10 @@ mod tests {
         // When
         let used_props = script.used_props().unwrap();
         // Then
-        assert_eq!(
-            used_props,
-            HashSet::from(["hello".to_string(), "bye".to_string()])
-        );
+        let expected: NonCryptoHashSet<_> = ["hello".to_string(), "bye".to_string()]
+            .into_iter()
+            .collect();
+        assert_eq!(used_props, expected);
     }
 
     #[test]

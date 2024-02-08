@@ -1,8 +1,8 @@
 use crate::domain::{
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     InstanceStateChanged, MappingControlContext, PotStateChangedEvent, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPreviewPotPresetTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::PreviewPotPreset(
             PreviewPotPresetTarget {},
@@ -42,7 +42,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.instance().borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from PreviewPotPresetTarget 1");
         if value.is_on() {
@@ -58,7 +58,7 @@ impl RealearnTarget for PreviewPotPresetTarget {
     }
 
     fn is_available(&self, context: ControlContext) -> bool {
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.instance().borrow_mut();
         let pot_unit = match instance_state.pot_unit() {
             Ok(u) => u,
             Err(_) => return false,
@@ -110,7 +110,8 @@ impl PreviewPotPresetTarget {
     }
 }
 pub const PREVIEW_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Preview preset",
+    section: TargetSection::Pot,
+    name: "Preview preset",
     short_name: "Preview Pot preset",
     ..DEFAULT_TARGET
 };

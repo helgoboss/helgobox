@@ -68,6 +68,14 @@ impl Sub for Pixels {
     }
 }
 
+impl Add for Pixels {
+    type Output = Pixels;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Pixels(self.0 + rhs.0)
+    }
+}
+
 /// Point in a coordinate system.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Point<T> {
@@ -81,22 +89,20 @@ impl<T> Point<T> {
     }
 }
 
-/// These factors should correspond to those in `dialogs.cpp` and should - if possible - remain
-/// at 1.0 because we can do OS-specific scaling now in the `dialogs` crate - right when
-/// generating the RC file. The scale factors used there propagate everywhere.
+/// These factors should correspond to those in `dialogs.cpp`.
 fn effective_scale_factors() -> ScaleFactors {
     #[cfg(target_os = "linux")]
     {
         let scaling_256 = reaper_low::Swell::get().SWELL_GetScaling256();
         let hidpi_factor = scaling_256 as f64 / 256.0;
         ScaleFactors {
-            main: 1.0 * hidpi_factor,
-            y: 1.0,
+            main: 1.9 * hidpi_factor,
+            y: 0.92,
         }
     }
     #[cfg(target_os = "macos")]
     {
-        ScaleFactors { main: 1.0, y: 1.0 }
+        ScaleFactors { main: 1.6, y: 0.95 }
     }
     #[cfg(target_os = "windows")]
     {
@@ -142,7 +148,7 @@ impl Point<DialogUnits> {
         }
     }
 
-    pub fn scale(self, scaling: DialogScaling) -> Self {
+    pub fn scale(self, scaling: &DialogScaling) -> Self {
         Self {
             x: self.x.scale(scaling.x_scale),
             y: self.y.scale(scaling.y_scale),
@@ -202,7 +208,7 @@ impl Dimensions<DialogUnits> {
         self.to_point().in_pixels().to_dimensions()
     }
 
-    pub fn scale(self, scaling: DialogScaling) -> Self {
+    pub fn scale(self, scaling: &DialogScaling) -> Self {
         Self {
             width: self.width.scale(scaling.width_scale),
             height: self.height.scale(scaling.height_scale),
@@ -219,6 +225,7 @@ impl<T: Copy> From<Point<T>> for Dimensions<T> {
 /// This is not the scaling applied by SWELL but the one applied before by us when generating
 /// the RC file. In future we might produce different RC files for different operating systems.
 /// Then this is maybe the only scaling info we need and we can ditch SWELL scaling.
+#[derive(Debug)]
 pub struct DialogScaling {
     pub x_scale: f64,
     pub y_scale: f64,

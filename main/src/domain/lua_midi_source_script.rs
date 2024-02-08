@@ -1,11 +1,16 @@
-use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
+use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
+use anyhow::ensure;
 use helgoboss_learn::{
     AbsoluteValue, FeedbackValue, MidiSourceAddress, MidiSourceScript, MidiSourceScriptOutcome,
     RawMidiEvent,
 };
-use mlua::{Function, LuaSerdeExt, Table, ToLua, Value};
+use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
-use std::error::Error;
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AdditionalLuaMidiSourceScriptInput<'a, 'lua> {
+    pub compartment_lua: Option<&'a mlua::Value<'lua>>,
+}
 
 #[derive(Debug)]
 pub struct LuaMidiSourceScript<'lua> {
@@ -19,18 +24,17 @@ pub struct LuaMidiSourceScript<'lua> {
 unsafe impl<'a> Send for LuaMidiSourceScript<'a> {}
 
 impl<'lua> LuaMidiSourceScript<'lua> {
-    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> Result<Self, Box<dyn Error>> {
-        if lua_script.trim().is_empty() {
-            return Err("script empty".into());
-        }
+    pub fn compile(lua: &'lua SafeLua, lua_script: &str) -> anyhow::Result<Self> {
+        ensure!(!lua_script.trim().is_empty(), "script empty");
         let env = lua.create_fresh_environment(false)?;
+        // Compile
         let function = lua.compile_as_function("MIDI source script", lua_script, env.clone())?;
         let script = Self {
             lua,
             env,
             function,
-            y_key: "y".to_lua(lua.as_ref())?,
-            context_key: "context".to_lua(lua.as_ref())?,
+            y_key: "y".into_lua(lua.as_ref())?,
+            context_key: "context".into_lua(lua.as_ref())?,
         };
         Ok(script)
     }
@@ -41,10 +45,13 @@ struct ScriptContext {
     feedback_event: ScriptFeedbackEvent,
 }
 
-impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
+impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
+    type AdditionalInput = AdditionalLuaMidiSourceScriptInput<'a, 'lua>;
+
     fn execute(
         &self,
         input_value: FeedbackValue,
+        additional_input: Self::AdditionalInput,
     ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         // TODO-medium We don't limit the time of each execution at the moment because not sure
         //  how expensive this measurement is. But it would actually be useful to do it for MIDI
@@ -65,7 +72,7 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
             },
             FeedbackValue::Textual(v) => v
                 .text
-                .to_lua(self.lua.as_ref())
+                .into_lua(self.lua.as_ref())
                 .map_err(|_| "couldn't convert string to Lua string")?,
             FeedbackValue::Complex(v) => self
                 .lua
@@ -77,8 +84,8 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         self.env
             .raw_set(self.y_key.clone(), y_value)
             .map_err(|_| "couldn't set y variable")?;
-        let mut serialize_options = mlua::SerializeOptions::new();
         // This is important, otherwise e.g. a None color ends up as some userdata and not nil.
+        let mut serialize_options = mlua::SerializeOptions::new();
         serialize_options.serialize_none_to_null = false;
         serialize_options.serialize_unit_to_null = false;
         let context_lua_value = self
@@ -89,8 +96,33 @@ impl<'a> MidiSourceScript for LuaMidiSourceScript<'a> {
         self.env
             .raw_set(self.context_key.clone(), context_lua_value)
             .map_err(|_| "couldn't set context variable")?;
-        // Invoke script
-        let value: Value = self.function.call(()).map_err(|e| e.to_string())?;
+        // The rest is scoped because we want to create a scoped function
+        let value = self.lua
+            .as_ref()
+            .scope(|scope| {
+                // Set require function
+                let require = scope.create_function(move |lua, path: String| {
+                    let val = match lua_module_path_without_ext(&path) {
+                        LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME => create_lua_midi_script_source_runtime(lua),
+                        "compartment" => {
+                            additional_input.compartment_lua.cloned().unwrap_or(Value::Nil)
+                        },
+                        _ => return Err(mlua::Error::runtime(format!("MIDI scripts don't support the usage of 'require' for anything else than '{LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME}'!")))
+                    };
+                    Ok(val)
+                })
+                    .map_err(mlua::Error::runtime)?;
+                self.env.raw_set("require", require)
+                    .map_err(mlua::Error::runtime)?;
+                // Invoke script
+                let value: Value = self.function.call(()).map_err(mlua::Error::runtime)?;
+                Ok(value)
+            })
+            .map_err(|e| {
+                let error = e.to_string();
+                tracing::debug!(msg = "Failed to execute Lua MIDI source script", %error);
+                error
+            })?;
         // Process return value
         let outcome: LuaScriptOutcome = self
             .lua
@@ -118,6 +150,14 @@ struct LuaScriptOutcome {
     messages: Vec<Vec<u8>>,
 }
 
+pub fn create_lua_midi_script_source_runtime(_lua: &Lua) -> mlua::Value {
+    // At the moment, the MIDI script source runtime doesn't contain any functions, just types.
+    // That means it's only relevant for autocompletion in the IDE. We can return nil.
+    Value::Nil
+}
+
+pub const LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME: &str = "midi_script_source_runtime";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,7 +183,9 @@ mod tests {
             FeedbackStyle::default(),
             AbsoluteValue::Continuous(UnitValue::new(0.5)),
         );
-        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(fb_value), Default::default())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,
@@ -174,16 +216,22 @@ mod tests {
         let script = LuaMidiSourceScript::compile(&lua, text).unwrap();
         // When
         let matched_outcome = script
-            .execute(FeedbackValue::Textual(TextualFeedbackValue::new(
-                FeedbackStyle::default(),
-                "playing".into(),
-            )))
+            .execute(
+                FeedbackValue::Textual(TextualFeedbackValue::new(
+                    FeedbackStyle::default(),
+                    "playing".into(),
+                )),
+                Default::default(),
+            )
             .unwrap();
         let unmatched_outcome = script
-            .execute(FeedbackValue::Numeric(NumericFeedbackValue::new(
-                FeedbackStyle::default(),
-                AbsoluteValue::Continuous(UnitValue::MAX),
-            )))
+            .execute(
+                FeedbackValue::Numeric(NumericFeedbackValue::new(
+                    FeedbackStyle::default(),
+                    AbsoluteValue::Continuous(UnitValue::MAX),
+                )),
+                Default::default(),
+            )
             .unwrap();
         // Then
         assert_eq!(matched_outcome.address, None);
@@ -226,7 +274,9 @@ mod tests {
             background_color: None,
         };
         let value = NumericFeedbackValue::new(style, Default::default());
-        let outcome = script.execute(FeedbackValue::Numeric(value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(value), Default::default())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,

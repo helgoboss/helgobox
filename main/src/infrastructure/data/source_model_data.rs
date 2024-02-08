@@ -4,7 +4,7 @@ use crate::application::{
     VirtualControlElementType,
 };
 use crate::base::notification;
-use crate::domain::{Compartment, CompartmentParamIndex, Keystroke};
+use crate::domain::{CompartmentKind, CompartmentParamIndex, Keystroke};
 use crate::infrastructure::data::common::OscValueRange;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use base::default_util::{deserialize_null_default, is_default};
@@ -222,7 +222,7 @@ impl SourceModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut SourceModel, compartment: Compartment) {
+    pub fn apply_to_model(&self, model: &mut SourceModel, compartment: CompartmentKind) {
         self.apply_to_model_flexible(model, compartment, None);
     }
 
@@ -230,7 +230,7 @@ impl SourceModelData {
     pub fn apply_to_model_flexible(
         &self,
         model: &mut SourceModel,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         preset_version: Option<&Version>,
     ) {
         use SourceCommand as P;
@@ -388,7 +388,7 @@ mod tests {
         };
         let mut model = SourceModel::new();
         // When
-        data.apply_to_model_flexible(&mut model, Compartment::Main, None);
+        data.apply_to_model_flexible(&mut model, CompartmentKind::Main, None);
         // Then
         assert_eq!(
             model.midi_source_type(),
@@ -421,7 +421,7 @@ mod tests {
         };
         let mut model = SourceModel::new();
         // When
-        data.apply_to_model_flexible(&mut model, Compartment::Main, None);
+        data.apply_to_model_flexible(&mut model, CompartmentKind::Main, None);
         // Then
         assert_eq!(model.midi_source_type(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel(), None);

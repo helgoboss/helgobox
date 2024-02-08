@@ -8,7 +8,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     let left_label_x = 7;
     let io_label_width = 24;
     let space = 3;
-    let (io_combo_box_width, io_combo_box_height) = (190, 16);
+    let (io_combo_box_width, io_combo_box_height) = (190, 14);
     let mut row1 = Adder(left_label_x);
     let mut row2 = Adder(left_label_x);
     let upper_part_controls = [
@@ -16,33 +16,33 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Input",
             ids.id(),
-            context.rect(row1.get(), 6, row1.span(io_label_width), text_height),
+            context.rect(row1.get(), 5, row1.span(io_label_width), text_height),
         ),
-        dropdown(
-            ids.named_id("ID_CONTROL_DEVICE_COMBO_BOX"),
+        pushbutton(
+            "MIDI: <FX input>",
+            ids.named_id("ID_CONTROL_INPUT_BUTTON"),
             context.rect(
                 row1.space(space),
-                4,
+                3,
                 row1.span(io_combo_box_width),
                 io_combo_box_height,
             ),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + NOT_WS_TABSTOP,
         ltext(
             "Output",
             ids.id(),
-            context.rect(row2.get(), 26, row2.span(io_label_width), text_height),
+            context.rect(row2.get(), 25, row2.span(io_label_width), text_height),
         ),
-        dropdown(
-            ids.named_id("ID_FEEDBACK_DEVICE_COMBO_BOX"),
+        pushbutton(
+            "<None>",
+            ids.named_id("ID_FEEDBACK_OUTPUT_BUTTON"),
             context.rect(
                 row2.space(space),
-                24,
+                23,
                 row2.span(io_combo_box_width),
                 io_combo_box_height,
             ),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ) + NOT_WS_TABSTOP,
         // Quick actions
         pushbutton(
             "Menu",
@@ -73,30 +73,34 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ltext(
             "Let through:",
             ids.named_id("ID_LET_THROUGH_LABEL_TEXT"),
-            context.rect(270, 26, 42, 9),
+            context.rect(270, 25, 42, 9),
         ),
         context.checkbox(
             "Matched events",
             ids.named_id("ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            rect(319, 26, 67, 8),
+            rect(319, 25, 67, 8),
         ) + WS_TABSTOP,
         context.checkbox(
             "Unmatched events",
             ids.named_id("ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX"),
-            rect(392, 26, 76, 8),
+            rect(392, 25, 76, 8),
         ) + WS_TABSTOP,
     ];
     let show_controls = [
-        ltext("Show", ids.id(), context.rect(7, 48, 24, 9)),
+        ltext(
+            "Show",
+            ids.named_id("ID_HEADER_PANEL_SHOW_LABEL_TEXT"),
+            context.rect(7, 47, 24, 9),
+        ),
         radio_button(
             "Controller compartment (for picking a controller preset)",
             ids.named_id("ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON"),
-            context.rect(60, 48, 185, 8),
+            context.rect(60, 47, 185, 8),
         ) + WS_TABSTOP,
         radio_button(
             "Main compartment (for the real mappings)",
             ids.named_id("ID_MAIN_COMPARTMENT_RADIO_BUTTON"),
-            context.rect(289, 48, 145, 8),
+            context.rect(289, 47, 145, 8),
         ) + WS_TABSTOP,
     ];
     let lower_part_controls = [
@@ -106,11 +110,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_PRESET_LABEL_TEXT"),
             context.rect(7, 69, 57, 9),
         ),
-        dropdown(
-            ids.named_id("ID_PRESET_COMBO_BOX"),
-            context.rect(68, 67, 135, 16),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        pushbutton(
+            "<None>",
+            ids.named_id("ID_PRESET_BROWSE_BUTTON"),
+            context.rect(68, 66, 135, 14),
+        ) + WS_GROUP,
         // Preset actions
         pushbutton(
             "Save as...",
@@ -215,8 +219,8 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     ];
     let divider_controls = [
         divider(ids.id(), context.rect(0, 41, HEADER_PANEL_WIDTH, 1)),
-        divider(ids.id(), context.rect(0, 123, HEADER_PANEL_WIDTH, 1)),
         divider(ids.id(), context.rect(0, 62, HEADER_PANEL_WIDTH, 1)),
+        // divider(ids.id(), context.rect(0, 123, HEADER_PANEL_WIDTH, 1)),
     ];
     Dialog {
         id: ids.named_id("ID_HEADER_PANEL"),

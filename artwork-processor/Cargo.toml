@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-resvg = { version = "0.36.0", features = ["png"] }
+resvg = { version = "0.37.0", features = ["png"] }
 anyhow.workspace = true

@@ -1,7 +1,7 @@
-mod bindings;
+pub mod bindings;
 
-mod main_panel;
-pub use main_panel::*;
+mod unit_panel;
+pub use unit_panel::*;
 
 mod state;
 pub use state::*;
@@ -41,9 +41,7 @@ mod advanced_script_editor_panel;
 #[cfg(feature = "egui")]
 pub use advanced_script_editor_panel::*;
 
-#[cfg(feature = "playtime")]
 mod app;
-#[cfg(feature = "playtime")]
 pub use app::*;
 
 #[cfg(feature = "egui")]
@@ -69,7 +67,7 @@ pub use companion_app_presenter::*;
 
 mod dialog_util;
 
-mod util;
+pub mod util;
 
 mod clipboard;
 pub use clipboard::*;
@@ -82,4 +80,7 @@ pub mod lua_serializer;
 #[cfg(feature = "egui")]
 mod egui_views;
 
-mod menus;
+pub mod menus;
+
+pub mod color_panel;
+pub mod instance_panel;

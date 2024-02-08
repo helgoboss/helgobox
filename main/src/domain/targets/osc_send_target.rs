@@ -1,8 +1,9 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FeedbackOutput, HitResponse,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackOutput, HitResponse,
     MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use base::NamedChannelSender;
 use helgoboss_learn::{
@@ -22,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedOscSendTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SendOsc(OscSendTarget::new(
             self.address_pattern.clone(),
@@ -140,7 +141,7 @@ impl RealearnTarget for OscSendTarget {
                 effective_dev_id.fmt_short(),
                 format_osc_message(&msg)
             );
-            log_target_output(context.control_context.instance_id, text);
+            log_target_output(context.control_context.unit_id, text);
         }
         context
             .control_context
@@ -172,7 +173,8 @@ impl<'a> Target<'a> for OscSendTarget {
 }
 
 pub const OSC_SEND_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "OSC: Send message",
+    section: TargetSection::Osc,
+    name: "Send message",
     short_name: "Send OSC",
     supports_feedback: false,
     ..DEFAULT_TARGET

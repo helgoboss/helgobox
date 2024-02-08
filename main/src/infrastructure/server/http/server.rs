@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::server::http::ServerClients;
 use axum::extract::{Query, WebSocketUpgrade};
 use axum::handler::Handler;
@@ -8,7 +8,7 @@ use axum::routing::{get, patch};
 use axum::Router;
 use std::io;
 use std::net::SocketAddr;
-use tower_http::cors::{any, CorsLayer};
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::infrastructure::server::data::WebSocketRequest;
 pub use crate::infrastructure::server::http::handlers::*;
@@ -42,7 +42,7 @@ pub async fn start_http_server(
     // Notify UI
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
-            App::get().server().borrow_mut().notify_started();
+            BackboneShell::get().server().borrow_mut().notify_started();
         })
         .unwrap();
     // Actually await the bind futures
@@ -86,7 +86,7 @@ fn create_router(
     router
         .layer(
             CorsLayer::new()
-                .allow_origin(any())
+                .allow_origin(Any)
                 .allow_methods(vec![
                     Method::GET,
                     Method::POST,

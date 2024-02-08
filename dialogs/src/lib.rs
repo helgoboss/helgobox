@@ -6,11 +6,14 @@ use std::io::Write;
 use std::path::Path;
 
 mod base;
+mod color_panel;
 pub mod constants;
 mod empty_panel;
 mod ext;
 mod group_panel;
 mod header_panel;
+mod hidden_panel;
+mod instance_panel;
 mod main_panel;
 mod mapping_panel;
 mod mapping_row_panel;
@@ -41,8 +44,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     let global_scope = {
         Scope {
             linux: {
-                let horizontal_scale = 1.8;
-                let vertical_scale = 1.65;
+                let horizontal_scale = 1.0;
+                let vertical_scale = 1.0;
                 OsSpecificSettings {
                     scaling: DialogScaling {
                         x_scale: horizontal_scale,
@@ -56,8 +59,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
                 scaling: default_scaling,
             },
             macos: {
-                let horizontal_scale = 1.6;
-                let vertical_scale = 1.52;
+                let horizontal_scale = 1.0;
+                let vertical_scale = 1.0;
                 OsSpecificSettings {
                     scaling: DialogScaling {
                         x_scale: horizontal_scale,
@@ -99,8 +102,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
                 }
             },
             macos: {
-                let horizontal_scale = 1.6;
-                let vertical_scale = 1.4;
+                let horizontal_scale = 1.0;
+                let vertical_scale = 0.92;
                 OsSpecificSettings {
                     scaling: DialogScaling {
                         x_scale: horizontal_scale,
@@ -133,7 +136,15 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     let message_panel_dialog = message_panel::create(context.global(), &mut ids);
     let shared_group_mapping_panel_dialog =
         shared_group_mapping_panel::create(context.scoped("MAPPING_PANEL"), &mut ids);
-    let maine_panel_dialog = {
+    let unit_panel_dialog = {
+        instance_panel::create(
+            context.global(),
+            &mut ids,
+            header_panel_dialog.rect.height,
+            mapping_rows_panel_dialog.rect.height,
+        )
+    };
+    let main_panel_dialog = {
         main_panel::create(
             context.global(),
             &mut ids,
@@ -143,6 +154,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     };
     let simple_editor_panel_dialog = simple_editor_panel::create(context.global(), &mut ids);
     let empty_panel_dialog = empty_panel::create(context.global(), &mut ids);
+    let color_panel_dialog = color_panel::create(context.global(), &mut ids);
     let resource = Resource {
         dialogs: vec![
             group_panel_dialog,
@@ -152,9 +164,12 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             mapping_rows_panel_dialog,
             message_panel_dialog,
             shared_group_mapping_panel_dialog,
-            maine_panel_dialog,
+            unit_panel_dialog,
+            main_panel_dialog,
             simple_editor_panel_dialog,
             empty_panel_dialog,
+            color_panel_dialog,
+            hidden_panel::create(context.global(), &mut ids),
         ],
     };
     let header_info = resource.generate_info(&context);

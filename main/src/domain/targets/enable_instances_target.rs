@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext, EnableInstancesArgs,
-    Exclusivity, ExtendedProcessorContext, HitResponse, InstanceStateChanged,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext,
+    EnableInstancesArgs, Exclusivity, ExtendedProcessorContext, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetSection,
+    TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::borrow::Cow;
@@ -17,7 +17,7 @@ impl UnresolvedReaperTargetDef for UnresolvedEnableInstancesTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
             scope: self.scope.clone(),
@@ -56,9 +56,9 @@ impl RealearnTarget for EnableInstancesTarget {
         };
         let tags = context
             .control_context
-            .instance_container
+            .unit_container
             .enable_instances(args);
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         use Exclusivity::*;
         if self.exclusivity == Exclusive || (self.exclusivity == ExclusiveOnOnly && is_enable) {
             // Completely replace
@@ -81,7 +81,7 @@ impl RealearnTarget for EnableInstancesTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveInstanceTags) => (true, None),
+            CompoundChangeEvent::Unit(UnitEvent::ActiveInstanceTags) => (true, None),
             _ => (false, None),
         }
     }
@@ -99,7 +99,7 @@ impl<'a> Target<'a> for EnableInstancesTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         use Exclusivity::*;
         let active = match self.exclusivity {
             NonExclusive => {
@@ -123,7 +123,8 @@ impl<'a> Target<'a> for EnableInstancesTarget {
 }
 
 pub const ENABLE_INSTANCES_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Enable/disable instances",
+    section: TargetSection::ReaLearn,
+    name: "Enable/disable instances",
     short_name: "Enable/disable instances",
     supports_tags: true,
     supports_exclusivity: true,

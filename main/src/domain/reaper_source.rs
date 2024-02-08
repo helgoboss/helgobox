@@ -1,4 +1,5 @@
-use crate::domain::{Compartment, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
+use crate::domain::{CompartmentKind, CompartmentParamIndex, RawParamValue, ReaperSourceAddress};
+use base::hash_util::NonCryptoHashSet;
 use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
@@ -6,7 +7,6 @@ use helgoboss_learn::{
     DetailedSourceCharacter, FeedbackValue, SourceCharacter, UnitValue,
 };
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
-use std::collections::HashSet;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -190,7 +190,7 @@ impl ReaperSource {
     pub fn control(
         &mut self,
         msg: &ReaperMessage,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Option<ControlValue> {
         use ReaperMessage::*;
         let control_value = match msg {
@@ -261,7 +261,7 @@ pub enum ReaperMessage {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct RealearnParameterChangePayload {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub parameter_index: CompartmentParamIndex,
     pub value: RawParamValue,
 }
@@ -278,8 +278,8 @@ impl Display for RealearnParameterChangePayload {
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct MidiDeviceChangePayload {
-    pub input_devices: HashSet<MidiInputDeviceId>,
-    pub output_devices: HashSet<MidiOutputDeviceId>,
+    pub input_devices: NonCryptoHashSet<MidiInputDeviceId>,
+    pub output_devices: NonCryptoHashSet<MidiOutputDeviceId>,
 }
 
 impl Display for MidiDeviceChangePayload {

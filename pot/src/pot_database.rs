@@ -9,7 +9,7 @@ use crate::providers::directory::{DirectoryDatabase, DirectoryDbConfig};
 use crate::providers::komplete::KompleteDatabase;
 use crate::{
     preview_exists, BuildInput, Fil, FilterItem, FilterItemCollections, FilterItemId, Filters,
-    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, Preset,
+    InnerBuildInput, PersistentDatabaseId, PersistentPresetId, PluginId, PotFavorites, PotPreset,
     PresetId, PresetWithId, Stats,
 };
 use base::{blocking_read_lock, blocking_write_lock};
@@ -19,7 +19,6 @@ use crate::providers::defaults::DefaultsDatabase;
 use crate::providers::ini::IniDatabase;
 
 use enumset::{enum_set, EnumSet};
-use indexmap::IndexSet;
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
@@ -27,6 +26,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Deref;
 
+use base::hash_util::NonCryptoIndexSet;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::{Duration, Instant};
@@ -380,7 +380,7 @@ impl PotDatabase {
             .collect()
     }
 
-    pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<Preset> {
+    pub fn find_preset_by_id(&self, preset_id: PresetId) -> Option<PotPreset> {
         let plugin_db = self.read_lock_plugin_db();
         let provider_context = ProviderContext::new(&plugin_db);
         let databases = self.read_lock_databases();
@@ -410,7 +410,7 @@ impl PotDatabase {
     pub fn try_find_preset_by_id(
         &self,
         preset_id: PresetId,
-    ) -> Result<Option<Preset>, &'static str> {
+    ) -> Result<Option<PotPreset>, &'static str> {
         let plugin_db = self
             .plugin_db
             .try_read()
@@ -451,7 +451,7 @@ impl PotDatabase {
 pub struct BuildOutput {
     pub supported_filter_kinds: EnumSet<PotFilterKind>,
     pub filter_item_collections: FilterItemCollections,
-    pub preset_collection: IndexSet<PresetId>,
+    pub preset_collection: NonCryptoIndexSet<PresetId>,
     pub stats: Stats,
 }
 

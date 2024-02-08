@@ -7,6 +7,12 @@ use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
 
 make_available_globally_in_any_non_rt_thread!(Global);
 
+pub fn spawn_in_main_thread(
+    future: impl std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> + 'static,
+) {
+    Global::future_support().spawn_in_main_thread_from_main_thread(future);
+}
+
 pub struct Global {
     main_rx: MainRx,
     task_support: TaskSupport,

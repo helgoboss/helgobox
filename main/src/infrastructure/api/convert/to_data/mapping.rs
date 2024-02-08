@@ -21,18 +21,17 @@ pub fn convert_mapping(
 ) -> ConversionResult<MappingModelData> {
     let (prevent_echo_feedback, send_feedback_after_control) =
         if let Some(source) = m.source.as_ref() {
-            use Source::*;
             let feedback_behavior = match source {
-                MidiNoteVelocity(s) => s.feedback_behavior,
-                MidiNoteKeyNumber(s) => s.feedback_behavior,
-                MidiPolyphonicKeyPressureAmount(s) => s.feedback_behavior,
-                MidiControlChangeValue(s) => s.feedback_behavior,
-                MidiProgramChangeNumber(s) => s.feedback_behavior,
-                MidiChannelPressureAmount(s) => s.feedback_behavior,
-                MidiPitchBendChangeValue(s) => s.feedback_behavior,
-                MidiParameterNumberValue(s) => s.feedback_behavior,
-                MidiRaw(s) => s.feedback_behavior,
-                Osc(s) => s.feedback_behavior,
+                Source::MidiNoteVelocity(s) => s.feedback_behavior,
+                Source::MidiNoteKeyNumber(s) => s.feedback_behavior,
+                Source::MidiPolyphonicKeyPressureAmount(s) => s.feedback_behavior,
+                Source::MidiControlChangeValue(s) => s.feedback_behavior,
+                Source::MidiProgramChangeNumber(s) => s.feedback_behavior,
+                Source::MidiChannelPressureAmount(s) => s.feedback_behavior,
+                Source::MidiPitchBendChangeValue(s) => s.feedback_behavior,
+                Source::MidiParameterNumberValue(s) => s.feedback_behavior,
+                Source::MidiRaw(s) => s.feedback_behavior,
+                Source::Osc(s) => s.feedback_behavior,
                 _ => None,
             };
             match feedback_behavior.unwrap_or_default() {
@@ -83,7 +82,7 @@ pub fn convert_tags(tag_strings: Vec<String>) -> ConversionResult<Vec<Tag>> {
 }
 
 fn convert_tag(tag_string: String) -> ConversionResult<Tag> {
-    let tag = Tag::from_str(&tag_string)?;
+    let tag = Tag::from_str(&tag_string).map_err(anyhow::Error::msg)?;
     Ok(tag)
 }
 
@@ -106,10 +105,10 @@ fn convert_advanced(
         on_activate: convert_lifecycle_hook(on_activate)?,
         on_deactivate: convert_lifecycle_hook(on_deactivate)?,
     };
-    let value = serde_yaml::to_value(&extension_model)?;
+    let value = serde_yaml::to_value(extension_model)?;
     let mut mapping = into_yaml_mapping(value);
     if let Some(u) = unprocessed {
-        let unprocessed_value = serde_yaml::to_value(&u)?;
+        let unprocessed_value = serde_yaml::to_value(u)?;
         let unprocessed_mapping = into_yaml_mapping(unprocessed_value);
         for (key, value) in unprocessed_mapping.into_iter() {
             mapping.insert(key, value);

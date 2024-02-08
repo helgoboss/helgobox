@@ -1,11 +1,11 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
-    track_solo_unit_value, with_gang_behavior, with_solo_behavior, Compartment,
+    track_solo_unit_value, with_gang_behavior, with_solo_behavior, CompartmentKind,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SoloBehavior,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity,
+    TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -146,7 +146,8 @@ impl<'a> Target<'a> for TrackSoloTarget {
 }
 
 pub const TRACK_SOLO_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Solo/unsolo",
+    section: TargetSection::Track,
+    name: "Solo/unsolo",
     short_name: "(Un)solo track",
     supports_track: true,
     supports_track_exclusivity: true,

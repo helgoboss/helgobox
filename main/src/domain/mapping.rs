@@ -6,21 +6,20 @@ use crate::domain::{
     MappingData, MappingInfo, MappingPropProvider, MessageCaptureEvent, MidiScanResult, MidiSource,
     Mode, OscDeviceId, OscScanResult, PersistentMappingProcessingState, PluginParamIndex,
     PluginParams, RealTimeMappingUpdate, RealTimeReaperTarget, RealTimeTargetUpdate,
-    RealearnParameterChangePayload, RealearnParameterSource, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    RealearnParameterChangePayload, RealearnParameterSource, RealearnSourceContext, RealearnTarget,
+    ReaperMessage, ReaperSource, ReaperSourceFeedbackValue, ReaperTarget, ReaperTargetType, Tag,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlResult,
     ControlType, ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
     ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
     OscSource, OscSourceAddress, PreliminaryMidiSourceFeedbackValue, PropValue, RawMidiEvent,
-    SourceCharacter, SourceContext, Target, UnitValue, ValueFormatter, ValueParser,
+    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -28,19 +27,19 @@ use std::borrow::Cow;
 use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
-use indexmap::map::IndexMap;
-use indexmap::set::IndexSet;
+use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, NonCryptoIndexSet};
+use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Display, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use strum::{EnumIter, IntoEnumIterator};
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug)]
@@ -74,7 +73,7 @@ impl ProcessorMappingOptions {
     Hash,
     Debug,
     Enum,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -216,7 +215,7 @@ impl ActivationState {
 impl MainMapping {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        compartment: Compartment,
+        compartment: CompartmentKind,
         id: MappingId,
         key: &MappingKey,
         group_id: GroupId,
@@ -355,11 +354,11 @@ impl MainMapping {
         &self.tags
     }
 
-    pub fn has_any_tag(&self, tags: &HashSet<Tag>) -> bool {
+    pub fn has_any_tag(&self, tags: &NonCryptoHashSet<Tag>) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.core.compartment
     }
 
@@ -575,10 +574,10 @@ impl MainMapping {
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
         matches!(
-            self.unresolved_target,
+            &self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
-                UnresolvedReaperTarget::LastTouched(_)
-            ))
+                t
+            )) if matches!(**t, UnresolvedReaperTarget::LastTouched(_))
         )
     }
 
@@ -909,7 +908,15 @@ impl MainMapping {
         let mut at_least_one_target_caused_effect = false;
         let mut first_hit_instruction = None;
         use ModeControlResult::*;
-        let mut fresh_targets = if options.enforce_target_refresh {
+        let enforce_target_refresh = options.enforce_target_refresh
+            // Respect targets that want to keep their state by opting out from refresh. This is respected on a normal
+            // non-enforced refresh too!
+            && self
+            .unresolved_target
+            .as_ref()
+            .is_some_and(|t| t.can_be_affected_by_change_events());
+
+        let mut fresh_targets = if enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
             if !conditions_are_met {
                 // In this case we don't log and don't increase the invocation counter because
@@ -924,7 +931,7 @@ impl MainMapping {
             control_context: context,
             mapping_data: self.data(),
         };
-        let actual_targets = if options.enforce_target_refresh {
+        let actual_targets = if enforce_target_refresh {
             &mut fresh_targets
         } else {
             &mut self.targets
@@ -1078,7 +1085,7 @@ impl MainMapping {
         new_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
-        self.feedback_entry_point(true, true, new_target_value, control_context)
+        self.feedback_entry_point(true, true, new_target_value, control_context, NoopLogger)
             .map(CompoundFeedbackValue::normal)
     }
 
@@ -1093,6 +1100,7 @@ impl MainMapping {
             true,
             self.current_aggregated_target_value(context),
             context,
+            NoopLogger,
         )
         .map(CompoundFeedbackValue::normal)
     }
@@ -1106,6 +1114,7 @@ impl MainMapping {
         with_source_feedback: bool,
         combined_target_value: Option<AbsoluteValue>,
         control_context: ControlContext,
+        logger: impl SourceFeedbackLogger,
     ) -> Option<SpecificCompoundFeedbackValue> {
         // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
         //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
@@ -1136,6 +1145,7 @@ impl MainMapping {
                 with_source_feedback: with_source_feedback && source_feedback_is_okay,
             },
             control_context.source_context,
+            logger,
         )
     }
 
@@ -1164,7 +1174,8 @@ impl MainMapping {
         &self,
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
+        logger: impl SourceFeedbackLogger,
     ) -> Option<SpecificCompoundFeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
@@ -1175,6 +1186,9 @@ impl MainMapping {
             options,
             Default::default(),
         )?;
+        logger.log(FeedbackLogEntry {
+            feedback_value: mode_value.as_ref(),
+        });
         self.feedback_given_mode_value(mode_value, destinations, source_context)
     }
 
@@ -1182,7 +1196,7 @@ impl MainMapping {
         &self,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
@@ -1197,11 +1211,19 @@ impl MainMapping {
     /// This returns a "lights off" feedback.
     ///
     /// Used when mappings get inactive.
-    pub fn off_feedback(&self, source_context: &SourceContext) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(
+        &self,
+        source_context: RealearnSourceContext,
+        logger: impl SourceFeedbackLogger,
+    ) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
+        let feedback_value = FeedbackValue::Off;
+        logger.log(FeedbackLogEntry {
+            feedback_value: &feedback_value,
+        });
         self.feedback_given_mode_value(
-            Cow::Owned(FeedbackValue::Off),
+            Cow::Owned(feedback_value),
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -1227,6 +1249,7 @@ impl MainMapping {
                     true,
                     self.current_aggregated_target_value(context),
                     context,
+                    NoopLogger,
                 )
                 .map(CompoundFeedbackValue::feedback_after_control)
             } else {
@@ -1367,7 +1390,7 @@ impl RealTimeMapping {
         self.core.id
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.core.compartment
     }
 
@@ -1486,7 +1509,7 @@ pub enum PartialControlMatch {
 
 #[derive(Clone, Debug)]
 pub struct MappingCore {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     id: MappingId,
     group_id: GroupId,
     pub source: CompoundMappingSource,
@@ -1737,7 +1760,7 @@ impl CompoundMappingSource {
     pub fn feedback(
         &self,
         feedback_value: Cow<FeedbackValue>,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<PreliminarySourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
@@ -1827,12 +1850,12 @@ impl FeedbackDestinations {
 
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_key: Rc<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-        source_context: &SourceContext,
+        source_context: RealearnSourceContext,
     ) -> Option<SpecificCompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;
@@ -1846,7 +1869,7 @@ impl SpecificCompoundFeedbackValue {
         } else {
             // Real source
             let projection = if destinations.with_projection_feedback
-                && compartment == Compartment::Controller
+                && compartment == CompartmentKind::Controller
             {
                 // TODO-medium Support textual projection feedback
                 mode_value.to_numeric().map(|v| {
@@ -1897,13 +1920,13 @@ impl<T> AbstractRealFeedbackValue<T> {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: Compartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
+    pub fn new(compartment: CompartmentKind, mapping_key: Rc<str>, value: UnitValue) -> Self {
         Self {
             compartment,
             mapping_key,
@@ -1944,7 +1967,7 @@ impl FinalSourceFeedbackValue {
 
 #[derive(Debug)]
 pub enum UnresolvedCompoundMappingTarget {
-    Reaper(UnresolvedReaperTarget),
+    Reaper(Box<UnresolvedReaperTarget>),
     Virtual(VirtualTarget),
 }
 
@@ -1952,7 +1975,7 @@ impl UnresolvedCompoundMappingTarget {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved_targets = match self {
@@ -1960,7 +1983,7 @@ impl UnresolvedCompoundMappingTarget {
                 let reaper_targets = t.resolve(context, compartment)?;
                 reaper_targets
                     .into_iter()
-                    .map(CompoundMappingTarget::Reaper)
+                    .map(|t| CompoundMappingTarget::Reaper(Box::new(t)))
                     .collect()
             }
             Virtual(t) => vec![CompoundMappingTarget::Virtual(*t)],
@@ -1997,7 +2020,7 @@ impl UnresolvedCompoundMappingTarget {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum CompoundMappingTarget {
-    Reaper(ReaperTarget),
+    Reaper(Box<ReaperTarget>),
     Virtual(VirtualTarget),
 }
 
@@ -2248,6 +2271,30 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
+    fn clip_slot_address(&self) -> Option<SlotAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_slot_address(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn clip_column_address(&self) -> Option<ColumnAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_column_address(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn clip_row_address(&self) -> Option<RowAddress> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.clip_row_address(),
+            Virtual(_) => None,
+        }
+    }
+
     fn fx(&self) -> Option<&Fx> {
         use CompoundMappingTarget::*;
         match self {
@@ -2360,12 +2407,12 @@ impl<'a> Target<'a> for CompoundMappingTarget {
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct QualifiedMappingId {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub id: MappingId,
 }
 
 impl QualifiedMappingId {
-    pub fn new(compartment: Compartment, id: MappingId) -> Self {
+    pub fn new(compartment: CompartmentKind, id: MappingId) -> Self {
         Self { compartment, id }
     }
 }
@@ -2378,32 +2425,33 @@ impl QualifiedMappingId {
     Hash,
     Debug,
     Enum,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
-    Display,
+    strum::Display,
+    strum::AsRefStr,
     Serialize,
     Deserialize,
 )]
 #[repr(usize)]
-pub enum Compartment {
+pub enum CompartmentKind {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
-    #[display(fmt = "controller compartment")]
+    #[strum(serialize = "controller compartment")]
     Controller,
-    #[display(fmt = "main compartment")]
+    #[strum(serialize = "main compartment")]
     Main,
 }
 
-impl Compartment {
+impl CompartmentKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
-    pub fn enum_iter() -> impl Iterator<Item = Compartment> + ExactSizeIterator {
-        Compartment::into_enum_iter()
+    pub fn enum_iter() -> impl Iterator<Item = CompartmentKind> + ExactSizeIterator {
+        CompartmentKind::iter()
     }
 
     /// Returns the compartment to which the given plug-in parameter index belongs.
-    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> Compartment {
+    pub fn by_plugin_param_index(plugin_param_index: PluginParamIndex) -> CompartmentKind {
         Self::enum_iter()
             .find(|c| c.plugin_param_range().contains(&plugin_param_index))
             .unwrap()
@@ -2412,9 +2460,17 @@ impl Compartment {
     /// Translates the given plug-in parameter index to a compartment-local index.
     pub fn translate_plugin_param_index(
         index: PluginParamIndex,
-    ) -> (Compartment, CompartmentParamIndex) {
+    ) -> (CompartmentKind, CompartmentParamIndex) {
         let compartment = Self::by_plugin_param_index(index);
         (compartment, compartment.to_compartment_param_index(index))
+    }
+
+    pub fn to_plugin_param_index(
+        self,
+        compartment_param_index: CompartmentParamIndex,
+    ) -> PluginParamIndex {
+        PluginParamIndex::try_from(self.plugin_param_offset().get() + compartment_param_index.get())
+            .unwrap()
     }
 
     /// Returns the compartment-local parameter index corresponding to the given plug-in parameter
@@ -2435,8 +2491,8 @@ impl Compartment {
 
     fn plugin_param_offset(self) -> PluginParamIndex {
         let raw_offset = match self {
-            Compartment::Controller => 100u32,
-            Compartment::Main => 0u32,
+            CompartmentKind::Controller => 100u32,
+            CompartmentKind::Main => 0u32,
         };
         PluginParamIndex::try_from(raw_offset).unwrap()
     }
@@ -2563,8 +2619,8 @@ fn target_is_effectively_active(
     }
 }
 
-pub type OrderedMappingMap<T> = IndexMap<MappingId, T>;
-pub type OrderedMappingIdSet = IndexSet<MappingId>;
+pub type OrderedMappingMap<T> = NonCryptoIndexMap<MappingId, T>;
+pub type OrderedMappingIdSet = NonCryptoIndexSet<MappingId>;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MessageCaptureResult {
@@ -2652,6 +2708,29 @@ pub enum ControlLogContext {
     GroupInteraction,
     #[display(fmt = "loading mapping snapshot")]
     LoadingMappingSnapshot,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct FeedbackLogEntry<'a> {
+    feedback_value: &'a FeedbackValue<'a>,
+}
+
+impl<'a> Display for FeedbackLogEntry<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.feedback_value.fmt(f)
+    }
+}
+
+pub trait SourceFeedbackLogger {
+    fn log(&self, entry: FeedbackLogEntry);
+}
+
+pub struct NoopLogger;
+
+impl SourceFeedbackLogger for NoopLogger {
+    fn log(&self, entry: FeedbackLogEntry) {
+        let _ = entry;
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

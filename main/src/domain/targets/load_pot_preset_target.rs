@@ -1,13 +1,13 @@
 use crate::domain::{
-    BackboneState, Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    Backbone, CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FxDescriptor, HitResponse, InstanceStateChanged, MappingControlContext, PotStateChangedEvent,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::blocking_lock_arc;
 use derivative::Derivative;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
-use pot::{pot_db, Destination, LoadPresetOptions, Preset};
+use pot::{pot_db, Destination, LoadPresetOptions, PotPreset};
 use reaper_high::{Fx, Project, Track};
 use std::borrow::Cow;
 
@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedLoadPotPresetTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let fxs = self
             .fx_descriptor
@@ -58,7 +58,7 @@ impl RealearnTarget for LoadPotPresetTarget {
         if !value.is_on() {
             return Ok(HitResponse::ignored());
         }
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.instance().borrow_mut();
         let pot_unit = instance_state.pot_unit()?;
         let mut pot_unit = blocking_lock_arc(&pot_unit, "PotUnit from LoadPotPresetTarget 3");
         let preset_id = pot_unit.preset_id().ok_or("no preset selected")?;
@@ -82,7 +82,7 @@ impl RealearnTarget for LoadPotPresetTarget {
         if !self.fx.is_available() {
             return false;
         }
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.instance().borrow_mut();
         let pot_unit = match instance_state.pot_unit() {
             Ok(u) => u,
             Err(_) => return false,
@@ -153,8 +153,8 @@ impl<'a> Target<'a> for LoadPotPresetTarget {
 }
 
 impl LoadPotPresetTarget {
-    fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&Preset>) -> R) -> R {
-        match BackboneState::target_state()
+    fn with_loaded_preset<R>(&self, f: impl FnOnce(Option<&PotPreset>) -> R) -> R {
+        match Backbone::target_state()
             .borrow()
             .current_fx_preset(&self.fx)
         {
@@ -165,14 +165,15 @@ impl LoadPotPresetTarget {
 }
 
 pub const LOAD_POT_PRESET_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Pot: Load preset",
+    section: TargetSection::Pot,
+    name: "Load preset",
     short_name: "Load Pot preset",
     supports_track: true,
     supports_fx: true,
     ..DEFAULT_TARGET
 };
 
-pub fn get_preset_property(p: &Preset, key: &str) -> Option<PropValue> {
+pub fn get_preset_property(p: &PotPreset, key: &str) -> Option<PropValue> {
     let value = match key {
         "preset.name" => p.common.name.clone().into(),
         "preset.product.name" => p.common.product_name.as_ref()?.clone().into(),

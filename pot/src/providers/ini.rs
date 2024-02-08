@@ -2,9 +2,9 @@ use crate::provider_database::{
     Database, InnerFilterItem, InnerFilterItemCollections, ProviderContext, SortablePresetId,
 };
 use crate::{
-    FilterInput, InnerBuildInput, InnerPresetId, InternalPresetKind, PersistentDatabaseId,
-    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginKind, Preset, PresetCommon,
-    PresetKind, SearchInput,
+    FilterInput, InnerBuildInput, InnerPresetId, InternalPotPresetKind, PersistentDatabaseId,
+    PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginKind, PotPreset,
+    PotPresetCommon, PotPresetKind, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -245,14 +245,18 @@ impl Database for IniDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        ctx: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_entry = self.entries.get(preset_id.0 as usize)?;
         let plugin = preset_entry
             .plugin
             .as_ref()
             .and_then(|entry| ctx.plugin_db.find_plugin_by_id(&entry.id));
-        let preset = Preset {
-            common: PresetCommon {
+        let preset = PotPreset {
+            common: PotPresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
                     create_persistent_inner_id(preset_entry),
@@ -278,7 +282,7 @@ impl Database for IniDatabase {
                 is_available: preset_entry.plugin.is_some(),
                 metadata: Default::default(),
             },
-            kind: PresetKind::Internal(InternalPresetKind {
+            kind: PotPresetKind::Internal(InternalPotPresetKind {
                 plugin_id: preset_entry.plugin.as_ref().map(|p| p.id),
             }),
         };

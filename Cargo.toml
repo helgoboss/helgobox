@@ -47,17 +47,16 @@ helgoboss-license-api = { git = "https://github.com/helgoboss/helgoboss-license-
 # 3rd-party
 scopeguard = "1.1.0"
 rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
-indexmap = "1.9.3"
-itertools = "0.10.5"
+indexmap = "2.1.0"
+itertools = "0.12.0"
 wildmatch = "2.1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 derive_more = "0.99.16"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
-enum-iterator = "0.6.0"
 enum-map = { version = "2.4.1", features = ["serde"] }
 once_cell = "1.4.0"
-strum = { version = "0.24", features = ["derive"] }
+strum = { version = "0.25.0", features = ["derive"] }
 regex = "1"
 walkdir = "2"
 either = "1.8.0"
@@ -68,25 +67,25 @@ tempfile = "3.1.0"
 xxhash-rust = { version = "0.8.6", features = [ "xxh3" ] }
 crossbeam-channel = "0.5"
 futures-timer = "3.0.2"
-metrics = "0.18.0"
+metrics = "0.22.0"
 ascii = "1.0"
-raw-window-handle = "0.4.2"
 winapi = { version = "0.3", features = ["winuser", "uxtheme"] }
-bindgen = "0.66.1"
+bindgen = "0.69.2"
 enumflags2 = "0.7.4"
-nanoid = "0.3.0"
+nanoid = "0.4.0"
 slug = "0.1.4"
-num_enum = "0.5.0"
-tonic = "0.9.2"
-prost = "0.11.5"
+num_enum = "0.7.2"
+tonic = "0.10.2"
+prost = "0.12.3"
 nom = "7.0.0"
 semver = { version = "1.0.17", features = ["serde"] }
 enumset = "1.0.12"
-mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize", "send"] }
+mlua = { version = "0.9.5", features = ["vendored", "luau", "serialize"] }
 chrono = "0.4.11"
 dirs = "5.0.1"
 libloading = "0.8"
 tokio-stream = { version = "0.1.8", features = ["sync"] }
+raw-window-handle = "0.4.2"
 egui = "0.21.0"
 egui_extras = "0.21.0"
 egui-toast = "0.6.0"
@@ -98,16 +97,21 @@ anyhow = "1.0.71"
 thiserror = "1.0.45"
 enum_dispatch = "0.3.6"
 tinyvec = "1.6.0"
-erased-serde = "0.3.31"
+erased-serde = "0.4.2"
 fragile = "2.0.0"
-approx = "0.3.2"
+approx = "0.5.1"
 serde_repr = "0.1.5"
-serde_with = "2.0.1"
+serde_with = "3.4.0"
 lazycell = "1.2"
-rosc = "0.5.1"
+rosc = "0.10.1"
 rust-ini = "0.20.0"
 function_name = "0.3.0"
 num = "0.4.1"
+logos = "0.13.0"
+camino = "1.1.6"
+auto_impl = "1.1.0"
+bytemuck = "1.13.1"
+palette = "0.7.4"
 
 [profile.release]
 # This is important for having line numbers in bug reports.
@@ -150,14 +154,14 @@ vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "feature/param
 #vst = { path = "../vst-rs" }
 
 # This is for temporary development with local reaper-rs.
-#[patch.'https://github.com/helgoboss/reaper-rs.git']
-#reaper-fluent = { path = "../reaper-rs/main/fluent" }
-#reaper-high = { path = "../reaper-rs/main/high" }
-#reaper-medium = { path = "../reaper-rs/main/medium" }
-#reaper-macros = { path = "../reaper-rs/main/macros" }
-#reaper-low = { path = "../reaper-rs/main/low" }
-#reaper-rx = { path = "../reaper-rs/main/rx" }
-#rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
+[patch.'https://github.com/helgoboss/reaper-rs.git']
+reaper-fluent = { path = "../reaper-rs/main/fluent" }
+reaper-high = { path = "../reaper-rs/main/high" }
+reaper-medium = { path = "../reaper-rs/main/medium" }
+reaper-macros = { path = "../reaper-rs/main/macros" }
+reaper-low = { path = "../reaper-rs/main/low" }
+reaper-rx = { path = "../reaper-rs/main/rx" }
+rppxml-parser = { path = "../reaper-rs/main/rppxml-parser" }
 
 ## This is for temporary development with local egui-baseview.
 #[patch.'https://github.com/helgoboss/egui-baseview.git']

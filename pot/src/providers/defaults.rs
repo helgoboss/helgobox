@@ -4,7 +4,7 @@ use crate::provider_database::{
 use crate::{
     create_plugin_factory_preset, FilterInput, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginId,
-    PluginIdInPipeFormat, Preset, SearchInput,
+    PluginIdInPipeFormat, PotPreset, SearchInput,
 };
 use std::borrow::Cow;
 
@@ -109,7 +109,11 @@ impl Database for DefaultsDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        _: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let plugin = self.plugins.get(preset_id.0 as usize)?;
         let persistent_id = PersistentPresetId::new(
             self.persistent_id.clone(),

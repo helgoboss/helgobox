@@ -1,11 +1,11 @@
 [package]
 name = "realearn"
-version = "2.16.0-pre.6"
+version = "2.16.0-pre.8"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
 build = "build.rs"
 license = "GPL-3.0"
-rust-version = "1.68.2"
+rust-version = "1.75.0"
 publish = false
 
 [features]
@@ -13,7 +13,7 @@ default = []
 
 # Builds ReaLearn together with the Playtime Clip Engine. This should only be enabled if you have access to the
 # private playtime-clip-engine repository, otherwise the build will fail.
-playtime = ["dep:playtime-clip-engine", "dep:playtime-api", "realearn-api/playtime"]
+playtime = ["dep:playtime-clip-engine"]
 
 # Activates license checks for Playtime Clip Engine. If not enabled, license checks will always fail.
 licensing = ["playtime", "playtime-clip-engine/licensing"]
@@ -41,7 +41,7 @@ realearn-csi.workspace = true
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
 helgoboss-license-api.workspace = true
-playtime-api = { workspace = true, optional = true }
+playtime-api.workspace = true
 playtime-clip-engine = { workspace = true, optional = true }
 
 # 3rd-party
@@ -49,21 +49,21 @@ playtime-clip-engine = { workspace = true, optional = true }
 anyhow.workspace = true
 # For being able to (de)serialize using FromStr and Display
 serde_with.workspace = true
+# For panicking when accessing something from the wrong thread
+fragile.workspace = true
 c_str_macro = "1.0.2"
+# For acting as DAW plug-in
 vst = "0.3.0"
 rxrust.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_repr.workspace = true
-validator = "0.10.0"
-validator_derive = "0.10"
 derive_more.workspace = true
 lazycell.workspace = true
-enum-iterator.workspace = true
 num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
-uuid = { version = "0.8.1", features = ["v4", "serde"] }
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
 # Old logging
 slog.workspace = true
 slog-async = "2.5.2"
@@ -71,7 +71,7 @@ slog-async = "2.5.2"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 # For interacting with the OS clipboard
-arboard = "2.0.0"
+arboard = "3.3.0"
 once_cell.workspace = true
 # For being able to exclude fields from the derived Debug implementation
 derivative.workspace = true
@@ -90,47 +90,50 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tower = "0.4"
 # For ReaLearn's http server (used for projection)
-axum = { version = "0.3", features = ["ws", "headers"] }
-axum-server = { version = "0.3", features = ["tls-rustls"] }
-tower-http = { version = "0.1", features = ["cors"] }
+# We can't update to 0.7 because of tonic not yet using http 1 (https://github.com/hyperium/tonic/issues/1579)
+axum = { version = "0.6.18", features = ["ws"] }
+# We can't update to 0.6.0 as long as axum is still on 0.6
+axum-server = { version = "0.5.1", features = ["tls-rustls"] }
+# We can't update to 0.5.0 as long as axum is still on 0.6
+tower-http = { version = "0.4.2", features = ["cors"] }
 # For ReaLearn's gRPC server
 tonic.workspace = true
 prost.workspace = true
 # For generating projection QR code
-qrcode = { version = "0.11" }
+qrcode = { version = "0.13.0" }
 # For rendering projection QR code to PNG
-image = "0.22"
+image = "0.24.8"
 # For generating self-signed certificate for projection web server
-rcgen = "0.8.5"
+rcgen = "0.12.0"
 # For showing different ways of connecting to this computer (projection feature)
-dns-lookup = "1.0.4"
+dns-lookup = "2.0.4"
 hostname = "^0.3"
 # For rendering projection setup HTML page template
-askama = "0.8"
+askama = "0.12.1"
 # For persisting app configuration
 serde_ini = "0.2.0"
 # For opening projection setup page and companion app in local browser
-webbrowser = "0.5.5"
+webbrowser = "0.8.12"
 # For writing generated projection setup page to disk
 tempfile.workspace = true
 # For adding firewall rules
-runas = "0.2.1"
+runas = "1.1.0"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
 itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
-env_logger = "0.8.2"
+env_logger = "0.10.1"
 # We want to forward slog logging to standard logging
 slog-stdlog = "4.1.1"
 # To open user guide in local PDF app
-open = "1"
+open = "5.0.1"
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
 semver.workspace = true
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
-async-channel = "1.5.1"
+async-channel = "2.1.1"
 # For displaying snapshot sizes
 bytesize.workspace = true
 # For OSC
@@ -168,7 +171,7 @@ xxhash-rust.workspace = true
 # For convenient converting prop key to prop enum variant
 strum.workspace = true
 metrics.workspace = true
-metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
+metrics-exporter-prometheus = { version = "0.13.0", default-features = false }
 # For parsing OSC argument value ranges
 nom.workspace = true
 # For obtaining dialog constants from dialog crate
@@ -190,21 +193,37 @@ zstd = "0.13.0"
 tar = "0.4.40"
 # For loading App
 libloading.workspace = true
+# For saving controller role kinds
+enumset.workspace = true
+# For embedding factory presets into the binary
+include_dir = "0.7.3"
+# For prefixing preset IDs with the user name
+whoami = "1.4.1"
+# For passing MIDI device inquiry replies from audio thread to main thread
+tinyvec.workspace = true
+# For adding toolbar items by parsing/formatting INI (hopefully gets an API soon)
+rust-ini.workspace = true
+# For not having to deal with non-UTF8 paths if we are sure we don't have them
+camino.workspace = true
+# For not having to manually implement Lua module finder trait for smart pointers
+auto_impl.workspace = true
+# For some color in the otherwise boring GUI
+palette.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source
 tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" }
 
 [target.'cfg(windows)'.dependencies]
-# For detecting the Windows version (to determine whether special charactes can be displayed)
-sys-info = "0.7"
+# For detecting the Windows version (to determine whether special characters can be displayed)
+sys-info = "0.9.1"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
 winapi.workspace = true
 
 
 [build-dependencies]
 # For making Git commit hash available to code
-built = { version = "0.5.1", features = ["git2", "chrono"] }
+built = { version = "0.7.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen.workspace = true
 # For compiling EEL and SWELL dialog resources
@@ -212,9 +231,13 @@ bindgen.workspace = true
 # in a convenient way. TODO-low-wait https://github.com/rust-lang/cc-rs/pull/671
 cc = { git = "https://github.com/petrochenkov/cc-rs.git", rev = "4d52bd211aeb2b4ddccd1b9c0a0841e03aaaef7c" }
 # For embedding dialog resource files on Windows
-embed-resource = "1.3"
+embed-resource = "2.4.1"
 # For RC dialog file generation
 realearn-dialogs = { path = "../dialogs" }
+
+[dev-dependencies]
+# For the EEL memory consumption test
+sysinfo = "0.30.5"
 
 [lib]
 name = "realearn"

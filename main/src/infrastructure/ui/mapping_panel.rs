@@ -7,15 +7,15 @@ use std::time::Duration;
 use std::{cmp, iter};
 
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use itertools::Itertools;
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
 use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_medium::{Hbrush, InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
+use strum::IntoEnumIterator;
 
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
@@ -27,12 +27,12 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind,
-    MappingModificationKind, MidiScriptKind, MonitoringMode, MouseButton, PotFilterKind,
-    SeekBehavior, TrackToolAction,
+    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
+    MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
 };
 use swell_ui::{
-    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+    DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
+    Window,
 };
 
 use crate::application::{
@@ -40,51 +40,60 @@ use crate::application::{
     get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     parse_osc_feedback_args, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
     CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext,
-    MappingCommand, MappingModel, MappingProp, MappingRefModel, MappingSnapshotTypeForLoad,
-    MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    MappingCommand, MappingModel, MappingModificationKind, MappingProp, MappingRefModel,
+    MappingSnapshotTypeForLoad, MappingSnapshotTypeForTake, MidiSourceType, ModeCommand, ModeModel,
+    ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
+    SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
-    TargetProp, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession, KEY_UNDEFINED_LABEL,
+    TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
     format_as_percentage_without_unit, format_tags_as_csv, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    control_element_domains, AnyOnParameter, BackboneState, ControlContext, Exclusivity,
+    control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, TargetControlEvent,
-    TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
+    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
-    resolve_track_route_by_index, ActionInvocationType, Compartment, CompoundMappingTarget,
+    resolve_track_route_by_index, ActionInvocationType, CompartmentKind, CompoundMappingTarget,
     ExtendedProcessorContext, FeedbackResolution, FxDisplayType, QualifiedMappingId,
     RealearnTarget, SoloBehavior, TargetCharacter, TouchedTrackParameterType, TrackExclusivity,
     TrackRouteType, TransportAction, VirtualControlElement, VirtualControlElementId, VirtualFx,
 };
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
+use crate::infrastructure::ui::menus::get_param_name;
+use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
-    close_child_panel_if_open, compartment_parameter_dropdown_contents, open_child_panel_dyn,
-    parse_tags_from_csv, symbols, MAPPING_PANEL_SCALING,
+    close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
+    open_child_panel_dyn, parse_tags_from_csv, symbols, view, MAPPING_PANEL_SCALING,
 };
 use crate::infrastructure::ui::{
     menus, EelControlTransformationEngine, EelFeedbackTransformationEngine, EelMidiScriptEngine,
-    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MainPanel, MappingHeaderPanel,
-    MappingRowsPanel, OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput,
-    ScriptEngine, SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, YamlEditorPanel,
+    ItemProp, LuaFeedbackScriptEngine, LuaMidiScriptEngine, MappingHeaderPanel, MappingRowsPanel,
+    OscFeedbackArgumentsEngine, RawMidiScriptEngine, ScriptEditorInput, ScriptEngine,
+    SimpleScriptEditorPanel, TextualFeedbackExpressionEngine, UnitPanel, YamlEditorPanel,
 };
+use base::hash_util::NonCryptoHashMap;
 use base::Global;
 
 #[derive(Debug)]
 pub struct MappingPanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakUnitModel,
     mapping: RefCell<Option<SharedMapping>>,
-    main_panel: WeakView<MainPanel>,
+    main_panel: WeakView<UnitPanel>,
+    mapping_color_panel: SharedView<ColorPanel>,
+    source_color_panel: SharedView<ColorPanel>,
+    target_color_panel: SharedView<ColorPanel>,
+    glue_color_panel: SharedView<ColorPanel>,
+    help_color_panel: SharedView<ColorPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     window_cache: RefCell<Option<WindowCache>>,
@@ -96,7 +105,7 @@ pub struct MappingPanel {
 }
 
 struct ImmutableMappingPanel<'a> {
-    session: &'a Session,
+    session: &'a UnitModel,
     mapping: &'a MappingModel,
     source: &'a SourceModel,
     mode: &'a ModeModel,
@@ -106,7 +115,7 @@ struct ImmutableMappingPanel<'a> {
 }
 
 struct MutableMappingPanel<'a> {
-    session: &'a mut Session,
+    session: &'a mut UnitModel,
     mapping: &'a mut MappingModel,
     panel: &'a SharedView<MappingPanel>,
     view: &'a ViewContext,
@@ -126,15 +135,20 @@ struct WindowCache {
 }
 
 impl MappingPanel {
-    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> MappingPanel {
+    pub fn new(session: WeakUnitModel, main_panel: WeakView<UnitPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session: session.clone(),
             mapping: None.into(),
             main_panel,
+            mapping_color_panel: SharedView::new(ColorPanel::new(build_mapping_color_panel_desc())),
+            source_color_panel: SharedView::new(ColorPanel::new(build_source_color_panel_desc())),
+            target_color_panel: SharedView::new(ColorPanel::new(build_target_color_panel_desc())),
+            glue_color_panel: SharedView::new(ColorPanel::new(build_glue_color_panel_desc())),
+            help_color_panel: SharedView::new(ColorPanel::new(build_help_color_panel_desc())),
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
-                Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(MAPPING_PANEL_SCALING),
+                Point::new(DialogUnits(7 + 5), DialogUnits(12)).scale(&MAPPING_PANEL_SCALING),
                 None,
             )),
             is_invoked_programmatically: false.into(),
@@ -464,6 +478,8 @@ impl MappingPanel {
                                             P::ParamIndex => {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
+                                                // This one is for compartment parameter target
+                                                view.invalidate_target_line_2_label_2();
                                             }
                                             P::ActionInvocationType => {
                                                 view.invalidate_target_line_3(None);
@@ -568,7 +584,6 @@ impl MappingPanel {
                                             P::ActiveMappingsOnly => {
                                                 view.invalidate_target_check_box_2();
                                             }
-                                            #[cfg(feature = "playtime")]
                                             P::ClipPlayStartTiming | P::ClipPlayStopTiming | P::ClipRow | P::ClipRowAction | P::StopColumnIfSlotEmpty | P::ClipSlot | P::ClipColumn | P::ClipManagementAction | P::ClipTransportAction | P::ClipColumnAction | P::RecordOnlyIfTrackArmed  | P::ClipMatrixAction => {}
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();
@@ -635,6 +650,9 @@ impl MappingPanel {
                     ReaperTargetType::ModifyMapping => {
                         self.open_learnable_targets_picker(mapping);
                     }
+                    ReaperTargetType::CompartmentParameterValue => {
+                        self.pick_compartment_parameter(mapping);
+                    }
                     _ => {
                         self.write(|p| p.handle_target_line_2_button_press_internal());
                     }
@@ -646,7 +664,7 @@ impl MappingPanel {
                 let text = prompt_for_predefined_control_element_name(
                     window,
                     control_element_type,
-                    &HashMap::new(),
+                    &HashMap::default(),
                 )
                 .ok_or("nothing picked")?;
                 let element_id = text.parse().unwrap_or_default();
@@ -676,7 +694,7 @@ impl MappingPanel {
             let session = self.session.clone();
             let panel = crate::infrastructure::ui::TargetFilterPanel::new(value, move |value| {
                 let mut mapping = mapping.borrow_mut();
-                Session::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetLearnableTargetKinds(
@@ -684,7 +702,7 @@ impl MappingPanel {
                     )),
                     None,
                 );
-                Session::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     &mut mapping,
                     MappingCommand::ChangeTarget(TargetCommand::SetTouchCause(value.touch_cause)),
@@ -692,6 +710,27 @@ impl MappingPanel {
                 );
             });
             self.open_extra_panel(panel);
+        }
+    }
+
+    fn pick_compartment_parameter(&self, mapping: SharedMapping) {
+        let menu = {
+            let mapping = mapping.borrow();
+            let param_index = mapping.target_model.compartment_param_index();
+            menus::menu_containing_realearn_params(
+                &self.session,
+                mapping.compartment(),
+                param_index,
+            )
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_popup_menu(menu, Window::cursor_pos());
+        if let Some(param_index) = result {
+            self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetParamIndex(
+                param_index.get(),
+            )));
         }
     }
 
@@ -710,7 +749,7 @@ impl MappingPanel {
                 let new_other_session_id = self
                     .view
                     .require_window()
-                    .open_simple_popup_menu(menu, Window::cursor_pos());
+                    .open_popup_menu(menu, Window::cursor_pos());
                 if let Some(new_other_session_id) = new_other_session_id {
                     // Chosen something in the menu
                     let new_mapping_ref = if let Some(session_id) = new_other_session_id {
@@ -731,9 +770,39 @@ impl MappingPanel {
             ReaperTargetType::SendMidi => {
                 if let Some(action) = open_send_midi_menu(self.view.require_window()) {
                     match action {
-                        SendMidiMenuAction::Preset(preset) => {
+                        SendMidiMenuAction::PitchBendChangePreset { channel } => {
+                            let status_byte: u8 = ShortMessageType::PitchBendChange.into();
+                            let msg =
+                                format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + channel);
                             self.change_mapping(MappingCommand::ChangeTarget(
-                                TargetCommand::SetRawMidiPattern(preset),
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::DoubleDataBytePreset {
+                            channel,
+                            msg_type,
+                            i,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg =
+                                format!("{:02X} {:02X} [0gfe dcba]", status_byte + channel, i);
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::SingleDataBytePreset {
+                            channel,
+                            msg_type,
+                            last_byte,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg = format!(
+                                "{:02X} [0gfe dcba] {:02X}",
+                                status_byte + channel,
+                                last_byte
+                            );
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
                             ));
                         }
                         SendMidiMenuAction::EditMultiLine => {
@@ -746,7 +815,7 @@ impl MappingPanel {
                                 help_url,
                                 |m| m.target_model.raw_midi_pattern().to_owned(),
                                 move |m, text| {
-                                    Session::change_mapping_from_ui_simple(
+                                    UnitModel::change_mapping_from_ui_simple(
                                         session.clone(),
                                         m,
                                         MappingCommand::ChangeTarget(
@@ -772,7 +841,10 @@ impl MappingPanel {
         let controller_mappings: Vec<_> = {
             let session = self.session();
             let session = session.borrow();
-            session.mappings(Compartment::Controller).cloned().collect()
+            session
+                .mappings(CompartmentKind::Controller)
+                .cloned()
+                .collect()
         };
         let grouped_mappings =
             group_mappings_by_virtual_control_element(controller_mappings.iter());
@@ -917,14 +989,14 @@ impl MappingPanel {
                         let mapping_id = self
                             .view
                             .require_window()
-                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                            .open_popup_menu(menu, Window::cursor_pos());
                         mapping_id.map(|mapping_id| MappingRefModel::OwnMapping { mapping_id })
                     }
                     MappingRefModel::ForeignMapping {
                         session_id,
                         mapping_key,
                     } => {
-                        let session = App::get()
+                        let session = BackboneShell::get()
                             .find_session_by_id(&session_id)
                             .ok_or("session not found")?;
                         let mapping_id = {
@@ -940,7 +1012,7 @@ impl MappingPanel {
                         let mapping_id = self
                             .view
                             .require_window()
-                            .open_simple_popup_menu(menu, Window::cursor_pos());
+                            .open_popup_menu(menu, Window::cursor_pos());
                         mapping_id.map(|mapping_id| {
                             let mapping_key = mapping_id.map(|mapping_id| {
                                 let session = session.borrow();
@@ -992,7 +1064,7 @@ impl MappingPanel {
         }
     }
 
-    fn main_panel(&self) -> SharedView<MainPanel> {
+    fn main_panel(&self) -> SharedView<UnitPanel> {
         self.main_panel.upgrade().expect("main view gone")
     }
 
@@ -1013,7 +1085,7 @@ impl MappingPanel {
                             help_url,
                             |m| m.source_model.raw_midi_pattern().to_owned(),
                             move |m, text| {
-                                Session::change_mapping_from_ui_simple(
+                                UnitModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(
@@ -1029,7 +1101,7 @@ impl MappingPanel {
                         self.edit_midi_source_script_internal(
                             |m| m.source_model.midi_script().to_owned(),
                             move |m, eel| {
-                                Session::change_mapping_from_ui_simple(
+                                UnitModel::change_mapping_from_ui_simple(
                                     session.clone(),
                                     m,
                                     MappingCommand::ChangeSource(SourceCommand::SetMidiScript(eel)),
@@ -1047,7 +1119,7 @@ impl MappingPanel {
                     |m| format_osc_feedback_args(m.source_model.osc_feedback_args()),
                     move |m, text| {
                         let args = parse_osc_feedback_args(&text);
-                        Session::change_mapping_from_ui_simple(
+                        UnitModel::change_mapping_from_ui_simple(
                             session.clone(),
                             m,
                             MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
@@ -1066,7 +1138,7 @@ impl MappingPanel {
         let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation";
         let get_value = |m: &MappingModel| m.mode_model.eel_control_transformation().to_owned();
         let set_value = move |m: &mut MappingModel, eel: String| {
-            Session::change_mapping_from_ui_simple(
+            UnitModel::change_mapping_from_ui_simple(
                 session.clone(),
                 m,
                 MappingCommand::ChangeMode(ModeCommand::SetEelControlTransformation(eel)),
@@ -1096,7 +1168,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.eel_feedback_transformation().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetEelFeedbackTransformation(eel)),
@@ -1113,7 +1185,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1130,7 +1202,7 @@ impl MappingPanel {
             "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
-                Session::change_mapping_from_ui_simple(
+                UnitModel::change_mapping_from_ui_simple(
                     session.clone(),
                     m,
                     MappingCommand::ChangeMode(ModeCommand::SetTextualFeedbackExpression(eel)),
@@ -1279,17 +1351,19 @@ impl MappingPanel {
 
     pub fn handle_target_control_event(self: SharedView<Self>, event: TargetControlEvent) {
         self.invoke_programmatically(|| {
-            let title = if event.log_entry.error.is_empty() {
-                "Target control info"
-            } else {
-                "Target control error"
-            };
-            let body = format!("{} ({})", event.log_entry, event.log_context);
-            self.set_simple_help_text(title, &body);
+            let body = format!("Control: {} ({})", event.log_entry, event.log_context);
+            self.set_simple_help_text(Side::Left, ACTIVITY_INFO, &body);
         });
     }
 
-    fn set_simple_help_text(&self, title: &str, body: &str) {
+    pub fn handle_source_feedback_event(self: SharedView<Self>, event: SourceFeedbackEvent) {
+        self.invoke_programmatically(|| {
+            let body = format!("Feedback: {}", event.log_entry);
+            self.set_simple_help_text(Side::Right, ACTIVITY_INFO, &body);
+        });
+    }
+
+    fn set_simple_help_text(&self, side: Side, title: &str, body: &str) {
         self.view
             .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
             .hide();
@@ -1299,9 +1373,11 @@ impl MappingPanel {
         self.view
             .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
             .set_text(title);
-        self.view
-            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-            .set_text(body);
+        let label_control_id = match side {
+            Side::Left => root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL,
+            Side::Right => root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL,
+        };
+        self.view.require_control(label_control_id).set_text(body);
     }
 
     pub fn handle_changed_target_value(
@@ -1335,9 +1411,9 @@ impl MappingPanel {
         });
     }
 
-    pub fn handle_changed_conditions(self: SharedView<Self>) -> Result<(), &'static str> {
+    pub fn handle_changed_conditions(self: SharedView<Self>) {
         self.clone().invoke_programmatically(|| {
-            self.read(|view| {
+            let _ = self.read(|view| {
                 // These changes can happen because of removals (e.g. project close, FX deletions,
                 // track deletions etc.). We want to update whatever is possible. But if the own
                 // project is missing, this was a project close and we don't need to do anything
@@ -1347,13 +1423,13 @@ impl MappingPanel {
                 }
                 view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
-            })
-        })
+            });
+        });
     }
 
     pub fn notify_parameters_changed(
         self: SharedView<Self>,
-        session: &Session,
+        session: &UnitModel,
     ) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping")?;
         let mapping = mapping.borrow();
@@ -1436,7 +1512,12 @@ impl MappingPanel {
     /// process, wrap your function body with this. Basically all pub functions!
     ///
     /// This prevents edit control text change events fired by windows to be processed.
-    fn invoke_programmatically<R>(&self, f: impl FnOnce() -> R) -> R {
+    /// It also prevents the function from being executed if the window is not open anymore,
+    /// which can happen when closing things.
+    fn invoke_programmatically(&self, f: impl FnOnce()) {
+        if self.view.window().is_none() {
+            return;
+        }
         self.set_invoked_programmatically(true);
         scopeguard::defer! { self.set_invoked_programmatically(false); }
         f()
@@ -1458,7 +1539,7 @@ impl MappingPanel {
         .expect("mapping must be filled at this point");
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 
@@ -1490,6 +1571,37 @@ impl MappingPanel {
             panel: &self,
         };
         Ok(op(&p))
+    }
+
+    fn show_target_type_menu(&self) {
+        let window = self.view.require_window();
+        let (target_category, target_type, control_element_type) = {
+            let mapping = self.mapping();
+            let mapping = mapping.borrow();
+            (
+                mapping.target_model.category(),
+                mapping.target_model.target_type(),
+                mapping.target_model.control_element_type(),
+            )
+        };
+        match target_category {
+            TargetCategory::Reaper => {
+                let menu = menus::reaper_target_type_menu(target_type);
+                if let Some(t) = window.open_popup_menu(menu, Window::cursor_pos()) {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetTargetType(t),
+                    ));
+                }
+            }
+            TargetCategory::Virtual => {
+                let menu = menus::virtual_control_element_type_menu(control_element_type);
+                if let Some(t) = window.open_popup_menu(menu, Window::cursor_pos()) {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetControlElementType(t),
+                    ));
+                }
+            }
+        }
     }
 
     fn write<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
@@ -1611,7 +1723,7 @@ fn decorate_reaction<I: Send + Sync + Clone + 'static>(
             // If the reaction can't be displayed anymore because the mapping is not filled anymore,
             // so what.
             let _ = view.read(move |p| reaction(p, item.clone()));
-        })
+        });
     }
 }
 
@@ -1626,14 +1738,14 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target_menu(&mut self) {
         enum MenuAction {
-            SetTarget(ReaperTarget),
+            SetTarget(Box<ReaperTarget>),
             GoToTarget,
         }
         let compartment = self.mapping.compartment();
         let context = self.session.extended_context();
         let menu = {
             use swell_ui::menu_tree::*;
-            let recently_touched_items = BackboneState::get()
+            let recently_touched_items = Backbone::get()
                 .extract_last_touched_targets()
                 .into_iter()
                 .rev()
@@ -1643,7 +1755,7 @@ impl<'a> MutableMappingPanel<'a> {
                     // let target_type_label = ReaperTargetType::from_target(&t);
                     let target_label = TargetModelFormatVeryShort(&target_model);
                     // let label = format!("{target_type_label} / {target_label}");
-                    item(target_label.to_string(), move || MenuAction::SetTarget(t))
+                    item(target_label.to_string(), MenuAction::SetTarget(Box::new(t)))
                 })
                 .collect();
             root_menu(vec![
@@ -1651,13 +1763,13 @@ impl<'a> MutableMappingPanel<'a> {
                     "Pick recently touched target (by type)",
                     recently_touched_items,
                 ),
-                item("Go to target (if supported)", || MenuAction::GoToTarget),
+                item("Go to target (if supported)", MenuAction::GoToTarget),
             ])
         };
         let menu_action = self
             .view
             .require_window()
-            .open_simple_popup_menu(menu, Window::cursor_pos());
+            .open_popup_menu(menu, Window::cursor_pos());
         let Some(menu_action) = menu_action else {
             return;
         };
@@ -2823,29 +2935,6 @@ impl<'a> MutableMappingPanel<'a> {
         )));
     }
 
-    fn update_target_type(&mut self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        use TargetCategory::*;
-        match self.mapping.target_model.category() {
-            Reaper => {
-                let data = b.selected_combo_box_item_data() as usize;
-                let v = data.try_into().expect("invalid REAPER target type");
-                self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetTargetType(
-                    v,
-                )));
-            }
-            Virtual => {
-                let v = b
-                    .selected_combo_box_item_index()
-                    .try_into()
-                    .expect("invalid virtual target type");
-                self.change_mapping(MappingCommand::ChangeTarget(
-                    TargetCommand::SetControlElementType(v),
-                ));
-            }
-        };
-    }
-
     fn handle_target_line_2_combo_box_1_change(&mut self) {
         let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_1;
         let combo = self.view.require_control(combo_id);
@@ -3067,7 +3156,7 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => {
                     let dev_id = match combo.selected_combo_box_item_data() {
                         -1 => None,
-                        i if i >= 0 => App::get()
+                        i if i >= 0 => BackboneShell::get()
                             .osc_device_manager()
                             .borrow()
                             .find_device_by_index(i as usize)
@@ -3254,6 +3343,7 @@ impl<'a> MutableMappingPanel<'a> {
                         ));
                         if self.mapping.target_model.fx_type() == VirtualFxType::Focused {
                             self.panel.set_simple_help_text(
+                                Side::Right,
                                 "Target warning",
                                 r#"ATTENTION: You just picked a parameter for the last focused FX. This is okay but you should know that as soon as you focus another type of FX, the parameter list will change and your mapping will control a completely different parameter! You probably want to use this in combination with the "Auto-load" feature, which lets you link FX types to mapping presets. See https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#using-auto-load-to-control-whatever-plug-in-is-currently-in-focus."#
                             );
@@ -3669,24 +3759,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             {
                 let (control_hint, feedback_hint) =
                     self.get_control_and_feedback_hint(source_character, mode_parameter);
-                let mut content = String::new();
-                if let Some(hint) = control_hint {
-                    content.push_str("- Control: ");
-                    content.push_str(hint);
-                    content.push('\n');
-                }
-                if let Some(hint) = feedback_hint {
-                    content.push_str("- Feedback: ");
-                    content.push_str(hint);
-                    content.push('\n');
-                }
+                let control_hint_content = control_hint
+                    .map(|hint| format!("Control: {hint}"))
+                    .unwrap_or_default();
+                let feedback_hint_content = feedback_hint
+                    .map(|hint| format!("Feedback: {hint}"))
+                    .unwrap_or_default();
                 let subject = format!("Help: {mode_parameter}");
                 self.view
                     .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
                     .set_text(subject);
                 self.view
-                    .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-                    .set_multi_line_text(content);
+                    .require_control(root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL)
+                    .set_multi_line_text(control_hint_content);
+                self.view
+                    .require_control(root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL)
+                    .set_multi_line_text(feedback_hint_content);
                 true
             } else {
                 false
@@ -3723,24 +3811,27 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn clear_help(&self) {
-        self.view
-            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
-            .hide();
-        self.view
-            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
-            .hide();
+        for id in [
+            root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL,
+            root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX,
+        ] {
+            self.view.require_control(id).hide();
+        }
         self.view
             .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
             .set_text("Help");
-        self.view
-            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-            .set_text("");
+        for id in [
+            root::ID_MAPPING_HELP_LEFT_CONTENT_LABEL,
+            root::ID_MAPPING_HELP_RIGHT_CONTENT_LABEL,
+        ] {
+            self.view.require_control(id).set_text("");
+        }
     }
 
     fn invalidate_window_title(&self) {
         let mapping_is_on = self
             .session
-            .instance_state()
+            .unit()
             .borrow()
             .mapping_is_on(self.mapping.qualified_id());
         let suffix = if mapping_is_on { "" } else { " (inactive)" };
@@ -3819,7 +3910,9 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn enable_if(&self, condition: bool, control_resource_ids: &[u32]) {
         for id in control_resource_ids {
-            self.view.require_control(*id).set_visible(condition);
+            if let Some(control) = self.view.require_window().find_control(*id) {
+                control.set_visible(condition);
+            }
         }
     }
 
@@ -3834,7 +3927,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_visible(self.mapping.compartment() != Compartment::Main);
+            .set_visible(self.mapping.compartment() != CompartmentKind::Main);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item_by_index(self.target.category().into())
@@ -3865,7 +3958,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_is_learning_source(self.mapping.qualified_id()),
             root::ID_SOURCE_LEARN_BUTTON,
@@ -3934,7 +4027,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category() {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::Script => {
-                    b.fill_combo_box_indexed(MidiScriptKind::into_enum_iter());
+                    b.fill_combo_box_indexed(MidiScriptKind::iter());
                     b.show();
                     b.select_combo_box_item_by_index(self.source.midi_script_kind().into())
                         .unwrap();
@@ -4111,9 +4204,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             }
                             MackieSevenSegmentDisplay => {
                                 b.show();
-                                b.fill_combo_box_indexed(
-                                    MackieSevenSegmentDisplayScope::into_enum_iter(),
-                                );
+                                b.fill_combo_box_indexed(MackieSevenSegmentDisplayScope::iter());
                                 b.select_combo_box_item_by_index(
                                     self.source.mackie_7_segment_display_scope().into(),
                                 )
@@ -4357,7 +4448,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                     t if t.supports_custom_character() => {
                         b.show();
-                        b.fill_combo_box_indexed(SourceCharacter::into_enum_iter());
+                        b.fill_combo_box_indexed(SourceCharacter::iter());
                         b.select_combo_box_item_by_index(self.source.custom_character().into())
                             .unwrap();
                     }
@@ -4401,7 +4492,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi => match self.source.midi_source_type() {
                 MidiSourceType::ClockTransport => {
                     b.show();
-                    b.fill_combo_box_indexed(MidiClockTransportMessage::into_enum_iter());
+                    b.fill_combo_box_indexed(MidiClockTransportMessage::iter());
                     b.select_combo_box_item_by_index(
                         self.source.midi_clock_transport_message().into(),
                     )
@@ -4409,7 +4500,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 MidiSourceType::Display => {
                     b.show();
-                    b.fill_combo_box_indexed(DisplayType::into_enum_iter());
+                    b.fill_combo_box_indexed(DisplayType::iter());
                     b.select_combo_box_item_by_index(self.source.display_type().into())
                         .unwrap();
                 }
@@ -4425,7 +4516,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_category_combo_box();
-        self.invalidate_target_type_combo_box();
+        self.invalidate_target_type_button();
         self.invalidate_target_line_2(initiator);
         self.invalidate_target_line_3(initiator);
         self.invalidate_target_line_4(initiator);
@@ -4444,46 +4535,26 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_check_box_6();
     }
 
-    fn invalidate_target_type_combo_box(&self) {
-        self.fill_target_type_combo_box();
-        self.invalidate_target_type_combo_box_value();
-    }
-
-    fn invalidate_target_type_combo_box_value(&self) {
-        let combo = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+    fn invalidate_target_type_button(&self) {
         use TargetCategory::*;
-        let hint = match self.target.category() {
+        let (label, hint) = match self.target.category() {
             Reaper => {
-                let item_data: usize = self.target.target_type().into();
-                combo
-                    .select_combo_box_item_by_data(item_data as isize)
-                    .unwrap();
-                let real_time_hint = if self
-                    .target
-                    .target_type()
-                    .definition()
-                    .supports_real_time_control()
-                {
-                    "Supports MIDI real-time control"
-                } else {
-                    ""
+                let label = self.target.target_type().to_string();
+                let hint = match self.target.target_type().definition() {
+                    d if d.lua_only => "Use Lua to configure this target!",
+                    d if d.supports_real_time_control => "Supports MIDI real-time control!",
+                    d => d.hint,
                 };
-                let custom_hint = self.target.target_type().hint();
-                let mut text = real_time_hint.to_string();
-                if !custom_hint.is_empty() {
-                    if !text.is_empty() {
-                        text.push_str(" | ");
-                    }
-                    text.push_str(custom_hint);
-                }
-                text
+                (label, hint.to_string())
             }
             Virtual => {
-                let item_index = self.target.control_element_type().into();
-                combo.select_combo_box_item_by_index(item_index).unwrap();
-                "".to_owned()
+                let label = self.target.control_element_type().to_string();
+                (label, "".to_owned())
             }
         };
+        self.view
+            .require_control(root::ID_TARGET_TYPE_BUTTON)
+            .set_text(label);
         self.view
             .require_control(root::ID_TARGET_HINT)
             .set_text(hint);
@@ -4502,6 +4573,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::LastTouched => Some("Targets"),
                 ReaperTargetType::BrowsePotFilterItems => Some("Kind"),
+                ReaperTargetType::CompartmentParameterValue => Some("Parameter"),
                 ReaperTargetType::Mouse => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
@@ -4517,6 +4589,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
                 ReaperTargetType::ModifyMapping => Some("Kind"),
+                ReaperTargetType::PlaytimeMatrixAction => Some("Action"),
+                ReaperTargetType::PlaytimeControlUnitScroll => Some("Axis"),
+                ReaperTargetType::PlaytimeRowAction => Some("Row"),
+                ReaperTargetType::PlaytimeColumnAction => Some("Column"),
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4533,8 +4613,29 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::LastTouched => {
                     let enabled_count = self.target.included_targets().len();
-                    let total_count = LearnableTargetKind::into_enum_iter().count();
+                    let total_count = LearnableTargetKind::iter().count();
                     Some(format!("{enabled_count} of {total_count} targets enabled"))
+                }
+                ReaperTargetType::CompartmentParameterValue => {
+                    let param_index = self.target.compartment_param_index();
+                    let unit = self.session.unit().borrow();
+                    let params = unit.parameter_manager().params();
+                    let compartment_params = params.compartment_params(self.mapping.compartment());
+                    Some(get_param_name(compartment_params, param_index))
+                }
+                ReaperTargetType::PlaytimeMatrixAction => {
+                    Some(self.target.clip_matrix_action().to_string())
+                }
+                ReaperTargetType::PlaytimeControlUnitScroll => Some(self.target.axis().to_string()),
+                ReaperTargetType::PlaytimeRowAction => Some(self.target.clip_row().to_string()),
+                ReaperTargetType::PlaytimeColumnAction => {
+                    Some(self.target.clip_column().to_string())
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    Some(format!("{:#}", self.target.clip_slot()))
                 }
                 _ => None,
             },
@@ -4562,21 +4663,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.target.target_type() {
                 _ if self.target.supports_track() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualTrackType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
-                    combo.fill_combo_box_indexed(BookmarkAnchorType::into_enum_iter());
+                    combo.fill_combo_box_indexed(BookmarkAnchorType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.bookmark_anchor_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4588,7 +4689,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TakeMappingSnapshot => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4598,9 +4699,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                t if t.supports_feedback_resolution() => {
+                t if t.supports_feedback_resolution()
+                    && t != ReaperTargetType::PlaytimeSlotSeek =>
+                {
                     combo.show();
-                    combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
+                    combo.fill_combo_box_indexed(FeedbackResolution::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.feedback_resolution().into(),
@@ -4627,7 +4730,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Mouse => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MouseActionType::into_enum_iter());
+                    combo.fill_combo_box_indexed(MouseActionType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.mouse_action_type().into(),
@@ -4636,7 +4739,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::Transport => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(TransportAction::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.transport_action().into(),
@@ -4645,7 +4748,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::AnyOn => {
                     combo.show();
-                    combo.fill_combo_box_indexed(AnyOnParameter::into_enum_iter());
+                    combo.fill_combo_box_indexed(AnyOnParameter::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.any_on_parameter().into(),
@@ -4654,7 +4757,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::AutomationModeOverride => {
                     combo.show();
-                    combo.fill_combo_box_indexed(AutomationModeOverrideType::into_enum_iter());
+                    combo.fill_combo_box_indexed(AutomationModeOverrideType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping
@@ -4704,7 +4807,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::SendMidi => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SendMidiDestination::into_enum_iter());
+                    combo.fill_combo_box_indexed(SendMidiDestination::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.send_midi_destination().into(),
@@ -4713,7 +4816,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::SendOsc => {
                     combo.show();
-                    let osc_device_manager = App::get().osc_device_manager();
+                    let osc_device_manager = BackboneShell::get().osc_device_manager();
                     let osc_device_manager = osc_device_manager.borrow();
                     let osc_devices = osc_device_manager.devices();
                     combo.fill_combo_box_with_data_small(
@@ -4737,7 +4840,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowseTracks => {
                     combo.show();
-                    combo.fill_combo_box_indexed(BrowseTracksMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(BrowseTracksMode::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.browse_tracks_mode().into(),
@@ -4746,7 +4849,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowsePotFilterItems => {
                     combo.show();
-                    combo.fill_combo_box_indexed(PotFilterKind::into_enum_iter());
+                    combo.fill_combo_box_indexed(PotFilterKind::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.pot_filter_item_kind().into(),
@@ -4755,7 +4858,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::ModifyMapping => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingModificationKind::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingModificationKind::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.mapping_modification_kind().into(),
@@ -4873,6 +4976,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => Some("Now!"),
                 ReaperTargetType::LastTouched => Some("Pick!"),
+                ReaperTargetType::CompartmentParameterValue => Some("Pick!"),
                 ReaperTargetType::ModifyMapping => match self.target.mapping_modification_kind() {
                     MappingModificationKind::LearnTarget
                     | MappingModificationKind::SetTargetToLastTouched => Some("..."),
@@ -5106,7 +5210,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
-                ReaperTargetType::ModifyMapping => Some("Instance"),
+                ReaperTargetType::ModifyMapping => Some("Unit"),
+                ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeColumnAction
+                | ReaperTargetType::PlaytimeRowAction
+                | ReaperTargetType::PlaytimeSlotManagementAction => Some("Action"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
@@ -5171,13 +5279,25 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ModifyMapping => match self.target.mapping_ref() {
                     MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
                     MappingRefModel::ForeignMapping { session_id, .. } => {
-                        if let Some(session) = App::get().find_session_by_id(session_id) {
+                        if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
                             Some(session.borrow().to_string())
                         } else {
-                            Some("<Session doesn't exist>".to_string())
+                            Some("<Unit doesn't exist>".to_string())
                         }
                     }
                 },
+                ReaperTargetType::PlaytimeSlotTransportAction => {
+                    Some(self.target.clip_transport_action().to_string())
+                }
+                ReaperTargetType::PlaytimeColumnAction => {
+                    Some(self.target.clip_column_action().to_string())
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    Some(self.target.clip_row_action().to_string())
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction => {
+                    Some(self.target.clip_management_action().to_string())
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5217,8 +5337,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                         } => match mapping_key {
                             None => NONE.to_string(),
                             Some(mapping_key) => {
-                                if let Some(other_session) =
-                                    App::get().find_session_by_id_ignoring_borrowed_ones(session_id)
+                                if let Some(other_session) = BackboneShell::get()
+                                    .find_session_by_id_ignoring_borrowed_ones(session_id)
                                 {
                                     let other_session = other_session.borrow();
                                     match other_session
@@ -5252,14 +5372,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.target.target_type() {
                 t if t.supports_fx() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualFxType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.fx_type().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackRouteType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.route_type().into())
                         .unwrap();
@@ -5283,7 +5403,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::BrowseGroup => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(SimpleExclusivity::iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
                     combo
                         .select_combo_box_item_by_index(simple_exclusivity.into())
@@ -5291,33 +5411,33 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackTool => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackToolAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackToolAction::iter());
                     let action: TrackToolAction = self.target.track_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 ReaperTargetType::FxTool => {
                     combo.show();
-                    combo.fill_combo_box_indexed(FxToolAction::into_enum_iter());
+                    combo.fill_combo_box_indexed(FxToolAction::iter());
                     let action: FxToolAction = self.target.fx_tool_action();
                     combo.select_combo_box_item_by_index(action.into()).unwrap();
                 }
                 t if t.supports_fx_parameter() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(VirtualFxParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.param_type().into())
                         .unwrap();
                 }
                 t if t.supports_exclusivity() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(Exclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(Exclusivity::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackRouteSelectorType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackRouteSelectorType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.route_selector_type().into())
                         .unwrap();
@@ -5390,42 +5510,42 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_seek_behavior() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SeekBehavior::into_enum_iter());
+                    combo.fill_combo_box_indexed(SeekBehavior::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.seek_behavior().into())
                         .unwrap();
                 }
                 ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(Axis::into_enum_iter());
+                    combo.fill_combo_box_indexed(Axis::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.axis().into())
                         .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
-                    combo.fill_combo_box_indexed(ActionInvocationType::into_enum_iter());
+                    combo.fill_combo_box_indexed(ActionInvocationType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.action_invocation_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackSolo => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SoloBehavior::into_enum_iter());
+                    combo.fill_combo_box_indexed(SoloBehavior::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.solo_behavior().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackShow => {
                     combo.show();
-                    combo.fill_combo_box_indexed(RealearnTrackArea::into_enum_iter());
+                    combo.fill_combo_box_indexed(RealearnTrackArea::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_area().into())
                         .unwrap();
                 }
                 ReaperTargetType::RouteTouchState => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TouchedRouteParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TouchedRouteParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.target.touched_route_parameter_type().into(),
@@ -5434,21 +5554,21 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::TrackMonitoringMode => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MonitoringMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(MonitoringMode::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.monitoring_mode().into())
                         .unwrap();
                 }
                 _ if self.target.supports_automation_mode() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
+                    combo.fill_combo_box_indexed(RealearnAutomationMode::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.automation_mode().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackTouchState => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TouchedTrackParameterType::into_enum_iter());
+                    combo.fill_combo_box_indexed(TouchedTrackParameterType::iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.target.touched_track_parameter_type().into(),
@@ -5477,7 +5597,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MouseButton::into_enum_iter());
+                    combo.fill_combo_box_indexed(MouseButton::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.mouse_button().into())
                         .unwrap();
@@ -5502,14 +5622,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_track_exclusivity() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
+                    combo.fill_combo_box_indexed(TrackExclusivity::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_fx_display_type() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(FxDisplayType::into_enum_iter());
+                    combo.fill_combo_box_indexed(FxDisplayType::iter());
                     combo
                         .select_combo_box_item_by_index(self.target.fx_display_type().into())
                         .unwrap();
@@ -5857,7 +5977,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_learn_button(&self) {
         self.invalidate_learn_button(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_is_learning_target(self.mapping.qualified_id()),
             root::ID_TARGET_LEARN_BUTTON,
@@ -5886,14 +6006,14 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel.when(
-            self.session.instance_state().borrow().on_mappings_changed(),
+            self.session.unit().borrow().on_mappings_changed(),
             |view, _| {
                 view.invalidate_window_title();
             },
         );
         self.panel.when(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_which_learns_source()
                 .changed(),
@@ -5903,7 +6023,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.panel.when(
             self.session
-                .instance_state()
+                .unit()
                 .borrow()
                 .mapping_which_learns_target()
                 .changed(),
@@ -6616,9 +6736,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
-        let is_main_mapping = self.mapping.compartment() == Compartment::Main;
+        let is_main_mapping = self.mapping.compartment() == CompartmentKind::Main;
         b.fill_combo_box_small(
-            SourceCategory::into_enum_iter()
+            SourceCategory::iter()
                 // Don't allow controller mappings to have virtual source
                 .filter(|c| is_main_mapping || *c != SourceCategory::Virtual),
         );
@@ -6628,23 +6748,23 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX);
-        b.fill_combo_box_indexed(FeedbackSendBehavior::into_enum_iter());
+        b.fill_combo_box_indexed(FeedbackSendBehavior::iter());
     }
 
     fn fill_target_category_combo_box(&self) {
         let b = self
             .view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX);
-        b.fill_combo_box_indexed(TargetCategory::into_enum_iter());
+        b.fill_combo_box_indexed(TargetCategory::iter());
     }
 
     fn fill_source_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category() {
-            Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
-            Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
-            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
+            Midi => b.fill_combo_box_indexed(MidiSourceType::iter()),
+            Reaper => b.fill_combo_box_indexed(ReaperSourceType::iter()),
+            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::iter()),
             Osc | Never | Keyboard => {}
         };
     }
@@ -6652,7 +6772,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mode_type_combo_box(&self) {
         let base_input = self.mapping.base_mode_applicability_check_input();
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
-        let items = AbsoluteMode::into_enum_iter().map(|m| {
+        let items = AbsoluteMode::iter().map(|m| {
             let applicable = self.mapping.mode_model.mode_parameter_is_relevant(
                 ModeParameter::SpecificAbsoluteMode(m),
                 base_input,
@@ -6671,56 +6791,43 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
-            .fill_combo_box_indexed(OutOfRangeBehavior::into_enum_iter());
+            .fill_combo_box_indexed(OutOfRangeBehavior::iter());
     }
 
     fn fill_mode_group_interaction_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
-            .fill_combo_box_indexed(GroupInteraction::into_enum_iter());
+            .fill_combo_box_indexed(GroupInteraction::iter());
     }
 
     fn fill_mode_fire_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_FIRE_COMBO_BOX)
-            .fill_combo_box_indexed(FireMode::into_enum_iter());
+            .fill_combo_box_indexed(FireMode::iter());
     }
 
     fn fill_mode_feedback_type_combo_box(&self) {
         self.view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
-            .fill_combo_box_indexed(FeedbackType::into_enum_iter());
+            .fill_combo_box_indexed(FeedbackType::iter());
     }
 
     fn fill_mode_takeover_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
-            .fill_combo_box_indexed(TakeoverMode::into_enum_iter());
+            .fill_combo_box_indexed(TakeoverMode::iter());
     }
 
     fn fill_mode_button_usage_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
-            .fill_combo_box_indexed(ButtonUsage::into_enum_iter());
+            .fill_combo_box_indexed(ButtonUsage::iter());
     }
 
     fn fill_mode_encoder_usage_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
-            .fill_combo_box_indexed(EncoderUsage::into_enum_iter());
-    }
-
-    fn fill_target_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        use TargetCategory::*;
-        match self.target.category() {
-            Reaper => {
-                let items =
-                    ReaperTargetType::into_enum_iter().map(|t| (usize::from(t) as isize, t));
-                b.fill_combo_box_with_data(items);
-            }
-            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
-        }
+            .fill_combo_box_indexed(EncoderUsage::iter());
     }
 
     fn resolved_targets(&self) -> Vec<CompoundMappingTarget> {
@@ -6744,7 +6851,46 @@ impl View for MappingPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.init_controls();
         self.mapping_header_panel.clone().open(window);
+        if cfg!(unix) {
+            self.mapping_color_panel.clone().open(window);
+            self.source_color_panel.clone().open(window);
+            self.target_color_panel.clone().open(window);
+            self.glue_color_panel.clone().open(window);
+            self.help_color_panel.clone().open(window);
+        }
         true
+    }
+
+    fn erase_background(self: SharedView<Self>, device_context: DeviceContext) -> bool {
+        if cfg!(unix) {
+            // On macOS/Linux we use color panels as real child windows.
+            return false;
+        }
+        let window = self.view.require_window();
+        self.mapping_color_panel
+            .paint_manually(device_context, window);
+        self.source_color_panel
+            .paint_manually(device_context, window);
+        self.target_color_panel
+            .paint_manually(device_context, window);
+        self.glue_color_panel.paint_manually(device_context, window);
+        self.help_color_panel.paint_manually(device_context, window);
+        true
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        device_context: DeviceContext,
+        window: Window,
+    ) -> Option<Hbrush> {
+        if cfg!(target_os = "macos") {
+            // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
+            // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        device_context.set_bk_mode_to_transparent();
+        let section = Section::from_resource_id(window.resource_id())?;
+        view::get_brush_for_color_pair(section.color_pair())
     }
 
     fn close_requested(self: SharedView<Self>) -> bool {
@@ -6752,7 +6898,7 @@ impl View for MappingPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         self.window_cache.replace(None);
     }
 
@@ -6813,6 +6959,7 @@ impl View for MappingPanel {
                 let _ = self.feedback_type_button_pressed();
             }
             // Target
+            root::ID_TARGET_TYPE_BUTTON => self.show_target_type_menu(),
             root::ID_TARGET_CHECK_BOX_1 => self.write(|p| p.handle_target_check_box_1_change()),
             root::ID_TARGET_CHECK_BOX_2 => self.write(|p| p.handle_target_check_box_2_change()),
             root::ID_TARGET_CHECK_BOX_3 => self.write(|p| p.handle_target_check_box_3_change()),
@@ -6882,7 +7029,6 @@ impl View for MappingPanel {
             root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX => self.write(|p| p.update_mode_feedback_type()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
-            root::ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             root::ID_TARGET_LINE_2_COMBO_BOX_1 => {
                 self.write(|p| p.handle_target_line_2_combo_box_1_change())
             }
@@ -7115,7 +7261,7 @@ impl WindowExt for Window {
 
 fn group_mappings_by_virtual_control_element<'a>(
     mappings: impl Iterator<Item = &'a SharedMapping>,
-) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
+) -> NonCryptoHashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
     let key_fn = |m: &SharedMapping| {
         let m = m.borrow();
         match m.target_model.category() {
@@ -7304,7 +7450,7 @@ fn invalidate_target_line_2_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => {
@@ -7326,7 +7472,7 @@ fn invalidat_target_line_3_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => {
@@ -7354,7 +7500,7 @@ fn invalidate_target_line_4_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) {
     let text = match target.category() {
         TargetCategory::Reaper => match target.target_type() {
@@ -7434,7 +7580,7 @@ fn channel_menu<R>(f: impl Fn(u8) -> R) -> Vec<R> {
 }
 
 fn invalidate_with_osc_arg_type_tag(b: Window, tag: OscTypeTag) {
-    b.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
+    b.fill_combo_box_indexed(OscTypeTag::iter());
     b.show();
     b.select_combo_box_item_by_index(tag.into()).unwrap();
 }
@@ -7465,7 +7611,7 @@ fn osc_arg_indexes() -> impl Iterator<Item = (isize, String)> {
 fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
-    grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
+    grouped_mappings: &NonCryptoHashMap<VirtualControlElement, Vec<&SharedMapping>>,
 ) -> Option<String> {
     let pure_menu = {
         use swell_ui::menu_tree::*;
@@ -7516,13 +7662,13 @@ fn prompt_for_predefined_control_element_name(
                             }
                         }
                     };
-                    item(label, move || (i + 1).to_string())
+                    item(label, (i + 1).to_string())
                 }),
             ),
         ];
         root_menu(entries)
     };
-    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
+    window.open_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 #[derive(Copy, Clone, Display)]
@@ -7577,7 +7723,7 @@ fn show_feedback_popup_menu(
                             enabled: true,
                             checked: relevant_color.is_none(),
                         },
-                        move || ControllerDefault(color_target),
+                        ControllerDefault(color_target),
                     ),
                     item_with_opts(
                         "<Pick color...>",
@@ -7585,10 +7731,10 @@ fn show_feedback_popup_menu(
                             enabled: true,
                             checked: matches!(relevant_color, Some(VirtualColor::Rgb(_))),
                         },
-                        move || OpenColorPicker(color_target),
+                        OpenColorPicker(color_target),
                     ),
                 ].into_iter()
-                    .chain(["target.track.color", "target.bookmark.color"].into_iter().map(|key| {
+                    .chain(["target.track.color", "target.bookmark.color", "target.slot.color"].into_iter().map(|key| {
                         item_with_opts(
                             key,
                             ItemOpts {
@@ -7597,21 +7743,21 @@ fn show_feedback_popup_menu(
                                     matches!(relevant_color, Some(VirtualColor::Prop{prop}) if key == prop)
                                 },
                             },
-                            move || UseColorProp(color_target, key),
+                            UseColorProp(color_target, key),
                         )
                     }))
                     .collect(),
             )
         };
         let entries = vec![
-            item("Edit multi-line...", || MenuAction::EditMultiLine),
+            item("Edit multi-line...", MenuAction::EditMultiLine),
             create_color_target_menu(ColorTarget::Color),
             create_color_target_menu(ColorTarget::BackgroundColor),
         ];
         root_menu(entries)
     };
     let item = window
-        .open_simple_popup_menu(pure_menu, Window::cursor_pos())
+        .open_popup_menu(pure_menu, Window::cursor_pos())
         .ok_or("color selection cancelled")?;
     let result = match item {
         MenuAction::EditMultiLine => FeedbackPopupMenuResult::EditMultiLine,
@@ -7649,7 +7795,19 @@ fn show_feedback_popup_menu(
 
 enum SendMidiMenuAction {
     EditMultiLine,
-    Preset(String),
+    SingleDataBytePreset {
+        channel: u8,
+        msg_type: ShortMessageType,
+        last_byte: u8,
+    },
+    DoubleDataBytePreset {
+        channel: u8,
+        msg_type: ShortMessageType,
+        i: u32,
+    },
+    PitchBendChangePreset {
+        channel: u8,
+    },
 }
 
 fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
@@ -7668,14 +7826,14 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
                 menu(
                     fmt_ch(ch),
                     chunked_number_menu(128, 8, false, |i| {
-                        item(format!("{label} {i}"), move || {
-                            let status_byte: u8 = msg_type.into();
-                            SendMidiMenuAction::Preset(format!(
-                                "{:02X} {:02X} [0gfe dcba]",
-                                status_byte + ch,
-                                i
-                            ))
-                        })
+                        item(
+                            format!("{label} {i}"),
+                            SendMidiMenuAction::DoubleDataBytePreset {
+                                channel: ch,
+                                msg_type,
+                                i,
+                            },
+                        )
                     }),
                 )
             }),
@@ -7691,14 +7849,14 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
         menu(
             source_type.to_string(),
             channel_menu(|ch| {
-                item(fmt_ch(ch), move || {
-                    let status_byte: u8 = msg_type.into();
-                    SendMidiMenuAction::Preset(format!(
-                        "{:02X} [0gfe dcba] {:02X}",
-                        status_byte + ch,
-                        last_byte
-                    ))
-                })
+                item(
+                    fmt_ch(ch),
+                    SendMidiMenuAction::SingleDataBytePreset {
+                        channel: ch,
+                        msg_type,
+                        last_byte,
+                    },
+                )
             }),
         )
     }
@@ -7708,7 +7866,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
 
         use SendMidiMenuAction::*;
         let entries = vec![
-            item("Edit multi-line...", || EditMultiLine),
+            item("Edit multi-line...", EditMultiLine),
             double_data_byte_msg_menu(
                 MidiSourceType::ControlChangeValue,
                 ShortMessageType::ControlChange,
@@ -7723,10 +7881,10 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
             menu(
                 MidiSourceType::PitchBendChangeValue.to_string(),
                 channel_menu(|ch| {
-                    item(fmt_ch(ch), move || {
-                        let status_byte: u8 = ShortMessageType::PitchBendChange.into();
-                        Preset(format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + ch))
-                    })
+                    item(
+                        fmt_ch(ch),
+                        SendMidiMenuAction::PitchBendChangePreset { channel: ch },
+                    )
                 }),
             ),
             single_data_byte_msg_menu(
@@ -7747,7 +7905,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
         ];
         root_menu(entries)
     };
-    window.open_simple_popup_menu(pure_menu, Window::cursor_pos())
+    window.open_popup_menu(pure_menu, Window::cursor_pos())
 }
 
 fn build_slash_menu_entries(
@@ -7769,7 +7927,7 @@ fn build_slash_menu_entries(
                 } else {
                     format!("{prefix}/{name}")
                 };
-                entries.push(item(*name, move || full_name));
+                entries.push(item(*name, full_name));
             }
         } else {
             // A nested entry (menu).
@@ -7833,10 +7991,10 @@ fn has_multiple_lines(text: &str) -> bool {
     text.lines().count() > 1
 }
 
-fn get_relevant_target_fx(mapping: &MappingModel, session: &Session) -> Option<Fx> {
+fn get_relevant_target_fx(mapping: &MappingModel, session: &UnitModel) -> Option<Fx> {
     let is_focused_fx_type = {
         let fx_type = mapping.target_model.fx_type();
-        if fx_type == VirtualFxType::Instance {
+        if fx_type == VirtualFxType::Unit {
             session.instance_fx_descriptor() == &FxDescriptor::Focused
         } else {
             fx_type == VirtualFxType::Focused
@@ -7857,5 +8015,243 @@ fn get_relevant_target_fx(mapping: &MappingModel, session: &Session) -> Option<F
             .with_context(session.extended_context(), mapping.compartment())
             .first_fx()
             .ok()
+    }
+}
+
+const ACTIVITY_INFO: &str = "Activity info";
+
+enum Side {
+    Left,
+    Right,
+}
+
+fn build_mapping_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 0,
+        width: 451,
+        height: 67,
+        color_pair: colors::mapping(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_source_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 67,
+        width: 175,
+        height: 165,
+        color_pair: colors::source(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_target_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 175,
+        y: 67,
+        width: 276,
+        height: 165,
+        color_pair: colors::target(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_glue_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 232,
+        width: 451,
+        height: 239,
+        color_pair: colors::glue(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+fn build_help_color_panel_desc() -> ColorPanelDesc {
+    ColorPanelDesc {
+        x: 0,
+        y: 471,
+        width: 451,
+        height: 61,
+        color_pair: colors::help(),
+        scaling: MAPPING_PANEL_SCALING,
+    }
+}
+
+enum Section {
+    Mapping,
+    Source,
+    Target,
+    Glue,
+    Help,
+}
+
+impl Section {
+    pub fn from_resource_id(id: u32) -> Option<Self> {
+        use root::*;
+        let section = match id {
+            ID_MAPPING_PANEL_MAPPING_LABEL
+            | ID_MAPPING_PANEL_FEEDBACK_LABEL
+            | ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX
+            | ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX
+            | ID_MAPPING_ADVANCED_BUTTON
+            | ID_MAPPING_FIND_IN_LIST_BUTTON => Self::Mapping,
+            ID_MAPPING_PANEL_SOURCE_LABEL
+            | ID_SOURCE_LEARN_BUTTON
+            | ID_MAPPING_PANEL_SOURCE_CATEGORY_LABEL
+            | ID_SOURCE_CATEGORY_COMBO_BOX
+            | ID_SOURCE_TYPE_LABEL_TEXT
+            | ID_SOURCE_TYPE_COMBO_BOX
+            | ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT
+            | ID_SOURCE_CHANNEL_LABEL
+            | ID_SOURCE_CHANNEL_COMBO_BOX
+            | ID_SOURCE_LINE_3_EDIT_CONTROL
+            | ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX
+            | ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT
+            | ID_SOURCE_RPN_CHECK_BOX
+            | ID_SOURCE_LINE_4_COMBO_BOX_1
+            | ID_SOURCE_NUMBER_EDIT_CONTROL
+            | ID_SOURCE_NUMBER_COMBO_BOX
+            | ID_SOURCE_LINE_4_BUTTON
+            | ID_SOURCE_CHARACTER_LABEL_TEXT
+            | ID_SOURCE_CHARACTER_COMBO_BOX
+            | ID_SOURCE_LINE_5_EDIT_CONTROL
+            | ID_SOURCE_14_BIT_CHECK_BOX
+            | ID_SOURCE_OSC_ADDRESS_LABEL_TEXT
+            | ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL
+            | ID_SOURCE_SCRIPT_DETAIL_BUTTON => Self::Source,
+            ID_MAPPING_PANEL_TARGET_LABEL
+            | ID_TARGET_LEARN_BUTTON
+            | ID_TARGET_MENU_BUTTON
+            | ID_TARGET_HINT
+            | ID_MAPPING_PANEL_TARGET_TYPE_LABEL
+            | ID_TARGET_CATEGORY_COMBO_BOX
+            | ID_TARGET_TYPE_BUTTON
+            | ID_TARGET_LINE_2_LABEL_2
+            | ID_TARGET_LINE_2_LABEL_3
+            | ID_TARGET_LINE_2_LABEL_1
+            | ID_TARGET_LINE_2_COMBO_BOX_1
+            | ID_TARGET_LINE_2_EDIT_CONTROL
+            | ID_TARGET_LINE_2_COMBO_BOX_2
+            | ID_TARGET_LINE_2_BUTTON
+            | ID_TARGET_LINE_3_LABEL_1
+            | ID_TARGET_LINE_3_COMBO_BOX_1
+            | ID_TARGET_LINE_3_EDIT_CONTROL
+            | ID_TARGET_LINE_3_COMBO_BOX_2
+            | ID_TARGET_LINE_3_LABEL_2
+            | ID_TARGET_LINE_3_LABEL_3
+            | ID_TARGET_LINE_3_BUTTON
+            | ID_TARGET_LINE_4_LABEL_1
+            | ID_TARGET_LINE_4_COMBO_BOX_1
+            | ID_TARGET_LINE_4_EDIT_CONTROL
+            | ID_TARGET_LINE_4_COMBO_BOX_2
+            | ID_TARGET_LINE_4_LABEL_2
+            | ID_TARGET_LINE_4_BUTTON
+            | ID_TARGET_LINE_4_LABEL_3
+            | ID_TARGET_LINE_5_LABEL_1
+            | ID_TARGET_LINE_5_EDIT_CONTROL
+            | ID_TARGET_CHECK_BOX_1
+            | ID_TARGET_CHECK_BOX_2
+            | ID_TARGET_CHECK_BOX_3
+            | ID_TARGET_CHECK_BOX_4
+            | ID_TARGET_CHECK_BOX_5
+            | ID_TARGET_CHECK_BOX_6
+            | ID_TARGET_VALUE_LABEL_TEXT
+            | ID_TARGET_VALUE_OFF_BUTTON
+            | ID_TARGET_VALUE_ON_BUTTON
+            | ID_TARGET_VALUE_SLIDER_CONTROL
+            | ID_TARGET_VALUE_EDIT_CONTROL
+            | ID_TARGET_VALUE_TEXT
+            | ID_TARGET_UNIT_BUTTON => Self::Target,
+            ID_MAPPING_PANEL_GLUE_LABEL
+            | ID_SETTINGS_RESET_BUTTON
+            | ID_SETTINGS_SOURCE_LABEL
+            | ID_SETTINGS_SOURCE_GROUP
+            | ID_SETTINGS_SOURCE_MIN_LABEL
+            | ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_SOURCE_MAX_LABEL
+            | ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL
+            | ID_MODE_OUT_OF_RANGE_LABEL_TEXT
+            | ID_MODE_OUT_OF_RANGE_COMBOX_BOX
+            | ID_MODE_GROUP_INTERACTION_LABEL_TEXT
+            | ID_MODE_GROUP_INTERACTION_COMBO_BOX
+            | ID_SETTINGS_TARGET_LABEL_TEXT
+            | ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT
+            | ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL
+            | ID_SETTINGS_TARGET_GROUP
+            | ID_SETTINGS_MIN_TARGET_LABEL_TEXT
+            | ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_MIN_TARGET_VALUE_TEXT
+            | ID_SETTINGS_MAX_TARGET_LABEL_TEXT
+            | ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL
+            | ID_SETTINGS_MAX_TARGET_VALUE_TEXT
+            | ID_SETTINGS_REVERSE_CHECK_BOX
+            | IDC_MODE_FEEDBACK_TYPE_COMBO_BOX
+            | ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL
+            | IDC_MODE_FEEDBACK_TYPE_BUTTON
+            | ID_MODE_KNOB_FADER_GROUP_BOX
+            | ID_SETTINGS_MODE_LABEL
+            | ID_SETTINGS_MODE_COMBO_BOX
+            | ID_MODE_TAKEOVER_LABEL
+            | ID_MODE_TAKEOVER_MODE
+            | ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL
+            | ID_MODE_EEL_CONTROL_TRANSFORMATION_DETAIL_BUTTON
+            | ID_MODE_RELATIVE_GROUP_BOX
+            | ID_SETTINGS_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_STEP_SIZE_GROUP
+            | ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL
+            | ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL
+            | ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT
+            | ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT
+            | ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL
+            | ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL
+            | ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT
+            | ID_MODE_RELATIVE_FILTER_COMBO_BOX
+            | ID_SETTINGS_ROTATE_CHECK_BOX
+            | ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX
+            | ID_MODE_BUTTON_GROUP_BOX
+            | ID_MODE_FIRE_COMBO_BOX
+            | ID_MODE_BUTTON_FILTER_COMBO_BOX
+            | ID_MODE_FIRE_LINE_2_LABEL_1
+            | ID_MODE_FIRE_LINE_2_SLIDER_CONTROL
+            | ID_MODE_FIRE_LINE_2_EDIT_CONTROL
+            | ID_MODE_FIRE_LINE_2_LABEL_2
+            | ID_MODE_FIRE_LINE_3_LABEL_1
+            | ID_MODE_FIRE_LINE_3_SLIDER_CONTROL
+            | ID_MODE_FIRE_LINE_3_EDIT_CONTROL
+            | ID_MODE_FIRE_LINE_3_LABEL_2 => Self::Glue,
+            ID_MAPPING_HELP_SUBJECT_LABEL
+            | ID_MAPPING_HELP_APPLICABLE_TO_LABEL
+            | ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX
+            | ID_MAPPING_HELP_LEFT_CONTENT_LABEL
+            | IDC_MAPPING_MATCHED_INDICATOR_TEXT
+            | ID_MAPPING_HELP_RIGHT_CONTENT_LABEL
+            | IDC_BEEP_ON_SUCCESS_CHECK_BOX
+            | ID_MAPPING_PANEL_PREVIOUS_BUTTON
+            | ID_MAPPING_PANEL_OK
+            | ID_MAPPING_PANEL_NEXT_BUTTON
+            | IDC_MAPPING_ENABLED_CHECK_BOX => Self::Help,
+            _ => return None,
+        };
+        Some(section)
+    }
+
+    pub fn color_pair(&self) -> ColorPair {
+        match self {
+            Section::Mapping => colors::mapping(),
+            Section::Source => colors::source(),
+            Section::Target => colors::target(),
+            Section::Glue => colors::glue(),
+            Section::Help => colors::help(),
+        }
     }
 }

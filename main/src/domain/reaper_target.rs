@@ -4,7 +4,6 @@ use std::rc::Rc;
 
 use derive_more::Display;
 use enum_dispatch::enum_dispatch;
-use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, FxParameter,
@@ -17,6 +16,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum::EnumIter;
 
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -27,17 +27,17 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
     AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
-    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller, ControlContext,
-    DummyTarget, EnigoMouseTarget, FxEnableTarget, FxOnlineTarget, FxOpenTarget, FxParameterTarget,
-    FxParameterTouchStateTarget, FxPresetTarget, FxToolTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, LoadFxSnapshotTarget, LoadPotPresetTarget, MappingControlContext,
-    MidiSendTarget, ModifyMappingTarget, OscSendTarget, PlayrateTarget, PreviewPotPresetTarget,
-    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
-    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
-    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    BrowsePotFilterItemsTarget, BrowsePotPresetsTarget, BrowseTracksTarget, Caller,
+    CompartmentParameterValueTarget, ControlContext, DummyTarget, EnigoMouseTarget, FxEnableTarget,
+    FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
+    FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
+    LoadPotPresetTarget, MappingControlContext, MidiSendTarget, ModifyMappingTarget, OscSendTarget,
+    PlayrateTarget, PreviewPotPresetTarget, RealTimeControlContext, RealTimeFxParameterTarget,
+    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
+    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget, UnitEvent,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -138,20 +138,14 @@ pub enum ReaperTarget {
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
     Dummy(DummyTarget),
-    #[cfg(feature = "playtime")]
-    ClipMatrix(crate::domain::ClipMatrixTarget),
-    #[cfg(feature = "playtime")]
-    ClipTransport(crate::domain::ClipTransportTarget),
-    #[cfg(feature = "playtime")]
-    ClipColumn(crate::domain::ClipColumnTarget),
-    #[cfg(feature = "playtime")]
-    ClipRow(crate::domain::ClipRowTarget),
-    #[cfg(feature = "playtime")]
-    ClipSeek(crate::domain::ClipSeekTarget),
-    #[cfg(feature = "playtime")]
-    ClipVolume(crate::domain::ClipVolumeTarget),
-    #[cfg(feature = "playtime")]
-    ClipManagement(crate::domain::ClipManagementTarget),
+    PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget),
+    PlaytimeControlUnitScroll(crate::domain::PlaytimeControlUnitScrollTarget),
+    PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget),
+    PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget),
+    PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget),
+    PlaytimeSlotSeek(crate::domain::PlaytimeSlotSeekTarget),
+    PlaytimeSlotVolume(crate::domain::PlaytimeSlotVolumeTarget),
+    PlaytimeSlotManagementAction(crate::domain::PlaytimeSlotManagementActionTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
@@ -162,6 +156,7 @@ pub enum ReaperTarget {
     BrowsePotPresets(BrowsePotPresetsTarget),
     PreviewPotPreset(PreviewPotPresetTarget),
     LoadPotPreset(LoadPotPresetTarget),
+    CompartmentParameterValue(CompartmentParameterValueTarget),
 }
 
 #[derive(
@@ -172,7 +167,7 @@ pub enum ReaperTarget {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -223,7 +218,7 @@ pub struct SeekOptions {
     Ord,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -256,7 +251,7 @@ impl Default for FeedbackResolution {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -278,31 +273,36 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
-    #[cfg(feature = "playtime")]
     pub fn from_simple_target(simple_target: playtime_api::runtime::SimpleMappingTarget) -> Self {
         use playtime_api::runtime::SimpleMappingTarget::*;
         match simple_target {
-            TriggerMatrix => Self::ClipMatrix(crate::domain::ClipMatrixTarget {
-                action: realearn_api::persistence::ClipMatrixAction::Stop,
-            }),
-            TriggerColumn(t) => Self::ClipColumn(crate::domain::ClipColumnTarget {
-                column_index: t.index,
-                action: realearn_api::persistence::ClipColumnAction::Stop,
-            }),
-            TriggerRow(t) => Self::ClipRow(crate::domain::ClipRowTarget {
+            TriggerMatrix => {
+                Self::PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget {
+                    action: realearn_api::persistence::PlaytimeMatrixAction::Stop,
+                })
+            }
+            TriggerColumn(t) => {
+                Self::PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget {
+                    column_index: t.index,
+                    action: realearn_api::persistence::PlaytimeColumnAction::Stop,
+                })
+            }
+            TriggerRow(t) => Self::PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget {
                 basics: crate::domain::ClipRowTargetBasics {
                     row_index: t.index,
-                    action: realearn_api::persistence::ClipRowAction::PlayScene,
+                    action: realearn_api::persistence::PlaytimeRowAction::PlayScene,
                 },
             }),
-            TriggerSlot(t) => Self::ClipTransport(crate::domain::ClipTransportTarget {
-                project: Reaper::get().current_project(),
-                basics: crate::domain::ClipTransportTargetBasics {
-                    slot_coordinates: t,
-                    action: realearn_api::persistence::ClipTransportAction::Trigger,
-                    options: Default::default(),
-                },
-            }),
+            TriggerSlot(t) => {
+                Self::PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget {
+                    project: Reaper::get().current_project(),
+                    basics: crate::domain::ClipTransportTargetBasics {
+                        slot_coordinates: t,
+                        action: realearn_api::persistence::PlaytimeSlotTransportAction::Trigger,
+                        options: Default::default(),
+                    },
+                })
+            }
         }
     }
 
@@ -335,6 +335,7 @@ impl ReaperTarget {
                     | TrackVisibilityChanged(_)
                 )
             }
+            CompoundChangeEvent::CompartmentParameter(_) => true,
             CompoundChangeEvent::Additional(evt) => {
                 use AdditionalFeedbackEvent::*;
                 matches!(
@@ -345,9 +346,17 @@ impl ReaperTarget {
                     | MappedFxParametersChanged
                 )
             }
+            CompoundChangeEvent::Unit(e) => {
+                matches!(e, UnitEvent::ControlUnitTopLeftCornerChanged(_))
+            }
             CompoundChangeEvent::Instance(_) => false,
             #[cfg(feature = "playtime")]
-            CompoundChangeEvent::ClipMatrix(_) => false,
+            CompoundChangeEvent::ClipMatrix(e) => {
+                matches!(
+                    e,
+                    playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged
+                )
+            }
         }
     }
 
@@ -687,20 +696,14 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackAutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipTransport(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipColumn(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipRow(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipSeek(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipVolume(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipManagement(t) => t.current_value(context),
-            #[cfg(feature = "playtime")]
-            ClipMatrix(t) => t.current_value(context),
+            PlaytimeSlotTransportAction(t) => t.current_value(context),
+            PlaytimeColumnAction(t) => t.current_value(context),
+            PlaytimeRowAction(t) => t.current_value(context),
+            PlaytimeSlotSeek(t) => t.current_value(context),
+            PlaytimeSlotVolume(t) => t.current_value(context),
+            PlaytimeSlotManagementAction(t) => t.current_value(context),
+            PlaytimeMatrixAction(t) => t.current_value(context),
+            PlaytimeControlUnitScroll(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             TakeMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
@@ -711,6 +714,7 @@ impl<'a> Target<'a> for ReaperTarget {
             BrowsePotPresets(t) => t.current_value(context),
             PreviewPotPreset(t) => t.current_value(context),
             LoadPotPreset(t) => t.current_value(context),
+            CompartmentParameterValue(t) => t.current_value(context),
         }
     }
 
@@ -725,20 +729,15 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
-            Dummy(t) => t.current_value(()),
             // We can safely use a mutex (without contention) if the preview registers get_samples()
             // and this code here is called in the same real-time thread. If live FX multiprocessing
             // is enabled, this is not the case and then we can have contention and dropouts! If we
             // need to support that one day, we can alternatively use senders. The downside is that
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
-            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipRow(t) => t.current_value(ctx),
-            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
@@ -748,37 +747,12 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
-            #[cfg(feature = "playtime")]
             ClipTransport(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipColumn(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipRow(t) => t.control_type(ctx),
-            #[cfg(feature = "playtime")]
             ClipMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
-            Dummy(t) => t.control_type(()),
         }
-    }
-}
-
-// Panics if called with repeat or record.
-#[cfg(feature = "playtime")]
-pub(crate) fn clip_play_state_unit_value(
-    action: realearn_api::persistence::ClipTransportAction,
-    play_state: playtime_clip_engine::rt::InternalClipPlayState,
-) -> UnitValue {
-    use playtime_clip_engine::rt::ClipPlayState;
-    use realearn_api::persistence::ClipTransportAction::*;
-    match action {
-        Trigger | PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
-        Stop => transport_is_enabled_unit_value(matches!(
-            play_state.get(),
-            ClipPlayState::Stopped | ClipPlayState::Ignited
-        )),
-        Pause => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Paused),
-        RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
-        Looped => panic!("wrong argument"),
     }
 }
 
@@ -1009,7 +983,7 @@ pub fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1042,7 +1016,7 @@ impl ActionInvocationType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1212,7 +1186,7 @@ pub fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1328,7 +1302,7 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1368,7 +1342,7 @@ impl TrackExclusivity {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1392,7 +1366,7 @@ pub enum Exclusivity {
     Eq,
     Hash,
     Default,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1485,16 +1459,11 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
-    #[cfg(feature = "playtime")]
-    ClipTransport(crate::domain::RealTimeClipTransportTarget),
-    #[cfg(feature = "playtime")]
+    ClipTransport(crate::domain::RealTimeSlotTransportTarget),
     ClipColumn(crate::domain::RealTimeClipColumnTarget),
-    #[cfg(feature = "playtime")]
     ClipRow(crate::domain::RealTimeClipRowTarget),
-    #[cfg(feature = "playtime")]
     ClipMatrix(crate::domain::RealTimeClipMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
-    Dummy(DummyTarget),
 }
 
 impl RealTimeReaperTarget {

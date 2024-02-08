@@ -1,8 +1,8 @@
 use crate::domain::{
-    automation_mode_unit_value, format_value_as_on_off, get_track_routes, Compartment,
+    automation_mode_unit_value, format_value_as_on_off, get_track_routes, CompartmentKind,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    TargetSection, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedRouteAutomationModeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let routes = get_track_routes(context, &self.descriptor, compartment)?;
         let targets = routes
@@ -126,7 +126,8 @@ impl<'a> Target<'a> for RouteAutomationModeTarget {
 }
 
 pub const ROUTE_AUTOMATION_MODE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Send: Automation mode",
+    section: TargetSection::Send,
+    name: "Automation mode",
     short_name: "Send automation mode",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

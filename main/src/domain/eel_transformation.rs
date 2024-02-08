@@ -186,3 +186,76 @@ const NONE: f64 = f64::MIN;
 /// It's good that this is encapsulated in a function. Maybe we can improve the behavior in future
 /// by setting an extra output variable in the implementation of our `stop` function.
 const CONTROL_AND_STOP_MAGIC: f64 = 8965019.0;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytesize::ByteSize;
+    use helgoboss_learn::TransformationInputMetaData;
+    use sysinfo::ProcessRefreshKind;
+
+    #[test]
+    fn memory_usage() {
+        let mut system = sysinfo::System::new();
+        let current_pid = sysinfo::get_current_pid().unwrap();
+        system.refresh_process_specifics(current_pid, ProcessRefreshKind::new().with_memory());
+        let mut last_memory = 0;
+        let mut print_mem = move || {
+            system.refresh_process_specifics(current_pid, ProcessRefreshKind::new().with_memory());
+            let process = system.process(current_pid).unwrap();
+            let memory = process.memory();
+            let diff = memory as i64 - last_memory as i64;
+            let suffix = if diff.is_negative() { "-" } else { "+" };
+            println!(
+                "Memory changed by {suffix}{}. Total memory usage so far: {} bytes",
+                ByteSize::b(diff.unsigned_abs()),
+                ByteSize::b(memory)
+            );
+            last_memory = memory;
+        };
+        let mut total_count = 0;
+        let mut create_transformations = |count| {
+            total_count += count;
+            let transformations = create_transformations(count);
+            println!("Created {count} more transformation units. Total amount of units created so far: {total_count}");
+            print_mem();
+            transformations
+        };
+        let mut transformation_containers = vec![
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(1),
+            create_transformations(100),
+        ];
+        println!("Now dropping from last to first...");
+        while transformation_containers.pop().is_some() {
+            println!("Dropped one set of transformations");
+            print_mem();
+        }
+        println!("No transformation sets left");
+        print_mem();
+    }
+
+    fn create_transformations(count: usize) -> Vec<EelTransformation> {
+        (0..count)
+            .map(|i| {
+                let code = format!("y = x * {i}");
+                let transformation = EelTransformation::compile_for_control(&code).unwrap();
+                let input = TransformationInput::new(
+                    0.5,
+                    TransformationInputMetaData {
+                        rel_time: Default::default(),
+                    },
+                );
+                transformation
+                    .transform(input, 0.5, AdditionalTransformationInput::default())
+                    .unwrap();
+                transformation
+            })
+            .collect()
+    }
+}

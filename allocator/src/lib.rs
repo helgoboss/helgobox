@@ -260,8 +260,6 @@ where
 
     /// For deallocation of foreign structs (e.g. C structs), the layout is not given.
     fn check(&self, layout: Option<Layout>) {
-        #[cfg(not(debug_assertions))]
-        let _ = layout;
         #[cfg(debug_assertions)]
         {
             let forbid_count = ALLOC_FORBID_COUNT.with(|f| f.get());
@@ -270,26 +268,27 @@ where
                 // Increase our counter (will be displayed in ReaLearn status line)
                 UNDESIRED_ALLOCATION_COUNTER.fetch_add(1, Ordering::Relaxed);
                 // Comment out if you don't want to log the violation
-                permit_alloc(|| {
-                    if let Some(layout) = layout {
-                        eprintln!(
-                            "Undesired memory (de)allocation of {} bytes from:\n{:?}",
-                            layout.size(),
-                            backtrace::Backtrace::new()
-                        );
-                    } else {
-                        eprintln!(
-                            "Undesired memory (de)allocation of a foreign value from:\n{:?}",
-                            backtrace::Backtrace::new()
-                        );
-                    }
-                });
+                // permit_alloc(|| {
+                //     if let Some(layout) = layout {
+                //         eprintln!(
+                //             "Undesired memory (de)allocation of {} bytes from:\n{:?}",
+                //             layout.size(),
+                //             backtrace::Backtrace::new()
+                //         );
+                //     } else {
+                //         eprintln!(
+                //             "Undesired memory (de)allocation of a foreign value from:\n{:?}",
+                //             backtrace::Backtrace::new()
+                //         );
+                //     }
+                // });
                 // Comment out if you don't want to abort
                 // if let Some(layout) = layout {
                 //     std::alloc::handle_alloc_error(layout);
                 // }
             }
         }
+        let _ = layout;
     }
 }
 

@@ -1,10 +1,10 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     change_track_prop, format_value_as_on_off, get_effective_tracks, with_gang_behavior,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackMonitoringModeTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -162,7 +162,8 @@ impl<'a> Target<'a> for TrackMonitoringModeTarget {
 }
 
 pub const TRACK_MONITORING_MODE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Set monitoring mode",
+    section: TargetSection::Track,
+    name: "Set monitoring mode",
     short_name: "Track monitoring mode",
     hint: "grouping support since REAPER v6.70",
     supports_track: true,

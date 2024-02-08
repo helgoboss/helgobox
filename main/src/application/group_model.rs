@@ -2,7 +2,7 @@ use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
     Change, GetProcessingRelevance, GroupData, ProcessingRelevance,
 };
-use crate::domain::{Compartment, GroupId, GroupKey, Tag};
+use crate::domain::{CompartmentKind, GroupId, GroupKey, Tag};
 use core::fmt;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -39,7 +39,7 @@ impl GetProcessingRelevance for GroupProp {
 /// A mapping group.
 #[derive(Clone, Debug)]
 pub struct GroupModel {
-    compartment: Compartment,
+    compartment: CompartmentKind,
     id: GroupId,
     key: GroupKey,
     name: String,
@@ -136,15 +136,15 @@ pub fn share_group(group: GroupModel) -> SharedGroup {
 }
 
 impl GroupModel {
-    pub fn new_from_ui(compartment: Compartment, name: String) -> Self {
+    pub fn new_from_ui(compartment: CompartmentKind, name: String) -> Self {
         Self::new_internal(compartment, GroupId::random(), GroupKey::random(), name)
     }
 
-    pub fn new_from_data(compartment: Compartment, id: GroupId, key: GroupKey) -> Self {
+    pub fn new_from_data(compartment: CompartmentKind, id: GroupId, key: GroupKey) -> Self {
         Self::new_internal(compartment, id, key, "".to_string())
     }
 
-    pub fn default_for_compartment(compartment: Compartment) -> Self {
+    pub fn default_for_compartment(compartment: CompartmentKind) -> Self {
         Self {
             compartment,
             id: GroupId::default(),
@@ -157,7 +157,12 @@ impl GroupModel {
         }
     }
 
-    fn new_internal(compartment: Compartment, id: GroupId, key: GroupKey, name: String) -> Self {
+    fn new_internal(
+        compartment: CompartmentKind,
+        id: GroupId,
+        key: GroupKey,
+        name: String,
+    ) -> Self {
         Self {
             id,
             key,
@@ -166,7 +171,7 @@ impl GroupModel {
         }
     }
 
-    pub fn compartment(&self) -> Compartment {
+    pub fn compartment(&self) -> CompartmentKind {
         self.compartment
     }
 

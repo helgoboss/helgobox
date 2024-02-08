@@ -1,12 +1,11 @@
-use crate::persistence::{
-    OscArgument, TargetValue, VirtualControlElementCharacter, VirtualControlElementId,
-};
+use crate::persistence::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use enumset::EnumSet;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use strum::IntoEnumIterator;
 
 #[derive(
     Copy,
@@ -18,7 +17,7 @@ use std::collections::HashSet;
     Serialize,
     Deserialize,
     enum_map::Enum,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -72,7 +71,7 @@ pub enum LearnableTargetKind {
     Serialize,
     Deserialize,
     enum_map::Enum,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     derive_more::Display,
@@ -116,7 +115,7 @@ pub enum Target {
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
     TrackVolume(TrackVolumeTarget),
-    #[serde(rename = "Track")]
+    #[serde(alias = "Track")]
     TrackTool(TrackToolTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),
@@ -127,7 +126,7 @@ pub enum Target {
     LoadFxSnapshot(LoadFxSnapshotTarget),
     #[serde(alias = "CycleThroughFxPresets")]
     BrowseFxPresets(BrowseFxPresetsTarget),
-    #[serde(rename = "Fx")]
+    #[serde(alias = "Fx")]
     FxTool(FxToolTarget),
     FxVisibility(FxVisibilityTarget),
     FxParameterValue(FxParameterValueTarget),
@@ -139,26 +138,28 @@ pub enum Target {
     RoutePan(RoutePanTarget),
     RouteVolume(RouteVolumeTarget),
     RouteTouchState(RouteTouchStateTarget),
-    #[cfg(feature = "playtime")]
-    ClipTransportAction(ClipTransportActionTarget),
-    #[cfg(feature = "playtime")]
-    ClipColumnAction(ClipColumnTarget),
-    #[cfg(feature = "playtime")]
-    ClipRowAction(ClipRowTarget),
-    #[cfg(feature = "playtime")]
-    ClipMatrixAction(ClipMatrixTarget),
-    #[cfg(feature = "playtime")]
-    ClipSeek(ClipSeekTarget),
-    #[cfg(feature = "playtime")]
-    ClipVolume(ClipVolumeTarget),
-    #[cfg(feature = "playtime")]
-    ClipManagement(ClipManagementTarget),
+    #[serde(alias = "ClipTransportAction")]
+    PlaytimeSlotTransportAction(PlaytimeSlotTransportActionTarget),
+    #[serde(alias = "ClipColumnAction")]
+    PlaytimeColumnAction(PlaytimeColumnActionTarget),
+    #[serde(alias = "ClipRowAction")]
+    PlaytimeRowAction(PlaytimeRowActionTarget),
+    #[serde(alias = "ClipMatrixAction")]
+    PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
+    PlaytimeControlUnitScroll(PlaytimeControlUnitScrollTarget),
+    #[serde(alias = "ClipSeek")]
+    PlaytimeSlotSeek(PlaytimeSlotSeekTarget),
+    #[serde(alias = "ClipVolume")]
+    PlaytimeSlotVolume(PlaytimeSlotVolumeTarget),
+    #[serde(alias = "ClipManagement")]
+    PlaytimeSlotManagementAction(PlaytimeSlotManagementActionTarget),
     SendMidi(SendMidiTarget),
     SendOsc(SendOscTarget),
     Dummy(DummyTarget),
     EnableInstances(EnableInstancesTarget),
     EnableMappings(EnableMappingsTarget),
     ModifyMapping(ModifyMappingTarget),
+    CompartmentParameterValue(CompartmentParameterValueTarget),
     #[serde(alias = "LoadMappingSnapshots")]
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     TakeMappingSnapshot(TakeMappingSnapshotTarget),
@@ -487,7 +488,7 @@ pub struct TrackToolTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -495,10 +496,12 @@ pub struct TrackToolTarget {
 pub enum TrackToolAction {
     #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set (as instance track)")]
-    SetAsInstanceTrack,
-    #[display(fmt = "Pin (as instance track)")]
-    PinAsInstanceTrack,
+    #[display(fmt = "Set (as unit track)")]
+    #[serde(alias = "SetAsInstanceTrack")]
+    SetAsUnitTrack,
+    #[display(fmt = "Pin (as unit track)")]
+    #[serde(alias = "PinAsInstanceTrack")]
+    PinAsUnitTrack,
 }
 
 impl Default for TrackToolAction {
@@ -583,25 +586,21 @@ impl Default for MouseAction {
     Eq,
     PartialEq,
     Debug,
+    Default,
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
 #[repr(usize)]
 pub enum Axis {
+    #[default]
     #[display(fmt = "X (horizontal)")]
     X,
     #[display(fmt = "Y (vertical)")]
     Y,
-}
-
-impl Default for Axis {
-    fn default() -> Self {
-        Self::Y
-    }
 }
 
 #[derive(
@@ -613,7 +612,7 @@ impl Default for Axis {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -724,7 +723,7 @@ pub struct FxToolTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -732,10 +731,12 @@ pub struct FxToolTarget {
 pub enum FxToolAction {
     #[display(fmt = "None (feedback only)")]
     DoNothing,
-    #[display(fmt = "Set (as instance FX)")]
-    SetAsInstanceFx,
-    #[display(fmt = "Pin (as instance FX)")]
-    PinAsInstanceFx,
+    #[display(fmt = "Set (as unit FX)")]
+    #[serde(alias = "SetAsInstanceFx")]
+    SetAsUnitFx,
+    #[display(fmt = "Pin (as unit FX)")]
+    #[serde(alias = "PinAsInstanceFx")]
+    PinAsUnitFx,
 }
 
 impl Default for FxToolAction {
@@ -763,6 +764,13 @@ pub struct FxParameterValueTarget {
     pub poll_for_feedback: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retrigger: Option<bool>,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct CompartmentParameterValueTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub parameter: CompartmentParameterDescriptor,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -831,13 +839,12 @@ pub struct RouteTouchStateTarget {
     pub touched_parameter: TouchedRouteParameter,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipTransportActionTarget {
+pub struct PlaytimeSlotTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
-    pub action: ClipTransportAction,
+    pub slot: PlaytimeSlotDescriptor,
+    pub action: PlaytimeSlotTransportAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_only_if_track_armed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -848,78 +855,87 @@ pub struct ClipTransportActionTarget {
     pub play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipColumnTarget {
+pub struct PlaytimeColumnActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub column: ClipColumnDescriptor,
-    pub action: ClipColumnAction,
+    pub column: PlaytimeColumnDescriptor,
+    pub action: PlaytimeColumnAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipRowTarget {
+pub struct PlaytimeRowActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub row: ClipRowDescriptor,
-    pub action: ClipRowAction,
+    pub row: PlaytimeRowDescriptor,
+    pub action: PlaytimeRowAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipMatrixTarget {
+pub struct PlaytimeMatrixActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub action: ClipMatrixAction,
+    pub action: PlaytimeMatrixAction,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipSeekTarget {
+pub struct PlaytimeControlUnitScrollTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
+    pub axis: Axis,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeSlotSeekTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub slot: PlaytimeSlotDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_resolution: Option<FeedbackResolution>,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
-pub struct ClipVolumeTarget {
+pub struct PlaytimeSlotVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
+    pub slot: PlaytimeSlotDescriptor,
 }
 
-#[cfg(feature = "playtime")]
 #[derive(PartialEq, Serialize, Deserialize)]
-pub struct ClipManagementTarget {
+pub struct PlaytimeSlotManagementActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    pub slot: ClipSlotDescriptor,
-    pub action: ClipManagementAction,
+    pub slot: PlaytimeSlotDescriptor,
+    pub action: PlaytimeSlotManagementAction,
 }
 
-#[cfg(feature = "playtime")]
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Display)]
 #[serde(tag = "kind")]
-pub enum ClipManagementAction {
+pub enum PlaytimeSlotManagementAction {
+    #[display(fmt = "Clear slot")]
     ClearSlot,
+    #[display(fmt = "Fill slot with selected item")]
     FillSlotWithSelectedItem,
+    #[display(fmt = "Edit first clip")]
     EditClip,
+    #[display(fmt = "Copy or paste clip")]
     CopyOrPasteClip,
+    #[display(fmt = "Adjust section length")]
     AdjustClipSectionLength(AdjustClipSectionLengthAction),
+    #[display(fmt = "Quantization on/off state")]
+    QuantizationOnOffState,
+    #[display(fmt = "Duplicate")]
+    Duplicate,
+    #[display(fmt = "Double")]
+    Double,
 }
 
-#[cfg(feature = "playtime")]
-impl Default for ClipManagementAction {
+impl Default for PlaytimeSlotManagementAction {
     fn default() -> Self {
         Self::ClearSlot
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AdjustClipSectionLengthAction {
     pub factor: f64,
@@ -984,45 +1000,11 @@ pub struct ModifyMappingTarget {
     pub modification: MappingModification,
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    derive_more::Display,
-    enum_iterator::IntoEnumIterator,
-    num_enum::TryFromPrimitive,
-    num_enum::IntoPrimitive,
-)]
-#[repr(usize)]
-pub enum MappingModificationKind {
-    #[display(fmt = "Learn target")]
-    #[default]
-    LearnTarget,
-    #[display(fmt = "Set target to last touched")]
-    SetTargetToLastTouched,
-}
-
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum MappingModification {
     LearnTarget(LearnTargetMappingModification),
     SetTargetToLastTouched(SetTargetToLastTouchedMappingModification),
-}
-
-impl MappingModification {
-    pub fn kind(&self) -> MappingModificationKind {
-        match self {
-            MappingModification::LearnTarget(_) => MappingModificationKind::LearnTarget,
-            MappingModification::SetTargetToLastTouched(_) => {
-                MappingModificationKind::SetTargetToLastTouched
-            }
-        }
-    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -1172,7 +1154,7 @@ pub struct LoadPotPresetTarget {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
     enum_map::Enum,
@@ -1227,7 +1209,7 @@ impl PotFilterKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
-        Self::into_enum_iter()
+        Self::iter()
     }
 
     pub fn allows_excludes(&self) -> bool {
@@ -1253,13 +1235,11 @@ impl PotFilterKind {
 
     pub fn dependent_kinds(&self) -> impl Iterator<Item = PotFilterKind> {
         let dep_pos = self.dependency_position();
-        Self::into_enum_iter().filter(move |k| k.dependency_position() > dep_pos)
+        Self::iter().filter(move |k| k.dependency_position() > dep_pos)
     }
 
     pub fn core_kinds() -> EnumSet<PotFilterKind> {
-        Self::into_enum_iter()
-            .filter(|k| k.is_core_kind())
-            .collect()
+        Self::iter().filter(|k| k.is_core_kind()).collect()
     }
 
     /// Those kinds are always supported, no matter the database.
@@ -1333,7 +1313,7 @@ pub enum AutomationMode {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -1371,13 +1351,13 @@ pub enum TransportAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
 )]
 #[repr(usize)]
-pub enum ClipTransportAction {
+pub enum PlaytimeSlotTransportAction {
     /// Triggers the slot according to the matrix settings (toggle, momentary, retrigger).
     #[display(fmt = "Trigger")]
     Trigger,
@@ -1432,7 +1412,7 @@ pub enum ClipTransportAction {
     Looped,
 }
 
-impl Default for ClipTransportAction {
+impl Default for PlaytimeSlotTransportAction {
     fn default() -> Self {
         Self::PlayStop
     }
@@ -1446,18 +1426,18 @@ impl Default for ClipTransportAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
 )]
 #[repr(usize)]
-pub enum ClipColumnAction {
+pub enum PlaytimeColumnAction {
     #[display(fmt = "Stop")]
     Stop,
 }
 
-impl Default for ClipColumnAction {
+impl Default for PlaytimeColumnAction {
     fn default() -> Self {
         Self::Stop
     }
@@ -1471,13 +1451,13 @@ impl Default for ClipColumnAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
 )]
 #[repr(usize)]
-pub enum ClipRowAction {
+pub enum PlaytimeRowAction {
     #[display(fmt = "Play")]
     PlayScene,
     #[display(fmt = "Build scene")]
@@ -1488,7 +1468,7 @@ pub enum ClipRowAction {
     CopyOrPasteScene,
 }
 
-impl Default for ClipRowAction {
+impl Default for PlaytimeRowAction {
     fn default() -> Self {
         Self::PlayScene
     }
@@ -1502,13 +1482,13 @@ impl Default for ClipRowAction {
     Debug,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
 )]
 #[repr(usize)]
-pub enum ClipMatrixAction {
+pub enum PlaytimeMatrixAction {
     #[display(fmt = "Stop")]
     Stop,
     #[display(fmt = "Undo")]
@@ -1527,9 +1507,11 @@ pub enum ClipMatrixAction {
     SetRecordDurationToFourBars,
     #[display(fmt = "Set record duration to 8 bars")]
     SetRecordDurationToEightBars,
+    #[display(fmt = "Enable/disable click")]
+    ClickOnOffState,
 }
 
-impl Default for ClipMatrixAction {
+impl Default for PlaytimeMatrixAction {
     fn default() -> Self {
         Self::Stop
     }
@@ -1568,6 +1550,9 @@ pub enum ReaperCommand {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum TrackDescriptor {
+    /// Resolves to the track on which this ReaLearn instance is installed.
+    ///
+    /// Doesn't make sense if ReaLearn is installed on the monitoring FX chain.
     This {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
@@ -1611,23 +1596,20 @@ pub enum TrackDescriptor {
         #[serde(skip_serializing_if = "Option::is_none")]
         allow_multiple: Option<bool>,
     },
-    #[cfg(feature = "playtime")]
     FromClipColumn {
         #[serde(flatten)]
         commons: TrackDescriptorCommons,
-        column: ClipColumnDescriptor,
+        column: PlaytimeColumnDescriptor,
         context: ClipColumnTrackContext,
     },
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum ClipColumnTrackContext {
     Playback,
     Recording,
 }
 
-#[cfg(feature = "playtime")]
 impl Default for ClipColumnTrackContext {
     fn default() -> Self {
         Self::Playback
@@ -1722,7 +1704,7 @@ pub enum SoloBehavior {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1892,6 +1874,12 @@ pub enum FxParameterDescriptor {
     },
 }
 
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "address")]
+pub enum CompartmentParameterDescriptor {
+    ById { index: u32 },
+}
+
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct RouteDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1939,28 +1927,44 @@ impl Default for TrackRouteKind {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipSlotDescriptor {
+pub enum PlaytimeSlotDescriptor {
     Selected,
-    ByIndex(playtime_api::runtime::SlotAddress),
+    ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
         column_expression: String,
         row_expression: String,
     },
 }
 
-#[cfg(feature = "playtime")]
-impl Default for ClipSlotDescriptor {
+impl Display for PlaytimeSlotDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlaytimeSlotDescriptor::Selected => f.write_str("Selected slot"),
+            PlaytimeSlotDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeSlotDescriptor::Dynamic {
+                column_expression,
+                row_expression,
+            } => {
+                f.write_str("Dynamic slot")?;
+                if f.alternate() {
+                    write!(f, " (col = {column_expression}, row = {row_expression})")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl Default for PlaytimeSlotDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
-impl ClipSlotDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+impl PlaytimeSlotDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {
@@ -1969,25 +1973,22 @@ impl ClipSlotDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipColumnDescriptor {
+pub enum PlaytimeColumnDescriptor {
     Selected,
-    ByIndex(playtime_api::runtime::ColumnAddress),
+    ByIndex(playtime_api::persistence::ColumnAddress),
     Dynamic { expression: String },
 }
 
-#[cfg(feature = "playtime")]
-impl Default for ClipColumnDescriptor {
+impl Default for PlaytimeColumnDescriptor {
     fn default() -> Self {
         Self::Selected
     }
 }
 
-#[cfg(feature = "playtime")]
-impl ClipColumnDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+impl PlaytimeColumnDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {
@@ -1996,18 +1997,36 @@ impl ClipColumnDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
+impl Display for PlaytimeColumnDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlaytimeColumnDescriptor::Selected => f.write_str("Selected column"),
+            PlaytimeColumnDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeColumnDescriptor::Dynamic { .. } => f.write_str("Dynamic column"),
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
-pub enum ClipRowDescriptor {
+pub enum PlaytimeRowDescriptor {
     Selected,
-    ByIndex(playtime_api::runtime::RowAddress),
+    ByIndex(playtime_api::persistence::RowAddress),
     Dynamic { expression: String },
 }
 
-#[cfg(feature = "playtime")]
-impl ClipRowDescriptor {
-    pub fn fixed_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+impl Display for PlaytimeRowDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlaytimeRowDescriptor::Selected => f.write_str("Selected row"),
+            PlaytimeRowDescriptor::ByIndex(address) => address.fmt(f),
+            PlaytimeRowDescriptor::Dynamic { .. } => f.write_str("Dynamic row"),
+        }
+    }
+}
+
+impl PlaytimeRowDescriptor {
+    pub fn fixed_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
         } else {
@@ -2016,8 +2035,7 @@ impl ClipRowDescriptor {
     }
 }
 
-#[cfg(feature = "playtime")]
-impl Default for ClipRowDescriptor {
+impl Default for PlaytimeRowDescriptor {
     fn default() -> Self {
         Self::Selected
     }
@@ -2072,7 +2090,7 @@ impl Default for TrackScope {
     Serialize,
     Deserialize,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    strum::EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -2109,4 +2127,16 @@ impl BrowseTracksMode {
             }
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum TargetValue {
+    #[serde(alias = "Normalized")]
+    Unit {
+        value: f64,
+    },
+    Discrete {
+        value: u32,
+    },
 }

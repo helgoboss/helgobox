@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, fx_enable_unit_value, Compartment, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    format_value_as_on_off, fx_enable_unit_value, CompartmentKind, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FxDescriptor, HitResponse, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -18,7 +18,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxEnableTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(self
             .fx_descriptor
@@ -126,7 +126,8 @@ impl<'a> Target<'a> for FxEnableTarget {
 }
 
 pub const FX_ENABLE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX: Enable/disable",
+    section: TargetSection::Fx,
+    name: "Enable/disable",
     short_name: "Enable/disable FX",
     hint: "No feedback from automation",
     supports_track: true,

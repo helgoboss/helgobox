@@ -4,15 +4,16 @@ use crate::provider_database::{
 use crate::{
     Fil, FilterInput, FilterItem, FilterItemId, InnerBuildInput, InnerPresetId,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PipeEscaped, PluginId,
-    Preset, PresetCommon, PresetKind, ProjectBasedPresetKind, ProjectId, SearchInput,
+    PotPreset, PotPresetCommon, PotPresetKind, ProjectBasedPotPresetKind, ProjectId, SearchInput,
 };
 use std::borrow::Cow;
 
 use crate::plugins::{PluginCore, PluginDatabase};
-use base::hash_util::{calculate_persistent_non_crypto_hash_one_shot, PersistentHash};
+use base::hash_util::{
+    calculate_persistent_non_crypto_hash_one_shot, NonCryptoIndexMap, PersistentHash,
+};
 use either::Either;
 use enumset::{enum_set, EnumSet};
-use indexmap::IndexMap;
 use itertools::Itertools;
 use realearn_api::persistence::PotFilterKind;
 
@@ -203,12 +204,16 @@ impl Database for ProjectDatabase {
         Ok(preset_ids)
     }
 
-    fn find_preset_by_id(&self, ctx: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        ctx: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_entry = self.preset_entries.get(preset_id.0 as usize)?;
         let project = self.projects.get(preset_entry.project_id.0 as usize)?;
         let relative_path = PathBuf::from(&project.relative_path_to_rpp);
-        let preset = Preset {
-            common: PresetCommon {
+        let preset = PotPreset {
+            common: PotPresetCommon {
                 persistent_id: PersistentPresetId::new(
                     self.persistent_id().clone(),
                     create_persistent_inner_id(project, preset_entry),
@@ -234,7 +239,7 @@ impl Database for ProjectDatabase {
                 is_available: !preset_entry.track_preset.used_plugins.is_empty(),
                 metadata: Default::default(),
             },
-            kind: PresetKind::ProjectBased(ProjectBasedPresetKind {
+            kind: PotPresetKind::ProjectBased(ProjectBasedPotPresetKind {
                 path_to_rpp: self.root_dir.join(relative_path),
                 fx_chain_range: preset_entry.track_preset.fx_chain_range.clone(),
             }),
@@ -247,7 +252,7 @@ struct TrackPreset {
     preset_name: String,
     track_id: String,
     fx_chain_range: Range<usize>,
-    used_plugins: IndexMap<PluginId, PluginCore>,
+    used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
     content_hash: PersistentHash,
 }
 
@@ -283,7 +288,7 @@ fn extract_presets(
         name: Option<&'a str>,
         rfx_chain_start: Option<usize>,
         rfx_chain_end: Option<usize>,
-        used_plugins: IndexMap<PluginId, PluginCore>,
+        used_plugins: NonCryptoIndexMap<PluginId, PluginCore>,
     }
     impl<'a> P<'a> {
         pub fn new(track_id: &'a str) -> Self {

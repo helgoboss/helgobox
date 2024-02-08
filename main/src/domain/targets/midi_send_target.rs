@@ -1,8 +1,8 @@
 use crate::domain::{
-    Compartment, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
+    CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::NamedChannelSender;
 use helgoboss_learn::{
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::SendMidi(MidiSendTarget::new(
             self.pattern.clone(),
@@ -254,7 +254,8 @@ impl<'a> Target<'a> for MidiSendTarget {
 }
 
 pub const MIDI_SEND_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "MIDI: Send message",
+    section: TargetSection::Midi,
+    name: "Send message",
     short_name: "Send MIDI",
     supports_feedback: false,
     supports_real_time_control: true,

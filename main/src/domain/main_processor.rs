@@ -1,60 +1,71 @@
 use crate::domain::{
-    aggregate_target_values, get_project_options, say, AdditionalFeedbackEvent, BackboneState,
-    Compartment, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    aggregate_target_values, format_as_pretty_hex, get_project_options, say,
+    AdditionalFeedbackEvent, AdditionalLuaMidiSourceScriptInput, Backbone, CompartmentKind,
+    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
     ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackCollector, FeedbackDestinations,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior,
-    FinalRealFeedbackValue, FinalSourceFeedbackValue, GlobalControlAndFeedbackState, GroupId,
-    HitInstructionContext, HitInstructionResponse, InfoEvent, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, KeyMessage, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingControlResult, MappingId, MappingInfo,
-    MessageCaptureEvent, MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult,
+    FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
+    FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
+    GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
+    InfoEvent, InstanceId, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
+    MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NoopLogger,
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
     PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
-    QualifiedMappingId, RawParamValue, RealTimeMappingUpdate, RealTimeTargetUpdate,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnParameterChangePayload,
-    ReaperConfigChange, ReaperMessage, ReaperSourceFeedbackValue, ReaperTarget,
-    SharedInstanceState, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualControlElement,
-    VirtualSourceValue,
+    QualifiedInstanceEvent, QualifiedMappingId, RawParamValue, RealTimeMappingUpdate,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnParameterChangePayload, RealearnSourceContext, ReaperConfigChange, ReaperMessage,
+    ReaperSourceFeedbackValue, ReaperTarget, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    SourceFeedbackLogger, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
+    TargetValueChangedEvent, UnitContainer, UnitEvent, UnitOrchestrationEvent,
+    UpdatedSingleMappingOnStateEvent, VirtualControlElement, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, AbstractTimestamp, ControlValue, GroupInteraction, MidiSourceValue,
-    MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, SourceContext, Target, BASE_EPSILON,
+    MinIsMaxBehavior, ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
 
 use crate::domain::ui_util::{
     format_control_input_with_match_result, format_incoming_midi_message, format_midi_source_value,
-    format_osc_message, format_osc_packet, format_raw_midi, log_lifecycle_output,
-    log_real_control_input, log_real_feedback_output, log_real_learn_input, log_target_control,
-    log_target_output, log_virtual_control_input, log_virtual_feedback_output,
+    format_osc_message, format_osc_packet, log_lifecycle_output, log_real_control_input,
+    log_real_feedback_output, log_real_learn_input, log_target_control, log_target_output,
+    log_virtual_control_input, log_virtual_feedback_output,
 };
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet, NonCryptoIndexSet};
 use base::{hash_util, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
-use indexmap::IndexSet;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use strum::EnumIter;
 
-// This can be come pretty big when multiple track volumes are adjusted at once.
+/// This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
-const NORMAL_TASK_BULK_SIZE: usize = 32;
-const FEEDBACK_TASK_BULK_SIZE: usize = 64;
-const CONTROL_TASK_BULK_SIZE: usize = 32;
+/// This has been increased because the scenario in #913 made messages pile up in this channel.
+const NORMAL_TASK_BULK_SIZE: usize = 1000;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const NORMAL_RT_TASK_BULK_SIZE: usize = 1000;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
+/// This has been increased because of the insight that letting messages pile up is worse than
+/// having a few cycles that take longer.
+const CONTROL_TASK_BULK_SIZE: usize = 1000;
 // I raised this from 32 to the max channel size because of
 // https://github.com/helgoboss/realearn/issues/847 (otherwise it can easily happen with lots of
 // parameter modulation that the channel runs full)
@@ -67,15 +78,15 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     basics: Basics<EH>,
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
-    // TODO-low-multi-config Make fully qualified
-    poll_control_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
+    poll_control_mappings: EnumMap<CompartmentKind, OrderedMappingIdSet>,
 }
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
     instance_id: InstanceId,
-    source_context: SourceContext,
-    instance_container: &'static dyn InstanceContainer,
+    unit_id: UnitId,
+    common_lua: EnumMap<CompartmentKind, Option<mlua::Value<'static>>>,
+    unit_container: &'static dyn UnitContainer,
     logger: slog::Logger,
     settings: BasicSettings,
     control_is_globally_enabled: bool,
@@ -85,7 +96,10 @@ struct Basics<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
-    instance_state: SharedInstanceState,
+    // It's okay to not use a weak instance here because the main processor / unit lives shorter
+    // than the instance. It can't lead to the instance not being disposed.
+    instance: SharedInstance,
+    unit: SharedUnit,
     channels: Channels,
     // Using RefCell in the processing layer is an exception. We do it here because we can't
     // safely make feedback processing mutable. I tried (see branch
@@ -95,10 +109,9 @@ struct Basics<EH: DomainEventHandler> {
     // TODO-low This reason is now outdated. We detected a general issue with reentrancy.
     //  https://github.com/helgoboss/reaper-rs/issues/54
     last_feedback_checksum_by_address:
-        RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
-    // TODO-low-multi-config Make fully qualified
+        RefCell<NonCryptoHashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
     target_based_conditional_activation_processors:
-        EnumMap<Compartment, TargetBasedConditionalActivationProcessor>,
+        EnumMap<CompartmentKind, TargetBasedConditionalActivationProcessor>,
 }
 
 /// Used for detecting and preventing subsequent duplicate feedback.
@@ -210,30 +223,21 @@ fn hash_osc_arg<H: Hasher>(arg: &OscType, hasher: &mut H) {
 #[derive(Debug)]
 struct Collections {
     /// Contains mappings without virtual targets.
-    // TODO-low-multi-config Make fully qualified
-    mappings: EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
+    mappings: EnumMap<CompartmentKind, OrderedMappingMap<MainMapping>>,
     /// Contains mappings with virtual targets.
-    // TODO-low-multi-config Make fully qualified
     mappings_with_virtual_targets: OrderedMappingMap<MainMapping>,
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
-    // TODO-low-multi-config Make fully qualified
-    target_touch_dependent_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
+    target_touch_dependent_mappings: EnumMap<CompartmentKind, OrderedMappingIdSet>,
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
-    beat_dependent_feedback_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
-    // TODO-low-multi-config Make fully qualified
+    beat_dependent_feedback_mappings: EnumMap<CompartmentKind, OrderedMappingIdSet>,
     /// Contains IDs of those mappings whose feedback might change depending on the current milli.
     /// TODO-low The mappings in there are polled regularly (even if main timeline is not playing).
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
-    // TODO-low-multi-config Make fully qualified
-    milli_dependent_feedback_mappings: EnumMap<Compartment, OrderedMappingIdSet>,
-    // TODO-low-multi-config Major issue: Adding new plug-in params for each config. Should we
-    //  use completely internal parameters instead? 5 connected devices would result in 1000
-    //  parameters, quite many.
+    milli_dependent_feedback_mappings: EnumMap<CompartmentKind, OrderedMappingIdSet>,
     parameters: PluginParams,
-    // TODO-low-multi-config Make fully qualified
-    previous_target_values: EnumMap<Compartment, HashMap<MappingId, AbsoluteValue>>,
+    previous_target_values: EnumMap<CompartmentKind, NonCryptoHashMap<MappingId, AbsoluteValue>>,
 }
 
 #[derive(Debug)]
@@ -245,14 +249,14 @@ struct Channels {
         crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
+    unit_event_receiver: crossbeam_channel::Receiver<UnitEvent>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
     feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
     feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
     osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
     additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
-    instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+    unit_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
     integration_test_feedback_sender: Option<SenderToNormalThread<FinalSourceFeedbackValue>>,
 }
 
@@ -260,6 +264,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         instance_id: InstanceId,
+        unit_id: UnitId,
         parent_logger: &slog::Logger,
         self_normal_sender: SenderToNormalThread<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
@@ -268,17 +273,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         >,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<UnitEvent>,
         normal_real_time_task_sender: SenderToRealTimeThread<NormalRealTimeTask>,
         feedback_real_time_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: SenderToRealTimeThread<FeedbackAudioHookTask>,
         additional_feedback_event_sender: SenderToNormalThread<AdditionalFeedbackEvent>,
-        instance_orchestration_event_sender: SenderToNormalThread<InstanceOrchestrationEvent>,
+        instance_orchestration_event_sender: SenderToNormalThread<UnitOrchestrationEvent>,
         osc_feedback_task_sender: SenderToNormalThread<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
-        instance_state: SharedInstanceState,
-        instance_container: &'static dyn InstanceContainer,
+        instance: SharedInstance,
+        unit: SharedUnit,
+        instance_container: &'static dyn UnitContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             SenderToNormalThread::new_bounded_channel(
@@ -289,7 +295,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         MainProcessor {
             basics: Basics {
                 instance_id,
-                source_context: SourceContext,
+                unit_id,
+                common_lua: Default::default(),
                 logger: logger.clone(),
                 settings: Default::default(),
                 control_is_globally_enabled: false,
@@ -297,8 +304,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 event_handler,
                 context,
                 control_mode: ControlMode::Controlling,
-                instance_state,
-                instance_container,
+                instance,
+                unit,
+                unit_container: instance_container,
                 channels: Channels {
                     self_feedback_sender,
                     self_normal_sender,
@@ -306,14 +314,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     normal_real_time_to_main_thread_task_receiver,
                     feedback_task_receiver,
                     parameter_task_receiver,
-                    instance_feedback_event_receiver,
+                    unit_event_receiver: instance_feedback_event_receiver,
                     control_task_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     feedback_audio_hook_task_sender,
                     osc_feedback_task_sender,
                     additional_feedback_event_sender,
-                    instance_orchestration_event_sender,
+                    unit_orchestration_event_sender: instance_orchestration_event_sender,
                     integration_test_feedback_sender: None,
                 },
                 last_feedback_checksum_by_address: Default::default(),
@@ -332,8 +340,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn instance_id(&self) -> &InstanceId {
-        &self.basics.instance_id
+    pub fn unit_id(&self) -> UnitId {
+        self.basics.unit_id
     }
 
     /// This is the chance to take over a source from another instance (send our feedback).
@@ -359,7 +367,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         mapping_with_source.source()
                     );
                     // TODO-low Shouldn't we update the single mapping-on state here?
-                    let feedback = followed_mapping.feedback(true, self.basics.control_context());
+                    let feedback = followed_mapping.feedback(
+                        true,
+                        self.basics.control_context(followed_mapping.compartment()),
+                    );
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
@@ -437,7 +448,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 match_outcome: match_result,
             } => {
                 log_virtual_control_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     format_control_input_with_match_result(value, match_result),
                 );
             }
@@ -447,7 +458,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             } => {
                 let timestamp = event.timestamp();
                 log_real_control_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     format_control_input_with_match_result(
                         ControlEvent::new(
                             format_midi_source_value(&event.into_payload()),
@@ -460,7 +471,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             LogRealLearnInput { event } => {
                 let timestamp = event.timestamp();
                 log_real_learn_input(
-                    self.instance_id(),
+                    self.unit_id(),
                     ControlEvent::new(
                         format_incoming_midi_message(event.into_payload()),
                         timestamp,
@@ -468,7 +479,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
             }
             LogTargetOutput { event } => {
-                log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
+                log_target_output(self.unit_id(), format_as_pretty_hex(event.bytes()));
             }
             LogTargetControl { mapping_id, entry } => {
                 let logger = self
@@ -480,12 +491,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn poll_control(&mut self, timestamp: ControlEventTimestamp) {
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             for id in self.poll_control_mappings[compartment].iter() {
                 let (is_source_poll, control_result, group_interaction) = if let Some(m) =
                     self.collections.mappings[compartment].get_mut(id)
                 {
-                    let control_context = self.basics.control_context();
+                    let control_context = self.basics.control_context(compartment);
                     let processor_context = ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
@@ -585,7 +596,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Processes incoming control messages from the real-time processor.
     fn control(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_id: MappingId,
         control_event: ControlEvent<ControlValue>,
         options: ControlOptions,
@@ -638,7 +649,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_normal_tasks_from_session(timestamp);
         self.process_parameter_tasks();
         self.process_feedback_tasks();
-        self.process_instance_feedback_events();
+        self.process_unit_events();
         self.poll_for_feedback();
     }
 
@@ -646,12 +657,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// there are no appropriate change events to listen to and therefore need feedback polling.
     #[allow(clippy::float_cmp)]
     fn poll_for_feedback(&mut self) {
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             for mapping_id in self.collections.milli_dependent_feedback_mappings[compartment].iter()
             {
                 if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
                     let previous_target_values = &mut self.collections.previous_target_values;
-                    let control_context = self.basics.control_context();
+                    let control_context = self.basics.control_context(compartment);
                     self.basics
                         .process_feedback_related_reaper_event_for_mapping(
                             m,
@@ -732,19 +743,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_instance_feedback_events(&mut self) {
+    fn process_unit_events(&mut self) {
+        let mut changes_conditions = false;
         for event in self
             .basics
             .channels
-            .instance_feedback_event_receiver
+            .unit_event_receiver
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
             // Propagate to other instances if necessary
-            if event.is_interesting_for_other_instances() {
-                let global_event = AdditionalFeedbackEvent::Instance {
-                    instance_id: self.basics.instance_id,
-                    instance_event: event.clone(),
+            if event.is_interesting_for_other_units() {
+                let global_event = AdditionalFeedbackEvent::Unit {
+                    unit_id: self.basics.unit_id,
+                    unit_event: event.clone(),
                 };
                 self.basics
                     .channels
@@ -755,44 +767,29 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
-                    CompoundChangeEvent::Instance(&event),
-                    self.basics.control_context(),
+                    CompoundChangeEvent::Unit(&event),
+                    self.basics.control_context(mapping.compartment()),
                 )
             });
+            // Check if this event changes conditions
+            if ReaperTarget::changes_conditions(CompoundChangeEvent::Unit(&event)) {
+                changes_conditions = true;
+            }
+        }
+        if changes_conditions {
+            self.basics.notify_conditions_changed();
         }
     }
 
-    /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
-    /// (not borrowed from another instance).
-    #[cfg(feature = "playtime")]
-    pub fn poll_owned_clip_matrix(&self) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
-        let mut instance_state = self.basics.instance_state.borrow_mut();
-        let matrix = match instance_state.owned_clip_matrix_mut() {
-            Some(m) => m,
-            _ => return vec![],
-        };
-        matrix.poll(self.basics.context.project())
-    }
-
-    /// Processes the given clip matrix events if they are relevant to this instance.
+    /// Processes the given clip matrix events if they are relevant to this unit.
     #[cfg(feature = "playtime")]
     pub fn process_polled_clip_matrix_events(
         &self,
         instance_id: InstanceId,
         events: &[playtime_clip_engine::base::ClipMatrixEvent],
     ) {
-        let instance_state = self.basics.instance_state.borrow();
-        let Some(relevance) = instance_state.clip_matrix_relevance(instance_id) else {
+        if instance_id != self.basics.instance_id {
             return;
-        };
-        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
-            self.basics
-                .event_handler
-                .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
-                    matrix,
-                    events,
-                    is_poll: true,
-                });
         }
         for event in events {
             self.process_clip_matrix_event_for_feedback(event);
@@ -805,20 +802,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         event: &crate::domain::QualifiedClipMatrixEvent,
     ) {
-        let instance_state = self.basics.instance_state.borrow();
-        let Some(relevance) = instance_state.clip_matrix_relevance(event.instance_id) else {
+        if event.instance_id != self.basics.instance_id {
             return;
-        };
-        if let crate::domain::ClipMatrixRelevance::Owns(matrix) = relevance {
-            self.basics
-                .event_handler
-                .handle_event_ignoring_error(DomainEvent::ClipMatrixChanged {
-                    matrix,
-                    events: std::slice::from_ref(&event.event),
-                    is_poll: false,
-                });
         }
         self.process_clip_matrix_event_for_feedback(&event.event)
+    }
+
+    pub fn process_instance_event_for_feedback(&self, event: &QualifiedInstanceEvent) {
+        if event.instance_id != self.basics.instance_id {
+            return;
+        }
+        self.process_feedback_related_reaper_event(|mapping, target| {
+            mapping.process_change_event(
+                target,
+                CompoundChangeEvent::Instance(&event.event),
+                self.basics.control_context(mapping.compartment()),
+            )
+        });
     }
 
     #[cfg(feature = "playtime")]
@@ -842,7 +842,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // query their feedback value more than once in one main loop cycle).
             // So we don't want to iterate over all mappings but just the beat-dependent
             // ones.
-            for compartment in Compartment::enum_iter() {
+            for compartment in CompartmentKind::enum_iter() {
                 for mapping_id in
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
@@ -853,7 +853,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 m.process_change_event(
                                     target,
                                     CompoundChangeEvent::ClipMatrix(event),
-                                    self.basics.control_context(),
+                                    self.basics.control_context(m.compartment()),
                                 )
                             },
                         );
@@ -866,7 +866,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::ClipMatrix(event),
-                    self.basics.control_context(),
+                    self.basics.control_context(mapping.compartment()),
                 )
             });
         }
@@ -936,7 +936,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_change_of_last_touched_target(&mut self) {
         // The last touched target has changed! We re-resolve all "Last touched" targets.
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             for mapping_id in self.collections.target_touch_dependent_mappings[compartment].iter() {
                 // Virtual targets are not candidates for "Last touched" so we don't
                 // need to consider them here.
@@ -945,7 +945,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // We don't need to track activation updates because this target
                     // is always on. Switching off is not necessary since the last
                     // touched target can never be "unset".
-                    let control_context = self.basics.control_context();
+                    let control_context = self.basics.control_context(m.compartment());
                     let _ = m.refresh_target(
                         ExtendedProcessorContext::new(
                             &self.basics.context,
@@ -1032,12 +1032,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let param = self.collections.parameters.at_mut(index);
         let previous_value = param.raw_value();
         param.set_raw_value(value);
+        // When our own parameters change, it's THE example of a condition change.
+        self.basics.notify_conditions_changed();
+        // Let compartment parameter targets know
+        self.process_compartment_parameter_feedback(index);
         // Notify domain event handler
         self.basics
             .event_handler
             .handle_event_ignoring_error(DomainEvent::UpdatedSingleParameterValue { index, value });
         // Determine and process activation effects
-        let compartment = Compartment::by_plugin_param_index(index);
+        let compartment = CompartmentKind::by_plugin_param_index(index);
         let activation_effects: Vec<MappingActivationEffect> = self
             .all_mappings_in_compartment(compartment)
             .filter_map(|m| {
@@ -1069,7 +1073,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This is called after determining mapping and/or target activation changes.
     fn process_activation_effects(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         activation_effects: Vec<MappingActivationEffect>,
         refresh_targets: bool,
     ) {
@@ -1078,7 +1082,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Mapping activation is supported for both compartments and target activation
         // might change also in non-virtual controller mappings due to dynamic targets.
-        let mut changed_mappings = IndexSet::new();
+        let mut changed_mappings = NonCryptoIndexSet::default();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         // In order to avoid a mutable borrow of mappings and an immutable borrow of
         // parameters at the same time, we need to separate into READ activation
@@ -1101,7 +1105,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
         for m in self.collections.mappings[compartment].values_mut() {
             if refresh_targets && m.target_can_be_affected_by_parameters() {
-                let control_context = self.basics.control_context();
+                let control_context = self.basics.control_context(m.compartment());
                 let context = ExtendedProcessorContext::new(
                     &self.basics.context,
                     &self.collections.parameters,
@@ -1120,7 +1124,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         }
         // 4. Mappings with virtual targets: Determine unused sources
-        if compartment == Compartment::Controller {
+        if compartment == CompartmentKind::Controller {
             for m in self.collections.mappings_with_virtual_targets.values() {
                 if !m.feedback_is_effectively_on() {
                     continue;
@@ -1130,7 +1134,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // (https://github.com/helgoboss/realearn/issues/563)
                 let has_active_main_mapping =
                     find_active_main_mapping_connected_to_virtual_control_element(
-                        &self.collections.mappings[Compartment::Main],
+                        &self.collections.mappings[CompartmentKind::Main],
                         m.virtual_target_control_element().unwrap(),
                     )
                     .is_some();
@@ -1158,7 +1162,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .event_handler
             .handle_event_ignoring_error(DomainEvent::UpdatedAllParameters(params));
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             let mut mapping_updates: Vec<RealTimeMappingUpdate> = vec![];
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             let mut changed_mappings = vec![];
@@ -1177,7 +1181,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
                 if m.target_can_be_affected_by_parameters() {
-                    let control_context = self.basics.control_context();
+                    let control_context = self.basics.control_context(m.compartment());
                     let context = ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
@@ -1207,11 +1211,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_normal_tasks_from_session(&mut self, timestamp: ControlEventTimestamp) {
         let mut count = 0;
+        let mut conditions_changed = false;
         while let Ok(task) = self.basics.channels.normal_task_receiver.try_recv() {
             use NormalMainTask::*;
             match task {
                 UpdateSettings(settings) => {
                     self.update_settings(settings);
+                }
+                UpdateCompartmentSettings(compartment, settings) => {
+                    self.update_compartment_settings(compartment, settings);
                 }
                 UpdateAllMappings(compartment, mappings) => {
                     self.update_all_mappings(compartment, mappings);
@@ -1224,7 +1232,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.hit_target(id, value);
                 }
                 NotifyConditionsChanged => {
-                    self.notify_conditions_changed();
+                    conditions_changed = true;
                 }
                 UpdateSingleMapping(mapping) => {
                     self.update_single_mapping(mapping);
@@ -1246,6 +1254,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     osc_arg_index_hint,
                 } => {
                     debug!(self.basics.logger, "Start learning source");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::StartLearnSource {
+                            allow_virtual_sources,
+                        });
                     self.basics.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
                         osc_arg_index_hint,
@@ -1253,10 +1267,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 DisableControl => {
                     debug!(self.basics.logger, "Disable control");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::DisableControl);
                     self.basics.control_mode = ControlMode::Disabled;
                 }
                 ReturnToControlMode => {
                     debug!(self.basics.logger, "Return to control mode");
+                    self.basics
+                        .channels
+                        .normal_real_time_task_sender
+                        .send_complaining(NormalRealTimeTask::ReturnToControlMode);
                     self.basics.control_mode = ControlMode::Controlling;
                 }
                 UseIntegrationTestFeedbackSender(sender) => {
@@ -1272,6 +1294,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if count == NORMAL_TASK_BULK_SIZE {
                 break;
             }
+        }
+        if conditions_changed {
+            self.process_changed_conditions();
         }
     }
 
@@ -1319,10 +1344,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             if new_feedback_is_enabled {
-                for compartment in Compartment::enum_iter() {
+                for compartment in CompartmentKind::enum_iter() {
                     self.handle_feedback_after_having_updated_all_mappings(
                         compartment,
-                        HashMap::new(),
+                        HashMap::default(),
                     );
                 }
             } else {
@@ -1341,7 +1366,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Shouldn't be called directly when the REAPER change event occurs but in the next main loop
     /// cycle. That's especially important for auto-load because REAPER first needs to digest info
     /// such as "Is the window open?" and "What FX is the focused FX?".
-    fn notify_conditions_changed(&mut self) {
+    fn process_changed_conditions(&mut self) {
         debug!(self.basics.logger, "Conditions changed");
         // Invoke auto-load if necessary
         if self
@@ -1356,14 +1381,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Refresh all targets
         debug!(self.basics.logger, "Refreshing all targets...");
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             let mut changed_mappings = vec![];
             let mut unused_sources = self.currently_feedback_enabled_sources(compartment, false);
             // Mappings with virtual targets don't have to be refreshed because virtual
             // targets are always active and never change depending on circumstances.
             for m in self.collections.mappings[compartment].values_mut() {
-                let control_context = self.basics.control_context();
+                let control_context = self.basics.control_context(compartment);
                 let context = ExtendedProcessorContext::new(
                     &self.basics.context,
                     &self.collections.parameters,
@@ -1397,14 +1422,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .handle_event_ignoring_error(DomainEvent::ConditionsChanged);
     }
 
+    fn update_compartment_settings(
+        &mut self,
+        compartment: CompartmentKind,
+        settings: CompartmentSettings,
+    ) {
+        self.basics.common_lua[compartment] = settings.common_lua;
+    }
+
     fn update_settings(&mut self, settings: BasicSettings) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::UpdateSettings(settings));
         let any_main_mapping_is_effectively_on = self.any_main_mapping_is_effectively_on();
         self.basics
             .update_settings_internal(settings, any_main_mapping_is_effectively_on);
         self.potentially_enable_or_disable_control_or_feedback(any_main_mapping_is_effectively_on);
     }
 
-    fn update_all_mappings(&mut self, compartment: Compartment, mut mappings: Vec<MainMapping>) {
+    fn update_all_mappings(
+        &mut self,
+        compartment: CompartmentKind,
+        mut mappings: Vec<MainMapping>,
+    ) {
         debug!(
             self.basics.logger,
             "Updating {} mappings in {}...",
@@ -1412,8 +1453,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             compartment,
         );
         self.basics.clear_last_feedback();
-        let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
-        let mut mapping_infos: HashMap<QualifiedMappingId, MappingInfo> = HashMap::new();
+        let mut mappings_by_group: NonCryptoHashMap<GroupId, Vec<MappingId>> = HashMap::default();
+        let mut mapping_infos: NonCryptoHashMap<QualifiedMappingId, MappingInfo> =
+            HashMap::default();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         self.collections.target_touch_dependent_mappings[compartment].clear();
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
@@ -1430,7 +1472,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .or_default()
                     .push(m.id());
                 mapping_infos.insert(m.qualified_id(), m.take_mapping_info());
-                let control_context = self.basics.control_context();
+                let control_context = self.basics.control_context(m.compartment());
                 m.init_target_and_activation(
                     ExtendedProcessorContext::new(
                         &self.basics.context,
@@ -1467,13 +1509,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect();
         // Update instance state
         {
-            let mut instance_state = self.basics.instance_state.borrow_mut();
+            let mut instance_state = self.basics.unit.borrow_mut();
             instance_state.set_mappings_by_group(compartment, mappings_by_group);
             instance_state.set_mapping_infos(mapping_infos);
         }
         // Put into hash map in order to quickly look up mappings by ID
         let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
-        if compartment == Compartment::Controller {
+        if compartment == CompartmentKind::Controller {
             let (virtual_target_mappings, normal_mappings) =
                 mapping_tuples.partition(|(_, m)| m.has_virtual_target());
             self.collections.mappings[compartment] = normal_mappings;
@@ -1510,7 +1552,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .channels
             .normal_real_time_to_main_thread_task_receiver
             .try_iter()
-            .take(NORMAL_TASK_BULK_SIZE)
+            .take(NORMAL_RT_TASK_BULK_SIZE)
         {
             use NormalRealTimeToMainThreadTask::*;
             match task {
@@ -1537,10 +1579,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         .handle_event_ignoring_error(DomainEvent::FullResyncRequested);
                 }
                 LogLifecycleOutput { value } => {
-                    log_lifecycle_output(
-                        &self.basics.instance_id,
-                        format_midi_source_value(&value),
-                    );
+                    log_lifecycle_output(self.basics.unit_id, format_midi_source_value(&value));
                 }
                 LogToConsole(msg) => {
                     Reaper::get().show_console_msg(msg);
@@ -1550,16 +1589,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn any_main_mapping_is_effectively_on(&self) -> bool {
-        self.collections.mappings[Compartment::Main]
+        self.collections.mappings[CompartmentKind::Main]
             .values()
             .any(|m| m.is_effectively_on())
     }
 
-    fn notify_feedback_dev_usage_might_have_changed(&self, compartment: Compartment) {
+    fn notify_feedback_dev_usage_might_have_changed(&self, compartment: CompartmentKind) {
         // A device is only considered to be "in use" if there's at least one
         // *main* mapping. It doesn't depend on
         // controller mappings.
-        if compartment == Compartment::Main {
+        if compartment == CompartmentKind::Main {
             let event = self.basics.feedback_output_usage_might_have_changed_event(
                 self.any_main_mapping_is_effectively_on(),
             );
@@ -1574,17 +1613,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn send_io_update_if_space(&self, event: IoUpdatedEvent) {
         self.basics
             .channels
-            .instance_orchestration_event_sender
-            .send_if_space(InstanceOrchestrationEvent::IoUpdated(event));
+            .unit_orchestration_event_sender
+            .send_if_space(UnitOrchestrationEvent::IoUpdated(event));
     }
 
     fn get_normal_or_virtual_target_mapping(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         id: MappingId,
     ) -> Option<&MainMapping> {
         self.collections.mappings[compartment].get(&id).or(
-            if compartment == Compartment::Controller {
+            if compartment == CompartmentKind::Controller {
                 self.collections.mappings_with_virtual_targets.get(&id)
             } else {
                 None
@@ -1598,7 +1637,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) -> Option<&mut MainMapping> {
         self.collections.mappings[id.compartment]
             .get_mut(&id.id)
-            .or(if id.compartment == Compartment::Controller {
+            .or(if id.compartment == CompartmentKind::Controller {
                 self.collections
                     .mappings_with_virtual_targets
                     .get_mut(&id.id)
@@ -1619,6 +1658,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    fn process_compartment_parameter_feedback(&mut self, param_index: PluginParamIndex) {
+        let change_event = CompoundChangeEvent::CompartmentParameter(param_index);
+        self.process_feedback_related_reaper_event(|mapping, target| {
+            mapping.process_change_event(
+                target,
+                change_event,
+                self.basics.control_context(mapping.compartment()),
+            )
+        });
+    }
+
     pub fn process_additional_feedback_event(&mut self, event: &AdditionalFeedbackEvent) {
         if matches!(event, AdditionalFeedbackEvent::LastTouchedTargetChanged) {
             self.process_change_of_last_touched_target();
@@ -1626,7 +1676,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
-            for compartment in Compartment::enum_iter() {
+            for compartment in CompartmentKind::enum_iter() {
                 for mapping_id in
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
@@ -1637,7 +1687,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 m.process_change_event(
                                     target,
                                     CompoundChangeEvent::Additional(event),
-                                    self.basics.control_context(),
+                                    self.basics.control_context(m.compartment()),
                                 )
                             },
                         );
@@ -1646,23 +1696,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             if ReaperTarget::changes_conditions(CompoundChangeEvent::Additional(event)) {
-                self.basics
-                    .channels
-                    .self_normal_sender
-                    .send_complaining(NormalMainTask::NotifyConditionsChanged);
+                self.basics.notify_conditions_changed();
             }
             // Okay, not fired that frequently, we can iterate over all mappings
             self.process_feedback_related_reaper_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::Additional(event),
-                    self.basics.control_context(),
+                    self.basics.control_context(mapping.compartment()),
                 )
             });
         }
     }
 
     pub fn process_control_surface_change_events(&self, events: &[ChangeEvent]) {
+        if events.is_empty() {
+            return;
+        }
         // Potentially enable/disable control/feedback
         let influences_global_control_and_feedback = events.iter().any(|event| {
             match event {
@@ -1718,10 +1768,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // We don't have mutable access to self here (for good reentrancy reasons) so we
             // do the refresh in the next main loop cycle. This is what we always did, also when
             // this was still based on Rx!
-            self.basics
-                .channels
-                .self_normal_sender
-                .send_complaining(NormalMainTask::NotifyConditionsChanged);
+            self.basics.notify_conditions_changed();
         }
         // Process for feedback
         for event in events {
@@ -1729,22 +1776,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::Reaper(event),
-                    self.basics.control_context(),
+                    self.basics.control_context(mapping.compartment()),
                 )
             });
-        }
-        // Process for clip engine
-        #[cfg(feature = "playtime")]
-        {
-            let mut instance_state = self.basics.instance_state.borrow_mut();
-            if let Some(matrix) = instance_state.owned_clip_matrix_mut() {
-                // Let matrix react to track changes etc.
-                matrix.process_reaper_change_events(events);
-                // Process for GUI
-                self.basics.event_handler.handle_event_ignoring_error(
-                    DomainEvent::ControlSurfaceChangeEventsForClipEngine(matrix, events),
-                );
-            }
         }
     }
 
@@ -1759,7 +1793,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         mut f: impl Fn(&MainMapping, &ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.collections.mappings[compartment].values() {
@@ -1835,7 +1869,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         if self.basics.settings.real_input_logging_enabled {
-            log_real_control_input(&self.basics.instance_id, evt);
+            log_real_control_input(self.basics.unit_id, evt);
         }
         if !self.basics.instance_control_is_effectively_enabled() {
             return;
@@ -1845,7 +1879,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
-                &mut self.collections.mappings[Compartment::Main],
+                &mut self.collections.mappings[CompartmentKind::Main],
                 evt,
                 &self.collections.parameters,
             );
@@ -1864,10 +1898,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn log_incoming_message<T: Display>(&self, msg: T) {
         match self.basics.control_mode {
             ControlMode::Controlling => {
-                log_real_control_input(&self.basics.instance_id, msg);
+                log_real_control_input(self.basics.unit_id, msg);
             }
             ControlMode::LearningSource { .. } => {
-                log_real_learn_input(&self.basics.instance_id, msg);
+                log_real_learn_input(self.basics.unit_id, msg);
             }
             ControlMode::Disabled => {}
         }
@@ -1901,7 +1935,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .basics
             .process_controller_mappings_with_virtual_targets(
                 &mut self.collections.mappings_with_virtual_targets,
-                &mut self.collections.mappings[Compartment::Main],
+                &mut self.collections.mappings[CompartmentKind::Main],
                 evt,
                 &self.collections.parameters,
             );
@@ -1995,7 +2029,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         evt: ControlEvent<MainSourceMessage>,
     ) -> MatchOutcome {
         let mut match_outcome = MatchOutcome::Unmatched;
-        for compartment in Compartment::enum_iter() {
+        for compartment in CompartmentKind::enum_iter() {
             let mut enforce_target_refresh = false;
             // Search for 958 to know why we use a for loop here instead of collect().
             let mut results = vec![];
@@ -2053,7 +2087,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_mapping_updates_due_to_activation_changes(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_updates: Vec<RealTimeMappingUpdate>,
         target_updates: Vec<RealTimeTargetUpdate>,
         unused_sources: UnusedSources,
@@ -2065,6 +2099,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             unused_sources,
             changed_mappings,
         );
+        // Updating the "on" mappings is not exactly cheap as it turned out in
+        // https://github.com/helgoboss/realearn/issues/913. And it also turns out we can skip it in many cases
+        // by checking if all updates are empty.
+        if mapping_updates.is_empty() && target_updates.is_empty() {
+            return;
+        }
         // Propagate updates to real-time processor
         if !mapping_updates.is_empty() {
             self.basics
@@ -2082,7 +2122,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_target_updates(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         target_updates: Vec<RealTimeTargetUpdate>,
     ) {
         if target_updates.is_empty() {
@@ -2101,8 +2141,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     None => continue,
                     Some(mapping) => {
                         let target_is_active = mapping.target_is_active();
-                        let target_value =
-                            mapping.current_aggregated_target_value(self.basics.control_context());
+                        let target_value = mapping.current_aggregated_target_value(
+                            self.basics.control_context(mapping.compartment()),
+                        );
                         (target_is_active, target_value)
                     }
                 };
@@ -2171,14 +2212,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Includes virtual mappings if the controller mapping compartment is queried.
     fn all_mappings_in_compartment(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> impl Iterator<Item = &MainMapping> {
         self.collections.mappings[compartment].values().chain(
             self.collections
                 .mappings_with_virtual_targets
                 .values()
                 // Include virtual target mappings if we are talking about controller compartment.
-                .filter(move |_| compartment == Compartment::Controller),
+                .filter(move |_| compartment == CompartmentKind::Controller),
         )
     }
 
@@ -2196,7 +2237,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
-                    m.feedback(true, self.basics.control_context())
+                    m.feedback(true, self.basics.control_context(m.compartment()))
                 } else {
                     None
                 }
@@ -2206,7 +2247,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn feedback_particular_mappings(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) -> Vec<CompoundFeedbackValue> {
         mapping_ids
@@ -2221,7 +2262,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
-    fn feedback_all_in_compartment(&self, compartment: Compartment) -> Vec<CompoundFeedbackValue> {
+    fn feedback_all_in_compartment(
+        &self,
+        compartment: CompartmentKind,
+    ) -> Vec<CompoundFeedbackValue> {
         self.all_mappings_in_compartment(compartment)
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
@@ -2238,13 +2282,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         m: &MainMapping,
     ) -> Option<CompoundFeedbackValue> {
         let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
-        followed_mapping.feedback(true, self.basics.control_context())
+        followed_mapping.feedback(
+            true,
+            self.basics.control_context(followed_mapping.compartment()),
+        )
     }
 
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
         if let Some(control_element) = m.virtual_target_control_element() {
             find_active_main_mapping_connected_to_virtual_control_element(
-                &self.collections.mappings[Compartment::Main],
+                &self.collections.mappings[CompartmentKind::Main],
                 control_element,
             )
         } else {
@@ -2265,14 +2312,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             == Some(feedback_output)
         {
             if self.basics.instance_feedback_is_effectively_enabled() {
-                debug!(self.basics.logger, "Reactivating instance...");
+                debug!(self.basics.logger, "Reactivating unit...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
                 // *audio hook*, not in the real-time processor. Because there's only one audio
                 // hook can guarantee a deterministic feedback send order.
                 self.send_all_feedback();
             } else {
-                debug!(self.basics.logger, "Cancelling instance...");
+                debug!(self.basics.logger, "Cancelling unit...");
                 self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
             }
         }
@@ -2288,6 +2335,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             FeedbackReason::ClearAllAllowingSourceTakeover,
             self.feedback_all_zero(),
         );
+    }
+
+    pub fn switch_lights_off(&mut self) {
+        if self.basics.instance_feedback_is_effectively_enabled() {
+            // We clear feedback right here and now because that's the last chance.
+            // Other instances can take over the feedback output afterwards.
+            self.clear_all_feedback_preventing_source_takeover();
+        }
     }
 
     /// When main processor goes away for good.
@@ -2308,7 +2363,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // if one of the main mappings with virtual sources are connected to them.
         self.all_mappings_without_virtual_targets()
             .filter(|m| m.feedback_is_effectively_on())
-            .filter_map(|m| m.off_feedback(&self.basics.source_context))
+            .filter_map(|m| {
+                let logger = self.basics.source_feedback_logger(m.qualified_id());
+                m.off_feedback(self.basics.source_context(m.compartment()), logger)
+            })
             .collect()
     }
 
@@ -2319,7 +2377,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// "off feedback" message accordingly.
     fn currently_feedback_enabled_sources(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         include_virtual: bool,
     ) -> UnusedSources {
         if include_virtual {
@@ -2328,7 +2386,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger)?,
                     ))
                 })
                 .collect()
@@ -2339,7 +2397,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter_map(|m| {
                     Some((
                         m.source().extract_feedback_address()?,
-                        m.off_feedback(&self.basics.source_context)?,
+                        m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger)?,
                     ))
                 })
                 .collect()
@@ -2348,7 +2406,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         now_unused_sources: UnusedSources,
     ) {
         self.send_feedback(
@@ -2365,7 +2423,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         now_unused_sources: UnusedSources,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
@@ -2389,6 +2447,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn log_debug_info(&mut self) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::LogDebugInfo);
         // Summary
         let msg = format!(
             "\n\
@@ -2406,13 +2468,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - Parameters: {:?} \n\
             ",
             self.basics.control_mode,
-            self.collections.mappings[Compartment::Main].len(),
-            self.collections.mappings[Compartment::Main]
+            self.collections.mappings[CompartmentKind::Main].len(),
+            self.collections.mappings[CompartmentKind::Main]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.collections.mappings[Compartment::Controller].len(),
-            self.collections.mappings[Compartment::Controller]
+            self.collections.mappings[CompartmentKind::Controller].len(),
+            self.collections.mappings[CompartmentKind::Controller]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
@@ -2439,7 +2501,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
     }
 
-    fn log_mapping(&self, compartment: Compartment, mapping_id: MappingId) {
+    fn log_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId) {
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send_complaining(NormalRealTimeTask::LogMapping(compartment, mapping_id));
         // Summary
         let mapping = self
             .all_mappings_in_compartment(compartment)
@@ -2465,7 +2531,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
         self.basics.clear_last_feedback();
         // Refresh
-        let control_context = self.basics.control_context();
+        let control_context = self.basics.control_context(compartment);
         mapping.init_target_and_activation(
             ExtendedProcessorContext::new(
                 &self.basics.context,
@@ -2489,7 +2555,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Important to do this before calculating diff feedback (because we might have
         // a textual feedback expression that contains the mapping name property).
         self.basics
-            .instance_state
+            .unit
             .borrow_mut()
             .update_mapping_info(id, mapping.take_mapping_info());
         let diff_feedback = self.calc_diff_feedback_complicated(
@@ -2513,7 +2579,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_conditional_activation_target_value_changes(
         &mut self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         lead_mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         for lead_mapping_id in lead_mapping_ids {
@@ -2522,8 +2588,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     None => continue,
                     Some(mapping) => {
                         let target_is_active = mapping.target_is_active();
-                        let target_value =
-                            mapping.current_aggregated_target_value(self.basics.control_context());
+                        let target_value = mapping.current_aggregated_target_value(
+                            self.basics.control_context(mapping.compartment()),
+                        );
                         (target_is_active, target_value)
                     }
                 };
@@ -2570,7 +2637,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let fb = if is_on_now {
                     Fb::normal(self.get_mapping_feedback_follow_virtual(m))
                 } else {
-                    Fb::unused(m.off_feedback(&self.basics.source_context))
+                    Fb::unused(
+                        m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger),
+                    )
                 };
                 self.send_feedback(fb.0, fb.1);
             }
@@ -2604,15 +2673,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         // Lights should now be off.
                         (
-                            Fb::unused(mapping.off_feedback(&self.basics.source_context)),
+                            Fb::unused(mapping.off_feedback(
+                                self.basics.source_context(mapping.compartment()),
+                                NoopLogger,
+                            )),
                             Fb::none(),
                         )
                     }
                 } else {
                     // Source has changed.
                     // Switch previous source light off.
-                    let fb1 =
-                        Fb::unused(previous_mapping.off_feedback(&self.basics.source_context));
+                    let fb1 = Fb::unused(previous_mapping.off_feedback(
+                        self.basics.source_context(mapping.compartment()),
+                        NoopLogger,
+                    ));
                     let fb2 = if mapping.feedback_is_effectively_on() {
                         // Lights should be on. Send new lights.
                         Fb::normal(self.get_mapping_feedback_follow_virtual(mapping))
@@ -2655,7 +2729,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.send_feedback(fb2.0, fb2.1);
     }
 
-    fn update_map_entries(&mut self, compartment: Compartment, m: MainMapping) {
+    fn update_map_entries(&mut self, compartment: CompartmentKind, m: MainMapping) {
         if m.needs_refresh_when_target_touched() {
             self.collections.target_touch_dependent_mappings[compartment].insert(m.id());
         } else {
@@ -2698,7 +2772,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let control_result = if let Some(m) =
             self.collections.mappings[id.compartment].get_mut(&id.id)
         {
-            let control_context = self.basics.control_context();
+            let control_context = self.basics.control_context(id.compartment);
             let mut control_result = m.control_from_target_directly(
                 control_context,
                 &self.basics.logger,
@@ -2754,7 +2828,7 @@ pub struct PersistentMappingProcessingState {
 #[derive(Debug)]
 pub enum NormalMainTask {
     /// Clears all mappings and uses the passed ones.
-    UpdateAllMappings(Compartment, Vec<MainMapping>),
+    UpdateAllMappings(CompartmentKind, Vec<MainMapping>),
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(Box<MainMapping>),
@@ -2779,10 +2853,11 @@ pub enum NormalMainTask {
     /// auto-load is enabled).
     NotifyConditionsChanged,
     UpdateSettings(BasicSettings),
+    UpdateCompartmentSettings(CompartmentKind, CompartmentSettings),
     PotentiallyEnableOrDisableControlOrFeedback,
     SendAllFeedback,
     LogDebugInfo,
-    LogMapping(Compartment, MappingId),
+    LogMapping(CompartmentKind, MappingId),
     StartLearnSource {
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
@@ -2793,7 +2868,6 @@ pub enum NormalMainTask {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-// TODO-low-multi-config Make everything fully qualified except "stay_active_when_project_in_background"
 pub struct BasicSettings {
     pub control_input: ControlInput,
     pub feedback_output: Option<FeedbackOutput>,
@@ -2809,6 +2883,11 @@ pub struct BasicSettings {
     pub stay_active_when_project_in_background: StayActiveWhenProjectInBackground,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct CompartmentSettings {
+    pub common_lua: Option<mlua::Value<'static>>,
+}
+
 #[derive(
     Copy,
     Clone,
@@ -2817,7 +2896,7 @@ pub struct BasicSettings {
     Debug,
     serde::Serialize,
     serde::Deserialize,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     derive_more::Display,
 )]
 pub enum StayActiveWhenProjectInBackground {
@@ -2841,7 +2920,7 @@ impl Default for StayActiveWhenProjectInBackground {
 impl BasicSettings {
     pub fn target_control_logger<'a>(
         &'a self,
-        instance_state: &'a SharedInstanceState,
+        instance_state: &'a SharedUnit,
         context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + 'a {
@@ -2863,7 +2942,7 @@ impl BasicSettings {
                 "<unknown>"
             };
             log_target_control(
-                &instance_state.instance_id(),
+                instance_state.id(),
                 format!("Mapping {mapping_name}: {entry} ({context})"),
             );
         }
@@ -2928,7 +3007,7 @@ pub enum FeedbackMainTask {
 /// A control-related task (which is potentially sent very frequently).
 pub enum ControlMainTask {
     Control {
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_id: MappingId,
         event: ControlEvent<ControlValue>,
         options: ControlOptions,
@@ -2973,11 +3052,7 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.basics.logger, "Dropping main processor...");
-        if self.basics.instance_feedback_is_effectively_enabled() {
-            // We clear feedback right here and now because that's the last chance.
-            // Other instances can take over the feedback output afterwards.
-            self.clear_all_feedback_preventing_source_takeover();
-        }
+        self.switch_lights_off();
         let released_event = self
             .basics
             .io_released_event(self.any_main_mapping_is_effectively_on());
@@ -3043,7 +3118,30 @@ impl FeedbackReason {
     }
 }
 
+pub struct BasicSourceFeedbackLogger<'a, EH: DomainEventHandler> {
+    basics: &'a Basics<EH>,
+    mapping_id: QualifiedMappingId,
+}
+
+impl<'a, EH: DomainEventHandler> SourceFeedbackLogger for BasicSourceFeedbackLogger<'a, EH> {
+    fn log(&self, entry: FeedbackLogEntry) {
+        let event = SourceFeedbackEvent {
+            id: self.mapping_id,
+            log_entry: entry,
+        };
+        self.basics
+            .event_handler
+            .handle_event_ignoring_error(DomainEvent::HandleSourceFeedback(event));
+    }
+}
+
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn notify_conditions_changed(&self) {
+        self.channels
+            .self_normal_sender
+            .send_complaining(NormalMainTask::NotifyConditionsChanged);
+    }
+
     pub fn celebrate_success(&self) {
         self.event_handler
             .handle_event_ignoring_error(DomainEvent::TimeForCelebratingSuccess);
@@ -3054,18 +3152,36 @@ impl<EH: DomainEventHandler> Basics<EH> {
         context: ControlLogContext,
         mapping_id: QualifiedMappingId,
     ) -> impl Fn(ControlLogEntry) + '_ {
-        let console_logger =
-            self.settings
-                .target_control_logger(&self.instance_state, context, mapping_id);
+        let console_logger = self
+            .settings
+            .target_control_logger(&self.unit, context, mapping_id);
         move |entry| {
             // Handle logging to mapping panel
             if context != ControlLogContext::Polling {
                 let event = TargetControlEvent::new(mapping_id, context, entry);
                 self.event_handler
-                    .handle_event_ignoring_error(DomainEvent::TargetControlled(event));
+                    .handle_event_ignoring_error(DomainEvent::HandleTargetControl(event));
             }
             // Handle logging to console
             console_logger(entry);
+        }
+    }
+
+    pub fn source_context(&self, compartment: CompartmentKind) -> RealearnSourceContext {
+        RealearnSourceContext {
+            additional_script_input: AdditionalLuaMidiSourceScriptInput {
+                compartment_lua: self.common_lua[compartment].as_ref(),
+            },
+        }
+    }
+
+    pub fn source_feedback_logger(
+        &self,
+        mapping_id: QualifiedMappingId,
+    ) -> impl SourceFeedbackLogger + '_ {
+        BasicSourceFeedbackLogger {
+            basics: self,
+            mapping_id,
         }
     }
 
@@ -3089,6 +3205,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
     ) {
         let new_control_is_enabled =
             self.potentially_enable_or_disable_control_very_internal(project_options);
+        // Important to send this to real-time processor even if state hasn't changed. It's possible that the
+        // real-time processor has requested a full resync and therefore discarded a previous state change.
+        self.channels.normal_real_time_task_sender.send_complaining(
+            NormalRealTimeTask::UpdateControlIsGloballyEnabled(self.control_is_globally_enabled),
+        );
         if let Some(new_control_is_enabled) = new_control_is_enabled {
             debug!(
                 self.logger,
@@ -3101,9 +3222,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 )
             };
             self.send_io_update_complaining(event);
-            self.channels.normal_real_time_task_sender.send_complaining(
-                NormalRealTimeTask::UpdateControlIsGloballyEnabled(new_control_is_enabled),
-            );
         }
     }
 
@@ -3115,6 +3233,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
     ) -> Option<bool> {
         let new_feedback_is_enabled =
             self.potentially_enable_or_disable_feedback_very_internal(project_options);
+        // Important to send this to real-time processor even if state hasn't changed. It's possible that the
+        // real-time processor has requested a full resync and therefore discarded a previous state change.
+        self.channels.normal_real_time_task_sender.send_complaining(
+            NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(self.feedback_is_globally_enabled),
+        );
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             debug!(
                 self.logger,
@@ -3124,9 +3247,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
             let changed_event = self
                 .feedback_output_usage_might_have_changed_event(any_main_mapping_is_effectively_on);
             self.send_io_update_complaining(changed_event);
-            self.channels.normal_real_time_task_sender.send_complaining(
-                NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(new_feedback_is_enabled),
-            );
         }
         new_feedback_is_enabled
     }
@@ -3165,8 +3285,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     fn send_io_update_complaining(&self, event: IoUpdatedEvent) {
         self.channels
-            .instance_orchestration_event_sender
-            .send_complaining(InstanceOrchestrationEvent::IoUpdated(event));
+            .unit_orchestration_event_sender
+            .send_complaining(UnitOrchestrationEvent::IoUpdated(event));
     }
 
     fn io_released_event(&self, any_main_mapping_is_effectively_on: bool) -> IoUpdatedEvent {
@@ -3206,7 +3326,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         settings: &ControlFeedbackSettings,
     ) -> IoUpdatedEvent {
         IoUpdatedEvent {
-            instance_id: self.instance_id,
+            unit_id: self.unit_id,
             control_input: settings.control_input.device_input(),
             control_input_used: settings.control_is_globally_enabled
                 && any_main_mapping_is_effectively_on,
@@ -3221,17 +3341,18 @@ impl<EH: DomainEventHandler> Basics<EH> {
         self.last_feedback_checksum_by_address.borrow_mut().clear();
     }
 
-    pub fn control_context(&self) -> ControlContext {
+    pub fn control_context(&self, compartment: CompartmentKind) -> ControlContext {
         ControlContext {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
             feedback_real_time_task_sender: &self.channels.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.settings.feedback_output,
-            instance_container: self.instance_container,
-            instance_state: &self.instance_state,
-            instance_id: &self.instance_id,
+            unit_container: self.unit_container,
+            instance: &self.instance,
+            unit: &self.unit,
+            unit_id: self.unit_id,
             output_logging_enabled: self.settings.real_output_logging_enabled,
-            source_context: &self.source_context,
+            source_context: self.source_context(compartment),
             processor_context: &self.context,
         }
     }
@@ -3239,7 +3360,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     pub fn process_group_interaction(
         &self,
         collections: &mut Collections,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_id: MappingId,
         control_event: ControlEvent<ControlValue>,
         control_was_successful: bool,
@@ -3287,7 +3408,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     if !control_was_successful {
                         return;
                     }
-                    let context = self.control_context();
+                    let context = self.control_context(compartment);
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
                         let is_on = reference_value.is_on();
                         if (m.group_interaction() == InverseTargetValueOnOnly && !is_on)
@@ -3309,7 +3430,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             mapping_id,
                             group_id,
                             |other_mapping, basics, parameters| {
-                                let control_context = basics.control_context();
+                                let control_context =
+                                    basics.control_context(other_mapping.compartment());
                                 other_mapping.control_from_target_via_group_interaction(
                                     normalized_target_value,
                                     ControlOptions {
@@ -3342,7 +3464,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     fn process_other_mappings(
         &self,
         collections: &mut Collections,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         mapping_id: MappingId,
         group_id: GroupId,
         f: impl Fn(&mut MainMapping, &Basics<EH>, &PluginParams) -> MappingControlResult,
@@ -3376,14 +3498,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         for hi in hit_instructions {
             hi.execute(HitInstructionContext {
                 mappings: &mut collections.mappings[compartment],
-                control_context: self.control_context(),
+                control_context: self.control_context(compartment),
                 domain_event_handler: &self.event_handler,
                 logger: &self.logger,
                 basic_settings: &self.settings,
                 processor_context: ExtendedProcessorContext::new(
                     &self.context,
                     &collections.parameters,
-                    self.control_context(),
+                    self.control_context(compartment),
                 ),
             });
         }
@@ -3401,47 +3523,45 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<Option<AbsoluteValue>> = m
-            .targets()
-            .iter()
-            .filter_map(|target| {
-                let target = match target {
-                    CompoundMappingTarget::Reaper(t) => t,
-                    _ => return None,
-                };
-                // Immediate value capturing. Makes OSC feedback *much* smoother in
-                // combination with high-throughput thread. Especially quick pulls
-                // of many faders at once profit from it because intermediate
-                // values are captured and immediately sent so user doesn't see
-                // stuttering faders on their device.
-                // It's important to capture the current value from the event because
-                // querying *at this time* from the target itself might result in
-                // the old value to be returned. This is the case with FX parameter
-                // changes for examples and especially in case of on/off targets this
-                // can lead to horribly wrong feedback. Previously we didn't have this
-                // issue because we always deferred to the next main loop cycle.
-                let (value_changed, new_value) = f(m, target);
-                if value_changed {
-                    at_least_one_target_is_affected = true;
-                }
-                Some(new_value)
-            })
-            .collect();
+        let new_values = m.targets().iter().filter_map(|target| {
+            let target = match target {
+                CompoundMappingTarget::Reaper(t) => t,
+                _ => return None,
+            };
+            // Immediate value capturing. Makes OSC feedback *much* smoother in
+            // combination with high-throughput thread. Especially quick pulls
+            // of many faders at once profit from it because intermediate
+            // values are captured and immediately sent so user doesn't see
+            // stuttering faders on their device.
+            // It's important to capture the current value from the event because
+            // querying *at this time* from the target itself might result in
+            // the old value to be returned. This is the case with FX parameter
+            // changes for examples and especially in case of on/off targets this
+            // can lead to horribly wrong feedback. Previously we didn't have this
+            // issue because we always deferred to the next main loop cycle.
+            let (value_changed, new_value) = f(m, target);
+            if value_changed {
+                at_least_one_target_is_affected = true;
+            }
+            Some(new_value)
+        });
+        let new_target_value = aggregate_target_values(new_values);
         if !at_least_one_target_is_affected {
             return;
         }
-        let new_target_value = aggregate_target_values(new_values.into_iter());
         // Feedback
         let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
         let with_projection_feedback = mapping_feedback_is_effectively_on;
         let with_source_feedback =
             self.instance_feedback_is_effectively_enabled() && mapping_feedback_is_effectively_on;
+        let logger = self.source_feedback_logger(m.qualified_id());
         let feedback_value = m
             .feedback_entry_point(
                 with_projection_feedback,
                 with_source_feedback,
                 new_target_value,
-                self.control_context(),
+                self.control_context(m.compartment()),
+                logger,
             )
             .map(CompoundFeedbackValue::normal);
         self.send_feedback(
@@ -3514,7 +3634,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                 };
                 self.event_handler
-                    .notify_mapping_matched(Compartment::Controller, m.id());
+                    .notify_mapping_matched(CompartmentKind::Controller, m.id());
                 let results = self.process_main_mappings_with_virtual_sources(
                     main_mappings,
                     evt.with_payload(virtual_source_value),
@@ -3545,7 +3665,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 match_outcome.upgrade_from(child_match_outcome);
                 if self.settings.virtual_input_logging_enabled {
                     log_virtual_control_input(
-                        &self.instance_id,
+                        self.unit_id,
                         format_control_input_with_match_result(
                             virtual_source_value,
                             child_match_outcome,
@@ -3573,7 +3693,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
-        let mut global_source_state = BackboneState::source_state().borrow_mut();
+        let mut global_source_state = Backbone::source_state().borrow_mut();
         let mut feedback_collector =
             FeedbackCollector::new(&mut global_source_state, self.settings.feedback_output);
         for feedback_value in feedback_values.into_iter() {
@@ -3586,7 +3706,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     // is explicitly not enabled (not supported by controller) in order to
                     // support at least projection feedback (#414)!
                     if self.settings.virtual_output_logging_enabled {
-                        log_virtual_feedback_output(&self.instance_id, &value);
+                        log_virtual_feedback_output(self.unit_id, &value);
                     }
                     // Iterate over (controller) mappings with virtual targets.
                     for m in mappings_with_virtual_targets
@@ -3609,7 +3729,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                             && m.feedback_is_enabled(),
                                         ..destinations
                                     },
-                                    &self.source_context,
+                                    self.source_context(m.compartment()),
+                                    self.source_feedback_logger(m.qualified_id()),
                                 );
                                 if let Some(SpecificCompoundFeedbackValue::Real(
                                     preliminary_feedback_value,
@@ -3705,7 +3826,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         MidiDestination::FxOutput => {
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
-                                    &self.instance_id,
+                                    self.unit_id,
                                     feedback_reason,
                                     format_midi_source_value(&v),
                                 );
@@ -3727,7 +3848,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // in the order of instance instantiation.
                             if self.settings.real_output_logging_enabled {
                                 log_real_feedback_output(
-                                    &self.instance_id,
+                                    self.unit_id,
                                     feedback_reason,
                                     format_midi_source_value(&v),
                                 );
@@ -3743,7 +3864,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 (FinalSourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
                     if self.settings.real_output_logging_enabled {
                         log_real_feedback_output(
-                            &self.instance_id,
+                            self.unit_id,
                             feedback_reason,
                             format_osc_message(&msg),
                         );
@@ -3800,13 +3921,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 if feedback_reason.is_source_release() {
                     // Possible interference with other instances. Don't switch off yet!
                     // Give other instances the chance to take over.
-                    let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
-                        instance_id: self.instance_id.to_owned(),
+                    let event = UnitOrchestrationEvent::SourceReleased(SourceReleasedEvent {
+                        unit_id: self.unit_id.to_owned(),
                         feedback_output,
                         feedback_value: source_feedback_value,
                     });
                     self.channels
-                        .instance_orchestration_event_sender
+                        .unit_orchestration_event_sender
                         .send_complaining(event);
                 } else {
                     // Send feedback right now.
@@ -3823,14 +3944,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn instance_control_is_effectively_enabled(&self) -> bool {
         self.control_is_globally_enabled
-            && BackboneState::get()
-                .control_is_allowed(&self.instance_id, self.settings.control_input)
+            && Backbone::get().control_is_allowed(&self.unit_id, self.settings.control_input)
     }
 
     pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
         if let Some(fo) = self.settings.feedback_output {
             self.feedback_is_globally_enabled
-                && BackboneState::get().feedback_is_allowed(&self.instance_id, fo)
+                && Backbone::get().feedback_is_allowed(&self.unit_id, fo)
         } else {
             // Pointless but allowed
             true
@@ -3890,27 +4010,27 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
 /// Includes virtual mappings if the controller mapping compartment is queried.
 fn all_mappings_in_compartment_mut<'a>(
-    mappings: &'a mut EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
+    mappings: &'a mut EnumMap<CompartmentKind, OrderedMappingMap<MainMapping>>,
     mappings_with_virtual_targets: &'a mut OrderedMappingMap<MainMapping>,
-    compartment: Compartment,
+    compartment: CompartmentKind,
 ) -> impl Iterator<Item = &'a mut MainMapping> {
     mappings[compartment].values_mut().chain(
         mappings_with_virtual_targets
             .values_mut()
             // Include virtual target mappings if we are talking about controller compartment.
-            .filter(move |_| compartment == Compartment::Controller),
+            .filter(move |_| compartment == CompartmentKind::Controller),
     )
 }
 
 fn get_normal_or_virtual_target_mapping_mut<'a>(
-    mappings: &'a mut EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
+    mappings: &'a mut EnumMap<CompartmentKind, OrderedMappingMap<MainMapping>>,
     mappings_with_virtual_targets: &'a mut OrderedMappingMap<MainMapping>,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     id: MappingId,
 ) -> Option<&'a mut MainMapping> {
     mappings[compartment]
         .get_mut(&id)
-        .or(if compartment == Compartment::Controller {
+        .or(if compartment == CompartmentKind::Controller {
             mappings_with_virtual_targets.get_mut(&id)
         } else {
             None
@@ -3918,29 +4038,29 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct InstanceId(u32);
+pub struct UnitId(u32);
 
-impl fmt::Display for InstanceId {
+impl fmt::Display for UnitId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl InstanceId {
+impl UnitId {
     pub fn next() -> Self {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         Self(COUNTER.fetch_add(1, Ordering::SeqCst))
     }
 }
 
-impl From<u32> for InstanceId {
+impl From<u32> for UnitId {
     fn from(value: u32) -> Self {
         Self(value)
     }
 }
 
-impl From<InstanceId> for u32 {
-    fn from(value: InstanceId) -> Self {
+impl From<UnitId> for u32 {
+    fn from(value: UnitId) -> Self {
         value.0
     }
 }
@@ -4026,9 +4146,13 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     let result = m.control_from_mode(
         control_event,
         options,
-        basics.control_context(),
+        basics.control_context(m.compartment()),
         &basics.logger,
-        ExtendedProcessorContext::new(&basics.context, params, basics.control_context()),
+        ExtendedProcessorContext::new(
+            &basics.context,
+            params,
+            basics.control_context(m.compartment()),
+        ),
         m.last_non_performance_target_value(),
         basics.target_control_logger(ControlLogContext::Normal, m.qualified_id()),
     );
@@ -4077,12 +4201,12 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
 fn control_mapping_stage_three<EH: DomainEventHandler>(
     basics: &Basics<EH>,
     collections: &mut Collections,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     control_result: MappingControlResult,
     group_interaction_processing: GroupInteractionProcessing,
 ) {
     if let Some(hi) = control_result.hit_instruction {
-        let control_context = basics.control_context();
+        let control_context = basics.control_context(compartment);
         let processor_context = ExtendedProcessorContext::new(
             &basics.context,
             &collections.parameters,
@@ -4142,7 +4266,7 @@ enum GroupInteractionProcessing {
 
 struct ExtendedMappingControlResult {
     control_result: MappingControlResult,
-    compartment: Compartment,
+    compartment: CompartmentKind,
     group_interaction_input: GroupInteractionInput,
 }
 
@@ -4203,7 +4327,7 @@ fn determine_feedback_globally_enabled(
         )
 }
 
-fn passes_background_project_check(
+pub fn passes_background_project_check(
     context: &ProcessorContext,
     stay_active_when_project_in_background: StayActiveWhenProjectInBackground,
     opts: ProjectOptions,
@@ -4259,14 +4383,14 @@ fn find_active_main_mapping_connected_to_virtual_control_element(
 }
 
 fn all_mappings_without_virtual_targets(
-    mappings: &EnumMap<Compartment, OrderedMappingMap<MainMapping>>,
+    mappings: &EnumMap<CompartmentKind, OrderedMappingMap<MainMapping>>,
 ) -> impl Iterator<Item = &MainMapping> {
-    Compartment::enum_iter().flat_map(move |compartment| mappings[compartment].values())
+    CompartmentKind::enum_iter().flat_map(move |compartment| mappings[compartment].values())
 }
 
 #[derive(Debug, Default)]
 struct TargetBasedConditionalActivationProcessor {
-    mapping_relations: HashSet<MappingRelation>,
+    mapping_relations: NonCryptoHashSet<MappingRelation>,
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]
@@ -4317,7 +4441,7 @@ impl TargetBasedConditionalActivationProcessor {
     }
 
     pub fn lead_mappings(&self) -> impl Iterator<Item = MappingId> {
-        let lead_mapping_id_set: HashSet<_> = self
+        let lead_mapping_id_set: NonCryptoHashSet<_> = self
             .mapping_relations
             .iter()
             .map(|rel| rel.lead_mapping)
@@ -4357,4 +4481,4 @@ pub struct KeyProcessingResult {
     pub filter_out_event: bool,
 }
 
-type UnusedSources = HashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;
+type UnusedSources = NonCryptoHashMap<CompoundMappingSourceAddress, CompoundFeedbackValue>;

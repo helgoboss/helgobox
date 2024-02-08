@@ -1,8 +1,8 @@
 use crate::application::{
-    LearnManySubState, SharedSession, VirtualControlElementType, WeakSession,
+    LearnManySubState, SharedUnitModel, VirtualControlElementType, WeakUnitModel,
 };
 use crate::base::when;
-use crate::domain::Compartment;
+use crate::domain::CompartmentKind;
 use crate::infrastructure::ui::bindings::root;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -12,11 +12,11 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct SessionMessagePanel {
     view: ViewContext,
-    session: WeakSession,
+    session: WeakUnitModel,
 }
 
 impl SessionMessagePanel {
-    pub fn new(session: WeakSession) -> SessionMessagePanel {
+    pub fn new(session: WeakUnitModel) -> SessionMessagePanel {
         SessionMessagePanel {
             view: Default::default(),
             session,
@@ -41,7 +41,7 @@ impl SessionMessagePanel {
                         control_element_type,
                     } => {
                         let msg = match state.compartment {
-                            Compartment::Controller => match control_element_type {
+                            CompartmentKind::Controller => match control_element_type {
                                 VirtualControlElementType::Multi => {
                                     "Move a multi-like control element!"
                                 }
@@ -49,7 +49,7 @@ impl SessionMessagePanel {
                                     "Press a button-like control element!"
                                 }
                             },
-                            Compartment::Main => "Touch a control element!",
+                            CompartmentKind::Main => "Touch a control element!",
                         };
                         (
                             format!("Learning source for {mapping_label}"),
@@ -89,7 +89,7 @@ impl SessionMessagePanel {
         });
     }
 
-    fn session(&self) -> SharedSession {
+    fn session(&self) -> SharedUnitModel {
         self.session.upgrade().expect("session gone")
     }
 }
@@ -109,7 +109,7 @@ impl View for SessionMessagePanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         if let Some(session) = self.session.upgrade() {
             session.borrow_mut().stop_learning_many_mappings();
         }

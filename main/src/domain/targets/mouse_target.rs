@@ -1,14 +1,15 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    convert_count_to_step_size, Compartment, ControlContext, ExtendedProcessorContext, HitResponse,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    convert_count_to_step_size, CompartmentKind, ControlContext, ExtendedProcessorContext,
+    HitResponse, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
 use realearn_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedMouseTarget {
@@ -21,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedMouseTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::Mouse(EnigoMouseTarget {
             mouse: Default::default(),
@@ -49,7 +50,7 @@ pub struct MouseTarget<M> {
     PartialEq,
     Debug,
     derive_more::Display,
-    enum_iterator::IntoEnumIterator,
+    EnumIter,
     num_enum::TryFromPrimitive,
     num_enum::IntoPrimitive,
 )]
@@ -231,7 +232,8 @@ fn get_pos_on_axis(pos: MouseCursorPosition, axis: Axis) -> u32 {
 }
 
 pub const MOUSE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Global: Mouse",
+    section: TargetSection::Global,
+    name: "Mouse",
     short_name: "Mouse",
     supports_axis: true,
     supports_mouse_button: true,

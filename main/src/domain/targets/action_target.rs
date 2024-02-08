@@ -1,9 +1,9 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_bool_as_on_off, get_effective_tracks, ActionInvocationType, AdditionalFeedbackEvent,
-    Compartment, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::{U14, U7};
@@ -23,7 +23,7 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context().project_or_current_project();
         let resolved_targets = if let Some(td) = &self.track_descriptor {
@@ -267,7 +267,8 @@ impl ActionTarget {
 }
 
 pub const ACTION_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Invoke REAPER action",
+    section: TargetSection::Project,
+    name: "Invoke REAPER action",
     short_name: "Action",
     hint: "Limited feedback only",
     supports_track: true,

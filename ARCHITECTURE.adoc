@@ -140,3 +140,120 @@ image:doc/images/components-midi-device.svg[ReaLearn components]
 
 [.text-center]
 image:doc/images/components-osc.svg[ReaLearn components]
+
+== Design decisions
+
+=== Lua(u) as main scripting language
+
+==== Introduction
+
+ReaLearn supports scripting in various places:
+
+- *MIDI scripts:* Lua or EEL (Lua support more powerful)
+- *Feedback scripts (for MIDI or OSC):* Lua only
+- *Control transformations:* EEL only (because must be real-time capable)
+- *Import/export:* JSON or Lua (Lua obviously more powerful)
+- *Dynamic conditional activation:* Expression language or EEL
+- *Target-based conditional activation:* Expression language
+- *Dynamic expressions:* Expression language
+
+==== Advantages of Lua
+
+As can be seen, Lua is our main scripting language for stuff that doesn't need to run in real-time. Here's why:
+
+* Lua is easily embeddable (this is a must, and it rules out most other mainstream languages)
+* Lua is popular and widely-used (important, rules out exotic or new languages such as Rhai or Gluon)
+* Lua has nice features that make it very suitable for building data structures and even DSLs (our main use case):
+** Operator overloading (rules out JavaScript/TypeScript)
+** Ability to skip parentheses when passing function argument (rules out JavaScript/TypeScript)
+** Really usable multi-line strings
+* Doesn't increase the size of the binary very much (nice to have)
+* It can be quite fast (not important for import/export but very helpful when it comes to e.g. MIDI or feedback scripts)
+* REAPER power users already know Lua because it's also REAPER's primary scripting language (not strictly necessary but certainly helps because REAPER users are usually not developers, so switching languages might be a big effort for them)
+
+==== Ruled out alternatives
+
+Some languages that were considered but ruled out. Here they are, along with the most important reasons why there were ruled out:
+
+* JavaScript/TypeScript: no operator overloading, not possible to skip parentheses when passing function argument, also much harder to embed
+** In general, I was very much in favor of JavaScript/TypeScript because it's so widespread and the tooling is perfect. But turns out Lua is actually better suited for our main use case of creating large data structures for import/export. Surprise!
+** Assembling mappings is an example where operator overloading is really nice: `name("Scroll up") + shift_or_sustain + button("col1/stop") + feedback_disabled() + turbo() + scroll_vertically(-1)`
+** Also, embedding it is very hard. Yes, there is TypeScriptToLua, but the TypeScriptToLua compiler is also written in JavaScript. We need a solution that runs 100% in ReaLearn without external pre-processing.
+* Python: too heavy-weight, also harder to embed and slower
+* Wren: doesn't seem to be active anymore, maybe a bit too exotic (looks exciting though)
+* Gluon: too exotic
+* Dyon: too exotic
+* Rhai: too exotic
+* Mun: hard/impossible to embed, not mature enough
+* Rust: hard/impossible to embed, not easy enough
+* WASM: just embedding a WASM runtime wouldn't help because it's just for running WASM bytecode but not producing the bytecode, which would require a language-to-WASM compiler, which again brings up the question of which scripting language
+- AssemblyScript: interesting because TypeScript-like and operator overloading, but ultimately looks too hard to embed because it needs a WASM runtime and I need to make it itself run within that runtime, also things like operator overloading don't have IDE support
+- Haxe: direct embedding doesn't seem to be possible, so would only be interesting for transpiling outside Helgobox
+
+==== Disadvantages of Lua
+
+Despite its many advantages, there are also a few really annoying things about Lua:
+
+* No static typing
+* String concatenation is ugly
+* No distinction between maps an arrays (just tables)
+* Really spartan standard library
+* No strong conventions
+
+==== How to tackle the remaining disadvantages
+
+There are some interesting projects out there that seek to address Lua's pain points.
+
+===== Teal
+
+Teal is a statically typed Lua dialect transpiled to Lua.
+
+Pros:
+
+- Compiles to Lua
+
+Cons:
+
+- Language server can't auto-complete fields in table literals. Not at all.
+- The type system is less elaborate than that of Luau. Unions are not powerful enough, e.g. two tables can't be part of a union, which also excludes tagged unions. We have a lot of tagged unions.
+- Types are required, no structural typing
+- Needs an additional compilation step to be loadable into the VM
+
+===== LuaLS
+
+LuaLS is a Lua language server with type checking capabilities.
+
+Pros:
+
+- Types are optional, structural typing
+- Can auto-complete not-yet typed fields in table literals
+- Works without needing another language
+- Seems to allow dots in type names. Which would be nice for something like `Target.TrackVolume` instead of `Target_TrackVolume`.
+
+Cons:
+
+- No type deduction based on tagged union discriminator
+- Typing in comments only, feels like patchwork and is not really intuitive
+
+===== Luau
+
+Luau is a Lua fork with optional static typing.
+
+Pros:
+
+- Types are optional, structural typing
+- Type refinement based on tagged union discriminator
+- Looks like the most elaborate type system of all candidates
+- Promise of backward compatible changes
+- Really nice usability improvements over normal Lua, such as string interpolation and easier iterating
+
+Cons:
+
+- link:https://github.com/luau-lang/luau/issues/685[Can't auto-complete not-yet typed fields in table literals]
+- Type system still has its flaws, especially when it comes to intersections. On the other hand, the other candidates don't even try something as advanced as intersections.
+- Not sure about using a fork
+- Typing too structural? It doesn't spit out the type name anymore after assignment.
+
+===== Verdict
+
+Luau

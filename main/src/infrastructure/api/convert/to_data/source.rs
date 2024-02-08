@@ -5,51 +5,51 @@ use crate::infrastructure::api::convert::to_data::{
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
+use anyhow::bail;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
 use realearn_api::persistence::*;
 use std::convert::TryInto;
 
 pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
-    use Source::*;
     let data = SourceModelData {
         category: convert_category(&s),
         r#type: convert_midi_source_type(&s),
         channel: convert_midi_channel(&s)?,
         number: convert_midi_number(&s)?,
         character: match &s {
-            MidiControlChangeValue(s) => convert_character(s.character),
-            MidiParameterNumberValue(s) => convert_character(s.character),
-            MidiRaw(s) => convert_character(s.character),
+            Source::MidiControlChangeValue(s) => convert_character(s.character),
+            Source::MidiParameterNumberValue(s) => convert_character(s.character),
+            Source::MidiRaw(s) => convert_character(s.character),
             _ => Default::default(),
         },
         is_registered: match &s {
-            MidiParameterNumberValue(s) => s.registered,
+            Source::MidiParameterNumberValue(s) => s.registered,
             _ => None,
         },
         is_14_bit: match &s {
-            MidiControlChangeValue(s) => s.fourteen_bit,
-            MidiParameterNumberValue(s) => s.fourteen_bit,
+            Source::MidiControlChangeValue(s) => s.fourteen_bit,
+            Source::MidiParameterNumberValue(s) => s.fourteen_bit,
             _ => None,
         },
         message: match &s {
-            MidiClockTransport(s) => convert_midi_clock_transport_message(s.message),
+            Source::MidiClockTransport(s) => convert_midi_clock_transport_message(s.message),
             _ => Default::default(),
         },
         raw_midi_pattern: match &s {
-            MidiRaw(s) => s.pattern.as_ref().cloned().unwrap_or_default(),
+            Source::MidiRaw(s) => s.pattern.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
         midi_script_kind: match &s {
-            MidiScript(s) => s.script_kind.unwrap_or_default(),
+            Source::MidiScript(s) => s.script_kind.unwrap_or_default(),
             _ => Default::default(),
         },
         midi_script: match &s {
-            MidiScript(s) => s.script.as_ref().cloned().unwrap_or_default(),
+            Source::MidiScript(s) => s.script.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
         display_type: match &s {
-            MackieLcd(s) => {
+            Source::MackieLcd(s) => {
                 let extender_index = s
                     .extender_index
                     .unwrap_or(defaults::SOURCE_MACKIE_LCD_EXTENDER_INDEX);
@@ -57,13 +57,11 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
                     0 => DisplayType::MackieLcd,
                     1 => DisplayType::MackieXtLcd,
                     _ => {
-                        return Err(
-                            "at the moment, only extender indexes 0 and 1 are supported".into()
-                        )
+                        bail!("at the moment, only extender indexes 0 and 1 are supported");
                     }
                 }
             }
-            XTouchMackieLcd(s) => {
+            Source::XTouchMackieLcd(s) => {
                 let extender_index = s
                     .extender_index
                     .unwrap_or(defaults::SOURCE_X_TOUCH_MACKIE_LCD_EXTENDER_INDEX);
@@ -71,86 +69,86 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
                     0 => DisplayType::XTouchMackieLcd,
                     1 => DisplayType::XTouchMackieXtLcd,
                     _ => {
-                        return Err(
-                            "at the moment, only extender indexes 0 and 1 are supported".into()
-                        )
+                        bail!("at the moment, only extender indexes 0 and 1 are supported");
                     }
                 }
             }
-            MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
-            SiniConE24Display(_) => DisplayType::SiniConE24,
-            LaunchpadProScrollingTextDisplay(_) => DisplayType::LaunchpadProScrollingText,
+            Source::MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
+            Source::SiniConE24Display(_) => DisplayType::SiniConE24,
+            Source::LaunchpadProScrollingTextDisplay => DisplayType::LaunchpadProScrollingText,
             _ => Default::default(),
         },
         display_id: match &s {
-            MackieLcd(s) => s.channel,
-            XTouchMackieLcd(s) => s.channel,
-            MackieSevenSegmentDisplay(s) => s
+            Source::MackieLcd(s) => s.channel,
+            Source::XTouchMackieLcd(s) => s.channel,
+            Source::MackieSevenSegmentDisplay(s) => s
                 .scope
                 .map(convert_mackie_seven_segment_display_scope)
                 .map(|s| usize::from(s) as _),
-            SiniConE24Display(s) => s.cell_index,
+            Source::SiniConE24Display(s) => s.cell_index,
             _ => None,
         },
         line: match &s {
-            MackieLcd(s) => s.line,
-            XTouchMackieLcd(s) => s.line,
-            MackieSevenSegmentDisplay(_) => None,
-            SiniConE24Display(s) => s.item_index,
+            Source::MackieLcd(s) => s.line,
+            Source::XTouchMackieLcd(s) => s.line,
+            Source::MackieSevenSegmentDisplay(_) => None,
+            Source::SiniConE24Display(s) => s.item_index,
             _ => None,
         },
         osc_address_pattern: match &s {
-            Osc(s) => s.address.as_ref().cloned().unwrap_or_default(),
+            Source::Osc(s) => s.address.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
         osc_arg_index: match &s {
-            Osc(s) => s.argument.and_then(|arg| arg.index),
+            Source::Osc(s) => s.argument.and_then(|arg| arg.index),
             _ => None,
         },
         osc_arg_type: match &s {
-            Osc(s) => s
+            Source::Osc(s) => s
                 .argument
                 .map(|arg| convert_osc_arg_type(arg.arg_kind.unwrap_or_default()))
                 .unwrap_or_default(),
             _ => Default::default(),
         },
         osc_arg_is_relative: match &s {
-            Osc(s) => s.relative.unwrap_or(defaults::SOURCE_OSC_IS_RELATIVE),
+            Source::Osc(s) => s.relative.unwrap_or(defaults::SOURCE_OSC_IS_RELATIVE),
             _ => false,
         },
         osc_arg_value_range: match &s {
-            Osc(s) => convert_osc_value_range(s.argument.and_then(|a| a.value_range)),
+            Source::Osc(s) => convert_osc_value_range(s.argument.and_then(|a| a.value_range)),
             _ => Default::default(),
         },
         osc_feedback_args: match &s {
-            Osc(s) => s.feedback_arguments.as_ref().cloned().unwrap_or_default(),
+            Source::Osc(s) => s.feedback_arguments.as_ref().cloned().unwrap_or_default(),
             _ => Default::default(),
         },
         keystroke: match &s {
-            Key(s) => s.keystroke.map(convert_keystroke),
+            Source::Key(s) => s.keystroke.map(convert_keystroke),
             _ => Default::default(),
         },
         control_element_type: match &s {
-            Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
+            Source::Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
             _ => Default::default(),
         },
         control_element_index: match &s {
-            Virtual(s) => convert_control_element_id(s.id.clone()),
+            Source::Virtual(s) => convert_control_element_id(s.id.clone()),
             _ => Default::default(),
         },
         reaper_source_type: match &s {
-            MidiDeviceChanges(_) => ReaperSourceType::MidiDeviceChanges,
-            RealearnInstanceStart(_) => ReaperSourceType::RealearnInstanceStart,
-            Timer(_) => ReaperSourceType::Timer,
-            RealearnParameter(_) => ReaperSourceType::RealearnParameter,
+            Source::MidiDeviceChanges => ReaperSourceType::MidiDeviceChanges,
+            Source::RealearnInstanceStart => ReaperSourceType::RealearnUnitStart,
+            Source::Timer(_) => ReaperSourceType::Timer,
+            Source::RealearnParameter(_) => ReaperSourceType::RealearnParameter,
             _ => Default::default(),
         },
         timer_millis: match &s {
-            Timer(t) => t.duration,
+            Source::Timer(t) => t.duration,
             _ => Default::default(),
         },
         parameter_index: match &s {
-            RealearnParameter(s) => s.parameter_index.try_into()?,
+            Source::RealearnParameter(s) => {
+                s.parameter_index.try_into().map_err(anyhow::Error::msg)?
+            }
             _ => Default::default(),
         },
     };
@@ -160,12 +158,10 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
 fn convert_category(s: &Source) -> SourceCategory {
     use Source::*;
     match s {
-        NoneSource => SourceCategory::Never,
-        MidiDeviceChanges(_)
-        | RealearnInstanceStart(_)
-        | Timer(_)
-        | RealearnParameter(_)
-        | Speech(_) => SourceCategory::Reaper,
+        None => SourceCategory::Never,
+        MidiDeviceChanges | RealearnInstanceStart | Timer(_) | RealearnParameter(_) | Speech => {
+            SourceCategory::Reaper
+        }
         MidiNoteVelocity(_)
         | MidiNoteKeyNumber(_)
         | MidiPolyphonicKeyPressureAmount(_)
@@ -175,7 +171,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MidiChannelPressureAmount(_)
         | MidiPitchBendChangeValue(_)
         | MidiParameterNumberValue(_)
-        | MidiClockTempo(_)
+        | MidiClockTempo
         | MidiClockTransport(_)
         | MidiRaw(_)
         | MidiScript(_)
@@ -184,7 +180,7 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MackieSevenSegmentDisplay(_)
         | SiniConE24Display(_)
         | SlKeyboardDisplay(_)
-        | LaunchpadProScrollingTextDisplay(_) => SourceCategory::Midi,
+        | LaunchpadProScrollingTextDisplay => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
         Key(_) => SourceCategory::Keyboard,
         Virtual(_) => SourceCategory::Virtual,
@@ -203,7 +199,7 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
         MidiChannelPressureAmount(_) => MidiSourceType::ChannelPressureAmount,
         MidiPitchBendChangeValue(_) => MidiSourceType::PitchBendChangeValue,
         MidiParameterNumberValue(_) => MidiSourceType::ParameterNumberValue,
-        MidiClockTempo(_) => MidiSourceType::ClockTempo,
+        MidiClockTempo => MidiSourceType::ClockTempo,
         MidiClockTransport(_) => MidiSourceType::ClockTransport,
         MidiRaw(_) => MidiSourceType::Raw,
         MidiScript(_) => MidiSourceType::Script,
@@ -215,17 +211,16 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
 }
 
 fn convert_midi_channel(s: &Source) -> ConversionResult<Option<Channel>> {
-    use Source::*;
     let ch = match s {
-        MidiNoteVelocity(s) => s.channel,
-        MidiNoteKeyNumber(s) => s.channel,
-        MidiPolyphonicKeyPressureAmount(s) => s.channel,
-        MidiControlChangeValue(s) => s.channel,
-        MidiProgramChangeNumber(s) => s.channel,
-        MidiSpecificProgramChange(s) => s.channel,
-        MidiChannelPressureAmount(s) => s.channel,
-        MidiPitchBendChangeValue(s) => s.channel,
-        MidiParameterNumberValue(s) => s.channel,
+        Source::MidiNoteVelocity(s) => s.channel,
+        Source::MidiNoteKeyNumber(s) => s.channel,
+        Source::MidiPolyphonicKeyPressureAmount(s) => s.channel,
+        Source::MidiControlChangeValue(s) => s.channel,
+        Source::MidiProgramChangeNumber(s) => s.channel,
+        Source::MidiSpecificProgramChange(s) => s.channel,
+        Source::MidiChannelPressureAmount(s) => s.channel,
+        Source::MidiPitchBendChangeValue(s) => s.channel,
+        Source::MidiParameterNumberValue(s) => s.channel,
         _ => None,
     };
     if let Some(ch) = ch {
@@ -237,13 +232,12 @@ fn convert_midi_channel(s: &Source) -> ConversionResult<Option<Channel>> {
 }
 
 fn convert_midi_number(s: &Source) -> ConversionResult<Option<U14>> {
-    use Source::*;
     let n = match s {
-        MidiNoteVelocity(s) => s.key_number.map(|n| n as u16),
-        MidiPolyphonicKeyPressureAmount(s) => s.key_number.map(|n| n as u16),
-        MidiControlChangeValue(s) => s.controller_number.map(|n| n as u16),
-        MidiSpecificProgramChange(s) => s.program_number.map(|n| n as u16),
-        MidiParameterNumberValue(s) => s.number,
+        Source::MidiNoteVelocity(s) => s.key_number.map(|n| n as u16),
+        Source::MidiPolyphonicKeyPressureAmount(s) => s.key_number.map(|n| n as u16),
+        Source::MidiControlChangeValue(s) => s.controller_number.map(|n| n as u16),
+        Source::MidiSpecificProgramChange(s) => s.program_number.map(|n| n as u16),
+        Source::MidiParameterNumberValue(s) => s.number,
         _ => None,
     };
     if let Some(n) = n {

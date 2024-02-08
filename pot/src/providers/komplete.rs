@@ -5,35 +5,36 @@ use crate::provider_database::{
     FIL_IS_USER_PRESET_TRUE,
 };
 use crate::{
-    Fil, FiledBasedPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
+    Fil, FiledBasedPotPresetKind, InnerBuildInput, InnerPresetId, MacroParamBank,
     PersistentDatabaseId, PersistentInnerPresetId, PersistentPresetId, PluginKind, PotFxParam,
-    PotFxParamId, Preset, PresetCommon, PresetKind, PresetMetadata, ProductId, SearchEvaluator,
-    SearchField, SearchOptions,
+    PotFxParamId, PotPreset, PotPresetCommon, PotPresetKind, PotPresetMetaData, ProductId,
+    SearchEvaluator, SearchField, SearchOptions,
 };
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
-use enum_iterator::IntoEnumIterator;
 use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use chrono::NaiveDateTime;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
 use std::borrow::Cow;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use strum::IntoEnumIterator;
 
 pub struct KompleteDatabase {
     persistent_id: PersistentDatabaseId,
     primary_preset_db: Mutex<PresetDb>,
     nks_filter_item_collections: NksFilterItemCollections,
-    nks_bank_id_by_product_id: HashMap<ProductId, u32>,
-    nks_product_id_by_bank_id: HashMap<u32, ProductId>,
-    nks_product_id_by_extension: HashMap<String, ProductId>,
+    nks_bank_id_by_product_id: NonCryptoHashMap<ProductId, u32>,
+    nks_product_id_by_bank_id: NonCryptoHashMap<u32, ProductId>,
+    nks_product_id_by_extension: NonCryptoHashMap<String, ProductId>,
     /// This returns a second connection to the preset database.
     ///
     /// At the moment, the UI thread continuously queries the database for the currently visible rows.
@@ -130,7 +131,7 @@ impl KompleteDatabase {
         &self,
         preset_db: &PresetDb,
         id: InnerPresetId,
-    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+    ) -> Option<(PotPresetCommon, FiledBasedPotPresetKind)> {
         preset_db.find_preset_by_id(&self.persistent_id, id, |bank_id, extension| {
             // Try to translate bank ID - a number representing either a plug-in product like
             // "Zebra2" or a sub product like "Vintage Organs". If it represents a plug-in product,
@@ -143,7 +144,7 @@ impl KompleteDatabase {
                     base::tracing_debug!("Looking up product for bank {bank_id} not successful.");
                 }
             }
-            // If that didn't work because we don't have a bank ID, we have sub produt or the
+            // If that didn't work because we don't have a bank ID, we have sub product or the
             // plug-in product is simply not installed, try at least to translate the extension.
             self.nks_product_id_by_extension.get(extension).copied()
         })
@@ -470,17 +471,21 @@ impl Database for KompleteDatabase {
         )
     }
 
-    fn find_preset_by_id(&self, _: &ProviderContext, preset_id: InnerPresetId) -> Option<Preset> {
+    fn find_preset_by_id(
+        &self,
+        _: &ProviderContext,
+        preset_id: InnerPresetId,
+    ) -> Option<PotPreset> {
         let preset_db = blocking_lock(&self.secondary_preset_db, "Komplete DB find_preset_by_id");
         let (common, kind) = self.find_preset_by_id_internal(&preset_db, preset_id)?;
-        Some(Preset::new(common, PresetKind::FileBased(kind)))
+        Some(PotPreset::new(common, PotPresetKind::FileBased(kind)))
     }
 
     fn find_unsupported_preset_matching(
         &self,
         product_id: ProductId,
         preset_name: &str,
-    ) -> Option<Preset> {
+    ) -> Option<PotPreset> {
         // Look for corresponding Komplete bank
         let bank_id = self.nks_bank_id_by_product_id.get(&product_id)?;
         // Make sure we only get results from that bank
@@ -512,7 +517,7 @@ impl Database for KompleteDatabase {
         let first_preset_id = preset_ids.first()?;
         let (common, kind) =
             self.find_preset_by_id_internal(&preset_db, first_preset_id.inner_preset_id)?;
-        Some(Preset::new(common, PresetKind::FileBased(kind)))
+        Some(PotPreset::new(common, PotPresetKind::FileBased(kind)))
     }
 }
 
@@ -776,7 +781,7 @@ impl PresetDb {
         persistent_db_id: &PersistentDatabaseId,
         id: InnerPresetId,
         translate_bank_or_ext_to_product_id: impl FnOnce(Option<u32>, &str) -> Option<ProductId>,
-    ) -> Option<(PresetCommon, FiledBasedPresetKind)> {
+    ) -> Option<(PotPresetCommon, FiledBasedPotPresetKind)> {
         let sql = format!(
             r#"
                     SELECT i.name, i.file_name, i.file_ext, i.favorite_id, bc.entry1, parent_bc.id, i.vendor, i.author, i.comment, i.file_size, i.mod_date, cp.state
@@ -799,7 +804,7 @@ impl PresetDb {
                 let product_id = translate_bank_or_ext_to_product_id(bank_id, &file_ext);
                 let preview_file = determine_preview_file(&path);
                 let content_path_state: Option<u32> = row.get(11)?;
-                let common = PresetCommon {
+                let common = PotPresetCommon {
                     persistent_id: PersistentPresetId::new(
                         persistent_db_id.clone(),
                         PersistentInnerPresetId::new(favorite_id),
@@ -820,7 +825,7 @@ impl PresetDb {
                     db_specific_preview_file: preview_file,
                     is_supported: SUPPORTED_FILE_EXTENSIONS.contains(&file_ext.as_str()),
                     is_available: content_path_state == Some(1),
-                    metadata: PresetMetadata {
+                    metadata: PotPresetMetaData {
                         author: row.get(6).ok(),
                         vendor: row.get(7).ok(),
                         comment: row.get(8).ok(),
@@ -834,7 +839,7 @@ impl PresetDb {
                     },
                     context_name: None,
                 };
-                let kind = FiledBasedPresetKind { path, file_ext };
+                let kind = FiledBasedPotPresetKind { path, file_ext };
                 Ok((common, kind))
             })
             .ok()
@@ -1137,7 +1142,7 @@ impl PresetDb {
             }
         }
         // Exclude filters
-        for kind in PotFilterKind::into_enum_iter() {
+        for kind in PotFilterKind::iter() {
             if exclude_list.is_empty(kind) {
                 continue;
             }
@@ -1405,7 +1410,7 @@ struct NonEmptyNksFilters {
 #[derive(Default)]
 struct NonEmptyNksFilter {
     /// The IDs of all filter items of this kind that have presets.
-    non_empty_ids: HashSet<u32>,
+    non_empty_ids: NonCryptoHashSet<u32>,
     /// Whether there are presets not associated to any filter item of this kind.
     has_non_associated_presets: bool,
 }
@@ -1435,7 +1440,7 @@ impl NonEmptyNksFilter {
 struct ParentNksFilterItem {
     id: u32,
     name: String,
-    child_ids: HashSet<u32>,
+    child_ids: NonCryptoHashSet<u32>,
 }
 
 impl ParentNksFilterItem {
@@ -1443,7 +1448,7 @@ impl ParentNksFilterItem {
         Self {
             id: r.id,
             name: r.level1.clone(),
-            child_ids: HashSet::from([r.id]),
+            child_ids: [r.id].into_iter().collect(),
         }
     }
 }
@@ -1473,7 +1478,7 @@ mod tests {
     use super::*;
 
     impl ParentNksFilterItem {
-        pub fn new(id: u32, name: String, child_ids: HashSet<u32>) -> Self {
+        pub fn new(id: u32, name: String, child_ids: NonCryptoHashSet<u32>) -> Self {
             Self {
                 id,
                 name,
@@ -1541,12 +1546,12 @@ mod tests {
         assert_eq!(
             bank_collections.parent_items,
             vec![
-                ParentNksFilterItem::new(1, "a".to_string(), HashSet::from([1, 2, 3])),
-                ParentNksFilterItem::new(4, "b".to_string(), HashSet::from([4, 5, 6])),
-                ParentNksFilterItem::new(7, "c".to_string(), HashSet::from([7, 8])),
-                ParentNksFilterItem::new(9, "d".to_string(), HashSet::from([9])),
-                ParentNksFilterItem::new(10, "e".to_string(), HashSet::from([10])),
-                ParentNksFilterItem::new(11, "f".to_string(), HashSet::from([11, 12])),
+                ParentNksFilterItem::new(1, "a".to_string(), [1, 2, 3].into_iter().collect()),
+                ParentNksFilterItem::new(4, "b".to_string(), [4, 5, 6].into_iter().collect()),
+                ParentNksFilterItem::new(7, "c".to_string(), [7, 8].into_iter().collect()),
+                ParentNksFilterItem::new(9, "d".to_string(), [9].into_iter().collect()),
+                ParentNksFilterItem::new(10, "e".to_string(), [10].into_iter().collect()),
+                ParentNksFilterItem::new(11, "f".to_string(), [11, 12].into_iter().collect())
             ]
         );
         assert_eq!(

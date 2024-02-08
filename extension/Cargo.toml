@@ -3,9 +3,6 @@ name = "helgobox-extension"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-playtime = ["realearn-api/playtime", "dep:playtime-api"]
-
 [dependencies]
 reaper-fluent.workspace = true
 reaper-medium.workspace = true
@@ -13,11 +10,7 @@ reaper-low.workspace = true
 reaper-macros.workspace = true
 anyhow.workspace = true
 base.workspace = true
-realearn-api.workspace = true
-playtime-api = { workspace = true, optional = true }
-enumflags2.workspace = true
 libloading.workspace = true
-rust-ini.workspace = true
 
 [lib]
 name = "reaper_helgobox"

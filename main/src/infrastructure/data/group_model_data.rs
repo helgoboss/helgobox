@@ -1,5 +1,5 @@
 use crate::application::{Change, GroupCommand, GroupModel};
-use crate::domain::{Compartment, GroupId, GroupKey, Tag};
+use crate::domain::{CompartmentKind, GroupId, GroupKey, Tag};
 use crate::infrastructure::data::{
     ActivationConditionData, DataToModelConversionContext, EnabledData,
     ModelToDataConversionContext,
@@ -62,7 +62,7 @@ impl GroupModelData {
 
     pub fn to_model(
         &self,
-        compartment: Compartment,
+        compartment: CompartmentKind,
         is_default_group: bool,
         conversion_context: &impl DataToModelConversionContext,
     ) -> GroupModel {

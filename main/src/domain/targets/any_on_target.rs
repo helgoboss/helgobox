@@ -1,16 +1,17 @@
 use crate::domain::{
-    format_value_as_on_off, Compartment, CompoundChangeEvent, ControlContext,
+    format_value_as_on_off, CompartmentKind, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitResponse, MappingControlContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, GroupingBehavior, Project};
 use reaper_medium::GangBehavior;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use strum::EnumIter;
 
 #[derive(Debug)]
 pub struct UnresolvedAnyOnTarget {
@@ -21,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAnyOnTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::AnyOn(AnyOnTarget {
             project: context.context().project_or_current_project(),
@@ -151,7 +152,7 @@ impl<'a> Target<'a> for AnyOnTarget {
     Eq,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -180,7 +181,8 @@ impl Default for AnyOnParameter {
 }
 
 pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Any on (solo/mute/...)",
+    section: TargetSection::Project,
+    name: "Any on (solo/mute/...)",
     short_name: "Any on",
     ..DEFAULT_TARGET
 };

@@ -1,9 +1,9 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind,
     ControlContext, ExtendedProcessorContext, FeedbackResolution, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -21,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedAllTrackFxEnableTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -124,7 +124,8 @@ impl<'a> Target<'a> for AllTrackFxEnableTarget {
 }
 
 pub const ALL_TRACK_FX_ENABLE_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Enable/disable all FX",
+    section: TargetSection::Track,
+    name: "Enable/disable all FX",
     short_name: "Enable/disable all track FX",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

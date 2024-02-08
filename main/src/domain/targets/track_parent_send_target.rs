@@ -1,10 +1,11 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, Compartment,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, CompartmentKind,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -20,7 +21,7 @@ impl UnresolvedReaperTargetDef for UnresolvedTrackParentSendTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(
             get_effective_tracks(context, &self.track_descriptor.track, compartment)?
@@ -125,7 +126,8 @@ impl<'a> Target<'a> for TrackParentSendTarget {
 }
 
 pub const TRACK_PARENT_SEND_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Track: Enable/disable parent send",
+    section: TargetSection::Track,
+    name: "Enable/disable parent send",
     short_name: "Enable/disable parent send",
     supports_track: true,
     supports_track_exclusivity: true,

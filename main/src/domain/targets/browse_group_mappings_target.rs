@@ -1,10 +1,10 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    Compartment, CompoundChangeEvent, ControlContext, ControlLogContext, ExtendedProcessorContext,
-    GroupId, HitInstruction, HitInstructionContext, HitInstructionResponse, HitResponse,
-    InstanceStateChanged, MappingControlContext, MappingId, QualifiedMappingId, RealearnTarget,
-    ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompartmentKind, CompoundChangeEvent, ControlContext, ControlLogContext,
+    ExtendedProcessorContext, GroupId, HitInstruction, HitInstructionContext,
+    HitInstructionResponse, HitResponse, MappingControlContext, MappingId, QualifiedMappingId,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter,
+    TargetSection, TargetTypeDef, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -13,7 +13,7 @@ use std::borrow::Cow;
 
 #[derive(Debug)]
 pub struct UnresolvedBrowseGroupTarget {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }
@@ -22,7 +22,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
     fn resolve(
         &self,
         _: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::BrowseGroupMappings(
             BrowseGroupMappingsTarget {
@@ -38,7 +38,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseGroupTarget {
 pub struct BrowseGroupMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// not have any effect when controlling (only when querying the values).
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub group_id: GroupId,
     pub exclusivity: SimpleExclusivity,
 }
@@ -46,7 +46,7 @@ pub struct BrowseGroupMappingsTarget {
 impl BrowseGroupMappingsTarget {
     fn count(&self, context: ControlContext) -> u32 {
         context
-            .instance_state
+            .unit
             .borrow()
             .get_on_mappings_within_group(self.compartment, self.group_id)
             .count() as _
@@ -76,7 +76,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
         context: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
         let value = value.to_absolute_value()?;
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.unit.borrow_mut();
         let desired_mapping_id = {
             let mapping_ids: Vec<_> = instance_state
                 .get_on_mappings_within_group(self.compartment, self.group_id)
@@ -131,7 +131,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
                         context.processor_context,
                         ControlValue::AbsoluteContinuous(v),
                         context.basic_settings.target_control_logger(
-                            context.processor_context.control_context.instance_state,
+                            context.processor_context.control_context.unit,
                             ControlLogContext::GroupNavigation,
                             m.qualified_id(),
                         ),
@@ -185,7 +185,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
 
     fn is_available(&self, context: ControlContext) -> bool {
         context
-            .instance_state
+            .unit
             .borrow()
             .get_on_mappings_within_group(self.compartment, self.group_id)
             .count()
@@ -198,7 +198,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingWithinGroup {
+            CompoundChangeEvent::Unit(UnitEvent::ActiveMappingWithinGroup {
                 compartment,
                 group_id,
                 ..
@@ -209,7 +209,7 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
 
     fn text_value(&self, context: ControlContext) -> Option<Cow<'static, str>> {
         let (mapping_id, _) = self.current_mapping_with_position(context)?;
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         let info = instance_state
             .get_mapping_info(QualifiedMappingId::new(self.compartment, mapping_id))?;
         Some(info.name.clone().into())
@@ -230,7 +230,7 @@ impl BrowseGroupMappingsTarget {
         &self,
         context: ControlContext,
     ) -> Option<(MappingId, Fraction)> {
-        let instance_state = context.instance_state.borrow();
+        let instance_state = context.unit.borrow();
         if let Some(mapping_id) =
             instance_state.get_active_mapping_within_group(self.compartment, self.group_id)
         {
@@ -265,7 +265,8 @@ impl<'a> Target<'a> for BrowseGroupMappingsTarget {
 }
 
 pub const BROWSE_GROUP_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "ReaLearn: Browse group mappings",
+    section: TargetSection::ReaLearn,
+    name: "Browse group mappings",
     short_name: "Browse group mappings",
     supports_exclusivity: true,
     ..DEFAULT_TARGET

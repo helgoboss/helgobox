@@ -1,5 +1,5 @@
 use crate::domain::{with_fx_name, FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
-use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::{BackboneShell, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use base::future_util::millis;
 use base::{Global, SenderToNormalThread};
@@ -122,7 +122,7 @@ async fn setup() -> RealearnTestInstance {
         assert_eq!(fx_name.as_ref(), "VSTi: ReaLearn (Helgoboss)");
     });
     moment().await;
-    let session = App::get()
+    let session = BackboneShell::get()
         .find_session_by_containing_fx(&fx)
         .expect("couldn't find session associated with ReaLearn FX instance");
     let (feedback_sender, feedback_receiver) =

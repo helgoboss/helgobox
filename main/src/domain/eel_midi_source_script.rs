@@ -42,10 +42,13 @@ impl EelMidiSourceScript {
     }
 }
 
-impl MidiSourceScript for EelMidiSourceScript {
+impl MidiSourceScript<'_> for EelMidiSourceScript {
+    type AdditionalInput = ();
+
     fn execute(
         &self,
         input_value: FeedbackValue,
+        _additional_input: (),
     ) -> Result<MidiSourceScriptOutcome, Cow<'static, str>> {
         let y_value = match input_value {
             // TODO-medium Find a constant for this which is defined in EEL
@@ -115,7 +118,9 @@ mod tests {
             FeedbackStyle::default(),
             AbsoluteValue::Continuous(UnitValue::new(0.5)),
         );
-        let outcome = script.execute(FeedbackValue::Numeric(fb_value)).unwrap();
+        let outcome = script
+            .execute(FeedbackValue::Numeric(fb_value), ())
+            .unwrap();
         // Then
         assert_eq!(
             outcome.address,

@@ -1,15 +1,15 @@
 //! Contains the actual application interface and implementation without any HTTP-specific stuff.
 
 use crate::application::{
-    ControllerPreset, Preset, PresetManager, Session, SourceCategory, TargetCategory,
+    CompartmentPresetManager, CompartmentPresetModel, SourceCategory, TargetCategory, UnitModel,
 };
-use crate::domain::{Compartment, MappingKey, ProjectionFeedbackValue};
-use crate::infrastructure::data::{ControllerPresetData, PresetData};
-use crate::infrastructure::plugin::App;
+use crate::domain::{CompartmentKind, MappingKey, ProjectionFeedbackValue};
+use crate::infrastructure::data::CompartmentPresetData;
+use crate::infrastructure::plugin::BackboneShell;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use helgoboss_learn::UnitValue;
-use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
@@ -79,7 +79,7 @@ enum PatchRequestOp {
 #[serde(rename_all = "camelCase")]
 pub struct ControllerRouting {
     main_preset: Option<LightMainPresetData>,
-    routes: HashMap<MappingKey, Vec<TargetDescriptor>>,
+    routes: NonCryptoHashMap<MappingKey, Vec<TargetDescriptor>>,
 }
 
 #[derive(Serialize)]
@@ -96,7 +96,7 @@ struct TargetDescriptor {
 }
 
 pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataError> {
-    let _ = App::get()
+    let _ = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
@@ -105,29 +105,29 @@ pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataE
 pub fn get_controller_routing_by_session_id(
     session_id: String,
 ) -> Result<ControllerRouting, DataError> {
-    let session = App::get()
+    let session = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let routing = get_controller_routing(&session.borrow());
     Ok(routing)
 }
 
-pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPresetData, DataError> {
-    let session = App::get()
+pub fn get_controller_preset_data(session_id: String) -> Result<CompartmentPresetData, DataError> {
+    let session = BackboneShell::get()
         .find_session_by_id(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let session = session.borrow();
     get_controller_preset_data_internal(&session)
 }
 
-pub fn get_controller_routing(session: &Session) -> ControllerRouting {
+pub fn get_controller_routing(session: &UnitModel) -> ControllerRouting {
     let main_preset = session.active_main_preset().map(|mp| LightMainPresetData {
         id: mp.id().to_string(),
         name: mp.name().to_string(),
     });
-    let instance_state = session.instance_state().borrow();
+    let instance_state = session.unit().borrow();
     let routes = session
-        .mappings(Compartment::Controller)
+        .mappings(CompartmentKind::Controller)
         .filter_map(|m| {
             let m = m.borrow();
             if !m.visible_in_projection() {
@@ -137,13 +137,14 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
                 if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_main_mappings = session.mappings(Compartment::Main).filter(|mp| {
-                        let mp = mp.borrow();
-                        mp.visible_in_projection()
-                            && mp.source_model.category() == SourceCategory::Virtual
-                            && mp.source_model.create_control_element() == control_element
-                            && instance_state.mapping_is_on(mp.qualified_id())
-                    });
+                    let matching_main_mappings =
+                        session.mappings(CompartmentKind::Main).filter(|mp| {
+                            let mp = mp.borrow();
+                            mp.visible_in_projection()
+                                && mp.source_model.category() == SourceCategory::Virtual
+                                && mp.source_model.create_control_element() == control_element
+                                && instance_state.mapping_is_on(mp.qualified_id())
+                        });
                     let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {
                             let m = m.borrow();
@@ -186,12 +187,12 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
         return Err(DataError::OnlyCustomDataKeyIsSupportedAsPatchPath);
     };
     // Update the global controller preset.
-    let controller_manager = App::get().controller_preset_manager();
+    let controller_manager = BackboneShell::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
     let mut controller_preset = controller_manager
         .find_by_id(&controller_id)
         .ok_or(DataError::ControllerNotFound)?;
-    controller_preset.update_custom_data(custom_data_key.to_string(), req.value.clone());
+    controller_preset.patch_custom_data(custom_data_key.to_string(), req.value.clone());
     controller_manager
         .update_preset(controller_preset)
         .map_err(|_| DataError::ControllerUpdateFailed)?;
@@ -202,12 +203,12 @@ pub fn patch_controller(controller_id: String, req: PatchRequest) -> Result<(), 
     // TODO-low In future versions of the Companion app, we should not update the controller
     //  source directly but update a session. This makes more sense because now ReaLearn treats
     //  custom data exactly like mappings - it's saved with the session.
-    App::get().with_instances(|instances| {
-        let sessions = instances.iter().filter_map(|s| s.session.upgrade());
-        for session in sessions {
-            let mut session = session.borrow_mut();
-            session.update_custom_compartment_data(
-                Compartment::Controller,
+    BackboneShell::get().with_unit_infos(|infos| {
+        let units = infos.iter().filter_map(|s| s.unit.upgrade());
+        for unit in units {
+            let mut unit = unit.borrow_mut();
+            unit.update_custom_compartment_data_key(
+                CompartmentKind::Controller,
                 custom_data_key.to_string(),
                 req.value.clone(),
             );
@@ -227,7 +228,7 @@ impl WebSocketRequest {
     }
 }
 
-pub type Topics = HashSet<Topic>;
+pub type Topics = NonCryptoHashSet<Topic>;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Topic {
@@ -262,15 +263,15 @@ impl TryFrom<&str> for Topic {
 }
 
 pub fn send_initial_feedback(session_id: &str) {
-    if let Some(session) = App::get().find_session_by_id(session_id) {
+    if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
         session.borrow_mut().send_all_feedback();
     }
 }
 
 pub fn get_active_controller_updated_event(
     session_id: &str,
-    session: Option<&Session>,
-) -> Event<Option<ControllerPresetData>> {
+    session: Option<&UnitModel>,
+) -> Event<Option<CompartmentPresetData>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller"),
         session.and_then(get_controller),
@@ -280,13 +281,10 @@ pub fn get_active_controller_updated_event(
 pub fn get_projection_feedback_event(
     session_id: &str,
     feedback_value: ProjectionFeedbackValue,
-) -> Event<HashMap<Rc<str>, UnitValue>> {
-    Event::patch(
-        format!("/realearn/session/{session_id}/feedback"),
-        hashmap! {
-            feedback_value.mapping_key => feedback_value.value
-        },
-    )
+) -> Event<NonCryptoHashMap<Rc<str>, UnitValue>> {
+    let mut map = HashMap::default();
+    map.insert(feedback_value.mapping_key, feedback_value.value);
+    Event::patch(format!("/realearn/session/{session_id}/feedback"), map)
 }
 
 pub fn get_session_updated_event(
@@ -298,7 +296,7 @@ pub fn get_session_updated_event(
 
 pub fn get_controller_routing_updated_event(
     session_id: &str,
-    session: Option<&Session>,
+    session: Option<&UnitModel>,
 ) -> Event<Option<ControllerRouting>> {
     Event::put(
         format!("/realearn/session/{session_id}/controller-routing"),
@@ -345,30 +343,31 @@ enum EventType {
     Patch,
 }
 
-fn get_controller(session: &Session) -> Option<ControllerPresetData> {
+fn get_controller(session: &UnitModel) -> Option<CompartmentPresetData> {
     get_controller_preset_data_internal(session).ok()
 }
 
 fn get_controller_preset_data_internal(
-    session: &Session,
-) -> Result<ControllerPresetData, DataError> {
-    let data = session.extract_compartment_model(Compartment::Controller);
+    session: &UnitModel,
+) -> Result<CompartmentPresetData, DataError> {
+    let data = session.extract_compartment_model(CompartmentKind::Controller);
     if data.mappings.is_empty() {
         return Err(DataError::SessionHasNoActiveController);
     }
     let id = session.active_controller_preset_id();
     let name = id
         .and_then(|id| {
-            App::get()
+            BackboneShell::get()
                 .controller_preset_manager()
                 .borrow()
                 .find_by_id(id)
         })
         .map(|preset| preset.name().to_string());
-    let preset = ControllerPreset::new(
+    let preset = CompartmentPresetModel::new(
         id.map(|id| id.to_string()).unwrap_or_default(),
         name.unwrap_or_else(|| "<Not saved>".to_string()),
+        CompartmentKind::Controller,
         data,
     );
-    Ok(ControllerPresetData::from_model(&preset))
+    Ok(CompartmentPresetData::from_model(&preset))
 }

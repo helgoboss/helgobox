@@ -184,7 +184,7 @@ pub fn convert_glue(
                         defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION,
                     ),
                 }),
-                OnDoublePress => T::OnDoublePress(persistence::OnDoublePressFireMode),
+                OnDoublePress => T::OnDoublePress,
             };
             style.required_value(v)
         },

@@ -14,12 +14,10 @@ pub struct FileBasedPresetLinkManager {
 
 impl FileBasedPresetLinkManager {
     pub fn new(auto_load_configs_dir_path: PathBuf) -> FileBasedPresetLinkManager {
-        let mut manager = FileBasedPresetLinkManager {
+        FileBasedPresetLinkManager {
             auto_load_configs_dir_path,
             config: Default::default(),
-        };
-        let _ = manager.load_fx_config();
-        manager
+        }
     }
 
     pub fn config(&self) -> &FxPresetLinkConfig {
@@ -30,7 +28,7 @@ impl FileBasedPresetLinkManager {
         self.auto_load_configs_dir_path.join("fx.json")
     }
 
-    fn load_fx_config(&mut self) -> Result<(), String> {
+    pub fn load_preset_links_from_disk(&mut self) -> Result<(), String> {
         let json = fs::read_to_string(self.fx_config_file_path())
             .map_err(|_| "couldn't read FX preset link config file".to_string())?;
         self.config = serde_json::from_str(&json)

@@ -1,21 +1,22 @@
-use crate::application::SharedSession;
+use crate::application::SharedUnitModel;
 use crate::domain::ui_util::{
-    format_as_percentage_without_unit, format_raw_midi, log_output,
-    parse_unit_value_from_percentage, OutputReason,
+    format_as_percentage_without_unit, log_output, parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    new_set_track_ui_functions_are_available, scoped_track_index, AdditionalFeedbackEvent,
-    AdditionalTransformationInput, BasicSettings, Compartment, DomainEventHandler, Exclusivity,
-    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, GroupId,
-    InstanceId, InstanceStateChanged, MainMapping, MappingControlResult, MappingId,
-    OrderedMappingMap, OscFeedbackTask, ProcessorContext, QualifiedMappingId, RealTimeReaperTarget,
-    ReaperTarget, SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity,
-    ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
-    BROWSE_FXS_TARGET, BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET,
-    BROWSE_POT_PRESETS_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
-    FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET,
-    FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET, GO_TO_BOOKMARK_TARGET,
-    LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET,
+    format_as_pretty_hex, new_set_track_ui_functions_are_available, scoped_track_index,
+    AdditionalFeedbackEvent, AdditionalTransformationInput, BasicSettings, CompartmentKind,
+    DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceStateChanged, MainMapping,
+    MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, PluginParamIndex,
+    ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, RealearnSourceContext,
+    ReaperTarget, SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity,
+    UnitEvent, UnitId, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
+    ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
+    BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
+    COMPARTMENT_PARAMETER_VALUE_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
+    ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
+    FX_PARAMETER_TARGET, FX_PARAMETER_TOUCH_STATE_TARGET, FX_PRESET_TARGET, FX_TOOL_TARGET,
+    GO_TO_BOOKMARK_TARGET, LAST_TOUCHED_TARGET, LEARN_MAPPING_TARGET, LOAD_FX_SNAPSHOT_TARGET,
     LOAD_MAPPING_SNAPSHOT_TARGET, LOAD_POT_PRESET_TARGET, MIDI_SEND_TARGET, MOUSE_TARGET,
     OSC_SEND_TARGET, PLAYRATE_TARGET, PREVIEW_POT_PRESET_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
@@ -26,12 +27,12 @@ use crate::domain::{
     TRACK_SOLO_TARGET, TRACK_TOOL_TARGET, TRACK_TOUCH_STATE_TARGET, TRACK_VOLUME_TARGET,
     TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
+use base::hash_util::NonCryptoHashSet;
 use base::{SenderToNormalThread, SenderToRealTimeThread};
 use enum_dispatch::enum_dispatch;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
-    SourceContext, TransformationInputProvider, UnitValue,
+    TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use realearn_api::persistence::{LearnableTargetKind, TrackScope};
@@ -39,8 +40,8 @@ use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::fmt::{Debug, Display, Formatter};
+use strum::IntoEnumIterator;
 
 #[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
@@ -51,10 +52,16 @@ pub trait RealearnTarget {
         self.control_type_and_character(context).1
     }
 
-    fn reaper_target_type(&self) -> Option<ReaperTargetType>;
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        None
+    }
 
-    fn control_type_and_character(&self, context: ControlContext)
-        -> (ControlType, TargetCharacter);
+    fn control_type_and_character(
+        &self,
+        _context: ControlContext,
+    ) -> (ControlType, TargetCharacter) {
+        (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
+    }
 
     fn open(&self, context: ControlContext) {
         let _ = context;
@@ -224,7 +231,9 @@ pub trait RealearnTarget {
     }
 
     /// Used for target "Global: Last touched" and queryable as target prop.
-    fn is_available(&self, context: ControlContext) -> bool;
+    fn is_available(&self, _context: ControlContext) -> bool {
+        true
+    }
 
     fn project(&self) -> Option<Project> {
         None
@@ -241,16 +250,13 @@ pub trait RealearnTarget {
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         None
     }
-    #[cfg(feature = "playtime")]
-    fn clip_slot_address(&self) -> Option<playtime_api::runtime::SlotAddress> {
+    fn clip_slot_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         None
     }
-    #[cfg(feature = "playtime")]
-    fn clip_column_address(&self) -> Option<playtime_api::runtime::ColumnAddress> {
+    fn clip_column_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         None
     }
-    #[cfg(feature = "playtime")]
-    fn clip_row_address(&self) -> Option<playtime_api::runtime::RowAddress> {
+    fn clip_row_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         None
     }
 
@@ -342,6 +348,8 @@ pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
+    Unit(&'a UnitEvent),
+    CompartmentParameter(PluginParamIndex),
     #[cfg(feature = "playtime")]
     ClipMatrix(&'a playtime_clip_engine::base::ClipMatrixEvent),
 }
@@ -359,16 +367,16 @@ pub fn get_track_name(t: &Track, scope: TrackScope) -> String {
     }
 }
 
-pub fn get_track_color(t: &Track) -> Option<RgbColor> {
-    let reaper_medium::RgbColor { r, g, b } = t.custom_color()?;
-    Some(RgbColor::new(r, g, b))
+pub fn convert_reaper_color_to_helgoboss_learn(color: reaper_medium::RgbColor) -> RgbColor {
+    let reaper_medium::RgbColor { r, g, b } = color;
+    RgbColor::new(r, g, b)
 }
 
-pub trait InstanceContainer: Debug {
-    fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession>;
-    fn find_session_by_instance_id(&self, instance_id: InstanceId) -> Option<SharedSession>;
+pub trait UnitContainer: Debug {
+    fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel>;
+    fn find_session_by_instance_id(&self, instance_id: UnitId) -> Option<SharedUnitModel>;
     /// Returns activated tags if they don't correspond to the tags in the args.
-    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<NonCryptoHashSet<Tag>>;
     fn change_instance_fx(&self, args: ChangeInstanceFxArgs) -> Result<(), &'static str>;
     fn change_instance_track(&self, args: ChangeInstanceTrackArgs) -> Result<(), &'static str>;
 }
@@ -408,7 +416,7 @@ pub enum InstanceTrackChangeRequest {
 }
 
 pub struct InstanceContainerCommonArgs<'a> {
-    pub initiator_instance_id: InstanceId,
+    pub initiator_instance_id: UnitId,
     /// `None` if monitoring FX.
     pub initiator_project: Option<Project>,
     pub scope: &'a TagScope,
@@ -420,28 +428,29 @@ pub struct ControlContext<'a> {
     pub feedback_real_time_task_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     pub osc_feedback_task_sender: &'a SenderToNormalThread<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
-    pub instance_container: &'a dyn InstanceContainer,
-    pub instance_state: &'a SharedInstanceState,
-    pub instance_id: &'a InstanceId,
+    pub unit_container: &'a dyn UnitContainer,
+    pub instance: &'a SharedInstance,
+    pub unit: &'a SharedUnit,
+    pub unit_id: UnitId,
     pub output_logging_enabled: bool,
-    pub source_context: &'a SourceContext,
+    pub source_context: RealearnSourceContext<'a>,
     pub processor_context: &'a ProcessorContext,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct RealTimeControlContext<'a> {
-    #[cfg(feature = "playtime")]
-    pub clip_matrix: Option<&'a playtime_clip_engine::rt::WeakRtMatrix>,
+    pub instance: &'a WeakRealTimeInstance,
     pub _p: &'a (),
 }
 
 impl<'a> RealTimeControlContext<'a> {
     #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Result<playtime_clip_engine::rt::SharedRtMatrix, &'static str> {
-        let weak_matrix = self
-            .clip_matrix
-            .ok_or("real-time clip matrix not yet initialized")?;
-        weak_matrix
+        let instance = self.instance.upgrade().ok_or("real-time instance gone")?;
+        let instance = base::non_blocking_lock(&*instance, "real-time instance");
+        instance
+            .clip_matrix()
+            .ok_or("real-time clip matrix not yet initialized")?
             .upgrade()
             .ok_or("real-time clip matrix doesn't exist anymore")
     }
@@ -454,13 +463,17 @@ impl<'a> TransformationInputProvider<AdditionalTransformationInput> for RealTime
 }
 
 impl<'a> ControlContext<'a> {
+    pub fn instance(&self) -> &SharedInstance {
+        self.instance
+    }
+
     pub fn log_outgoing_target_midi(&self, events: &[RawMidiEvent]) {
         if self.output_logging_enabled {
             for e in events {
                 log_output(
-                    self.instance_id,
+                    self.unit_id,
                     OutputReason::TargetOutput,
-                    format_raw_midi(e.bytes()),
+                    format_as_pretty_hex(e.bytes()),
                 );
             }
         }
@@ -471,7 +484,7 @@ impl<'a> ControlContext<'a> {
         scope: &'c TagScope,
     ) -> InstanceContainerCommonArgs<'c> {
         InstanceContainerCommonArgs {
-            initiator_instance_id: *self.instance_id,
+            initiator_instance_id: self.unit_id,
             initiator_project: self.processor_context.project(),
             scope,
         }
@@ -504,7 +517,7 @@ impl<'a> From<MappingControlContext<'a>> for ControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingData {
-    pub compartment: Compartment,
+    pub compartment: CompartmentKind,
     pub mapping_id: MappingId,
     pub group_id: GroupId,
     pub last_non_performance_target_value: Option<AbsoluteValue>,
@@ -600,7 +613,8 @@ pub struct HitInstructionContext<'a> {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    strum::EnumIter,
+    strum::EnumCount,
     TryFromPrimitive,
     IntoPrimitive,
 )]
@@ -673,26 +687,20 @@ pub enum ReaperTargetType {
     RouteVolume = 3,
 
     // Clip targets
-    #[cfg(feature = "playtime")]
-    ClipManagement = 46,
-    #[cfg(feature = "playtime")]
-    ClipTransport = 31,
-    #[cfg(feature = "playtime")]
-    ClipSeek = 32,
-    #[cfg(feature = "playtime")]
-    ClipVolume = 33,
+    PlaytimeSlotManagementAction = 46,
+    PlaytimeSlotTransportAction = 31,
+    PlaytimeSlotSeek = 32,
+    PlaytimeSlotVolume = 33,
 
     // Clip column targets
-    #[cfg(feature = "playtime")]
-    ClipColumn = 50,
+    PlaytimeColumnAction = 50,
 
     // Clip row targets
-    #[cfg(feature = "playtime")]
-    ClipRow = 52,
+    PlaytimeRowAction = 52,
 
     // Clip matrix
-    #[cfg(feature = "playtime")]
-    ClipMatrix = 51,
+    PlaytimeMatrixAction = 51,
+    PlaytimeControlUnitScroll = 64,
 
     // Misc
     SendMidi = 29,
@@ -703,6 +711,7 @@ pub enum ReaperTargetType {
     EnableInstances = 38,
     EnableMappings = 36,
     ModifyMapping = 62,
+    CompartmentParameterValue = 63,
     LoadMappingSnapshot = 35,
     TakeMappingSnapshot = 55,
     BrowseGroup = 37,
@@ -710,7 +719,8 @@ pub enum ReaperTargetType {
 
 impl Display for ReaperTargetType {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.write_str(self.definition().name())
+        let def = self.definition();
+        write!(f, "{}: {}", def.section, def.name)
     }
 }
 
@@ -747,25 +757,20 @@ impl ReaperTargetType {
     }
 
     pub fn from_learnable_target_kinds(
-        set: HashSet<LearnableTargetKind>,
-    ) -> HashSet<ReaperTargetType> {
+        set: impl IntoIterator<Item = LearnableTargetKind>,
+    ) -> NonCryptoHashSet<ReaperTargetType> {
         set.into_iter()
             .map(ReaperTargetType::from_learnable_target_kind)
             .collect()
     }
 
-    pub fn all() -> HashSet<ReaperTargetType> {
-        ReaperTargetType::into_enum_iter().collect()
+    pub fn all() -> NonCryptoHashSet<ReaperTargetType> {
+        ReaperTargetType::iter().collect()
     }
 
     pub fn supports_feedback_resolution(self) -> bool {
         use ReaperTargetType::*;
-        match self {
-            #[cfg(feature = "playtime")]
-            ClipSeek => true,
-            Seek => true,
-            _ => false,
-        }
+        matches!(self, PlaytimeSlotSeek | Seek)
     }
 
     pub fn supports_poll_for_feedback(self) -> bool {
@@ -818,20 +823,14 @@ impl ReaperTargetType {
             RoutePan => &ROUTE_PAN_TARGET,
             RouteVolume => &ROUTE_VOLUME_TARGET,
             RouteTouchState => &ROUTE_TOUCH_STATE_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipTransport => &crate::domain::CLIP_TRANSPORT_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipColumn => &crate::domain::CLIP_COLUMN_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipRow => &crate::domain::CLIP_ROW_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipSeek => &crate::domain::CLIP_SEEK_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipVolume => &crate::domain::CLIP_VOLUME_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipManagement => &crate::domain::CLIP_MANAGEMENT_TARGET,
-            #[cfg(feature = "playtime")]
-            ClipMatrix => &crate::domain::CLIP_MATRIX_TARGET,
+            PlaytimeSlotTransportAction => &crate::domain::PLAYTIME_SLOT_TRANSPORT_TARGET,
+            PlaytimeColumnAction => &crate::domain::PLAYTIME_COLUMN_TARGET,
+            PlaytimeRowAction => &crate::domain::PLAYTIME_ROW_TARGET,
+            PlaytimeSlotSeek => &crate::domain::PLAYTIME_SLOT_SEEK_TARGET,
+            PlaytimeSlotVolume => &crate::domain::PLAYTIME_SLOT_VOLUME_TARGET,
+            PlaytimeSlotManagementAction => &crate::domain::PLAYTIME_SLOT_MANAGEMENT_TARGET,
+            PlaytimeMatrixAction => &crate::domain::PLAYTIME_MATRIX_TARGET,
+            PlaytimeControlUnitScroll => &crate::domain::PLAYTIME_CONTROL_UNIT_SCROLL_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,
             Dummy => &DUMMY_TARGET,
@@ -845,6 +844,7 @@ impl ReaperTargetType {
             BrowsePotPresets => &BROWSE_POT_PRESETS_TARGET,
             PreviewPotPreset => &PREVIEW_POT_PRESET_TARGET,
             LoadPotPreset => &LOAD_POT_PRESET_TARGET,
+            CompartmentParameterValue => &COMPARTMENT_PARAMETER_VALUE_TARGET,
         }
     }
 
@@ -920,7 +920,34 @@ impl ReaperTargetType {
     }
 }
 
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Debug, strum::AsRefStr, strum::Display, strum::EnumIter,
+)]
+pub enum TargetSection {
+    Global,
+    Project,
+    #[strum(serialize = "Marker/region")]
+    Bookmark,
+    Track,
+    #[strum(serialize = "FX chain")]
+    FxChain,
+    #[strum(serialize = "FX")]
+    Fx,
+    #[strum(serialize = "FX parameter")]
+    FxParameter,
+    Pot,
+    Send,
+    Playtime,
+    #[strum(serialize = "MIDI")]
+    Midi,
+    #[strum(serialize = "OSC")]
+    Osc,
+    ReaLearn,
+}
+
 pub struct TargetTypeDef {
+    pub lua_only: bool,
+    pub section: TargetSection,
     pub name: &'static str,
     pub short_name: &'static str,
     pub hint: &'static str,
@@ -951,6 +978,9 @@ pub struct TargetTypeDef {
 }
 
 impl TargetTypeDef {
+    pub const fn section(&self) -> TargetSection {
+        self.section
+    }
     pub const fn name(&self) -> &'static str {
         self.name
     }
@@ -1036,6 +1066,8 @@ impl TargetTypeDef {
 }
 
 pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
+    lua_only: false,
+    section: TargetSection::Global,
     name: "",
     short_name: "",
     hint: "",

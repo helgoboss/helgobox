@@ -3,13 +3,12 @@ use crate::application::{
 };
 use crate::base::CloneAsDefault;
 use crate::domain::{
-    BackboneState, Compartment, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
+    Backbone, CompartmentKind, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
     MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
     VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, Interval, MackieLcdScope,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
@@ -26,6 +25,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 use std::time::Duration;
+use strum::EnumIter;
 
 #[allow(clippy::enum_variant_names)]
 pub enum SourceCommand {
@@ -638,7 +638,7 @@ impl SourceModel {
                                     EelMidiSourceScript::compile(&self.midi_script).ok()?,
                                 ),
                                 MidiScriptKind::Lua => {
-                                    let lua = unsafe { BackboneState::main_thread_lua() };
+                                    let lua = unsafe { Backbone::main_thread_lua() };
                                     FlexibleMidiSourceScript::Lua(
                                         LuaMidiSourceScript::compile(lua, &self.midi_script)
                                             .ok()?,
@@ -673,7 +673,7 @@ impl SourceModel {
                 use ReaperSourceType::*;
                 let reaper_source = match self.reaper_source_type {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
-                    RealearnInstanceStart => ReaperSource::RealearnInstanceStart,
+                    RealearnUnitStart => ReaperSource::RealearnInstanceStart,
                     Timer => ReaperSource::Timer(self.create_timer_source()),
                     RealearnParameter => {
                         ReaperSource::RealearnParameter(self.create_realearn_parameter_source())
@@ -754,7 +754,6 @@ impl SourceModel {
             .unwrap_or_default()
     }
 
-    #[cfg(feature = "playtime")]
     pub fn simple_source(&self) -> Option<playtime_api::runtime::SimpleSource> {
         use playtime_api::runtime::*;
         use MidiSourceType::*;
@@ -969,7 +968,7 @@ pub const KEY_UNDEFINED_LABEL: &str = "<Key undefined>";
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -998,18 +997,18 @@ pub enum SourceCategory {
 }
 
 impl SourceCategory {
-    pub fn default_for(compartment: Compartment) -> Self {
+    pub fn default_for(compartment: CompartmentKind) -> Self {
         use SourceCategory::*;
         match compartment {
-            Compartment::Controller => Midi,
-            Compartment::Main => Midi,
+            CompartmentKind::Controller => Midi,
+            CompartmentKind::Main => Midi,
         }
     }
 
-    pub fn is_allowed_in(self, compartment: Compartment) -> bool {
+    pub fn is_allowed_in(self, compartment: CompartmentKind) -> bool {
         use SourceCategory::*;
         match compartment {
-            Compartment::Controller => match self {
+            CompartmentKind::Controller => match self {
                 Never => true,
                 Midi => true,
                 Osc => true,
@@ -1017,7 +1016,7 @@ impl SourceCategory {
                 Keyboard => true,
                 Virtual => false,
             },
-            Compartment::Main => true,
+            CompartmentKind::Main => true,
         }
     }
 }
@@ -1032,7 +1031,7 @@ impl SourceCategory {
     Default,
     Serialize_repr,
     Deserialize_repr,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1170,7 +1169,7 @@ impl MidiSourceType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    strum::EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1222,7 +1221,7 @@ impl VirtualControlElementType {
     Default,
     Serialize,
     Deserialize,
-    IntoEnumIterator,
+    EnumIter,
     TryFromPrimitive,
     IntoPrimitive,
     Display,
@@ -1234,8 +1233,8 @@ pub enum ReaperSourceType {
     #[display(fmt = "MIDI device changes")]
     MidiDeviceChanges,
     #[serde(rename = "realearn-instance-start")]
-    #[display(fmt = "ReaLearn instance start")]
-    RealearnInstanceStart,
+    #[display(fmt = "ReaLearn unit start")]
+    RealearnUnitStart,
     #[serde(rename = "timer")]
     #[display(fmt = "Timer")]
     Timer,
@@ -1252,7 +1251,7 @@ impl ReaperSourceType {
         use ReaperSource::*;
         match source {
             MidiDeviceChanges => Self::MidiDeviceChanges,
-            RealearnInstanceStart => Self::RealearnInstanceStart,
+            RealearnInstanceStart => Self::RealearnUnitStart,
             Timer(_) => Self::Timer,
             RealearnParameter(_) => Self::RealearnParameter,
             Speech(_) => Self::Speech,
@@ -1262,7 +1261,7 @@ impl ReaperSourceType {
     pub fn supports_control(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => true,
+            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => true,
             Speech => false,
         }
     }
@@ -1270,7 +1269,7 @@ impl ReaperSourceType {
     pub fn supports_feedback(self) -> bool {
         use ReaperSourceType::*;
         match self {
-            MidiDeviceChanges | RealearnInstanceStart | Timer | RealearnParameter => false,
+            MidiDeviceChanges | RealearnUnitStart | Timer | RealearnParameter => false,
             Speech => true,
         }
     }

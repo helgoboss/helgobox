@@ -1,10 +1,10 @@
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    get_fx_params, AdditionalFeedbackEvent, BackboneState, Caller, Compartment,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
-    FxParameterDescriptor, HitResponse, MappingControlContext, RealTimeControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    get_fx_params, AdditionalFeedbackEvent, Backbone, Caller, CompartmentKind, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor,
+    HitResponse, MappingControlContext, RealTimeControlContext, RealTimeReaperTarget,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use pot::{MacroParam, MacroParamBank};
@@ -27,7 +27,7 @@ impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        compartment: Compartment,
+        compartment: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let params = get_fx_params(context, &self.fx_parameter_descriptor, compartment)?;
         let targets = params
@@ -73,7 +73,7 @@ impl FxParameterTarget {
         &self,
         f: impl FnOnce(&MacroParamBank, u32, &MacroParam) -> R,
     ) -> Option<R> {
-        let target_state = BackboneState::target_state().borrow();
+        let target_state = Backbone::target_state().borrow();
         let current_preset = target_state.current_fx_preset(self.param.fx())?;
         // Our target doesn't have the concept of a macro param. It's always resolved using an FX
         // parameter ID. So we have to do a reverse lookup here.
@@ -370,7 +370,8 @@ impl<'a> Target<'a> for RealTimeFxParameterTarget {
 }
 
 pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "FX parameter: Set value",
+    section: TargetSection::FxParameter,
+    name: "Set value",
     short_name: "FX parameter value",
     supports_poll_for_feedback: true,
     supports_track: true,

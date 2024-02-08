@@ -118,7 +118,7 @@ impl View for YamlEditorPanel {
         }
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    fn on_destroy(self: SharedView<Self>, _window: Window) {
         self.apply();
     }
 

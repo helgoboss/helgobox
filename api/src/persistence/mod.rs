@@ -1,18 +1,24 @@
 mod compartment;
+mod controller;
 mod glue;
 mod group;
+mod instance;
 mod mapping;
 mod parameter;
+mod preset;
 mod root;
 mod session;
 mod source;
 mod target;
 
 pub use compartment::*;
+pub use controller::*;
 pub use glue::*;
 pub use group::*;
+pub use instance::*;
 pub use mapping::*;
 pub use parameter::*;
+pub use preset::*;
 pub use root::*;
 pub use session::*;
 pub use source::*;
@@ -37,11 +43,15 @@ impl<T> Envelope<T> {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
-    #[cfg(feature = "playtime")]
+    /// A Playtime clip matrix.
     ClipMatrix(Envelope<Box<Option<playtime_api::persistence::FlexibleMatrix>>>),
+    /// Main compartment.
     MainCompartment(Envelope<Box<Compartment>>),
+    /// Controller compartment.
     ControllerCompartment(Envelope<Box<Compartment>>),
+    /// A flat list of mappings.
     Mappings(Envelope<Vec<Mapping>>),
+    /// A single mapping.
     Mapping(Envelope<Box<Mapping>>),
 }
 

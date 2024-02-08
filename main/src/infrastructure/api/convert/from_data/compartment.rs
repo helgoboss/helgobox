@@ -34,7 +34,8 @@ pub fn convert_compartment(
             let v = convert_multiple(data.mappings, |m| convert_mapping(m, style))?;
             style.required_value(v)
         },
-        custom_data: style.required_value(data.custom_data),
+        common_lua: style.required_value(data.common_lua),
+        custom_data: style.required_value(data.custom_data.into_iter().collect()),
         notes: style.required_value(data.notes),
     };
     Ok(compartment)

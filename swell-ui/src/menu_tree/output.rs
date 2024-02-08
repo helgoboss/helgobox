@@ -2,18 +2,22 @@ use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
 pub fn fill_menu<R>(swell_menu: SwellMenu, menu: &Menu<R>) {
+    // Add separator if there are entries already
+    if swell_menu.entry_count().is_ok_and(|count| count > 0) {
+        swell_menu.add_separator();
+    }
+    // Add entries
     for e in &menu.entries {
-        fill_menu_recursive(swell_menu, e);
+        fill_menu_recursively(swell_menu, e);
     }
 }
 
-fn fill_menu_recursive<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
+pub fn fill_menu_recursively<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
     match entry {
         Entry::Menu(m) => {
-            swell_menu.add_item(m.id, m.text.as_str());
-            let sub_menu = swell_menu.turn_into_submenu(m.id);
+            let sub_menu = swell_menu.add_menu(m.text.as_str());
             for e in &m.entries {
-                fill_menu_recursive(sub_menu, e);
+                fill_menu_recursively(sub_menu, e);
             }
         }
         Entry::Item(i) => {

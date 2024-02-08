@@ -1,8 +1,8 @@
 use crate::base::CloneAsDefault;
 use crate::domain::{ControlEventTimestamp, EelTransformation, LuaFeedbackScript};
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput};
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::error::Error;
 
 /// See [`crate::domain::MidiSource`] for an explanation of the feedback script wrapping.
@@ -26,7 +26,7 @@ impl FeedbackScript for FeedbackScriptType {
         self.get_script()?.feedback(input)
     }
 
-    fn used_props(&self) -> Result<HashSet<String>, Box<dyn Error>> {
+    fn used_props(&self) -> Result<NonCryptoHashSet<String>, Box<dyn Error>> {
         self.get_script()?.used_props()
     }
 }

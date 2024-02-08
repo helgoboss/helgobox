@@ -755,11 +755,11 @@ impl From<Adder> for u32 {
     }
 }
 
-// If lower than 8, text will be cut off, especially the part below the baseline.
+// If lower than this, text will be cut off, especially the part below the baseline.
 #[cfg(target_os = "windows")]
 const MIN_EFFECTIVE_TEXT_HEIGHT: u32 = 8;
-// If lower than 15, radio buttons will be cut off.
+// If lower than this, radio buttons will be cut off.
 #[cfg(target_os = "macos")]
-const MIN_EFFECTIVE_TEXT_HEIGHT: u32 = 15;
+const MIN_EFFECTIVE_TEXT_HEIGHT: u32 = 10;
 #[cfg(target_os = "linux")]
 const MIN_EFFECTIVE_TEXT_HEIGHT: u32 = 13;

@@ -5,8 +5,21 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Condition::*;
     use Style::*;
     let mapping_controls = [
-        groupbox("Mapping", ids.id(), context.rect(7, 1, 435, 67)),
-        ltext("Feedback", ids.id(), context.rect(11, 53, 34, 9)) + NOT_WS_GROUP,
+        // groupbox(
+        //     "Mapping",
+        //     ids.named_id("ID_MAPPING_PANEL_LABEL"),
+        //     context.rect(7, 1, 435, 67),
+        // ),
+        ltext(
+            "Mapping",
+            ids.named_id("ID_MAPPING_PANEL_MAPPING_LABEL"),
+            context.rect(7, 1, 435, 9),
+        ),
+        ltext(
+            "Feedback",
+            ids.named_id("ID_MAPPING_PANEL_FEEDBACK_LABEL"),
+            context.rect(11, 53, 34, 9),
+        ) + NOT_WS_GROUP,
         combobox(
             ids.named_id("ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX"),
             context.rect(48, 51, 120, 15),
@@ -31,13 +44,26 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ) + NOT_WS_TABSTOP,
     ];
     let source_controls = [
-        groupbox("Source", ids.id(), context.rect(7, 67, 165, 165)) + WS_GROUP,
+        // groupbox(
+        //     "Source",
+        //     ids.named_id("ID_SOURCE_PANEL_LABEL"),
+        //     context.rect(7, 67, 165, 165),
+        // ) + WS_GROUP,
+        ltext(
+            "Source",
+            ids.named_id("ID_MAPPING_PANEL_SOURCE_LABEL"),
+            context.rect(7, 67, 165, 9),
+        ) + WS_GROUP,
         pushbutton(
             "Learn",
             ids.named_id("ID_SOURCE_LEARN_BUTTON"),
             context.rect(11, 77, 157, 14),
         ),
-        ltext("Category", ids.id(), context.rect(11, 98, 31, 9)) + NOT_WS_GROUP,
+        ltext(
+            "Category",
+            ids.named_id("ID_MAPPING_PANEL_SOURCE_CATEGORY_LABEL"),
+            context.rect(11, 98, 31, 9),
+        ) + NOT_WS_GROUP,
         dropdown(
             ids.named_id("ID_SOURCE_CATEGORY_COMBO_BOX"),
             context.rect(48, 96, 120, 15),
@@ -137,7 +163,16 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ),
     ];
     let target_controls = [
-        groupbox("Target", ids.id(), context.rect(177, 67, 265, 165)),
+        // groupbox(
+        //     "Target",
+        //     ids.named_id("ID_TARGET_PANEL_LABEL"),
+        //     context.rect(177, 67, 265, 165),
+        // ),
+        ltext(
+            "Target",
+            ids.named_id("ID_MAPPING_PANEL_TARGET_LABEL"),
+            context.rect(177, 67, 265, 9),
+        ),
         pushbutton(
             "Learn",
             ids.named_id("ID_TARGET_LEARN_BUTTON"),
@@ -153,16 +188,20 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_TARGET_HINT"),
             context.rect(285, 80, 155, 9),
         ) + WS_TABSTOP,
-        ltext("Type", ids.id(), context.rect(181, 98, 35, 9)) + NOT_WS_GROUP,
+        ltext(
+            "Type",
+            ids.named_id("ID_MAPPING_PANEL_TARGET_TYPE_LABEL"),
+            context.rect(181, 98, 35, 9),
+        ) + NOT_WS_GROUP,
         dropdown(
             ids.named_id("ID_TARGET_CATEGORY_COMBO_BOX"),
             context.rect(220, 96, 58, 15),
         ) + WS_TABSTOP,
-        dropdown(
-            ids.named_id("ID_TARGET_TYPE_COMBO_BOX"),
+        pushbutton(
+            "Target type",
+            ids.named_id("ID_TARGET_TYPE_BUTTON"),
             context.rect(283, 96, 155, 15),
-        ) + WS_VSCROLL
-            + WS_TABSTOP,
+        ),
         ltext(
             "Action name",
             ids.named_id("ID_TARGET_LINE_2_LABEL_2"),
@@ -340,7 +379,16 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         ),
     ];
     let glue_controls = [
-        groupbox("Glue", ids.id(), context.rect(7, 232, 435, 239)),
+        // groupbox(
+        //     "Glue",
+        //     ids.named_id("ID_GLUE_PANEL_LABEL"),
+        //     context.rect(7, 232, 435, 239),
+        // ),
+        ltext(
+            "Glue",
+            ids.named_id("ID_MAPPING_PANEL_GLUE_LABEL"),
+            context.rect(7, 232, 435, 9),
+        ),
         pushbutton(
             "Reset to defaults",
             ids.named_id("ID_SETTINGS_RESET_BUTTON"),
@@ -643,14 +691,6 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             ids.named_id("ID_MAPPING_HELP_SUBJECT_LABEL"),
             context.rect(7, 475, 183, 9),
         ) + NOT_WS_GROUP,
-        static_text(
-            "•",
-            ids.named_id("IDC_MAPPING_MATCHED_INDICATOR_TEXT"),
-            context.rect(223, 475, 8, 8),
-        ) + SS_LEFTNOWORDWRAP
-            + WS_DISABLED
-            + WS_GROUP
-            + WS_TABSTOP,
         ltext(
             "If source is a",
             ids.named_id("ID_MAPPING_HELP_APPLICABLE_TO_LABEL"),
@@ -661,8 +701,22 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(281, 473, 161, 15),
         ) + WS_TABSTOP,
         edittext(
-            ids.named_id("ID_MAPPING_HELP_CONTENT_LABEL"),
-            context.rect(7, 488, 435, 22),
+            ids.named_id("ID_MAPPING_HELP_LEFT_CONTENT_LABEL"),
+            context.rect(7, 488, 210, 22),
+        ) + ES_MULTILINE
+            + ES_READONLY
+            + WS_VSCROLL,
+        static_text(
+            "•",
+            ids.named_id("IDC_MAPPING_MATCHED_INDICATOR_TEXT"),
+            context.rect(220, 495, 8, 8),
+        ) + SS_LEFTNOWORDWRAP
+            + WS_DISABLED
+            + WS_GROUP
+            + WS_TABSTOP,
+        edittext(
+            ids.named_id("ID_MAPPING_HELP_RIGHT_CONTENT_LABEL"),
+            context.rect(7 + 225, 488, 210, 22),
         ) + ES_MULTILINE
             + ES_READONLY
             + WS_VSCROLL,

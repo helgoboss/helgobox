@@ -1,10 +1,10 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value_with_none,
     convert_unit_to_discrete_value_with_none, get_reaper_track_area_of_scope,
-    get_track_by_scoped_index, get_track_name, scoped_track_index, Compartment,
+    get_track_by_scoped_index, get_track_name, scoped_track_index, CompartmentKind,
     CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitResponse,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -25,7 +25,7 @@ impl UnresolvedReaperTargetDef for UnresolvedBrowseTracksTarget {
     fn resolve(
         &self,
         context: ExtendedProcessorContext,
-        _: Compartment,
+        _: CompartmentKind,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::BrowseTracks(BrowseTracksTarget {
             project: context.context().project_or_current_project(),
@@ -244,7 +244,8 @@ enum ScopedTrack {
 }
 
 pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {
-    name: "Project: Browse tracks",
+    section: TargetSection::Project,
+    name: "Browse tracks",
     short_name: "Browse tracks",
     supports_track_scrolling: true,
     ..DEFAULT_TARGET
