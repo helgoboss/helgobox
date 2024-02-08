@@ -44,8 +44,8 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     let global_scope = {
         Scope {
             linux: {
-                let horizontal_scale = 1.8;
-                let vertical_scale = 1.65;
+                let horizontal_scale = 1.0;
+                let vertical_scale = 1.0;
                 OsSpecificSettings {
                     scaling: DialogScaling {
                         x_scale: horizontal_scale,
