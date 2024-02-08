@@ -17,7 +17,7 @@ jobs:
             os: windows-latest
             toolchain-suffix: x86_64-pc-windows-msvc
             lib-file-name: realearn.dll
-            extension-file-name: ""
+            extension-file-name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc
             use-cross: false
             profile: release
@@ -26,7 +26,7 @@ jobs:
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
             lib-file-name: realearn.dll
-            extension-file-name: ""
+            extension-file-name: reaper_helgobox.dll
             target: i686-pc-windows-msvc
             use-cross: false
             profile: release-llvm-out-of-memory-fix
@@ -155,7 +155,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
-      # Upload extension (macOS only for now)
+      # Upload extension (macOS and Windows only for now)
       - name: Upload extension to artifact
         if: matrix.extension-file-name != ''
         uses: actions/upload-artifact@v2
@@ -202,7 +202,8 @@ jobs:
           prerelease: ${{ contains(github.ref, 'pre') }}
       - name: Download artifacts from build job
         uses: actions/download-artifact@v2
-      - name: Upload windows-x86_64 release artifact
+      # Upload Windows x86_64 artifacts
+      - name: Upload windows-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -211,7 +212,17 @@ jobs:
           asset_path: ./windows-x86_64/realearn.dll
           asset_name: realearn-windows-x86_64.dll
           asset_content_type: application/octet-stream
-      - name: Upload windows-i686 release artifact
+      - name: Upload windows-x86_64 release artifact 2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows-x86_64/reaper_helgobox.dll
+          asset_name: reaper_helgobox-windows-x86_64.dll
+          asset_content_type: application/octet-stream
+      # Upload Windows i686 artifacts
+      - name: Upload windows-i686 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -220,6 +231,16 @@ jobs:
           asset_path: ./windows-i686/realearn.dll
           asset_name: realearn-windows-i686.dll
           asset_content_type: application/octet-stream
+      - name: Upload windows-i686 release artifact 2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows-i686/reaper_helgobox.dll
+          asset_name: reaper_helgobox-windows-i686.dll
+          asset_content_type: application/octet-stream
+      # Upload macOS x86_64 artifacts
       - name: Upload macos-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
@@ -238,6 +259,7 @@ jobs:
           asset_path: ./macos-x86_64/libreaper_helgobox.dylib
           asset_name: reaper_helgobox-macos-x86_64.dylib
           asset_content_type: application/octet-stream
+      # Upload macOS aarch64 artifacts
       - name: Upload macos-aarch64 release artifact 1
         uses: actions/upload-release-asset@v1
         env:
@@ -256,6 +278,7 @@ jobs:
           asset_path: ./macos-aarch64/libreaper_helgobox.dylib
           asset_name: reaper_helgobox-macos-aarch64.dylib
           asset_content_type: application/octet-stream
+      # Upload Linux x86_64 artifacts
       - name: Upload linux-x86_64 release artifact
         uses: actions/upload-release-asset@v1
         env:
@@ -265,6 +288,7 @@ jobs:
           asset_path: ./linux-x86_64/librealearn.so
           asset_name: realearn-linux-x86_64.so
           asset_content_type: application/octet-stream
+      # Upload Linux aarch64 artifacts
 #      - name: Upload linux-aarch64 release artifact
 #        uses: actions/upload-release-asset@v1
 #        env:
@@ -274,6 +298,7 @@ jobs:
 #          asset_path: ./linux-aarch64/librealearn.so
 #          asset_name: realearn-linux-aarch64.so
 #          asset_content_type: application/octet-stream
+      # Upload Linux armv7 artifacts
 #      - name: Upload linux-armv7 release artifact
 #        uses: actions/upload-release-asset@v1
 #        env:
