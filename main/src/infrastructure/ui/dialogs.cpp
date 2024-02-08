@@ -11,8 +11,8 @@
 // Make sure the following factors correspond to the ones in `units.rs` (function `effective_scale_factors`).
 // Leave them at 1.0 if possible (we can do OS-specific scaling now right when generating the RC).
 #ifdef __APPLE__
-#define SWELL_DLG_SCALE_AUTOGEN 1.0
-#define SWELL_DLG_SCALE_AUTOGEN_YADJ 1.0
+#define SWELL_DLG_SCALE_AUTOGEN 1.6
+#define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.95
 #else
 #define SWELL_DLG_SCALE_AUTOGEN 1.9
 #define SWELL_DLG_SCALE_AUTOGEN_YADJ 0.92

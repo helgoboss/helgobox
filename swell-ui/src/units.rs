@@ -102,7 +102,7 @@ fn effective_scale_factors() -> ScaleFactors {
     }
     #[cfg(target_os = "macos")]
     {
-        ScaleFactors { main: 1.0, y: 1.0 }
+        ScaleFactors { main: 1.6, y: 0.95 }
     }
     #[cfg(target_os = "windows")]
     {
