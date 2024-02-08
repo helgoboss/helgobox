@@ -1,7 +1,6 @@
 use crate::base::Condition::SkipOnMacOs;
 use crate::base::*;
-use crate::constants::{MAIN_PANEL_WIDTH, MAPPING_ROW_PANEL_HEIGHT, MAPPING_ROW_PANEL_WIDTH};
-use crate::ext::*;
+use crate::constants::{MAPPING_ROW_PANEL_HEIGHT, MAPPING_ROW_PANEL_WIDTH};
 
 pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     use Style::*;

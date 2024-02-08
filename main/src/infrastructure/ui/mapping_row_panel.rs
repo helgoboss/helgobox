@@ -30,7 +30,6 @@ use crate::infrastructure::ui::{
 use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
 use reaper_high::Reaper;
-use reaper_low::Swell;
 use reaper_medium::Hbrush;
 use rxrust::prelude::*;
 use slog::debug;
@@ -53,7 +52,6 @@ pub struct MappingRowPanel {
     source_color_panel: SharedView<ColorPanel>,
     target_color_panel: SharedView<ColorPanel>,
     row_index: u32,
-    is_last_row: bool,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
     // performance issues. That means there's a fixed number of mapping rows and they just
     // display different mappings depending on the current scroll position. If there are less
@@ -71,7 +69,6 @@ impl MappingRowPanel {
         row_index: u32,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
-        is_last_row: bool,
     ) -> MappingRowPanel {
         MappingRowPanel {
             view: Default::default(),
@@ -84,7 +81,6 @@ impl MappingRowPanel {
             party_is_over_subject: Default::default(),
             mapping: None.into(),
             panel_manager,
-            is_last_row,
         }
     }
 
@@ -918,7 +914,7 @@ impl View for MappingRowPanel {
             root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT => colors::source(),
             root::ID_MAPPING_ROW_TARGET_LABEL_TEXT => colors::target(),
             root::ID_MAPPING_ROW_MAPPING_LABEL | root::ID_MAPPING_ROW_GROUP_LABEL => {
-                colors::mapping().intensify(0.2)
+                colors::show_background()
             }
             _ => colors::mapping(),
         };

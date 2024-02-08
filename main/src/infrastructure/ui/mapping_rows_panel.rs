@@ -49,7 +49,6 @@ impl MappingRowsPanel {
                         i,
                         panel_manager.clone(),
                         main_state.clone(),
-                        i == row_count - 1,
                     );
                     SharedView::new(panel)
                 })
