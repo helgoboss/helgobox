@@ -1400,13 +1400,14 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
     {
         // We have a real-time-capable target
         if reaper_target.wants_real_time_control(args.caller, args.is_rendering) {
-            process_real_mapping_in_real_time(
+            if process_real_mapping_in_real_time(
                 &mut mapping.core,
                 &args,
                 pure_control_event,
                 reaper_target,
-            );
-            return;
+            ) {
+                return;
+            }
         }
     }
     // It's either a real-time-capable target that currently doesn't want real-time control or it's not a
@@ -1423,14 +1424,23 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
     );
 }
 
+enum RealTimeControlOutcome {
+    /// Nothing more to do.
+    Done,
+    /// Real
+    StillForwardToMainThread,
+}
+
+/// This returns `false` if real-time contrl was not possible **and** the consumer should
+/// try main-thread control instead (used for example for Playtime's trigger-slot action in order to possibly record
+/// when slot empty).
 fn process_real_mapping_in_real_time(
     mapping_core: &mut MappingCore,
     args: &ProcessRtMappingArgs,
     pure_control_event: ControlEvent<ControlValue>,
     reaper_target: &mut RealTimeReaperTarget,
-) {
+) -> bool {
     // REAPER real-time target actually wants real-time control. Try to process directly here in real-time.
-    mapping_core.increase_invocation_count();
     let control_context = RealTimeControlContext {
         instance: args.instance,
         _p: &(),
@@ -1462,7 +1472,14 @@ fn process_real_mapping_in_real_time(
                     args.rt_feedback_sender,
                     args.value_event.payload(),
                 ),
-                RealTimeReaperTarget::ClipTransport(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::ClipTransport(t) => {
+                    let result = t.hit(control_value, control_context);
+                    if result.is_ok_and(|v| v == false) {
+                        // Important: We must forward to main thread in this case in order to possibly record!
+                        return false;
+                    }
+                    result.map(|_| ())
+                }
                 RealTimeReaperTarget::ClipColumn(t) => t.hit(control_value, control_context),
                 RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
                 RealTimeReaperTarget::ClipMatrix(t) => t.hit(control_value, control_context),
@@ -1478,6 +1495,7 @@ fn process_real_mapping_in_real_time(
             }
         }
     };
+    mapping_core.increase_invocation_count();
     if args.log_options.target_control_logging_enabled {
         let entry = ControlLogEntry {
             kind: log_entry_kind,
@@ -1492,6 +1510,7 @@ fn process_real_mapping_in_real_time(
                 entry,
             });
     }
+    true
 }
 
 // TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.

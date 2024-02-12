@@ -456,11 +456,13 @@ mod playtime_impl {
     }
 
     impl RealTimeSlotTransportTarget {
+        /// This returns `Ok(false)` if real-time trigger was not possible **and** the consumer should
+        /// try main-thread control instead (used for trigger action in order to possibly record when slot empty).
         pub fn hit(
             &mut self,
             value: ControlValue,
             context: RealTimeControlContext,
-        ) -> Result<(), &'static str> {
+        ) -> Result<bool, &'static str> {
             use PlaytimeSlotTransportAction::*;
             let on = value.is_on();
             let matrix = context.clip_matrix()?;
@@ -469,37 +471,39 @@ mod playtime_impl {
                 Trigger => matrix.trigger_slot(self.basics.slot_coordinates, on),
                 PlayStop => {
                     if on {
-                        matrix.play_slot(self.basics.slot_coordinates, self.basics.play_options())
+                        matrix
+                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
                     } else {
                         matrix.stop_slot(
                             self.basics.slot_coordinates,
                             self.basics.options.play_stop_timing,
-                        )
+                        )?;
                     }
+                    Ok(true)
                 }
                 PlayPause => {
                     if on {
-                        matrix.play_slot(self.basics.slot_coordinates, self.basics.play_options())
+                        matrix
+                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
                     } else {
-                        matrix.pause_slot(self.basics.slot_coordinates)
+                        matrix.pause_slot(self.basics.slot_coordinates)?;
                     }
+                    Ok(true)
                 }
                 Stop => {
                     if on {
                         matrix.stop_slot(
                             self.basics.slot_coordinates,
                             self.basics.options.play_stop_timing,
-                        )
-                    } else {
-                        Ok(())
+                        )?;
                     }
+                    Ok(true)
                 }
                 Pause => {
                     if on {
-                        matrix.pause_slot(self.basics.slot_coordinates)
-                    } else {
-                        Ok(())
+                        matrix.pause_slot(self.basics.slot_coordinates)?;
                     }
+                    Ok(true)
                 }
                 RecordStop | RecordPlayStop => Err("record not supported for real-time target"),
                 Looped => Err("setting looped not supported for real-time target"),
@@ -515,14 +519,6 @@ mod playtime_impl {
             let matrix = context.clip_matrix().ok()?;
             let matrix = matrix.lock();
             let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
-            // Performance hint: This *will* sometimes be blocking IF we have live FX multiprocessing
-            // turned on in REAPER. That's because then multiple threads will prepare stuff for the
-            // main audio callback. According to Justin this is not a big deal though (given that we
-            // lock only very shortly), so we allow blocking here. The only other alternative would be
-            // to not acquire the value at this point and design the real-time clip transport target
-            // in a way that the glue section doesn't need to know the current target value, leaving
-            // the glue section powerless and making things such as "Toggle button" not work. This
-            // would hurt the usual ReaLearn experience.
             let column = column.blocking_lock();
             let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
             let Some(first_clip) = slot.first_clip() else {
