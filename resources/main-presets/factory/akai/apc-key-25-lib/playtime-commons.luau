@@ -587,31 +587,26 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         name("Column stop mode")
             + group(groups.column_modes)
             + shift
-            + short_press
             + button("row1/play")
             + set_column_mode(column_modes.stop),
         name("Column solo mode")
             + group(groups.column_modes)
             + shift
-            + short_press
             + button("row2/play")
             + set_column_mode(column_modes.solo),
         name("Column arm mode")
             + group(groups.column_modes)
             + shift
-            + short_press
             + button(config.arm_track_button_id)
             + set_column_mode(column_modes.record_arm),
         name("Column mute mode")
             + group(groups.column_modes)
             + shift
-            + short_press
             + button(config.mute_track_button_id)
             + set_column_mode(column_modes.mute),
         name("Column select mode")
             + group(groups.column_modes)
             + shift
-            + short_press
             + button("row5/play")
             + set_column_mode(column_modes.select),
         name("Record 1 bar")
