@@ -1608,5 +1608,9 @@ return realearn.Compartment {
     common_lua = common_lua,
     custom_data = {
         companion = companion_data,
+        grid = {
+            column_count = 8,
+            row_count = 5,
+        },
     },
 }

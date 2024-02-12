@@ -1640,5 +1640,9 @@ return realearn.Compartment {
     mappings = mappings,
     custom_data = {
         companion = companion_data,
+        grid = {
+            column_count = 8,
+            row_count = 5,
+        },
     },
 }

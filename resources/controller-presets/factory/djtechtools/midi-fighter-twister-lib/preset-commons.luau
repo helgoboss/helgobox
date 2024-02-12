@@ -62,9 +62,9 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
     }
 
     -- Grid
-    local col_count = 4
+    local column_count = 4
     local row_count = 4
-    for col = 0, col_count - 1 do
+    for col = 0, column_count - 1 do
         for row = 0, row_count - 1 do
             local cc_number = row * row_count + col
             table.insert(mappings, pad(col, row, cc_number))
@@ -561,11 +561,16 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
 
     -- Result
     return realearn.Compartment {
-        kind = "ControllerCompartment",
-        value = {
-            mappings = mappings,
-            custom_data = {
-                companion = companion_data,
+        mappings = mappings,
+        custom_data = {
+            companion = companion_data,
+            numbered = {
+                multi_count = column_count * row_count,
+                button_count = column_count * row_count,
+            },
+            grid = {
+                column_count = column_count,
+                row_count = row_count,
             },
         },
     }

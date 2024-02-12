@@ -129,4 +129,10 @@ end
 return realearn.Compartment {
     common_lua = common_lua,
     mappings = mappings,
+    custom_data = {
+        grid = {
+            column_count = 8,
+            row_count = 8,
+        },
+    }
 }
