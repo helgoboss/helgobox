@@ -1,5 +1,8 @@
 --- name: APC Key 25 mk2
 --- author: helgoboss
+--- description: |
+---     This controller preset exposes all control elements of the APC Key 25 mk2 in a neutral way. It supports
+---     ReaLearn color feedback as well as Playtime slot status feedback.
 --- device_manufacturer: Akai
 --- device_name: APC Key 25 mk2
 --- midi_identity_pattern: F0 7E ? 06 02 47 4E 00 19 05 * F7
@@ -9,7 +12,7 @@
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
 --- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
 --- realearn_version: 2.16.0-pre.8
---- provided_schemes: [akai/apc-key-25-mk2]
+--- provided_schemes: [akai/apc-key-25-mk2, grid]
 
 --!strict
 
