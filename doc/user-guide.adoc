@@ -1409,7 +1409,7 @@ the order of execution matters.
 
 - That means changing a ReaLearn parameter in one mapping and relying on it in the next
  one (in terms of conditional activation or in a `&lt;Dynamic&gt;` expression), will not work!
-- You can work around that by delaying execution of the next mapping via <<for-buttons-control-only,fire mode>> but
+- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but
  that's a dirty hack. ReaLearn's parameters are not supposed to be used that way!
 - Imagine a railway: ReaLearn's targets can be considered as trains. Triggering a target means moving the train forward.
  ReaLearn's parameters can be considered as railway switches. Changing a parameter means setting a course.
