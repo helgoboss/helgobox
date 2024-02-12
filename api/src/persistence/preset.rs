@@ -12,13 +12,6 @@ use std::collections::HashSet;
 pub struct CommonPresetMetaData {
     /// Display name of the preset.
     pub name: String,
-    /// Author of the preset.
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub author: Option<String>,
     /// The ReaLearn version for which this preset was built.
     ///
     /// This can effect the way the preset is loaded, e.g. it can lead to different interpretation
@@ -33,6 +26,27 @@ pub struct CommonPresetMetaData {
     )]
     #[serde(alias = "version")]
     pub realearn_version: Option<Version>,
+    /// Author of the preset.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub author: Option<String>,
+    /// Preset description (prose).
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub description: Option<String>,
+    /// Preset setup instructions (prose).
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub setup_instructions: Option<String>,
 }
 
 /// Meta data that is specific to controller presets.
@@ -89,9 +103,6 @@ pub struct MainPresetMetaData {
     /// Will be used for finding the correct controller preset when calculating auto units.
     #[serde(default)]
     pub used_schemes: HashSet<VirtualControlSchemeId>,
-    // TODO-high-ms5 I don't think we need that.
-    #[serde(default)]
-    pub provided_roles: HashSet<String>,
     /// A set of features that a Helgobox instance needs to provide for the preset to make sense.
     ///
     /// See [instance_features].

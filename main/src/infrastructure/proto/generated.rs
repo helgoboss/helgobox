@@ -911,10 +911,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalGlobalUpdate {
-    #[prost(
-        oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7"
-    )]
+    #[prost(oneof = "occasional_global_update::Update", tags = "1, 2, 3, 4, 5, 6, 7")]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
 /// Nested message and enum types in `OccasionalGlobalUpdate`.
@@ -1321,9 +1318,15 @@ impl TriggerMatrixAction {
                 "TRIGGER_MATRIX_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
             }
             TriggerMatrixAction::StopAllClips => "TRIGGER_MATRIX_ACTION_STOP_ALL_CLIPS",
-            TriggerMatrixAction::ArrangementPlay => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY",
-            TriggerMatrixAction::ArrangementStop => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP",
-            TriggerMatrixAction::ArrangementPause => "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE",
+            TriggerMatrixAction::ArrangementPlay => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY"
+            }
+            TriggerMatrixAction::ArrangementStop => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP"
+            }
+            TriggerMatrixAction::ArrangementPause => {
+                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE"
+            }
             TriggerMatrixAction::ArrangementStartRecording => {
                 "TRIGGER_MATRIX_ACTION_ARRANGEMENT_START_RECORDING"
             }
@@ -1337,13 +1340,19 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::ToggleMute => "TRIGGER_MATRIX_ACTION_TOGGLE_MUTE",
             TriggerMatrixAction::CreateMatrix => "TRIGGER_MATRIX_ACTION_CREATE_MATRIX",
             TriggerMatrixAction::ShowMasterFx => "TRIGGER_MATRIX_ACTION_SHOW_MASTER_FX",
-            TriggerMatrixAction::ShowMasterRouting => "TRIGGER_MATRIX_ACTION_SHOW_MASTER_ROUTING",
+            TriggerMatrixAction::ShowMasterRouting => {
+                "TRIGGER_MATRIX_ACTION_SHOW_MASTER_ROUTING"
+            }
             TriggerMatrixAction::TapTempo => "TRIGGER_MATRIX_ACTION_TAP_TEMPO",
-            TriggerMatrixAction::ToggleSilenceMode => "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE",
+            TriggerMatrixAction::ToggleSilenceMode => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE"
+            }
             TriggerMatrixAction::PlayAllIgnitedClips => {
                 "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS"
             }
-            TriggerMatrixAction::SequencerRecord => "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD",
+            TriggerMatrixAction::SequencerRecord => {
+                "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD"
+            }
             TriggerMatrixAction::SequencerPlay => "TRIGGER_MATRIX_ACTION_SEQUENCER_PLAY",
             TriggerMatrixAction::SequencerStop => "TRIGGER_MATRIX_ACTION_SEQUENCER_STOP",
             TriggerMatrixAction::SequencerWriteToArrangement => {
@@ -1358,7 +1367,9 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::RemoveSimpleMapping => {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING"
             }
-            TriggerMatrixAction::TriggerSmartRecord => "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD",
+            TriggerMatrixAction::TriggerSmartRecord => {
+                "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1387,7 +1398,9 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_SHOW_MASTER_ROUTING" => Some(Self::ShowMasterRouting),
             "TRIGGER_MATRIX_ACTION_TAP_TEMPO" => Some(Self::TapTempo),
             "TRIGGER_MATRIX_ACTION_TOGGLE_SILENCE_MODE" => Some(Self::ToggleSilenceMode),
-            "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS" => Some(Self::PlayAllIgnitedClips),
+            "TRIGGER_MATRIX_ACTION_PLAY_ALL_IGNITED_CLIPS" => {
+                Some(Self::PlayAllIgnitedClips)
+            }
             "TRIGGER_MATRIX_ACTION_SEQUENCER_RECORD" => Some(Self::SequencerRecord),
             "TRIGGER_MATRIX_ACTION_SEQUENCER_PLAY" => Some(Self::SequencerPlay),
             "TRIGGER_MATRIX_ACTION_SEQUENCER_STOP" => Some(Self::SequencerStop),
@@ -1400,8 +1413,12 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING" => {
                 Some(Self::ToggleLearnSimpleMapping)
             }
-            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING" => Some(Self::RemoveSimpleMapping),
-            "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => Some(Self::TriggerSmartRecord),
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING" => {
+                Some(Self::RemoveSimpleMapping)
+            }
+            "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => {
+                Some(Self::TriggerSmartRecord)
+            }
             _ => None,
         }
     }
@@ -1483,7 +1500,9 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING" => {
                 Some(Self::ToggleLearnSimpleMapping)
             }
-            "TRIGGER_COLUMN_ACTION_REMOVE_SIMPLE_MAPPING" => Some(Self::RemoveSimpleMapping),
+            "TRIGGER_COLUMN_ACTION_REMOVE_SIMPLE_MAPPING" => {
+                Some(Self::RemoveSimpleMapping)
+            }
             _ => None,
         }
     }
@@ -1522,7 +1541,9 @@ impl TriggerRowAction {
             TriggerRowAction::ToggleLearnSimpleMapping => {
                 "TRIGGER_ROW_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING"
             }
-            TriggerRowAction::RemoveSimpleMapping => "TRIGGER_ROW_ACTION_REMOVE_SIMPLE_MAPPING",
+            TriggerRowAction::RemoveSimpleMapping => {
+                "TRIGGER_ROW_ACTION_REMOVE_SIMPLE_MAPPING"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1630,13 +1651,19 @@ impl TriggerSlotAction {
             TriggerSlotAction::Copy => "TRIGGER_SLOT_ACTION_COPY",
             TriggerSlotAction::Cut => "TRIGGER_SLOT_ACTION_CUT",
             TriggerSlotAction::Paste => "TRIGGER_SLOT_ACTION_PASTE",
-            TriggerSlotAction::ImportSelectedItems => "TRIGGER_SLOT_ACTION_IMPORT_SELECTED_ITEMS",
+            TriggerSlotAction::ImportSelectedItems => {
+                "TRIGGER_SLOT_ACTION_IMPORT_SELECTED_ITEMS"
+            }
             TriggerSlotAction::Panic => "TRIGGER_SLOT_ACTION_PANIC",
-            TriggerSlotAction::CreateEmptyMidiClip => "TRIGGER_SLOT_ACTION_CREATE_EMPTY_MIDI_CLIP",
+            TriggerSlotAction::CreateEmptyMidiClip => {
+                "TRIGGER_SLOT_ACTION_CREATE_EMPTY_MIDI_CLIP"
+            }
             TriggerSlotAction::ToggleLearnSimpleMapping => {
                 "TRIGGER_SLOT_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING"
             }
-            TriggerSlotAction::RemoveSimpleMapping => "TRIGGER_SLOT_ACTION_REMOVE_SIMPLE_MAPPING",
+            TriggerSlotAction::RemoveSimpleMapping => {
+                "TRIGGER_SLOT_ACTION_REMOVE_SIMPLE_MAPPING"
+            }
             TriggerSlotAction::TriggerOn => "TRIGGER_SLOT_ACTION_TRIGGER_ON",
             TriggerSlotAction::TriggerOff => "TRIGGER_SLOT_ACTION_TRIGGER_OFF",
             TriggerSlotAction::Activate => "TRIGGER_SLOT_ACTION_ACTIVATE",
@@ -1652,13 +1679,19 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_COPY" => Some(Self::Copy),
             "TRIGGER_SLOT_ACTION_CUT" => Some(Self::Cut),
             "TRIGGER_SLOT_ACTION_PASTE" => Some(Self::Paste),
-            "TRIGGER_SLOT_ACTION_IMPORT_SELECTED_ITEMS" => Some(Self::ImportSelectedItems),
+            "TRIGGER_SLOT_ACTION_IMPORT_SELECTED_ITEMS" => {
+                Some(Self::ImportSelectedItems)
+            }
             "TRIGGER_SLOT_ACTION_PANIC" => Some(Self::Panic),
-            "TRIGGER_SLOT_ACTION_CREATE_EMPTY_MIDI_CLIP" => Some(Self::CreateEmptyMidiClip),
+            "TRIGGER_SLOT_ACTION_CREATE_EMPTY_MIDI_CLIP" => {
+                Some(Self::CreateEmptyMidiClip)
+            }
             "TRIGGER_SLOT_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING" => {
                 Some(Self::ToggleLearnSimpleMapping)
             }
-            "TRIGGER_SLOT_ACTION_REMOVE_SIMPLE_MAPPING" => Some(Self::RemoveSimpleMapping),
+            "TRIGGER_SLOT_ACTION_REMOVE_SIMPLE_MAPPING" => {
+                Some(Self::RemoveSimpleMapping)
+            }
             "TRIGGER_SLOT_ACTION_TRIGGER_ON" => Some(Self::TriggerOn),
             "TRIGGER_SLOT_ACTION_TRIGGER_OFF" => Some(Self::TriggerOff),
             "TRIGGER_SLOT_ACTION_ACTIVATE" => Some(Self::Activate),
@@ -1689,10 +1722,14 @@ impl TriggerClipAction {
             TriggerClipAction::Edit => "TRIGGER_CLIP_ACTION_EDIT",
             TriggerClipAction::Remove => "TRIGGER_CLIP_ACTION_REMOVE",
             TriggerClipAction::Promote => "TRIGGER_CLIP_ACTION_PROMOTE",
-            TriggerClipAction::OpenInMediaExplorer => "TRIGGER_CLIP_ACTION_OPEN_IN_MEDIA_EXPLORER",
+            TriggerClipAction::OpenInMediaExplorer => {
+                "TRIGGER_CLIP_ACTION_OPEN_IN_MEDIA_EXPLORER"
+            }
             TriggerClipAction::Quantize => "TRIGGER_CLIP_ACTION_QUANTIZE",
             TriggerClipAction::Unquantize => "TRIGGER_CLIP_ACTION_UNQUANTIZE",
-            TriggerClipAction::ExportToClipboard => "TRIGGER_CLIP_ACTION_EXPORT_TO_CLIPBOARD",
+            TriggerClipAction::ExportToClipboard => {
+                "TRIGGER_CLIP_ACTION_EXPORT_TO_CLIPBOARD"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1702,7 +1739,9 @@ impl TriggerClipAction {
             "TRIGGER_CLIP_ACTION_EDIT" => Some(Self::Edit),
             "TRIGGER_CLIP_ACTION_REMOVE" => Some(Self::Remove),
             "TRIGGER_CLIP_ACTION_PROMOTE" => Some(Self::Promote),
-            "TRIGGER_CLIP_ACTION_OPEN_IN_MEDIA_EXPLORER" => Some(Self::OpenInMediaExplorer),
+            "TRIGGER_CLIP_ACTION_OPEN_IN_MEDIA_EXPLORER" => {
+                Some(Self::OpenInMediaExplorer)
+            }
             "TRIGGER_CLIP_ACTION_QUANTIZE" => Some(Self::Quantize),
             "TRIGGER_CLIP_ACTION_UNQUANTIZE" => Some(Self::Unquantize),
             "TRIGGER_CLIP_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
@@ -1841,10 +1880,14 @@ impl SlotPlayState {
             SlotPlayState::Unknown => "SLOT_PLAY_STATE_UNKNOWN",
             SlotPlayState::Stopped => "SLOT_PLAY_STATE_STOPPED",
             SlotPlayState::Ignited => "SLOT_PLAY_STATE_IGNITED",
-            SlotPlayState::ScheduledForPlayStart => "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START",
+            SlotPlayState::ScheduledForPlayStart => {
+                "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START"
+            }
             SlotPlayState::Playing => "SLOT_PLAY_STATE_PLAYING",
             SlotPlayState::Paused => "SLOT_PLAY_STATE_PAUSED",
-            SlotPlayState::ScheduledForPlayStop => "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP",
+            SlotPlayState::ScheduledForPlayStop => {
+                "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP"
+            }
             SlotPlayState::ScheduledForRecordingStart => {
                 "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_START"
             }
@@ -1860,7 +1903,9 @@ impl SlotPlayState {
             "SLOT_PLAY_STATE_UNKNOWN" => Some(Self::Unknown),
             "SLOT_PLAY_STATE_STOPPED" => Some(Self::Stopped),
             "SLOT_PLAY_STATE_IGNITED" => Some(Self::Ignited),
-            "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START" => Some(Self::ScheduledForPlayStart),
+            "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_START" => {
+                Some(Self::ScheduledForPlayStart)
+            }
             "SLOT_PLAY_STATE_PLAYING" => Some(Self::Playing),
             "SLOT_PLAY_STATE_PAUSED" => Some(Self::Paused),
             "SLOT_PLAY_STATE_SCHEDULED_FOR_PLAY_STOP" => Some(Self::ScheduledForPlayStop),
@@ -1868,7 +1913,9 @@ impl SlotPlayState {
                 Some(Self::ScheduledForRecordingStart)
             }
             "SLOT_PLAY_STATE_RECORDING" => Some(Self::Recording),
-            "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_STOP" => Some(Self::ScheduledForRecordingStop),
+            "SLOT_PLAY_STATE_SCHEDULED_FOR_RECORDING_STOP" => {
+                Some(Self::ScheduledForRecordingStop)
+            }
             _ => None,
         }
     }
@@ -1888,7 +1935,9 @@ impl MidiDeviceStatus {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             MidiDeviceStatus::Disconnected => "MIDI_DEVICE_STATUS_DISCONNECTED",
-            MidiDeviceStatus::ConnectedButDisabled => "MIDI_DEVICE_STATUS_CONNECTED_BUT_DISABLED",
+            MidiDeviceStatus::ConnectedButDisabled => {
+                "MIDI_DEVICE_STATUS_CONNECTED_BUT_DISABLED"
+            }
             MidiDeviceStatus::Connected => "MIDI_DEVICE_STATUS_CONNECTED",
         }
     }
@@ -1896,7 +1945,9 @@ impl MidiDeviceStatus {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "MIDI_DEVICE_STATUS_DISCONNECTED" => Some(Self::Disconnected),
-            "MIDI_DEVICE_STATUS_CONNECTED_BUT_DISABLED" => Some(Self::ConnectedButDisabled),
+            "MIDI_DEVICE_STATUS_CONNECTED_BUT_DISABLED" => {
+                Some(Self::ConnectedButDisabled)
+            }
             "MIDI_DEVICE_STATUS_CONNECTED" => Some(Self::Connected),
             _ => None,
         }
@@ -1922,9 +1973,13 @@ impl ArrangementPlayState {
             ArrangementPlayState::Unknown => "ARRANGEMENT_PLAY_STATE_UNKNOWN",
             ArrangementPlayState::Stopped => "ARRANGEMENT_PLAY_STATE_STOPPED",
             ArrangementPlayState::Playing => "ARRANGEMENT_PLAY_STATE_PLAYING",
-            ArrangementPlayState::PlayingPaused => "ARRANGEMENT_PLAY_STATE_PLAYING_PAUSED",
+            ArrangementPlayState::PlayingPaused => {
+                "ARRANGEMENT_PLAY_STATE_PLAYING_PAUSED"
+            }
             ArrangementPlayState::Recording => "ARRANGEMENT_PLAY_STATE_RECORDING",
-            ArrangementPlayState::RecordingPaused => "ARRANGEMENT_PLAY_STATE_RECORDING_PAUSED",
+            ArrangementPlayState::RecordingPaused => {
+                "ARRANGEMENT_PLAY_STATE_RECORDING_PAUSED"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1983,25 +2038,40 @@ pub mod helgobox_service_server {
         async fn get_host_info(
             &self,
             request: tonic::Request<super::GetHostInfoRequest>,
-        ) -> std::result::Result<tonic::Response<super::GetHostInfoReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetHostInfoReply>,
+            tonic::Status,
+        >;
         async fn prove_authenticity(
             &self,
             request: tonic::Request<super::ProveAuthenticityRequest>,
-        ) -> std::result::Result<tonic::Response<super::ProveAuthenticityReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::ProveAuthenticityReply>,
+            tonic::Status,
+        >;
         /// Matrix queries
         async fn get_project_dir(
             &self,
             request: tonic::Request<super::GetProjectDirRequest>,
-        ) -> std::result::Result<tonic::Response<super::GetProjectDirReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetProjectDirReply>,
+            tonic::Status,
+        >;
         async fn get_arrangement_info(
             &self,
             request: tonic::Request<super::GetArrangementInfoRequest>,
-        ) -> std::result::Result<tonic::Response<super::GetArrangementInfoReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetArrangementInfoReply>,
+            tonic::Status,
+        >;
         /// Clip queries
         async fn get_clip_detail(
             &self,
             request: tonic::Request<super::GetClipDetailRequest>,
-        ) -> std::result::Result<tonic::Response<super::GetClipDetailReply>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<super::GetClipDetailReply>,
+            tonic::Status,
+        >;
         /// Global commands
         async fn save_controller(
             &self,
@@ -2141,8 +2211,12 @@ pub mod helgobox_service_server {
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Server streaming response type for the GetOccasionalGlobalUpdates method.
         type GetOccasionalGlobalUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalGlobalUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalGlobalUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// ===================== Events =====================
         /// Global events
@@ -2155,8 +2229,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetOccasionalInstanceUpdates method.
         type GetOccasionalInstanceUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalInstanceUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalInstanceUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Instance events
         async fn get_occasional_instance_updates(
@@ -2168,8 +2246,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetOccasionalMatrixUpdates method.
         type GetOccasionalMatrixUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalMatrixUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalMatrixUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Matrix events
         async fn get_occasional_matrix_updates(
@@ -2181,8 +2263,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetContinuousMatrixUpdates method.
         type GetContinuousMatrixUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetContinuousMatrixUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetContinuousMatrixUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         async fn get_continuous_matrix_updates(
             &self,
@@ -2193,8 +2279,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetOccasionalColumnUpdates method.
         type GetOccasionalColumnUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalColumnUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalColumnUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Column events
         async fn get_occasional_column_updates(
@@ -2206,8 +2296,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetContinuousColumnUpdates method.
         type GetContinuousColumnUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetContinuousColumnUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetContinuousColumnUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         async fn get_continuous_column_updates(
             &self,
@@ -2218,8 +2312,12 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetOccasionalTrackUpdates method.
         type GetOccasionalTrackUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalTrackUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalTrackUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Track events
         async fn get_occasional_track_updates(
@@ -2231,43 +2329,71 @@ pub mod helgobox_service_server {
         >;
         /// Server streaming response type for the GetOccasionalRowUpdates method.
         type GetOccasionalRowUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalRowUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalRowUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Row events
         async fn get_occasional_row_updates(
             &self,
             request: tonic::Request<super::GetOccasionalRowUpdatesRequest>,
-        ) -> std::result::Result<tonic::Response<Self::GetOccasionalRowUpdatesStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::GetOccasionalRowUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalSlotUpdates method.
         type GetOccasionalSlotUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalSlotUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalSlotUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Slot events
         async fn get_occasional_slot_updates(
             &self,
             request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
-        ) -> std::result::Result<tonic::Response<Self::GetOccasionalSlotUpdatesStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::GetOccasionalSlotUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetContinuousSlotUpdates method.
         type GetContinuousSlotUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetContinuousSlotUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetContinuousSlotUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         async fn get_continuous_slot_updates(
             &self,
             request: tonic::Request<super::GetContinuousSlotUpdatesRequest>,
-        ) -> std::result::Result<tonic::Response<Self::GetContinuousSlotUpdatesStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::GetContinuousSlotUpdatesStream>,
+            tonic::Status,
+        >;
         /// Server streaming response type for the GetOccasionalClipUpdates method.
         type GetOccasionalClipUpdatesStream: tonic::codegen::tokio_stream::Stream<
-                Item = std::result::Result<super::GetOccasionalClipUpdatesReply, tonic::Status>,
-            > + Send
+                Item = std::result::Result<
+                    super::GetOccasionalClipUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
             + 'static;
         /// Clip events
         async fn get_occasional_clip_updates(
             &self,
             request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
-        ) -> std::result::Result<tonic::Response<Self::GetOccasionalClipUpdatesStream>, tonic::Status>;
+        ) -> std::result::Result<
+            tonic::Response<Self::GetOccasionalClipUpdatesStream>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct HelgoboxServiceServer<T: HelgoboxService> {
@@ -2292,7 +2418,10 @@ pub mod helgobox_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -2348,11 +2477,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetHostInfo" => {
                     #[allow(non_camel_case_types)]
                     struct GetHostInfoSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::GetHostInfoRequest>
-                        for GetHostInfoSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetHostInfoRequest>
+                    for GetHostInfoSvc<T> {
                         type Response = super::GetHostInfoReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetHostInfoRequest>,
@@ -2390,19 +2523,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/ProveAuthenticity" => {
                     #[allow(non_camel_case_types)]
                     struct ProveAuthenticitySvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::ProveAuthenticityRequest>
-                        for ProveAuthenticitySvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::ProveAuthenticityRequest>
+                    for ProveAuthenticitySvc<T> {
                         type Response = super::ProveAuthenticityReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ProveAuthenticityRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::prove_authenticity(&inner, request).await
+                                <T as HelgoboxService>::prove_authenticity(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2433,19 +2570,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetProjectDir" => {
                     #[allow(non_camel_case_types)]
                     struct GetProjectDirSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::GetProjectDirRequest>
-                        for GetProjectDirSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetProjectDirRequest>
+                    for GetProjectDirSvc<T> {
                         type Response = super::GetProjectDirReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetProjectDirRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_project_dir(&inner, request).await
+                                <T as HelgoboxService>::get_project_dir(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2476,19 +2617,26 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetArrangementInfo" => {
                     #[allow(non_camel_case_types)]
                     struct GetArrangementInfoSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::GetArrangementInfoRequest>
-                        for GetArrangementInfoSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetArrangementInfoRequest>
+                    for GetArrangementInfoSvc<T> {
                         type Response = super::GetArrangementInfoReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetArrangementInfoRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_arrangement_info(&inner, request).await
+                                <T as HelgoboxService>::get_arrangement_info(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2519,19 +2667,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetClipDetail" => {
                     #[allow(non_camel_case_types)]
                     struct GetClipDetailSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::GetClipDetailRequest>
-                        for GetClipDetailSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetClipDetailRequest>
+                    for GetClipDetailSvc<T> {
                         type Response = super::GetClipDetailReply;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetClipDetailRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_clip_detail(&inner, request).await
+                                <T as HelgoboxService>::get_clip_detail(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2562,19 +2714,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SaveController" => {
                     #[allow(non_camel_case_types)]
                     struct SaveControllerSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SaveControllerRequest>
-                        for SaveControllerSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SaveControllerRequest>
+                    for SaveControllerSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SaveControllerRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::save_controller(&inner, request).await
+                                <T as HelgoboxService>::save_controller(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2605,19 +2761,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/DeleteController" => {
                     #[allow(non_camel_case_types)]
                     struct DeleteControllerSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::DeleteControllerRequest>
-                        for DeleteControllerSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::DeleteControllerRequest>
+                    for DeleteControllerSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DeleteControllerRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::delete_controller(&inner, request).await
+                                <T as HelgoboxService>::delete_controller(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2648,19 +2808,26 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetInstanceSettings" => {
                     #[allow(non_camel_case_types)]
                     struct SetInstanceSettingsSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetInstanceSettingsRequest>
-                        for SetInstanceSettingsSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetInstanceSettingsRequest>
+                    for SetInstanceSettingsSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetInstanceSettingsRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_instance_settings(&inner, request).await
+                                <T as HelgoboxService>::set_instance_settings(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2691,19 +2858,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerMatrix" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerMatrixSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::TriggerMatrixRequest>
-                        for TriggerMatrixSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerMatrixRequest>
+                    for TriggerMatrixSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerMatrixRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::trigger_matrix(&inner, request).await
+                                <T as HelgoboxService>::trigger_matrix(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2734,19 +2905,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetMatrixSettings" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixSettingsSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetMatrixSettingsRequest>
-                        for SetMatrixSettingsSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetMatrixSettingsRequest>
+                    for SetMatrixSettingsSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixSettingsRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_matrix_settings(&inner, request).await
+                                <T as HelgoboxService>::set_matrix_settings(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2777,19 +2952,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetMatrixTempo" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTempoSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetMatrixTempoRequest>
-                        for SetMatrixTempoSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetMatrixTempoRequest>
+                    for SetMatrixTempoSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixTempoRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_matrix_tempo(&inner, request).await
+                                <T as HelgoboxService>::set_matrix_tempo(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2820,19 +2999,25 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetMatrixTimeSignature" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixTimeSignatureSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetMatrixTimeSignatureRequest>
-                        for SetMatrixTimeSignatureSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetMatrixTimeSignatureRequest>
+                    for SetMatrixTimeSignatureSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixTimeSignatureRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_matrix_time_signature(&inner, request)
+                                <T as HelgoboxService>::set_matrix_time_signature(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -2864,19 +3049,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetMatrixVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixVolumeSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetMatrixVolumeRequest>
-                        for SetMatrixVolumeSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetMatrixVolumeRequest>
+                    for SetMatrixVolumeSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixVolumeRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_matrix_volume(&inner, request).await
+                                <T as HelgoboxService>::set_matrix_volume(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2907,18 +3096,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetMatrixPan" => {
                     #[allow(non_camel_case_types)]
                     struct SetMatrixPanSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetMatrixPanRequest>
-                        for SetMatrixPanSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetMatrixPanRequest>
+                    for SetMatrixPanSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetMatrixPanRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_matrix_pan(&inner, request).await
+                                <T as HelgoboxService>::set_matrix_pan(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2949,19 +3143,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerColumn" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerColumnSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::TriggerColumnRequest>
-                        for TriggerColumnSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerColumnRequest>
+                    for TriggerColumnSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerColumnRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::trigger_column(&inner, request).await
+                                <T as HelgoboxService>::trigger_column(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -2992,19 +3190,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetColumnSettings" => {
                     #[allow(non_camel_case_types)]
                     struct SetColumnSettingsSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetColumnSettingsRequest>
-                        for SetColumnSettingsSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetColumnSettingsRequest>
+                    for SetColumnSettingsSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetColumnSettingsRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_column_settings(&inner, request).await
+                                <T as HelgoboxService>::set_column_settings(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3035,19 +3237,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetColumnTrack" => {
                     #[allow(non_camel_case_types)]
                     struct SetColumnTrackSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetColumnTrackRequest>
-                        for SetColumnTrackSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetColumnTrackRequest>
+                    for SetColumnTrackSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetColumnTrackRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_column_track(&inner, request).await
+                                <T as HelgoboxService>::set_column_track(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3078,11 +3284,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/DragColumn" => {
                     #[allow(non_camel_case_types)]
                     struct DragColumnSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::DragColumnRequest>
-                        for DragColumnSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::DragColumnRequest>
+                    for DragColumnSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DragColumnRequest>,
@@ -3120,11 +3330,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerTrack" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerTrackSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::TriggerTrackRequest>
-                        for TriggerTrackSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerTrackRequest>
+                    for TriggerTrackSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerTrackRequest>,
@@ -3162,18 +3376,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackName" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackNameSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetTrackNameRequest>
-                        for SetTrackNameSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackNameRequest>
+                    for SetTrackNameSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetTrackNameRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_track_name(&inner, request).await
+                                <T as HelgoboxService>::set_track_name(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3204,19 +3423,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackColor" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackColorSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetTrackColorRequest>
-                        for SetTrackColorSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackColorRequest>
+                    for SetTrackColorSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetTrackColorRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_track_color(&inner, request).await
+                                <T as HelgoboxService>::set_track_color(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3247,19 +3470,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackInput" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackInputSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetTrackInputRequest>
-                        for SetTrackInputSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackInputRequest>
+                    for SetTrackInputSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetTrackInputRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_track_input(&inner, request).await
+                                <T as HelgoboxService>::set_track_input(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3290,19 +3517,27 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackInputMonitoring" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackInputMonitoringSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetTrackInputMonitoringRequest>
-                        for SetTrackInputMonitoringSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackInputMonitoringRequest>
+                    for SetTrackInputMonitoringSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::SetTrackInputMonitoringRequest>,
+                            request: tonic::Request<
+                                super::SetTrackInputMonitoringRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_track_input_monitoring(&inner, request)
+                                <T as HelgoboxService>::set_track_input_monitoring(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -3334,19 +3569,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackVolume" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackVolumeSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetTrackVolumeRequest>
-                        for SetTrackVolumeSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackVolumeRequest>
+                    for SetTrackVolumeSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetTrackVolumeRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_track_volume(&inner, request).await
+                                <T as HelgoboxService>::set_track_volume(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3377,11 +3616,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetTrackPan" => {
                     #[allow(non_camel_case_types)]
                     struct SetTrackPanSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetTrackPanRequest>
-                        for SetTrackPanSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetTrackPanRequest>
+                    for SetTrackPanSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetTrackPanRequest>,
@@ -3419,11 +3662,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerRow" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerRowSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::TriggerRowRequest>
-                        for TriggerRowSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerRowRequest>
+                    for TriggerRowSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerRowRequest>,
@@ -3461,11 +3708,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetRowData" => {
                     #[allow(non_camel_case_types)]
                     struct SetRowDataSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetRowDataRequest>
-                        for SetRowDataSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetRowDataRequest>
+                    for SetRowDataSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetRowDataRequest>,
@@ -3503,9 +3754,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/DragRow" => {
                     #[allow(non_camel_case_types)]
                     struct DragRowSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::DragRowRequest> for DragRowSvc<T> {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::DragRowRequest>
+                    for DragRowSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DragRowRequest>,
@@ -3543,11 +3800,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerSlot" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSlotSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::TriggerSlotRequest>
-                        for TriggerSlotSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerSlotRequest>
+                    for TriggerSlotSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerSlotRequest>,
@@ -3585,9 +3846,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/DragSlot" => {
                     #[allow(non_camel_case_types)]
                     struct DragSlotSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::DragSlotRequest> for DragSlotSvc<T> {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::DragSlotRequest>
+                    for DragSlotSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DragSlotRequest>,
@@ -3625,11 +3892,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/ImportFiles" => {
                     #[allow(non_camel_case_types)]
                     struct ImportFilesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::ImportFilesRequest>
-                        for ImportFilesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::ImportFilesRequest>
+                    for ImportFilesSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ImportFilesRequest>,
@@ -3667,11 +3938,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerClip" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerClipSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::TriggerClipRequest>
-                        for TriggerClipSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerClipRequest>
+                    for TriggerClipSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerClipRequest>,
@@ -3709,11 +3984,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetClipName" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipNameSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetClipNameRequest>
-                        for SetClipNameSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetClipNameRequest>
+                    for SetClipNameSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetClipNameRequest>,
@@ -3751,11 +4030,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetClipData" => {
                     #[allow(non_camel_case_types)]
                     struct SetClipDataSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::SetClipDataRequest>
-                        for SetClipDataSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetClipDataRequest>
+                    for SetClipDataSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetClipDataRequest>,
@@ -3793,9 +4076,15 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/DragClip" => {
                     #[allow(non_camel_case_types)]
                     struct DragClipSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService> tonic::server::UnaryService<super::DragClipRequest> for DragClipSvc<T> {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::DragClipRequest>
+                    for DragClipSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::DragClipRequest>,
@@ -3833,19 +4122,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/TriggerSequence" => {
                     #[allow(non_camel_case_types)]
                     struct TriggerSequenceSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::TriggerSequenceRequest>
-                        for TriggerSequenceSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerSequenceRequest>
+                    for TriggerSequenceSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::TriggerSequenceRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::trigger_sequence(&inner, request).await
+                                <T as HelgoboxService>::trigger_sequence(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3876,19 +4169,23 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/SetSequenceInfo" => {
                     #[allow(non_camel_case_types)]
                     struct SetSequenceInfoSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::UnaryService<super::SetSequenceInfoRequest>
-                        for SetSequenceInfoSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetSequenceInfoRequest>
+                    for SetSequenceInfoSvc<T> {
                         type Response = super::Empty;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::SetSequenceInfoRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::set_sequence_info(&inner, request).await
+                                <T as HelgoboxService>::set_sequence_info(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3919,25 +4216,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalGlobalUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalGlobalUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalGlobalUpdatesRequest,
-                        > for GetOccasionalGlobalUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalGlobalUpdatesRequest,
+                    > for GetOccasionalGlobalUpdatesSvc<T> {
                         type Response = super::GetOccasionalGlobalUpdatesReply;
                         type ResponseStream = T::GetOccasionalGlobalUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalGlobalUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalGlobalUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_occasional_global_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -3967,26 +4269,33 @@ pub mod helgobox_service_server {
                 }
                 "/generated.HelgoboxService/GetOccasionalInstanceUpdates" => {
                     #[allow(non_camel_case_types)]
-                    struct GetOccasionalInstanceUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalInstanceUpdatesRequest,
-                        > for GetOccasionalInstanceUpdatesSvc<T>
-                    {
+                    struct GetOccasionalInstanceUpdatesSvc<T: HelgoboxService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalInstanceUpdatesRequest,
+                    > for GetOccasionalInstanceUpdatesSvc<T> {
                         type Response = super::GetOccasionalInstanceUpdatesReply;
                         type ResponseStream = T::GetOccasionalInstanceUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalInstanceUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalInstanceUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_occasional_instance_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4017,25 +4326,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalMatrixUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalMatrixUpdatesRequest,
-                        > for GetOccasionalMatrixUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalMatrixUpdatesRequest,
+                    > for GetOccasionalMatrixUpdatesSvc<T> {
                         type Response = super::GetOccasionalMatrixUpdatesReply;
                         type ResponseStream = T::GetOccasionalMatrixUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalMatrixUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_occasional_matrix_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4066,25 +4380,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetContinuousMatrixUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousMatrixUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousMatrixUpdatesRequest,
-                        > for GetContinuousMatrixUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousMatrixUpdatesRequest,
+                    > for GetContinuousMatrixUpdatesSvc<T> {
                         type Response = super::GetContinuousMatrixUpdatesReply;
                         type ResponseStream = T::GetContinuousMatrixUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousMatrixUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousMatrixUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_continuous_matrix_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4115,25 +4434,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalColumnUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalColumnUpdatesRequest,
-                        > for GetOccasionalColumnUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalColumnUpdatesRequest,
+                    > for GetOccasionalColumnUpdatesSvc<T> {
                         type Response = super::GetOccasionalColumnUpdatesReply;
                         type ResponseStream = T::GetOccasionalColumnUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalColumnUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalColumnUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_occasional_column_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4164,25 +4488,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetContinuousColumnUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousColumnUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousColumnUpdatesRequest,
-                        > for GetContinuousColumnUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousColumnUpdatesRequest,
+                    > for GetContinuousColumnUpdatesSvc<T> {
                         type Response = super::GetContinuousColumnUpdatesReply;
                         type ResponseStream = T::GetContinuousColumnUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousColumnUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousColumnUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_continuous_column_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4213,25 +4542,30 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalTrackUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalTrackUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalTrackUpdatesRequest,
-                        > for GetOccasionalTrackUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalTrackUpdatesRequest,
+                    > for GetOccasionalTrackUpdatesSvc<T> {
                         type Response = super::GetOccasionalTrackUpdatesReply;
                         type ResponseStream = T::GetOccasionalTrackUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalTrackUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalTrackUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
                                 <T as HelgoboxService>::get_occasional_track_updates(
-                                    &inner, request,
-                                )
-                                .await
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -4262,21 +4596,29 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalRowUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalRowUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<super::GetOccasionalRowUpdatesRequest>
-                        for GetOccasionalRowUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalRowUpdatesRequest,
+                    > for GetOccasionalRowUpdatesSvc<T> {
                         type Response = super::GetOccasionalRowUpdatesReply;
                         type ResponseStream = T::GetOccasionalRowUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalRowUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalRowUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_occasional_row_updates(&inner, request)
+                                <T as HelgoboxService>::get_occasional_row_updates(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -4308,22 +4650,29 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalSlotUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalSlotUpdatesRequest,
-                        > for GetOccasionalSlotUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalSlotUpdatesRequest,
+                    > for GetOccasionalSlotUpdatesSvc<T> {
                         type Response = super::GetOccasionalSlotUpdatesReply;
                         type ResponseStream = T::GetOccasionalSlotUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalSlotUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_occasional_slot_updates(&inner, request)
+                                <T as HelgoboxService>::get_occasional_slot_updates(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -4355,22 +4704,29 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetContinuousSlotUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetContinuousSlotUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetContinuousSlotUpdatesRequest,
-                        > for GetContinuousSlotUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetContinuousSlotUpdatesRequest,
+                    > for GetContinuousSlotUpdatesSvc<T> {
                         type Response = super::GetContinuousSlotUpdatesReply;
                         type ResponseStream = T::GetContinuousSlotUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetContinuousSlotUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetContinuousSlotUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_continuous_slot_updates(&inner, request)
+                                <T as HelgoboxService>::get_continuous_slot_updates(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -4402,22 +4758,29 @@ pub mod helgobox_service_server {
                 "/generated.HelgoboxService/GetOccasionalClipUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalClipUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
-                    impl<T: HelgoboxService>
-                        tonic::server::ServerStreamingService<
-                            super::GetOccasionalClipUpdatesRequest,
-                        > for GetOccasionalClipUpdatesSvc<T>
-                    {
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalClipUpdatesRequest,
+                    > for GetOccasionalClipUpdatesSvc<T> {
                         type Response = super::GetOccasionalClipUpdatesReply;
                         type ResponseStream = T::GetOccasionalClipUpdatesStream;
-                        type Future =
-                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
+                            request: tonic::Request<
+                                super::GetOccasionalClipUpdatesRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as HelgoboxService>::get_occasional_clip_updates(&inner, request)
+                                <T as HelgoboxService>::get_occasional_clip_updates(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -4446,14 +4809,18 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }

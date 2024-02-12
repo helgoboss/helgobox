@@ -1,6 +1,13 @@
 --- name: Launchpad Pro - Playtime
---- author: helgoboss
 --- realearn_version: 2.16.0-pre.8
+--- author: helgoboss
+--- description: |
+---     This main preset turns the Launchpad Pro into a capable device for controlling Playtime.
+---     
+---     The following features are not yet supported: Note, Device, User, Volume, Pan, Sends, Record,
+---     Record Quantise.
+--- setup_instructions: |
+---     At the moment, you need to put the device manually into Live mode by pressing Setup + the top-left pad.
 --- used_schemes: [novation/launchpad-pro/live]
 --- required_features: [playtime]
 

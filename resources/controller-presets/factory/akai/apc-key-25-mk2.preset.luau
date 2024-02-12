@@ -1,4 +1,5 @@
 --- name: APC Key 25 mk2
+--- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
 --- description: |
 ---     This controller preset exposes all control elements of the APC Key 25 mk2 in a neutral way. It supports
@@ -11,7 +12,6 @@
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
 --- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
---- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [akai/apc-key-25-mk2, grid]
 
 --!strict

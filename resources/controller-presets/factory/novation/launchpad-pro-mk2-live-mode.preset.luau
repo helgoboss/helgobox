@@ -1,4 +1,5 @@
 --- name: Launchpad Pro mk2 - Live mode
+--- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
 --- description: |
 ---     This controller preset exposes all control elements of the Launchpad Pro mk2 in a neutral way. It supports
@@ -7,7 +8,6 @@
 --- device_name: Launchpad Pro mk2
 --- midi_identity_pattern: F0 7E ? 06 02 00 20 29 51 00 00 00 * F7
 --- midi_output_port_patterns: ["*Live*", "Launchpad Pro"]
---- realearn_version: 2.16.0-pre.8
 --- provided_schemes: [novation/launchpad-pro/live, grid]
 
 --!strict
