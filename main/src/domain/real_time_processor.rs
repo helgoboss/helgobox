@@ -1,9 +1,9 @@
 use crate::domain::{
     classify_midi_message, BasicSettings, CompartmentKind, CompoundMappingSource, ControlEvent,
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
-    ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingId,
-    MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification, MidiScanResult,
-    MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
+    ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingCore,
+    MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
+    MidiScanResult, MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
     OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
     QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
     RealTimeReaperTarget, SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue,
@@ -924,23 +924,23 @@ impl RealTimeProcessor {
             if let CompoundMappingSource::Midi(s) = &m.source() {
                 let midi_event = source_value_event.payload();
                 if let Some(control_value) = s.control(midi_event.payload()) {
-                    process_real_mapping(
-                        m,
-                        &self.control_main_task_sender,
-                        &self.feedback_task_sender,
+                    let args = ProcessRtMappingArgs {
+                        main_task_sender: &self.control_main_task_sender,
+                        rt_feedback_sender: &self.feedback_task_sender,
                         compartment,
-                        source_value_event
+                        value_event: source_value_event
                             .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
-                        ControlOptions {
+                        options: ControlOptions {
                             enforce_target_refresh: match_outcome.matched(),
                             ..Default::default()
                         },
                         caller,
-                        self.settings.midi_destination(),
-                        LogOptions::from_basic_settings(&self.settings),
-                        &self.instance,
+                        midi_feedback_output: self.settings.midi_destination(),
+                        log_options: LogOptions::from_basic_settings(&self.settings),
+                        instance: &self.instance,
                         is_rendering,
-                    );
+                    };
+                    process_real_mapping(m, args);
                     // It can't be consumed because we checked this before for all mappings.
                     match_outcome = MatchOutcome::Matched;
                 }
@@ -1348,16 +1348,15 @@ fn control_controller_mappings_midi(
                     virtual_match_outcome
                 }
                 ProcessDirect(control_value) => {
-                    process_real_mapping(
-                        m,
+                    let args = ProcessRtMappingArgs {
                         main_task_sender,
                         rt_feedback_sender,
-                        CompartmentKind::Controller,
-                        value_event.with_payload(MidiEvent::new(
+                        compartment: CompartmentKind::Controller,
+                        value_event: value_event.with_payload(MidiEvent::new(
                             value_event.payload().offset(),
                             control_value,
                         )),
-                        ControlOptions {
+                        options: ControlOptions {
                             enforce_target_refresh,
                             ..Default::default()
                         },
@@ -1366,7 +1365,8 @@ fn control_controller_mappings_midi(
                         log_options,
                         instance,
                         is_rendering,
-                    );
+                    };
+                    process_real_mapping(m, args);
                     // We do this only for transactions of *real* target matches.
                     enforce_target_refresh = true;
                     MatchOutcome::Matched
@@ -1378,110 +1378,119 @@ fn control_controller_mappings_midi(
     match_outcome
 }
 
-#[allow(clippy::too_many_arguments)]
-fn process_real_mapping(
-    mapping: &mut RealTimeMapping,
-    main_task_sender: &SenderToNormalThread<ControlMainTask>,
-    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
+struct ProcessRtMappingArgs<'a> {
+    main_task_sender: &'a SenderToNormalThread<ControlMainTask>,
+    rt_feedback_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     compartment: CompartmentKind,
     value_event: ControlEvent<MidiEvent<ControlValue>>,
     options: ControlOptions,
-    caller: Caller,
+    caller: Caller<'a>,
     midi_feedback_output: Option<MidiDestination>,
     log_options: LogOptions,
-    instance: &WeakRealTimeInstance,
+    instance: &'a WeakRealTimeInstance,
     is_rendering: bool,
-) {
-    let pure_control_event = flatten_control_midi_event(value_event);
-    let mapping_id = mapping.id();
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArgs) {
+    let pure_control_event = flatten_control_midi_event(args.value_event);
+    // At first check if this target is capable of real-time control (= not taking a detour into the main thread).
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
-        if reaper_target.wants_real_time_control(caller, is_rendering) {
-            // Try to process directly here in real-time.
-            mapping.core.increase_invocation_count();
-            let control_context = RealTimeControlContext { instance, _p: &() };
-            let mode_control_result = mapping.core.mode.control_with_options(
+        // We have a real-time-capable target
+        if reaper_target.wants_real_time_control(args.caller, args.is_rendering) {
+            process_real_mapping_in_real_time(
+                &mut mapping.core,
+                &args,
                 pure_control_event,
                 reaper_target,
-                control_context,
-                options.mode_control_options,
-                // Performance control not supported when controlling real-time
-                None,
             );
-            let (log_entry_kind, control_value, error) = match mode_control_result {
-                None => (ControlLogEntryKind::IgnoredByGlue, None, ""),
-                Some(ModeControlResult::LeaveTargetUntouched(v)) => {
-                    (ControlLogEntryKind::LeftTargetUntouched, Some(v), "")
-                }
-                Some(ModeControlResult::HitTarget {
-                    value: control_value,
-                }) => {
-                    let hit_result = match reaper_target {
-                        RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
-                            t,
-                            caller,
-                            control_value,
-                            midi_feedback_output,
-                            log_options,
-                            main_task_sender,
-                            rt_feedback_sender,
-                            value_event.payload(),
-                        ),
-                        RealTimeReaperTarget::ClipTransport(t) => {
-                            t.hit(control_value, control_context)
-                        }
-                        RealTimeReaperTarget::ClipColumn(t) => {
-                            t.hit(control_value, control_context)
-                        }
-                        RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
-                        RealTimeReaperTarget::ClipMatrix(t) => {
-                            t.hit(control_value, control_context)
-                        }
-                        RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
-                    };
-                    match hit_result {
-                        Ok(_) => (
-                            ControlLogEntryKind::HitSuccessfully,
-                            Some(control_value),
-                            "",
-                        ),
-                        Err(e) => (ControlLogEntryKind::HitFailed, Some(control_value), e),
-                    }
-                }
-            };
-            if log_options.target_control_logging_enabled {
-                let entry = ControlLogEntry {
-                    kind: log_entry_kind,
-                    control_value,
-                    target_index: 0,
-                    invocation_count: mapping.core.invocation_count(),
-                    error,
-                };
-                main_task_sender.send_complaining(ControlMainTask::LogTargetControl {
-                    mapping_id: QualifiedMappingId::new(compartment, mapping_id),
-                    entry,
-                });
-            }
-        } else {
-            // Forward to main processor.
-            forward_control_to_main_processor(
-                main_task_sender,
-                compartment,
-                mapping.id(),
-                pure_control_event,
-                options,
-            );
+            return;
         }
-    } else if !is_rendering {
-        // Forward to main processor.
-        forward_control_to_main_processor(
-            main_task_sender,
-            compartment,
-            mapping.id(),
-            pure_control_event,
-            options,
-        );
+    }
+    // It's either a real-time-capable target that currently doesn't want real-time control or it's not a
+    // real-time target. Forward to main processor if not rendering.
+    if args.is_rendering {
+        return;
+    }
+    forward_control_to_main_processor(
+        args.main_task_sender,
+        args.compartment,
+        mapping.id(),
+        pure_control_event,
+        args.options,
+    );
+}
+
+fn process_real_mapping_in_real_time(
+    mapping_core: &mut MappingCore,
+    args: &ProcessRtMappingArgs,
+    pure_control_event: ControlEvent<ControlValue>,
+    reaper_target: &mut RealTimeReaperTarget,
+) {
+    // REAPER real-time target actually wants real-time control. Try to process directly here in real-time.
+    mapping_core.increase_invocation_count();
+    let control_context = RealTimeControlContext {
+        instance: args.instance,
+        _p: &(),
+    };
+    let mode_control_result = mapping_core.mode.control_with_options(
+        pure_control_event,
+        reaper_target,
+        control_context,
+        args.options.mode_control_options,
+        // Performance control not supported when controlling real-time
+        None,
+    );
+    let (log_entry_kind, control_value, error) = match mode_control_result {
+        None => (ControlLogEntryKind::IgnoredByGlue, None, ""),
+        Some(ModeControlResult::LeaveTargetUntouched(v)) => {
+            (ControlLogEntryKind::LeftTargetUntouched, Some(v), "")
+        }
+        Some(ModeControlResult::HitTarget {
+            value: control_value,
+        }) => {
+            let hit_result = match reaper_target {
+                RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
+                    t,
+                    args.caller,
+                    control_value,
+                    args.midi_feedback_output,
+                    args.log_options,
+                    args.main_task_sender,
+                    args.rt_feedback_sender,
+                    args.value_event.payload(),
+                ),
+                RealTimeReaperTarget::ClipTransport(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::ClipColumn(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::ClipMatrix(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
+            };
+            match hit_result {
+                Ok(_) => (
+                    ControlLogEntryKind::HitSuccessfully,
+                    Some(control_value),
+                    "",
+                ),
+                Err(e) => (ControlLogEntryKind::HitFailed, Some(control_value), e),
+            }
+        }
+    };
+    if args.log_options.target_control_logging_enabled {
+        let entry = ControlLogEntry {
+            kind: log_entry_kind,
+            control_value,
+            target_index: 0,
+            invocation_count: mapping_core.invocation_count(),
+            error,
+        };
+        args.main_task_sender
+            .send_complaining(ControlMainTask::LogTargetControl {
+                mapping_id: QualifiedMappingId::new(args.compartment, mapping_core.id),
+                entry,
+            });
     }
 }
 
@@ -1602,13 +1611,13 @@ fn control_main_mappings_virtual(
         if let CompoundMappingSource::Virtual(s) = &m.source() {
             let midi_event = value_event.payload();
             if let Some(control_value) = s.control(&midi_event.payload()) {
-                process_real_mapping(
-                    m,
+                let args = ProcessRtMappingArgs {
                     main_task_sender,
                     rt_feedback_sender,
-                    CompartmentKind::Main,
-                    value_event.with_payload(MidiEvent::new(midi_event.offset(), control_value)),
-                    ControlOptions {
+                    compartment: CompartmentKind::Main,
+                    value_event: value_event
+                        .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
+                    options: ControlOptions {
                         enforce_target_refresh: match_outcome.matched(),
                         ..options
                     },
@@ -1617,7 +1626,8 @@ fn control_main_mappings_virtual(
                     log_options,
                     instance,
                     is_rendering,
-                );
+                };
+                process_real_mapping(m, args);
                 // If we find an associated main mapping, this is not just consumed, it's matched.
                 match_outcome = MatchOutcome::Matched;
             }

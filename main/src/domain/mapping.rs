@@ -1510,7 +1510,7 @@ pub enum PartialControlMatch {
 #[derive(Clone, Debug)]
 pub struct MappingCore {
     compartment: CompartmentKind,
-    id: MappingId,
+    pub id: MappingId,
     group_id: GroupId,
     pub source: CompoundMappingSource,
     pub mode: Mode,
