@@ -667,7 +667,18 @@ pub fn parse_lua_frontmatter<T: for<'a> Deserialize<'a>>(lua_code: &str) -> anyh
     const PREFIX: &str = "--- ";
     let frontmatter = lua_code
         .lines()
-        .map_while(|line| line.strip_prefix(PREFIX))
+        .map_while(|line| {
+            if let Some(yaml_line) = line.strip_prefix(PREFIX) {
+                // Valid non-empty YAML frontmatter line
+                Some(yaml_line)
+            } else if line.starts_with("---") {
+                // Valid empty SYAML frontmatter line
+                Some("")
+            } else {
+                // End of frontmatter
+                None
+            }
+        })
         .join("\n");
     if frontmatter.is_empty() {
         bail!("Lua presets need at least a \"{PREFIX} name: ...\" line at the very top!");
