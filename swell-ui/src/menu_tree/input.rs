@@ -83,10 +83,10 @@ pub struct Item<R> {
     pub opts: ItemOpts,
 }
 
-/// Unlabeled root menu.
+/// Unlabeled menu.
 ///
-/// This is useful for popup menus.
-pub fn root_menu<R>(entries: Vec<Entry<R>>) -> Menu<R> {
+/// This is useful for aggregating a set of entries that can then be added in one go.
+pub fn anonymous_menu<R>(entries: Vec<Entry<R>>) -> Menu<R> {
     Menu {
         id: 0,
         text: "".to_owned(),

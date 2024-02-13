@@ -1758,7 +1758,7 @@ impl<'a> MutableMappingPanel<'a> {
                     item(target_label.to_string(), MenuAction::SetTarget(Box::new(t)))
                 })
                 .collect();
-            root_menu(vec![
+            anonymous_menu(vec![
                 menu(
                     "Pick recently touched target (by type)",
                     recently_touched_items,
@@ -7666,7 +7666,7 @@ fn prompt_for_predefined_control_element_name(
                 }),
             ),
         ];
-        root_menu(entries)
+        anonymous_menu(entries)
     };
     window.open_popup_menu(pure_menu, Window::cursor_pos())
 }
@@ -7754,7 +7754,7 @@ fn show_feedback_popup_menu(
             create_color_target_menu(ColorTarget::Color),
             create_color_target_menu(ColorTarget::BackgroundColor),
         ];
-        root_menu(entries)
+        anonymous_menu(entries)
     };
     let item = window
         .open_popup_menu(pure_menu, Window::cursor_pos())
@@ -7903,7 +7903,7 @@ fn open_send_midi_menu(window: Window) -> Option<SendMidiMenuAction> {
                 "Note",
             ),
         ];
-        root_menu(entries)
+        anonymous_menu(entries)
     };
     window.open_popup_menu(pure_menu, Window::cursor_pos())
 }

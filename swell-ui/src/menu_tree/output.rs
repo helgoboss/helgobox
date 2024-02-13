@@ -1,18 +1,22 @@
 use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
-pub fn fill_menu<R>(swell_menu: SwellMenu, menu: &Menu<R>) {
+/// Adds all entries within the given pure menu to the given SWELL menu, ignoring the label of the pure menu.
+///
+/// Also adds a separator first if the SWELL menu already contains entries.
+pub fn add_all_entries_of_menu<R>(swell_menu: SwellMenu, root_menu: &Menu<R>) {
     // Add separator if there are entries already
     if swell_menu.entry_count().is_ok_and(|count| count > 0) {
         swell_menu.add_separator();
     }
     // Add entries
-    for e in &menu.entries {
+    for e in &root_menu.entries {
         fill_menu_recursively(swell_menu, e);
     }
 }
 
-pub fn fill_menu_recursively<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
+/// Adds the given menu entry and potential sub entries to the given SWELL menu.
+fn fill_menu_recursively<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
     match entry {
         Entry::Menu(m) => {
             let sub_menu = swell_menu.add_menu(m.text.as_str());

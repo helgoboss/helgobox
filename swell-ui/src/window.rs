@@ -687,7 +687,7 @@ impl Window {
     ) -> Option<T> {
         let menu_bar = MenuBar::new_popup_menu();
         pure_menu.index(1);
-        menu_tree::fill_menu(menu_bar.menu(), &pure_menu);
+        menu_tree::add_all_entries_of_menu(menu_bar.menu(), &pure_menu);
         let result_index = self.open_popup_menu_internal(menu_bar.menu(), location)?;
         let res = pure_menu
             .find_item_by_id(result_index)

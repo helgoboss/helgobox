@@ -17,7 +17,7 @@ use reaper_medium::ReaperString;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{
-    item, item_with_opts, menu, root_menu, separator, Entry, ItemOpts, Menu,
+    anonymous_menu, item, item_with_opts, menu, separator, Entry, ItemOpts, Menu,
 };
 
 pub enum ControlInputMenuAction {
@@ -84,7 +84,7 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
         },
         ControlInputMenuAction::SelectControlInput(ControlInput::Keyboard),
     )));
-    root_menu(entries.collect())
+    anonymous_menu(entries.collect())
 }
 
 pub enum FeedbackOutputMenuAction {
@@ -154,7 +154,7 @@ pub fn feedback_output_menu(
         osc_device_management_menu_entries(FeedbackOutputMenuAction::ManageOsc),
     )))
     .chain(iter::once(separator()));
-    root_menu(entries.collect())
+    anonymous_menu(entries.collect())
 }
 
 pub const CONTROL_INPUT_MIDI_FX_INPUT_LABEL: &str = "MIDI: <FX input>";
@@ -254,7 +254,11 @@ fn get_midi_device_list_label(name: ReaperString, raw_id: u8, status: MidiDevice
     )
 }
 
-pub fn extension_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
+pub fn extension_menu() -> Menu<&'static str> {
+    anonymous_menu(vec![menu("Helgobox", helgbox_menu_entries().collect())])
+}
+
+fn helgbox_menu_entries() -> impl Iterator<Item = Entry<&'static str>> {
     ActionSection::iter()
         .filter(|section| *section != ActionSection::General)
         .filter_map(|section| section.build_menu())
@@ -287,7 +291,7 @@ pub fn reaper_target_type_menu(current_value: ReaperTargetType) -> Menu<ReaperTa
             });
         menu(section.to_string(), sub_entries.collect())
     });
-    root_menu(entries.collect())
+    anonymous_menu(entries.collect())
 }
 
 pub fn virtual_control_element_type_menu(
@@ -303,7 +307,7 @@ pub fn virtual_control_element_type_menu(
             t,
         )
     });
-    root_menu(entries.collect())
+    anonymous_menu(entries.collect())
 }
 
 pub fn menu_containing_realearn_params(
@@ -313,7 +317,7 @@ pub fn menu_containing_realearn_params(
 ) -> Menu<CompartmentParamIndex> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
-    root_menu(
+    anonymous_menu(
         compartment_param_index_iter()
             .map(|i| {
                 let param_name = get_optional_param_name(&session, compartment, Some(i));
@@ -337,7 +341,7 @@ pub fn menu_containing_realearn_params_optional(
 ) -> Menu<Option<CompartmentParamIndex>> {
     let session = session.upgrade().expect("session gone");
     let session = session.borrow();
-    root_menu(
+    anonymous_menu(
         iter::once(item_with_opts(
             NONE,
             ItemOpts {
@@ -404,7 +408,7 @@ pub fn menu_containing_mappings(
                 .collect(),
         )
     });
-    root_menu(iter::once(none_item).chain(group_items).collect())
+    anonymous_menu(iter::once(none_item).chain(group_items).collect())
 }
 
 pub fn menu_containing_sessions(
@@ -472,7 +476,7 @@ pub fn menu_containing_sessions(
         });
         iter::once(this_item).chain(instance_items).collect()
     });
-    root_menu(items)
+    anonymous_menu(items)
 }
 
 pub fn menu_containing_banks(
@@ -502,7 +506,7 @@ pub fn menu_containing_banks(
             .map(|i| bank_item(i.to_string(), i, current_value))
             .collect()
     };
-    root_menu(menu_items)
+    anonymous_menu(menu_items)
 }
 
 pub fn get_optional_param_name(
@@ -558,7 +562,7 @@ pub fn menu_containing_compartment_presets(
 ) -> Menu<Option<String>> {
     let preset_manager = BackboneShell::get().compartment_preset_manager(compartment);
     let preset_manager = preset_manager.borrow();
-    root_menu(
+    anonymous_menu(
         iter::once(item_with_opts(
             NONE,
             ItemOpts {

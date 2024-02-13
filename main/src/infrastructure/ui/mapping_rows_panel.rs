@@ -560,7 +560,7 @@ impl MappingRowsPanel {
                     disabled_item("Paste")
                 }
             }];
-            root_menu(entries)
+            anonymous_menu(entries)
         };
         let menu_action = self
             .view

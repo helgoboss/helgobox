@@ -776,7 +776,7 @@ impl MappingRowPanel {
                     ],
                 ),
             ];
-            root_menu(entries)
+            anonymous_menu(entries)
         };
         let result = self
             .view

@@ -244,7 +244,7 @@ impl HeaderPanel {
     fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
         let menu = {
             use swell_ui::menu_tree::*;
-            root_menu(vec![
+            anonymous_menu(vec![
                 item(
                     "Multis (faders, knobs, encoders, ...)",
                     VirtualControlElementType::Multi,
@@ -694,7 +694,7 @@ impl HeaderPanel {
                     ),
                 ),
             ];
-            root_menu(entries)
+            anonymous_menu(entries)
         };
         let result = self
             .view
@@ -847,7 +847,7 @@ impl HeaderPanel {
                 item("Website", HelpMenuAction::OpenWebsite),
                 item("Donate", HelpMenuAction::Donate),
             ];
-            root_menu(entries)
+            anonymous_menu(entries)
         };
         let result = self
             .view
@@ -2047,7 +2047,7 @@ impl HeaderPanel {
                     )),
                 ),
             ];
-            root_menu(entries)
+            anonymous_menu(entries)
         };
         let result = match self
             .view

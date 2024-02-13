@@ -89,7 +89,6 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use strum::IntoEnumIterator;
-use swell_ui::menu_tree::fill_menu_recursively;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
@@ -1450,27 +1449,10 @@ impl BackboneShell {
 
     fn register_extension_menu() -> anyhow::Result<()> {
         let reaper = Reaper::get();
+        reaper.medium_reaper().add_extensions_main_menu();
         reaper
             .medium_session()
             .plugin_register_add_hook_custom_menu::<Self>()?;
-        let id_and_name = reaper_str!("Helgobox").as_c_str().as_ptr();
-        if reaper
-            .medium_reaper()
-            .low()
-            .pointers()
-            .AddCustomizableMenu
-            .is_none()
-        {
-            bail!("REAPER version too low, can't register customizable menu");
-        }
-        unsafe {
-            reaper.medium_reaper().low().AddCustomizableMenu(
-                id_and_name,
-                id_and_name,
-                null(),
-                true,
-            );
-        }
         Ok(())
     }
 
@@ -2725,12 +2707,11 @@ fn write_midi_devs_config_to_reaper_ini(
 
 impl HookCustomMenu for BackboneShell {
     fn call(menuidstr: &ReaperStr, menu: Hmenu, flag: MenuHookFlag) {
-        if flag != MenuHookFlag::Init || menuidstr.to_str() != "Helgobox" {
+        if flag != MenuHookFlag::Init || menuidstr.to_str() != "Main extensions" {
             return;
         }
         let swell_menu = Menu::new(menu.as_ptr());
-        for entry in menus::extension_menu_entries() {
-            fill_menu_recursively(swell_menu, &entry);
-        }
+        let pure_menu = menus::extension_menu();
+        swell_ui::menu_tree::add_all_entries_of_menu(swell_menu, &pure_menu);
     }
 }
