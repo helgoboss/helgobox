@@ -399,12 +399,12 @@ mod playtime_impl {
                             None => {
                                 // Slot is empty
                                 match self.playback_track(matrix) {
-                                    None => "empty",
+                                    None => "playtime.slot_state.empty",
                                     Some(col) => {
                                         if col.is_armed(false) {
-                                            "armed"
+                                            "playtime.slot_state.armed"
                                         } else {
-                                            "empty"
+                                            "playtime.slot_state.empty"
                                         }
                                     }
                                 }

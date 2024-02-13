@@ -5,15 +5,15 @@ local mappings = {}
 local feedback_value_table = {
     kind = "FromTextToContinuous",
     value = {
-        empty = 0.0,
-        stopped = 0.2,
-        scheduled_for_play_start = 0.4,
-        playing = 1.0,
-        paused = 0.3,
-        scheduled_for_play_stop = 0.4,
-        scheduled_for_record_start = 0.4,
-        recording = 1.0,
-        scheduled_for_record_stop = 0.4,
+        ["playtime.slot_state.empty"] = 0.0,
+        ["playtime.slot_state.stopped"] = 0.2,
+        ["playtime.slot_state.scheduled_for_play_start"] = 0.4,
+        ["playtime.slot_state.playing"] = 1.0,
+        ["playtime.slot_state.paused"] = 0.3,
+        ["playtime.slot_state.scheduled_for_play_stop"] = 0.4,
+        ["playtime.slot_state.scheduled_for_record_start"] = 0.4,
+        ["playtime.slot_state.recording"] = 1.0,
+        ["playtime.slot_state.scheduled_for_record_stop"] = 0.4,
     }
 }
 

@@ -156,25 +156,25 @@ end
 local feedback_value_table = realearn.FeedbackValueTable.FromTextToDiscrete {
     value = {
         -- Off
-        empty = 0,
+        ["playtime.slot_state.empty"] = 0,
         -- Red
-        armed = 0,
+        ["playtime.slot_state.armed"] = 0,
         -- Yellow
-        stopped = 5,
+        ["playtime.slot_state.stopped"] = 5,
         -- Green blinking
-        scheduled_for_play_start = 2,
+        ["playtime.slot_state.scheduled_for_play_start"] = 2,
         -- Green
-        playing = 1,
+        ["playtime.slot_state.playing"] = 1,
         -- Yellow
-        paused = 5,
+        ["playtime.slot_state.paused"] = 5,
         -- Yellow blinking
-        scheduled_for_play_stop = 6,
+        ["playtime.slot_state.scheduled_for_play_stop"] = 6,
         -- Red blinking
-        scheduled_for_record_start = 4,
+        ["playtime.slot_state.scheduled_for_record_start"] = 4,
         -- Red
-        recording = 3,
+        ["playtime.slot_state.recording"] = 3,
         -- Yellow blinking
-        scheduled_for_record_stop = 6,
+        ["playtime.slot_state.scheduled_for_record_stop"] = 6,
     },
 }
 

@@ -166,38 +166,38 @@ local white_color = 3
 local red_color = 5
 
 local feedback_table: { [string]: FeedbackEntry? } = {
-    empty = {
+    ["playtime.slot_state.empty"] = {
         behavior = solid,
         color = black_color,
     },
-    armed = {
+    ["playtime.slot_state.armed"] = {
         behavior = solid,
         color = red_color,
     },
-    stopped = {
+    ["playtime.slot_state.stopped"] = {
         behavior = solid,
     },
-    scheduled_for_play_start = {
+    ["playtime.slot_state.scheduled_for_play_start"] = {
         behavior = flashing,
     },
-    playing = {
+    ["playtime.slot_state.playing"] = {
         behavior = pulsing,
     },
-    paused = {
+    ["playtime.slot_state.paused"] = {
         behavior = solid,
     },
-    scheduled_for_play_stop = {
+    ["playtime.slot_state.scheduled_for_play_stop"] = {
         behavior = flashing,
     },
-    scheduled_for_record_start = {
+    ["playtime.slot_state.scheduled_for_record_start"] = {
         behavior = flashing,
         color = red_color,
     },
-    recording = {
+    ["playtime.slot_state.recording"] = {
         behavior = pulsing,
         color = red_color,
     },
-    scheduled_for_record_stop = {
+    ["playtime.slot_state.scheduled_for_record_stop"] = {
         behavior = flashing,
         color = red_color,
     },
