@@ -2715,8 +2715,9 @@ impl View for HeaderPanel {
         true
     }
 
-    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) -> bool {
         let _ = self.open_main_menu(location);
+        true
     }
 }
 

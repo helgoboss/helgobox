@@ -667,8 +667,9 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) -> bool {
         let _ = self.open_context_menu(location);
+        true
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {

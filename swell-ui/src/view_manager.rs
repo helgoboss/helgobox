@@ -264,8 +264,8 @@ unsafe extern "C" fn view_dialog_proc(
                 raw::WM_CONTEXTMENU => {
                     let x = loword(lparam as _);
                     let y = hiword(lparam as _);
-                    view.context_menu_wanted(Point::new(Pixels(x as _), Pixels(y as _)));
-                    1
+                    view.context_menu_wanted(Point::new(Pixels(x as _), Pixels(y as _)))
+                        .into()
                 }
                 raw::WM_PAINT => isize::from(view.paint()),
                 raw::WM_ERASEBKGND => {

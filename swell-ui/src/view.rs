@@ -185,7 +185,11 @@ pub trait View: Debug {
     }
 
     /// WM_CONTEXTMENU
-    fn context_menu_wanted(self: SharedView<Self>, _location: Point<Pixels>) {}
+    ///
+    /// Should return `true` if processed in order to prevent the context menu request going up to higher layers.
+    fn context_menu_wanted(self: SharedView<Self>, _location: Point<Pixels>) -> bool {
+        false
+    }
 
     /// WM_PAINT
     ///
