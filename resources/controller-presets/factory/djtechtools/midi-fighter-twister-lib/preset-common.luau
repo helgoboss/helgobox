@@ -1,5 +1,6 @@
 --!strict
 
+local preset_runtime = require("preset_runtime")
 local realearn = require("realearn")
 
 local module = {}
@@ -9,17 +10,36 @@ export type MidiFighterTwisterPresetConfig = {
     create_push_target: (col: number, row: number) -> realearn.Target,
 }
 
+local common_lua = preset_runtime.include_str("djtechtools/midi-fighter-twister-lib/compartment-common.luau")
+
+local function build_pad_script(pad_index: number): string
+    return `return require("compartment").pad_script({pad_index}, y, context)`
+end
+
 function module.create_compartment(config: MidiFighterTwisterPresetConfig): realearn.Compartment
     -- Preparation
-    local function pad(col: number, row: number, cc_number: number): realearn.Mapping
+    local function pad_control(col: number, row: number, cc_number: number): realearn.Mapping
         return realearn.Mapping {
             id = `col{col + 1}/row{row + 1}/pad`,
+            feedback_enabled = false,
             source = realearn.Source.MidiControlChangeValue {
                 channel = 1,
                 controller_number = cc_number,
                 character = "Button",
             },
             target = config.create_push_target(col, row),
+        }
+    end
+
+    local function pad_feedback(col: number, row: number, cc_number: number): realearn.Mapping
+        return realearn.Mapping {
+            id = `col{col + 1}/row{row + 1}/pad/feedback`,
+            control_enabled = false,
+            source = realearn.Source.MidiScript {
+                script_kind = "Lua",
+                script = build_pad_script(cc_number),
+            },
+            target = config.create_push_target(col, row)
         }
     end
 
@@ -67,7 +87,8 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
     for col = 0, column_count - 1 do
         for row = 0, row_count - 1 do
             local cc_number = row * row_count + col
-            table.insert(mappings, pad(col, row, cc_number))
+            table.insert(mappings, pad_control(col, row, cc_number))
+            table.insert(mappings, pad_feedback(col, row, cc_number))
             table.insert(mappings, knob(col, row, cc_number))
         end
     end
@@ -562,6 +583,7 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
     -- Result
     return realearn.Compartment {
         mappings = mappings,
+        common_lua = common_lua,
         custom_data = {
             companion = companion_data,
             numbered = {

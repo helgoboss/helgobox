@@ -17,7 +17,7 @@
 --!strict
 
 local realearn = require("realearn")
-local commons = require("djtechtools/midi-fighter-twister-lib/preset-commons")
+local commons = require("djtechtools/midi-fighter-twister-lib/preset-common")
 
 return commons.create_compartment {
     create_push_target = function (col, row)
