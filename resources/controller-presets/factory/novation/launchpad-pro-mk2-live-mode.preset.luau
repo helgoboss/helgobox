@@ -43,7 +43,28 @@ local function simple_button(id: string, name: string, cc: number): realearn.Map
     }
 end
 
+local init_mapping = realearn.Mapping {
+    name = "Enter live mode",
+    source = realearn.Source.MidiScript {
+        script_kind = "Lua",
+        script = [[
+local live_mode = 0x00
+local standalone_mode = 0x01
+local mode = if y == nil then standalone_mode else live_mode
+
+return {
+    messages = {
+        { 0xF0, 0x00, 0x20, 0x29, 0x02, 0x10, 0x21, mode, 0xF7 }
+    }
+}
+        ]]
+    },
+    target = realearn.Target.Dummy {
+    }
+}
+
 local mappings = {
+    init_mapping,
     simple_button("cursor-up", "Up", 91),
     simple_button("cursor-down", "Down", 92),
     simple_button("cursor-left", "Left", 93),
