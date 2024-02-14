@@ -51,6 +51,7 @@ impl View for SetupPanel {
         let playtime_checkbox = window.require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON);
         playtime_checkbox.set_cached_font(medium_font);
         playtime_checkbox.check();
+        self.invalidate_controls();
         true
     }
 

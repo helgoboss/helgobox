@@ -68,9 +68,9 @@ use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu, HookPostCommand,
-    HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr,
-    RegistrationHandle, SectionContext, WindowContext,
+    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
+    ReaProject, ReaperStr, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -428,6 +428,7 @@ impl BackboneShell {
         Reaper::get().wake_up().expect("couldn't wake up REAPER");
         // Must be called after registering actions and waking REAPER up, otherwise it won't find the command IDs.
         let _ = Self::register_extension_menu();
+        let _ = Self::register_toolbar_icon_map();
         // Detect shutdown via hidden child window as suggested by Justin
         let shutdown_detection_panel = SharedView::new(ShutdownDetectionPanel::new());
         shutdown_detection_panel.clone().open(reaper_window());
@@ -1470,6 +1471,13 @@ impl BackboneShell {
         reaper
             .medium_session()
             .plugin_register_add_hook_custom_menu::<Self>()?;
+        Ok(())
+    }
+
+    fn register_toolbar_icon_map() -> anyhow::Result<()> {
+        Reaper::get()
+            .medium_session()
+            .plugin_register_add_toolbar_icon_map::<Self>()?;
         Ok(())
     }
 
@@ -2737,6 +2745,24 @@ impl HookCustomMenu for BackboneShell {
         let swell_menu = Menu::new(menu.as_ptr());
         let pure_menu = menus::extension_menu();
         swell_ui::menu_tree::add_all_entries_of_menu(swell_menu, &pure_menu);
+    }
+}
+
+impl ToolbarIconMap for BackboneShell {
+    fn call(
+        _toolbar_name: &ReaperStr,
+        command_id: CommandId,
+        _state: i32,
+    ) -> Option<&'static ReaperStr> {
+        // TODO-high CONTINUE Give state parameter a proper type (see Justin's docs).
+        // TODO-high CONTINUE This works but could be more efficient. We could cache our own command IDs somewhere.
+        let action = Reaper::get().action_by_command_name("HB_SHOW_HIDE_PLAYTIME");
+        let show_hide_playtime_command_id = action.command_id().ok()?;
+        if command_id == show_hide_playtime_command_id {
+            Some(reaper_str!("toolbar_playtime"))
+        } else {
+            None
+        }
     }
 }
 
