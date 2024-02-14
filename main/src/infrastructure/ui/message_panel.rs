@@ -66,10 +66,10 @@ impl View for MessagePanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, _window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.view
             .require_control(root::ID_MESSAGE_TEXT)
-            .set_cached_font(fonts::normal_font(20));
+            .set_cached_font(fonts::normal_font(window, 20));
         self.invalidate();
         true
     }

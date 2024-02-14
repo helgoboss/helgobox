@@ -10,13 +10,8 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         rect: context.rect(0, 0, 250, 250),
         styles: Styles(vec![
             // Places the window into the center by default
-            DS_CENTER,
-            // Displays a close button
+            DS_CENTER, // Displays a close button
             WS_SYSMENU,
-            // Displays a maximize button
-            WS_MAXIMIZEBOX,
-            // Allows user to change size of window
-            WS_THICKFRAME,
         ]),
         controls: vec![
             ctext(

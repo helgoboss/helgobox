@@ -5,14 +5,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     let controls = [ctext(
         "Some message",
         ids.named_id("ID_MESSAGE_TEXT"),
-        context.rect(0, 0, 155, 19),
+        context.rect(0, 0, 300, 40),
     ) + SS_CENTERIMAGE
         + SS_WORDELLIPSIS
         + NOT_WS_GROUP];
     Dialog {
         id: ids.named_id("ID_MESSAGE_PANEL"),
         caption: "ReaLearn",
-        rect: context.rect(0, 0, 155, 19),
+        rect: context.rect(0, 0, 300, 40),
         styles: Styles(vec![
             DS_SETFONT,
             DS_MODALFRAME,

@@ -6,14 +6,14 @@ use crate::base::notification::alert;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
-use swell_ui::{SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
-pub struct SetupPanel {
+pub struct WelcomePanel {
     view: ViewContext,
 }
 
-impl SetupPanel {
+impl WelcomePanel {
     pub fn new() -> Self {
         Self {
             view: Default::default(),
@@ -21,7 +21,7 @@ impl SetupPanel {
     }
 }
 
-impl View for SetupPanel {
+impl View for WelcomePanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_SETUP_PANEL
     }
@@ -32,8 +32,8 @@ impl View for SetupPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.center_on_screen();
-        let large_font = fonts::normal_font(20);
-        let medium_font = fonts::normal_font(14);
+        let large_font = fonts::normal_font(window, 20);
+        let medium_font = fonts::normal_font(window, 14);
         // Text 1
         let text_1 = window.require_control(root::ID_SETUP_INTRO_TEXT_1);
         text_1.set_cached_font(large_font);
@@ -48,7 +48,6 @@ impl View for SetupPanel {
         text_3.set_text(format!("Tip: You can come back here at any time via\nExtensions {arrow} Helgobox {arrow} Show welcome screen"));
         // Checkboxes
         let playtime_checkbox = window.require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON);
-        playtime_checkbox.set_cached_font(medium_font);
         playtime_checkbox.check();
         self.invalidate_controls();
         true
@@ -71,7 +70,7 @@ impl View for SetupPanel {
     }
 }
 
-impl SetupPanel {
+impl WelcomePanel {
     fn invalidate_controls(&self) {
         let button_text = if self.build_instructions().is_empty() {
             "Close"

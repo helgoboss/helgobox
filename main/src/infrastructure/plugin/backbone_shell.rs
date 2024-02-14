@@ -51,7 +51,8 @@ use crate::infrastructure::plugin::{
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
-use crate::infrastructure::ui::setup_panel::SetupPanel;
+use crate::infrastructure::ui::util::{open_child_panel, open_child_panel_dyn};
+use crate::infrastructure::ui::welcome_panel::WelcomePanel;
 use anyhow::bail;
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
@@ -183,7 +184,7 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     proto_hub: crate::infrastructure::proto::ProtoHub,
-    setup_panel: SharedView<SetupPanel>,
+    welcome_panel: RefCell<Option<SharedView<WelcomePanel>>>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
     _shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
     audio_block_counter: Arc<AtomicU32>,
@@ -459,7 +460,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
-            setup_panel: SharedView::new(SetupPanel::new()),
+            welcome_panel: Default::default(),
             _shutdown_detection_panel: shutdown_detection_panel,
             audio_block_counter,
         }
@@ -1504,7 +1505,7 @@ impl BackboneShell {
 
     pub fn show_welcome_screen() {
         let shell = Self::get();
-        shell.setup_panel.clone().open(reaper_window());
+        open_child_panel(&shell.welcome_panel, WelcomePanel::new(), reaper_window());
     }
 
     pub fn resolve_symbols_from_clipboard() {

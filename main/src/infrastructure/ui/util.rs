@@ -164,10 +164,14 @@ pub mod view {
 }
 
 pub mod fonts {
-    use swell_ui::FontDescriptor;
+    use swell_ui::{DialogUnits, Dimensions, FontDescriptor, Pixels, Window};
 
-    pub const fn normal_font(font_size: u32) -> FontDescriptor {
-        FontDescriptor::new(normal_font_name(), font_size)
+    pub fn normal_font(window: Window, font_size: u32) -> FontDescriptor {
+        let font_dimensions: Dimensions<Pixels> = window.convert_to_pixels(Dimensions::new(
+            DialogUnits(font_size),
+            DialogUnits(font_size),
+        ));
+        FontDescriptor::new(normal_font_name(), font_dimensions.height.get())
     }
 
     const fn normal_font_name() -> &'static str {
