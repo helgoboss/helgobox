@@ -3,7 +3,7 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
 use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
-use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode, HelpMode};
+use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
 use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_DEFS: &[ActionDef] = &[

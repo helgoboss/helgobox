@@ -1424,13 +1424,6 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
     );
 }
 
-enum RealTimeControlOutcome {
-    /// Nothing more to do.
-    Done,
-    /// Real
-    StillForwardToMainThread,
-}
-
 /// This returns `false` if real-time contrl was not possible **and** the consumer should
 /// try main-thread control instead (used for example for Playtime's trigger-slot action in order to possibly record
 /// when slot empty).

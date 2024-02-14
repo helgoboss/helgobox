@@ -1,13 +1,12 @@
-use c_str_macro::c_str;
 use enumset::EnumSet;
-use reaper_low::{raw, Swell};
+use reaper_low::raw;
 use std::fmt::Debug;
 
 use crate::base::notification::alert;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
-use swell_ui::{FontDescriptor, SharedView, View, ViewContext, ViewManager, Window};
+use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct SetupPanel {

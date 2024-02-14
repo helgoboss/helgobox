@@ -1,4 +1,3 @@
-use crate::Color;
 use base::hash_util::NonCryptoHashMap;
 use reaper_low::{raw, Swell};
 use reaper_medium::Hfont;

@@ -2752,17 +2752,12 @@ impl ToolbarIconMap for BackboneShell {
     fn call(
         _toolbar_name: &ReaperStr,
         command_id: CommandId,
-        _state: i32,
+        _toggle_state: Option<bool>,
     ) -> Option<&'static ReaperStr> {
-        // TODO-high CONTINUE Give state parameter a proper type (see Justin's docs).
-        // TODO-high CONTINUE This works but could be more efficient. We could cache our own command IDs somewhere.
-        let action = Reaper::get().action_by_command_name("HB_SHOW_HIDE_PLAYTIME");
-        let show_hide_playtime_command_id = action.command_id().ok()?;
-        if command_id == show_hide_playtime_command_id {
-            Some(reaper_str!("toolbar_playtime"))
-        } else {
-            None
-        }
+        Reaper::get().with_our_command(command_id, |command| match command?.command_name() {
+            "HB_SHOW_HIDE_PLAYTIME" => Some(reaper_str!("toolbar_playtime")),
+            _ => None,
+        })
     }
 }
 

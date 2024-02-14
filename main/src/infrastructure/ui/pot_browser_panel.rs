@@ -10,7 +10,7 @@ use reaper_high::{Fx, Track};
 use reaper_low::raw;
 use std::path::Path;
 use std::sync::RwLock;
-use swell_ui::{Dimensions, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
