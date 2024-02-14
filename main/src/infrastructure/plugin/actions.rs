@@ -1,3 +1,4 @@
+use crate::base::notification::alert;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::test::run_test;
 use enumflags2::make_bitflags;
@@ -146,10 +147,7 @@ impl ActionDef {
             self.default_key_binding,
             move || {
                 if requires_instance && BackboneShell::get().instance_count() == 0 {
-                    Reaper::get().medium_reaper().help_set(
-                        "Please add a Helgobox plug-in instance first!",
-                        HelpMode::Temporary,
-                    );
+                    alert("Please add a Helgobox plug-in instance first!");
                     return;
                 }
                 op();
