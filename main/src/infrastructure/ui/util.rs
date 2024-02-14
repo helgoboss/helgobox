@@ -163,6 +163,29 @@ pub mod view {
     }
 }
 
+pub mod fonts {
+    use swell_ui::FontDescriptor;
+
+    pub const fn welcome_screen_font(font_size: u32) -> FontDescriptor {
+        FontDescriptor::new(welcome_screen_font_name(), font_size)
+    }
+
+    const fn welcome_screen_font_name() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            "Verdana"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "Lucida Grande"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "DejaVu Sans"
+        }
+    }
+}
+
 pub mod colors {
     use palette::{Hsl, Lighten};
     use swell_ui::{color, Color};

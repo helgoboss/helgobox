@@ -19,6 +19,7 @@ mod mapping_panel;
 mod mapping_row_panel;
 mod mapping_rows_panel;
 mod message_panel;
+mod setup_panel;
 mod shared_group_mapping_panel;
 mod simple_editor_panel;
 
@@ -154,6 +155,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
     };
     let simple_editor_panel_dialog = simple_editor_panel::create(context.global(), &mut ids);
     let empty_panel_dialog = empty_panel::create(context.global(), &mut ids);
+    let setup_panel_dialog = setup_panel::create(context.global(), &mut ids);
     let color_panel_dialog = color_panel::create(context.global(), &mut ids);
     let resource = Resource {
         dialogs: vec![
@@ -168,6 +170,7 @@ pub fn generate_dialog_files(rc_dir: impl AsRef<Path>, bindings_file: impl AsRef
             main_panel_dialog,
             simple_editor_panel_dialog,
             empty_panel_dialog,
+            setup_panel_dialog,
             color_panel_dialog,
             hidden_panel::create(context.global(), &mut ids),
         ],

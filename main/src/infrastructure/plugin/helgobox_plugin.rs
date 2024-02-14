@@ -10,7 +10,7 @@ use crate::domain::{
     ProcessorContext, RawParamValue, PLUGIN_PARAMETER_COUNT,
 };
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
-use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
+use crate::infrastructure::plugin::{init_backbone_shell, SET_STATE_PARAM_NAME};
 use base::{tracing_debug, Global};
 use helgoboss_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
@@ -323,7 +323,7 @@ impl HelgoboxPlugin {
                 // extension entry point. In this case, the following call will not have any
                 // effect. And that's exactly what we want, because the App already has been
                 // initialized then!
-                BackboneShell::make_available_globally(|| BackboneShell::init(context));
+                init_backbone_shell(context);
             },
             || {
                 BackboneShell::get().wake_up();

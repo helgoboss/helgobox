@@ -8,9 +8,9 @@ use swell_ui::menu_tree::{item, menu, Entry};
 pub const ACTION_DEFS: &[ActionDef] = &[
     ActionDef {
         section: ActionSection::General,
-        command_name: "HB_ADD_TOOLBAR_BUTTONS",
-        action_name: "Add toolbar buttons",
-        op: BackboneShell::add_toolbar_buttons,
+        command_name: "HB_SHOW_WELCOME_SCREEN",
+        action_name: "Show welcome screen",
+        op: BackboneShell::show_welcome_screen,
         ..DEFAULT_DEF
     },
     ActionDef {

@@ -33,6 +33,9 @@ pub use color::*;
 mod brush;
 pub use brush::*;
 
+mod font;
+pub use font::*;
+
 #[cfg(target_os = "macos")]
 mod macos;
 

@@ -1,8 +1,11 @@
-use crate::{menu_tree, DialogUnits, Dimensions, Menu, MenuBar, Pixels, Point, SwellStringArg};
+use crate::{
+    menu_tree, DialogUnits, Dimensions, FontDescriptor, Menu, MenuBar, Pixels, Point,
+    SwellStringArg, ViewManager,
+};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
-use reaper_medium::Hwnd;
+use reaper_medium::{Hfont, Hwnd};
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
@@ -86,6 +89,28 @@ impl Window {
 
     pub fn resource_id(&self) -> u32 {
         unsafe { Swell::get().GetWindowLong(self.raw, raw::GWL_ID) as u32 }
+    }
+
+    pub fn center_on_screen(&self) {
+        let screen_size = Window::screen_size();
+        let window_size = self.size();
+        self.move_to_pixels(Point::new(
+            (screen_size.width - window_size.width) * 0.5,
+            (screen_size.height - window_size.height) * 0.5,
+        ));
+    }
+
+    pub fn size_and_center_on_screen(&self, width_factor: f64, height_factor: f64) {
+        let screen_size = Window::screen_size();
+        let window_size = Dimensions::new(
+            screen_size.width * width_factor,
+            screen_size.height * height_factor,
+        );
+        self.resize(window_size);
+        self.move_to_pixels(Point::new(
+            (screen_size.width - window_size.width) * 0.5,
+            (screen_size.height - window_size.height) * 0.5,
+        ));
     }
 
     pub fn size(self) -> Dimensions<Pixels> {
@@ -563,6 +588,18 @@ impl Window {
             return Err("handle not found or doesn't support text");
         }
         text.into_string().map_err(|_| "non UTF-8")
+    }
+
+    pub fn set_cached_font(self, descriptor: FontDescriptor) {
+        if let Some(font) = ViewManager::get().get_font(descriptor) {
+            self.set_font(font);
+        }
+    }
+
+    pub fn set_font(self, font: Hfont) {
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::WM_SETFONT, font.as_ptr() as _, 1);
+        }
     }
 
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {

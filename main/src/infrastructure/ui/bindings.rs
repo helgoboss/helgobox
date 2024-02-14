@@ -308,6 +308,13 @@ pub mod root {
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 30241;
     #[allow(dead_code)]
     pub const ID_EMPTY_PANEL: u32 = 30243;
-    pub const ID_COLOR_PANEL: u32 = 30244;
-    pub const ID_HIDDEN_PANEL: u32 = 30245;
+    #[allow(dead_code)]
+    pub const ID_SETUP_PANEL: u32 = 30244;
+    pub const ID_SETUP_INTRO_TEXT_1: u32 = 30245;
+    pub const ID_SETUP_INTRO_TEXT_2: u32 = 30246;
+    pub const ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON: u32 = 30247;
+    pub const ID_SETUP_TIP_TEXT: u32 = 30248;
+    pub const ID_SETUP_PANEL_OK: u32 = 30249;
+    pub const ID_COLOR_PANEL: u32 = 30250;
+    pub const ID_HIDDEN_PANEL: u32 = 30251;
 }

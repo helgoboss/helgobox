@@ -38,13 +38,7 @@ impl View for PotBrowserPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        let screen_size = Window::screen_size();
-        let window_size = Dimensions::new(screen_size.width * 0.75, screen_size.height * 0.75);
-        window.resize(window_size);
-        window.move_to_pixels(Point::new(
-            (screen_size.width - window_size.width) * 0.5,
-            (screen_size.height - window_size.height) * 0.5,
-        ));
+        window.size_and_center_on_screen(0.75, 0.75);
         egui_views::open(
             window,
             "Pot Browser",

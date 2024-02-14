@@ -39,7 +39,7 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::base::notification::{alert, notify_user_about_anyhow_error};
+use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
@@ -51,6 +51,7 @@ use crate::infrastructure::plugin::{
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
+use crate::infrastructure::ui::setup_panel::SetupPanel;
 use anyhow::bail;
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
@@ -67,9 +68,9 @@ use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
-    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
-    ReaProject, ReaperStr, RegistrationHandle, SectionContext, WindowContext,
+    AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu, HookPostCommand,
+    HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr,
+    RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -79,15 +80,14 @@ use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::error::Error;
-use std::fs;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::null;
 use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use std::{fs, mem};
 use strum::IntoEnumIterator;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
@@ -110,8 +110,13 @@ use url::Url;
 /// They will be at the time the first plug-in instance is added.
 #[reaper_extension_plugin]
 fn plugin_main(context: PluginContext) -> Result<(), Box<dyn std::error::Error>> {
-    BackboneShell::make_available_globally(|| BackboneShell::init(context));
+    init_backbone_shell(context);
     Ok(())
+}
+
+pub fn init_backbone_shell(context: PluginContext) {
+    BackboneShell::make_available_globally(|| BackboneShell::init(context));
+    BackboneShell::get().show_welcome_screen_if_necessary();
 }
 
 /// Queue size for sending feedback tasks to audio hook.
@@ -161,7 +166,7 @@ pub struct BackboneShell {
     osc_device_manager: SharedOscDeviceManager,
     controller_manager: SharedControllerManager,
     server: SharedRealearnServer,
-    config: RefCell<AppConfig>,
+    config: RefCell<BackboneConfig>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
@@ -178,6 +183,7 @@ pub struct BackboneShell {
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
     proto_hub: crate::infrastructure::proto::ProtoHub,
+    setup_panel: SharedView<SetupPanel>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
     _shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
     audio_block_counter: Arc<AtomicU32>,
@@ -279,7 +285,7 @@ impl BackboneShell {
         // Senders and receivers are initialized here but used only when awake. Yes, they already consume memory
         // when asleep but most of them are unbounded and therefore consume a minimal amount of memory as long as
         // they are not used.
-        let config = AppConfig::load().unwrap_or_else(|e| {
+        let config = BackboneConfig::load().unwrap_or_else(|e| {
             debug!(BackboneShell::logger(), "{}", e);
             Default::default()
         });
@@ -424,9 +430,7 @@ impl BackboneShell {
         let _ = Self::register_extension_menu();
         // Detect shutdown via hidden child window as suggested by Justin
         let shutdown_detection_panel = SharedView::new(ShutdownDetectionPanel::new());
-        shutdown_detection_panel
-            .clone()
-            .open(Window::from_hwnd(Reaper::get().main_window()));
+        shutdown_detection_panel.clone().open(reaper_window());
         BackboneShell {
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
@@ -454,6 +458,7 @@ impl BackboneShell {
             message_panel: Default::default(),
             osc_feedback_processor: Rc::new(RefCell::new(osc_feedback_processor)),
             proto_hub: crate::infrastructure::proto::ProtoHub::new(),
+            setup_panel: SharedView::new(SetupPanel::new()),
             _shutdown_detection_panel: shutdown_detection_panel,
             audio_block_counter,
         }
@@ -470,6 +475,18 @@ impl BackboneShell {
             self.party_is_over_subject.next(());
             let _ = unregister_api();
         });
+    }
+
+    pub fn show_welcome_screen_if_necessary(&self) {
+        let showed_already = {
+            let mut config = self.config.borrow_mut();
+            let value = mem::replace(&mut config.main.showed_welcome_screen, 1);
+            config.save().unwrap();
+            value == 1
+        };
+        if !showed_already {
+            Self::show_welcome_screen();
+        }
     }
 
     pub fn detailed_version_label() -> &'static str {
@@ -993,7 +1010,7 @@ impl BackboneShell {
         &self.server
     }
 
-    pub fn config(&self) -> Ref<AppConfig> {
+    pub fn config(&self) -> Ref<BackboneConfig> {
         self.config.borrow()
     }
 
@@ -1009,12 +1026,12 @@ impl BackboneShell {
                     .start(runtime, self.create_services())
             })
             .map_err(|e| e.to_string())?;
-        self.change_config(AppConfig::enable_server);
+        self.change_config(BackboneConfig::enable_server);
         start_result
     }
 
     pub fn stop_server_persistently(&self) {
-        self.change_config(AppConfig::disable_server);
+        self.change_config(BackboneConfig::disable_server);
         self.server.borrow_mut().stop();
     }
 
@@ -1041,7 +1058,7 @@ impl BackboneShell {
         self.sessions_changed_subject.borrow().clone()
     }
 
-    fn change_config(&self, op: impl FnOnce(&mut AppConfig)) {
+    fn change_config(&self, op: impl FnOnce(&mut BackboneConfig)) {
         let mut config = self.config.borrow_mut();
         op(&mut config);
         config.save().unwrap();
@@ -1474,7 +1491,12 @@ impl BackboneShell {
                 return;
             }
         }
-        alert("Successfully added or updated Helgobox toolbar buttons. Please restart REAPER to see them!");
+        // alert("Successfully added or updated Helgobox toolbar buttons. Please restart REAPER to see them!");
+    }
+
+    pub fn show_welcome_screen() {
+        let shell = Self::get();
+        shell.setup_panel.clone().open(reaper_window());
     }
 
     pub fn resolve_symbols_from_clipboard() {
@@ -2069,12 +2091,12 @@ impl Drop for BackboneShell {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct AppConfig {
+pub struct BackboneConfig {
     main: MainConfig,
 }
 
-impl AppConfig {
-    pub fn load() -> Result<AppConfig, String> {
+impl BackboneConfig {
+    pub fn load() -> Result<BackboneConfig, String> {
         let ini_content = fs::read_to_string(Self::config_file_path())
             .map_err(|_| "couldn't read config file".to_string())?;
         let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{e:?}"))?;
@@ -2135,6 +2157,7 @@ struct MainConfig {
         skip_serializing_if = "is_default_companion_web_app_url"
     )]
     companion_web_app_url: String,
+    showed_welcome_screen: u8,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
@@ -2176,11 +2199,12 @@ fn is_default_companion_web_app_url(v: &str) -> bool {
 impl Default for MainConfig {
     fn default() -> Self {
         MainConfig {
-            server_enabled: Default::default(),
+            server_enabled: 0,
             server_http_port: default_server_http_port(),
             server_https_port: default_server_https_port(),
             server_grpc_port: default_server_grpc_port(),
             companion_web_app_url: default_companion_web_app_url(),
+            showed_welcome_screen: 0,
         }
     }
 }
@@ -2714,4 +2738,8 @@ impl HookCustomMenu for BackboneShell {
         let pure_menu = menus::extension_menu();
         swell_ui::menu_tree::add_all_entries_of_menu(swell_menu, &pure_menu);
     }
+}
+
+fn reaper_window() -> Window {
+    Window::from_hwnd(Reaper::get().main_window())
 }

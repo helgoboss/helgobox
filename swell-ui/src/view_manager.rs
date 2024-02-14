@@ -1,7 +1,7 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{
-    BrushCache, BrushDescriptor, Color, DeviceContext, Pixels, Point, SharedView, View, WeakView,
-    Window,
+    BrushCache, BrushDescriptor, Color, DeviceContext, FontCache, FontDescriptor, Pixels, Point,
+    SharedView, View, WeakView, Window,
 };
 use std::cell::{Cell, RefCell};
 
@@ -13,7 +13,7 @@ use std::ptr::null_mut;
 
 use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
-use reaper_medium::{Hbrush, Hdc, Hwnd};
+use reaper_medium::{Hbrush, Hdc, Hfont, Hwnd};
 use std::sync::OnceLock;
 
 /// Creates a window according to the given dialog resource.
@@ -54,11 +54,16 @@ pub struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
     view_map: RefCell<NonCryptoHashMap<raw::HWND, WeakView<dyn View>>>,
     brush_cache: BrushCache,
+    font_cache: FontCache,
 }
 
 impl ViewManager {
     pub fn get_solid_brush(&'static self, color: Color) -> Option<Hbrush> {
         self.brush_cache.get_brush(BrushDescriptor::solid(color))
+    }
+
+    pub fn get_font(&'static self, descriptor: FontDescriptor) -> Option<Hfont> {
+        self.font_cache.get_font(descriptor)
     }
 
     /// If the given window is one of ours (one that drives our views) and the associated view
@@ -178,8 +183,8 @@ unsafe extern "C" fn view_dialog_proc(
                 raw::WM_INITDIALOG => {
                     view.view_context().window.replace(Some(window));
                     if view.show_window_on_init() {
-                        window.show();
                         let keyboard_focus_desired = view.opened(window);
+                        window.show();
                         // WM_INITDIALOG is special in a DialogProc in that we don't need to use
                         // `SetWindowLong()` for return values with special meaning.
                         keyboard_focus_desired.into()
