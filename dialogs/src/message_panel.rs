@@ -12,10 +12,6 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
     Dialog {
         id: ids.named_id("ID_MESSAGE_PANEL"),
         caption: "ReaLearn",
-        font: Some(Font {
-            name: "Microsoft Sans Serif",
-            size: 20,
-        }),
         rect: context.rect(0, 0, 155, 19),
         styles: Styles(vec![
             DS_SETFONT,

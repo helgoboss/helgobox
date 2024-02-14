@@ -33,8 +33,8 @@ impl View for SetupPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.center_on_screen();
-        let large_font = fonts::welcome_screen_font(20);
-        let medium_font = fonts::welcome_screen_font(14);
+        let large_font = fonts::normal_font(20);
+        let medium_font = fonts::normal_font(14);
         // Text 1
         let text_1 = window.require_control(root::ID_SETUP_INTRO_TEXT_1);
         text_1.set_cached_font(large_font);

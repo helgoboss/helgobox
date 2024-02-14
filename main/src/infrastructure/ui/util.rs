@@ -166,11 +166,11 @@ pub mod view {
 pub mod fonts {
     use swell_ui::FontDescriptor;
 
-    pub const fn welcome_screen_font(font_size: u32) -> FontDescriptor {
-        FontDescriptor::new(welcome_screen_font_name(), font_size)
+    pub const fn normal_font(font_size: u32) -> FontDescriptor {
+        FontDescriptor::new(normal_font_name(), font_size)
     }
 
-    const fn welcome_screen_font_name() -> &'static str {
+    const fn normal_font_name() -> &'static str {
         #[cfg(target_os = "windows")]
         {
             "Verdana"

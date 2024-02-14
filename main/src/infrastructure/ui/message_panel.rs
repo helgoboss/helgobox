@@ -1,4 +1,5 @@
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::util::fonts;
 use derivative::Derivative;
 use reaper_low::raw;
 use std::cell::RefCell;
@@ -66,6 +67,9 @@ impl View for MessagePanel {
     }
 
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
+        self.view
+            .require_control(root::ID_MESSAGE_TEXT)
+            .set_cached_font(fonts::normal_font(20));
         self.invalidate();
         true
     }
