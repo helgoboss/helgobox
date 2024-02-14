@@ -2992,5 +2992,5 @@ fn compile_common_lua(
         Ok(val)
     })?;
     env.set("require", require)?;
-    lua.compile_and_execute(compartment.as_ref(), code, env)
+    lua.compile_and_execute(compartment.to_string(), code, env)
 }

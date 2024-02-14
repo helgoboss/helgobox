@@ -5,8 +5,10 @@ use camino::Utf8Path;
 use include_dir::Dir;
 use mlua::{Function, Lua, Value};
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 /// Allows executing Lua code as a module that may require other modules.
 pub struct LuaModuleContainer<F> {
@@ -45,21 +47,56 @@ where
     pub fn execute_as_module<'lua>(
         &self,
         lua: &'lua Lua,
-        name: &str,
+        normalized_path: Option<String>,
+        display_name: String,
         code: &str,
     ) -> anyhow::Result<Value<'lua>> {
-        execute_as_module(name, code, self.finder.clone(), lua)
+        execute_as_module(
+            lua,
+            normalized_path,
+            display_name,
+            code,
+            self.finder.clone(),
+            SharedAccumulator::default(),
+        )
     }
 }
 
+#[derive(Default)]
+struct Accumulator {
+    required_modules_stack: Vec<String>,
+}
+
+impl Accumulator {
+    /// The given module must be normalized, i.e. it should contain the extension.
+    pub fn push_module(&mut self, normalized_path: String) -> anyhow::Result<()> {
+        let stack = &mut self.required_modules_stack;
+        tracing::debug!(msg = "Pushing module onto stack", %normalized_path, ?stack);
+        if stack.iter().any(|path| path == &normalized_path) {
+            bail!("Detected cyclic Lua module dependency: {normalized_path}");
+        }
+        stack.push(normalized_path);
+        Ok(())
+    }
+
+    pub fn pop_module(&mut self) {
+        let stack = &mut self.required_modules_stack;
+        tracing::debug!(msg = "Popping top module from stack", ?stack);
+        stack.pop();
+    }
+}
+
+type SharedAccumulator = Rc<RefCell<Accumulator>>;
+
 fn find_and_execute_module<'lua>(
-    finder: impl LuaModuleFinder + Clone + 'static,
     lua: &'lua Lua,
-    path: &str,
+    finder: impl LuaModuleFinder + Clone + 'static,
+    accumulator: SharedAccumulator,
+    required_path: &str,
 ) -> anyhow::Result<Value<'lua>> {
     // Validate
     let root_info = || format!("\n\nModule root path: {}", finder.module_root_path());
-    let path = Utf8Path::new(path);
+    let path = Utf8Path::new(required_path);
     if path.is_absolute() {
         bail!("Required paths must not start with a slash. They are always relative to the preset sub directory.{}", root_info());
     }
@@ -83,16 +120,25 @@ fn find_and_execute_module<'lua>(
         return Ok(Value::Table(table));
     }
     // Find module and get its source
-    let source = if path.extension().is_some() {
+    let (normalized_path, source) = if path
+        .extension()
+        .is_some_and(|ext| matches!(ext, "luau" | "lua"))
+    {
         // Extension given. Just get file directly.
-        finder
+        let source = finder
             .find_source_by_path(path.as_str())
-            .with_context(|| format!("Couldn't find Lua module [{path}].{}", root_info()))?
+            .with_context(|| format!("Couldn't find Lua module [{path}].{}", root_info()))?;
+        (path.to_string(), source)
     } else {
         // No extension given. Try ".luau" and ".lua".
         ["luau", "lua"]
             .into_iter()
-            .find_map(|ext| finder.find_source_by_path(path.with_extension(ext).as_str()))
+            .find_map(|ext| {
+                let path_with_extension = format!("{path}.{ext}");
+                tracing::debug!(msg = "Finding module by path...", %path_with_extension);
+                let source = finder.find_source_by_path(&path_with_extension)?;
+                Some((path_with_extension, source))
+            })
             .with_context(|| {
                 format!(
                     "Couldn't find Lua module [{path}]. Tried with extension \".lua\" and \".luau\".{}", root_info()
@@ -100,7 +146,14 @@ fn find_and_execute_module<'lua>(
             })?
     };
     // Execute module
-    execute_as_module(path.as_str(), source.as_ref(), Ok(finder), lua)
+    execute_as_module(
+        lua,
+        Some(normalized_path.clone()),
+        normalized_path,
+        source.as_ref(),
+        Ok(finder),
+        accumulator,
+    )
 }
 
 pub fn lua_module_path_without_ext(path: &str) -> &str {
@@ -110,21 +163,30 @@ pub fn lua_module_path_without_ext(path: &str) -> &str {
 }
 
 fn execute_as_module<'lua>(
-    name: &str,
+    lua: &'lua Lua,
+    normalized_path: Option<String>,
+    display_name: String,
     code: &str,
     finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
-    lua: &'lua Lua,
+    accumulator: SharedAccumulator,
 ) -> anyhow::Result<Value<'lua>> {
     let env = create_fresh_environment(lua, true)?;
-    let require = create_require_function(finder, lua)?;
+    let require = create_require_function(lua, finder, accumulator.clone())?;
     env.set("require", require)?;
-    let value = compile_and_execute(lua, name, code, env)
-        .with_context(|| format!("Couldn't compile and execute Lua module {name}"))?;
+    let pop_later = if let Some(p) = normalized_path {
+        accumulator.borrow_mut().push_module(p)?;
+        true
+    } else {
+        false
+    };
+    let value = compile_and_execute(lua, display_name.clone(), code, env)
+        .with_context(|| format!("Couldn't compile and execute Lua module {display_name}"))?;
+    if pop_later {
+        accumulator.borrow_mut().pop_module();
+    }
     Ok(value)
-    // TODO-high CONTINUE It doesn't seem to be straightforward to save the Values of the
-    //  already loaded modules because of lifetime challenges. Not a big deal, no need
-    //  to cache. But we should at least track what has already been loaded / maintain
-    //  some kind of stack in order to fail on cycles.
+    // TODO-medium-performance Instead of just detecting cycles, we could cache the module execution result and return
+    //  it whenever it's queried again.
     // match self.modules.entry(path) {
     //     Entry::Occupied(e) => Ok(e.into_mut()),
     //     Entry::Vacant(e) => {
@@ -143,13 +205,15 @@ fn execute_as_module<'lua>(
 }
 
 fn create_require_function<'lua>(
-    finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
     lua: &'lua Lua,
+    finder: Result<impl LuaModuleFinder + Clone + 'static, &'static str>,
+    accumulator: SharedAccumulator,
 ) -> anyhow::Result<Function<'lua>> {
-    let require = lua.create_function_mut(move |lua, path: String| {
+    let require = lua.create_function_mut(move |lua, required_path: String| {
         let finder = finder.clone().map_err(mlua::Error::runtime)?;
-        let value = find_and_execute_module(finder.clone(), lua, &path)
-            .map_err(|e| mlua::Error::runtime(format!("{e:#}")))?;
+        let value =
+            find_and_execute_module(lua, finder.clone(), accumulator.clone(), &required_path)
+                .map_err(|e| mlua::Error::runtime(format!("{e:#}")))?;
         Ok(value)
     })?;
     Ok(require)
@@ -204,7 +268,9 @@ impl LuaModuleFinder for FsDirLuaModuleFinder {
             return None;
         }
         let absolute_path = self.dir.join(path);
+        tracing::debug!(msg = "find_source_by_path", ?absolute_path);
         let content = fs::read_to_string(absolute_path).ok()?;
+        tracing::debug!(msg = "find_source_by_path successful");
         Some(content.into())
     }
 }

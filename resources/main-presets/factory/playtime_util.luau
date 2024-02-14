@@ -43,7 +43,6 @@ function playtime_util.scroll_vertically(amount: number)
     return scroll("Y", amount)
 end
 
-
 function playtime_util.slot_state_text_feedback()
     return util.partial_mapping {
         glue = {

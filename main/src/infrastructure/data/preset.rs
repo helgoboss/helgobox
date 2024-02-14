@@ -155,6 +155,8 @@ pub struct PresetInfo<S> {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct CommonPresetInfo {
     pub id: String,
+    /// Path relative to the namespace root including extension.
+    pub normalized_relative_path: String,
     pub file_type: PresetFileType,
     pub origin: PresetOrigin,
     pub meta_data: CommonPresetMetaData,
@@ -198,7 +200,10 @@ impl fmt::Display for PresetOrigin {
 }
 
 struct PresetBasics {
+    /// Path relative to the **preset** root, without extension.
     id: String,
+    /// Path relative to the **preset namespace** root, including extension.
+    relative_path_within_namespace: String,
     file_type: PresetFileType,
 }
 
@@ -226,7 +231,15 @@ impl PresetBasics {
                 relative_dir_path.to_string_lossy().replace('\\', "/");
             format!("{prefix}{relative_dir_path_with_slashes}/{id_leaf}")
         };
-        let basics = Self { id, file_type };
+        let relative_path_within_namespace: PathBuf =
+            relative_file_path.components().skip(1).collect();
+        let basics = Self {
+            id,
+            relative_path_within_namespace: relative_path_within_namespace
+                .to_string_lossy()
+                .to_string(),
+            file_type,
+        };
         Some(basics)
     }
 }
@@ -410,9 +423,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
         preset_info: &PresetInfo<S>,
     ) -> anyhow::Result<CompartmentPresetModel> {
         let file_content: Cow<str> = match &preset_info.common.origin {
-            PresetOrigin::User {
-                absolute_file_path: absolute_path,
-            } => fs::read_to_string(absolute_path)
+            PresetOrigin::User { absolute_file_path } => fs::read_to_string(absolute_file_path)
                 .map_err(|_| {
                     anyhow!(
                         "Couldn't read preset file \"{}\" anymore.",
@@ -440,10 +451,8 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
             PresetFileType::Lua => {
                 let lua = SafeLua::new()?;
                 let script_name = preset_info.common.origin.to_string();
-                let module_finder: Result<Rc<dyn LuaModuleFinder>, _> = match &preset_info
-                    .common
-                    .origin
-                {
+                let origin = &preset_info.common.origin;
+                let module_finder: Result<Rc<dyn LuaModuleFinder>, _> = match origin {
                     PresetOrigin::User {
                         absolute_file_path: _,
                     } => {
@@ -471,11 +480,12 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                         Ok(Rc::new(IncludedDirLuaModuleFinder::new(module_root)))
                     }
                 };
-                let module_container = LuaModuleContainer::new(module_finder);
                 let lua = lua.start_execution_time_limit_countdown()?;
+                let module_container = LuaModuleContainer::new(module_finder);
                 let value = module_container.execute_as_module(
                     lua.as_ref(),
-                    &script_name,
+                    Some(preset_info.common.normalized_relative_path.clone()),
+                    script_name,
                     &file_content,
                 )?;
                 let compartment_content: realearn_api::persistence::Compartment =
@@ -647,6 +657,7 @@ fn load_preset_info<M: SpecificPresetMetaData>(
     let preset_info = PresetInfo {
         common: CommonPresetInfo {
             id: basics.id,
+            normalized_relative_path: basics.relative_path_within_namespace,
             file_type: basics.file_type,
             origin,
             meta_data: preset_meta_data.common,

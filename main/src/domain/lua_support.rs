@@ -53,11 +53,11 @@ impl SafeLua {
     /// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
     pub fn compile_and_execute<'a>(
         &'a self,
-        name: &str,
+        display_name: String,
         code: &str,
         env: Table<'a>,
     ) -> anyhow::Result<Value<'a>> {
-        compile_and_execute(&self.0, name, code, env)
+        compile_and_execute(&self.0, display_name, code, env)
     }
 
     /// Creates a fresh environment for this Lua state.
@@ -96,13 +96,13 @@ pub fn create_fresh_environment(lua: &Lua, allow_side_effects: bool) -> anyhow::
 /// Compiles and executes the given code in one go (shouldn't be used for repeated execution!).
 pub fn compile_and_execute<'a>(
     lua: &'a Lua,
-    name: &str,
+    display_name: String,
     code: &str,
     env: Table<'a>,
 ) -> anyhow::Result<Value<'a>> {
     let lua_chunk = lua
         .load(code)
-        .set_name(name)
+        .set_name(display_name)
         .set_mode(ChunkMode::Text)
         .set_environment(env);
     let value = lua_chunk.eval().map_err(|e| match e {
