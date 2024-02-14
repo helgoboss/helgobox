@@ -1622,11 +1622,14 @@ impl CompoundMappingSource {
     // TODO-medium There are quite some places in which we are fine with a borrowed version but
     //  the problem is the MIDI source can't simply give us a borrowed one. Maybe we should
     //  create one at MIDI source creation time! But for this we need to make MidiSource a struct.
-    pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
+    pub fn extract_feedback_address(
+        &self,
+        source_context: RealearnSourceContext,
+    ) -> Option<CompoundMappingSourceAddress> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => Some(CompoundMappingSourceAddress::Midi(
-                s.extract_feedback_address()?,
+                s.extract_feedback_address(source_context)?,
             )),
             Osc(s) => Some(CompoundMappingSourceAddress::Osc(
                 s.feedback_address().clone(),
@@ -1644,11 +1647,17 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// -  Source takeover (feedback)
-    pub fn has_same_feedback_address_as_value(&self, value: &FinalSourceFeedbackValue) -> bool {
+    pub fn has_same_feedback_address_as_value(
+        &self,
+        value: &FinalSourceFeedbackValue,
+        source_context: RealearnSourceContext,
+    ) -> bool {
         use CompoundMappingSource::*;
         match (self, value) {
             (Osc(s), FinalSourceFeedbackValue::Osc(v)) => s.has_same_feedback_address_as_value(v),
-            (Midi(s), FinalSourceFeedbackValue::Midi(v)) => s.has_same_feedback_address_as_value(v),
+            (Midi(s), FinalSourceFeedbackValue::Midi(v)) => {
+                s.has_same_feedback_address_as_value(v, source_context)
+            }
             _ => false,
         }
     }
@@ -1658,11 +1667,15 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// - Feedback diffing
-    pub fn has_same_feedback_address_as_source(&self, other: &Self) -> bool {
+    pub fn has_same_feedback_address_as_source(
+        &self,
+        other: &Self,
+        source_context: RealearnSourceContext,
+    ) -> bool {
         use CompoundMappingSource::*;
         match (self, other) {
             (Osc(s1), Osc(s2)) => s1.has_same_feedback_address_as_source(s2),
-            (Midi(s1), Midi(s2)) => s1.has_same_feedback_address_as_source(s2),
+            (Midi(s1), Midi(s2)) => s1.has_same_feedback_address_as_source(s2, source_context),
             (Virtual(s1), Virtual(s2)) => s1.has_same_feedback_address_as_source(s2),
             _ => false,
         }

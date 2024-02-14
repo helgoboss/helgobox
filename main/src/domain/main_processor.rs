@@ -356,8 +356,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         if let Some(mapping_with_source) = self.all_mappings().find(|m| {
             m.feedback_is_effectively_on()
-                && m.source()
-                    .has_same_feedback_address_as_value(&released_event.feedback_value)
+                && m.source().has_same_feedback_address_as_value(
+                    &released_event.feedback_value,
+                    self.basics.source_context(m.compartment()),
+                )
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
@@ -1118,7 +1120,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             if m.feedback_is_effectively_on() {
                 // Mark source as used
-                if let Some(addr) = m.source().extract_feedback_address() {
+                if let Some(addr) = m
+                    .source()
+                    .extract_feedback_address(self.basics.source_context(m.compartment()))
+                {
                     unused_sources.remove(&addr);
                 }
             }
@@ -1142,7 +1147,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     continue;
                 }
                 // Mark source as used
-                if let Some(addr) = m.source().extract_feedback_address() {
+                if let Some(addr) = m
+                    .source()
+                    .extract_feedback_address(self.basics.source_context(m.compartment()))
+                {
                     unused_sources.remove(&addr);
                 }
             }
@@ -1194,7 +1202,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    if let Some(addr) = m.source().extract_feedback_address() {
+                    if let Some(addr) = m
+                        .source()
+                        .extract_feedback_address(self.basics.source_context(compartment))
+                    {
                         unused_sources.remove(&addr);
                     }
                 }
@@ -1400,7 +1411,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    if let Some(addr) = m.source().extract_feedback_address() {
+                    if let Some(addr) = m
+                        .source()
+                        .extract_feedback_address(self.basics.source_context(m.compartment()))
+                    {
                         unused_sources.remove(&addr);
                     }
                 }
@@ -1483,7 +1497,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    if let Some(addr) = m.source().extract_feedback_address() {
+                    if let Some(addr) = m
+                        .source()
+                        .extract_feedback_address(self.basics.source_context(m.compartment()))
+                    {
                         unused_sources.remove(&addr);
                     }
                 }
@@ -2385,8 +2402,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter(|m| m.feedback_is_effectively_on())
                 .filter_map(|m| {
                     Some((
-                        m.source().extract_feedback_address()?,
-                        m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger)?,
+                        m.source()
+                            .extract_feedback_address(self.basics.source_context(compartment))?,
+                        m.off_feedback(self.basics.source_context(compartment), NoopLogger)?,
                     ))
                 })
                 .collect()
@@ -2396,7 +2414,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter(|m| m.feedback_is_effectively_on())
                 .filter_map(|m| {
                     Some((
-                        m.source().extract_feedback_address()?,
+                        m.source().extract_feedback_address(
+                            self.basics.source_context(m.compartment()),
+                        )?,
                         m.off_feedback(self.basics.source_context(m.compartment()), NoopLogger)?,
                     ))
                 })
@@ -2658,10 +2678,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // An existing mapping is being overwritten.
             if previous_mapping.feedback_is_effectively_on() {
                 // And its light is currently on.
-                if mapping
-                    .source()
-                    .has_same_feedback_address_as_source(previous_mapping.source())
-                {
+                if mapping.source().has_same_feedback_address_as_source(
+                    previous_mapping.source(),
+                    self.basics.source_context(mapping.compartment()),
+                ) {
                     // Source is the same.
                     if mapping.feedback_is_effectively_on() {
                         // Lights should still be on.
