@@ -51,7 +51,7 @@ impl InstanceParameterContainer {
         main_unit_parameter_manager: Arc<ParameterManager>,
     ) {
         if let Some(data) = self.pending_data_to_be_loaded.write().unwrap().take() {
-            notification::notify_user_on_anyhow_error(instance_shell.clone().load(&data));
+            load_data_or_warn(instance_shell.clone(), &data);
         }
         let lazy_data = LazyData {
             instance_shell: Arc::downgrade(instance_shell),
@@ -188,12 +188,11 @@ impl PluginParameters for InstanceParameterContainer {
                     .replace(data.to_vec());
                 return;
             };
-            lazy_data
+            let instance_shell = lazy_data
                 .instance_shell
                 .upgrade()
-                .expect("instance shell gone")
-                .load(data)
-                .expect("couldn't load bank data provided by REAPER");
+                .expect("instance shell gone");
+            load_data_or_warn(instance_shell, data);
         });
     }
 
@@ -225,3 +224,7 @@ impl PluginParameters for InstanceParameterContainer {
 }
 
 pub const SET_STATE_PARAM_NAME: &str = "set-state";
+
+fn load_data_or_warn(instance_shell: Arc<InstanceShell>, data: &[u8]) {
+    notification::warn_user_on_anyhow_error(instance_shell.load(data));
+}
