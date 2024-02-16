@@ -95,7 +95,7 @@ pub struct MatrixSequenceEvent {
     pub message: MatrixSequenceMessage,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum MatrixSequenceMessage {
     PanicMatrix,
     StopMatrix,
@@ -103,7 +103,7 @@ pub enum MatrixSequenceMessage {
     StopColumn(MatrixSequenceColumnMessage),
     StartScene(MatrixSequenceRowMessage),
     PanicSlot(MatrixSequenceSlotMessage),
-    StartSlot(MatrixSequenceSlotMessage),
+    StartSlot(MatrixSequenceStartSlotMessage),
     StopSlot(MatrixSequenceSlotMessage),
 }
 
@@ -121,6 +121,13 @@ pub struct MatrixSequenceRowMessage {
 pub struct MatrixSequenceSlotMessage {
     pub column_index: u32,
     pub row_index: u32,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MatrixSequenceStartSlotMessage {
+    pub column_index: u32,
+    pub row_index: u32,
+    pub velocity: f64,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -679,7 +686,7 @@ pub struct ClipPlayStopTimingOverride {
 
 /// An even quantization.
 ///
-/// Even in the sense of that's it's not swing or dotted.
+/// "Even" in the sense that it's not swing or dotted.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct EvenQuantization {
     numerator: u32,
@@ -1119,7 +1126,6 @@ pub struct Clip {
     /// Relative volume adjustment of clip.
     pub volume: Db,
     /// Color of the clip.
-    // TODO-clip-implement
     pub color: ClipColor,
     /// A more variable kind of section within the main section.
     ///

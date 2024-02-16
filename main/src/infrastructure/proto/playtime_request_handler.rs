@@ -23,6 +23,7 @@ use playtime_api::persistence::{
 };
 use playtime_api::runtime::SimpleMappingTarget;
 
+use helgoboss_learn::UnitValue;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
     base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
@@ -39,9 +40,14 @@ impl PlaytimeProtoRequestHandler {
         let action = TriggerSlotAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger slot action"))?;
         self.handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
-            TriggerSlotAction::Play => {
-                matrix.play_slot(slot_address, ColumnPlaySlotOptions::default())
-            }
+            TriggerSlotAction::Play => matrix.play_slot(
+                slot_address,
+                ColumnPlaySlotOptions {
+                    velocity: Some(UnitValue::MAX),
+                    stop_column_if_slot_empty: false,
+                    start_timing: None,
+                },
+            ),
             TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
             TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
@@ -62,8 +68,8 @@ impl PlaytimeProtoRequestHandler {
                 matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
                 Ok(())
             }
-            TriggerSlotAction::TriggerOn => matrix.trigger_slot(slot_address, true),
-            TriggerSlotAction::TriggerOff => matrix.trigger_slot(slot_address, false),
+            TriggerSlotAction::TriggerOn => matrix.trigger_slot(slot_address, UnitValue::MAX),
+            TriggerSlotAction::TriggerOff => matrix.trigger_slot(slot_address, UnitValue::MIN),
             TriggerSlotAction::Activate => matrix.activate_slot(slot_address),
         })
     }

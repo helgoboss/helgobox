@@ -157,15 +157,15 @@ mod playtime_impl {
             context: MappingControlContext,
         ) -> anyhow::Result<HitResponse> {
             use PlaytimeSlotTransportAction::*;
-            let on = value.is_on();
             Backbone::get().with_clip_matrix_mut(context.control_context.instance(), |matrix| {
                 let response = match self.basics.action {
                     Trigger => {
-                        matrix.trigger_slot(self.basics.slot_coordinates, on)?;
+                        let velocity = value.to_unit_value().map_err(anyhow::Error::msg)?;
+                        matrix.trigger_slot(self.basics.slot_coordinates, velocity)?;
                         HitResponse::processed_with_effect()
                     }
                     PlayStop => {
-                        if on {
+                        if value.is_on() {
                             matrix.play_slot(
                                 self.basics.slot_coordinates,
                                 self.basics.play_options(),
@@ -179,7 +179,7 @@ mod playtime_impl {
                         HitResponse::processed_with_effect()
                     }
                     PlayPause => {
-                        if on {
+                        if value.is_on() {
                             matrix.play_slot(
                                 self.basics.slot_coordinates,
                                 self.basics.play_options(),
@@ -190,7 +190,7 @@ mod playtime_impl {
                         HitResponse::processed_with_effect()
                     }
                     Stop => {
-                        if on {
+                        if value.is_on() {
                             matrix.stop_slot(
                                 self.basics.slot_coordinates,
                                 self.basics.options.play_stop_timing,
@@ -201,7 +201,7 @@ mod playtime_impl {
                         }
                     }
                     Pause => {
-                        if on {
+                        if value.is_on() {
                             matrix.pause_clip(self.basics.slot_coordinates)?;
                             HitResponse::processed_with_effect()
                         } else {
@@ -209,7 +209,7 @@ mod playtime_impl {
                         }
                     }
                     RecordStop => {
-                        if on {
+                        if value.is_on() {
                             if self.basics.options.record_only_if_track_armed
                                 && !matrix.column_is_armed_for_recording(
                                     self.basics.slot_coordinates.column(),
@@ -227,7 +227,7 @@ mod playtime_impl {
                         HitResponse::processed_with_effect()
                     }
                     RecordPlayStop => {
-                        if on {
+                        if value.is_on() {
                             if matrix.slot_is_empty(self.basics.slot_coordinates) {
                                 // Slot is empty.
                                 if self.basics.options.record_only_if_track_armed {
@@ -269,7 +269,7 @@ mod playtime_impl {
                         HitResponse::processed_with_effect()
                     }
                     Looped => {
-                        if on {
+                        if value.is_on() {
                             matrix.toggle_looped(self.basics.slot_coordinates)?;
                             HitResponse::processed_with_effect()
                         } else {
@@ -464,13 +464,14 @@ mod playtime_impl {
             context: RealTimeControlContext,
         ) -> Result<bool, &'static str> {
             use PlaytimeSlotTransportAction::*;
-            let on = value.is_on();
             let matrix = context.clip_matrix()?;
             let matrix = matrix.lock();
             match self.basics.action {
-                Trigger => matrix.trigger_slot(self.basics.slot_coordinates, on),
+                Trigger => {
+                    matrix.trigger_slot(self.basics.slot_coordinates, value.to_unit_value()?)
+                }
                 PlayStop => {
-                    if on {
+                    if value.is_on() {
                         matrix
                             .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
                     } else {
@@ -482,7 +483,7 @@ mod playtime_impl {
                     Ok(true)
                 }
                 PlayPause => {
-                    if on {
+                    if value.is_on() {
                         matrix
                             .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
                     } else {
@@ -491,7 +492,7 @@ mod playtime_impl {
                     Ok(true)
                 }
                 Stop => {
-                    if on {
+                    if value.is_on() {
                         matrix.stop_slot(
                             self.basics.slot_coordinates,
                             self.basics.options.play_stop_timing,
@@ -500,7 +501,7 @@ mod playtime_impl {
                     Ok(true)
                 }
                 Pause => {
-                    if on {
+                    if value.is_on() {
                         matrix.pause_slot(self.basics.slot_coordinates)?;
                     }
                     Ok(true)
@@ -541,6 +542,8 @@ mod playtime_impl {
     impl ClipTransportTargetBasics {
         fn play_options(&self) -> ColumnPlaySlotOptions {
             ColumnPlaySlotOptions {
+                // TODO-high-ms5 Should we respect velocity for non-trigger transport actions as well?
+                velocity: Some(UnitValue::MAX),
                 stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
                 start_timing: self.options.play_start_timing,
             }

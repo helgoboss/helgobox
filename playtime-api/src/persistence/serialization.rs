@@ -1,6 +1,6 @@
 use crate::persistence::{
     MatrixSequenceColumnMessage, MatrixSequenceEvent, MatrixSequenceMessage,
-    MatrixSequenceRowMessage, MatrixSequenceSlotMessage,
+    MatrixSequenceRowMessage, MatrixSequenceSlotMessage, MatrixSequenceStartSlotMessage,
 };
 use serde::de::{Error, SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
@@ -78,11 +78,12 @@ impl Serialize for MatrixSequenceEvent {
                 seq.end()
             }
             StartSlot(m) => {
-                let mut seq = serializer.serialize_tuple(4)?;
+                let mut seq = serializer.serialize_tuple(5)?;
                 seq.serialize_element(&self.pulse_diff)?;
                 seq.serialize_element(&6u8)?;
                 seq.serialize_element(&m.column_index)?;
                 seq.serialize_element(&m.row_index)?;
+                seq.serialize_element(&m.velocity)?;
                 seq.end()
             }
 
@@ -149,7 +150,16 @@ impl<'de> Visitor<'de> for MatrixSequenceEventVisitor {
             3 => StopColumn(col!()),
             4 => StartScene(row!()),
             5 => PanicSlot(slot!()),
-            6 => StartSlot(slot!()),
+            6 => StartSlot(MatrixSequenceStartSlotMessage {
+                column_index: seq
+                    .next_element()?
+                    .ok_or(Error::custom("expected slot column index"))?,
+                row_index: seq
+                    .next_element()?
+                    .ok_or(Error::custom("expected slot row index"))?,
+                // Full velocity by default
+                velocity: seq.next_element()?.unwrap_or(1.0),
+            }),
             7 => StopSlot(slot!()),
             _ => return Err(Error::custom(format!("unknown message type {msg_type}"))),
         };
