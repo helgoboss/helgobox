@@ -4462,6 +4462,7 @@ dependencies = [
  "serde_json",
  "slug",
  "static_assertions",
+ "strum",
  "swell-ui",
  "thiserror",
  "thread-priority",
