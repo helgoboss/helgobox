@@ -51,7 +51,6 @@ pub struct Matrix {
     pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
-    // TODO-high-ms4 This strikes me as a global setting.
     pub common_tempo_range: TempoRange,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
@@ -249,13 +248,15 @@ impl Default for TempoRange {
 }
 
 /// Matrix-global settings related to playing clips.
-#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipPlaySettings {
     #[serde(default)]
     pub trigger_behavior: TriggerPlayBehavior,
     pub start_timing: ClipPlayStartTiming,
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
+    #[serde(default)]
+    pub velocity_sensitivity: f64,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -860,7 +861,7 @@ pub fn default_exclusive() -> bool {
     true
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ColumnClipPlaySettings {
     #[serde(default = "default_follows_scene")]
     pub follows_scene: bool,
@@ -884,6 +885,15 @@ pub struct ColumnClipPlaySettings {
     /// `None` means it uses the matrix-global stop timing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
+    /// Trigger behavior override.
+    ///
+    /// `None` means it uses the matrix-global trigger behavior.
+    pub trigger_behavior: Option<TriggerPlayBehavior>,
+    /// Velocity sensitivity override.
+    ///
+    /// `None` means it uses the matrix-global sensitivity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_sensitivity: Option<f64>,
     pub audio_settings: ColumnClipPlayAudioSettings,
 }
 
@@ -1099,6 +1109,11 @@ pub struct Clip {
     /// `None` means it uses the column stop timing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
+    /// Velocity sensitivity override.
+    ///
+    /// `None` means it uses the column sensitivity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_sensitivity: Option<f64>,
     /// Whether the clip should be played repeatedly or as a single shot.
     pub looped: bool,
     /// Relative volume adjustment of clip.
