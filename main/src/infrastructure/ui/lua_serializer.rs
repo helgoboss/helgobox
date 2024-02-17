@@ -146,7 +146,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_none(self) -> Result<()> {
-        Err(Error::Unsupported("none"))
+        self.output += "nil";
+        Ok(())
     }
 
     fn serialize_some<T>(self, value: &T) -> Result<()>
