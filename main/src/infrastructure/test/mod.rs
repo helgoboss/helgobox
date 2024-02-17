@@ -177,9 +177,15 @@ async fn basics() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
+    // Whenever we write Db::MINUS_150_DB here, we expected Db::MINUS_INF before! Turns out that the minimum value
+    // set by the ReaLearn volume targets was (at least recently) *always* only -150, not -inf! But because of all
+    // the pointless conversions in reaper_high::Volume (now SliderVolume and fixed in reaper-rs commit 88686932),
+    // we ended up getting -inf when reading the track volume, which was wrong (if that makes any difference anyway).
+    // So now it's correct. It's a bit weird that using SetMediaTrackInfo_Value() with a value of 0.0 doesn't give
+    // -inf (as opposed to SetMediaTrackInfo_Value with D_VOL) but that's another story.
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF,
+        Db::MINUS_150_DB,
         "NOTE OFF should turn down volume completely"
     );
     assert_eq!(
@@ -192,7 +198,7 @@ async fn basics() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -237,7 +243,7 @@ async fn nrpn_test() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF,
+        Db::MINUS_150_DB,
         "NOTE OFF should turn down volume completely"
     );
     assert_eq!(
@@ -254,7 +260,7 @@ async fn nrpn_test() {
     // Then
     assert_ne!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF,
+        Db::MINUS_150_DB,
         "increment should turn volume up a bit"
     );
     assert_eq!(
@@ -271,7 +277,7 @@ async fn nrpn_test() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF,
+        Db::MINUS_150_DB,
         "decrement should turn volume down a bit again"
     );
     assert_eq!(
@@ -316,7 +322,7 @@ async fn load_mapping_snapshot_all_mappings() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MIN,
+        Db::MINUS_150_DB,
         "volume should be MIN because muted"
     );
     assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
@@ -394,7 +400,7 @@ async fn load_mapping_snapshot_some_mappings() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MIN,
+        Db::MINUS_150_DB,
         "volume should be MIN because muted"
     );
     assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
@@ -673,7 +679,7 @@ async fn send_feedback_after_control_normal_mode_volume() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -685,7 +691,7 @@ async fn send_feedback_after_control_normal_mode_volume() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -718,7 +724,7 @@ async fn basics_controller_compartment() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -760,7 +766,7 @@ async fn virtual_mapping() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -863,7 +869,7 @@ async fn track_by_position() {
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::ZERO_DB
     );
-    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_INF);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_150_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -1151,7 +1157,7 @@ async fn track_by_name() {
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::ZERO_DB
     );
-    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_INF);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_150_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -1333,7 +1339,7 @@ async fn conditional_activation_program() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
@@ -1407,7 +1413,7 @@ async fn conditional_activation_eel() {
     // Then
     assert_eq!(
         realearn.track().volume().to_db_ex(Db::MINUS_INF),
-        Db::MINUS_INF
+        Db::MINUS_150_DB
     );
     assert_eq!(
         realearn.pop_feedback(),
