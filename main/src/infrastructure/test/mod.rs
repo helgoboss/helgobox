@@ -161,7 +161,10 @@ impl RealearnTestInstance {
 async fn basics() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/basics.json"));
     moment().await;
@@ -175,7 +178,7 @@ async fn basics() {
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MINUS_INF,
         "NOTE OFF should turn down volume completely"
     );
@@ -187,7 +190,10 @@ async fn basics() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -196,7 +202,10 @@ async fn basics() {
     // When
     send_midi(note_on(0, 64, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::TWELVE_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
@@ -207,7 +216,10 @@ async fn basics() {
 async fn nrpn_test() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/nrpn.json"));
     moment().await;
@@ -224,7 +236,7 @@ async fn nrpn_test() {
     .await;
     // Then
     assert_eq!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MINUS_INF,
         "NOTE OFF should turn down volume completely"
     );
@@ -241,7 +253,7 @@ async fn nrpn_test() {
     .await;
     // Then
     assert_ne!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MINUS_INF,
         "increment should turn volume up a bit"
     );
@@ -258,7 +270,7 @@ async fn nrpn_test() {
     .await;
     // Then
     assert_eq!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MINUS_INF,
         "decrement should turn volume down a bit again"
     );
@@ -272,7 +284,10 @@ async fn nrpn_test() {
 async fn load_mapping_snapshot_all_mappings() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(
         &realearn,
@@ -300,7 +315,7 @@ async fn load_mapping_snapshot_all_mappings() {
     send_midi(note_on(0, 62, 127)).await;
     // Then
     assert_eq!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MIN,
         "volume should be MIN because muted"
     );
@@ -321,7 +336,10 @@ async fn load_mapping_snapshot_all_mappings() {
     // When
     send_midi(note_on(0, 65, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.track().pan().reaper_value(),
         ReaperPanValue::CENTER
@@ -344,7 +362,10 @@ async fn load_mapping_snapshot_all_mappings() {
 async fn load_mapping_snapshot_some_mappings() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(
         &realearn,
@@ -372,7 +393,7 @@ async fn load_mapping_snapshot_some_mappings() {
     send_midi(note_on(0, 62, 127)).await;
     // Then
     assert_eq!(
-        realearn.track().volume().db(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
         Db::MIN,
         "volume should be MIN because muted"
     );
@@ -393,7 +414,10 @@ async fn load_mapping_snapshot_some_mappings() {
     // When
     send_midi(note_on(0, 65, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
     assert!(!realearn.track().is_muted());
     assert_eq!(
@@ -411,7 +435,10 @@ async fn load_mapping_snapshot_some_mappings() {
 async fn toggle_mode() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/toggle-mode.json"));
     moment().await;
@@ -449,7 +476,10 @@ async fn toggle_mode() {
 async fn send_feedback_after_control_toggle_mode_arm() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(
         &realearn,
@@ -622,7 +652,10 @@ async fn issue_396_send_feedback_after_control() {
 async fn send_feedback_after_control_normal_mode_volume() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(
         &realearn,
@@ -638,7 +671,10 @@ async fn send_feedback_after_control_normal_mode_volume() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0))),],
@@ -647,7 +683,10 @@ async fn send_feedback_after_control_normal_mode_volume() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -658,7 +697,10 @@ async fn send_feedback_after_control_normal_mode_volume() {
 async fn basics_controller_compartment() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(
         &realearn,
@@ -674,7 +716,10 @@ async fn basics_controller_compartment() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -683,7 +728,10 @@ async fn basics_controller_compartment() {
     // When
     send_midi(note_on(0, 64, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::TWELVE_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
@@ -694,7 +742,10 @@ async fn basics_controller_compartment() {
 async fn virtual_mapping() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/virtual.json"));
     moment().await;
@@ -707,7 +758,10 @@ async fn virtual_mapping() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -716,7 +770,10 @@ async fn virtual_mapping() {
     // When
     send_midi(note_on(0, 64, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::TWELVE_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
@@ -728,7 +785,10 @@ async fn virtual_mapping() {
 async fn track_by_id() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-id.json"));
     moment().await;
@@ -741,26 +801,35 @@ async fn track_by_id() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(realearn.pop_feedback(), vec![]);
     // When
     let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(realearn.pop_feedback(), vec![]);
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(realearn.pop_feedback(), vec![]);
 }
 
 async fn track_by_position() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-position.json"));
     moment().await;
@@ -773,12 +842,15 @@ async fn track_by_position() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 91)))],
@@ -787,8 +859,11 @@ async fn track_by_position() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(track_2.volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -1011,7 +1086,10 @@ async fn fx_by_id() {
 async fn track_by_name() {
     // Given
     let realearn = setup().await;
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-name.json"));
     moment().await;
@@ -1024,7 +1102,10 @@ async fn track_by_name() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1034,7 +1115,7 @@ async fn track_by_name() {
     let track_2 = realearn.track().project().add_track().unwrap();
     moment().await;
     // Then
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1043,8 +1124,11 @@ async fn track_by_name() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1054,7 +1138,7 @@ async fn track_by_name() {
     track_2.set_name("Find me!");
     moment().await;
     // Then
-    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 91)))],
@@ -1063,8 +1147,11 @@ async fn track_by_name() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(track_2.volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
+    assert_eq!(track_2.volume().to_db_ex(Db::MINUS_INF), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -1087,7 +1174,10 @@ async fn conditional_activation_modifiers() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1110,7 +1200,7 @@ async fn conditional_activation_modifiers() {
     send_midi(note_on(0, 64, 10)).await;
     // Then
     assert_abs_diff_eq!(
-        realearn.track().volume().db().get(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF).get(),
         -60.244583841299885,
         epsilon = BASE_EPSILON
     );
@@ -1139,7 +1229,7 @@ async fn conditional_activation_modifiers() {
     // Then
     // Value should remain unchanged
     assert_abs_diff_eq!(
-        realearn.track().volume().db().get(),
+        realearn.track().volume().to_db_ex(Db::MINUS_INF).get(),
         -60.244583841299885,
         epsilon = BASE_EPSILON
     );
@@ -1167,7 +1257,10 @@ async fn conditional_activation_modifiers() {
     // When
     send_midi(note_on(0, 64, 127)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::TWELVE_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
@@ -1190,7 +1283,10 @@ async fn conditional_activation_program() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1211,7 +1307,10 @@ async fn conditional_activation_program() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1232,7 +1331,10 @@ async fn conditional_activation_program() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],
@@ -1255,7 +1357,10 @@ async fn conditional_activation_eel() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1276,7 +1381,10 @@ async fn conditional_activation_eel() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::ZERO_DB
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![],
@@ -1297,7 +1405,10 @@ async fn conditional_activation_eel() {
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
-    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.track().volume().to_db_ex(Db::MINUS_INF),
+        Db::MINUS_INF
+    );
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 0)))],

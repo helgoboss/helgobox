@@ -16,9 +16,7 @@ pub fn peaks_should_be_hidden(track: &Track) -> bool {
 ///
 /// This takes VU mode / channel count intricacies into account. It returns peaks even if another
 /// track is soloed! See [`peaks_should_be_hidden`].
-pub fn get_track_peaks(
-    track: MediaTrack,
-) -> impl Iterator<Item = ReaperVolumeValue> + ExactSizeIterator<Item = ReaperVolumeValue> {
+pub fn get_track_peaks(track: MediaTrack) -> impl ExactSizeIterator<Item = ReaperVolumeValue> {
     let reaper = Reaper::get().medium_reaper();
     let vu_mode =
         unsafe { reaper.get_media_track_info_value(track, TrackAttributeKey::VuMode) as i32 };

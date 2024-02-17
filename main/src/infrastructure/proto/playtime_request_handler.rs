@@ -28,7 +28,7 @@ use helgoboss_learn::UnitValue;
 use playtime_clip_engine::{
     base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
 };
-use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Track, Volume};
+use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Track};
 use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
@@ -457,7 +457,7 @@ impl PlaytimeProtoRequestHandler {
         self.handle_matrix_command(&req.matrix_id, |matrix| {
             let project = matrix.permanent_project().or_current_project();
             project.master_track()?.set_volume(
-                Volume::from_db(db),
+                db.to_reaper_volume_value(),
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );
@@ -483,7 +483,7 @@ impl PlaytimeProtoRequestHandler {
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
         self.handle_track_command(&req.track_address, |_matrix, track| {
             track.set_volume(
-                Volume::from_db(db),
+                db.to_reaper_volume_value(),
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );

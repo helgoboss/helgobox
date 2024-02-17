@@ -7,6 +7,7 @@ use crate::infrastructure::proto::{
 use base::hash_util::NonCryptoHashMap;
 use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
 use reaper_high::{Guid, OrCurrentProject, Track};
+use reaper_medium::Db;
 use std::iter;
 
 pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalMatrixUpdate> {
@@ -24,7 +25,7 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
     let master_track = project.master_track().expect("project gone");
     let updates = [
         Update::MatrixExists(true),
-        Update::volume(master_track.volume().db()),
+        Update::volume(master_track.volume().to_db_ex(Db::MINUS_INF)),
         Update::pan(master_track.pan().reaper_value()),
         Update::mute(master_track.is_muted()),
         Update::tempo(matrix.tempo()),
@@ -77,7 +78,7 @@ pub fn create_initial_track_updates(
                     Update::mute(track.is_muted()),
                     Update::solo(track.is_solo()),
                     Update::selected(track.is_selected()),
-                    Update::volume(track.volume().db()),
+                    Update::volume(track.volume().to_db_ex(Db::MINUS_INF)),
                     Update::pan(track.pan().reaper_value()),
                 ]
                 .into_iter()

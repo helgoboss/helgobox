@@ -71,7 +71,7 @@ mod playtime_impl {
         base::ClipMatrixEvent,
         rt::{ClipChangeEvent, QualifiedClipChangeEvent},
     };
-    use reaper_high::Volume;
+    use reaper_high::SliderVolume;
     use reaper_medium::Db;
     use std::borrow::Cow;
 
@@ -105,8 +105,9 @@ mod playtime_impl {
             value: ControlValue,
             context: MappingControlContext,
         ) -> Result<HitResponse, &'static str> {
-            let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
-                .unwrap_or_default();
+            let volume =
+                SliderVolume::try_from_normalized_slider_value(value.to_unit_value()?.get())
+                    .unwrap_or_default();
             let db = volume.db();
             let api_db = playtime_api::persistence::Db::new(db.get())?;
             Backbone::get()
@@ -162,11 +163,11 @@ mod playtime_impl {
     }
 
     impl PlaytimeSlotVolumeTarget {
-        fn volume(&self, context: ControlContext) -> Option<Volume> {
+        fn volume(&self, context: ControlContext) -> Option<SliderVolume> {
             Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| {
                     let db = matrix.find_slot(self.slot_coordinates)?.volume().ok()?;
-                    Some(Volume::from_db(Db::new(db.get())))
+                    Some(SliderVolume::from_db(Db::new(db.get())))
                 })
                 .ok()?
         }

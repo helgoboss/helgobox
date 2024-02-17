@@ -155,8 +155,9 @@ mod playtime_impl {
         Laziness, Timeline,
     };
     use reaper_high::{
-        AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, PanExt, Project, Track, Volume,
+        AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, PanExt, Project, Track,
     };
+    use reaper_medium::Db;
     use std::collections::HashMap;
 
     impl ProtoHub {
@@ -556,7 +557,7 @@ mod playtime_impl {
             for event in events {
                 let update: Option<R> = match event {
                     ChangeEvent::TrackVolumeChanged(e) => {
-                        let db = Volume::from_reaper_value(e.new_value).db();
+                        let db = e.new_value.to_db_ex(Db::MINUS_INF);
                         if e.track.is_master_track() {
                             Some(R::Matrix(occasional_matrix_update::Update::volume(db)))
                         } else {
@@ -741,7 +742,7 @@ mod playtime_impl {
             return vec![];
         }
         peak_util::get_track_peaks(track.raw())
-            .map(|vol| Volume::from_reaper_value(vol).db().get())
+            .map(|vol| vol.to_db_ex(Db::MINUS_INF).get())
             .collect()
     }
 }

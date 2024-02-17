@@ -51,7 +51,7 @@ use crate::infrastructure::plugin::{
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
-use crate::infrastructure::ui::util::{open_child_panel, open_child_panel_dyn};
+use crate::infrastructure::ui::util::open_child_panel;
 use crate::infrastructure::ui::welcome_panel::WelcomePanel;
 use anyhow::bail;
 use base::hash_util::NonCryptoHashSet;

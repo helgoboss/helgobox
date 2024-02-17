@@ -8,7 +8,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, ReaperError, Track, TrackRoute, Volume};
+use reaper_high::{ChangeEvent, Project, ReaperError, SliderVolume, Track, TrackRoute};
 use reaper_medium::EditMode;
 use std::borrow::Cow;
 
@@ -75,9 +75,12 @@ impl RealearnTarget for RouteVolumeTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
+        let volume = SliderVolume::try_from_normalized_slider_value(value.to_unit_value()?.get());
         self.route
-            .set_volume(volume.unwrap_or(Volume::MIN), EditMode::NormalTweak)
+            .set_volume(
+                volume.unwrap_or(SliderVolume::MIN).reaper_value(),
+                EditMode::NormalTweak,
+            )
             .map_err(|_| "couldn't set route volume")?;
         Ok(HitResponse::processed_with_effect())
     }
@@ -138,8 +141,8 @@ impl RealearnTarget for RouteVolumeTarget {
 }
 
 impl RouteVolumeTarget {
-    fn volume(&self) -> Result<Volume, ReaperError> {
-        self.route.volume()
+    fn volume(&self) -> Result<SliderVolume, ReaperError> {
+        Ok(SliderVolume::from_reaper_value(self.route.volume()?))
     }
 }
 

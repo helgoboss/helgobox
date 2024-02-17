@@ -35,7 +35,7 @@ use pot::{
 };
 use pot::{FilterItemId, PresetId};
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::{Fx, FxParameter, Reaper, Track, Volume};
+use reaper_high::{Fx, FxParameter, Reaper, SliderVolume, Track};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
@@ -1964,7 +1964,8 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             egui::DragValue::new(&mut new_volume_raw)
                 .speed(0.01)
                 .custom_formatter(|v, _| {
-                    Volume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
+                    // TODO-low It's useless to first convert into a slider volume
+                    SliderVolume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
                 })
                 .clamp_range(0.0..=1.0)
                 .ui(ui)

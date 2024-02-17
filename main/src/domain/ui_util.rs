@@ -7,7 +7,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use itertools::Itertools;
-use reaper_high::{Reaper, Volume};
+use reaper_high::{Reaper, SliderVolume};
 use reaper_medium::Db;
 use rosc::{OscMessage, OscPacket};
 use std::convert::TryInto;
@@ -43,18 +43,22 @@ pub fn parse_from_double_percentage(text: &str) -> Result<UnitValue, &'static st
     (doble_unit_value / 2.0).try_into()
 }
 
+/// Parses the given string as a dB value up to 12 dB.
 pub fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {
     let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
     let db: Db = decimal.try_into().map_err(|_| "not in dB range")?;
-    Volume::from_db(db).soft_normalized_value().try_into()
+    SliderVolume::from_db(db)
+        .normalized_slider_value()
+        .try_into()
 }
 
 pub fn format_value_as_db_without_unit(value: UnitValue) -> String {
-    let volume = Volume::try_from_soft_normalized_value(value.get()).unwrap_or(Volume::MIN);
+    let volume =
+        SliderVolume::try_from_normalized_slider_value(value.get()).unwrap_or(SliderVolume::MIN);
     format_volume_as_db_without_unit(volume)
 }
 
-pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
+pub fn format_volume_as_db_without_unit(volume: SliderVolume) -> String {
     let db = volume.db();
     if db == Db::MINUS_INF {
         "-inf".to_string()
@@ -65,14 +69,15 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
 
 #[allow(unused)]
 pub fn db_unit_value(volume: Db) -> UnitValue {
-    volume_unit_value(Volume::from_db(volume))
+    volume_unit_value(SliderVolume::from_db(volume))
 }
 
-pub fn volume_unit_value(volume: Volume) -> UnitValue {
+/// Returns the given volume as unit value, clamping to 1.0 if the volume is higher than 12 dB.
+pub fn volume_unit_value(volume: SliderVolume) -> UnitValue {
     // The soft-normalized value can be > 1.0, e.g. when we have a volume of 12 dB and then
     // lower the volume fader limit to a lower value. In that case we just report the
     // highest possible value ... not much else we can do.
-    UnitValue::new_clamped(volume.soft_normalized_value())
+    UnitValue::new_clamped(volume.normalized_slider_value())
 }
 
 pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
@@ -84,8 +89,8 @@ pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
 }
 
 pub fn format_value_as_db(value: UnitValue) -> String {
-    Volume::try_from_soft_normalized_value(value.get())
-        .unwrap_or(Volume::MIN)
+    SliderVolume::try_from_normalized_slider_value(value.get())
+        .unwrap_or(SliderVolume::MIN)
         .to_string()
 }
 

@@ -8,7 +8,7 @@ use crate::domain::{
     TrackGangBehavior, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track, Volume};
+use reaper_high::{ChangeEvent, Project, SliderVolume, Track};
 use std::borrow::Cow;
 
 #[derive(Debug)]
@@ -81,14 +81,14 @@ impl RealearnTarget for TrackVolumeTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitResponse, &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
+        let volume = SliderVolume::try_from_normalized_slider_value(value.to_unit_value()?.get());
         with_gang_behavior(
             self.track.project(),
             self.gang_behavior,
             &TRACK_VOLUME_TARGET,
             |gang_behavior, grouping_behavior| {
                 self.track.set_volume(
-                    volume.unwrap_or(Volume::MIN),
+                    volume.unwrap_or(SliderVolume::MIN).reaper_value(),
                     gang_behavior,
                     grouping_behavior,
                 );
@@ -121,7 +121,7 @@ impl RealearnTarget for TrackVolumeTarget {
                 (
                     true,
                     Some(AbsoluteValue::Continuous(volume_unit_value(
-                        Volume::from_reaper_value(e.new_value),
+                        SliderVolume::from_reaper_value(e.new_value),
                     ))),
                 )
             }
@@ -143,8 +143,8 @@ impl RealearnTarget for TrackVolumeTarget {
 }
 
 impl TrackVolumeTarget {
-    fn volume(&self) -> Volume {
-        self.track.volume()
+    fn volume(&self) -> SliderVolume {
+        SliderVolume::from_reaper_value(self.track.volume())
     }
 }
 

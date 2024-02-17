@@ -6,7 +6,7 @@ use crate::base::notification::alert;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
-use swell_ui::{DialogUnits, Dimensions, Pixels, SharedView, View, ViewContext, Window};
+use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct WelcomePanel {

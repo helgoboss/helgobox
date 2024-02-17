@@ -8,7 +8,7 @@ use crate::domain::{
 };
 use base::peak_util;
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
-use reaper_high::{Project, Track, Volume};
+use reaper_high::{Project, SliderVolume, Track};
 use reaper_medium::ReaperVolumeValue;
 use std::borrow::Cow;
 
@@ -60,9 +60,9 @@ impl<'a> Target<'a> for TrackPeakTarget {
 }
 
 impl TrackPeakTarget {
-    fn peak(&self) -> Option<Volume> {
+    fn peak(&self) -> Option<SliderVolume> {
         if peak_util::peaks_should_be_hidden(&self.track) {
-            return Some(Volume::MIN);
+            return Some(SliderVolume::MIN);
         }
         let peaks = peak_util::get_track_peaks(self.track.raw());
         let channel_count = peaks.len();
@@ -72,7 +72,7 @@ impl TrackPeakTarget {
         let sum: f64 = peaks.map(|v| v.get()).sum();
         let avg = sum / channel_count as f64;
         let vol = ReaperVolumeValue::new(avg);
-        Some(Volume::from_reaper_value(vol))
+        Some(SliderVolume::from_reaper_value(vol))
     }
 }
 
