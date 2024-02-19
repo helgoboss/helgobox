@@ -8,7 +8,7 @@ use crate::infrastructure::plugin::{BackboneShell, InstanceShellInfo};
 use anyhow::Context;
 use base::byte_pattern::BytePattern;
 use base::hash_util::NonCryptoHashMap;
-use base::{tracing_debug, tracing_warn, Global};
+use base::Global;
 use realearn_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
     MidiControllerConnection,
@@ -291,7 +291,7 @@ fn midi_identity_response_matches_pattern(
             match parse_hex_string(identity_response) {
                 Ok(identity_response_bytes) => {
                     if byte_pattern.matches(&identity_response_bytes) {
-                        tracing_debug!("Pattern matches identity response");
+                        tracing::debug!("Pattern matches identity response");
                         true
                     } else {
                         false
@@ -299,7 +299,7 @@ fn midi_identity_response_matches_pattern(
                 }
                 Err(_) => {
                     // Invalid response
-                    tracing_warn!(
+                    tracing::warn!(
                         "Invalid MIDI identity response in controller: {identity_response}",
                     );
                     false
@@ -308,7 +308,7 @@ fn midi_identity_response_matches_pattern(
         }
         Err(_) => {
             // Invalid pattern
-            tracing_warn!(
+            tracing::warn!(
                 "Invalid MIDI identity pattern in controller preset: {midi_identity_pattern}",
             );
             false

@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::record_duration;
-use base::{non_blocking_lock, tracing_debug};
+use base::non_blocking_lock;
 use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage, ShortMessageType};
@@ -413,7 +413,7 @@ impl RealearnAudioHook {
         output_dev.with_midi_output(|output| -> Result<(), &'static str> {
             let output = output.ok_or("MIDI output device not open")?;
             let inquiry = RawMidiEvent::try_from_slice(0, MIDI_DEVICE_INQUIRY_REQUEST)?;
-            tracing_debug!(msg = "Sending MIDI device inquiry...", ?output_dev_id);
+            tracing::debug!(msg = "Sending MIDI device inquiry...", ?output_dev_id);
             output.send_msg(inquiry, SendMidiTime::Instantly);
             Ok(())
         })?;
@@ -543,7 +543,7 @@ impl MidiDeviceInquiryTask {
     pub fn check_for_midi_device_inquiry_response(&self) -> bool {
         // Give up if waited too long for response.
         if self.inquiry_sent_at.elapsed() > Duration::from_secs(1) {
-            tracing_debug!(msg = "Gave up waiting for MIDI device identity reply after timeout");
+            tracing::debug!(msg = "Gave up waiting for MIDI device identity reply after timeout");
             return false;
         }
         // Check MIDI devices in question for response
@@ -589,7 +589,7 @@ impl MidiDeviceInquiryTask {
                             input_device_id: dev.id(),
                             device_inquiry_reply: MidiDeviceInquiryReply { message },
                         };
-                        tracing_debug!(msg = "Received MIDI device identity reply", ?reply);
+                        tracing::debug!(msg = "Received MIDI device identity reply", ?reply);
                         let _ = self.command.sender.try_send(reply);
                         return false;
                     }

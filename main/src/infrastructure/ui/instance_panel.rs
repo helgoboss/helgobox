@@ -1,6 +1,5 @@
 use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
 use anyhow::Context;
-use base::tracing_debug;
 use reaper_high::Reaper;
 use reaper_medium::Hbrush;
 use std::cell::{Cell, OnceCell, RefCell};
@@ -30,7 +29,7 @@ pub struct InstancePanel {
 
 impl Drop for InstancePanel {
     fn drop(&mut self) {
-        tracing_debug!("Dropping InstancePanel...");
+        tracing::debug!("Dropping InstancePanel...");
         let _ = self.app_instance.borrow_mut().stop();
     }
 }

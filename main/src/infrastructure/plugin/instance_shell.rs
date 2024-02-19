@@ -10,7 +10,7 @@ use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::UnitPanel;
 use anyhow::{bail, Context};
 use base::hash_util::NonCryptoHashMap;
-use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock, tracing_debug};
+use base::{blocking_read_lock, blocking_write_lock, non_blocking_try_read_lock};
 use fragile::Fragile;
 use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence::{instance_features, InstanceSettings};
@@ -55,7 +55,7 @@ pub struct InstanceShell {
 
 impl Drop for InstanceShell {
     fn drop(&mut self) {
-        tracing_debug!("Dropping InstanceShell...");
+        tracing::debug!("Dropping InstanceShell...");
         BackboneShell::get().unregister_instance(self.instance_id);
     }
 }
@@ -364,7 +364,7 @@ impl InstanceShell {
                     // Our instance doesn't satisfy the requirements. Don't consume auto unit.
                     return true;
                 }
-                tracing_debug!(msg = "Creating auto-unit shell", ?auto_unit);
+                tracing::debug!(msg = "Creating auto-unit shell", ?auto_unit);
                 let unit_shell = self.create_additional_unit_shell(Some(auto_unit.clone()));
                 additional_unit_shells.push(unit_shell);
                 false

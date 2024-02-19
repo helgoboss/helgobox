@@ -11,7 +11,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
 use crate::infrastructure::plugin::{init_backbone_shell, SET_STATE_PARAM_NAME};
-use base::{tracing_debug, Global};
+use base::Global;
 use helgoboss_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{static_plugin_context, PluginContext};
@@ -69,7 +69,7 @@ pub struct HelgoboxPlugin {
 
 impl Drop for HelgoboxPlugin {
     fn drop(&mut self) {
-        tracing_debug!("Dropping HelgoboxPlugin");
+        tracing::debug!("Dropping HelgoboxPlugin");
     }
 }
 
@@ -145,10 +145,10 @@ impl Plugin for HelgoboxPlugin {
             // Trick to find out whether we are only being scanned.
             self.is_plugin_scan = unsafe { (*self.host.raw_effect()).reserved1 == 0 };
             if self.is_plugin_scan {
-                tracing_debug!("ReaLearn is being scanned by REAPER");
+                tracing::debug!("ReaLearn is being scanned by REAPER");
                 return;
             }
-            tracing_debug!("ReaLearn is being opened by REAPER");
+            tracing::debug!("ReaLearn is being opened by REAPER");
             self._reaper_guard = Some(self.ensure_reaper_setup());
             // At this point, REAPER cannot reliably give us the containing FX. As a
             // consequence we also don't have a instance shell yet, because creating an incomplete
@@ -266,7 +266,7 @@ impl Plugin for HelgoboxPlugin {
 
     fn set_sample_rate(&mut self, rate: f32) {
         firewall(|| {
-            tracing_debug!("VST set sample rate");
+            tracing::debug!("VST set sample rate");
             self.sample_rate = Hz::new(rate as _);
             if let Some(lazy_data) = self.lazy_data.get() {
                 lazy_data.instance_shell.set_sample_rate(rate);
@@ -275,23 +275,23 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn suspend(&mut self) {
-        tracing_debug!("VST suspend");
+        tracing::debug!("VST suspend");
     }
 
     fn resume(&mut self) {
-        tracing_debug!("VST resume");
+        tracing::debug!("VST resume");
     }
 
     fn set_block_size(&mut self, _size: i64) {
-        tracing_debug!("VST set block size");
+        tracing::debug!("VST set block size");
     }
 
     fn start_process(&mut self) {
-        tracing_debug!("VST start process");
+        tracing::debug!("VST start process");
     }
 
     fn stop_process(&mut self) {
-        tracing_debug!("VST stop process");
+        tracing::debug!("VST stop process");
     }
 }
 

@@ -138,10 +138,10 @@ impl KompleteDatabase {
             // translating the bank ID can work (if we have that plug-in installed).
             if let Some(bank_id) = bank_id {
                 if let Some(product_id) = self.nks_product_id_by_bank_id.get(&bank_id).copied() {
-                    base::tracing_debug!("Looked up product {product_id} for bank {bank_id}.");
+                    tracing::debug!("Looked up product {product_id} for bank {bank_id}.");
                     return Some(product_id);
                 } else {
-                    base::tracing_debug!("Looking up product for bank {bank_id} not successful.");
+                    tracing::debug!("Looking up product for bank {bank_id} not successful.");
                 }
             }
             // If that didn't work because we don't have a bank ID, we have sub product or the
@@ -351,7 +351,7 @@ impl Database for KompleteDatabase {
             .filter_map(|bank| {
                 let product_id = ctx.plugin_db.products().find_map(|(product_id, product)| {
                     if bank.name == product.name {
-                        base::tracing_debug!(
+                        tracing::debug!(
                             "Associated bank {} {} with product {} {}",
                             bank.id,
                             bank.name,

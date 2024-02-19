@@ -317,7 +317,7 @@ impl Instance {
     #[cfg(feature = "playtime")]
     pub fn set_clip_matrix(&mut self, matrix: Option<playtime_clip_engine::base::Matrix>) {
         if self.playtime.clip_matrix.is_some() {
-            base::tracing_debug!("Shutdown existing clip matrix");
+            tracing::debug!("Shutdown existing clip matrix");
             self.update_real_time_clip_matrix(None);
         }
         self.playtime.clip_matrix = matrix;
