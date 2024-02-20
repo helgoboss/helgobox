@@ -1483,14 +1483,14 @@ pub struct Bpm(f64);
 impl Bpm {
     /// # Safety
     ///
-    /// If you pass a value <= 0.0, you get an invalid Bpm value.
+    /// If you pass a value < 1.0 or > 960.0, you get an invalid Bpm value.
     pub const unsafe fn new_unchecked(value: f64) -> Self {
         Self(value)
     }
 
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
-        if value <= 0.0 {
-            return Err("BPM value must be > 0.0".into());
+        if value < 1.0 || value > 960.0 {
+            return Err("BPM value must be >= 1.0 and <= 960.0".into());
         }
         Ok(Self(value))
     }
