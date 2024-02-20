@@ -247,7 +247,9 @@ impl UnitShell {
         // If task queue is full or audio not running, so what. Don't spam the user with error
         // messages.
         self.normal_real_time_task_sender
-            .send_if_space(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+            .send_if_space(NormalRealTimeTask::UpdateSampleRate(Hz::new_panic(
+                rate as _,
+            )));
     }
 }
 

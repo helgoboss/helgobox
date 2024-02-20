@@ -96,7 +96,7 @@ impl RealTimeProcessor {
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: false,
             feedback_is_globally_enabled: false,
-            sample_rate: Hz::new(1.0),
+            sample_rate: Hz::new_panic(1.0),
         }
     }
 

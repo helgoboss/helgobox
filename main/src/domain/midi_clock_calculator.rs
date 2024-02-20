@@ -1,7 +1,7 @@
 use crate::base::MovingAverageCalculator;
-use helgoboss_learn::Bpm;
 
 use crate::domain::SampleOffset;
+use reaper_common_types::Bpm;
 use reaper_medium::Hz;
 use std::convert::TryInto;
 
@@ -16,7 +16,7 @@ pub struct MidiClockCalculator {
 impl Default for MidiClockCalculator {
     fn default() -> Self {
         Self {
-            sample_rate: Hz::new(1.0),
+            sample_rate: Hz::new_panic(1.0),
             sample_counter: 0,
             previous_midi_clock_timestamp_in_samples: 0,
             bpm_calculator: Default::default(),

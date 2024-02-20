@@ -1,8 +1,6 @@
 mod view_manager;
 pub use view_manager::*;
 
-pub use hex_literal::hex;
-
 mod window;
 pub use window::*;
 

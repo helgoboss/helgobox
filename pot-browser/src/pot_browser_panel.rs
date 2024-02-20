@@ -1965,12 +1965,12 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
                 .speed(0.01)
                 .custom_formatter(|v, _| {
                     // TODO-low It's useless to first convert into a slider volume
-                    SliderVolume::from_reaper_value(ReaperVolumeValue::new(v)).to_string()
+                    SliderVolume::from_reaper_value(ReaperVolumeValue::new_panic(v)).to_string()
                 })
                 .clamp_range(0.0..=1.0)
                 .ui(ui)
                 .on_hover_text("Change volume of the sound previews");
-            let new_volume = ReaperVolumeValue::new(new_volume_raw);
+            let new_volume = ReaperVolumeValue::new_panic(new_volume_raw);
             if new_volume != old_volume {
                 input.pot_unit.set_preview_volume(new_volume);
             }

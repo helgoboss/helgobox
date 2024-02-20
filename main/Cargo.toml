@@ -30,6 +30,7 @@ base.workspace = true
 reaper-rx.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
+reaper-common-types = { workspace = true, features = ["color-macros", "palette"] }
 reaper-low.workspace = true
 reaper-macros.workspace = true
 swell-ui.workspace = true

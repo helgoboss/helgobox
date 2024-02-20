@@ -71,7 +71,7 @@ impl TrackPeakTarget {
         }
         let sum: f64 = peaks.map(|v| v.get()).sum();
         let avg = sum / channel_count as f64;
-        let vol = ReaperVolumeValue::new(avg);
+        let vol = ReaperVolumeValue::new_panic(avg);
         Some(SliderVolume::from_reaper_value(vol))
     }
 }

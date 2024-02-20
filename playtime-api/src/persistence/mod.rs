@@ -26,10 +26,10 @@ mod serialization;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
 use chrono::NaiveDateTime;
+use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::fmt::{Display, Formatter};
-use std::ops::Add;
 use std::path::PathBuf;
 
 // TODO-medium Add start time detection
@@ -248,8 +248,8 @@ impl TempoRange {
 impl Default for TempoRange {
     fn default() -> Self {
         Self {
-            min: Bpm(60.0),
-            max: Bpm(200.0),
+            min: Bpm::new_panic(60.0),
+            max: Bpm::new_panic(200.0),
         }
     }
 }
@@ -336,7 +336,7 @@ impl MatrixClipRecordSettings {
         &self,
         initial_play_start_timing: ClipPlayStartTiming,
         time_signature: TimeSignature,
-        downbeat: PositiveBeat,
+        downbeat: DurationInBeats,
     ) -> ClipTimeBase {
         use ClipRecordTimeBase::*;
         let beat_based = match self.time_base {
@@ -1297,7 +1297,7 @@ pub struct Section {
     /// Position in the source from which to start.
     ///
     /// If this is greater than zero, a fade-in will be used to avoid clicks.
-    pub start_pos: PositiveSecond,
+    pub start_pos: DurationInSeconds,
     /// Length of the material to be played, starting from `start_pos`.
     ///
     /// - `None` means until original source end.
@@ -1305,7 +1305,7 @@ pub struct Section {
     /// - If this makes the section end be located before the original source end, a fade-out will
     ///   be used to avoid clicks.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub length: Option<PositiveSecond>,
+    pub length: Option<DurationInSeconds>,
 }
 
 impl Section {
@@ -1413,7 +1413,7 @@ pub struct BeatTimeBase {
     /// If provided, this information is used for certain aspects of the user interface.
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
-    pub downbeat: PositiveBeat,
+    pub downbeat: DurationInBeats,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -1474,100 +1474,6 @@ impl TrackId {
 
     pub fn get(&self) -> &str {
         &self.0
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
-pub struct Bpm(f64);
-
-impl Bpm {
-    /// # Safety
-    ///
-    /// If you pass a value < 1.0 or > 960.0, you get an invalid Bpm value.
-    pub const unsafe fn new_unchecked(value: f64) -> Self {
-        Self(value)
-    }
-
-    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
-        if value < 1.0 || value > 960.0 {
-            return Err("BPM value must be >= 1.0 and <= 960.0".into());
-        }
-        Ok(Self(value))
-    }
-
-    pub const fn get(&self) -> f64 {
-        self.0
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-#[serde(try_from = "f64")]
-pub struct PositiveSecond(f64);
-
-impl PositiveSecond {
-    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
-        if value < 0.0 {
-            return Err("second value must be positive".into());
-        }
-        Ok(Self(value))
-    }
-
-    pub const fn get(&self) -> f64 {
-        self.0
-    }
-
-    pub fn saturating_sub(&self, rhs: Self) -> Self {
-        Self(0.0f64.max(self.0 - rhs.0))
-    }
-}
-
-impl TryFrom<f64> for PositiveSecond {
-    type Error = PlaytimeApiError;
-
-    fn try_from(value: f64) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl Add for PositiveSecond {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct PositiveBeat(f64);
-
-impl PositiveBeat {
-    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
-        if value < 0.0 {
-            return Err("beat value must be positive".into());
-        }
-        Ok(Self(value))
-    }
-
-    pub const fn get(&self) -> f64 {
-        self.0
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
-pub struct Db(f64);
-
-impl Db {
-    pub const ZERO: Db = Db(0.0);
-
-    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
-        if value.is_nan() {
-            return Err("dB value must not be NaN".into());
-        }
-        Ok(Self(value))
-    }
-
-    pub const fn get(&self) -> f64 {
-        self.0
     }
 }
 

@@ -267,7 +267,7 @@ impl Plugin for HelgoboxPlugin {
     fn set_sample_rate(&mut self, rate: f32) {
         firewall(|| {
             tracing::debug!("VST set sample rate");
-            self.sample_rate = Hz::new(rate as _);
+            self.sample_rate = Hz::new_panic(rate as _);
             if let Some(lazy_data) = self.lazy_data.get() {
                 lazy_data.instance_shell.set_sample_rate(rate);
             }

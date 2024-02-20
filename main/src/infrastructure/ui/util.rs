@@ -192,16 +192,16 @@ pub mod fonts {
 
 pub mod colors {
     use palette::{Hsl, Lighten};
-    use swell_ui::{color, Color};
+    use reaper_common_types::{color, RgbColor};
 
     #[derive(Copy, Clone, Debug)]
     pub struct ColorPair {
-        pub light: Color,
-        pub dark: Color,
+        pub light: RgbColor,
+        pub dark: RgbColor,
     }
 
     impl ColorPair {
-        pub fn generate_from_light(light: Color) -> Self {
+        pub fn generate_from_light(light: RgbColor) -> Self {
             Self {
                 light,
                 dark: invert_lightness(light),
@@ -209,7 +209,7 @@ pub mod colors {
         }
     }
 
-    fn invert_lightness(color: Color) -> Color {
+    fn invert_lightness(color: RgbColor) -> RgbColor {
         let hsl = color.to_hsl();
         Hsl::new_const(hsl.hue, hsl.saturation, 1.0 - hsl.lightness).into()
     }
@@ -219,7 +219,7 @@ pub mod colors {
         lighten_for_light_theme: f32,
         /// For dark theme, lightens all colors by this factor *after* inverting their lightness.
         lighten_for_dark_theme: f32,
-        colors: [Color; 5],
+        colors: [RgbColor; 5],
     }
 
     impl ColorPalette {
@@ -313,7 +313,7 @@ pub mod colors {
     // };
 
     pub mod tailwind {
-        use swell_ui::colors;
+        use reaper_common_types::colors;
 
         colors! {
             SLATE_50 = "f8fafc";

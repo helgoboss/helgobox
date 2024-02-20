@@ -1200,6 +1200,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "copypasta"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1605,7 +1614,7 @@ version = "0.99.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40eebddd2156ce1bb37b20bbe5151340a31828b1f2d22ba4141f3531710e38df"
 dependencies = [
- "convert_case",
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
  "rustc_version 0.3.3",
@@ -2767,6 +2776,7 @@ dependencies = [
  "num_enum 0.7.2",
  "once_cell",
  "partial-min-max",
+ "reaper-common-types",
  "reaper-low",
  "regex",
  "rosc",
@@ -3265,6 +3275,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b7668b7cff6a51fe61cdde64cd27c8a220786f399501b57ebe36f7d8112fd68"
 dependencies = [
  "bitflags 1.3.2",
+]
+
+[[package]]
+name = "kinded"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce4bdbb2f423660b19f0e9f7115182214732d8dd5f840cd0a3aee3e22562f34c"
+dependencies = [
+ "kinded_macros",
+]
+
+[[package]]
+name = "kinded_macros"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a13b4ddc5dcb32f45dac3d6f606da2a52fdb9964a18427e63cd5ef6c0d13288d"
+dependencies = [
+ "convert_case 0.6.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -4039,6 +4070,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "nutype"
+version = "0.4.1-beta.1"
+source = "git+https://github.com/helgoboss/nutype.git?branch=feature/new_unchecked_const#e186e09268b5f411d502b0afaa6678532aabf970"
+dependencies = [
+ "nutype_macros",
+]
+
+[[package]]
+name = "nutype_macros"
+version = "0.4.1-beta.1"
+source = "git+https://github.com/helgoboss/nutype.git?branch=feature/new_unchecked_const#e186e09268b5f411d502b0afaa6678532aabf970"
+dependencies = [
+ "cfg-if",
+ "kinded",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+ "urlencoding",
+]
+
+[[package]]
 name = "objc"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4413,6 +4465,7 @@ dependencies = [
  "derive_more",
  "nanoid",
  "realearn-macros",
+ "reaper-common-types",
  "reaper-low",
  "rmp-serde",
  "serde",
@@ -4917,6 +4970,7 @@ dependencies = [
  "realearn-api",
  "realearn-csi",
  "realearn-dialogs",
+ "reaper-common-types",
  "reaper-high",
  "reaper-low",
  "reaper-macros",
@@ -5016,6 +5070,16 @@ name = "realearn-macros"
 version = "0.1.0"
 
 [[package]]
+name = "reaper-common-types"
+version = "0.1.0"
+dependencies = [
+ "hex-literal",
+ "nutype",
+ "palette",
+ "serde",
+]
+
+[[package]]
 name = "reaper-fluent"
 version = "0.1.0"
 dependencies = [
@@ -5085,6 +5149,7 @@ dependencies = [
  "enumflags2",
  "helgoboss-midi",
  "libc",
+ "reaper-common-types",
  "reaper-low",
  "reaper-macros",
  "ref-cast",
@@ -6183,11 +6248,10 @@ dependencies = [
  "base",
  "bindgen",
  "fragile",
- "hex-literal",
  "libloading 0.8.0",
  "objc2",
- "palette",
  "raw-window-handle 0.4.3",
+ "reaper-common-types",
  "reaper-low",
  "reaper-medium",
  "rx-util",
@@ -6980,6 +7044,12 @@ dependencies = [
  "matches",
  "percent-encoding",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "usvg"

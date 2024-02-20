@@ -1,4 +1,5 @@
-use crate::Color;
+use crate::SwellRgbColorExt;
+use reaper_common_types::RgbColor;
 use reaper_low::{raw, Swell};
 use reaper_medium::Hdc;
 
@@ -21,7 +22,7 @@ impl DeviceContext {
         }
     }
 
-    pub fn set_text_color(&self, color: Color) {
+    pub fn set_text_color(&self, color: RgbColor) {
         unsafe {
             Swell::get().SetTextColor(self.as_ptr(), color.to_raw() as _);
         }

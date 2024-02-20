@@ -1,6 +1,6 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{
-    BrushCache, BrushDescriptor, Color, DeviceContext, FontCache, FontDescriptor, Pixels, Point,
+    BrushCache, BrushDescriptor, DeviceContext, FontCache, FontDescriptor, Pixels, Point,
     SharedView, View, WeakView, Window,
 };
 use std::cell::{Cell, RefCell};
@@ -13,6 +13,7 @@ use std::ptr::null_mut;
 
 use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
+use reaper_common_types::RgbColor;
 use reaper_medium::{Hbrush, Hdc, Hfont, Hwnd};
 use std::sync::OnceLock;
 
@@ -58,7 +59,7 @@ pub struct ViewManager {
 }
 
 impl ViewManager {
-    pub fn get_solid_brush(&'static self, color: Color) -> Option<Hbrush> {
+    pub fn get_solid_brush(&'static self, color: RgbColor) -> Option<Hbrush> {
         self.brush_cache.get_brush(BrushDescriptor::solid(color))
     }
 

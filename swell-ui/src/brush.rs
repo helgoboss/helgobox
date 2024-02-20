@@ -1,5 +1,5 @@
-use crate::Color;
 use base::hash_util::NonCryptoHashMap;
+use reaper_common_types::RgbColor;
 use reaper_low::Swell;
 use reaper_medium::Hbrush;
 use std::cell::RefCell;
@@ -26,11 +26,11 @@ impl BrushCache {
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 pub struct BrushDescriptor {
-    color: Color,
+    color: RgbColor,
 }
 
 impl BrushDescriptor {
-    pub const fn solid(color: Color) -> Self {
+    pub const fn solid(color: RgbColor) -> Self {
         Self { color }
     }
 }

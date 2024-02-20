@@ -427,7 +427,7 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn set_matrix_tempo(&self, req: SetMatrixTempoRequest) -> Result<Response<Empty>, Status> {
-        let bpm = Bpm::try_from(req.bpm).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        let bpm = Bpm::try_from(req.bpm).map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| {
             matrix.set_tempo(bpm);
             Ok(())
@@ -453,11 +453,11 @@ impl PlaytimeProtoRequestHandler {
         &self,
         req: SetMatrixVolumeRequest,
     ) -> Result<Response<Empty>, Status> {
-        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| {
             let project = matrix.permanent_project().or_current_project();
             project.master_track()?.set_volume(
-                db.to_reaper_volume_value(),
+                db.to_linear_volume_value(),
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );
@@ -466,8 +466,8 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn set_matrix_pan(&self, req: SetMatrixPanRequest) -> Result<Response<Empty>, Status> {
-        let pan =
-            ReaperPanValue::try_from(req.pan).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        let pan = ReaperPanValue::try_from(req.pan)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| {
             let project = matrix.permanent_project().or_current_project();
             project.master_track()?.set_pan(
@@ -480,10 +480,10 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn set_track_volume(&self, req: SetTrackVolumeRequest) -> Result<Response<Empty>, Status> {
-        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.as_ref()))?;
+        let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_track_command(&req.track_address, |_matrix, track| {
             track.set_volume(
-                db.to_reaper_volume_value(),
+                db.to_linear_volume_value(),
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );
@@ -492,7 +492,7 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn set_track_pan(&self, req: SetTrackPanRequest) -> Result<Response<Empty>, Status> {
-        let pan = ReaperPanValue::new(req.pan.clamp(-1.0, 1.0));
+        let pan = ReaperPanValue::new_panic(req.pan.clamp(-1.0, 1.0));
         self.handle_track_command(&req.track_address, |_matrix, track| {
             track.set_pan(
                 Pan::from_reaper_value(pan),

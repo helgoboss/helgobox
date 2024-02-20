@@ -60,10 +60,10 @@ impl RealearnTarget for SeekTarget {
         let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options, false);
         let desired_pos_within_range = value.get() * info.length();
-        let desired_pos = info.start_pos.get() + desired_pos_within_range;
+        let desired_pos = info.start_pos + desired_pos_within_range;
         with_seek_behavior(self.behavior, || {
             self.project.set_edit_cursor_position(
-                PositionInSeconds::new(desired_pos),
+                desired_pos,
                 SetEditCurPosOptions {
                     move_view: self.options.move_view,
                     seek_play: self.options.seek_play,
@@ -330,17 +330,13 @@ fn get_seek_info(project: Project, options: SeekOptions, ignore_project_length: 
         if ignore_project_length {
             return SeekInfo::new(
                 SeekContext::Project,
-                PositionInSeconds::new(0.0),
-                PositionInSeconds::new(f64::MAX),
+                PositionInSeconds::ZERO,
+                PositionInSeconds::new_panic(f64::MAX),
             );
         } else {
             let length = project.length();
             if length.get() > 0.0 {
-                return SeekInfo::new(
-                    SeekContext::Project,
-                    PositionInSeconds::new(0.0),
-                    PositionInSeconds::new(length.get()),
-                );
+                return SeekInfo::new(SeekContext::Project, PositionInSeconds::ZERO, length.into());
             }
         }
     }
