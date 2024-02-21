@@ -528,9 +528,10 @@ impl UnitModel {
     }
 
     /// Makes all autostart mappings hit the target.
-    pub fn notify_realearn_instance_started(&self) {
+    pub fn notify_realearn_unit_started(&self) {
+        tracing::debug!("Sending NotifyRealearnUnitStarted");
         self.normal_main_task_sender
-            .send_complaining(NormalMainTask::NotifyRealearnInstanceStarted);
+            .send_complaining(NormalMainTask::NotifyRealearnUnitStarted);
     }
 
     /// Instructs the main processor to hit the target directly.
@@ -2556,6 +2557,7 @@ impl UnitModel {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: CompartmentKind) {
+        tracing::debug!(msg = "Sync all mappings full", %compartment);
         self.instance
             .borrow()
             .notify_mappings_in_unit_changed(self.unit_id);
@@ -2724,6 +2726,7 @@ impl DomainEventHandler for WeakUnitModel {
                 session.ui().parameters_changed(&session);
             }
             FullResyncRequested => {
+                tracing::debug!("FullResyncRequested received");
                 session.borrow_mut().full_sync();
             }
             MidiDevicesChanged => {

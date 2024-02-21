@@ -1337,9 +1337,9 @@ impl<'a> MainSourceMessage<'a> {
             Reaper(msg) => {
                 use ReaperMessage::*;
                 match msg {
-                    MidiDevicesConnected(_)
-                    | MidiDevicesDisconnected(_)
-                    | RealearnInstanceStarted => return None,
+                    MidiDevicesConnected(_) | MidiDevicesDisconnected(_) | RealearnUnitStarted => {
+                        return None
+                    }
                     RealearnParameterChange(payload) => {
                         MessageCaptureResult::RealearnParameter(*payload)
                     }

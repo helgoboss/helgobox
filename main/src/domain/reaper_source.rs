@@ -202,7 +202,7 @@ impl ReaperSource {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MIN),
                 _ => return None,
             },
-            RealearnInstanceStarted => match self {
+            RealearnUnitStarted => match self {
                 ReaperSource::RealearnInstanceStart => {
                     ControlValue::AbsoluteContinuous(UnitValue::MAX)
                 }
@@ -255,7 +255,7 @@ pub enum ReaperMessage {
     MidiDevicesConnected(MidiDeviceChangePayload),
     #[display(fmt = "MidiDevicesDisconnected ({_0})")]
     MidiDevicesDisconnected(MidiDeviceChangePayload),
-    RealearnInstanceStarted,
+    RealearnUnitStarted,
     RealearnParameterChange(RealearnParameterChangePayload),
 }
 

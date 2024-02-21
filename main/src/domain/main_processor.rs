@@ -1235,8 +1235,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllMappings(compartment, mappings) => {
                     self.update_all_mappings(compartment, mappings);
                 }
-                NotifyRealearnInstanceStarted => {
-                    let evt = ControlEvent::new(&ReaperMessage::RealearnInstanceStarted, timestamp);
+                NotifyRealearnUnitStarted => {
+                    tracing::debug!("NotifyRealearnUnitStarted received");
+                    let evt = ControlEvent::new(&ReaperMessage::RealearnUnitStarted, timestamp);
                     self.process_reaper_message(evt);
                 }
                 HitTarget { id, value } => {
@@ -1460,12 +1461,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: CompartmentKind,
         mut mappings: Vec<MainMapping>,
     ) {
-        debug!(
-            self.basics.logger,
-            "Updating {} mappings in {}...",
-            mappings.len(),
-            compartment,
-        );
+        tracing::debug!("Updating {} mappings in {}...", mappings.len(), compartment,);
         self.basics.clear_last_feedback();
         let mut mappings_by_group: NonCryptoHashMap<GroupId, Vec<MappingId>> = HashMap::default();
         let mut mapping_infos: NonCryptoHashMap<QualifiedMappingId, MappingInfo> =
@@ -2859,7 +2855,7 @@ pub enum NormalMainTask {
         state: PersistentMappingProcessingState,
     },
     /// Invokes the "ReaLearn instance started" source.
-    NotifyRealearnInstanceStarted,
+    NotifyRealearnUnitStarted,
     /// Instructs the main processor to hit the target directly.
     ///
     /// This doesn't invoke group interaction because it's meant to totally skip the mode.

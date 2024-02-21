@@ -42,15 +42,16 @@ impl InstanceParameterContainer {
         }
     }
 
-    /// Sets the unit shell.
+    /// Sets the instance shell.
     ///
-    /// Also checks if there's pending state to be loaded into the unit shell and if yes, loads it.
-    pub fn notify_lazy_data_available(
+    /// Also checks if there's pending state to be loaded into the instance shell and if yes, loads it.
+    pub fn notify_instance_shell_available(
         &self,
         instance_shell: &Arc<InstanceShell>,
         main_unit_parameter_manager: Arc<ParameterManager>,
     ) {
         if let Some(data) = self.pending_data_to_be_loaded.write().unwrap().take() {
+            tracing::debug!("Loading pending data into unit shell");
             load_data_or_warn(instance_shell.clone(), &data);
         }
         let lazy_data = LazyData {
@@ -156,7 +157,7 @@ impl PluginParameters for InstanceParameterContainer {
 
     fn load_bank_data(&self, data: &[u8]) {
         firewall(|| {
-            // TODO-high-performance We could optimize by getting the config var only once, saving it in a global
+            // TODO-medium-performance We could optimize by getting the config var only once, saving it in a global
             //  struct and then just dereferencing the var whenever we need it. Justin said that the result of
             //  get_config_var never changes throughout the lifetime of REAPER.
             if let Ok(pref) = Reaper::get().get_preference_ref::<u8>("__fx_loadstate_ctx") {

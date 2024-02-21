@@ -12,7 +12,7 @@ use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use reaper_medium::Hz;
 
 use slog::{debug, o};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use std::rc::Rc;
 
@@ -52,6 +52,7 @@ pub struct UnitShell {
     // audio hook that also drives processing (because in some cases the VST processing is
     // stopped). That's why we need an Rc/RefCell.
     real_time_processor: SharedRealTimeProcessor,
+    notified_unit_about_start: Fragile<Cell<bool>>,
 }
 
 impl UnitShell {
@@ -143,13 +144,13 @@ impl UnitShell {
             BackboneShell::get().control_surface_main_task_sender(),
             auto_unit,
         );
-        let shared_session = Rc::new(RefCell::new(unit_model));
-        let weak_session = Rc::downgrade(&shared_session);
+        let shared_unit_model = Rc::new(RefCell::new(unit_model));
+        let weak_session = Rc::downgrade(&shared_unit_model);
         let unit_panel = UnitPanel::new(weak_session.clone(), instance_panel.clone());
-        shared_session
+        shared_unit_model
             .borrow_mut()
             .set_ui(Rc::downgrade(&unit_panel));
-        keep_informing_clients_about_session_events(&shared_session);
+        keep_informing_clients_about_session_events(&shared_unit_model);
         // Main processor - (domain, owned by REAPER control surface)
         // Register the main processor with the global ReaLearn control surface. We let it
         // call by the control surface because it must be called regularly,
@@ -193,18 +194,20 @@ impl UnitShell {
             is_auto_unit,
         };
         BackboneShell::get().register_unit(unit_info, real_time_processor.clone(), main_processor);
-        shared_session.borrow_mut().activate(weak_session.clone());
-        shared_session.borrow().notify_realearn_instance_started();
+        shared_unit_model
+            .borrow_mut()
+            .activate(weak_session.clone());
         // End create session
         Self {
             id: unit_id,
             logger: logger.clone(),
             // InstanceShell is the main owner of the InstanceModel. Everywhere else the InstanceModel is
             // just temporarily upgraded, never stored as Rc, only as Weak.
-            model: Fragile::new(shared_session),
+            model: Fragile::new(shared_unit_model),
             panel: Fragile::new(unit_panel),
             normal_real_time_task_sender,
             real_time_processor,
+            notified_unit_about_start: Default::default(),
         }
     }
 
@@ -223,7 +226,12 @@ impl UnitShell {
     }
 
     pub fn apply_data(&self, session_data: &UnitData) -> anyhow::Result<()> {
-        session_data.apply_to_model(self.model.get())
+        let model = self.model.get();
+        session_data.apply_to_model(model)?;
+        if !self.notified_unit_about_start.get().replace(true) {
+            model.borrow().notify_realearn_unit_started();
+        }
+        Ok(())
     }
 
     pub fn process_incoming_midi_from_vst(

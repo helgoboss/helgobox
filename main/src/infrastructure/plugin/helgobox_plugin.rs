@@ -440,7 +440,7 @@ impl HelgoboxPlugin {
         self.lazy_data
             .set(lazy_data.clone())
             .map_err(|_| anyhow!("lazy data already initialized"))?;
-        self.param_container.notify_lazy_data_available(
+        self.param_container.notify_instance_shell_available(
             &lazy_data.instance_shell,
             lazy_data.main_unit_parameter_manager,
         );
