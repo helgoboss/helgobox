@@ -119,6 +119,7 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
+    use playtime_clip_engine::base::Column;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
@@ -141,14 +142,6 @@ mod playtime_impl {
                 return None;
             }
             Some(slot.play_state())
-        }
-
-        pub fn playback_track<'a>(
-            &self,
-            matrix: &'a playtime_clip_engine::base::Matrix,
-        ) -> Option<&'a Track> {
-            let column = matrix.find_column(self.basics.slot_coordinates.column_index)?;
-            column.playback_track().ok()
         }
 
         fn hit_internal(
@@ -398,10 +391,11 @@ mod playtime_impl {
                         let id_string = match self.clip_play_state(matrix) {
                             None => {
                                 // Slot is empty
-                                match self.playback_track(matrix) {
+                                match matrix.find_column(self.basics.slot_coordinates.column_index)
+                                {
                                     None => "playtime.slot_state.empty",
                                     Some(col) => {
-                                        if col.is_armed(false) {
+                                        if col.is_armed_for_recording() {
                                             "playtime.slot_state.armed"
                                         } else {
                                             "playtime.slot_state.empty"
