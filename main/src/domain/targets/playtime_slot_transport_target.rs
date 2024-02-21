@@ -97,7 +97,7 @@ mod no_playtime_impl {
             &mut self,
             _value: ControlValue,
             _context: RealTimeControlContext,
-        ) -> Result<(), &'static str> {
+        ) -> Result<bool, &'static str> {
             Err("Playtime not available")
         }
     }
