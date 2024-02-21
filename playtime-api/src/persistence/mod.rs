@@ -394,7 +394,7 @@ pub struct MatrixClipRecordMidiSettings {
     /// Applies quantization while recording using the current quantization settings.
     // TODO-clip-implement
     pub auto_quantize: bool,
-    /// These are the MIDI settings each recorded clip will get.
+    /// These are the MIDI settings each recorded and otherwise created clip will get.
     #[serde(default)]
     pub clip_settings: ClipMidiSettings,
 }
@@ -1225,7 +1225,7 @@ impl Default for ClipAudioSettings {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
     pub source_reset_settings: MidiResetMessageRange,
@@ -1237,33 +1237,29 @@ pub struct ClipMidiSettings {
     pub interaction_reset_settings: MidiResetMessageRange,
 }
 
-pub fn preferred_clip_midi_settings() -> ClipMidiSettings {
-    let no_reset = MidiResetMessages::default();
-    let light_reset = MidiResetMessages {
-        on_notes_off: true,
-        ..no_reset
-    };
-    ClipMidiSettings {
-        source_reset_settings: MidiResetMessageRange {
-            left: no_reset,
-            right: no_reset,
-        },
-        section_reset_settings: MidiResetMessageRange {
-            left: no_reset,
-            right: no_reset,
-        },
-        loop_reset_settings: MidiResetMessageRange {
-            left: no_reset,
-            right: light_reset,
-        },
-        interaction_reset_settings: MidiResetMessageRange {
-            left: no_reset,
-            right: light_reset,
-        },
+impl Default for ClipMidiSettings {
+    fn default() -> Self {
+        Self::RIGHT_LIGHT
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+impl ClipMidiSettings {
+    pub const NONE: Self = Self {
+        source_reset_settings: MidiResetMessageRange::NONE,
+        section_reset_settings: MidiResetMessageRange::NONE,
+        loop_reset_settings: MidiResetMessageRange::NONE,
+        interaction_reset_settings: MidiResetMessageRange::NONE,
+    };
+
+    pub const RIGHT_LIGHT: Self = Self {
+        source_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+        section_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+        loop_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+        interaction_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+    };
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MidiResetMessageRange {
     /// Which MIDI reset messages to apply at the beginning.
     pub left: MidiResetMessages,
@@ -1271,7 +1267,19 @@ pub struct MidiResetMessageRange {
     pub right: MidiResetMessages,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+impl MidiResetMessageRange {
+    pub const NONE: Self = Self {
+        left: MidiResetMessages::NONE,
+        right: MidiResetMessages::NONE,
+    };
+
+    pub const RIGHT_LIGHT: Self = Self {
+        left: MidiResetMessages::NONE,
+        right: MidiResetMessages::LIGHT,
+    };
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MidiResetMessages {
     /// Only supported at "right" position at the moment.
     #[serde(default)]
@@ -1283,6 +1291,22 @@ pub struct MidiResetMessages {
 }
 
 impl MidiResetMessages {
+    pub const NONE: Self = Self {
+        on_notes_off: false,
+        all_notes_off: false,
+        all_sound_off: false,
+        reset_all_controllers: false,
+        damper_pedal_off: false,
+    };
+
+    pub const LIGHT: Self = Self {
+        on_notes_off: true,
+        all_notes_off: false,
+        all_sound_off: false,
+        reset_all_controllers: false,
+        damper_pedal_off: true,
+    };
+
     pub fn at_least_one_enabled(&self) -> bool {
         self.on_notes_off
             || self.all_notes_off
