@@ -98,6 +98,9 @@ mod playtime_impl {
             let is_on = Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| match self.action {
                     PlaytimeColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
+                    PlaytimeColumnAction::ArmState => {
+                        matrix.column_is_armed_for_recording(self.column_index)
+                    }
                 })
                 .ok()?;
             Some(AbsoluteValue::from_bool(is_on))
@@ -119,6 +122,7 @@ mod playtime_impl {
                     let is_stoppable = matrix.column_is_stoppable(self.column_index);
                     Some(AbsoluteValue::from_bool(is_stoppable))
                 }
+                PlaytimeColumnAction::ArmState => None,
             }
         }
 
@@ -156,6 +160,9 @@ mod playtime_impl {
                                 }
                                 matrix.stop_column(self.column_index, None)?;
                             }
+                            PlaytimeColumnAction::ArmState => {
+                                matrix.set_column_armed(self.column_index, value.is_on())?;
+                            }
                         }
                         Ok(HitResponse::processed_with_effect())
                     },
@@ -185,6 +192,15 @@ mod playtime_impl {
                         SlotChangeEvent::Clips(_) => (true, None),
                         _ => (false, None),
                     },
+                    _ => (false, None),
+                },
+                PlaytimeColumnAction::ArmState => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
+                        (true, None)
+                    }
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::TrackChanged(_)) => {
+                        (true, None)
+                    }
                     _ => (false, None),
                 },
             }
@@ -221,6 +237,7 @@ mod playtime_impl {
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
+            ArmState => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
         }
     }
 
@@ -239,6 +256,7 @@ mod playtime_impl {
                     let matrix = matrix.lock();
                     matrix.stop_column(self.column_index, None)
                 }
+                PlaytimeColumnAction::ArmState => Err("real-time control not supported"),
             }
         }
     }

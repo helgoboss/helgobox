@@ -3339,7 +3339,7 @@ export type PlaytimeSlotTransportAction =
 	| "RecordPlayStop"
 	| "Looped"
 
-export type PlaytimeColumnAction = "Stop"
+export type PlaytimeColumnAction = "Stop" | "ArmState"
 
 export type PlaytimeRowAction = "PlayScene" | "BuildScene" | "ClearScene" | "CopyOrPasteScene"
 

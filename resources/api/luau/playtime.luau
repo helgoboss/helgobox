@@ -102,6 +102,16 @@ function module.MatrixSequenceSlotMessage(value: MatrixSequenceSlotMessage): Mat
 	return value
 end
 
+export type MatrixSequenceStartSlotMessage = {
+	column_index: number,
+	row_index: number,
+	velocity: number,
+}
+--- Creates a MatrixSequenceStartSlotMessage value.
+function module.MatrixSequenceStartSlotMessage(value: MatrixSequenceStartSlotMessage): MatrixSequenceStartSlotMessage
+	return value
+end
+
 export type ContentQuantizationSettings = {
 	quantization: EvenQuantization,
 }
@@ -146,6 +156,7 @@ export type MatrixClipPlaySettings = {
 	start_timing: ClipPlayStartTiming,
 	stop_timing: ClipPlayStopTiming,
 	audio_settings: MatrixClipPlayAudioSettings,
+	velocity_sensitivity: number?,
 }
 --- Creates a MatrixClipPlaySettings value.
 --- Matrix-global settings related to playing clips.
@@ -660,7 +671,7 @@ end
 
 --- An even quantization.
 ---
---- Even in the sense of that's it's not swing or dotted.
+--- "Even" in the sense that it's not swing or dotted.
 export type EvenQuantization = {
 	numerator: number,
 	denominator: number,
@@ -668,7 +679,7 @@ export type EvenQuantization = {
 --- Creates a EvenQuantization value.
 --- An even quantization.
 ---
---- Even in the sense of that's it's not swing or dotted.
+--- "Even" in the sense that it's not swing or dotted.
 function module.EvenQuantization(value: EvenQuantization): EvenQuantization
 	return value
 end
@@ -711,6 +722,8 @@ export type ColumnClipPlaySettings = {
 	track: TrackId?,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
+	trigger_behavior: TriggerPlayBehavior?,
+	velocity_sensitivity: number?,
 	audio_settings: ColumnClipPlayAudioSettings,
 }
 --- Creates a ColumnClipPlaySettings value.
@@ -973,6 +986,7 @@ export type Clip = {
 	time_base: ClipTimeBase,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
+	velocity_sensitivity: number?,
 	looped: boolean,
 	volume: Db,
 	color: ClipColor,
@@ -1031,8 +1045,8 @@ function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
 end
 
 export type Section = {
-	start_pos: PositiveSecond,
-	length: PositiveSecond?,
+	start_pos: DurationInSeconds,
+	length: DurationInSeconds?,
 }
 --- Creates a Section value.
 function module.Section(value: Section): Section
@@ -1179,7 +1193,12 @@ end
 export type ClipTimeBase_Time = { kind: "Time" }
 
 --- Material which needs to be adjusted to the current tempo.
-export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: Bpm?, time_signature: TimeSignature, downbeat: PositiveBeat }
+export type ClipTimeBase_Beat = {
+	kind: "Beat",
+	audio_tempo: Bpm?,
+	time_signature: TimeSignature,
+	downbeat: DurationInBeats,
+}
 --- Decides if the clip will be adjusted to the current tempo.
 export type ClipTimeBase = ClipTimeBase_Time | ClipTimeBase_Beat
 
@@ -1209,7 +1228,7 @@ end
 export type BeatTimeBase = {
 	audio_tempo: Bpm?,
 	time_signature: TimeSignature,
-	downbeat: PositiveBeat,
+	downbeat: DurationInBeats,
 }
 --- Creates a BeatTimeBase value.
 function module.BeatTimeBase(value: BeatTimeBase): BeatTimeBase
@@ -1242,14 +1261,6 @@ function module.TimeSignature(value: TimeSignature): TimeSignature
 end
 
 export type TrackId = string
-
-export type Bpm = number
-
-export type PositiveSecond = number
-
-export type PositiveBeat = number
-
-export type Db = number
 
 export type RgbColor = { number }
 

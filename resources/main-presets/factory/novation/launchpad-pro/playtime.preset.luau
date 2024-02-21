@@ -580,7 +580,7 @@ for col = 0, column_count - 1 do
             + slot_button(col, row_count - 1)
             + toggle()
             + arm_colors
-            + column_track_target(col, "TrackArmState", true)
+            + clip_column_action(col, "ArmState")
     )
     -- Select track
     table.insert(

@@ -1435,6 +1435,8 @@ impl Default for PlaytimeSlotTransportAction {
 pub enum PlaytimeColumnAction {
     #[display(fmt = "Stop")]
     Stop,
+    #[display(fmt = "Arm/Disarm")]
+    ArmState,
 }
 
 impl Default for PlaytimeColumnAction {
