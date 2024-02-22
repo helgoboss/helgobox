@@ -9,7 +9,7 @@ use egui::collapsing_header::CollapsingState;
 use egui::{
     popup_below_widget, vec2, Align, Align2, Button, CentralPanel, Color32, DragValue, Event,
     FontFamily, FontId, Frame, InputState, Key, Label, Layout, RichText, ScrollArea, TextEdit,
-    TextStyle, TopBottomPanel, Ui, Visuals, Widget,
+    TextStyle, TopBottomPanel, Ui, Visuals, Widget, WidgetText,
 };
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
@@ -675,7 +675,7 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         .clicked()
                                     {
                                         if let Err(e) = pot_unit.play_preview(preset_id) {
-                                            show_error_toast(e, &mut toasts);
+                                            show_error_toast(e.to_string(), &mut toasts);
                                         }
                                     }
                                 },
@@ -2853,7 +2853,7 @@ fn process_error(error: &dyn Error, toasts: &mut Toasts) {
     show_error_toast(&error.to_string(), toasts);
 }
 
-fn show_error_toast(text: &str, toasts: &mut Toasts) {
+fn show_error_toast(text: impl Into<WidgetText>, toasts: &mut Toasts) {
     toasts.error(text, Duration::from_secs(3));
 }
 

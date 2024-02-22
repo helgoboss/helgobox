@@ -22,6 +22,7 @@ use std::ffi::CString;
 use std::fs;
 use std::ops::Range;
 
+use anyhow::Context;
 use chrono::NaiveDateTime;
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
@@ -648,19 +649,19 @@ impl RuntimePotUnit {
         );
     }
 
-    pub fn play_preview(&mut self, preset_id: PresetId) -> Result<(), &'static str> {
+    pub fn play_preview(&mut self, preset_id: PresetId) -> anyhow::Result<()> {
         let preset = pot_db()
             .find_preset_by_id(preset_id)
-            .ok_or("couldn't find preset")?;
+            .context("couldn't find preset")?;
         let reaper_resource_dir = Reaper::get().resource_path();
-        let preview_file =
-            find_preview_file(&preset, &reaper_resource_dir).ok_or("couldn't find preview file")?;
+        let preview_file = find_preview_file(&preset, &reaper_resource_dir)
+            .context("couldn't find preview file")?;
         self.sound_player.load_file(&preview_file)?;
         self.sound_player.play()?;
         Ok(())
     }
 
-    pub fn stop_preview(&mut self) -> Result<(), &'static str> {
+    pub fn stop_preview(&mut self) -> anyhow::Result<()> {
         self.sound_player.stop()
     }
 

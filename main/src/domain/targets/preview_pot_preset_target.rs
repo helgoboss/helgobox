@@ -49,10 +49,14 @@ impl RealearnTarget for PreviewPotPresetTarget {
             let preset_id = self
                 .current_preset_id(&pot_unit)
                 .ok_or("no Pot preset selected")?;
-            pot_unit.play_preview(preset_id)?;
+            pot_unit
+                .play_preview(preset_id)
+                .map_err(|_| "couldn't play preview")?;
             Ok(HitResponse::processed_with_effect())
         } else {
-            pot_unit.stop_preview()?;
+            pot_unit
+                .stop_preview()
+                .map_err(|_| "couldn't stop preview")?;
             Ok(HitResponse::processed_with_effect())
         }
     }

@@ -564,7 +564,6 @@ impl BackboneShell {
         }
         let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: license_manager.licenses(),
-            tap_sound_file: Self::realearn_high_click_sound_path(),
             metrics_recorder,
             integration: Box::new(RealearnClipEngineIntegration),
         };

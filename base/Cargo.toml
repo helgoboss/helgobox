@@ -32,4 +32,5 @@ derive_more.workspace = true
 slog.workspace = true
 either.workspace = true
 logos.workspace = true
+anyhow.workspace = true
 thiserror.workspace = true

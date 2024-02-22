@@ -597,6 +597,7 @@ dependencies = [
 name = "base"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "ascii",
  "crossbeam-channel",
  "derive_more",
@@ -4573,6 +4574,7 @@ checksum = "7170ef9988bc169ba16dd36a7fa041e5c4cbeb6a35b76d4c03daded371eae7c0"
 name = "pot"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base",
  "chrono",
  "derivative",

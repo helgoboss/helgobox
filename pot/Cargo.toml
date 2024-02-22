@@ -44,3 +44,4 @@ regex.workspace = true
 helgoboss-allocator.workspace = true
 nanoid.workspace = true
 chrono.workspace = true
+anyhow.workspace = true

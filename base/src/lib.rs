@@ -32,8 +32,8 @@ pub mod metrics_util;
 mod small_ascii_string;
 pub use small_ascii_string::*;
 
-mod sound;
-pub use sound::*;
+mod sound_player;
+pub use sound_player::*;
 
 pub mod validation_util;
 
