@@ -156,14 +156,18 @@ end
 
 type FeedbackEntry = {
     behavior: number,
-    color: number?,
+    color: (number | midi_script.RgbColor)?,
+    brightness: number?,
 }
 local solid = 0x90
 local flashing = 0x91
 local pulsing = 0x92
 local black_color = 0
-local white_color = 3
-local red_color = 5
+local white_color = { r = 255, g = 255, b = 255 }
+local red_color = { r = 255, g = 0, b = 0 }
+
+local dark =  0.75
+local medium = 0.90
 
 local feedback_table: { [string]: FeedbackEntry? } = {
     ["playtime.slot_state.empty"] = {
@@ -173,25 +177,30 @@ local feedback_table: { [string]: FeedbackEntry? } = {
     ["playtime.slot_state.armed"] = {
         behavior = solid,
         color = red_color,
+        brightness = dark,
     },
     ["playtime.slot_state.stopped"] = {
         behavior = solid,
+        brightness = dark,
     },
     ["playtime.slot_state.scheduled_for_play_start"] = {
-        behavior = flashing,
+        behavior = solid,
+        brightness = medium,
     },
     ["playtime.slot_state.playing"] = {
         behavior = pulsing,
     },
     ["playtime.slot_state.paused"] = {
         behavior = solid,
+        brightness = medium,
     },
     ["playtime.slot_state.scheduled_for_play_stop"] = {
         behavior = flashing,
     },
     ["playtime.slot_state.scheduled_for_record_start"] = {
-        behavior = flashing,
+        behavior = solid,
         color = red_color,
+        brightness = medium,
     },
     ["playtime.slot_state.recording"] = {
         behavior = pulsing,
@@ -226,16 +235,32 @@ local function build_messages(
     end
 end
 
-local function get_palette_color_index(entry: FeedbackEntry, rgb_color: midi_script.RgbColor?): number 
-    local color_index = entry.color
-    if color_index then
-        return color_index
-    end
-    if rgb_color == nil then
-        return white_color
-    end
-    return find_closest_color_in_palette(rgb_color, color_palette)
+local function adjust_brightness(c: midi_script.RgbColor, factor: number): midi_script.RgbColor
+    return {
+        r = math.floor(c.r * factor),
+        g = math.floor(c.g * factor),
+        b = math.floor(c.b * factor),
+    }
 end
+
+local function transform_and_find_closest_color_in_palette(original_color: midi_script.RgbColor, brightness: number?): number
+    local transformed_color = if brightness then adjust_brightness(original_color, brightness) else original_color
+    local index = find_closest_color_in_palette(transformed_color, color_palette)
+    if index == 0 then
+        -- Don't let it become black just because of the darkening
+        return find_closest_color_in_palette(original_color, color_palette)
+    end
+    return index
+end
+
+local function get_palette_color_index(entry: FeedbackEntry, rgb_color: midi_script.RgbColor?): number
+    if type(entry.color) == "number" then
+        return entry.color
+    end
+    local final_rgb_color = entry.color or rgb_color or white_color
+    return transform_and_find_closest_color_in_palette(final_rgb_color, entry.brightness)
+end
+
 
 function module.pad_script(
     pad_index: number,
