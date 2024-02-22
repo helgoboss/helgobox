@@ -1447,21 +1447,43 @@ pub struct ColorPalette {
     pub entries: Vec<ColorPaletteEntry>,
 }
 
+const TAILWIND_ORANGE_500: RgbColor = RgbColor(0xf9, 0x73, 0x16);
+const TAILWIND_AMBER_500: RgbColor = RgbColor(0xf5, 0x9e, 0x0b);
+const TAILWIND_YELLOW_500: RgbColor = RgbColor(0xea, 0xb3, 0x08);
+const TAILWIND_LIME_500: RgbColor = RgbColor(0x84, 0xcc, 0x16);
+const TAILWIND_GREEN_500: RgbColor = RgbColor(0x22, 0xc5, 0x5e);
+const TAILWIND_EMERALD_500: RgbColor = RgbColor(0x10, 0xb9, 0x81);
+const TAILWIND_TEAL_500: RgbColor = RgbColor(0x14, 0xb8, 0xa6);
+const TAILWIND_CYAN_500: RgbColor = RgbColor(0x06, 0xb6, 0xd4);
+const TAILWIND_SKY_500: RgbColor = RgbColor(0x0e, 0xa5, 0xe9);
+const TAILWIND_BLUE_500: RgbColor = RgbColor(0x3b, 0x82, 0xf6);
+const TAILWIND_INDIGO_500: RgbColor = RgbColor(0x63, 0x66, 0xf1);
+const TAILWIND_VIOLET_500: RgbColor = RgbColor(0x8b, 0x5c, 0xf6);
+const TAILWIND_PURPLE_500: RgbColor = RgbColor(0xa8, 0x55, 0xf7);
+const TAILWIND_FUCHSIA_500: RgbColor = RgbColor(0xd9, 0x46, 0xef);
+const TAILWIND_PINK_500: RgbColor = RgbColor(0xec, 0x48, 0x99);
+const TAILWIND_ROSE_500: RgbColor = RgbColor(0xf4, 0x3f, 0x5e);
+
 impl Default for ColorPalette {
     fn default() -> Self {
         Self {
             entries: [
-                RgbColor(0x90, 0x6B, 0xFA),
-                RgbColor(0xD8, 0x6B, 0xFA),
-                RgbColor(0xEE, 0x65, 0xCB),
-                RgbColor(0xF3, 0x68, 0x89),
-                RgbColor(0xF3, 0x84, 0x5D),
-                RgbColor(0xF3, 0xD1, 0x61),
-                RgbColor(0x54, 0xD3, 0x62),
-                RgbColor(0x1E, 0xDF, 0xAD),
-                RgbColor(0x00, 0xB6, 0xF1),
-                RgbColor(0xAB, 0xCD, 0xFF),
-                RgbColor(0xD1, 0xE4, 0xFF),
+                TAILWIND_ORANGE_500,
+                TAILWIND_AMBER_500,
+                TAILWIND_YELLOW_500,
+                TAILWIND_LIME_500,
+                TAILWIND_GREEN_500,
+                TAILWIND_EMERALD_500,
+                TAILWIND_TEAL_500,
+                TAILWIND_CYAN_500,
+                TAILWIND_SKY_500,
+                TAILWIND_BLUE_500,
+                TAILWIND_INDIGO_500,
+                TAILWIND_VIOLET_500,
+                TAILWIND_PURPLE_500,
+                TAILWIND_FUCHSIA_500,
+                TAILWIND_PINK_500,
+                TAILWIND_ROSE_500,
             ]
             .into_iter()
             .map(|color| ColorPaletteEntry { color })
