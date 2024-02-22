@@ -436,7 +436,7 @@ local arm_colors = colors(7, 72)
 local select_colors = colors(39, 78)
 local mute_colors = colors(15, 74)
 local solo_colors = colors(47, 66)
-local stop_clip_colors = colors(7, 72)
+local stop_clip_colors = colors(11, 84)
 
 local mappings = {
     name("Shift") + button("shift") + shift_colors + set_param(params.shift.index),

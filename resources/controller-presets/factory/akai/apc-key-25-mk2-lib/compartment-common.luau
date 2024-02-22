@@ -34,7 +34,7 @@ local feedback_table: { [string]: FeedbackEntry? } = {
         behavior = pulsing,
     },
     ["playtime.slot_state.paused"] = {
-        behavior = dark,
+        behavior = medium,
     },
     ["playtime.slot_state.scheduled_for_play_stop"] = {
         behavior = blinking,
