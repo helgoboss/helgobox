@@ -446,7 +446,8 @@ local mappings = {
     name("Redo") + button("undo") + feedback_disabled() + shift_is(true) + clip_matrix_action("Redo"),
     name("Redo LED") + button("undo") + shift_is(true) + shift_colors + led_on_off(),
     name("Delete") + button("delete") + normal_colors + set_slot_mode(slot_modes.delete),
-    name("Quantise") + button("quantize") + normal_colors + set_slot_mode(slot_modes.quantise),
+    name("Quantise") + button("quantize") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.quantise),
+    name("Record Quantise") + button("quantize") + shift_is(true) + shift_colors + toggle() + clip_matrix_action("MidiAutoQuantizationOnOffState"),
     name("Duplicate") + button("duplicate") + normal_colors + set_slot_mode(slot_modes.duplicate),
     name("Double") + button("double") + normal_colors + set_slot_mode(slot_modes.double),
 }

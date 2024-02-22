@@ -11,6 +11,7 @@ export type Matrix = {
 	clip_play_settings: MatrixClipPlaySettings,
 	clip_record_settings: MatrixClipRecordSettings,
 	common_tempo_range: TempoRange,
+	click_volume: Db?,
 	color_palette: ColorPalette?,
 	content_quantization_settings: ContentQuantizationSettings?,
 	sequencer: MatrixSequencer?,

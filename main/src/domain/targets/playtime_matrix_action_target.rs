@@ -145,6 +145,9 @@ mod playtime_impl {
                 PlaytimeMatrixAction::ClickOnOffState => {
                     matrix.set_click_enabled(value.is_on());
                 }
+                PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
+                    matrix.set_midi_auto_quantize_enabled(value.is_on());
+                }
             }
             Ok(HitResponse::processed_with_effect())
         }
@@ -178,11 +181,14 @@ mod playtime_impl {
             evt: CompoundChangeEvent,
             _: ControlContext,
         ) -> (bool, Option<AbsoluteValue>) {
+            if matches!(
+                evt,
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged)
+            ) {
+                return (true, None);
+            }
             match self.action {
                 PlaytimeMatrixAction::Stop | PlaytimeMatrixAction::BuildScene => match evt {
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
-                        (true, None)
-                    }
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
                         QualifiedSlotChangeEvent { event, .. },
                     )) => match event {
@@ -190,12 +196,6 @@ mod playtime_impl {
                         SlotChangeEvent::Clips(_) => (true, None),
                         _ => (false, None),
                     },
-                    _ => (false, None),
-                },
-                PlaytimeMatrixAction::Undo | PlaytimeMatrixAction::Redo => match evt {
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
-                        (true, None)
-                    }
                     _ => (false, None),
                 },
                 PlaytimeMatrixAction::SetRecordDurationToOpenEnd
@@ -214,6 +214,13 @@ mod playtime_impl {
                     }
                     _ => (false, None),
                 },
+                PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::MatrixSettingsChanged) => {
+                        (true, None)
+                    }
+                    _ => (false, None),
+                },
+                _ => (false, None),
             }
         }
 
@@ -271,6 +278,9 @@ mod playtime_impl {
                                 == record_duration_in_bars(8)
                         }
                         PlaytimeMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
+                        PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
+                            matrix.midi_auto_quantize_enabled()
+                        }
                     };
                     Some(AbsoluteValue::from_bool(bool_value))
                 })
@@ -335,7 +345,9 @@ mod playtime_impl {
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
-            ClickOnOffState => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+            ClickOnOffState | MidiAutoQuantizationOnOffState => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
         }
     }
     /// Panics if you pass zero.

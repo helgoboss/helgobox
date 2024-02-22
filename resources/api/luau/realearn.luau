@@ -3354,6 +3354,7 @@ export type PlaytimeMatrixAction =
 	| "SetRecordDurationToFourBars"
 	| "SetRecordDurationToEightBars"
 	| "ClickOnOffState"
+	| "MidiAutoQuantizationOnOffState"
 
 export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSelection"
 

@@ -1511,6 +1511,8 @@ pub enum PlaytimeMatrixAction {
     SetRecordDurationToEightBars,
     #[display(fmt = "Enable/disable click")]
     ClickOnOffState,
+    #[display(fmt = "Enable/disable MIDI auto-quantize")]
+    MidiAutoQuantizationOnOffState,
 }
 
 impl Default for PlaytimeMatrixAction {
