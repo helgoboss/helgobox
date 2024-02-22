@@ -260,7 +260,7 @@ impl Default for TempoRange {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipPlaySettings {
     #[serde(default)]
-    pub trigger_behavior: TriggerPlayBehavior,
+    pub trigger_behavior: TriggerSlotBehavior,
     pub start_timing: ClipPlayStartTiming,
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
@@ -452,7 +452,7 @@ pub enum ClipRecordTimeBase {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
-pub enum TriggerPlayBehavior {
+pub enum TriggerSlotBehavior {
     /// Press once = play, press again = stop.
     #[default]
     TogglePlayStop,
@@ -897,7 +897,7 @@ pub struct ColumnClipPlaySettings {
     /// Trigger behavior override.
     ///
     /// `None` means it uses the matrix-global trigger behavior.
-    pub trigger_behavior: Option<TriggerPlayBehavior>,
+    pub trigger_behavior: Option<TriggerSlotBehavior>,
     /// Velocity sensitivity override.
     ///
     /// `None` means it uses the matrix-global sensitivity.
