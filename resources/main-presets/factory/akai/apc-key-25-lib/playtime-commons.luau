@@ -717,7 +717,7 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
                     + no_mod
                     + toggle()
                     + column_stop_button(col)
-                    + clip_column_action(col, "ArmState")
+                    + clip_column_action(col, "ArmStateExclusive")
             )
             table.insert(
                 mappings,

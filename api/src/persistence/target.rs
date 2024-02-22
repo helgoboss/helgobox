@@ -1437,6 +1437,8 @@ pub enum PlaytimeColumnAction {
     Stop,
     #[display(fmt = "Arm/Disarm")]
     ArmState,
+    #[display(fmt = "Arm/Disarm exclusive")]
+    ArmStateExclusive,
 }
 
 impl Default for PlaytimeColumnAction {

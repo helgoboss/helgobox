@@ -98,7 +98,7 @@ mod playtime_impl {
             let is_on = Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| match self.action {
                     PlaytimeColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
-                    PlaytimeColumnAction::ArmState => {
+                    PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
                         matrix.column_is_armed_for_recording(self.column_index)
                     }
                 })
@@ -122,7 +122,7 @@ mod playtime_impl {
                     let is_stoppable = matrix.column_is_stoppable(self.column_index);
                     Some(AbsoluteValue::from_bool(is_stoppable))
                 }
-                PlaytimeColumnAction::ArmState => None,
+                PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => None,
             }
         }
 
@@ -163,6 +163,12 @@ mod playtime_impl {
                             PlaytimeColumnAction::ArmState => {
                                 matrix.set_column_armed(self.column_index, value.is_on())?;
                             }
+                            PlaytimeColumnAction::ArmStateExclusive => {
+                                matrix.set_column_armed_exclusively(
+                                    self.column_index,
+                                    value.is_on(),
+                                )?;
+                            }
                         }
                         Ok(HitResponse::processed_with_effect())
                     },
@@ -177,11 +183,14 @@ mod playtime_impl {
             evt: CompoundChangeEvent,
             _: ControlContext,
         ) -> (bool, Option<AbsoluteValue>) {
+            if matches!(
+                evt,
+                CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged)
+            ) {
+                return (true, None);
+            }
             match self.action {
                 PlaytimeColumnAction::Stop => match evt {
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
-                        (true, None)
-                    }
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
                         QualifiedSlotChangeEvent {
                             slot_address: sc,
@@ -194,15 +203,14 @@ mod playtime_impl {
                     },
                     _ => (false, None),
                 },
-                PlaytimeColumnAction::ArmState => match evt {
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::EverythingChanged) => {
-                        (true, None)
+                PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
+                    match evt {
+                        CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::TrackChanged(_)) => {
+                            (true, None)
+                        }
+                        _ => (false, None),
                     }
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::TrackChanged(_)) => {
-                        (true, None)
-                    }
-                    _ => (false, None),
-                },
+                }
             }
         }
 
@@ -237,7 +245,9 @@ mod playtime_impl {
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
-            ArmState => (ControlType::AbsoluteContinuous, TargetCharacter::Switch),
+            ArmState | ArmStateExclusive => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
         }
     }
 
@@ -256,7 +266,9 @@ mod playtime_impl {
                     let matrix = matrix.lock();
                     matrix.stop_column(self.column_index, None)
                 }
-                PlaytimeColumnAction::ArmState => Err("real-time control not supported"),
+                PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
+                    Err("real-time control not supported")
+                }
             }
         }
     }

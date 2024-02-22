@@ -153,7 +153,7 @@ end
 
 --- Matrix-global settings related to playing clips.
 export type MatrixClipPlaySettings = {
-	trigger_behavior: TriggerPlayBehavior?,
+	trigger_behavior: TriggerSlotBehavior?,
 	start_timing: ClipPlayStartTiming,
 	stop_timing: ClipPlayStopTiming,
 	audio_settings: MatrixClipPlayAudioSettings,
@@ -288,43 +288,43 @@ function module.ClipRecordTimeBase.Beat(): ClipRecordTimeBase_Beat
 end
 
 --- Press once = play, press again = stop.
-export type TriggerPlayBehavior_TogglePlayStop = { kind: "TogglePlayStop" }
+export type TriggerSlotBehavior_TogglePlayStop = { kind: "TogglePlayStop" }
 
 --- Press once = play, release = stop.
-export type TriggerPlayBehavior_MomentaryPlayStop = { kind: "MomentaryPlayStop" }
+export type TriggerSlotBehavior_MomentaryPlayStop = { kind: "MomentaryPlayStop" }
 
 --- Press once = play, press again = retrigger.
-export type TriggerPlayBehavior_Retrigger = { kind: "Retrigger" }
-export type TriggerPlayBehavior =
-	TriggerPlayBehavior_TogglePlayStop
-	| TriggerPlayBehavior_MomentaryPlayStop
-	| TriggerPlayBehavior_Retrigger
+export type TriggerSlotBehavior_Retrigger = { kind: "Retrigger" }
+export type TriggerSlotBehavior =
+	TriggerSlotBehavior_TogglePlayStop
+	| TriggerSlotBehavior_MomentaryPlayStop
+	| TriggerSlotBehavior_Retrigger
 
---- A type that represents all possible kinds of TriggerPlayBehavior.
-export type TriggerPlayBehaviorKind = "TogglePlayStop" | "MomentaryPlayStop" | "Retrigger"
+--- A type that represents all possible kinds of TriggerSlotBehavior.
+export type TriggerSlotBehaviorKind = "TogglePlayStop" | "MomentaryPlayStop" | "Retrigger"
 
---- Helper table to create TriggerPlayBehavior values of different kinds.
-module.TriggerPlayBehavior = {}
+--- Helper table to create TriggerSlotBehavior values of different kinds.
+module.TriggerSlotBehavior = {}
 
---- Creates a TriggerPlayBehavior of kind TogglePlayStop.
+--- Creates a TriggerSlotBehavior of kind TogglePlayStop.
 --- Press once = play, press again = stop.
-function module.TriggerPlayBehavior.TogglePlayStop(): TriggerPlayBehavior_TogglePlayStop
+function module.TriggerSlotBehavior.TogglePlayStop(): TriggerSlotBehavior_TogglePlayStop
 	return {
 		kind = "TogglePlayStop",
 	}
 end
 
---- Creates a TriggerPlayBehavior of kind MomentaryPlayStop.
+--- Creates a TriggerSlotBehavior of kind MomentaryPlayStop.
 --- Press once = play, release = stop.
-function module.TriggerPlayBehavior.MomentaryPlayStop(): TriggerPlayBehavior_MomentaryPlayStop
+function module.TriggerSlotBehavior.MomentaryPlayStop(): TriggerSlotBehavior_MomentaryPlayStop
 	return {
 		kind = "MomentaryPlayStop",
 	}
 end
 
---- Creates a TriggerPlayBehavior of kind Retrigger.
+--- Creates a TriggerSlotBehavior of kind Retrigger.
 --- Press once = play, press again = retrigger.
-function module.TriggerPlayBehavior.Retrigger(): TriggerPlayBehavior_Retrigger
+function module.TriggerSlotBehavior.Retrigger(): TriggerSlotBehavior_Retrigger
 	return {
 		kind = "Retrigger",
 	}
@@ -723,7 +723,7 @@ export type ColumnClipPlaySettings = {
 	track: TrackId?,
 	start_timing: ClipPlayStartTiming?,
 	stop_timing: ClipPlayStopTiming?,
-	trigger_behavior: TriggerPlayBehavior?,
+	trigger_behavior: TriggerSlotBehavior?,
 	velocity_sensitivity: number?,
 	audio_settings: ColumnClipPlayAudioSettings,
 }
