@@ -14,6 +14,7 @@ local commons = require("akai/apc-key-25-lib/playtime-commons")
 
 return commons.create_compartment {
     use_column_stop_buttons = true,
+    stop_column_if_slot_empty = true,
     mute_track_button_id = "row3/play",
     arm_track_button_id = "row4/play",
 }

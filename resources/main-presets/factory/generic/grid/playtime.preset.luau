@@ -13,6 +13,8 @@
 
 -- Configuration
 
+local stop_column_if_slot_empty = true
+
 -- Requires
 
 local realearn = require("realearn")
@@ -51,6 +53,7 @@ for col = 0, column_count - 1 do
                     row_expression = `control_unit_row_index + {row}`,
                 },
                 action = "Trigger",
+                stop_column_if_slot_empty = stop_column_if_slot_empty,
             },
         }
         table.insert(mappings, mapping)

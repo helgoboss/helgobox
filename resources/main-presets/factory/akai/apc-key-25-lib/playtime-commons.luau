@@ -10,6 +10,7 @@ export type ApcKey25PlaytimePresetConfig = {
     mute_track_button_id: string,
     arm_track_button_id: string,
     use_column_stop_buttons: boolean,
+    stop_column_if_slot_empty: boolean,
 }
 
 function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realearn.Compartment
@@ -349,6 +350,7 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
             target = realearn.Target.PlaytimeSlotTransportAction {
                 slot = create_slot_selector(col, row),
                 action = action,
+                stop_column_if_slot_empty = config.stop_column_if_slot_empty,
             },
         }
     end

@@ -154,7 +154,11 @@ mod playtime_impl {
                 let response = match self.basics.action {
                     Trigger => {
                         let velocity = value.to_unit_value().map_err(anyhow::Error::msg)?;
-                        matrix.trigger_slot(self.basics.slot_coordinates, velocity)?;
+                        matrix.trigger_slot(
+                            self.basics.slot_coordinates,
+                            velocity,
+                            self.basics.options.stop_column_if_slot_empty,
+                        )?;
                         HitResponse::processed_with_effect()
                     }
                     PlayStop => {
@@ -461,9 +465,11 @@ mod playtime_impl {
             let matrix = context.clip_matrix()?;
             let matrix = matrix.lock();
             match self.basics.action {
-                Trigger => {
-                    matrix.trigger_slot(self.basics.slot_coordinates, value.to_unit_value()?)
-                }
+                Trigger => matrix.trigger_slot(
+                    self.basics.slot_coordinates,
+                    value.to_unit_value()?,
+                    self.basics.options.stop_column_if_slot_empty,
+                ),
                 PlayStop => {
                     if value.is_on() {
                         matrix

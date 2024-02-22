@@ -68,8 +68,12 @@ impl PlaytimeProtoRequestHandler {
                 matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
                 Ok(())
             }
-            TriggerSlotAction::TriggerOn => matrix.trigger_slot(slot_address, UnitValue::MAX),
-            TriggerSlotAction::TriggerOff => matrix.trigger_slot(slot_address, UnitValue::MIN),
+            TriggerSlotAction::TriggerOn => {
+                matrix.trigger_slot(slot_address, UnitValue::MAX, false)
+            }
+            TriggerSlotAction::TriggerOff => {
+                matrix.trigger_slot(slot_address, UnitValue::MIN, false)
+            }
             TriggerSlotAction::Activate => matrix.activate_slot(slot_address),
         })
     }

@@ -17,6 +17,8 @@
 
 -- Configuration
 
+local stop_column_if_slot_empty = true
+
 -- Requires
 
 local partial = require("partial")
@@ -231,6 +233,7 @@ function clip_transport_action(col: number, row: number, action: realearn.Playti
         target = realearn.Target.PlaytimeSlotTransportAction {
             slot = create_slot_selector(col, row),
             action = action,
+            stop_column_if_slot_empty = stop_column_if_slot_empty,
         },
     }
 end
