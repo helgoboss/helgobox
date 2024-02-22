@@ -2279,12 +2279,37 @@ impl HookPostCommand2 for BackboneShell {
         if section != SectionContext::MainSection {
             return;
         }
+        // Process executed action as feedback
         BackboneShell::get()
             .additional_feedback_event_sender
             .send_complaining(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 section_context: SectionContext::MainSection,
                 command_id,
             }));
+        #[cfg(feature = "playtime")]
+        post_process_action_invocation_for_playtime(command_id);
+    }
+}
+
+#[cfg(feature = "playtime")]
+fn post_process_action_invocation_for_playtime(command_id: CommandId) {
+    let toggle_metronome_command_id = CommandId::new(40364);
+    if command_id == toggle_metronome_command_id {
+        // Metronome toggle
+        let toggle_metronome_action = Reaper::get()
+            .main_section()
+            .action_by_command_id(command_id);
+        if toggle_metronome_action.is_on() == Ok(Some(false)) {
+            // Switched metronome off. Switch Playtime clicks off as well!
+            BackboneShell::get().with_instance_shell_infos(|infos| {
+                for instance in infos.iter().flat_map(|info| info.instance.upgrade()) {
+                    let mut instance = instance.borrow_mut();
+                    if let Some(matrix) = instance.clip_matrix_mut() {
+                        matrix.set_click_enabled(false);
+                    }
+                }
+            });
+        }
     }
 }
 
