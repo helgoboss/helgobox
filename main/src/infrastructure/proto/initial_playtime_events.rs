@@ -25,7 +25,9 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
     let master_track = project.master_track().expect("project gone");
     let updates = [
         Update::MatrixExists(true),
-        Update::volume(master_track.volume().to_db_ex(Db::MINUS_INF)),
+        Update::master_volume(master_track.volume().to_db_ex(Db::MINUS_INF)),
+        Update::click_volume(matrix),
+        Update::tempo_tap_volume(matrix),
         Update::pan(master_track.pan().reaper_value()),
         Update::mute(master_track.is_muted()),
         Update::tempo(matrix.tempo()),

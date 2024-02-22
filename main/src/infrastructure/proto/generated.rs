@@ -354,7 +354,9 @@ pub struct SetMatrixTimeSignatureRequest {
 pub struct SetMatrixVolumeRequest {
     #[prost(string, tag = "1")]
     pub matrix_id: ::prost::alloc::string::String,
-    #[prost(double, tag = "2")]
+    #[prost(enumeration = "MatrixVolumeKind", tag = "2")]
+    pub kind: i32,
+    #[prost(double, tag = "3")]
     pub db: f64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -947,7 +949,7 @@ pub mod occasional_global_update {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22"
+        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -958,7 +960,7 @@ pub mod occasional_matrix_update {
     pub enum Update {
         /// Matrix volume (= REAPER master track volume)
         #[prost(double, tag = "1")]
-        Volume(f64),
+        MasterVolume(f64),
         /// Matrix pan (= REAPER master track pan)
         #[prost(double, tag = "2")]
         Pan(f64),
@@ -1017,6 +1019,12 @@ pub mod occasional_matrix_update {
         /// Control units as JSON.
         #[prost(string, tag = "22")]
         ControlUnitConfig(::prost::alloc::string::String),
+        /// Metronome volume
+        #[prost(double, tag = "23")]
+        ClickVolume(f64),
+        /// Volume of the temp-tap sound
+        #[prost(double, tag = "24")]
+        TempoTapVolume(f64),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1279,6 +1287,35 @@ pub struct ContinuousClipUpdate {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum MatrixVolumeKind {
+    Master = 0,
+    Click = 1,
+    TempoTap = 2,
+}
+impl MatrixVolumeKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            MatrixVolumeKind::Master => "MATRIX_VOLUME_KIND_MASTER",
+            MatrixVolumeKind::Click => "MATRIX_VOLUME_KIND_CLICK",
+            MatrixVolumeKind::TempoTap => "MATRIX_VOLUME_KIND_TEMPO_TAP",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "MATRIX_VOLUME_KIND_MASTER" => Some(Self::Master),
+            "MATRIX_VOLUME_KIND_CLICK" => Some(Self::Click),
+            "MATRIX_VOLUME_KIND_TEMPO_TAP" => Some(Self::TempoTap),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TriggerMatrixAction {
     ArrangementTogglePlayStop = 0,
     StopAllClips = 1,
@@ -1431,6 +1468,7 @@ pub enum TriggerTrackAction {
     ToggleArm = 2,
     ShowFx = 3,
     ShowRouting = 4,
+    ToggleLearnInput = 5,
 }
 impl TriggerTrackAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1444,6 +1482,9 @@ impl TriggerTrackAction {
             TriggerTrackAction::ToggleArm => "TRIGGER_TRACK_ACTION_TOGGLE_ARM",
             TriggerTrackAction::ShowFx => "TRIGGER_TRACK_ACTION_SHOW_FX",
             TriggerTrackAction::ShowRouting => "TRIGGER_TRACK_ACTION_SHOW_ROUTING",
+            TriggerTrackAction::ToggleLearnInput => {
+                "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1454,6 +1495,7 @@ impl TriggerTrackAction {
             "TRIGGER_TRACK_ACTION_TOGGLE_ARM" => Some(Self::ToggleArm),
             "TRIGGER_TRACK_ACTION_SHOW_FX" => Some(Self::ShowFx),
             "TRIGGER_TRACK_ACTION_SHOW_ROUTING" => Some(Self::ShowRouting),
+            "TRIGGER_TRACK_ACTION_TOGGLE_LEARN_INPUT" => Some(Self::ToggleLearnInput),
             _ => None,
         }
     }

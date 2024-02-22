@@ -5,9 +5,9 @@ use crate::infrastructure::proto::{
     DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress, FullColumnAddress,
     FullRowAddress, FullSequenceId, FullSlotAddress, FullTrackAddress, GetArrangementInfoReply,
     GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    GetProjectDirRequest, ImportFilesRequest, MatrixVolumeKind, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetRowDataRequest,
     SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
     SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
@@ -373,6 +373,10 @@ impl PlaytimeProtoRequestHandler {
                 matrix.show_track_routing(&track);
                 Ok(())
             }
+            TriggerTrackAction::ToggleLearnInput => {
+                matrix.toggle_learn_input(&track);
+                Ok(())
+            }
         })
     }
 
@@ -454,13 +458,25 @@ impl PlaytimeProtoRequestHandler {
         req: SetMatrixVolumeRequest,
     ) -> Result<Response<Empty>, Status> {
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
+        let kind = MatrixVolumeKind::try_from(req.kind)
+            .map_err(|e| Status::invalid_argument("unknown matrix volume kind"))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| {
-            let project = matrix.permanent_project().or_current_project();
-            project.master_track()?.set_volume(
-                db.to_linear_volume_value(),
-                GangBehavior::DenyGang,
-                GroupingBehavior::PreventGrouping,
-            );
+            match kind {
+                MatrixVolumeKind::Master => {
+                    let project = matrix.permanent_project().or_current_project();
+                    project.master_track()?.set_volume(
+                        db.to_linear_volume_value(),
+                        GangBehavior::DenyGang,
+                        GroupingBehavior::PreventGrouping,
+                    );
+                }
+                MatrixVolumeKind::Click => {
+                    matrix.set_click_volume(db);
+                }
+                MatrixVolumeKind::TempoTap => {
+                    matrix.set_tempo_tap_volume(db);
+                }
+            }
             Ok(())
         })
     }

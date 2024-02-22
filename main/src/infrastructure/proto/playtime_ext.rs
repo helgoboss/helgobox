@@ -25,8 +25,16 @@ use crate::infrastructure::proto::{
 };
 
 impl occasional_matrix_update::Update {
-    pub fn volume(db: Db) -> Self {
-        Self::Volume(db.get())
+    pub fn master_volume(db: Db) -> Self {
+        Self::MasterVolume(db.get())
+    }
+
+    pub fn click_volume(matrix: &Matrix) -> Self {
+        Self::ClickVolume(matrix.click_volume().get())
+    }
+
+    pub fn tempo_tap_volume(matrix: &Matrix) -> Self {
+        Self::TempoTapVolume(matrix.tempo_tap_volume().get())
     }
 
     pub fn pan(pan: ReaperPanValue) -> Self {

@@ -53,6 +53,8 @@ pub struct Matrix {
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub click_volume: Option<Db>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
     #[serde(default)]
     pub content_quantization_settings: ContentQuantizationSettings,

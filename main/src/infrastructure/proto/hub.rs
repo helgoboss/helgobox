@@ -221,6 +221,12 @@ mod playtime_impl {
                     ClipMatrixEvent::ClickEnabledChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::click_enabled(matrix)),
                     }),
+                    ClipMatrixEvent::ClickVolumeChanged => Some(OccasionalMatrixUpdate {
+                        update: Some(occasional_matrix_update::Update::click_volume(matrix)),
+                    }),
+                    ClipMatrixEvent::TempoTapVolumeChanged => Some(OccasionalMatrixUpdate {
+                        update: Some(occasional_matrix_update::Update::tempo_tap_volume(matrix)),
+                    }),
                     ClipMatrixEvent::SilenceModeChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::silence_mode(matrix)),
                     }),
@@ -559,7 +565,9 @@ mod playtime_impl {
                     ChangeEvent::TrackVolumeChanged(e) => {
                         let db = e.new_value.to_db_ex(Db::MINUS_INF);
                         if e.track.is_master_track() {
-                            Some(R::Matrix(occasional_matrix_update::Update::volume(db)))
+                            Some(R::Matrix(occasional_matrix_update::Update::master_volume(
+                                db,
+                            )))
                         } else {
                             column_track_update(matrix, &e.track, || Update::volume(db))
                         }
