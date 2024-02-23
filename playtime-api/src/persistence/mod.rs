@@ -41,7 +41,7 @@ pub struct PlaytimePersistenceRoot {
     _even_quantization: EvenQuantization,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Matrix {
     /// All columns from left to right.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,6 +69,26 @@ pub struct Matrix {
     #[serde(default)]
     pub sequencer: MatrixSequencer,
 }
+
+// This default is only used to create the initial undo point.
+impl Default for Matrix {
+    fn default() -> Self {
+        Self {
+            columns: None,
+            rows: None,
+            clip_play_settings: Default::default(),
+            clip_record_settings: Default::default(),
+            common_tempo_range: Default::default(),
+            activate_slot_on_trigger: ACTIVATE_SLOT_ON_TRIGGER_DEFAULT,
+            click_volume: None,
+            color_palette: None,
+            content_quantization_settings: Default::default(),
+            sequencer: Default::default(),
+        }
+    }
+}
+
+pub const ACTIVATE_SLOT_ON_TRIGGER_DEFAULT: bool = true;
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixSequencer {
@@ -188,8 +208,6 @@ impl SignedMatrix {
 }
 
 /// This is redundant (already contained in [`Matrix`]) but used to transfer settings only.
-///
-/// When it comes to the defaults, the ones here matter.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
@@ -198,19 +216,6 @@ pub struct MatrixSettings {
     pub color_palette: ColorPalette,
     pub content_quantization_settings: ContentQuantizationSettings,
     pub activate_slot_on_trigger: bool,
-}
-
-impl Default for MatrixSettings {
-    fn default() -> Self {
-        Self {
-            clip_play_settings: Default::default(),
-            clip_record_settings: Default::default(),
-            common_tempo_range: Default::default(),
-            color_palette: Default::default(),
-            content_quantization_settings: Default::default(),
-            activate_slot_on_trigger: true,
-        }
-    }
 }
 
 impl Matrix {
