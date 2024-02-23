@@ -435,8 +435,8 @@ impl Default for MatrixClipRecordMidiSettings {
     fn default() -> Self {
         Self {
             record_mode: Default::default(),
-            detect_downbeat: true,
-            detect_input: true,
+            detect_downbeat: false,
+            detect_input: false,
             auto_quantize: false,
             clip_settings: Default::default(),
         }
