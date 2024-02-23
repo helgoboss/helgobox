@@ -19,6 +19,8 @@ pub struct ClipTransportOptions {
     /// If this is on and one of the record actions is triggered, it will only have an effect if
     /// the record track of the clip column is armed.
     pub record_only_if_track_armed: bool,
+    /// This is only ever taken care of from the main thread because only the main thread can decide whether
+    /// to record *or* stop the column.
     pub stop_column_if_slot_empty: bool,
     pub play_start_timing: Option<ClipPlayStartTiming>,
     pub play_stop_timing: Option<ClipPlayStopTiming>,
@@ -34,7 +36,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotTransportTarget {
         let target = PlaytimeSlotTransportTarget {
             project,
             basics: ClipTransportTargetBasics {
-                slot_coordinates: self.slot.resolve(context, compartment)?,
+                slot_address: self.slot.resolve(context, compartment)?,
                 action: self.action,
                 options: self.options,
             },
@@ -55,7 +57,7 @@ pub struct PlaytimeSlotTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTargetBasics {
-    pub slot_coordinates: SlotAddress,
+    pub slot_address: SlotAddress,
     pub action: PlaytimeSlotTransportAction,
     pub options: ClipTransportOptions,
 }
@@ -137,7 +139,7 @@ mod playtime_impl {
             &self,
             matrix: &playtime_clip_engine::base::Matrix,
         ) -> Option<InternalClipPlayState> {
-            let slot = matrix.find_slot(self.basics.slot_coordinates)?;
+            let slot = matrix.find_slot(self.basics.slot_address)?;
             if slot.is_empty() {
                 return None;
             }
@@ -157,10 +159,9 @@ mod playtime_impl {
                         // thread **but not everything**! Other parts can only be done from main thread, such as
                         // starting to record into an empty slot and/or auto-activating the triggered slot. The
                         // stuff done in the main thread (play/stop) must NOT be repeated here.
-                        let allow_recording_and_activating_only = context.coming_from_real_time;
                         let velocity = value.to_unit_value().map_err(anyhow::Error::msg)?;
                         matrix.trigger_slot(
-                            self.basics.slot_coordinates,
+                            self.basics.slot_address,
                             velocity,
                             TriggerSlotMainOptions {
                                 stop_column_if_slot_empty: self
@@ -168,21 +169,19 @@ mod playtime_impl {
                                     .options
                                     .stop_column_if_slot_empty,
                                 allow_activate: true,
-                                allow_recording: true,
-                                allow_start_stop: !allow_recording_and_activating_only,
+                                // If control was initiated from real-time target, don't take care of starting/stopping.
+                                allow_start_stop: !context.coming_from_real_time,
                             },
                         )?;
                         HitResponse::processed_with_effect()
                     }
                     PlayStop => {
                         if value.is_on() {
-                            matrix.play_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.play_options(),
-                            )?;
+                            matrix
+                                .play_slot(self.basics.slot_address, self.basics.play_options())?;
                         } else {
                             matrix.stop_slot(
-                                self.basics.slot_coordinates,
+                                self.basics.slot_address,
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
@@ -190,19 +189,17 @@ mod playtime_impl {
                     }
                     PlayPause => {
                         if value.is_on() {
-                            matrix.play_slot(
-                                self.basics.slot_coordinates,
-                                self.basics.play_options(),
-                            )?;
+                            matrix
+                                .play_slot(self.basics.slot_address, self.basics.play_options())?;
                         } else {
-                            matrix.pause_clip(self.basics.slot_coordinates)?;
+                            matrix.pause_clip(self.basics.slot_address)?;
                         }
                         HitResponse::processed_with_effect()
                     }
                     Stop => {
                         if value.is_on() {
                             matrix.stop_slot(
-                                self.basics.slot_coordinates,
+                                self.basics.slot_address,
                                 self.basics.options.play_stop_timing,
                             )?;
                             HitResponse::processed_with_effect()
@@ -212,7 +209,7 @@ mod playtime_impl {
                     }
                     Pause => {
                         if value.is_on() {
-                            matrix.pause_clip(self.basics.slot_coordinates)?;
+                            matrix.pause_clip(self.basics.slot_address)?;
                             HitResponse::processed_with_effect()
                         } else {
                             HitResponse::ignored()
@@ -222,15 +219,15 @@ mod playtime_impl {
                         if value.is_on() {
                             if self.basics.options.record_only_if_track_armed
                                 && !matrix.column_is_armed_for_recording(
-                                    self.basics.slot_coordinates.column(),
+                                    self.basics.slot_address.column(),
                                 )
                             {
                                 bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                             }
-                            matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
+                            matrix.record_or_overdub_slot(self.basics.slot_address)?;
                         } else {
                             matrix.stop_slot(
-                                self.basics.slot_coordinates,
+                                self.basics.slot_address,
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
@@ -238,41 +235,38 @@ mod playtime_impl {
                     }
                     RecordPlayStop => {
                         if value.is_on() {
-                            if matrix.slot_is_empty(self.basics.slot_coordinates) {
+                            if matrix.slot_is_empty(self.basics.slot_address) {
                                 // Slot is empty.
                                 if self.basics.options.record_only_if_track_armed {
                                     // Record only if armed.
                                     if matrix.column_is_armed_for_recording(
-                                        self.basics.slot_coordinates.column(),
+                                        self.basics.slot_address.column(),
                                     ) {
                                         // Is armed, so record.
-                                        matrix
-                                            .record_or_overdub_slot(self.basics.slot_coordinates)?;
+                                        matrix.record_or_overdub_slot(self.basics.slot_address)?;
                                     } else if self.basics.options.stop_column_if_slot_empty {
                                         // Not armed but column stopping on empty slots enabled.
                                         // Since we already know that the slot is empty, we do
                                         // it explicitly without invoking play passing that option.
-                                        matrix.stop_column(
-                                            self.basics.slot_coordinates.column(),
-                                            None,
-                                        )?;
+                                        matrix
+                                            .stop_column(self.basics.slot_address.column(), None)?;
                                     } else {
                                         bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                     }
                                 } else {
                                     // Definitely record.
-                                    matrix.record_or_overdub_slot(self.basics.slot_coordinates)?;
+                                    matrix.record_or_overdub_slot(self.basics.slot_address)?;
                                 }
                             } else {
                                 // Slot is filled.
                                 matrix.play_slot(
-                                    self.basics.slot_coordinates,
+                                    self.basics.slot_address,
                                     self.basics.play_options(),
                                 )?;
                             }
                         } else {
                             matrix.stop_slot(
-                                self.basics.slot_coordinates,
+                                self.basics.slot_address,
                                 self.basics.options.play_stop_timing,
                             )?;
                         }
@@ -280,7 +274,7 @@ mod playtime_impl {
                     }
                     Looped => {
                         if value.is_on() {
-                            matrix.toggle_looped(self.basics.slot_coordinates)?;
+                            matrix.toggle_looped(self.basics.slot_address)?;
                             HitResponse::processed_with_effect()
                         } else {
                             HitResponse::ignored()
@@ -298,7 +292,7 @@ mod playtime_impl {
         }
 
         fn clip_slot_address(&self) -> Option<SlotAddress> {
-            Some(self.basics.slot_coordinates)
+            Some(self.basics.slot_address)
         }
 
         fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -336,7 +330,7 @@ mod playtime_impl {
                         slot_address: sc,
                         event,
                     },
-                )) if *sc == self.basics.slot_coordinates => {
+                )) if *sc == self.basics.slot_address => {
                     use PlaytimeSlotTransportAction::*;
                     match event {
                         SlotChangeEvent::PlayState(new_state) => match self.basics.action {
@@ -344,7 +338,7 @@ mod playtime_impl {
                             | RecordPlayStop => {
                                 tracing::debug!(
                                     "Changed play state of {} to {new_state:?}",
-                                    self.basics.slot_coordinates
+                                    self.basics.slot_address
                                 );
                                 let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                                 (true, Some(AbsoluteValue::Continuous(uv)))
@@ -361,7 +355,7 @@ mod playtime_impl {
                         clip_address,
                         event,
                     },
-                )) if clip_address.slot_address == self.basics.slot_coordinates => {
+                )) if clip_address.slot_address == self.basics.slot_address => {
                     use PlaytimeSlotTransportAction::*;
                     match event {
                         ClipChangeEvent::Looped(new_state) => match self.basics.action {
@@ -408,8 +402,7 @@ mod playtime_impl {
                         let id_string = match self.clip_play_state(matrix) {
                             None => {
                                 // Slot is empty
-                                match matrix.find_column(self.basics.slot_coordinates.column_index)
-                                {
+                                match matrix.find_column(self.basics.slot_address.column_index) {
                                     None => "playtime.slot_state.empty",
                                     Some(col) => {
                                         if col.is_armed_for_recording() {
@@ -443,15 +436,13 @@ mod playtime_impl {
                             let play_state = self.clip_play_state(matrix)?;
                             tracing::trace!(
                                 "Current play state of {}: {play_state:?}",
-                                self.basics.slot_coordinates
+                                self.basics.slot_address
                             );
                             clip_play_state_unit_value(self.basics.action, play_state)
                         }
                         Looped => {
-                            let is_looped = matrix
-                                .find_slot(self.basics.slot_coordinates)?
-                                .looped()
-                                .ok()?;
+                            let is_looped =
+                                matrix.find_slot(self.basics.slot_address)?.looped().ok()?;
                             transport_is_enabled_unit_value(is_looped)
                         }
                     };
@@ -480,26 +471,38 @@ mod playtime_impl {
             let matrix = matrix.lock();
             match self.basics.action {
                 Trigger => {
-                    let slot_is_empty = matrix.trigger_slot(
-                        self.basics.slot_coordinates,
-                        value.to_unit_value()?,
-                        self.basics.options.stop_column_if_slot_empty,
-                    )?;
-                    let forward_to_main_thread = if slot_is_empty || value.is_on() {
-                        // The main thread might decide to start recording and/or activate the triggered slot
-                        true
+                    // Whenever the value is on, we want to also forward control to the main (non-real-time) target.
+                    // Reasons:
+                    // 1. Only the main target can take care of activating the slot (`activate_slot_on_trigger`).
+                    // 2. Only the main target can check whether the track is armed and start recording.
+                    let forward_to_main_thread = value.is_on();
+                    let execute_in_real_time = if forward_to_main_thread {
+                        // We must carefully separate between what we do *here* (in real-time) and in the main target.
+                        if matrix.slot_is_filled(self.basics.slot_address) {
+                            // Slot is filled, so all the main thread will do is to activate the slot.
+                            // We can safely execute.
+                            true
+                        } else {
+                            // Careful! In addition to slot activation, the main target could decide to record.
+                            // In that case we don't want to do anything in real-time. If `stop_column_if_slot_empty`
+                            // is enabled, it's the responsibility to do that if it decides to *not record*.
+                            false
+                        }
                     } else {
-                        false
+                        // Easy. No main target that can get interfere.
+                        true
                     };
+                    if execute_in_real_time {
+                        matrix.trigger_slot(self.basics.slot_address, value.to_unit_value()?)?;
+                    }
                     Ok(forward_to_main_thread)
                 }
                 PlayStop => {
                     if value.is_on() {
-                        matrix
-                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
+                        matrix.play_slot(self.basics.slot_address, self.basics.play_options())?;
                     } else {
                         matrix.stop_slot(
-                            self.basics.slot_coordinates,
+                            self.basics.slot_address,
                             self.basics.options.play_stop_timing,
                         )?;
                     }
@@ -507,10 +510,9 @@ mod playtime_impl {
                 }
                 PlayPause => {
                     if value.is_on() {
-                        matrix
-                            .play_slot(self.basics.slot_coordinates, self.basics.play_options())?;
+                        matrix.play_slot(self.basics.slot_address, self.basics.play_options())?;
                     } else {
-                        matrix.pause_slot(self.basics.slot_coordinates)?;
+                        matrix.pause_slot(self.basics.slot_address)?;
                     }
                     // Completely handled in real-time, no need to forward to main thread
                     Ok(false)
@@ -518,7 +520,7 @@ mod playtime_impl {
                 Stop => {
                     if value.is_on() {
                         matrix.stop_slot(
-                            self.basics.slot_coordinates,
+                            self.basics.slot_address,
                             self.basics.options.play_stop_timing,
                         )?;
                     }
@@ -527,7 +529,7 @@ mod playtime_impl {
                 }
                 Pause => {
                     if value.is_on() {
-                        matrix.pause_slot(self.basics.slot_coordinates)?;
+                        matrix.pause_slot(self.basics.slot_address)?;
                     }
                     // Completely handled in real-time, no need to forward to main thread
                     Ok(false)
@@ -545,9 +547,9 @@ mod playtime_impl {
             use PlaytimeSlotTransportAction::*;
             let matrix = context.clip_matrix().ok()?;
             let matrix = matrix.lock();
-            let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
+            let column = matrix.column(self.basics.slot_address.column()).ok()?;
             let column = column.blocking_lock();
-            let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
+            let slot = column.slot(self.basics.slot_address.row()).ok()?;
             let Some(first_clip) = slot.first_clip() else {
                 return Some(AbsoluteValue::Continuous(UnitValue::MIN));
             };

@@ -297,7 +297,7 @@ impl ReaperTarget {
                 Self::PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget {
                     project: Reaper::get().current_project(),
                     basics: crate::domain::ClipTransportTargetBasics {
-                        slot_coordinates: t,
+                        slot_address: t,
                         action: realearn_api::persistence::PlaytimeSlotTransportAction::Trigger,
                         options: Default::default(),
                     },

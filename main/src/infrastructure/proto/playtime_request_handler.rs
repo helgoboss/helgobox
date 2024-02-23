@@ -75,7 +75,6 @@ impl PlaytimeProtoRequestHandler {
                 TriggerSlotMainOptions {
                     stop_column_if_slot_empty: false,
                     allow_start_stop: true,
-                    allow_recording: true,
                     /// Activating from GUI side ... no.
                     allow_activate: false,
                 },
@@ -86,7 +85,6 @@ impl PlaytimeProtoRequestHandler {
                 TriggerSlotMainOptions {
                     stop_column_if_slot_empty: false,
                     allow_start_stop: true,
-                    allow_recording: true,
                     /// Activating from GUI side ... no.
                     allow_activate: false,
                 },
