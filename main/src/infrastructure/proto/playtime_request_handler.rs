@@ -440,6 +440,7 @@ impl PlaytimeProtoRequestHandler {
                 }));
                 Ok(())
             }
+            TriggerRowAction::BuildSceneFromPlayingSlots => matrix.build_scene(row_index),
         })
     }
 

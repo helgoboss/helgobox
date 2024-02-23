@@ -1563,6 +1563,7 @@ pub enum TriggerRowAction {
     Panic = 8,
     ToggleLearnSimpleMapping = 9,
     RemoveSimpleMapping = 10,
+    BuildSceneFromPlayingSlots = 11,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1586,6 +1587,9 @@ impl TriggerRowAction {
             TriggerRowAction::RemoveSimpleMapping => {
                 "TRIGGER_ROW_ACTION_REMOVE_SIMPLE_MAPPING"
             }
+            TriggerRowAction::BuildSceneFromPlayingSlots => {
+                "TRIGGER_ROW_ACTION_BUILD_SCENE_FROM_PLAYING_SLOTS"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1604,6 +1608,9 @@ impl TriggerRowAction {
                 Some(Self::ToggleLearnSimpleMapping)
             }
             "TRIGGER_ROW_ACTION_REMOVE_SIMPLE_MAPPING" => Some(Self::RemoveSimpleMapping),
+            "TRIGGER_ROW_ACTION_BUILD_SCENE_FROM_PLAYING_SLOTS" => {
+                Some(Self::BuildSceneFromPlayingSlots)
+            }
             _ => None,
         }
     }
