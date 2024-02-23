@@ -61,7 +61,7 @@ pub struct ClipTransportTargetBasics {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RealTimeSlotTransportTarget {
+pub struct RealTimePlaytimeSlotTransportTarget {
     project: Project,
     basics: ClipTransportTargetBasics,
 }
@@ -81,7 +81,7 @@ pub const PLAYTIME_SLOT_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
 mod no_playtime_impl {
     use crate::domain::{
         ControlContext, PlaytimeSlotTransportTarget, RealTimeControlContext,
-        RealTimeSlotTransportTarget, RealearnTarget,
+        RealTimePlaytimeSlotTransportTarget, RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -89,10 +89,10 @@ mod no_playtime_impl {
     impl<'a> Target<'a> for PlaytimeSlotTransportTarget {
         type Context = ControlContext<'a>;
     }
-    impl<'a> Target<'a> for RealTimeSlotTransportTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeSlotTransportTarget {
         type Context = RealTimeControlContext<'a>;
     }
-    impl RealTimeSlotTransportTarget {
+    impl RealTimePlaytimeSlotTransportTarget {
         pub fn hit(
             &mut self,
             _value: ControlValue,
@@ -109,8 +109,8 @@ mod playtime_impl {
         format_value_as_on_off, transport_is_enabled_unit_value, Backbone,
         ClipTransportTargetBasics, CompoundChangeEvent, ControlContext, HitResponse,
         MappingControlContext, PlaytimeSlotTransportTarget, RealTimeControlContext,
-        RealTimeReaperTarget, RealTimeSlotTransportTarget, RealearnTarget, ReaperTargetType,
-        TargetCharacter,
+        RealTimePlaytimeSlotTransportTarget, RealTimeReaperTarget, RealearnTarget,
+        ReaperTargetType, TargetCharacter,
     };
     use anyhow::bail;
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
@@ -119,7 +119,7 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
-    use playtime_clip_engine::base::Column;
+    use playtime_clip_engine::rt::TriggerSlotMainOptions;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
@@ -129,7 +129,7 @@ mod playtime_impl {
         },
     };
     use realearn_api::persistence::PlaytimeSlotTransportAction;
-    use reaper_high::{ChangeEvent, Project, Track};
+    use reaper_high::{ChangeEvent, Project};
     use std::borrow::Cow;
 
     impl PlaytimeSlotTransportTarget {
@@ -153,11 +153,24 @@ mod playtime_impl {
             Backbone::get().with_clip_matrix_mut(context.control_context.instance(), |matrix| {
                 let response = match self.basics.action {
                     Trigger => {
+                        // This action is special in that it some of it can be carried out directly in the real-time
+                        // thread **but not everything**! Other parts can only be done from main thread, such as
+                        // starting to record into an empty slot and/or auto-activating the triggered slot. The
+                        // stuff done in the main thread (play/stop) must NOT be repeated here.
+                        let allow_recording_and_activating_only = context.coming_from_real_time;
                         let velocity = value.to_unit_value().map_err(anyhow::Error::msg)?;
                         matrix.trigger_slot(
                             self.basics.slot_coordinates,
                             velocity,
-                            self.basics.options.stop_column_if_slot_empty,
+                            TriggerSlotMainOptions {
+                                stop_column_if_slot_empty: self
+                                    .basics
+                                    .options
+                                    .stop_column_if_slot_empty,
+                                allow_activate: true,
+                                allow_recording: true,
+                                allow_start_stop: !allow_recording_and_activating_only,
+                            },
                         )?;
                         HitResponse::processed_with_effect()
                     }
@@ -381,11 +394,11 @@ mod playtime_impl {
                 // These are not for real-time usage.
                 return None;
             }
-            let t = RealTimeSlotTransportTarget {
+            let t = RealTimePlaytimeSlotTransportTarget {
                 project: self.project,
                 basics: self.basics.clone(),
             };
-            Some(RealTimeReaperTarget::ClipTransport(t))
+            Some(RealTimeReaperTarget::PlaytimeSlotTransport(t))
         }
 
         fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
@@ -453,9 +466,10 @@ mod playtime_impl {
         }
     }
 
-    impl RealTimeSlotTransportTarget {
-        /// This returns `Ok(false)` if real-time trigger was not possible **and** the consumer should
-        /// try main-thread control instead (used for trigger action in order to possibly record when slot empty).
+    impl RealTimePlaytimeSlotTransportTarget {
+        /// This returns `Ok(true)` if the event should still be forwarded to the main thread because there's still
+        /// something to do but it can only be done in the main thread (e.g. when triggering in order to possibly
+        /// record when slot empty or to activate the slot).
         pub fn hit(
             &mut self,
             value: ControlValue,
@@ -465,11 +479,20 @@ mod playtime_impl {
             let matrix = context.clip_matrix()?;
             let matrix = matrix.lock();
             match self.basics.action {
-                Trigger => matrix.trigger_slot(
-                    self.basics.slot_coordinates,
-                    value.to_unit_value()?,
-                    self.basics.options.stop_column_if_slot_empty,
-                ),
+                Trigger => {
+                    let slot_is_empty = matrix.trigger_slot(
+                        self.basics.slot_coordinates,
+                        value.to_unit_value()?,
+                        self.basics.options.stop_column_if_slot_empty,
+                    )?;
+                    let forward_to_main_thread = if slot_is_empty || value.is_on() {
+                        // The main thread might decide to start recording and/or activate the triggered slot
+                        true
+                    } else {
+                        false
+                    };
+                    Ok(forward_to_main_thread)
+                }
                 PlayStop => {
                     if value.is_on() {
                         matrix
@@ -480,7 +503,7 @@ mod playtime_impl {
                             self.basics.options.play_stop_timing,
                         )?;
                     }
-                    Ok(true)
+                    Ok(false)
                 }
                 PlayPause => {
                     if value.is_on() {
@@ -489,7 +512,8 @@ mod playtime_impl {
                     } else {
                         matrix.pause_slot(self.basics.slot_coordinates)?;
                     }
-                    Ok(true)
+                    // Completely handled in real-time, no need to forward to main thread
+                    Ok(false)
                 }
                 Stop => {
                     if value.is_on() {
@@ -498,13 +522,15 @@ mod playtime_impl {
                             self.basics.options.play_stop_timing,
                         )?;
                     }
-                    Ok(true)
+                    // Completely handled in real-time, no need to forward to main thread
+                    Ok(false)
                 }
                 Pause => {
                     if value.is_on() {
                         matrix.pause_slot(self.basics.slot_coordinates)?;
                     }
-                    Ok(true)
+                    // Completely handled in real-time, no need to forward to main thread
+                    Ok(false)
                 }
                 RecordStop | RecordPlayStop => Err("record not supported for real-time target"),
                 Looped => Err("setting looped not supported for real-time target"),
@@ -512,7 +538,7 @@ mod playtime_impl {
         }
     }
 
-    impl<'a> Target<'a> for RealTimeSlotTransportTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeSlotTransportTarget {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {

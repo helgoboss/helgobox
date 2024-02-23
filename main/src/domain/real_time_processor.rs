@@ -931,8 +931,10 @@ impl RealTimeProcessor {
                         value_event: source_value_event
                             .with_payload(MidiEvent::new(midi_event.offset(), control_value)),
                         options: ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                            mode_control_options: Default::default(),
                             enforce_target_refresh: match_outcome.matched(),
-                            ..Default::default()
+                            coming_from_real_time: true,
                         },
                         caller,
                         midi_feedback_output: self.settings.midi_destination(),
@@ -1331,6 +1333,7 @@ fn control_controller_mappings_midi(
                             // Not important yet at this point because virtual targets can't affect
                             // subsequent virtual targets.
                             enforce_target_refresh: false,
+                            coming_from_real_time: true,
                         },
                         caller,
                         midi_feedback_output,
@@ -1357,8 +1360,10 @@ fn control_controller_mappings_midi(
                             control_value,
                         )),
                         options: ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                            mode_control_options: Default::default(),
                             enforce_target_refresh,
-                            ..Default::default()
+                            coming_from_real_time: true,
                         },
                         caller,
                         midi_feedback_output,
@@ -1400,18 +1405,21 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
     {
         // We have a real-time-capable target
         if reaper_target.wants_real_time_control(args.caller, args.is_rendering) {
-            if process_real_mapping_in_real_time(
+            let forward_to_main_thread = process_real_mapping_in_real_time(
                 &mut mapping.core,
                 &args,
                 pure_control_event,
                 reaper_target,
-            ) {
+            );
+            if !forward_to_main_thread {
+                // We are done here.
                 return;
             }
         }
     }
-    // It's either a real-time-capable target that currently doesn't want real-time control or it's not a
-    // real-time target. Forward to main processor if not rendering.
+    // Looks like forwarding to main thread is necessary, e.g. because target is either not a real-time target (in most
+    // cases) or doesn't want real-time control at the moment or detected that some things can only be done in the main
+    // thread.
     if args.is_rendering {
         return;
     }
@@ -1424,9 +1432,8 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
     );
 }
 
-/// This returns `false` if real-time contrl was not possible **and** the consumer should
-/// try main-thread control instead (used for example for Playtime's trigger-slot action in order to possibly record
-/// when slot empty).
+/// This returns `true` if the consumer should also forward this event to the main thread (used for example for
+/// Playtime's trigger-slot action in order to possibly record when slot empty and/or activate the triggered slot).
 fn process_real_mapping_in_real_time(
     mapping_core: &mut MappingCore,
     args: &ProcessRtMappingArgs,
@@ -1465,17 +1472,17 @@ fn process_real_mapping_in_real_time(
                     args.rt_feedback_sender,
                     args.value_event.payload(),
                 ),
-                RealTimeReaperTarget::ClipTransport(t) => {
+                RealTimeReaperTarget::PlaytimeSlotTransport(t) => {
                     let result = t.hit(control_value, control_context);
-                    if result.is_ok_and(|v| v == false) {
+                    if result.is_ok_and(|forward_to_main_thread| forward_to_main_thread == true) {
                         // Important: We must forward to main thread in this case in order to possibly record!
-                        return false;
+                        return true;
                     }
                     result.map(|_| ())
                 }
-                RealTimeReaperTarget::ClipColumn(t) => t.hit(control_value, control_context),
-                RealTimeReaperTarget::ClipRow(t) => t.hit(control_value, control_context),
-                RealTimeReaperTarget::ClipMatrix(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::PlaytimeColumn(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::PlaytimeRow(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::PlaytimeMatrix(t) => t.hit(control_value, control_context),
                 RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
             };
             match hit_result {
@@ -1503,7 +1510,8 @@ fn process_real_mapping_in_real_time(
                 entry,
             });
     }
-    true
+    // This means: Everything done. Don't forward event to main thread.
+    false
 }
 
 // TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
@@ -1589,7 +1597,7 @@ fn forward_control_to_main_processor(
     control_event: ControlEvent<ControlValue>,
     options: ControlOptions,
 ) {
-    let task = ControlMainTask::Control {
+    let task = ControlMainTask::ControlFromRealTime {
         compartment,
         mapping_id,
         event: control_event,

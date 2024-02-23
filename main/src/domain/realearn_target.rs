@@ -495,6 +495,11 @@ impl<'a> ControlContext<'a> {
 pub struct MappingControlContext<'a> {
     pub control_context: ControlContext<'a>,
     pub mapping_data: MappingData,
+    /// This means control was initiated in the real-time processor (currently MIDI only).
+    ///
+    /// This information is used by some particular targets whose work is partially done in real-time and partially
+    /// in the main thread.
+    pub coming_from_real_time: bool,
 }
 
 impl<'a> TransformationInputProvider<AdditionalTransformationInput> for MappingControlContext<'a> {

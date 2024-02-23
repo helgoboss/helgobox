@@ -52,6 +52,14 @@ pub struct Matrix {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
+    /// Whether to automatically activate a slot when it's triggered.
+    ///
+    /// This might seem like a purely visual setting at first, but it's not! Activating
+    /// a slot happens on "server-side", so certain actions can be carried out on the
+    /// active slot and the active slot might even be persisted in future to recall a
+    /// specific setup.
+    #[serde(default)]
+    pub activate_slot_on_trigger: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub click_volume: Option<Db>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -179,13 +187,30 @@ impl SignedMatrix {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+/// This is redundant (already contained in [`Matrix`]) but used to transfer settings only.
+///
+/// When it comes to the defaults, the ones here matter.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
     pub color_palette: ColorPalette,
     pub content_quantization_settings: ContentQuantizationSettings,
+    pub activate_slot_on_trigger: bool,
+}
+
+impl Default for MatrixSettings {
+    fn default() -> Self {
+        Self {
+            clip_play_settings: Default::default(),
+            clip_record_settings: Default::default(),
+            common_tempo_range: Default::default(),
+            color_palette: Default::default(),
+            content_quantization_settings: Default::default(),
+            activate_slot_on_trigger: true,
+        }
+    }
 }
 
 impl Matrix {

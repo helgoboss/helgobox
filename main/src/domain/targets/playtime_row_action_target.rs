@@ -43,7 +43,7 @@ pub struct ClipRowTargetBasics {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RealTimeClipRowTarget {
+pub struct RealTimePlaytimeRowTarget {
     basics: ClipRowTargetBasics,
 }
 
@@ -60,7 +60,7 @@ pub const PLAYTIME_ROW_TARGET: TargetTypeDef = TargetTypeDef {
 mod no_playtime_impl {
 
     use crate::domain::{
-        ControlContext, PlaytimeRowActionTarget, RealTimeClipRowTarget, RealTimeControlContext,
+        ControlContext, PlaytimeRowActionTarget, RealTimeControlContext, RealTimePlaytimeRowTarget,
         RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
@@ -69,10 +69,10 @@ mod no_playtime_impl {
     impl<'a> Target<'a> for PlaytimeRowActionTarget {
         type Context = ControlContext<'a>;
     }
-    impl<'a> Target<'a> for RealTimeClipRowTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeRowTarget {
         type Context = RealTimeControlContext<'a>;
     }
-    impl RealTimeClipRowTarget {
+    impl RealTimePlaytimeRowTarget {
         pub fn hit(
             &mut self,
             _value: ControlValue,
@@ -87,7 +87,7 @@ mod no_playtime_impl {
 mod playtime_impl {
     use crate::domain::{
         Backbone, ControlContext, HitResponse, MappingControlContext, PlaytimeRowActionTarget,
-        RealTimeClipRowTarget, RealTimeControlContext, RealTimeReaperTarget, RealearnTarget,
+        RealTimeControlContext, RealTimePlaytimeRowTarget, RealTimeReaperTarget, RealearnTarget,
         ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -179,10 +179,10 @@ mod playtime_impl {
             if !matches!(self.basics.action, PlaytimeRowAction::PlayScene) {
                 return None;
             }
-            let t = RealTimeClipRowTarget {
+            let t = RealTimePlaytimeRowTarget {
                 basics: self.basics.clone(),
             };
-            Some(RealTimeReaperTarget::ClipRow(t))
+            Some(RealTimeReaperTarget::PlaytimeRow(t))
         }
 
         fn is_available(&self, _: ControlContext) -> bool {
@@ -223,7 +223,7 @@ mod playtime_impl {
         }
     }
 
-    impl RealTimeClipRowTarget {
+    impl RealTimePlaytimeRowTarget {
         pub fn hit(
             &mut self,
             value: ControlValue,
@@ -244,7 +244,7 @@ mod playtime_impl {
         }
     }
 
-    impl<'a> Target<'a> for RealTimeClipRowTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeRowTarget {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, _: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {

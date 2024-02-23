@@ -437,13 +437,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_control_task(&mut self, task: ControlMainTask) {
         use ControlMainTask::*;
         match task {
-            Control {
+            ControlFromRealTime {
                 compartment,
                 mapping_id,
                 event,
                 options,
             } => {
-                let _ = self.control(compartment, mapping_id, event, options);
+                let _ = self.control_from_real_time(compartment, mapping_id, event, options);
             }
             LogVirtualControlInput {
                 event: value,
@@ -596,7 +596,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Processes incoming control messages from the real-time processor.
-    fn control(
+    fn control_from_real_time(
         &mut self,
         compartment: CompartmentKind,
         mapping_id: MappingId,
@@ -3022,7 +3022,8 @@ pub enum FeedbackMainTask {
 
 /// A control-related task (which is potentially sent very frequently).
 pub enum ControlMainTask {
-    Control {
+    /// Control event coming in from real-time processor (MIDI).
+    ControlFromRealTime {
         compartment: CompartmentKind,
         mapping_id: MappingId,
         event: ControlEvent<ControlValue>,
@@ -3063,6 +3064,11 @@ pub struct ControlOptions {
     /// refreshing all targets *after* the transaction, which might be to late if the user relies on
     /// mapping order! Setting `refresh_target` will enforce refreshing (without updating cache).
     pub enforce_target_refresh: bool,
+    /// This means control was initiated in the real-time processor (currently MIDI only).
+    ///
+    /// This information is used by some particular targets whose work is partially done in real-time and partially
+    /// in the main thread.
+    pub coming_from_real_time: bool,
 }
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
@@ -3670,6 +3676,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         // Not yet important at this point because one virtual target can't
                         // affect a subsequent one.
                         enforce_target_refresh: false,
+                        // If we are here, we know control originated in main thread, not in real-time
+                        coming_from_real_time: false,
                     },
                     params,
                 );

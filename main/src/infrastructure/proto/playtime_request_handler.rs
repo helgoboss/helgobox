@@ -24,6 +24,7 @@ use playtime_api::persistence::{
 use playtime_api::runtime::SimpleMappingTarget;
 
 use helgoboss_learn::UnitValue;
+use playtime_clip_engine::rt::TriggerSlotMainOptions;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
     base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
@@ -68,12 +69,28 @@ impl PlaytimeProtoRequestHandler {
                 matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
                 Ok(())
             }
-            TriggerSlotAction::TriggerOn => {
-                matrix.trigger_slot(slot_address, UnitValue::MAX, false)
-            }
-            TriggerSlotAction::TriggerOff => {
-                matrix.trigger_slot(slot_address, UnitValue::MIN, false)
-            }
+            TriggerSlotAction::TriggerOn => matrix.trigger_slot(
+                slot_address,
+                UnitValue::MAX,
+                TriggerSlotMainOptions {
+                    stop_column_if_slot_empty: false,
+                    allow_start_stop: true,
+                    allow_recording: true,
+                    /// Activating from GUI side ... no.
+                    allow_activate: false,
+                },
+            ),
+            TriggerSlotAction::TriggerOff => matrix.trigger_slot(
+                slot_address,
+                UnitValue::MIN,
+                TriggerSlotMainOptions {
+                    stop_column_if_slot_empty: false,
+                    allow_start_stop: true,
+                    allow_recording: true,
+                    /// Activating from GUI side ... no.
+                    allow_activate: false,
+                },
+            ),
             TriggerSlotAction::Activate => matrix.activate_slot(slot_address),
         })
     }

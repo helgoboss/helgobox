@@ -29,7 +29,7 @@ pub struct PlaytimeMatrixActionTarget {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RealTimeClipMatrixTarget {
+pub struct RealTimePlaytimeMatrixTarget {
     action: PlaytimeMatrixAction,
 }
 
@@ -45,8 +45,8 @@ pub const PLAYTIME_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
     use crate::domain::{
-        ControlContext, PlaytimeMatrixActionTarget, RealTimeClipMatrixTarget,
-        RealTimeControlContext, RealearnTarget,
+        ControlContext, PlaytimeMatrixActionTarget, RealTimeControlContext,
+        RealTimePlaytimeMatrixTarget, RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -54,10 +54,10 @@ mod no_playtime_impl {
     impl<'a> Target<'a> for PlaytimeMatrixActionTarget {
         type Context = ControlContext<'a>;
     }
-    impl<'a> Target<'a> for RealTimeClipMatrixTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeMatrixTarget {
         type Context = RealTimeControlContext<'a>;
     }
-    impl RealTimeClipMatrixTarget {
+    impl RealTimePlaytimeMatrixTarget {
         pub fn hit(
             &mut self,
             _value: ControlValue,
@@ -72,8 +72,8 @@ mod no_playtime_impl {
 mod playtime_impl {
     use crate::domain::{
         format_value_as_on_off, Backbone, CompoundChangeEvent, ControlContext, HitResponse,
-        MappingControlContext, PlaytimeMatrixActionTarget, RealTimeClipMatrixTarget,
-        RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
+        MappingControlContext, PlaytimeMatrixActionTarget, RealTimeControlContext,
+        RealTimePlaytimeMatrixTarget, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
         TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -236,10 +236,10 @@ mod playtime_impl {
             if !matches!(self.action, PlaytimeMatrixAction::Stop) {
                 return None;
             }
-            let t = RealTimeClipMatrixTarget {
+            let t = RealTimePlaytimeMatrixTarget {
                 action: self.action,
             };
-            Some(RealTimeReaperTarget::ClipMatrix(t))
+            Some(RealTimeReaperTarget::PlaytimeMatrix(t))
         }
 
         fn is_available(&self, _: ControlContext) -> bool {
@@ -291,7 +291,7 @@ mod playtime_impl {
             self.control_type_and_character(context).0
         }
     }
-    impl RealTimeClipMatrixTarget {
+    impl RealTimePlaytimeMatrixTarget {
         pub fn hit(
             &mut self,
             value: ControlValue,
@@ -311,7 +311,7 @@ mod playtime_impl {
             }
         }
     }
-    impl<'a> Target<'a> for RealTimeClipMatrixTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeMatrixTarget {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {

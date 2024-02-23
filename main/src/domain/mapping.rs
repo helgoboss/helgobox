@@ -930,6 +930,7 @@ impl MainMapping {
         let ctx = MappingControlContext {
             control_context: context,
             mapping_data: self.data(),
+            coming_from_real_time: options.coming_from_real_time,
         };
         let actual_targets = if enforce_target_refresh {
             &mut fresh_targets

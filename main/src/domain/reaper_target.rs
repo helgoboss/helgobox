@@ -735,10 +735,10 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
             // need to support that one day, we can alternatively use senders. The downside is that
             // we have fire-and-forget then. We can't query the current value (at least not without
             // more complex logic). So the target itself should support toggle play/stop etc.
-            ClipTransport(t) => t.current_value(ctx),
-            ClipColumn(t) => t.current_value(ctx),
-            ClipRow(t) => t.current_value(ctx),
-            ClipMatrix(t) => t.current_value(ctx),
+            PlaytimeSlotTransport(t) => t.current_value(ctx),
+            PlaytimeColumn(t) => t.current_value(ctx),
+            PlaytimeRow(t) => t.current_value(ctx),
+            PlaytimeMatrix(t) => t.current_value(ctx),
             FxParameter(t) => t.current_value(ctx),
         }
     }
@@ -747,10 +747,10 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
-            ClipTransport(t) => t.control_type(ctx),
-            ClipColumn(t) => t.control_type(ctx),
-            ClipRow(t) => t.control_type(ctx),
-            ClipMatrix(t) => t.control_type(ctx),
+            PlaytimeSlotTransport(t) => t.control_type(ctx),
+            PlaytimeColumn(t) => t.control_type(ctx),
+            PlaytimeRow(t) => t.control_type(ctx),
+            PlaytimeMatrix(t) => t.control_type(ctx),
             FxParameter(t) => t.control_type(ctx),
         }
     }
@@ -1459,10 +1459,10 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
-    ClipTransport(crate::domain::RealTimeSlotTransportTarget),
-    ClipColumn(crate::domain::RealTimeClipColumnTarget),
-    ClipRow(crate::domain::RealTimeClipRowTarget),
-    ClipMatrix(crate::domain::RealTimeClipMatrixTarget),
+    PlaytimeSlotTransport(crate::domain::RealTimePlaytimeSlotTransportTarget),
+    PlaytimeColumn(crate::domain::RealTimePlaytimeColumnTarget),
+    PlaytimeRow(crate::domain::RealTimePlaytimeRowTarget),
+    PlaytimeMatrix(crate::domain::RealTimePlaytimeMatrixTarget),
     FxParameter(RealTimeFxParameterTarget),
 }
 

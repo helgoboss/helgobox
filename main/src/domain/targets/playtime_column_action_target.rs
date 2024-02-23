@@ -45,7 +45,7 @@ pub struct PlaytimeColumnActionTarget {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RealTimeClipColumnTarget {
+pub struct RealTimePlaytimeColumnTarget {
     column_index: usize,
     action: PlaytimeColumnAction,
 }
@@ -53,8 +53,8 @@ pub struct RealTimeClipColumnTarget {
 #[cfg(not(feature = "playtime"))]
 mod no_playtime_impl {
     use crate::domain::{
-        ControlContext, PlaytimeColumnActionTarget, RealTimeClipColumnTarget,
-        RealTimeControlContext, RealearnTarget,
+        ControlContext, PlaytimeColumnActionTarget, RealTimeControlContext,
+        RealTimePlaytimeColumnTarget, RealearnTarget,
     };
     use helgoboss_learn::{ControlValue, Target};
 
@@ -62,10 +62,10 @@ mod no_playtime_impl {
     impl<'a> Target<'a> for PlaytimeColumnActionTarget {
         type Context = ControlContext<'a>;
     }
-    impl<'a> Target<'a> for RealTimeClipColumnTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeColumnTarget {
         type Context = RealTimeControlContext<'a>;
     }
-    impl RealTimeClipColumnTarget {
+    impl RealTimePlaytimeColumnTarget {
         pub fn hit(
             &mut self,
             _value: ControlValue,
@@ -80,8 +80,8 @@ mod no_playtime_impl {
 mod playtime_impl {
     use crate::domain::{
         format_value_as_on_off, Backbone, CompoundChangeEvent, ControlContext, HitResponse,
-        MappingControlContext, PlaytimeColumnActionTarget, RealTimeClipColumnTarget,
-        RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
+        MappingControlContext, PlaytimeColumnActionTarget, RealTimeControlContext,
+        RealTimePlaytimeColumnTarget, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
         TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -111,7 +111,7 @@ mod playtime_impl {
         }
     }
 
-    impl<'a> Target<'a> for RealTimeClipColumnTarget {
+    impl<'a> Target<'a> for RealTimePlaytimeColumnTarget {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
@@ -226,11 +226,11 @@ mod playtime_impl {
             if !matches!(self.action, PlaytimeColumnAction::Stop) {
                 return None;
             }
-            let t = RealTimeClipColumnTarget {
+            let t = RealTimePlaytimeColumnTarget {
                 column_index: self.column_index,
                 action: self.action,
             };
-            Some(RealTimeReaperTarget::ClipColumn(t))
+            Some(RealTimeReaperTarget::PlaytimeColumn(t))
         }
 
         fn is_available(&self, _: ControlContext) -> bool {
@@ -251,7 +251,7 @@ mod playtime_impl {
         }
     }
 
-    impl RealTimeClipColumnTarget {
+    impl RealTimePlaytimeColumnTarget {
         pub fn hit(
             &mut self,
             value: ControlValue,
