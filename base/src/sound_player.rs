@@ -2,8 +2,8 @@ use anyhow::{ensure, Context};
 use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{
-    FlexibleOwnedPcmSource, Handle, MeasureAlignment, MidiImportBehavior, OwnedPcmSource,
-    OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    FlexibleOwnedPcmSource, Handle, MeasureAlignment, MidiImportBehavior, OwnedPreviewRegister,
+    PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::cell::Cell;
 use std::path::Path;
