@@ -158,6 +158,9 @@ local feedback_table: { [string]: FeedbackEntry? } = {
     ["playtime.slot_state.stopped"] = {
         behavior = dark,
     },
+    ["playtime.slot_state.ignited"] = {
+        behavior = dark,
+    },
     ["playtime.slot_state.scheduled_for_play_start"] = {
         behavior = medium,
     },

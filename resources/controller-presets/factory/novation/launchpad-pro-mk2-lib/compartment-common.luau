@@ -183,6 +183,10 @@ local feedback_table: { [string]: FeedbackEntry? } = {
         behavior = solid,
         brightness = dark,
     },
+    ["playtime.slot_state.ignited"] = {
+        behavior = solid,
+        brightness = dark,
+    },
     ["playtime.slot_state.scheduled_for_play_start"] = {
         behavior = solid,
         brightness = medium,
