@@ -1259,14 +1259,43 @@ impl Default for ClipAudioSettings {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ClipMidiSettings {
-    /// For fixing the source itself.
-    pub source_reset_settings: MidiResetMessageRange,
-    /// For fine-tuning the section.
-    pub section_reset_settings: MidiResetMessageRange,
-    /// For fine-tuning the complete loop.
-    pub loop_reset_settings: MidiResetMessageRange,
-    /// For fine-tuning instant start/stop of a MIDI clip when in the middle of a source or section.
+    /// For fine-tuning instant start/stop of a MIDI clip when in the middle of the source or section.
+    ///
+    /// - The left interaction reset messages are sent whenever resuming after pause.
+    /// - The right interaction reset messages are sent at immediate stops/retriggers or quantized stops/retriggers.
+    ///   They are *not* sent on stops when the stop timing is "Until end of clip" (in this case, either section or
+    ///   source reset settings take effect).
     pub interaction_reset_settings: MidiResetMessageRange,
+    /// For fine-tuning the complete loop.
+    ///
+    /// - The left loop reset messages are sent when the loop starts from the beginning.
+    /// - The right loop reset messages are sent when the loop ends naturally (without immediate or quantized stop
+    ///   interaction).
+    ///
+    /// This exists separately from the source/section reset settings because one might want to do just a light or
+    /// no reset at loop boundaries but a harder reset when the complete loop starts/ends (naturally).
+    pub loop_reset_settings: MidiResetMessageRange,
+    /// For fine-tuning the section.
+    ///
+    /// - The left section reset messages are sent when a section start position > 0 is defined and playback starts
+    ///   from the beginning.
+    /// - The right section reset messages are sent when a section length is defined (= source length constrained)
+    ///   and playback stops naturally (without immediate or quantized stop interaction) at the ending.
+    /// - If the clip is looped, the messages will be sent at each loop cycle.
+    pub section_reset_settings: MidiResetMessageRange,
+    /// For fixing the source itself.
+    ///
+    /// - The left source reset messages are sent when section start position == 0 and playback starts
+    ///   from the beginning.
+    /// - The right source reset messages are sent when no section length is defined (= source length unconstrained)
+    ///   and playback stops naturally (without immediate or quantized stop interaction) at the ending.
+    /// - If the clip is looped, the messages will be sent at *each* loop cycle.
+    ///
+    /// This exists separately from the section reset settings because one might prefer using the original MIDI
+    /// sequence with less reset logic when playing without section. After all, the source itself might already
+    /// be perfect as it is. But as soon as we introduce a section, this is not guaranteed anymore and introducing
+    /// reset messages almost always makes sense.
+    pub source_reset_settings: MidiResetMessageRange,
 }
 
 impl Default for ClipMidiSettings {
@@ -1277,17 +1306,20 @@ impl Default for ClipMidiSettings {
 
 impl ClipMidiSettings {
     pub const NONE: Self = Self {
-        source_reset_settings: MidiResetMessageRange::NONE,
-        section_reset_settings: MidiResetMessageRange::NONE,
-        loop_reset_settings: MidiResetMessageRange::NONE,
         interaction_reset_settings: MidiResetMessageRange::NONE,
+        loop_reset_settings: MidiResetMessageRange::NONE,
+        section_reset_settings: MidiResetMessageRange::NONE,
+        source_reset_settings: MidiResetMessageRange::NONE,
     };
 
     pub const RIGHT_LIGHT: Self = Self {
-        source_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
-        section_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
-        loop_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
         interaction_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+        // Source and section resets are applied in a mutually exclusive manner but loop resets are
+        // applied in addition to them. So no need to define them if they don't do more than the source/section
+        // resets.
+        loop_reset_settings: MidiResetMessageRange::NONE,
+        section_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
+        source_reset_settings: MidiResetMessageRange::RIGHT_LIGHT,
     };
 }
 
@@ -1313,12 +1345,16 @@ impl MidiResetMessageRange {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MidiResetMessages {
-    /// Only supported at "right" position at the moment.
+    /// Sends note-off events for all notes that are currently playing in this clip.
     #[serde(default)]
     pub on_notes_off: bool,
+    /// Sends MIDI CC 123 (all-notes-off).
     pub all_notes_off: bool,
+    /// Sends MIDI CC 120 (all-sound-off).
     pub all_sound_off: bool,
+    /// Sends MIDI CC121 (reset-all-controllers).
     pub reset_all_controllers: bool,
+    /// Sends CC64 value 0 (damper-pedal-off).
     pub damper_pedal_off: bool,
 }
 
