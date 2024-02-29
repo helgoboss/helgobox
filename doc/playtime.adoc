@@ -1,0 +1,14 @@
+= Playtime 2
+:toc:
+:toclevels: 2
+
+== Notes for later
+
+=== High buffer sizes
+
+* Mention in "troubleshooting" section that one has to be careful with high buffer sizes
+* At the moment, Playtime 2 is a live instrument, so it's intended to be used with buffer sizes that don't introduce more than 10 or 11ms of latency.
+* When using it with higher buffer sizes, the following effects may occur:
+** When triggering audio clips on a track that contains FX which introduces latency, the audio will be delayed
+** Triggering MIDI clips will lead to unpleasant delays
+* Behavior with high buffer sizes might improve in future
