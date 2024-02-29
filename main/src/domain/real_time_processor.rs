@@ -1702,7 +1702,7 @@ impl<'a> MidiEvent<IncomingMidiMessage<'a>> {
     ) -> Result<Self, &'static str> {
         let msg = IncomingMidiMessage::from_reaper(e.message())?;
         // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-        let offset = SampleOffset::from_frame_offset(e.frame_offset(), sample_rate);
+        let offset = SampleOffset::from_midi_input_frame_offset(e.frame_offset(), sample_rate);
         Ok(MidiEvent::new(offset, msg))
     }
 }

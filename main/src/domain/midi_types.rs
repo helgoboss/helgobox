@@ -1,4 +1,4 @@
-use reaper_medium::{Hz, MidiFrameOffset};
+use reaper_medium::{Hz, MIDI_INPUT_FRAME_RATE};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct MidiEvent<T> {
@@ -30,8 +30,8 @@ pub struct SampleOffset(u64);
 impl SampleOffset {
     pub const ZERO: SampleOffset = SampleOffset(0);
 
-    pub fn from_frame_offset(frame_offset: MidiFrameOffset, sample_rate: Hz) -> Self {
-        let offset_in_secs = frame_offset.get() as f64 / 1024000.0;
+    pub fn from_midi_input_frame_offset(frame_offset: u32, sample_rate: Hz) -> Self {
+        let offset_in_secs = frame_offset as f64 / MIDI_INPUT_FRAME_RATE.get();
         let offset_in_samples = (offset_in_secs * sample_rate.get()).round() as u64;
         SampleOffset(offset_in_samples)
     }
