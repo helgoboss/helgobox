@@ -75,7 +75,7 @@ impl PlaytimeProtoRequestHandler {
                 TriggerSlotMainOptions {
                     stop_column_if_slot_empty: false,
                     allow_start_stop: true,
-                    /// Activating from GUI side ... no.
+                    // Activating from GUI side ... no.
                     allow_activate: false,
                 },
             ),
@@ -85,7 +85,7 @@ impl PlaytimeProtoRequestHandler {
                 TriggerSlotMainOptions {
                     stop_column_if_slot_empty: false,
                     allow_start_stop: true,
-                    /// Activating from GUI side ... no.
+                    // Activating from GUI side ... no.
                     allow_activate: false,
                 },
             ),
@@ -479,7 +479,7 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<Empty>, Status> {
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
         let kind = MatrixVolumeKind::try_from(req.kind)
-            .map_err(|e| Status::invalid_argument("unknown matrix volume kind"))?;
+            .map_err(|_| Status::invalid_argument("unknown matrix volume kind"))?;
         self.handle_matrix_command(&req.matrix_id, |matrix| {
             match kind {
                 MatrixVolumeKind::Master => {

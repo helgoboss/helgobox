@@ -4521,6 +4521,7 @@ dependencies = [
  "thiserror",
  "thread-priority",
  "tinyvec",
+ "tokio",
  "tracing",
  "tracing-test",
  "ulid",

@@ -1018,10 +1018,10 @@ function module.ClipAudioSettings(value: ClipAudioSettings): ClipAudioSettings
 end
 
 export type ClipMidiSettings = {
-	source_reset_settings: MidiResetMessageRange,
-	section_reset_settings: MidiResetMessageRange,
-	loop_reset_settings: MidiResetMessageRange,
 	interaction_reset_settings: MidiResetMessageRange,
+	loop_reset_settings: MidiResetMessageRange,
+	section_reset_settings: MidiResetMessageRange,
+	source_reset_settings: MidiResetMessageRange,
 }
 --- Creates a ClipMidiSettings value.
 function module.ClipMidiSettings(value: ClipMidiSettings): ClipMidiSettings
