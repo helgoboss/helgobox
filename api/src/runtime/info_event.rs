@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind")]
 pub enum InfoEvent {
     AutoAddedController(AutoAddedControllerEvent),
-    PlaytimeActivatedSuccessfully,
+    PlaytimeActivationSucceeded,
+    PlaytimeActivationFailed,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]

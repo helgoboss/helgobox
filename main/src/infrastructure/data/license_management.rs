@@ -53,8 +53,9 @@ impl LicenseManager {
     }
 
     pub fn add_license(&mut self, key: LicenseKey) -> anyhow::Result<()> {
-        let license_data = LicenseData::try_from_key(&key)?;
-        let license = License::try_from(license_data)?;
+        let license_data = LicenseData::try_from_key(&key)
+            .context("This doesn't look like a proper license key.")?;
+        let license = License::try_from(license_data).context("Couldn't decode license key.")?;
         self.licensing.licenses.push(license);
         self.save()?;
         self.event_handler.licenses_changed(self);
@@ -73,15 +74,15 @@ impl LicenseManager {
     fn save(&mut self) -> anyhow::Result<()> {
         let data: LicensingData = self.licensing.clone().into();
         let json = serde_json::to_string_pretty(&data)
-            .with_context(|| "couldn't serialize OSC device config")?;
+            .with_context(|| "Couldn't serialize licensing data")?;
         let parent_dir = self
             .licensing_file_path
             .parent()
-            .ok_or_else(|| anyhow!("wrong licensing path"))?;
+            .ok_or_else(|| anyhow!("Wrong licensing path"))?;
         fs::create_dir_all(parent_dir)
-            .with_context(|| "couldn't create licensing file parent directory")?;
+            .with_context(|| "Couldn't create licensing file parent directory")?;
         fs::write(&self.licensing_file_path, json)
-            .with_context(|| "couldn't write licensing file")?;
+            .with_context(|| "Couldn't write licensing file")?;
         Ok(())
     }
 }

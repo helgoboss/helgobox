@@ -2552,11 +2552,14 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
         {
             let success =
                 playtime_clip_engine::ClipEngine::get().handle_changed_licenses(source.licenses());
-            if success {
-                BackboneShell::get()
-                    .proto_hub()
-                    .notify_about_global_info_event(InfoEvent::PlaytimeActivatedSuccessfully);
-            }
+            let info_event = if success {
+                InfoEvent::PlaytimeActivationSucceeded
+            } else {
+                InfoEvent::PlaytimeActivationFailed
+            };
+            BackboneShell::get()
+                .proto_hub()
+                .notify_about_global_info_event(info_event);
         }
         BackboneShell::get()
             .proto_hub()
