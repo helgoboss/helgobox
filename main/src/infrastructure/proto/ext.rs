@@ -1,8 +1,10 @@
+use helgoboss_license_api::persistence::LicenseData;
+use helgoboss_license_api::runtime::License;
 use reaper_high::Reaper;
 use reaper_medium::ReaperString;
 
 use crate::infrastructure::data::{
-    ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+    ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
 
@@ -19,7 +21,7 @@ use crate::infrastructure::proto::{
     QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
     QualifiedOccasionalTrackUpdate, SlotAddress,
 };
-use realearn_api::runtime::{ControllerPreset, MainPreset};
+use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
 impl occasional_instance_update::Update {
     pub fn settings(instance_shell: &InstanceShell) -> Self {
@@ -93,6 +95,48 @@ impl occasional_global_update::Update {
         let json = serde_json::to_string(manager.controller_config())
             .expect("couldn't represent controller config as JSON");
         Self::ControllerConfig(json)
+    }
+
+    pub fn playtime_is_licensed() -> Self {
+        let value = {
+            #[cfg(feature = "playtime")]
+            {
+                playtime_clip_engine::ClipEngine::get().has_valid_license()
+            }
+            #[cfg(not(feature = "playtime"))]
+            {
+                false
+            }
+        };
+        Self::PlaytimeIsLicensed(value)
+    }
+
+    pub fn license_info(license_manager: &LicenseManager) -> Self {
+        let license_info = LicenseInfo {
+            licenses: license_manager
+                .licenses()
+                .iter()
+                .map(|license| {
+                    let valid = {
+                        #[cfg(not(feature = "playtime"))]
+                        {
+                            false
+                        }
+                        #[cfg(feature = "playtime")]
+                        {
+                            playtime_clip_engine::ClipEngine::validate_license(license).is_ok()
+                        }
+                    };
+                    ValidatedLicense {
+                        license: license.clone().into(),
+                        valid,
+                    }
+                })
+                .collect(),
+        };
+        let json =
+            serde_json::to_string(&license_info).expect("couldn't represent license info as JSON");
+        Self::LicenseInfo(json)
     }
 }
 

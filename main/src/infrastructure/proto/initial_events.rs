@@ -20,6 +20,8 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
         Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
+        Update::license_info(&BackboneShell::get().license_manager().borrow()),
+        Update::playtime_is_licensed(),
     ];
     create(global_updates.into_iter())
 }

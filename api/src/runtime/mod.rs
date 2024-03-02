@@ -6,3 +6,6 @@ pub use info_event::*;
 
 mod reaper;
 pub use reaper::*;
+
+mod licensing;
+pub use licensing::*;

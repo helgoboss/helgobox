@@ -4,8 +4,8 @@ use crate::infrastructure::proto::playtime_not_available_status;
 use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, helgobox_service_server,
-    DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest,
-    Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
+    DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
     GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
@@ -599,6 +599,13 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<ImportFilesRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.import_files(request.into_inner())
+    }
+
+    async fn add_license(
+        &self,
+        request: Request<AddLicenseRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.add_license(request.into_inner())
     }
 
     async fn save_controller(

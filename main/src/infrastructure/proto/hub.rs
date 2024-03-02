@@ -1,5 +1,5 @@
 use crate::infrastructure::data::{
-    ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+    ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
@@ -8,6 +8,7 @@ use crate::infrastructure::proto::{
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch,
     ProtoRequestHandler, ProtoSenders,
 };
+use helgoboss_license_api::runtime::License;
 use realearn_api::runtime::InfoEvent;
 
 #[derive(Debug)]
@@ -39,7 +40,7 @@ impl ProtoHub {
         ))
     }
 
-    pub fn notify_about_info_event(&self, info_event: InfoEvent) {
+    pub fn notify_about_global_info_event(&self, info_event: InfoEvent) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::info_event(info_event)]
         });
@@ -73,6 +74,15 @@ impl ProtoHub {
             [occasional_global_update::Update::main_presets(
                 preset_manager,
             )]
+        });
+    }
+
+    pub fn notify_licenses_changed(&self, license_manager: &LicenseManager) {
+        self.send_occasional_global_updates(|| {
+            [
+                occasional_global_update::Update::license_info(license_manager),
+                occasional_global_update::Update::playtime_is_licensed(),
+            ]
         });
     }
 

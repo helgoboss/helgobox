@@ -55,9 +55,7 @@ pub use osc_device_management::*;
 mod virtual_control;
 pub use virtual_control::*;
 
-#[allow(unused)]
 mod license_management;
-#[allow(unused)]
 pub use license_management::*;
 
 mod common;

@@ -21,8 +21,9 @@ use crate::domain::{
 use crate::infrastructure::data::{
     CommonCompartmentPresetManager, CompartmentPresetManagerEventHandler, ControllerManager,
     ControllerManagerEventHandler, FileBasedControllerPresetManager, FileBasedMainPresetManager,
-    FileBasedPresetLinkManager, MainPresetSelectionConditions, OscDevice, OscDeviceManager,
-    SharedControllerManager, SharedControllerPresetManager, SharedMainPresetManager,
+    FileBasedPresetLinkManager, LicenseManager, LicenseManagerEventHandler,
+    MainPresetSelectionConditions, OscDevice, OscDeviceManager, SharedControllerManager,
+    SharedControllerPresetManager, SharedLicenseManager, SharedMainPresetManager,
     SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::server;
@@ -161,6 +162,7 @@ pub struct BackboneShell {
     /// RAII
     _metrics_hook: Option<MetricsHook>,
     state: RefCell<AppState>,
+    license_manager: SharedLicenseManager,
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
@@ -337,9 +339,14 @@ impl BackboneShell {
                     .expect("couldn't get IsInRealTimeAudio function from REAPER"),
             ),
         );
+        // License management
+        let license_manager = LicenseManager::new(
+            BackboneShell::helgoboss_resource_dir_path().join("licensing.json"),
+            Box::new(BackboneLicenseManagerEventHandler),
+        );
         // This just initializes the clip engine, it doesn't add any clip matrix yet, so resource consumption is low.
         #[cfg(feature = "playtime")]
-        Self::init_clip_engine();
+        Self::init_clip_engine(&license_manager);
         // This is the backbone representation in the domain layer, of course we need this now already.
         let backbone_state = Backbone::new(
             additional_feedback_event_sender.clone(),
@@ -437,6 +444,7 @@ impl BackboneShell {
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
             state: RefCell::new(AppState::Sleeping(sleeping_state)),
+            license_manager: Rc::new(RefCell::new(license_manager)),
             controller_preset_manager: Rc::new(RefCell::new(controller_preset_manager)),
             main_preset_manager: Rc::new(RefCell::new(main_preset_manager)),
             preset_link_manager: Rc::new(RefCell::new(preset_link_manager)),
@@ -532,11 +540,8 @@ impl BackboneShell {
     }
 
     #[cfg(feature = "playtime")]
-    fn init_clip_engine() {
+    fn init_clip_engine(license_manager: &LicenseManager) {
         use playtime_clip_engine::ClipEngine;
-        let license_manager = crate::infrastructure::data::LicenseManager::new(
-            BackboneShell::helgoboss_resource_dir_path().join("licensing.json"),
-        );
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
@@ -960,6 +965,10 @@ impl BackboneShell {
             bail!("attempt to access async runtime while ReaLearn in wrong state: {state:?}");
         };
         Ok(f(&state.async_runtime))
+    }
+
+    pub fn license_manager(&self) -> &SharedLicenseManager {
+        &self.license_manager
     }
 
     pub fn controller_preset_manager(&self) -> &SharedControllerPresetManager {
@@ -2535,6 +2544,27 @@ impl ControllerManagerEventHandler for BackboneControllerManagerEventHandler {
 }
 
 #[derive(Debug)]
+pub struct BackboneLicenseManagerEventHandler;
+
+impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
+    fn licenses_changed(&self, source: &LicenseManager) {
+        #[cfg(feature = "playtime")]
+        {
+            let success =
+                playtime_clip_engine::ClipEngine::get().handle_changed_licenses(source.licenses());
+            if success {
+                BackboneShell::get()
+                    .proto_hub()
+                    .notify_about_global_info_event(InfoEvent::PlaytimeActivatedSuccessfully);
+            }
+        }
+        BackboneShell::get()
+            .proto_hub()
+            .notify_licenses_changed(source);
+    }
+}
+
+#[derive(Debug)]
 pub struct BackboneControllerPresetManagerEventHandler;
 
 impl CompartmentPresetManagerEventHandler for BackboneControllerPresetManagerEventHandler {
@@ -2739,7 +2769,7 @@ async fn maybe_create_controller_for_device(
         .save_controller(controller)?;
     BackboneShell::get()
         .proto_hub()
-        .notify_about_info_event(InfoEvent::AutoAddedController(AutoAddedControllerEvent {
+        .notify_about_global_info_event(InfoEvent::AutoAddedController(AutoAddedControllerEvent {
             controller_id: outcome.id,
         }));
     Ok(())

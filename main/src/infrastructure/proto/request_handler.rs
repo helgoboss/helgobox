@@ -1,7 +1,7 @@
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
-    DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest, DragSlotRequest,
-    Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
+    DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
     GetClipDetailRequest, GetHostInfoReply, GetHostInfoRequest, GetProjectDirReply,
     GetProjectDirRequest, ImportFilesRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
     SaveControllerRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
@@ -14,6 +14,7 @@ use crate::infrastructure::proto::{
     HOST_API_VERSION,
 };
 use base::spawn_in_main_thread;
+use helgoboss_license_api::persistence::LicenseKey;
 
 use tonic::{Response, Status};
 
@@ -181,6 +182,16 @@ impl ProtoRequestHandler {
         {
             PlaytimeProtoRequestHandler.set_sequence_info(req)
         }
+    }
+
+    pub fn add_license(&self, req: AddLicenseRequest) -> Result<Response<Empty>, Status> {
+        let license_key = LicenseKey::new(req.license_key);
+        BackboneShell::get()
+            .license_manager()
+            .borrow_mut()
+            .add_license(license_key)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        Ok(Response::new(Empty {}))
     }
 
     pub fn save_controller(&self, req: SaveControllerRequest) -> Result<Response<Empty>, Status> {

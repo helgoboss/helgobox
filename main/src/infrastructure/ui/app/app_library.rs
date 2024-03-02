@@ -507,6 +507,9 @@ fn process_command(
             }
         }
         // Normal commands
+        AddLicense(req) => {
+            handler.add_license(req)?;
+        }
         SaveController(req) => {
             handler.save_controller(req)?;
         }
