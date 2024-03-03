@@ -186,7 +186,7 @@ impl ProtoRequestHandler {
     }
 
     pub fn add_license(&self, req: AddLicenseRequest) -> Result<Response<Empty>, Status> {
-        let license_key = LicenseKey::new(req.license_key);
+        let license_key = LicenseKey::new(req.license_key.trim().to_string());
         BackboneShell::get()
             .license_manager()
             .borrow_mut()
