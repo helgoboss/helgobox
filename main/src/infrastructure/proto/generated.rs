@@ -1011,7 +1011,10 @@ pub mod occasional_matrix_update {
         #[prost(enumeration = "super::ArrangementPlayState", tag = "4")]
         ArrangementPlayState(i32),
         /// Complete persistent data of the matrix has changed, including topology and other settings!
-        /// This contains the complete matrix as JSON.
+        /// This contains the complete persistent matrix as JSON.
+        ///
+        /// This is ONLY sent as initial event. Whenever "everything_has_changed" is fired, this
+        /// should probably be refetched by the client by resubscribing to occasional matrix updates.
         #[prost(string, tag = "7")]
         CompletePersistentData(::prost::alloc::string::String),
         /// Clip matrix history state
@@ -1069,7 +1072,7 @@ pub mod occasional_matrix_update {
         /// load it because it's not licensed.
         #[prost(bool, tag = "25")]
         HasUnloadedContent(bool),
-        /// This is sent whenever the complete matrix has changed. The client can decide itself
+        /// This is sent whenever the complete matrix has changed but NOT as initial event. The client can decide itself
         /// which streams to resubscribe to. Previously we sent complete_persistent_data instead and the
         /// client decided what to resubscribe. However, this is not just sent on changes but also
         /// initially, which is a problem if the client wants to resubscribe to occasional matrix updates

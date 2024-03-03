@@ -209,16 +209,10 @@ mod playtime_impl {
                 .iter()
                 .any(|e| matches!(e, ClipMatrixEvent::EverythingChanged));
             if everything_changed {
-                let exists_update = OccasionalMatrixUpdate {
-                    update: Some(occasional_matrix_update::Update::MatrixExists(true)),
+                let changed_update = OccasionalMatrixUpdate {
+                    update: Some(occasional_matrix_update::Update::EverythingHasChanged(true)),
                 };
-                let complete_update = OccasionalMatrixUpdate {
-                    update: Some(occasional_matrix_update::Update::complete_persistent_data(
-                        matrix,
-                    )),
-                };
-                updates.push(exists_update);
-                updates.push(complete_update);
+                updates.push(changed_update);
             } else {
                 // Misc updates
                 let misc_updates = events.iter().flat_map(|event| match event {
