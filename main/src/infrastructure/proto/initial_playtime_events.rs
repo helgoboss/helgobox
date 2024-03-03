@@ -37,6 +37,7 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
         Update::history_state(matrix),
         Update::click_enabled(matrix),
         Update::silence_mode(matrix),
+        Update::has_unloaded_content(matrix),
         Update::time_signature(project),
         Update::track_list(project),
         Update::simple_mappings(matrix),

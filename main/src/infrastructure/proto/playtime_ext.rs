@@ -126,6 +126,10 @@ impl occasional_matrix_update::Update {
         Self::SilenceMode(matrix.is_in_silence_mode())
     }
 
+    pub fn has_unloaded_content(matrix: &Matrix) -> Self {
+        Self::HasUnloadedContent(matrix.has_unloaded_content())
+    }
+
     pub fn time_signature(project: Project) -> Self {
         Self::TimeSignature(TimeSignature::from_engine(project))
     }

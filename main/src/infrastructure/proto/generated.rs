@@ -989,7 +989,7 @@ pub mod occasional_global_update {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24"
+        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -1065,6 +1065,17 @@ pub mod occasional_matrix_update {
         /// Volume of the temp-tap sound
         #[prost(double, tag = "24")]
         TempoTapVolume(f64),
+        /// This is true if Playtime attempted to load a non-empty matrix but ultimately didn't
+        /// load it because it's not licensed.
+        #[prost(bool, tag = "25")]
+        HasUnloadedContent(bool),
+        /// This is sent whenever the complete matrix has changed. The client can decide itself
+        /// which streams to resubscribe to. Previously we sent complete_persistent_data instead and the
+        /// client decided what to resubscribe. However, this is not just sent on changes but also
+        /// initially, which is a problem if the client wants to resubscribe to occasional matrix updates
+        /// itself - he would run into a infinite loop.
+        #[prost(bool, tag = "26")]
+        EverythingHasChanged(bool),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

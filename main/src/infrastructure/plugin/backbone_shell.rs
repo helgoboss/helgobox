@@ -2571,22 +2571,33 @@ pub struct BackboneLicenseManagerEventHandler;
 
 impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
     fn licenses_changed(&self, source: &LicenseManager) {
+        let shell = BackboneShell::get();
+        // Inform Playtime, currently the only module which contains license-only functions
         #[cfg(feature = "playtime")]
         {
+            // Let the Playtime Clip Engine check if it finds a suitable license
             let success =
                 playtime_clip_engine::ClipEngine::get().handle_changed_licenses(source.licenses());
+            // Send a notification to the app (if it wants to display "success")
             let info_event = if success {
                 InfoEvent::PlaytimeActivationSucceeded
             } else {
                 InfoEvent::PlaytimeActivationFailed
             };
-            BackboneShell::get()
-                .proto_hub()
-                .notify_about_global_info_event(info_event);
+            shell.proto_hub().notify_about_global_info_event(info_event);
+            // Give all Playtime instances a chance to load previously unloaded matrices
+            shell.with_instance_shell_infos(|infos| {
+                for instance in infos.iter().filter_map(|info| info.instance.upgrade()) {
+                    let mut instance = instance.borrow_mut();
+                    if let Some(matrix) = instance.clip_matrix_mut() {
+                        let result = matrix.notify_license_state_changed();
+                        notification::notify_user_on_anyhow_error(result);
+                    }
+                }
+            });
         }
-        BackboneShell::get()
-            .proto_hub()
-            .notify_licenses_changed(source);
+        // Broadcast new license list (if the app wants to display it)
+        shell.proto_hub().notify_licenses_changed(source);
     }
 }
 
