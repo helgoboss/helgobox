@@ -9,6 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
 
+use crate::infrastructure::proto::query::Value;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
 use prost::Message;
@@ -407,6 +408,12 @@ fn process_query_request(instance_id: String, id: u32, query: proto::query::Valu
                 Ok(query_result::Value::GetArrangementInfoReply(value))
             });
         }
+        GetAppSettings(req) => {
+            send_query_reply_to_app(instance_id, id, async move {
+                let value = handler.get_app_settings(req).await?.into_inner();
+                Ok(query_result::Value::GetAppSettingsReply(value))
+            });
+        }
     }
     Ok(())
 }
@@ -608,6 +615,9 @@ fn process_command(
         }
         SetInstanceSettings(req) => {
             handler.set_instance_settings(req)?;
+        }
+        SetAppSettings(req) => {
+            handler.set_app_settings(req)?;
         }
     }
     Ok(())

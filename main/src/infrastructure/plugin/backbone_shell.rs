@@ -1083,6 +1083,29 @@ impl BackboneShell {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
+    pub fn app_config_dir_path() -> PathBuf {
+        BackboneShell::helgoboss_resource_dir_path().join("AppConfig")
+    }
+
+    pub fn app_settings_file_path() -> PathBuf {
+        BackboneShell::app_config_dir_path().join("settings.json")
+    }
+
+    pub fn read_app_settings() -> Option<String> {
+        fs::read_to_string(Self::app_settings_file_path()).ok()
+    }
+
+    pub fn write_app_settings(settings: String) -> anyhow::Result<()> {
+        let file_path = Self::app_settings_file_path();
+        fs::create_dir_all(
+            file_path
+                .parent()
+                .context("app settings file should have parent")?,
+        )?;
+        fs::write(file_path, settings)?;
+        Ok(())
+    }
+
     fn realearn_resource_dir_path() -> PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("ReaLearn")
     }

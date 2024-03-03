@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -139,6 +139,8 @@ pub mod command_request {
         SetInstanceSettings(super::SetInstanceSettingsRequest),
         #[prost(message, tag = "42")]
         AddLicense(super::AddLicenseRequest),
+        #[prost(message, tag = "43")]
+        SetAppSettings(super::SetAppSettingsRequest),
     }
 }
 /// Envelope for queries.
@@ -161,7 +163,7 @@ pub struct QueryRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Query {
-    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5")]
+    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6")]
     pub value: ::core::option::Option<query::Value>,
 }
 /// Nested message and enum types in `Query`.
@@ -179,6 +181,8 @@ pub mod query {
         GetHostInfo(super::GetHostInfoRequest),
         #[prost(message, tag = "5")]
         GetArrangementInfo(super::GetArrangementInfoRequest),
+        #[prost(message, tag = "6")]
+        GetAppSettings(super::GetAppSettingsRequest),
     }
 }
 /// Envelope for query results.
@@ -199,7 +203,7 @@ pub struct QueryReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResult {
-    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6")]
+    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7")]
     pub value: ::core::option::Option<query_result::Value>,
 }
 /// Nested message and enum types in `QueryResult`.
@@ -219,6 +223,8 @@ pub mod query_result {
         GetHostInfoReply(super::GetHostInfoReply),
         #[prost(message, tag = "6")]
         GetArrangementInfoReply(super::GetArrangementInfoReply),
+        #[prost(message, tag = "7")]
+        GetAppSettingsReply(super::GetAppSettingsReply),
     }
 }
 /// Should contain all possible *event* replies from above service.
@@ -480,6 +486,23 @@ pub struct GetHostInfoRequest {}
 pub struct GetHostInfoReply {
     #[prost(string, tag = "1")]
     pub api_version: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAppSettingsRequest {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAppSettingsReply {
+    /// App settings as JSON
+    #[prost(string, optional, tag = "1")]
+    pub app_settings: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetAppSettingsRequest {
+    /// App settings as JSON
+    #[prost(string, tag = "1")]
+    pub app_settings: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2115,6 +2138,13 @@ pub mod helgobox_service_server {
             tonic::Response<super::ProveAuthenticityReply>,
             tonic::Status,
         >;
+        async fn get_app_settings(
+            &self,
+            request: tonic::Request<super::GetAppSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetAppSettingsReply>,
+            tonic::Status,
+        >;
         /// Matrix queries
         async fn get_project_dir(
             &self,
@@ -2139,6 +2169,10 @@ pub mod helgobox_service_server {
             tonic::Status,
         >;
         /// Global commands
+        async fn set_app_settings(
+            &self,
+            request: tonic::Request<super::SetAppSettingsRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn add_license(
             &self,
             request: tonic::Request<super::AddLicenseRequest>,
@@ -2637,6 +2671,53 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
+                "/generated.HelgoboxService/GetAppSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetAppSettingsSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetAppSettingsRequest>
+                    for GetAppSettingsSvc<T> {
+                        type Response = super::GetAppSettingsReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetAppSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::get_app_settings(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetAppSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/generated.HelgoboxService/GetProjectDir" => {
                     #[allow(non_camel_case_types)]
                     struct GetProjectDirSvc<T: HelgoboxService>(pub Arc<T>);
@@ -2766,6 +2847,53 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetClipDetailSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/SetAppSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetAppSettingsSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetAppSettingsRequest>
+                    for SetAppSettingsSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetAppSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::set_app_settings(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetAppSettingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

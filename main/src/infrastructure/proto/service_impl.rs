@@ -5,8 +5,9 @@ use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, helgobox_service_server,
     AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
-    DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
+    DragSlotRequest, Empty, GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply,
+    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest,
+    GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
     GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
@@ -17,13 +18,14 @@ use crate::infrastructure::proto::{
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, GetProjectDirReply,
     GetProjectDirRequest, ImportFilesRequest, ProtoRequestHandler, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SetClipDataRequest, SetClipNameRequest,
-    SetColumnSettingsRequest, SetColumnTrackRequest, SetInstanceSettingsRequest,
-    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    ProveAuthenticityRequest, SaveControllerRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
+    TriggerColumnRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
+    TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -628,6 +630,22 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Empty>, Status> {
         self.command_handler
             .set_instance_settings(request.into_inner())
+    }
+
+    async fn get_app_settings(
+        &self,
+        request: Request<GetAppSettingsRequest>,
+    ) -> Result<Response<GetAppSettingsReply>, Status> {
+        self.command_handler
+            .get_app_settings(request.into_inner())
+            .await
+    }
+
+    async fn set_app_settings(
+        &self,
+        request: Request<SetAppSettingsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.set_app_settings(request.into_inner())
     }
 }
 

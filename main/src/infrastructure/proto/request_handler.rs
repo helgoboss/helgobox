@@ -1,13 +1,14 @@
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
     AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
-    DragSlotRequest, Empty, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetHostInfoReply, GetHostInfoRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SaveControllerRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    DragSlotRequest, Empty, GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply,
+    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest, GetHostInfoReply,
+    GetHostInfoRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest, SetAppSettingsRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
     SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
@@ -466,6 +467,21 @@ impl ProtoRequestHandler {
         {
             PlaytimeProtoRequestHandler.get_clip_detail(req).await
         }
+    }
+
+    pub async fn get_app_settings(
+        &self,
+        _req: GetAppSettingsRequest,
+    ) -> Result<Response<GetAppSettingsReply>, Status> {
+        Ok(Response::new(GetAppSettingsReply {
+            app_settings: BackboneShell::read_app_settings(),
+        }))
+    }
+
+    pub fn set_app_settings(&self, req: SetAppSettingsRequest) -> Result<Response<Empty>, Status> {
+        BackboneShell::write_app_settings(req.app_settings)
+            .map_err(|e| Status::unknown(e.to_string()))?;
+        Ok(Response::new(Empty {}))
     }
 
     pub async fn get_host_info(
