@@ -488,7 +488,9 @@ impl ProtoRequestHandler {
         &self,
         _req: GetHostInfoRequest,
     ) -> Result<Response<GetHostInfoReply>, Status> {
+        use crate::infrastructure::plugin::built_info::*;
         Ok(Response::new(GetHostInfoReply {
+            public_version: PKG_VERSION.to_string(),
             api_version: HOST_API_VERSION.to_string(),
         }))
     }

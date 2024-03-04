@@ -2262,17 +2262,10 @@ fn build_detailed_version() -> String {
         BUILT_TIME_UTC.to_string()
     };
     let debug_mark = if PROFILE == "debug" { "-debug" } else { "" };
-    format!(
-        "v{}/{}{} rev {}{} ({})",
-        PKG_VERSION,
-        CFG_TARGET_ARCH,
-        debug_mark,
-        GIT_COMMIT_HASH
-            .map(|h| h[0..6].to_string())
-            .unwrap_or_else(|| "unknown".to_string()),
-        dirty_mark,
-        date_info
-    )
+    let hash = GIT_COMMIT_HASH
+        .map(|h| h[0..6].to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    format!("v{PKG_VERSION}/{CFG_TARGET_ARCH}{debug_mark} rev {hash}{dirty_mark} ({date_info})")
 }
 
 pub fn warn_about_failed_server_start(info: String) {

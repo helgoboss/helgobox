@@ -29,7 +29,7 @@ pub use clip_matrix_handler::*;
 pub use instance_parameter_container::*;
 
 #[allow(unused)]
-mod built_info {
+pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 

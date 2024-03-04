@@ -485,6 +485,8 @@ pub struct GetHostInfoRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetHostInfoReply {
     #[prost(string, tag = "1")]
+    pub public_version: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
     pub api_version: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
