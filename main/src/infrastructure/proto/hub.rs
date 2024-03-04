@@ -81,7 +81,7 @@ impl ProtoHub {
         self.send_occasional_global_updates(|| {
             [
                 occasional_global_update::Update::license_info(license_manager),
-                occasional_global_update::Update::playtime_is_licensed(),
+                occasional_global_update::Update::playtime_license_state(),
             ]
         });
     }

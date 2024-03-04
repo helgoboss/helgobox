@@ -15,11 +15,11 @@ use crate::infrastructure::proto::{
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
     GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply, MidiDeviceStatus, MidiInputDevice, MidiInputDevices,
-    MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
-    OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
-    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
-    QualifiedOccasionalTrackUpdate, SlotAddress,
+    GetOccasionalTrackUpdatesReply, LicenseState, MidiDeviceStatus, MidiInputDevice,
+    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
@@ -97,18 +97,30 @@ impl occasional_global_update::Update {
         Self::ControllerConfig(json)
     }
 
-    pub fn playtime_is_licensed() -> Self {
+    pub fn playtime_license_state() -> Self {
         let value = {
             #[cfg(feature = "playtime")]
             {
-                playtime_clip_engine::ClipEngine::get().has_valid_license()
+                let clip_engine = playtime_clip_engine::ClipEngine::get();
+                if clip_engine.has_valid_license() {
+                    clip_engine.license()
+                } else {
+                    None
+                }
             }
             #[cfg(not(feature = "playtime"))]
             {
-                false
+                None
             }
         };
-        Self::PlaytimeIsLicensed(value)
+        let json = value.map(|license| {
+            let license_data = LicenseData::from(license);
+            serde_json::to_string(&license_data.payload)
+                .expect("couldn't represent license payload as JSON")
+        });
+        Self::PlaytimeLicenseState(LicenseState {
+            license_payload: json,
+        })
     }
 
     pub fn license_info(license_manager: &LicenseManager) -> Self {

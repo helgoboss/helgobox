@@ -979,10 +979,17 @@ pub mod occasional_global_update {
         /// License info as JSON.
         #[prost(string, tag = "8")]
         LicenseInfo(::prost::alloc::string::String),
-        /// Whether Playtime is licensed.
-        #[prost(bool, tag = "9")]
-        PlaytimeIsLicensed(bool),
+        /// Contains the license state of Playtime.
+        #[prost(message, tag = "9")]
+        PlaytimeLicenseState(super::LicenseState),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LicenseState {
+    /// If there's a valid license, this contains the license payload as JSON, otherwise not set.
+    #[prost(string, optional, tag = "1")]
+    pub license_payload: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
