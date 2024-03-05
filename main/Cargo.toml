@@ -157,8 +157,6 @@ ascii.workspace = true
 enumflags2.workspace = true
 # For detecting undesired (de)allocation in real-time threads.
 helgoboss-allocator.workspace = true
-# For making the patch in the root Cargo.toml work also after running `cargo update`.
-webpki = "= 0.21.3"
 # For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
 enum_dispatch.workspace = true
 # For processing mappings in user-defined order

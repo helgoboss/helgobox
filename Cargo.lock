@@ -5018,7 +5018,6 @@ dependencies = [
  "vst",
  "walkdir",
  "webbrowser",
- "webpki",
  "whoami",
  "wildmatch",
  "winapi",
@@ -7457,16 +7456,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "webpki"
-version = "0.21.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab146130f5f790d45f82aeeb09e55a256573373ec64409fc19a6fb82fb1032ae"
-dependencies = [
- "ring 0.16.20",
- "untrusted 0.7.1",
-]
-
-[[package]]
 name = "weezl"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8008,8 +7997,3 @@ checksum = "73ab332fe2f6680068f3582b16a24f90ad7096d5d39b974d1c0aff0125116f02"
 dependencies = [
  "simd-adler32",
 ]
-
-[[patch.unused]]
-name = "webpki"
-version = "0.22.0"
-source = "git+https://github.com/helgoboss/webpki.git?branch=workaround/54-alert-decode-error-0.22.0#1909653652edc8bea9c8439f6768db25a9972f60"
