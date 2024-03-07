@@ -25,7 +25,7 @@ use crate::infrastructure::server::http::{
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use anyhow::Context;
-use base::SoundPlayer;
+use base::{Global, SoundPlayer};
 use helgoboss_allocator::undesired_allocation_count;
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
@@ -320,6 +320,21 @@ impl UnitPanel {
         }
     }
 
+    fn handle_unit_name_changed(&self) {
+        if let Ok(shell) = self.instance_panel().shell() {
+            // At the time when this method is called, the unit is still borrowed, so the proto hub can't create
+            // an overview over all units.
+            // TODO-medium It would be better if we would send around tiny events here and collect
+            //  them from the event loop.
+            let _ =
+                Global::task_support().do_later_in_main_thread_from_main_thread_asap(move || {
+                    BackboneShell::get()
+                        .proto_hub()
+                        .notify_instance_units_changed(&shell);
+                });
+        }
+    }
+
     fn handle_affected_own(self: SharedView<Self>, affected: Affected<SessionProp>) {
         use Affected::*;
         use SessionProp::*;
@@ -558,6 +573,10 @@ impl SessionUi for Weak<UnitPanel> {
             .notify_everything_in_unit_has_changed(unit_model.instance_id(), unit_model.unit_id());
     }
 
+    fn handle_unit_name_changed(&self) {
+        upgrade_panel(self).handle_unit_name_changed();
+    }
+
     fn handle_global_control_and_feedback_state_changed(&self) {
         update_auto_units_async();
     }
@@ -586,14 +605,14 @@ fn build_unit_label_internal(
     let pos = index.map(|i| i + 2).unwrap_or(1);
     // Unit with position
     write!(&mut s, "Unit {pos}")?;
-    // Indicate which one is an auto unit
-    if unit_model.auto_unit().is_some() {
-        write!(&mut s, " (auto)")?;
-    }
     // Total unit count, only if button label
     if let Some(c) = count {
         // This is for a button label. We want to display the total unit count.
         write!(&mut s, "/{c}")?;
+    }
+    // Indicate which one is an auto unit
+    if unit_model.auto_unit().is_some() {
+        write!(&mut s, " (auto)")?;
     }
     let label = unit_model.name_or_key();
     write!(&mut s, ": {label}")?;

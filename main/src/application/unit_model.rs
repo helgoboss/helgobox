@@ -60,6 +60,7 @@ pub trait SessionUi {
     fn handle_source_feedback(&self, event: SourceFeedbackEvent);
     fn handle_info_event(&self, event: &InfoEvent);
     fn handle_everything_changed(&self, unit_model: &UnitModel);
+    fn handle_unit_name_changed(&self);
     fn handle_global_control_and_feedback_state_changed(&self);
     fn handle_affected(
         &self,
@@ -1246,6 +1247,9 @@ impl UnitModel {
                     use SessionProp::*;
                     let mut session = session.borrow_mut();
                     match &affected {
+                        One(UnitName) => {
+                            session.ui().handle_unit_name_changed();
+                        }
                         One(InCompartment(compartment, One(Notes))) => {
                             session.mark_compartment_dirty(*compartment);
                         }
