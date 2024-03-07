@@ -1,8 +1,9 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    create_initial_global_updates, create_initial_instance_updates, event_reply, query_result,
-    reply, request, EventReply, ProtoRequestHandler, QueryReply, QueryResult, Reply, Request,
+    create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
+    event_reply, query_result, reply, request, EventReply, ProtoRequestHandler, QueryReply,
+    QueryResult, Reply, Request,
 };
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
@@ -414,6 +415,12 @@ fn process_query_request(instance_id: String, id: u32, query: proto::query::Valu
                 Ok(query_result::Value::GetAppSettingsReply(value))
             });
         }
+        GetCompartmentData(req) => {
+            send_query_reply_to_app(instance_id, id, async move {
+                let value = handler.get_compartment_data(req).await?.into_inner();
+                Ok(query_result::Value::GetCompartmentDataReply(value))
+            });
+        }
     }
     Ok(())
 }
@@ -446,6 +453,15 @@ fn process_command(
                     .find_instance_shell_by_instance_id_str(&req.instance_id)
                     .unwrap();
                 create_initial_instance_updates(&instance_shell)
+            })
+            .map_err(to_status)?;
+        }
+        GetOccasionalUnitUpdates(req) => {
+            send_initial_events_to_app(instance_id, || {
+                let instance_shell = BackboneShell::get()
+                    .find_instance_shell_by_instance_id_str(&req.instance_id)
+                    .unwrap();
+                create_initial_unit_updates(&instance_shell)
             })
             .map_err(to_status)?;
         }
@@ -618,6 +634,9 @@ fn process_command(
         }
         SetAppSettings(req) => {
             handler.set_app_settings(req)?;
+        }
+        SaveCustomCompartmentData(req) => {
+            handler.save_custom_compartment_data(req)?;
         }
     }
     Ok(())

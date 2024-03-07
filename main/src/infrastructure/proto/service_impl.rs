@@ -3,10 +3,11 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::playtime_not_available_status;
 use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
 use crate::infrastructure::proto::{
-    create_initial_global_updates, create_initial_instance_updates, helgobox_service_server,
-    AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
-    DragSlotRequest, Empty, GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply,
-    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest,
+    create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
+    helgobox_service_server, AddLicenseRequest, DeleteControllerRequest, DragClipRequest,
+    DragColumnRequest, DragRowRequest, DragSlotRequest, Empty, GetAppSettingsReply,
+    GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
     GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
@@ -16,16 +17,17 @@ use crate::infrastructure::proto::{
     GetOccasionalInstanceUpdatesRequest, GetOccasionalMatrixUpdatesReply,
     GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
-    GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest, GetProjectDirReply,
+    GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest,
+    GetOccasionalUnitUpdatesReply, GetOccasionalUnitUpdatesRequest, GetProjectDirReply,
     GetProjectDirRequest, ImportFilesRequest, ProtoRequestHandler, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SetAppSettingsRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
-    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
-    TriggerTrackRequest,
+    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
+    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -313,6 +315,29 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
             |instance_updates| GetOccasionalInstanceUpdatesReply { instance_updates },
             Some(GetOccasionalInstanceUpdatesReply {
                 instance_updates: initial_updates,
+            })
+            .into_iter(),
+        )
+    }
+
+    type GetOccasionalUnitUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalUnitUpdatesReply, Status>>;
+
+    async fn get_occasional_unit_updates(
+        &self,
+        request: Request<GetOccasionalUnitUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalUnitUpdatesStream>, Status> {
+        let instance_shell = BackboneShell::get()
+            .find_instance_shell_by_instance_id_str(&request.get_ref().instance_id)
+            .map_err(|e| Status::not_found(e.to_string()))?;
+        let initial_updates = create_initial_unit_updates(&instance_shell);
+        let receiver = self.senders.occasional_unit_update_sender.subscribe();
+        stream_by_session_id(
+            request.into_inner().instance_id,
+            receiver,
+            |unit_updates| GetOccasionalUnitUpdatesReply { unit_updates },
+            Some(GetOccasionalUnitUpdatesReply {
+                unit_updates: initial_updates,
             })
             .into_iter(),
         )
@@ -646,6 +671,23 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<SetAppSettingsRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.set_app_settings(request.into_inner())
+    }
+
+    async fn get_compartment_data(
+        &self,
+        request: Request<GetCompartmentDataRequest>,
+    ) -> Result<Response<GetCompartmentDataReply>, Status> {
+        self.command_handler
+            .get_compartment_data(request.into_inner())
+            .await
+    }
+
+    async fn save_custom_compartment_data(
+        &self,
+        request: Request<SaveCustomCompartmentDataRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .save_custom_compartment_data(request.into_inner())
     }
 }
 

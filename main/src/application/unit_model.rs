@@ -59,6 +59,7 @@ pub trait SessionUi {
     fn handle_target_control(&self, event: TargetControlEvent);
     fn handle_source_feedback(&self, event: SourceFeedbackEvent);
     fn handle_info_event(&self, event: &InfoEvent);
+    fn handle_everything_changed(&self, unit_model: &UnitModel);
     fn handle_global_control_and_feedback_state_changed(&self);
     fn handle_affected(
         &self,
@@ -2626,6 +2627,7 @@ impl UnitModel {
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self) {
+        self.ui().handle_everything_changed(self);
         self.full_sync();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());

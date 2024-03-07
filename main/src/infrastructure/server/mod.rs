@@ -24,7 +24,7 @@ use tokio::runtime::Runtime;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
-mod data;
+pub mod data;
 mod grpc;
 pub mod http;
 mod layers;

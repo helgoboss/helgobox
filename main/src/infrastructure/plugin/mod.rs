@@ -19,6 +19,7 @@ mod sandbox;
 mod shutdown_detection_panel;
 mod toolbar;
 mod unit_shell;
+pub use unit_shell::*;
 
 #[cfg(feature = "playtime")]
 mod clip_matrix_handler;

@@ -2,25 +2,31 @@ use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use reaper_high::Reaper;
 use reaper_medium::ReaperString;
+use std::iter;
 
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
 
+use crate::application::UnitModel;
+use crate::domain::CompartmentKind;
 use crate::infrastructure::proto::{
-    event_reply, occasional_global_update, occasional_instance_update, AudioInputChannel,
-    AudioInputChannels, ContinuousColumnUpdate, ContinuousMatrixUpdate,
-    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
-    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
-    GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply, LicenseState, MidiDeviceStatus, MidiInputDevice,
+    event_reply, occasional_global_update, occasional_instance_update,
+    qualified_occasional_unit_update, AudioInputChannel, AudioInputChannels, Compartment,
+    ContinuousColumnUpdate, ContinuousMatrixUpdate, GetContinuousColumnUpdatesReply,
+    GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
+    GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
+    GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
+    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
+    GetOccasionalUnitUpdatesReply, LicenseState, MidiDeviceStatus, MidiInputDevice,
     MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
     OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
+    SlotAddress, Unit, Units,
 };
+use crate::infrastructure::server::data::get_controller_routing;
 use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
 impl occasional_instance_update::Update {
@@ -29,6 +35,29 @@ impl occasional_instance_update::Update {
         let json =
             serde_json::to_string(&settings).expect("couldn't represent instance settings as JSON");
         Self::Settings(json)
+    }
+
+    pub fn units(instance_shell: &InstanceShell) -> Self {
+        let units = instance_shell.all_unit_models().map(|unit_model| {
+            let unit_model = unit_model.borrow();
+            Unit {
+                id: unit_model.unit_id().into(),
+                key: unit_model.unit_key.get_ref().clone(),
+                name: "TODO".to_string(),
+            }
+        });
+        Self::Units(Units {
+            units: units.collect(),
+        })
+    }
+}
+
+impl qualified_occasional_unit_update::Update {
+    pub fn controller_routing(unit_model: &UnitModel) -> Self {
+        let controller_routing = get_controller_routing(unit_model);
+        let json = serde_json::to_string(&controller_routing)
+            .expect("couldn't represent controller routing as JSON");
+        Self::ControllerRouting(json)
     }
 }
 
@@ -160,6 +189,15 @@ impl MidiInputDevices {
     }
 }
 
+impl Compartment {
+    pub fn to_engine(&self) -> CompartmentKind {
+        match self {
+            Compartment::Controller => CompartmentKind::Controller,
+            Compartment::Main => CompartmentKind::Main,
+        }
+    }
+}
+
 impl MidiInputDevice {
     pub fn from_engine(dev: reaper_high::MidiInputDevice) -> Self {
         MidiInputDevice {
@@ -240,6 +278,14 @@ impl From<Vec<OccasionalInstanceUpdate>> for event_reply::Value {
     fn from(value: Vec<OccasionalInstanceUpdate>) -> Self {
         event_reply::Value::OccasionalInstanceUpdatesReply(GetOccasionalInstanceUpdatesReply {
             instance_updates: value,
+        })
+    }
+}
+
+impl From<Vec<QualifiedOccasionalUnitUpdate>> for event_reply::Value {
+    fn from(value: Vec<QualifiedOccasionalUnitUpdate>) -> Self {
+        event_reply::Value::OccasionalUnitUpdatesReply(GetOccasionalUnitUpdatesReply {
+            unit_updates: value,
         })
     }
 }

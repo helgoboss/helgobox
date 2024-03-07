@@ -1,12 +1,15 @@
+use crate::application::UnitModel;
+use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, HelgoboxServiceImpl,
-    OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch,
-    ProtoRequestHandler, ProtoSenders,
+    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
+    HelgoboxServiceImpl, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
+    OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders,
+    QualifiedOccasionalUnitUpdate,
 };
 use helgoboss_license_api::runtime::License;
 use realearn_api::runtime::InfoEvent;
@@ -86,6 +89,18 @@ impl ProtoHub {
         });
     }
 
+    pub fn notify_controller_routing_changed(&self, unit_model: &UnitModel) {
+        let unit_id = unit_model.unit_id();
+        self.send_occasional_unit_updates(&unit_model.instance_id().to_string(), || {
+            [QualifiedOccasionalUnitUpdate {
+                unit_id: unit_id.into(),
+                update: Some(
+                    qualified_occasional_unit_update::Update::controller_routing(unit_model),
+                ),
+            }]
+        })
+    }
+
     pub fn notify_controller_config_changed(&self, controller_manager: &ControllerManager) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::controller_config(
@@ -128,9 +143,48 @@ impl ProtoHub {
         let _ = sender.send(batch_event);
     }
 
+    fn send_occasional_unit_updates<F, I>(&self, instance_id: &str, create_updates: F)
+    where
+        F: FnOnce() -> I,
+        I: IntoIterator<Item = QualifiedOccasionalUnitUpdate>,
+    {
+        let sender = &self.senders.occasional_unit_update_sender;
+        if sender.receiver_count() == 0 {
+            return;
+        }
+        let batch_event = OccasionalUnitUpdateBatch {
+            session_id: instance_id.to_string(),
+            value: create_updates().into_iter().collect(),
+        };
+        let _ = sender.send(batch_event);
+    }
+
+    pub fn notify_instance_units_changed(&self, instance_shell: &InstanceShell) {
+        self.send_occasional_instance_updates(&instance_shell.instance_id().to_string(), || {
+            [occasional_instance_update::Update::units(instance_shell)]
+        });
+    }
+
     pub fn notify_instance_settings_changed(&self, instance_shell: &InstanceShell) {
         self.send_occasional_instance_updates(&instance_shell.instance_id().to_string(), || {
             [occasional_instance_update::Update::settings(instance_shell)]
+        });
+    }
+
+    pub fn notify_everything_in_instance_has_changed(&self, instance_id: InstanceId) {
+        self.send_occasional_instance_updates(&instance_id.to_string(), || {
+            [occasional_instance_update::Update::EverythingHasChanged(
+                true,
+            )]
+        });
+    }
+
+    pub fn notify_everything_in_unit_has_changed(&self, instance_id: InstanceId, unit_id: UnitId) {
+        self.send_occasional_unit_updates(&instance_id.to_string(), || {
+            [QualifiedOccasionalUnitUpdate {
+                unit_id: unit_id.into(),
+                update: Some(qualified_occasional_unit_update::Update::EverythingHasChanged(true)),
+            }]
         });
     }
 }

@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -141,6 +141,10 @@ pub mod command_request {
         AddLicense(super::AddLicenseRequest),
         #[prost(message, tag = "43")]
         SetAppSettings(super::SetAppSettingsRequest),
+        #[prost(message, tag = "44")]
+        SaveCustomCompartmentData(super::SaveCustomCompartmentDataRequest),
+        #[prost(message, tag = "45")]
+        GetOccasionalUnitUpdates(super::GetOccasionalUnitUpdatesRequest),
     }
 }
 /// Envelope for queries.
@@ -163,7 +167,7 @@ pub struct QueryRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Query {
-    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6")]
+    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6, 7")]
     pub value: ::core::option::Option<query::Value>,
 }
 /// Nested message and enum types in `Query`.
@@ -183,6 +187,8 @@ pub mod query {
         GetArrangementInfo(super::GetArrangementInfoRequest),
         #[prost(message, tag = "6")]
         GetAppSettings(super::GetAppSettingsRequest),
+        #[prost(message, tag = "7")]
+        GetCompartmentData(super::GetCompartmentDataRequest),
     }
 }
 /// Envelope for query results.
@@ -203,7 +209,7 @@ pub struct QueryReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResult {
-    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8")]
     pub value: ::core::option::Option<query_result::Value>,
 }
 /// Nested message and enum types in `QueryResult`.
@@ -225,6 +231,8 @@ pub mod query_result {
         GetArrangementInfoReply(super::GetArrangementInfoReply),
         #[prost(message, tag = "7")]
         GetAppSettingsReply(super::GetAppSettingsReply),
+        #[prost(message, tag = "8")]
+        GetCompartmentDataReply(super::GetCompartmentDataReply),
     }
 }
 /// Should contain all possible *event* replies from above service.
@@ -235,7 +243,7 @@ pub mod query_result {
 pub struct EventReply {
     #[prost(
         oneof = "event_reply::Value",
-        tags = "1, 13, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
+        tags = "1, 13, 14, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
     )]
     pub value: ::core::option::Option<event_reply::Value>,
 }
@@ -249,6 +257,8 @@ pub mod event_reply {
         OccasionalGlobalUpdatesReply(super::GetOccasionalGlobalUpdatesReply),
         #[prost(message, tag = "13")]
         OccasionalInstanceUpdatesReply(super::GetOccasionalInstanceUpdatesReply),
+        #[prost(message, tag = "14")]
+        OccasionalUnitUpdatesReply(super::GetOccasionalUnitUpdatesReply),
         #[prost(message, tag = "2")]
         OccasionalMatrixUpdatesReply(super::GetOccasionalMatrixUpdatesReply),
         #[prost(message, tag = "3")]
@@ -584,6 +594,28 @@ pub struct SetInstanceSettingsRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SaveCustomCompartmentDataRequest {
+    #[prost(message, optional, tag = "1")]
+    pub compartment_id: ::core::option::Option<FullCompartmentId>,
+    /// The custom-data key, e.g. "companion" or "playtime".
+    #[prost(string, tag = "2")]
+    pub custom_key: ::prost::alloc::string::String,
+    /// Custom compartment data as JSON.
+    #[prost(string, tag = "3")]
+    pub custom_data: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FullCompartmentId {
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "2")]
+    pub unit_id: u32,
+    #[prost(enumeration = "Compartment", tag = "3")]
+    pub compartment: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerRowRequest {
     #[prost(message, optional, tag = "1")]
     pub row_address: ::core::option::Option<FullRowAddress>,
@@ -707,9 +739,22 @@ pub struct SetSequenceInfoRequest {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetCompartmentDataRequest {
+    #[prost(message, optional, tag = "1")]
+    pub compartment_id: ::core::option::Option<FullCompartmentId>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetClipDetailRequest {
     #[prost(message, optional, tag = "1")]
     pub clip_address: ::core::option::Option<FullClipAddress>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetCompartmentDataReply {
+    /// Compartment data as JSON
+    #[prost(string, tag = "1")]
+    pub data: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -723,6 +768,12 @@ pub struct GetOccasionalGlobalUpdatesRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalInstanceUpdatesRequest {
+    #[prost(string, tag = "1")]
+    pub instance_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalUnitUpdatesRequest {
     #[prost(string, tag = "1")]
     pub instance_id: ::prost::alloc::string::String,
 }
@@ -797,7 +848,7 @@ pub struct GetOccasionalInstanceUpdatesReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalInstanceUpdate {
-    #[prost(oneof = "occasional_instance_update::Update", tags = "1")]
+    #[prost(oneof = "occasional_instance_update::Update", tags = "1, 2, 3")]
     pub update: ::core::option::Option<occasional_instance_update::Update>,
 }
 /// Nested message and enum types in `OccasionalInstanceUpdate`.
@@ -808,7 +859,57 @@ pub mod occasional_instance_update {
         /// Settings data as JSON.
         #[prost(string, tag = "1")]
         Settings(::prost::alloc::string::String),
+        /// The set of units within the instance has changed (added or removed).
+        #[prost(message, tag = "2")]
+        Units(super::Units),
+        /// Everything within the instance has changed (e.g. instance data load).
+        #[prost(bool, tag = "3")]
+        EverythingHasChanged(bool),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetOccasionalUnitUpdatesReply {
+    /// For each updated unit property
+    #[prost(message, repeated, tag = "1")]
+    pub unit_updates: ::prost::alloc::vec::Vec<QualifiedOccasionalUnitUpdate>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QualifiedOccasionalUnitUpdate {
+    #[prost(uint32, tag = "1")]
+    pub unit_id: u32,
+    #[prost(oneof = "qualified_occasional_unit_update::Update", tags = "2, 3")]
+    pub update: ::core::option::Option<qualified_occasional_unit_update::Update>,
+}
+/// Nested message and enum types in `QualifiedOccasionalUnitUpdate`.
+pub mod qualified_occasional_unit_update {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Update {
+        /// Everything within the unit has changed (e.g. unit data load).
+        #[prost(bool, tag = "2")]
+        EverythingHasChanged(bool),
+        /// Updated controller routing (for projection).
+        #[prost(string, tag = "3")]
+        ControllerRouting(::prost::alloc::string::String),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Units {
+    #[prost(message, repeated, tag = "1")]
+    pub units: ::prost::alloc::vec::Vec<Unit>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Unit {
+    #[prost(uint32, tag = "1")]
+    pub id: u32,
+    #[prost(string, tag = "2")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1525,6 +1626,32 @@ impl TriggerMatrixAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum Compartment {
+    Controller = 0,
+    Main = 1,
+}
+impl Compartment {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Compartment::Controller => "COMPARTMENT_CONTROLLER",
+            Compartment::Main => "COMPARTMENT_MAIN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COMPARTMENT_CONTROLLER" => Some(Self::Controller),
+            "COMPARTMENT_MAIN" => Some(Self::Main),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TriggerTrackAction {
     ToggleMute = 0,
     ToggleSolo = 1,
@@ -2146,7 +2273,7 @@ pub mod helgobox_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with HelgoboxServiceServer.
     #[async_trait]
     pub trait HelgoboxService: Send + Sync + 'static {
-        /// Global queries
+        /// General global queries
         async fn get_host_info(
             &self,
             request: tonic::Request<super::GetHostInfoRequest>,
@@ -2168,7 +2295,7 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetAppSettingsReply>,
             tonic::Status,
         >;
-        /// Matrix queries
+        /// Playtime matrix queries
         async fn get_project_dir(
             &self,
             request: tonic::Request<super::GetProjectDirRequest>,
@@ -2183,7 +2310,7 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetArrangementInfoReply>,
             tonic::Status,
         >;
-        /// Clip queries
+        /// Playtime clip queries
         async fn get_clip_detail(
             &self,
             request: tonic::Request<super::GetClipDetailRequest>,
@@ -2191,7 +2318,15 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetClipDetailReply>,
             tonic::Status,
         >;
-        /// Global commands
+        /// ReaLearn compartment queries
+        async fn get_compartment_data(
+            &self,
+            request: tonic::Request<super::GetCompartmentDataRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetCompartmentDataReply>,
+            tonic::Status,
+        >;
+        /// General global commands
         async fn set_app_settings(
             &self,
             request: tonic::Request<super::SetAppSettingsRequest>,
@@ -2208,12 +2343,12 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DeleteControllerRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Instance commands
+        /// General instance commands
         async fn set_instance_settings(
             &self,
             request: tonic::Request<super::SetInstanceSettingsRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Matrix commands
+        /// Playtime matrix commands
         async fn trigger_matrix(
             &self,
             request: tonic::Request<super::TriggerMatrixRequest>,
@@ -2238,7 +2373,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::SetMatrixPanRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Column commands
+        /// Playtime column commands
         async fn trigger_column(
             &self,
             request: tonic::Request<super::TriggerColumnRequest>,
@@ -2255,7 +2390,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DragColumnRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Track commands
+        /// Playtime track commands
         async fn trigger_track(
             &self,
             request: tonic::Request<super::TriggerTrackRequest>,
@@ -2284,7 +2419,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::SetTrackPanRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Row commands
+        /// Playtime row commands
         async fn trigger_row(
             &self,
             request: tonic::Request<super::TriggerRowRequest>,
@@ -2297,7 +2432,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DragRowRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Slot commands
+        /// Playtime slot commands
         async fn trigger_slot(
             &self,
             request: tonic::Request<super::TriggerSlotRequest>,
@@ -2310,7 +2445,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::ImportFilesRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Clip commands
+        /// Playtime clip commands
         async fn trigger_clip(
             &self,
             request: tonic::Request<super::TriggerClipRequest>,
@@ -2327,7 +2462,7 @@ pub mod helgobox_service_server {
             &self,
             request: tonic::Request<super::DragClipRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
-        /// Sequence commands
+        /// Playtime sequence commands
         async fn trigger_sequence(
             &self,
             request: tonic::Request<super::TriggerSequenceRequest>,
@@ -2335,6 +2470,11 @@ pub mod helgobox_service_server {
         async fn set_sequence_info(
             &self,
             request: tonic::Request<super::SetSequenceInfoRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        /// ReaLearn compartment commands
+        async fn save_custom_compartment_data(
+            &self,
+            request: tonic::Request<super::SaveCustomCompartmentDataRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Server streaming response type for the GetOccasionalGlobalUpdates method.
         type GetOccasionalGlobalUpdatesStream: tonic::codegen::tokio_stream::Stream<
@@ -2345,8 +2485,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// ===================== Events =====================
-        /// Global events
+        /// General global events
         async fn get_occasional_global_updates(
             &self,
             request: tonic::Request<super::GetOccasionalGlobalUpdatesRequest>,
@@ -2363,12 +2502,28 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Instance events
+        /// General instance events
         async fn get_occasional_instance_updates(
             &self,
             request: tonic::Request<super::GetOccasionalInstanceUpdatesRequest>,
         ) -> std::result::Result<
             tonic::Response<Self::GetOccasionalInstanceUpdatesStream>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the GetOccasionalUnitUpdates method.
+        type GetOccasionalUnitUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<
+                    super::GetOccasionalUnitUpdatesReply,
+                    tonic::Status,
+                >,
+            >
+            + Send
+            + 'static;
+        async fn get_occasional_unit_updates(
+            &self,
+            request: tonic::Request<super::GetOccasionalUnitUpdatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::GetOccasionalUnitUpdatesStream>,
             tonic::Status,
         >;
         /// Server streaming response type for the GetOccasionalMatrixUpdates method.
@@ -2380,7 +2535,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Matrix events
+        /// Playtime matrix events
         async fn get_occasional_matrix_updates(
             &self,
             request: tonic::Request<super::GetOccasionalMatrixUpdatesRequest>,
@@ -2413,7 +2568,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Column events
+        /// Playtime column events
         async fn get_occasional_column_updates(
             &self,
             request: tonic::Request<super::GetOccasionalColumnUpdatesRequest>,
@@ -2446,7 +2601,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Track events
+        /// Playtime track events
         async fn get_occasional_track_updates(
             &self,
             request: tonic::Request<super::GetOccasionalTrackUpdatesRequest>,
@@ -2463,7 +2618,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Row events
+        /// Playtime row events
         async fn get_occasional_row_updates(
             &self,
             request: tonic::Request<super::GetOccasionalRowUpdatesRequest>,
@@ -2480,7 +2635,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Slot events
+        /// Playtime slot events
         async fn get_occasional_slot_updates(
             &self,
             request: tonic::Request<super::GetOccasionalSlotUpdatesRequest>,
@@ -2513,7 +2668,7 @@ pub mod helgobox_service_server {
             >
             + Send
             + 'static;
-        /// Clip events
+        /// Playtime clip events
         async fn get_occasional_clip_updates(
             &self,
             request: tonic::Request<super::GetOccasionalClipUpdatesRequest>,
@@ -2870,6 +3025,56 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetClipDetailSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/GetCompartmentData" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetCompartmentDataSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetCompartmentDataRequest>
+                    for GetCompartmentDataSvc<T> {
+                        type Response = super::GetCompartmentDataReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetCompartmentDataRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::get_compartment_data(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetCompartmentDataSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -4480,6 +4685,59 @@ pub mod helgobox_service_server {
                     };
                     Box::pin(fut)
                 }
+                "/generated.HelgoboxService/SaveCustomCompartmentData" => {
+                    #[allow(non_camel_case_types)]
+                    struct SaveCustomCompartmentDataSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<
+                        super::SaveCustomCompartmentDataRequest,
+                    > for SaveCustomCompartmentDataSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::SaveCustomCompartmentDataRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::save_custom_compartment_data(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SaveCustomCompartmentDataSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/generated.HelgoboxService/GetOccasionalGlobalUpdates" => {
                     #[allow(non_camel_case_types)]
                     struct GetOccasionalGlobalUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
@@ -4575,6 +4833,60 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetOccasionalInstanceUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/GetOccasionalUnitUpdates" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetOccasionalUnitUpdatesSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::ServerStreamingService<
+                        super::GetOccasionalUnitUpdatesRequest,
+                    > for GetOccasionalUnitUpdatesSvc<T> {
+                        type Response = super::GetOccasionalUnitUpdatesReply;
+                        type ResponseStream = T::GetOccasionalUnitUpdatesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetOccasionalUnitUpdatesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::get_occasional_unit_updates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetOccasionalUnitUpdatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

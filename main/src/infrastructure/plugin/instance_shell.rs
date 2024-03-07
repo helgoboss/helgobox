@@ -18,8 +18,8 @@ use reaper_high::Project;
 use std::cell::RefCell;
 use std::iter::once;
 use std::rc::Rc;
-use std::sync;
 use std::sync::{Arc, Mutex, RwLock};
+use std::{iter, sync};
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
@@ -188,6 +188,11 @@ impl InstanceShell {
         &self.main_unit_shell
     }
 
+    pub fn all_unit_models(&self) -> impl Iterator<Item = SharedUnitModel> {
+        let additional_unit_models = self.additional_unit_models();
+        once(self.main_unit_shell().model().clone()).chain(additional_unit_models.into_iter())
+    }
+
     pub fn additional_unit_models(&self) -> Vec<SharedUnitModel> {
         blocking_read_lock(&self.additional_unit_shells, "additional_unit_models")
             .iter()
@@ -203,29 +208,32 @@ impl InstanceShell {
         &self,
         id: Option<UnitId>,
     ) -> Option<(Option<usize>, SharedUnitModel)> {
-        self.find_unit_prop_by_id(id, |i, unit_shell| (i, unit_shell.model().clone()))
+        self.find_unit_prop_by_id_simple(id, |i, unit_shell| (i, unit_shell.model().clone()))
     }
 
     pub fn find_unit_panel_by_id(&self, id: Option<UnitId>) -> Option<SharedView<UnitPanel>> {
-        self.find_unit_prop_by_id(id, |_, unit_shell| unit_shell.panel().clone())
+        self.find_unit_prop_by_id_simple(id, |_, unit_shell| unit_shell.panel().clone())
     }
 
-    pub fn find_unit_prop_by_id<R>(
+    pub fn find_unit_prop_by_id_simple<R>(
         &self,
         id: Option<UnitId>,
         f: impl FnOnce(Option<usize>, &UnitShell) -> R,
     ) -> Option<R> {
         match id {
             None => Some(f(None, &self.main_unit_shell)),
-            Some(i) => self.find_additional_unit_prop_by_id(i, f),
+            Some(i) => self.find_unit_prop_by_id(i, f),
         }
     }
 
-    fn find_additional_unit_prop_by_id<R>(
+    fn find_unit_prop_by_id<R>(
         &self,
         id: UnitId,
         f: impl FnOnce(Option<usize>, &UnitShell) -> R,
     ) -> Option<R> {
+        if self.main_unit_shell.id() == id {
+            return Some(f(None, &self.main_unit_shell));
+        }
         blocking_read_lock(
             &self.additional_unit_shells,
             "find_additional_unit_prop_by_index",
@@ -260,6 +268,9 @@ impl InstanceShell {
     fn notify_units_changed(&self) {
         self.panel.get().notify_units_changed();
         self.main_unit_shell.panel().notify_units_changed();
+        BackboneShell::get()
+            .proto_hub()
+            .notify_instance_units_changed(self);
         #[cfg(feature = "playtime")]
         if let Some(m) = self.instance().borrow().clip_matrix() {
             m.notify_control_units_changed();
@@ -533,6 +544,10 @@ impl InstanceShell {
             additional_unit_shells?;
         // Apply auto units
         update_auto_units_async();
+        // Inform hub
+        BackboneShell::get()
+            .proto_hub()
+            .notify_everything_in_instance_has_changed(self.instance_id);
         Ok(())
     }
 

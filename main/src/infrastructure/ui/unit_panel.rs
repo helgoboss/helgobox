@@ -533,6 +533,12 @@ impl SessionUi for Weak<UnitPanel> {
         upgrade_panel(self).handle_info_event(event);
     }
 
+    fn handle_everything_changed(&self, unit_model: &UnitModel) {
+        BackboneShell::get()
+            .proto_hub()
+            .notify_everything_in_unit_has_changed(unit_model.instance_id(), unit_model.unit_id());
+    }
+
     fn handle_global_control_and_feedback_state_changed(&self) {
         update_auto_units_async();
     }

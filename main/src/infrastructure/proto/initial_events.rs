@@ -1,8 +1,9 @@
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate,
+    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
+    OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate,
 };
+use crate::infrastructure::server::data::get_controller_routing;
 
 pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     use occasional_global_update::Update;
@@ -36,6 +37,25 @@ pub fn create_initial_instance_updates(
             .map(|u| OccasionalInstanceUpdate { update: Some(u) })
             .collect()
     }
-    let instance_updates = [Update::settings(instance_shell)];
+    let instance_updates = [
+        Update::settings(instance_shell),
+        Update::units(instance_shell),
+    ];
     create(instance_updates.into_iter())
+}
+
+pub fn create_initial_unit_updates(
+    instance_shell: &InstanceShell,
+) -> Vec<QualifiedOccasionalUnitUpdate> {
+    use qualified_occasional_unit_update::Update;
+    instance_shell
+        .all_unit_models()
+        .map(|unit_model| {
+            let unit_model = unit_model.borrow();
+            QualifiedOccasionalUnitUpdate {
+                unit_id: unit_model.unit_id().into(),
+                update: Some(Update::controller_routing(&unit_model)),
+            }
+        })
+        .collect()
 }

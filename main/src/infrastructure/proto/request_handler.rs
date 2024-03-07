@@ -1,11 +1,13 @@
-use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
+use crate::infrastructure::plugin::{BackboneShell, InstanceShell, UnitShell};
 use crate::infrastructure::proto::{
-    AddLicenseRequest, DeleteControllerRequest, DragClipRequest, DragColumnRequest, DragRowRequest,
-    DragSlotRequest, Empty, GetAppSettingsReply, GetAppSettingsRequest, GetArrangementInfoReply,
-    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest, GetHostInfoReply,
+    AddLicenseRequest, Compartment, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
+    DragRowRequest, DragSlotRequest, Empty, FullCompartmentId, GetAppSettingsReply,
+    GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest, GetHostInfoReply,
     GetHostInfoRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest, SetAppSettingsRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
     SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
@@ -14,10 +16,15 @@ use crate::infrastructure::proto::{
     TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
     HOST_API_VERSION,
 };
+use anyhow::Context;
 use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
 
-use tonic::{Response, Status};
+use crate::domain::{CompartmentKind, UnitId};
+use crate::infrastructure::api::convert::from_data;
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::data::CompartmentModelData;
+use tonic::{Request, Response, Status};
 
 #[cfg(feature = "playtime")]
 use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
@@ -484,6 +491,49 @@ impl ProtoRequestHandler {
         Ok(Response::new(Empty {}))
     }
 
+    pub async fn get_compartment_data(
+        &self,
+        request: GetCompartmentDataRequest,
+    ) -> Result<Response<GetCompartmentDataReply>, Status> {
+        self.handle_compartment_command_internal(
+            &request.compartment_id,
+            |unit_shell, compartment| {
+                let unit_model = unit_shell.model().borrow();
+                let compartment_model = unit_model.extract_compartment_model(compartment);
+                let compartment_model_data = CompartmentModelData::from_model(&compartment_model);
+                let compartment_mode_api = from_data::convert_compartment(
+                    compartment_model_data,
+                    ConversionStyle::Minimal,
+                )?;
+                let reply = GetCompartmentDataReply {
+                    data: serde_json::to_string(&compartment_mode_api)?,
+                };
+                Ok(Response::new(reply))
+            },
+        )
+    }
+
+    pub fn save_custom_compartment_data(
+        &self,
+        request: SaveCustomCompartmentDataRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let value: serde_json::Value = serde_json::from_str(&request.custom_data)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        self.handle_compartment_command_internal(
+            &request.compartment_id,
+            |unit_shell, compartment| {
+                let unit_model = unit_shell.model().borrow();
+                let unit = unit_model.unit();
+                unit.borrow_mut().update_custom_compartment_data_key(
+                    compartment,
+                    request.custom_key,
+                    value,
+                );
+                Ok(Response::new(Empty {}))
+            },
+        )
+    }
+
     pub async fn get_host_info(
         &self,
         _req: GetHostInfoRequest,
@@ -545,11 +595,55 @@ impl ProtoRequestHandler {
         instance_id: &str,
         handler: impl FnOnce(&InstanceShell) -> anyhow::Result<()>,
     ) -> Result<Response<Empty>, Status> {
-        self.handle_instance_internal(instance_id, handler)?;
+        self.handle_instance_command_internal(instance_id, handler)?;
         Ok(Response::new(Empty {}))
     }
 
-    fn handle_instance_internal<R>(
+    fn handle_unit_command<R>(
+        &self,
+        instance_id: &str,
+        unit_id: Option<u32>,
+        handler: impl FnOnce(&InstanceShell, &UnitShell) -> anyhow::Result<R>,
+    ) -> Result<Response<Empty>, Status> {
+        self.handle_unit_command_internal(instance_id, unit_id, handler)?;
+        Ok(Response::new(Empty {}))
+    }
+
+    fn handle_compartment_command_internal<R>(
+        &self,
+        full_compartment_id: &Option<FullCompartmentId>,
+        handler: impl FnOnce(&UnitShell, CompartmentKind) -> anyhow::Result<R>,
+    ) -> Result<R, Status> {
+        let full_compartment_id = full_compartment_id
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("need full compartment ID"))?;
+        let compartment = Compartment::try_from(full_compartment_id.compartment)
+            .map_err(|_| Status::invalid_argument("unknown compartment"))?;
+
+        self.handle_unit_command_internal(
+            &full_compartment_id.instance_id,
+            Some(full_compartment_id.unit_id),
+            |_, unit_shell| handler(unit_shell, compartment.to_engine()),
+        )
+    }
+
+    fn handle_unit_command_internal<R>(
+        &self,
+        instance_id: &str,
+        unit_id: Option<u32>,
+        handler: impl FnOnce(&InstanceShell, &UnitShell) -> anyhow::Result<R>,
+    ) -> Result<R, Status> {
+        self.handle_instance_command_internal(instance_id, |instance_shell| {
+            let unit_id = unit_id.map(UnitId::from);
+            instance_shell
+                .find_unit_prop_by_id_simple(unit_id, |_, unit_shell| {
+                    handler(instance_shell, unit_shell)
+                })
+                .context("Unit not found")?
+        })
+    }
+
+    fn handle_instance_command_internal<R>(
         &self,
         instance_id: &str,
         handler: impl FnOnce(&InstanceShell) -> anyhow::Result<R>,

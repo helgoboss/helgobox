@@ -87,6 +87,9 @@ pub fn send_updated_active_controller(session: &UnitModel) -> Result<(), &'stati
 }
 
 pub fn send_updated_controller_routing(session: &UnitModel) -> Result<(), &'static str> {
+    BackboneShell::get()
+        .proto_hub()
+        .notify_controller_routing_changed(session);
     send_to_clients_subscribed_to(
         &Topic::ControllerRouting {
             session_id: session.unit_key().to_string(),
