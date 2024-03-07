@@ -53,6 +53,13 @@ pub struct UnitData {
         skip_serializing_if = "is_default"
     )]
     id: Option<String>,
+    // Since ReaLearn 2.16.0-pre9
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    name: Option<String>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -363,6 +370,7 @@ impl Default for UnitData {
         Self {
             version: Some(BackboneShell::version().clone()),
             id: None,
+            name: None,
             let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
             let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
             stay_active_when_project_in_background: Some(
@@ -443,6 +451,7 @@ impl UnitData {
         UnitData {
             version: Some(BackboneShell::version().clone()),
             id: Some(session.unit_key().to_string()),
+            name: session.name.clone(),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             stay_active_when_project_in_background: Some(
@@ -794,6 +803,7 @@ impl UnitData {
         session.tags.set_without_notification(self.tags.clone());
         session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
         session.set_use_unit_preset_links_only(self.use_instance_preset_links_only);
+        let _ = session.change(SessionCommand::SetUnitName(self.name.clone()));
         let _ = session.change(SessionCommand::SetInstanceTrack(
             self.instance_track.clone(),
         ));
