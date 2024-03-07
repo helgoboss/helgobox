@@ -6,13 +6,13 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
-    HelgoboxServiceImpl, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
-    OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders,
-    QualifiedOccasionalUnitUpdate,
+    occasional_global_update, occasional_instance_update, occasional_matrix_update,
+    qualified_occasional_unit_update, HelgoboxServiceImpl, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch,
+    ProtoRequestHandler, ProtoSenders, QualifiedOccasionalUnitUpdate,
 };
-use helgoboss_license_api::runtime::License;
 use realearn_api::runtime::InfoEvent;
+use reaper_high::ChangeEvent;
 
 #[derive(Debug)]
 pub struct ProtoHub {
@@ -107,6 +107,17 @@ impl ProtoHub {
                 controller_manager,
             )]
         });
+    }
+
+    pub fn send_global_events_caused_by_reaper_change_events(&self, change_events: &[ChangeEvent]) {
+        self.send_occasional_global_updates(|| {
+            change_events.iter().filter_map(|event| match event {
+                ChangeEvent::PlayStateChanged(e) => Some(
+                    occasional_global_update::Update::arrangement_play_state(e.new_value),
+                ),
+                _ => None,
+            })
+        })
     }
 
     fn send_occasional_global_updates<F, I>(&self, create_updates: F)
@@ -674,9 +685,6 @@ mod playtime_impl {
                     ChangeEvent::TrackSelectedChanged(e) => {
                         column_track_update(matrix, &e.track, || Update::selected(e.new_value))
                     }
-                    ChangeEvent::PlayStateChanged(e) => Some(R::Matrix(
-                        occasional_matrix_update::Update::arrangement_play_state(e.new_value),
-                    )),
                     ChangeEvent::MasterTempoChanged(e) => Some(R::Matrix(
                         occasional_matrix_update::Update::tempo(e.new_value),
                     )),

@@ -66,7 +66,9 @@ use realearn_api::persistence::{
     TrackDescriptor, TrackFxChain,
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, InfoEvent};
-use reaper_high::{CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track};
+use reaper_high::{
+    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+};
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
@@ -2530,6 +2532,12 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
             IS_RUNNING.store(false, Ordering::Relaxed);
             Ok(())
         });
+    }
+
+    fn process_reaper_change_events(&self, change_events: &[ChangeEvent]) {
+        BackboneShell::get()
+            .proto_hub
+            .send_global_events_caused_by_reaper_change_events(change_events);
     }
 }
 

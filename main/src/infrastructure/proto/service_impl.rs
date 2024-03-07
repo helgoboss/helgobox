@@ -26,8 +26,8 @@ use crate::infrastructure::proto::{
     SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
     SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalRequest,
+    TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -688,6 +688,13 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Empty>, Status> {
         self.command_handler
             .save_custom_compartment_data(request.into_inner())
+    }
+
+    async fn trigger_global(
+        &self,
+        request: Request<TriggerGlobalRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.trigger_global(request.into_inner())
     }
 }
 

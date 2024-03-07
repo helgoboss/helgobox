@@ -212,111 +212,80 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn trigger_matrix(&self, req: TriggerMatrixRequest) -> Result<Response<Empty>, Status> {
-        let action: TriggerMatrixAction = TriggerMatrixAction::try_from(req.action)
+        let action = TriggerMatrixAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger matrix action"))?;
         if action == TriggerMatrixAction::CreateMatrix {
             self.create_matrix(&req.matrix_id)
                 .map_err(|e| Status::not_found(e.to_string()))?;
             return Ok(Response::new(Empty {}));
         }
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
-            let project = matrix.permanent_project().or_current_project();
-            match action {
-                TriggerMatrixAction::CreateMatrix => {
-                    unreachable!("matrix creation handled above")
-                }
-                TriggerMatrixAction::SequencerCleanArrangement => matrix.clean_arrangement(),
-                TriggerMatrixAction::SequencerWriteToArrangement => {
-                    matrix.write_active_sequence_to_arrangement()
-                }
-                TriggerMatrixAction::ArrangementTogglePlayStop => {
-                    if project.is_playing() {
-                        project.stop();
-                    } else {
-                        project.play();
-                    }
-                    Ok(())
-                }
-                TriggerMatrixAction::SequencerPlay => {
-                    matrix.play_active_sequence()?;
-                    Ok(())
-                }
-                TriggerMatrixAction::SequencerRecord => {
-                    matrix.record_new_sequence();
-                    Ok(())
-                }
-                TriggerMatrixAction::SequencerStop => {
-                    matrix.stop_sequencer();
-                    Ok(())
-                }
-                TriggerMatrixAction::ToggleSilenceMode => {
-                    matrix.toggle_silence_mode();
-                    Ok(())
-                }
-                TriggerMatrixAction::PlayAllIgnitedClips => {
-                    matrix.play_all_ignited();
-                    Ok(())
-                }
-                TriggerMatrixAction::StopAllClips => {
-                    matrix.stop();
-                    Ok(())
-                }
-                TriggerMatrixAction::ArrangementPlay => {
-                    project.play();
-                    Ok(())
-                }
-                TriggerMatrixAction::ArrangementStop => {
-                    project.stop();
-                    Ok(())
-                }
-                TriggerMatrixAction::ArrangementPause => {
-                    project.pause();
-                    Ok(())
-                }
-                TriggerMatrixAction::ArrangementStartRecording => {
-                    Reaper::get().enable_record_in_current_project();
-                    Ok(())
-                }
-                TriggerMatrixAction::ArrangementStopRecording => {
-                    Reaper::get().disable_record_in_current_project();
-                    Ok(())
-                }
-                TriggerMatrixAction::Undo => matrix.undo(),
-                TriggerMatrixAction::Redo => matrix.redo(),
-                TriggerMatrixAction::ToggleClick => {
-                    matrix.toggle_click();
-                    Ok(())
-                }
-                TriggerMatrixAction::Panic => {
-                    matrix.panic();
-                    Ok(())
-                }
-                TriggerMatrixAction::ToggleMute => {
-                    matrix.toggle_mute();
-                    Ok(())
-                }
-                TriggerMatrixAction::ShowMasterFx => {
-                    matrix.show_master_fx();
-                    Ok(())
-                }
-                TriggerMatrixAction::ShowMasterRouting => {
-                    matrix.show_master_routing();
-                    Ok(())
-                }
-                TriggerMatrixAction::TapTempo => {
-                    matrix.tap_tempo();
-                    Ok(())
-                }
-                TriggerMatrixAction::ToggleLearnSimpleMapping => {
-                    matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
-                    Ok(())
-                }
-                TriggerMatrixAction::RemoveSimpleMapping => {
-                    matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
-                    Ok(())
-                }
-                TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),
+        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+            TriggerMatrixAction::CreateMatrix => {
+                unreachable!("matrix creation handled above")
             }
+            TriggerMatrixAction::SequencerCleanArrangement => matrix.clean_arrangement(),
+            TriggerMatrixAction::SequencerWriteToArrangement => {
+                matrix.write_active_sequence_to_arrangement()
+            }
+            TriggerMatrixAction::SequencerPlay => {
+                matrix.play_active_sequence()?;
+                Ok(())
+            }
+            TriggerMatrixAction::SequencerRecord => {
+                matrix.record_new_sequence();
+                Ok(())
+            }
+            TriggerMatrixAction::SequencerStop => {
+                matrix.stop_sequencer();
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleSilenceMode => {
+                matrix.toggle_silence_mode();
+                Ok(())
+            }
+            TriggerMatrixAction::PlayAllIgnitedClips => {
+                matrix.play_all_ignited();
+                Ok(())
+            }
+            TriggerMatrixAction::StopAllClips => {
+                matrix.stop();
+                Ok(())
+            }
+            TriggerMatrixAction::Undo => matrix.undo(),
+            TriggerMatrixAction::Redo => matrix.redo(),
+            TriggerMatrixAction::ToggleClick => {
+                matrix.toggle_click();
+                Ok(())
+            }
+            TriggerMatrixAction::Panic => {
+                matrix.panic();
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleMute => {
+                matrix.toggle_mute();
+                Ok(())
+            }
+            TriggerMatrixAction::ShowMasterFx => {
+                matrix.show_master_fx();
+                Ok(())
+            }
+            TriggerMatrixAction::ShowMasterRouting => {
+                matrix.show_master_routing();
+                Ok(())
+            }
+            TriggerMatrixAction::TapTempo => {
+                matrix.tap_tempo();
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMapping => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMapping => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
+                Ok(())
+            }
+            TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),
         })
     }
 

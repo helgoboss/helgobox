@@ -1,7 +1,7 @@
 use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use reaper_high::Reaper;
-use reaper_medium::ReaperString;
+use reaper_medium::{PlayState, ReaperString};
 use std::iter;
 
 use crate::infrastructure::data::{
@@ -13,8 +13,8 @@ use crate::application::UnitModel;
 use crate::domain::CompartmentKind;
 use crate::infrastructure::proto::{
     event_reply, occasional_global_update, occasional_instance_update,
-    qualified_occasional_unit_update, AudioInputChannel, AudioInputChannels, Compartment,
-    ContinuousColumnUpdate, ContinuousMatrixUpdate, GetContinuousColumnUpdatesReply,
+    qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
+    Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate, GetContinuousColumnUpdatesReply,
     GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
     GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
     GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
@@ -62,6 +62,10 @@ impl qualified_occasional_unit_update::Update {
 }
 
 impl occasional_global_update::Update {
+    pub fn arrangement_play_state(play_state: PlayState) -> Self {
+        Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
+    }
+
     pub fn info_event(event: realearn_api::runtime::InfoEvent) -> Self {
         let json =
             serde_json::to_string(&event).expect("couldn't represent main info event as JSON");

@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -145,6 +145,8 @@ pub mod command_request {
         SaveCustomCompartmentData(super::SaveCustomCompartmentDataRequest),
         #[prost(message, tag = "45")]
         GetOccasionalUnitUpdates(super::GetOccasionalUnitUpdatesRequest),
+        #[prost(message, tag = "46")]
+        TriggerGlobal(super::TriggerGlobalRequest),
     }
 }
 /// Envelope for queries.
@@ -462,6 +464,12 @@ pub struct SaveControllerRequest {
 pub struct DeleteControllerRequest {
     #[prost(string, tag = "1")]
     pub controller_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerGlobalRequest {
+    #[prost(enumeration = "TriggerGlobalAction", tag = "1")]
+    pub action: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1049,7 +1057,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1085,6 +1093,9 @@ pub mod occasional_global_update {
         /// Contains the license state of Playtime.
         #[prost(message, tag = "9")]
         PlaytimeLicenseState(super::LicenseState),
+        /// Arrangement play state (= REAPER transport play state)
+        #[prost(enumeration = "super::ArrangementPlayState", tag = "10")]
+        ArrangementPlayState(i32),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1099,7 +1110,7 @@ pub struct LicenseState {
 pub struct OccasionalMatrixUpdate {
     #[prost(
         oneof = "occasional_matrix_update::Update",
-        tags = "1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26"
+        tags = "1, 2, 3, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26"
     )]
     pub update: ::core::option::Option<occasional_matrix_update::Update>,
 }
@@ -1117,9 +1128,6 @@ pub mod occasional_matrix_update {
         /// Matrix tempo (= REAPER master tempo)
         #[prost(double, tag = "3")]
         Tempo(f64),
-        /// Arrangement play state (= REAPER transport play state)
-        #[prost(enumeration = "super::ArrangementPlayState", tag = "4")]
-        ArrangementPlayState(i32),
         /// Complete persistent data of the matrix has changed, including topology and other settings!
         /// This contains the complete persistent matrix as JSON.
         ///
@@ -1481,13 +1489,7 @@ impl MatrixVolumeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum TriggerMatrixAction {
-    ArrangementTogglePlayStop = 0,
-    StopAllClips = 1,
-    ArrangementPlay = 2,
-    ArrangementStop = 3,
-    ArrangementPause = 4,
-    ArrangementStartRecording = 5,
-    ArrangementStopRecording = 6,
+    StopAllClips = 0,
     Undo = 7,
     Redo = 8,
     ToggleClick = 9,
@@ -1515,25 +1517,7 @@ impl TriggerMatrixAction {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            TriggerMatrixAction::ArrangementTogglePlayStop => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
-            }
             TriggerMatrixAction::StopAllClips => "TRIGGER_MATRIX_ACTION_STOP_ALL_CLIPS",
-            TriggerMatrixAction::ArrangementPlay => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY"
-            }
-            TriggerMatrixAction::ArrangementStop => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP"
-            }
-            TriggerMatrixAction::ArrangementPause => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE"
-            }
-            TriggerMatrixAction::ArrangementStartRecording => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_START_RECORDING"
-            }
-            TriggerMatrixAction::ArrangementStopRecording => {
-                "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP_RECORDING"
-            }
             TriggerMatrixAction::Undo => "TRIGGER_MATRIX_ACTION_UNDO",
             TriggerMatrixAction::Redo => "TRIGGER_MATRIX_ACTION_REDO",
             TriggerMatrixAction::ToggleClick => "TRIGGER_MATRIX_ACTION_TOGGLE_CLICK",
@@ -1576,19 +1560,7 @@ impl TriggerMatrixAction {
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP" => {
-                Some(Self::ArrangementTogglePlayStop)
-            }
             "TRIGGER_MATRIX_ACTION_STOP_ALL_CLIPS" => Some(Self::StopAllClips),
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PLAY" => Some(Self::ArrangementPlay),
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP" => Some(Self::ArrangementStop),
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_PAUSE" => Some(Self::ArrangementPause),
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_START_RECORDING" => {
-                Some(Self::ArrangementStartRecording)
-            }
-            "TRIGGER_MATRIX_ACTION_ARRANGEMENT_STOP_RECORDING" => {
-                Some(Self::ArrangementStopRecording)
-            }
             "TRIGGER_MATRIX_ACTION_UNDO" => Some(Self::Undo),
             "TRIGGER_MATRIX_ACTION_REDO" => Some(Self::Redo),
             "TRIGGER_MATRIX_ACTION_TOGGLE_CLICK" => Some(Self::ToggleClick),
@@ -1619,6 +1591,62 @@ impl TriggerMatrixAction {
             }
             "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => {
                 Some(Self::TriggerSmartRecord)
+            }
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TriggerGlobalAction {
+    ArrangementTogglePlayStop = 0,
+    ArrangementPlay = 2,
+    ArrangementStop = 3,
+    ArrangementPause = 4,
+    ArrangementStartRecording = 5,
+    ArrangementStopRecording = 6,
+}
+impl TriggerGlobalAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            TriggerGlobalAction::ArrangementTogglePlayStop => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
+            }
+            TriggerGlobalAction::ArrangementPlay => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PLAY"
+            }
+            TriggerGlobalAction::ArrangementStop => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP"
+            }
+            TriggerGlobalAction::ArrangementPause => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PAUSE"
+            }
+            TriggerGlobalAction::ArrangementStartRecording => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_START_RECORDING"
+            }
+            TriggerGlobalAction::ArrangementStopRecording => {
+                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP_RECORDING"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP" => {
+                Some(Self::ArrangementTogglePlayStop)
+            }
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PLAY" => Some(Self::ArrangementPlay),
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP" => Some(Self::ArrangementStop),
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PAUSE" => Some(Self::ArrangementPause),
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_START_RECORDING" => {
+                Some(Self::ArrangementStartRecording)
+            }
+            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP_RECORDING" => {
+                Some(Self::ArrangementStopRecording)
             }
             _ => None,
         }
@@ -2327,6 +2355,10 @@ pub mod helgobox_service_server {
             tonic::Status,
         >;
         /// General global commands
+        async fn trigger_global(
+            &self,
+            request: tonic::Request<super::TriggerGlobalRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_app_settings(
             &self,
             request: tonic::Request<super::SetAppSettingsRequest>,
@@ -3075,6 +3107,53 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetCompartmentDataSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/TriggerGlobal" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerGlobalSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerGlobalRequest>
+                    for TriggerGlobalSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerGlobalRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::trigger_global(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerGlobalSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

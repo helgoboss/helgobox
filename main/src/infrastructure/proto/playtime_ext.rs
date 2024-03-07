@@ -49,10 +49,6 @@ impl occasional_matrix_update::Update {
         Self::Tempo(bpm.get())
     }
 
-    pub fn arrangement_play_state(play_state: PlayState) -> Self {
-        Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
-    }
-
     pub fn sequencer_play_state(play_state: base::SequencerStatus) -> Self {
         Self::SequencerPlayState(SequencerPlayState::from_engine(play_state).into())
     }

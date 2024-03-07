@@ -12,13 +12,14 @@ use crate::infrastructure::proto::{
     SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
-    HOST_API_VERSION,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
+    TriggerGlobalRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowRequest,
+    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
 };
 use anyhow::Context;
 use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
+use reaper_high::Reaper;
 
 use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
@@ -249,6 +250,37 @@ impl ProtoRequestHandler {
             instance_shell.change_settings(|current_settings| *current_settings = settings);
             Ok(())
         })
+    }
+
+    pub fn trigger_global(&self, req: TriggerGlobalRequest) -> Result<Response<Empty>, Status> {
+        let action = TriggerGlobalAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger global action"))?;
+        let project = Reaper::get().current_project();
+        match action {
+            TriggerGlobalAction::ArrangementTogglePlayStop => {
+                if project.is_playing() {
+                    project.stop();
+                } else {
+                    project.play();
+                }
+            }
+            TriggerGlobalAction::ArrangementPlay => {
+                project.play();
+            }
+            TriggerGlobalAction::ArrangementStop => {
+                project.stop();
+            }
+            TriggerGlobalAction::ArrangementPause => {
+                project.pause();
+            }
+            TriggerGlobalAction::ArrangementStartRecording => {
+                Reaper::get().enable_record_in_current_project();
+            }
+            TriggerGlobalAction::ArrangementStopRecording => {
+                Reaper::get().disable_record_in_current_project();
+            }
+        }
+        Ok(Response::new(Empty {}))
     }
 
     pub fn trigger_matrix(&self, req: TriggerMatrixRequest) -> Result<Response<Empty>, Status> {

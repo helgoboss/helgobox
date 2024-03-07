@@ -89,6 +89,8 @@ pub trait ControlSurfaceEventHandler: Debug {
         diff: &DeviceDiff<MidiOutputDeviceId>,
         device_config_changed: bool,
     );
+
+    fn process_reaper_change_events(&self, change_events: &[ChangeEvent]);
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -394,6 +396,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         if normal_events.is_empty() && monitoring_fx_events.is_empty() {
             return;
         }
+        self.event_handler
+            .process_reaper_change_events(&normal_events);
         for i in self.instances() {
             i.borrow_mut()
                 .process_control_surface_change_events(&normal_events);

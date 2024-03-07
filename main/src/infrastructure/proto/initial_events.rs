@@ -4,6 +4,7 @@ use crate::infrastructure::proto::{
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate,
 };
 use crate::infrastructure::server::data::get_controller_routing;
+use reaper_high::Reaper;
 
 pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     use occasional_global_update::Update;
@@ -16,6 +17,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     let global_updates = [
         Update::midi_input_devices(),
         Update::midi_output_devices(),
+        Update::arrangement_play_state(Reaper::get().current_project().play_state()),
         // TODO-high-ms3 Update when changed
         Update::audio_input_channels(),
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),

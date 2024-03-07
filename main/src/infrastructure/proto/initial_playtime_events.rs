@@ -31,7 +31,6 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
         Update::pan(master_track.pan().reaper_value()),
         Update::mute(master_track.is_muted()),
         Update::tempo(matrix.tempo()),
-        Update::arrangement_play_state(project.play_state()),
         Update::sequencer_play_state(matrix.sequencer().status()),
         Update::complete_persistent_data(matrix),
         Update::history_state(matrix),

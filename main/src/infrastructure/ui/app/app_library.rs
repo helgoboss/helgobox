@@ -542,6 +542,9 @@ fn process_command(
         TriggerMatrix(req) => {
             handler.trigger_matrix(req)?;
         }
+        TriggerGlobal(req) => {
+            handler.trigger_global(req)?;
+        }
         SetMatrixSettings(req) => {
             handler.set_matrix_settings(req)?;
         }
