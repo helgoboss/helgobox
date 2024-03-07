@@ -1,3 +1,4 @@
+use crate::domain::InstanceId;
 use crate::infrastructure::proto::{
     event_reply, ContinuousColumnUpdate, ContinuousMatrixUpdate, EventReply,
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
@@ -9,7 +10,7 @@ use futures::future;
 use tokio::sync::broadcast::{Receiver, Sender};
 
 /// This must be a global object because it's responsible for supplying one gRPC endpoint with
-/// streaming data and we have only one endpoint for all matrices.
+/// streaming data, and we have only one endpoint for all matrices.
 #[derive(Clone, Debug)]
 pub struct ProtoSenders {
     pub occasional_global_update_sender: Sender<OccasionalGlobalUpdateBatch>,
@@ -45,62 +46,62 @@ pub struct ProtoReceivers {
 impl ProtoReceivers {
     pub async fn keep_processing_updates(
         &mut self,
-        session_id: &str,
+        instance_id: InstanceId,
         process: &impl Fn(EventReply),
     ) {
         future::join3(
             future::join5(
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.continuous_matrix_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.continuous_column_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.continuous_slot_update_receiver,
                 ),
                 keep_processing_updates(process, &mut self.occasional_global_update_receiver),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_instance_update_receiver,
                 ),
             ),
             future::join5(
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_matrix_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_track_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_column_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_row_update_receiver,
                 ),
                 keep_processing_session_filtered_updates(
-                    session_id,
+                    instance_id,
                     process,
                     &mut self.occasional_slot_update_receiver,
                 ),
             ),
             keep_processing_session_filtered_updates(
-                session_id,
+                instance_id,
                 process,
                 &mut self.occasional_clip_update_receiver,
             ),
@@ -108,49 +109,53 @@ impl ProtoReceivers {
         .await;
     }
 
-    pub fn process_pending_updates(&mut self, session_id: &str, process: &impl Fn(EventReply)) {
+    pub fn process_pending_updates(
+        &mut self,
+        instance_id: InstanceId,
+        process: &impl Fn(EventReply),
+    ) {
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_matrix_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_track_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_column_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_row_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_slot_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.occasional_clip_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.continuous_matrix_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.continuous_column_update_receiver,
         );
         process_pending_updates(
-            session_id,
+            instance_id,
             process,
             &mut self.continuous_slot_update_receiver,
         );
@@ -158,15 +163,15 @@ impl ProtoReceivers {
 }
 
 async fn keep_processing_session_filtered_updates<T>(
-    session_id: &str,
+    instance_id: InstanceId,
     process: impl Fn(EventReply),
-    receiver: &mut Receiver<WithSessionId<T>>,
+    receiver: &mut Receiver<WithInstanceId<T>>,
 ) where
     T: Clone + Into<event_reply::Value>,
 {
     loop {
         if let Ok(batch) = receiver.recv().await {
-            if batch.session_id != session_id {
+            if batch.instance_id != instance_id {
                 continue;
             }
             let reply = EventReply {
@@ -192,15 +197,15 @@ where
 }
 
 fn process_pending_updates<T>(
-    session_id: &str,
+    instance_id: InstanceId,
     process: impl Fn(EventReply),
-    receiver: &mut Receiver<WithSessionId<T>>,
+    receiver: &mut Receiver<WithInstanceId<T>>,
     // to_reply_value: impl Fn(Vec<T>) -> event_reply::Value
 ) where
     T: Clone + Into<event_reply::Value>,
 {
     while let Ok(batch) = receiver.try_recv() {
-        if batch.session_id != session_id {
+        if batch.instance_id != instance_id {
             continue;
         }
         let reply = EventReply {
@@ -253,20 +258,20 @@ impl ProtoSenders {
 }
 
 #[derive(Clone)]
-pub struct WithSessionId<T> {
-    pub session_id: String,
+pub struct WithInstanceId<T> {
+    pub instance_id: InstanceId,
     pub value: T,
 }
 
 pub type OccasionalGlobalUpdateBatch = Vec<OccasionalGlobalUpdate>;
-pub type OccasionalInstanceUpdateBatch = WithSessionId<Vec<OccasionalInstanceUpdate>>;
-pub type OccasionalUnitUpdateBatch = WithSessionId<Vec<QualifiedOccasionalUnitUpdate>>;
-pub type OccasionalMatrixUpdateBatch = WithSessionId<Vec<OccasionalMatrixUpdate>>;
-pub type OccasionalTrackUpdateBatch = WithSessionId<Vec<QualifiedOccasionalTrackUpdate>>;
-pub type OccasionalColumnUpdateBatch = WithSessionId<Vec<QualifiedOccasionalColumnUpdate>>;
-pub type OccasionalRowUpdateBatch = WithSessionId<Vec<QualifiedOccasionalRowUpdate>>;
-pub type OccasionalSlotUpdateBatch = WithSessionId<Vec<QualifiedOccasionalSlotUpdate>>;
-pub type OccasionalClipUpdateBatch = WithSessionId<Vec<QualifiedOccasionalClipUpdate>>;
-pub type ContinuousMatrixUpdateBatch = WithSessionId<ContinuousMatrixUpdate>;
-pub type ContinuousColumnUpdateBatch = WithSessionId<Vec<ContinuousColumnUpdate>>;
-pub type ContinuousSlotUpdateBatch = WithSessionId<Vec<QualifiedContinuousSlotUpdate>>;
+pub type OccasionalInstanceUpdateBatch = WithInstanceId<Vec<OccasionalInstanceUpdate>>;
+pub type OccasionalUnitUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalUnitUpdate>>;
+pub type OccasionalMatrixUpdateBatch = WithInstanceId<Vec<OccasionalMatrixUpdate>>;
+pub type OccasionalTrackUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalTrackUpdate>>;
+pub type OccasionalColumnUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalColumnUpdate>>;
+pub type OccasionalRowUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalRowUpdate>>;
+pub type OccasionalSlotUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalSlotUpdate>>;
+pub type OccasionalClipUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalClipUpdate>>;
+pub type ContinuousMatrixUpdateBatch = WithInstanceId<ContinuousMatrixUpdate>;
+pub type ContinuousColumnUpdateBatch = WithInstanceId<Vec<ContinuousColumnUpdate>>;
+pub type ContinuousSlotUpdateBatch = WithInstanceId<Vec<QualifiedContinuousSlotUpdate>>;

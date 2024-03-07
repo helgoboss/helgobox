@@ -1,7 +1,8 @@
+use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 #[cfg(not(feature = "playtime"))]
 use crate::infrastructure::proto::playtime_not_available_status;
-use crate::infrastructure::proto::senders::{ProtoSenders, WithSessionId};
+use crate::infrastructure::proto::senders::{ProtoSenders, WithInstanceId};
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
     helgobox_service_server, AddLicenseRequest, DeleteControllerRequest, DragClipRequest,
@@ -56,10 +57,10 @@ impl HelgoboxServiceImpl {
     #[cfg(feature = "playtime")]
     fn with_matrix<R>(
         &self,
-        clip_matrix_id: &str,
+        clip_matrix_id: u32,
         f: impl FnOnce(&Matrix) -> R,
     ) -> anyhow::Result<R> {
-        BackboneShell::get().with_clip_matrix(clip_matrix_id, f)
+        BackboneShell::get().with_clip_matrix(clip_matrix_id.into(), f)
     }
 }
 
@@ -119,7 +120,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         {
             // Initial
             let initial_updates = self
-                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                .with_matrix(request.get_ref().matrix_id, |matrix| {
                     crate::infrastructure::proto::create_initial_slot_updates(Some(matrix))
                 })
                 .unwrap_or_else(|_| {
@@ -199,7 +200,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         {
             // Initial
             let initial_updates = self
-                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                .with_matrix(request.get_ref().matrix_id, |matrix| {
                     crate::infrastructure::proto::create_initial_clip_updates(Some(matrix))
                 })
                 .unwrap_or_else(|_| {
@@ -278,7 +279,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         #[cfg(feature = "playtime")]
         {
             let initial_updates = self
-                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                .with_matrix(request.get_ref().matrix_id, |matrix| {
                     crate::infrastructure::proto::create_initial_matrix_updates(Some(matrix))
                 })
                 .unwrap_or_else(|_| {
@@ -305,7 +306,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<GetOccasionalInstanceUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalInstanceUpdatesStream>, Status> {
         let instance_shell = BackboneShell::get()
-            .find_instance_shell_by_instance_id_str(&request.get_ref().instance_id)
+            .get_instance_shell_by_instance_id(request.get_ref().instance_id.into())
             .map_err(|e| Status::not_found(e.to_string()))?;
         let initial_updates = create_initial_instance_updates(&instance_shell);
         let receiver = self.senders.occasional_instance_update_sender.subscribe();
@@ -328,7 +329,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<GetOccasionalUnitUpdatesRequest>,
     ) -> Result<Response<Self::GetOccasionalUnitUpdatesStream>, Status> {
         let instance_shell = BackboneShell::get()
-            .find_instance_shell_by_instance_id_str(&request.get_ref().instance_id)
+            .get_instance_shell_by_instance_id(request.get_ref().instance_id.into())
             .map_err(|e| Status::not_found(e.to_string()))?;
         let initial_updates = create_initial_unit_updates(&instance_shell);
         let receiver = self.senders.occasional_unit_update_sender.subscribe();
@@ -358,7 +359,7 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         #[cfg(feature = "playtime")]
         {
             let initial_reply = self
-                .with_matrix(&request.get_ref().matrix_id, |matrix| {
+                .with_matrix(request.get_ref().matrix_id, |matrix| {
                     crate::infrastructure::proto::create_initial_track_updates(Some(matrix))
                 })
                 .unwrap_or_else(|_| {
@@ -701,8 +702,8 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
 type SyncBoxStream<'a, T> = Pin<Box<dyn Stream<Item = T> + Send + Sync + 'a>>;
 
 fn stream_by_session_id<T, R, F, I>(
-    requested_session_id: String,
-    receiver: Receiver<WithSessionId<T>>,
+    requested_instance_id: u32,
+    receiver: Receiver<WithInstanceId<T>>,
     create_result: F,
     initial: I,
 ) -> Result<Response<SyncBoxStream<'static, Result<R, Status>>>, Status>
@@ -715,7 +716,7 @@ where
     stream(
         receiver,
         move |v| create_result(v.value),
-        move |v| v.session_id == requested_session_id,
+        move |v| v.instance_id == requested_instance_id.into(),
         initial,
     )
 }

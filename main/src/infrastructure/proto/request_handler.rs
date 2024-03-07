@@ -13,15 +13,15 @@ use crate::infrastructure::proto::{
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
     SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
-    TriggerGlobalRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowRequest,
-    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
+    TriggerGlobalRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest,
+    TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
 };
 use anyhow::Context;
 use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
 use reaper_high::Reaper;
 
-use crate::domain::{CompartmentKind, UnitId};
+use crate::domain::{CompartmentKind, InstanceId, UnitId};
 use crate::infrastructure::api::convert::from_data;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::CompartmentModelData;
@@ -246,7 +246,7 @@ impl ProtoRequestHandler {
     ) -> Result<Response<Empty>, Status> {
         let settings = serde_json::from_str(&req.settings)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        self.handle_instance_command(&req.instance_id, |instance_shell| {
+        self.handle_instance_command(req.instance_id, |instance_shell| {
             instance_shell.change_settings(|current_settings| *current_settings = settings);
             Ok(())
         })
@@ -624,7 +624,7 @@ impl ProtoRequestHandler {
 
     fn handle_instance_command(
         &self,
-        instance_id: &str,
+        instance_id: u32,
         handler: impl FnOnce(&InstanceShell) -> anyhow::Result<()>,
     ) -> Result<Response<Empty>, Status> {
         self.handle_instance_command_internal(instance_id, handler)?;
@@ -633,7 +633,7 @@ impl ProtoRequestHandler {
 
     fn handle_unit_command<R>(
         &self,
-        instance_id: &str,
+        instance_id: u32,
         unit_id: Option<u32>,
         handler: impl FnOnce(&InstanceShell, &UnitShell) -> anyhow::Result<R>,
     ) -> Result<Response<Empty>, Status> {
@@ -653,7 +653,7 @@ impl ProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown compartment"))?;
 
         self.handle_unit_command_internal(
-            &full_compartment_id.instance_id,
+            full_compartment_id.instance_id,
             Some(full_compartment_id.unit_id),
             |_, unit_shell| handler(unit_shell, compartment.to_engine()),
         )
@@ -661,7 +661,7 @@ impl ProtoRequestHandler {
 
     fn handle_unit_command_internal<R>(
         &self,
-        instance_id: &str,
+        instance_id: u32,
         unit_id: Option<u32>,
         handler: impl FnOnce(&InstanceShell, &UnitShell) -> anyhow::Result<R>,
     ) -> Result<R, Status> {
@@ -677,11 +677,11 @@ impl ProtoRequestHandler {
 
     fn handle_instance_command_internal<R>(
         &self,
-        instance_id: &str,
+        instance_id: u32,
         handler: impl FnOnce(&InstanceShell) -> anyhow::Result<R>,
     ) -> Result<R, Status> {
         let instance_shell = BackboneShell::get()
-            .find_instance_shell_by_instance_id_str(instance_id)
+            .get_instance_shell_by_instance_id(instance_id.into())
             .map_err(|e| Status::not_found(format!("{e:#}")))?;
         let r = handler(&instance_shell).map_err(|e| Status::unknown(format!("{e:#}")))?;
         Ok(r)

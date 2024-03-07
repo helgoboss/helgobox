@@ -77,7 +77,7 @@ impl InstanceHandler for CustomInstanceHandler {
     ) {
         // TODO-medium If we would make the instance ID generic, we could save the string conversion
         BackboneShell::get().proto_hub().notify_clip_matrix_changed(
-            &instance_id.to_string(),
+            instance_id,
             matrix,
             events,
             is_poll,
@@ -94,11 +94,7 @@ impl InstanceHandler for CustomInstanceHandler {
     ) {
         BackboneShell::get()
             .proto_hub()
-            .send_occasional_matrix_updates_caused_by_reaper(
-                &instance_id.to_string(),
-                matrix,
-                events,
-            );
+            .send_occasional_matrix_updates_caused_by_reaper(instance_id, matrix, events);
     }
 }
 

@@ -91,7 +91,7 @@ impl ProtoHub {
 
     pub fn notify_controller_routing_changed(&self, unit_model: &UnitModel) {
         let unit_id = unit_model.unit_id();
-        self.send_occasional_unit_updates(&unit_model.instance_id().to_string(), || {
+        self.send_occasional_unit_updates(unit_model.instance_id(), || {
             [QualifiedOccasionalUnitUpdate {
                 unit_id: unit_id.into(),
                 update: Some(
@@ -135,7 +135,7 @@ impl ProtoHub {
         let _ = sender.send(wrapped_updates.collect());
     }
 
-    fn send_occasional_instance_updates<F, I>(&self, instance_id: &str, create_updates: F)
+    fn send_occasional_instance_updates<F, I>(&self, instance_id: InstanceId, create_updates: F)
     where
         F: FnOnce() -> I,
         I: IntoIterator<Item = occasional_instance_update::Update>,
@@ -148,13 +148,13 @@ impl ProtoHub {
             .into_iter()
             .map(|u| OccasionalInstanceUpdate { update: Some(u) });
         let batch_event = OccasionalInstanceUpdateBatch {
-            session_id: instance_id.to_string(),
+            instance_id,
             value: wrapped_updates.collect(),
         };
         let _ = sender.send(batch_event);
     }
 
-    fn send_occasional_unit_updates<F, I>(&self, instance_id: &str, create_updates: F)
+    fn send_occasional_unit_updates<F, I>(&self, instance_id: InstanceId, create_updates: F)
     where
         F: FnOnce() -> I,
         I: IntoIterator<Item = QualifiedOccasionalUnitUpdate>,
@@ -164,26 +164,26 @@ impl ProtoHub {
             return;
         }
         let batch_event = OccasionalUnitUpdateBatch {
-            session_id: instance_id.to_string(),
+            instance_id,
             value: create_updates().into_iter().collect(),
         };
         let _ = sender.send(batch_event);
     }
 
     pub fn notify_instance_units_changed(&self, instance_shell: &InstanceShell) {
-        self.send_occasional_instance_updates(&instance_shell.instance_id().to_string(), || {
+        self.send_occasional_instance_updates(instance_shell.instance_id(), || {
             [occasional_instance_update::Update::units(instance_shell)]
         });
     }
 
     pub fn notify_instance_settings_changed(&self, instance_shell: &InstanceShell) {
-        self.send_occasional_instance_updates(&instance_shell.instance_id().to_string(), || {
+        self.send_occasional_instance_updates(instance_shell.instance_id(), || {
             [occasional_instance_update::Update::settings(instance_shell)]
         });
     }
 
     pub fn notify_everything_in_instance_has_changed(&self, instance_id: InstanceId) {
-        self.send_occasional_instance_updates(&instance_id.to_string(), || {
+        self.send_occasional_instance_updates(instance_id, || {
             [occasional_instance_update::Update::EverythingHasChanged(
                 true,
             )]
@@ -191,7 +191,7 @@ impl ProtoHub {
     }
 
     pub fn notify_everything_in_unit_has_changed(&self, instance_id: InstanceId, unit_id: UnitId) {
-        self.send_occasional_unit_updates(&instance_id.to_string(), || {
+        self.send_occasional_unit_updates(instance_id, || {
             [QualifiedOccasionalUnitUpdate {
                 unit_id: unit_id.into(),
                 update: Some(qualified_occasional_unit_update::Update::EverythingHasChanged(true)),
@@ -202,6 +202,7 @@ impl ProtoHub {
 
 #[cfg(feature = "playtime")]
 mod playtime_impl {
+    use crate::domain::InstanceId;
     use crate::infrastructure::proto;
     use crate::infrastructure::proto::senders::{
         ContinuousColumnUpdateBatch, ContinuousMatrixUpdateBatch, ContinuousSlotUpdateBatch,
@@ -239,7 +240,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         pub fn notify_clip_matrix_changed(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
             is_poll: bool,
@@ -261,7 +262,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_matrix_updates_caused_by_matrix(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
         ) {
@@ -338,7 +339,7 @@ mod playtime_impl {
             // Send all updates
             if !updates.is_empty() {
                 let batch_event = OccasionalMatrixUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -348,7 +349,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_track_updates_caused_by_matrix(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             events: &[ClipMatrixEvent],
         ) {
             let sender = &self.senders.occasional_track_update_sender;
@@ -395,7 +396,7 @@ mod playtime_impl {
             // Send all updates
             if !updates.is_empty() {
                 let batch_event = OccasionalTrackUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -405,7 +406,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_column_updates(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
         ) {
@@ -432,7 +433,7 @@ mod playtime_impl {
                 .collect();
             if !updates.is_empty() {
                 let batch_event = OccasionalColumnUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -442,7 +443,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_row_updates(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
         ) {
@@ -467,7 +468,7 @@ mod playtime_impl {
                 .collect();
             if !updates.is_empty() {
                 let batch_event = OccasionalRowUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -477,7 +478,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_slot_updates(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
         ) {
@@ -515,7 +516,7 @@ mod playtime_impl {
                 .collect();
             if !updates.is_empty() {
                 let batch_event = OccasionalSlotUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -525,7 +526,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         fn send_occasional_clip_updates(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
         ) {
@@ -564,7 +565,7 @@ mod playtime_impl {
                 .collect();
             if !updates.is_empty() {
                 let batch_event = OccasionalClipUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -574,7 +575,7 @@ mod playtime_impl {
         #[cfg(feature = "playtime")]
         pub fn send_occasional_matrix_updates_caused_by_reaper(
             &self,
-            matrix_id: &str,
+            matrix_id: InstanceId,
             matrix: &Matrix,
             events: &[ChangeEvent],
         ) {
@@ -622,7 +623,7 @@ mod playtime_impl {
                 let update =
                     occasional_matrix_update::Update::track_list(matrix.temporary_project());
                 let _ = matrix_update_sender.send(OccasionalMatrixUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: vec![OccasionalMatrixUpdate {
                         update: Some(update),
                     }],
@@ -694,13 +695,13 @@ mod playtime_impl {
                     match update {
                         R::Matrix(u) => {
                             let _ = matrix_update_sender.send(OccasionalMatrixUpdateBatch {
-                                session_id: matrix_id.to_string(),
+                                instance_id: matrix_id,
                                 value: vec![OccasionalMatrixUpdate { update: Some(u) }],
                             });
                         }
                         R::Track(u) => {
                             let _ = track_update_sender.send(OccasionalTrackUpdateBatch {
-                                session_id: matrix_id.to_string(),
+                                instance_id: matrix_id,
                                 value: vec![u],
                             });
                         }
@@ -710,7 +711,7 @@ mod playtime_impl {
         }
 
         #[cfg(feature = "playtime")]
-        fn send_continuous_slot_updates(&self, matrix_id: &str, events: &[ClipMatrixEvent]) {
+        fn send_continuous_slot_updates(&self, matrix_id: InstanceId, events: &[ClipMatrixEvent]) {
             let sender = &self.senders.continuous_slot_update_sender;
             if sender.receiver_count() == 0 {
                 return;
@@ -734,7 +735,7 @@ mod playtime_impl {
                 .collect();
             if !updates.is_empty() {
                 let batch_event = ContinuousSlotUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: updates,
                 };
                 let _ = sender.send(batch_event);
@@ -742,7 +743,7 @@ mod playtime_impl {
         }
 
         #[cfg(feature = "playtime")]
-        fn send_continuous_matrix_updates(&self, matrix_id: &str, project: Option<Project>) {
+        fn send_continuous_matrix_updates(&self, matrix_id: InstanceId, project: Option<Project>) {
             let sender = &self.senders.continuous_matrix_update_sender;
             if sender.receiver_count() == 0 {
                 return;
@@ -759,7 +760,7 @@ mod playtime_impl {
             //  use the REAPER timeline *and* use tempo markers. But this needs more attention anyway.
             let full_beats = timeline.full_beats_at_pos(pos);
             let batch_event = ContinuousMatrixUpdateBatch {
-                session_id: matrix_id.to_string(),
+                instance_id: matrix_id,
                 value: ContinuousMatrixUpdate {
                     second: pos.get(),
                     bar: (next_bar.position() - 1) as i32,
@@ -775,7 +776,7 @@ mod playtime_impl {
         }
 
         #[cfg(feature = "playtime")]
-        fn send_continuous_column_updates(&self, matrix_id: &str, matrix: &Matrix) {
+        fn send_continuous_column_updates(&self, matrix_id: InstanceId, matrix: &Matrix) {
             let sender = &self.senders.continuous_column_update_sender;
             if sender.receiver_count() == 0 {
                 return;
@@ -803,7 +804,7 @@ mod playtime_impl {
                 .collect();
             if !column_updates.is_empty() {
                 let batch_event = ContinuousColumnUpdateBatch {
-                    session_id: matrix_id.to_string(),
+                    instance_id: matrix_id,
                     value: column_updates,
                 };
                 let _ = sender.send(batch_event);

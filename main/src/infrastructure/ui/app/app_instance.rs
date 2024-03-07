@@ -158,9 +158,8 @@ impl AppInstance for StandaloneAppInstance {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
             return Ok(());
         }
-        // TODO-medium This doesn't need to be a string anymore
-        let instance_id = self.instance_id.to_string();
-        let app_handle = app_library.start_app_instance(None, instance_id)?;
+        let app_handle =
+            app_library.start_app_instance(None, self.instance_id, "/projection".to_string())?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
@@ -200,14 +199,14 @@ impl AppInstance for StandaloneAppInstance {
         let Some(running_state) = &mut self.running_state else {
             return;
         };
-        let session_id = self.instance_id.to_string();
+        let instance_id = self.instance_id;
         // Handshake finished! The app has the host callback and we have the app callback.
         running_state.common_state.app_callback = Some(callback);
         // Now we can start passing events to the app callback
         let mut receivers = subscribe_to_events();
         let join_handle = BackboneShell::get().spawn_in_async_runtime(async move {
             receivers
-                .keep_processing_updates(&session_id, &|event_reply| {
+                .keep_processing_updates(instance_id, &|event_reply| {
                     let reply = Reply {
                         value: Some(reply::Value::EventReply(event_reply)),
                     };
@@ -222,7 +221,7 @@ impl AppInstance for StandaloneAppInstance {
 #[derive(Debug)]
 pub struct AppPanel {
     view: ViewContext,
-    session: WeakUnitModel,
+    instance_id: InstanceId,
     running_state: RefCell<Option<ParentedAppRunningState>>,
 }
 
@@ -233,13 +232,13 @@ struct ParentedAppRunningState {
 }
 
 impl ParentedAppRunningState {
-    pub fn send_pending_events(&mut self, session_id: &str) {
+    pub fn send_pending_events(&mut self, instance_id: InstanceId) {
         let (Some(app_callback), Some(event_receivers)) =
             (self.common_state.app_callback, &mut self.event_receivers)
         else {
             return;
         };
-        event_receivers.process_pending_updates(session_id, &|event_reply| {
+        event_receivers.process_pending_updates(instance_id, &|event_reply| {
             let reply = Reply {
                 value: Some(reply::Value::EventReply(event_reply)),
             };
@@ -255,10 +254,10 @@ struct CommonAppRunningState {
 }
 
 impl AppPanel {
-    pub fn new(session: WeakUnitModel) -> Self {
+    pub fn new(instance_id: InstanceId) -> Self {
         Self {
             view: Default::default(),
-            session,
+            instance_id,
             running_state: RefCell::new(None),
         }
     }
@@ -296,8 +295,11 @@ impl AppPanel {
     fn open_internal(&self, window: Window) -> Result<()> {
         window.set_text("Playtime");
         let app_library = BackboneShell::get_app_library()?;
-        let session_id = extract_session_id(&self.session)?;
-        let app_handle = app_library.start_app_instance(Some(window), session_id)?;
+        let app_handle = app_library.start_app_instance(
+            Some(window),
+            self.instance_id,
+            "/projection".to_string(),
+        )?;
         let running_state = ParentedAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
@@ -418,10 +420,7 @@ impl View for AppPanel {
         let Some(open_state) = open_state.as_mut() else {
             return false;
         };
-        let Some(session) = self.session.upgrade() else {
-            return false;
-        };
-        open_state.send_pending_events(session.borrow().unit_key());
+        open_state.send_pending_events(self.instance_id);
         true
     }
 
@@ -468,20 +467,4 @@ fn subscribe_to_events() -> ProtoReceivers {
         .proto_hub()
         .senders()
         .subscribe_to_all()
-}
-
-// TODO-high-ms4 We extract the session ID manually whenever we start the app instead of assigning
-//  it to the AppInstance right at the start. Reason: The session ID can be changed by the user.
-//  This is not ideal. It won't event prevent that the user changes the session ID during app
-//  lifetime ... it just won't work anymore if that happens. I think we need to use the InstanceId
-//  and hold a global mapping from session ID to instance ID in the app. Or maybe better: We use
-//  the instance ID whenever we are embedded, not the session ID! Then the "matrix ID" refers
-//  to the instance ID when embedded and to the session ID when remote.
-fn extract_session_id(session: &WeakUnitModel) -> Result<String> {
-    Ok(session
-        .upgrade()
-        .ok_or_else(|| anyhow!("session gone"))?
-        .borrow()
-        .unit_key()
-        .to_string())
 }

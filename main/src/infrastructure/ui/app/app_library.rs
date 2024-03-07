@@ -10,6 +10,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use base::Global;
 use libloading::{Library, Symbol};
 
+use crate::domain::InstanceId;
 use crate::infrastructure::proto::query::Value;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
@@ -18,7 +19,7 @@ use reaper_high::Reaper;
 use reaper_low::raw::HWND;
 use semver::Version;
 use std::env;
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{c_char, c_uint, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
@@ -42,6 +43,7 @@ impl AppLibrary {
                     // depend on it.
                     "flutter_windows.dll",
                     // The rest can have an arbitrary order.
+                    "device_info_plus.dll",
                     "desktop_drop_plugin.dll",
                     "native_context_menu_plugin.dll",
                     "screen_retriever_plugin.dll",
@@ -60,6 +62,7 @@ impl AppLibrary {
                         "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
                         // The rest can have an arbitrary order.
                         "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
+                        "Contents/Frameworks/device_info_plus.framework/device_info_plus",
                         "Contents/Frameworks/desktop_drop.framework/desktop_drop",
                         "Contents/Frameworks/native_context_menu.framework/native_context_menu",
                         "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
@@ -115,7 +118,8 @@ impl AppLibrary {
     pub fn start_app_instance(
         &self,
         parent_window: Option<Window>,
-        instance_id: String,
+        instance_id: InstanceId,
+        location: String,
     ) -> Result<AppHandle> {
         let app_base_dir_str = self
             .app_base_dir
@@ -123,8 +127,8 @@ impl AppLibrary {
             .ok_or(anyhow!("app base dir is not an UTF-8 string"))?;
         let app_base_dir_c_string = CString::new(app_base_dir_str)
             .map_err(|_| anyhow!("app base dir contains a nul byte"))?;
-        let instance_id_c_string =
-            CString::new(instance_id).map_err(|_| anyhow!("instance ID contains a nul byte"))?;
+        let location_c_string =
+            CString::new(location).map_err(|_| anyhow!("location contains a nul byte"))?;
         with_temporarily_changed_working_directory(&self.app_base_dir, || {
             prepare_app_start();
             let app_handle = unsafe {
@@ -136,7 +140,8 @@ impl AppLibrary {
                     parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
                     app_base_dir_c_string.as_ptr(),
                     invoke_host,
-                    instance_id_c_string.as_ptr(),
+                    instance_id.into(),
+                    location_c_string.as_ptr(),
                     Reaper::get().main_window().as_ptr(),
                 )
             };
@@ -220,7 +225,7 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
         return;
     };
     // Process request
-    if let Err(error) = process_request(request.instance_id, request_value) {
+    if let Err(error) = process_request(request.instance_id.into(), request_value) {
         tracing::error!(msg = "error in synchronous phase of request processing", %error);
     }
 }
@@ -233,7 +238,7 @@ extern "C" fn invoke_host(data: *const u8, length: i32) {
 /// # Errors
 ///
 /// Returns an error if something in the synchronous part of the request processing went wrong.
-fn process_request(instance_id: String, request_value: request::Value) -> Result<()> {
+fn process_request(instance_id: InstanceId, request_value: request::Value) -> Result<()> {
     use proto::request::Value;
     match request_value {
         // It's a command (fire-and-forget)
@@ -279,13 +284,15 @@ type GetAppApiVersion = unsafe extern "C" fn(version: *mut c_char, buf_size: usi
 ///   the OS) will render itself *within* that parent window. On macOS, this is should be an NSView.
 /// * `app_base_dir_utf8_c_str`- Directory where the app is located
 /// * `host_callback` - Pointer to host callback function
-/// * `session_id` - Session ID of the ReaLearn instance associated with this new app instance.
+/// * `instance_id` - Instance ID of the ReaLearn instance associated with this new app instance.
+/// * `location` - Initial location (route) within the app.
 /// * `main_window` - Handle to REAPER's main window
 type StartAppInstance = unsafe extern "C" fn(
     parent_window: HWND,
     app_base_dir_utf8_c_str: *const c_char,
     host_callback: HostCallback,
-    session_id: *const c_char,
+    instance_id: c_uint,
+    location: *const c_char,
     main_window: HWND,
 ) -> Option<AppHandle>;
 
@@ -311,7 +318,7 @@ fn load_library(path: &Path) -> Result<Library> {
         _ => {}
     }
     let lib = unsafe { Library::new(path) };
-    lib.map_err(|_| anyhow!("Failed to load app library {path:?}."))
+    lib.with_context(|| format!("Failed to load app library {path:?}."))
 }
 
 fn with_temporarily_changed_working_directory<R>(
@@ -352,20 +359,20 @@ fn prepare_app_start() {
 ///
 /// Returns an error if the main thread task queue is full.
 fn process_command_request(
-    instance_id: String,
+    instance_id: InstanceId,
     value: proto::command_request::Value,
 ) -> Result<()> {
     // We need to execute commands on the main thread!
     Global::task_support().do_in_main_thread_asap(move || {
         // Execute command
-        let result = process_command(&instance_id, value);
+        let result = process_command(instance_id, value);
         // Handle possible error
         if let Err(status) = result {
             // Log error
             tracing::error!(msg = "error in asynchronous phase of command request processing", %status);
             // Send it to the app as notification
             let _ = send_to_app(
-                &instance_id,
+                instance_id,
                 reply::Value::EventReply(EventReply {
                     value: Some(event_reply::Value::ErrorMessage(status.message().to_string())),
                 }),
@@ -375,48 +382,52 @@ fn process_command_request(
     Ok(())
 }
 
-fn process_query_request(instance_id: String, id: u32, query: proto::query::Value) -> Result<()> {
+fn process_query_request(
+    instance_id: InstanceId,
+    req_id: u32,
+    query: proto::query::Value,
+) -> Result<()> {
     use proto::query::Value::*;
     let handler = ProtoRequestHandler;
     match query {
         ProveAuthenticity(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.prove_authenticity(req).await?.into_inner();
                 Ok(query_result::Value::ProveAuthenticityReply(value))
             });
         }
         GetClipDetail(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_clip_detail(req).await?.into_inner();
                 Ok(query_result::Value::GetClipDetailReply(value))
             });
         }
         GetProjectDir(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_project_dir(req).await?.into_inner();
                 Ok(query_result::Value::GetProjectDirReply(value))
             });
         }
         GetHostInfo(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_host_info(req).await?.into_inner();
                 Ok(query_result::Value::GetHostInfoReply(value))
             });
         }
         GetArrangementInfo(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_arrangement_info(req).await?.into_inner();
                 Ok(query_result::Value::GetArrangementInfoReply(value))
             });
         }
         GetAppSettings(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_app_settings(req).await?.into_inner();
                 Ok(query_result::Value::GetAppSettingsReply(value))
             });
         }
         GetCompartmentData(req) => {
-            send_query_reply_to_app(instance_id, id, async move {
+            send_query_reply_to_app(instance_id, req_id, async move {
                 let value = handler.get_compartment_data(req).await?.into_inner();
                 Ok(query_result::Value::GetCompartmentDataReply(value))
             });
@@ -426,7 +437,7 @@ fn process_query_request(instance_id: String, id: u32, query: proto::query::Valu
 }
 
 fn process_command(
-    instance_id: &str,
+    instance_id: InstanceId,
     req: proto::command_request::Value,
 ) -> std::result::Result<(), Status> {
     let handler = ProtoRequestHandler;
@@ -437,7 +448,7 @@ fn process_command(
             // App instance is started. Put the app instance callback at the correct position.
             let ptr = req.app_callback_address as *const ();
             let app_callback: AppCallback = unsafe { std::mem::transmute(ptr) };
-            find_app_instance(&req.matrix_id)
+            find_app_instance(req.matrix_id.into())
                 .map_err(to_status)?
                 .borrow_mut()
                 .notify_app_is_ready(app_callback);
@@ -450,7 +461,7 @@ fn process_command(
         GetOccasionalInstanceUpdates(req) => {
             send_initial_events_to_app(instance_id, || {
                 let instance_shell = BackboneShell::get()
-                    .find_instance_shell_by_instance_id_str(&req.instance_id)
+                    .find_instance_shell_by_instance_id(req.instance_id.into())
                     .unwrap();
                 create_initial_instance_updates(&instance_shell)
             })
@@ -459,7 +470,7 @@ fn process_command(
         GetOccasionalUnitUpdates(req) => {
             send_initial_events_to_app(instance_id, || {
                 let instance_shell = BackboneShell::get()
-                    .find_instance_shell_by_instance_id_str(&req.instance_id)
+                    .find_instance_shell_by_instance_id(req.instance_id.into())
                     .unwrap();
                 create_initial_unit_updates(&instance_shell)
             })
@@ -475,7 +486,7 @@ fn process_command(
             {
                 send_initial_matrix_events_to_app(
                     instance_id,
-                    &req.matrix_id,
+                    req.matrix_id.into(),
                     proto::create_initial_matrix_updates,
                 )
                 .map_err(to_status)?;
@@ -491,7 +502,7 @@ fn process_command(
             {
                 send_initial_matrix_events_to_app(
                     instance_id,
-                    &req.matrix_id,
+                    req.matrix_id.into(),
                     proto::create_initial_track_updates,
                 )
                 .map_err(to_status)?;
@@ -507,7 +518,7 @@ fn process_command(
             {
                 send_initial_matrix_events_to_app(
                     instance_id,
-                    &req.matrix_id,
+                    req.matrix_id.into(),
                     proto::create_initial_slot_updates,
                 )
                 .map_err(to_status)?;
@@ -523,7 +534,7 @@ fn process_command(
             {
                 send_initial_matrix_events_to_app(
                     instance_id,
-                    &req.matrix_id,
+                    req.matrix_id.into(),
                     proto::create_initial_clip_updates,
                 )
                 .map_err(to_status)?;
@@ -646,7 +657,7 @@ fn process_command(
 }
 
 fn send_initial_events_to_app<T: Into<event_reply::Value>>(
-    instance_id: &str,
+    instance_id: InstanceId,
     create_reply: impl FnOnce() -> T + Copy,
 ) -> Result<()> {
     let reply = create_reply().into();
@@ -659,8 +670,8 @@ fn send_initial_events_to_app<T: Into<event_reply::Value>>(
 /// Helgobox instance <=> Matrix instance <=> App instance.
 #[cfg(feature = "playtime")]
 fn send_initial_matrix_events_to_app<T: Into<event_reply::Value>>(
-    instance_id: &str,
-    matrix_id: &str,
+    instance_id: InstanceId,
+    matrix_id: InstanceId,
     create_reply: impl FnOnce(Option<&Matrix>) -> T + Copy,
 ) -> Result<()> {
     let reply = BackboneShell::get()
@@ -669,7 +680,7 @@ fn send_initial_matrix_events_to_app<T: Into<event_reply::Value>>(
     send_event_reply_to_app(instance_id, reply)
 }
 
-fn send_event_reply_to_app(instance_id: &str, value: event_reply::Value) -> Result<()> {
+fn send_event_reply_to_app(instance_id: InstanceId, value: event_reply::Value) -> Result<()> {
     send_to_app(
         instance_id,
         reply::Value::EventReply(EventReply { value: Some(value) }),
@@ -677,8 +688,8 @@ fn send_event_reply_to_app(instance_id: &str, value: event_reply::Value) -> Resu
 }
 
 fn send_query_reply_to_app(
-    instance_id: String,
-    id: u32,
+    instance_id: InstanceId,
+    req_id: u32,
     future: impl Future<Output = Result<query_result::Value, Status>> + Send + 'static,
 ) {
     Global::future_support().spawn_in_main_thread(async move {
@@ -687,17 +698,17 @@ fn send_query_reply_to_app(
             Err(error) => query_result::Value::Error(error.to_string()),
         };
         let reply_value = reply::Value::QueryReply(QueryReply {
-            id,
+            id: req_id,
             result: Some(QueryResult {
                 value: Some(query_result_value),
             }),
         });
-        send_to_app(&instance_id, reply_value)?;
+        send_to_app(instance_id, reply_value)?;
         Ok(())
     });
 }
 
-fn send_to_app(instance_id: &str, reply_value: reply::Value) -> Result<()> {
+fn send_to_app(instance_id: InstanceId, reply_value: reply::Value) -> Result<()> {
     let app_instance = find_app_instance(instance_id)?;
     let reply = Reply {
         value: Some(reply_value),
@@ -706,9 +717,9 @@ fn send_to_app(instance_id: &str, reply_value: reply::Value) -> Result<()> {
     Ok(())
 }
 
-fn find_app_instance(instance_id: &str) -> Result<SharedAppInstance> {
+fn find_app_instance(instance_id: InstanceId) -> Result<SharedAppInstance> {
     let instance_panel = BackboneShell::get()
-        .find_instance_panel_by_instance_id(instance_id.parse()?)
+        .find_instance_panel_by_instance_id(instance_id)
         .ok_or_else(|| anyhow!("Helgobox instance {instance_id} not found"))?;
     Ok(instance_panel.app_instance().clone())
 }

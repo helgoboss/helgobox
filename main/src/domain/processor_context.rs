@@ -51,7 +51,7 @@ pub struct ProcessorContext {
     bypass_param_index: u32,
 }
 
-pub const HELGOBOX_INSTANCE_ID: &str = "instance_id";
+pub const HELGOBOX_INSTANCE_ID_KEY: &str = "instance_id";
 
 impl ProcessorContext {
     pub fn from_host(host: HostCallback) -> anyhow::Result<ProcessorContext> {

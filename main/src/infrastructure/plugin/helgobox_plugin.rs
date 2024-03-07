@@ -379,7 +379,7 @@ impl HelgoboxPlugin {
             return Err("empty buffer");
         }
         match param_name {
-            crate::domain::HELGOBOX_INSTANCE_ID => {
+            crate::domain::HELGOBOX_INSTANCE_ID_KEY => {
                 let instance_id_c_string =
                     CString::new(self.instance_id.to_string()).expect("should be number");
                 let mut bytes = instance_id_c_string

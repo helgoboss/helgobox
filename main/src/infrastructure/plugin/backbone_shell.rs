@@ -1213,11 +1213,11 @@ impl BackboneShell {
         })
     }
 
-    pub fn find_instance_shell_by_instance_id_str(
+    pub fn get_instance_shell_by_instance_id(
         &self,
-        instance_id: &str,
+        instance_id: InstanceId,
     ) -> anyhow::Result<SharedInstanceShell> {
-        self.find_instance_shell_by_instance_id(instance_id.parse()?)
+        self.find_instance_shell_by_instance_id(instance_id)
             .context("couldn't find instance")
     }
 
@@ -1260,11 +1260,11 @@ impl BackboneShell {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix<R>(
         &self,
-        clip_matrix_id: &str,
+        clip_matrix_id: InstanceId,
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let instance = self
-            .find_instance_by_instance_id(clip_matrix_id.parse()?)
+            .find_instance_by_instance_id(clip_matrix_id)
             .context("instance not found")?;
         Backbone::get().with_clip_matrix(&instance, f)
     }
@@ -1272,19 +1272,19 @@ impl BackboneShell {
     #[cfg(feature = "playtime")]
     pub fn with_clip_matrix_mut<R>(
         &self,
-        clip_matrix_id: &str,
+        clip_matrix_id: InstanceId,
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let instance = self
-            .find_instance_by_instance_id(clip_matrix_id.parse()?)
+            .find_instance_by_instance_id(clip_matrix_id)
             .context("instance not found")?;
         Backbone::get().with_clip_matrix_mut(&instance, f)
     }
 
     #[allow(unused)]
-    pub fn create_clip_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
+    pub fn create_clip_matrix(&self, clip_matrix_id: InstanceId) -> anyhow::Result<()> {
         let instance_shell = self
-            .find_instance_shell_by_instance_id_str(clip_matrix_id)
+            .find_instance_shell_by_instance_id(clip_matrix_id)
             .context("instance not found")?;
         instance_shell.insert_owned_clip_matrix_if_necessary()?;
         Ok(())
@@ -2624,7 +2624,7 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
             tracing::info!("App library loaded successfully");
         }
         Err(e) => {
-            tracing::warn!("App library loading failed: {e}");
+            tracing::warn!("App library loading failed: {e:#}");
         }
     }
     lib

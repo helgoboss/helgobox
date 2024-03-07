@@ -5,8 +5,8 @@ pub struct Request {
     /// This should be the instance ID of the app instance sending this request.
     /// Although the instance ID is encoded in many of the actual requests below, having the
     /// instance ID here at one place makes it easier for us to send error messages back to the correct app instance.
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
     #[prost(oneof = "request::Value", tags = "2, 3")]
     pub value: ::core::option::Option<request::Value>,
 }
@@ -292,48 +292,48 @@ pub mod event_reply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullColumnAddress {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(uint32, tag = "2")]
     pub column_index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullTrackAddress {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(string, tag = "2")]
     pub track_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullRowAddress {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(uint32, tag = "2")]
     pub row_index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullSlotAddress {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub slot_address: ::core::option::Option<SlotAddress>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullSequenceId {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(string, tag = "2")]
     pub sequence_id: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullClipAddress {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub clip_address: ::core::option::Option<ClipAddress>,
 }
@@ -356,24 +356,24 @@ pub struct SlotAddress {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMatrixTempoRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(double, tag = "2")]
     pub bpm: f64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMatrixTimeSignatureRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub time_signature: ::core::option::Option<TimeSignature>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMatrixVolumeRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(enumeration = "MatrixVolumeKind", tag = "2")]
     pub kind: i32,
     #[prost(double, tag = "3")]
@@ -382,8 +382,8 @@ pub struct SetMatrixVolumeRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMatrixPanRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(double, tag = "2")]
     pub pan: f64,
 }
@@ -474,16 +474,16 @@ pub struct TriggerGlobalRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerMatrixRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(enumeration = "TriggerMatrixAction", tag = "2")]
     pub action: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetMatrixSettingsRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     /// Matrix settings as JSON
     #[prost(string, tag = "2")]
     pub settings: ::prost::alloc::string::String,
@@ -491,8 +491,8 @@ pub struct SetMatrixSettingsRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NotifyAppIsReadyRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(uint64, tag = "2")]
     pub app_callback_address: u64,
 }
@@ -533,14 +533,14 @@ pub struct ProveAuthenticityRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetProjectDirRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetArrangementInfoRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -594,8 +594,8 @@ pub struct SetColumnSettingsRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SetInstanceSettingsRequest {
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
     /// Instance settings as JSON
     #[prost(string, tag = "2")]
     pub settings: ::prost::alloc::string::String,
@@ -615,8 +615,8 @@ pub struct SaveCustomCompartmentDataRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullCompartmentId {
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
     #[prost(uint32, tag = "2")]
     pub unit_id: u32,
     #[prost(enumeration = "Compartment", tag = "3")]
@@ -642,8 +642,8 @@ pub struct SetRowDataRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragColumnRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(uint32, tag = "2")]
     pub source_column_index: u32,
     #[prost(uint32, tag = "3")]
@@ -654,8 +654,8 @@ pub struct DragColumnRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragRowRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(uint32, tag = "2")]
     pub source_row_index: u32,
     #[prost(uint32, tag = "3")]
@@ -690,8 +690,8 @@ pub struct TriggerSequenceRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragSlotRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub source_slot_address: ::core::option::Option<SlotAddress>,
     #[prost(message, optional, tag = "3")]
@@ -710,8 +710,8 @@ pub struct ImportFilesRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DragClipRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
     #[prost(message, optional, tag = "2")]
     pub source_clip_address: ::core::option::Option<ClipAddress>,
     #[prost(message, optional, tag = "3")]
@@ -776,68 +776,68 @@ pub struct GetOccasionalGlobalUpdatesRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalInstanceUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalUnitUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub instance_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalMatrixUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalTrackUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalSlotUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalClipUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousMatrixUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalColumnUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetOccasionalRowUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousColumnUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetContinuousSlotUpdatesRequest {
-    #[prost(string, tag = "1")]
-    pub matrix_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

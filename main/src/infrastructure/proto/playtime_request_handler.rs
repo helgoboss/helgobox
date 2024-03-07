@@ -121,7 +121,7 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown drag slot action"))?;
         let source_slot_address = convert_slot_address_to_engine(&req.source_slot_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+        self.handle_matrix_command(req.matrix_id, |matrix| match action {
             DragSlotAction::Move => matrix.move_slot_to(source_slot_address, dest_slot_address),
             DragSlotAction::Copy => matrix.copy_slot_to(source_slot_address, dest_slot_address),
         })
@@ -132,7 +132,7 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown drag clip action"))?;
         let source_clip_address = convert_clip_address_to_engine(&req.source_clip_address)?;
         let dest_slot_address = convert_slot_address_to_engine(&req.destination_slot_address)?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+        self.handle_matrix_command(req.matrix_id, |matrix| match action {
             DragClipAction::Move => matrix.move_clip_to(source_clip_address, dest_slot_address),
         })
     }
@@ -140,7 +140,7 @@ impl PlaytimeProtoRequestHandler {
     pub fn drag_row(&self, req: DragRowRequest) -> Result<Response<Empty>, Status> {
         let action = DragRowAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown drag row action"))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+        self.handle_matrix_command(req.matrix_id, |matrix| match action {
             DragRowAction::MoveContent => matrix
                 .move_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
             DragRowAction::CopyContent => matrix
@@ -154,7 +154,7 @@ impl PlaytimeProtoRequestHandler {
     pub fn drag_column(&self, req: DragColumnRequest) -> Result<Response<Empty>, Status> {
         let action = DragColumnAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown drag column action"))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+        self.handle_matrix_command(req.matrix_id, |matrix| match action {
             DragColumnAction::Reorder => matrix.reorder_columns(
                 req.source_column_index as _,
                 req.destination_column_index as _,
@@ -215,11 +215,11 @@ impl PlaytimeProtoRequestHandler {
         let action = TriggerMatrixAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger matrix action"))?;
         if action == TriggerMatrixAction::CreateMatrix {
-            self.create_matrix(&req.matrix_id)
+            self.create_matrix(req.matrix_id)
                 .map_err(|e| Status::not_found(e.to_string()))?;
             return Ok(Response::new(Empty {}));
         }
-        self.handle_matrix_command(&req.matrix_id, |matrix| match action {
+        self.handle_matrix_command(req.matrix_id, |matrix| match action {
             TriggerMatrixAction::CreateMatrix => {
                 unreachable!("matrix creation handled above")
             }
@@ -295,9 +295,7 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<Empty>, Status> {
         let matrix_settings = serde_json::from_str(&req.settings)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
-            matrix.set_settings(matrix_settings)
-        })
+        self.handle_matrix_command(req.matrix_id, |matrix| matrix.set_settings(matrix_settings))
     }
 
     pub fn trigger_column(&self, req: TriggerColumnRequest) -> Result<Response<Empty>, Status> {
@@ -421,7 +419,7 @@ impl PlaytimeProtoRequestHandler {
 
     pub fn set_matrix_tempo(&self, req: SetMatrixTempoRequest) -> Result<Response<Empty>, Status> {
         let bpm = Bpm::try_from(req.bpm).map_err(|e| Status::invalid_argument(e.to_string()))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
+        self.handle_matrix_command(req.matrix_id, |matrix| {
             matrix.set_tempo(bpm);
             Ok(())
         })
@@ -436,7 +434,7 @@ impl PlaytimeProtoRequestHandler {
             .ok_or_else(|| Status::invalid_argument("no time signature given"))?
             .to_engine()
             .map_err(Status::invalid_argument)?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
+        self.handle_matrix_command(req.matrix_id, |matrix| {
             matrix.set_time_signature(time_sig);
             Ok(())
         })
@@ -449,7 +447,7 @@ impl PlaytimeProtoRequestHandler {
         let db = Db::try_from(req.db).map_err(|e| Status::invalid_argument(e.to_string()))?;
         let kind = MatrixVolumeKind::try_from(req.kind)
             .map_err(|_| Status::invalid_argument("unknown matrix volume kind"))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
+        self.handle_matrix_command(req.matrix_id, |matrix| {
             match kind {
                 MatrixVolumeKind::Master => {
                     let project = matrix.permanent_project().or_current_project();
@@ -473,7 +471,7 @@ impl PlaytimeProtoRequestHandler {
     pub fn set_matrix_pan(&self, req: SetMatrixPanRequest) -> Result<Response<Empty>, Status> {
         let pan = ReaperPanValue::try_from(req.pan)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        self.handle_matrix_command(&req.matrix_id, |matrix| {
+        self.handle_matrix_command(req.matrix_id, |matrix| {
             let project = matrix.permanent_project().or_current_project();
             project.master_track()?.set_pan(
                 Pan::from_reaper_value(pan),
@@ -576,7 +574,7 @@ impl PlaytimeProtoRequestHandler {
         &self,
         req: GetProjectDirRequest,
     ) -> Result<Response<GetProjectDirReply>, Status> {
-        let project_dir = self.handle_matrix_internal(&req.matrix_id, |matrix| {
+        let project_dir = self.handle_matrix_internal(req.matrix_id, |matrix| {
             let project = matrix.temporary_project();
             let project_dir = project
                 .directory()
@@ -593,15 +591,15 @@ impl PlaytimeProtoRequestHandler {
         &self,
         req: GetArrangementInfoRequest,
     ) -> Result<Response<GetArrangementInfoReply>, Status> {
-        let clean = self
-            .handle_matrix_internal(&req.matrix_id, |matrix| Ok(matrix.arrangement_is_clean()))?;
+        let clean =
+            self.handle_matrix_internal(req.matrix_id, |matrix| Ok(matrix.arrangement_is_clean()))?;
         let reply = GetArrangementInfoReply { clean };
         Ok(Response::new(reply))
     }
 
     fn handle_matrix_command(
         &self,
-        matrix_id: &str,
+        matrix_id: u32,
         handler: impl FnOnce(&mut Matrix) -> anyhow::Result<()>,
     ) -> Result<Response<Empty>, Status> {
         self.handle_matrix_internal(matrix_id, handler)?;
@@ -610,7 +608,7 @@ impl PlaytimeProtoRequestHandler {
 
     fn handle_matrix_internal<R>(
         &self,
-        matrix_id: &str,
+        matrix_id: u32,
         handler: impl FnOnce(&mut Matrix) -> anyhow::Result<R>,
     ) -> Result<R, Status> {
         let r = self
@@ -638,7 +636,7 @@ impl PlaytimeProtoRequestHandler {
             .as_ref()
             .ok_or_else(|| Status::invalid_argument("need full column address"))?;
         let column_index = full_column_id.column_index as usize;
-        self.handle_matrix_internal(&full_column_id.matrix_id, |matrix| {
+        self.handle_matrix_internal(full_column_id.matrix_id, |matrix| {
             handler(matrix, column_index)
         })
     }
@@ -660,7 +658,7 @@ impl PlaytimeProtoRequestHandler {
         let full_sequence_id =
             full_sequence_id.ok_or_else(|| Status::invalid_argument("need full sequence ID"))?;
         let sequence_id = MatrixSequenceId::new(full_sequence_id.sequence_id);
-        self.handle_matrix_internal(&full_sequence_id.matrix_id, |matrix| {
+        self.handle_matrix_internal(full_sequence_id.matrix_id, |matrix| {
             handler(matrix, sequence_id)
         })
     }
@@ -674,7 +672,7 @@ impl PlaytimeProtoRequestHandler {
             .as_ref()
             .ok_or_else(|| Status::invalid_argument("need full row address"))?;
         let row_index = full_row_id.row_index as usize;
-        self.handle_matrix_command(&full_row_id.matrix_id, |matrix| handler(matrix, row_index))
+        self.handle_matrix_command(full_row_id.matrix_id, |matrix| handler(matrix, row_index))
     }
 
     fn handle_slot_command(
@@ -686,7 +684,7 @@ impl PlaytimeProtoRequestHandler {
             .as_ref()
             .ok_or_else(|| Status::invalid_argument("need full slot address"))?;
         let slot_addr = convert_slot_address_to_engine(&full_slot_address.slot_address)?;
-        self.handle_matrix_command(&full_slot_address.matrix_id, |matrix| {
+        self.handle_matrix_command(full_slot_address.matrix_id, |matrix| {
             handler(matrix, slot_addr)
         })
     }
@@ -709,7 +707,7 @@ impl PlaytimeProtoRequestHandler {
             .as_ref()
             .ok_or_else(|| Status::invalid_argument("need full clip address"))?;
         let clip_addr = convert_clip_address_to_engine(&full_clip_address.clip_address)?;
-        self.handle_matrix_internal(&full_clip_address.matrix_id, |matrix| {
+        self.handle_matrix_internal(full_clip_address.matrix_id, |matrix| {
             handler(matrix, clip_addr)
         })
     }
@@ -731,7 +729,7 @@ impl PlaytimeProtoRequestHandler {
         track_address: &FullTrackAddress,
         handler: impl FnOnce(&Matrix, Track) -> anyhow::Result<R>,
     ) -> Result<R, Status> {
-        self.handle_matrix_internal(&track_address.matrix_id, |matrix| {
+        self.handle_matrix_internal(track_address.matrix_id, |matrix| {
             let guid = Guid::from_string_without_braces(&track_address.track_id)
                 .map_err(anyhow::Error::msg)?;
             let track = matrix.temporary_project().track_by_guid(&guid)?;
@@ -741,14 +739,14 @@ impl PlaytimeProtoRequestHandler {
 
     fn with_matrix_mut<R>(
         &self,
-        clip_matrix_id: &str,
+        clip_matrix_id: u32,
         f: impl FnOnce(&mut Matrix) -> R,
     ) -> anyhow::Result<R> {
-        BackboneShell::get().with_clip_matrix_mut(clip_matrix_id, f)
+        BackboneShell::get().with_clip_matrix_mut(clip_matrix_id.into(), f)
     }
 
-    fn create_matrix(&self, clip_matrix_id: &str) -> anyhow::Result<()> {
-        BackboneShell::get().create_clip_matrix(clip_matrix_id)
+    fn create_matrix(&self, clip_matrix_id: u32) -> anyhow::Result<()> {
+        BackboneShell::get().create_clip_matrix(clip_matrix_id.into())
     }
 }
 
