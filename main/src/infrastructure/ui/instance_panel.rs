@@ -50,19 +50,19 @@ impl InstancePanel {
         &self.app_instance
     }
 
-    pub fn start_or_show_app_instance(&self) {
+    pub fn start_or_show_app_instance(&self, location: String) {
         let result = self
             .app_instance
             .borrow_mut()
-            .start_or_show(reaper_main_window());
+            .start_or_show(reaper_main_window(), location);
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
-    pub fn start_show_or_hide_app_instance(&self) {
+    pub fn start_show_or_hide_app_instance(&self, location: String) {
         if self.app_instance.borrow_mut().is_visible() {
             self.hide_app_instance();
         } else {
-            self.start_or_show_app_instance();
+            self.start_or_show_app_instance(location);
         }
     }
 

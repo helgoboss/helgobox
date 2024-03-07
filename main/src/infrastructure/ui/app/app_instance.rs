@@ -1,8 +1,10 @@
-#![allow(dead_code)]
 use crate::application::WeakUnitModel;
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
-use crate::infrastructure::proto::{event_reply, reply, Empty, EventReply, ProtoReceivers, Reply};
+use crate::infrastructure::proto::{
+    event_reply, occasional_global_update, reply, Empty, EventReply,
+    GetOccasionalGlobalUpdatesReply, OccasionalGlobalUpdate, ProtoReceivers, Reply,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
@@ -21,7 +23,7 @@ pub trait AppInstance: Debug {
 
     fn is_visible(&self) -> bool;
 
-    fn start_or_show(&mut self, owning_window: Window) -> Result<()>;
+    fn start_or_show(&mut self, owning_window: Window, location: String) -> Result<()>;
 
     fn hide(&mut self) -> Result<()>;
 
@@ -98,7 +100,7 @@ impl AppInstance for DummyAppInstance {
         false
     }
 
-    fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, _location: String) -> Result<()> {
         bail!("not implemented for Linux")
     }
 
@@ -152,14 +154,27 @@ impl AppInstance for StandaloneAppInstance {
         }
     }
 
-    fn start_or_show(&mut self, _owning_window: Window) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, location: String) -> Result<()> {
         let app_library = BackboneShell::get_app_library()?;
         if let Some(running_state) = &self.running_state {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
+            // Hmmm, yeah ...
+            let _ = self.send(&Reply {
+                value: Some(reply::Value::EventReply(EventReply {
+                    value: Some(event_reply::Value::OccasionalGlobalUpdatesReply(
+                        GetOccasionalGlobalUpdatesReply {
+                            global_updates: vec![OccasionalGlobalUpdate {
+                                update: Some(occasional_global_update::Update::GoToLocation(
+                                    location,
+                                )),
+                            }],
+                        },
+                    )),
+                })),
+            });
             return Ok(());
         }
-        let app_handle =
-            app_library.start_app_instance(None, self.instance_id, "/projection".to_string())?;
+        let app_handle = app_library.start_app_instance(None, self.instance_id, location)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,

@@ -1057,7 +1057,7 @@ pub struct QualifiedOccasionalTrackUpdate {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1096,6 +1096,9 @@ pub mod occasional_global_update {
         /// Arrangement play state (= REAPER transport play state)
         #[prost(enumeration = "super::ArrangementPlayState", tag = "10")]
         ArrangementPlayState(i32),
+        /// Requests the app to change the location (route).
+        #[prost(string, tag = "11")]
+        GoToLocation(::prost::alloc::string::String),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

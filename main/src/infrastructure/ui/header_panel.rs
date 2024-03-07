@@ -2225,8 +2225,15 @@ impl HeaderPanel {
         Ok(())
     }
 
+    fn show_projection_in_app(&self) {
+        let unit_id = self.session().borrow().unit_id();
+        self.instance_panel()
+            .start_or_show_app_instance(format!("/projection/{unit_id}"));
+    }
+
     fn show_app(&self) {
-        self.instance_panel().start_or_show_app_instance();
+        self.instance_panel()
+            .start_or_show_app_instance("/".to_string());
     }
 
     fn close_app(&self) {
@@ -2679,7 +2686,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             root::ID_PROJECTION_BUTTON => {
-                self.companion_app_presenter.show_app_info();
+                self.show_projection_in_app();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
                 self.update_compartment(CompartmentKind::Controller)
