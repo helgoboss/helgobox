@@ -130,6 +130,13 @@ impl ControllerManager {
         Ok(())
     }
 
+    pub fn find_controller_by_id(&self, controller_id: &str) -> Option<&Controller> {
+        self.controller_config
+            .controllers
+            .iter()
+            .find(|c| c.id == controller_id)
+    }
+
     fn find_controller_by_id_mut(
         &mut self,
         controller_id: &str,

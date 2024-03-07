@@ -97,7 +97,7 @@ struct TargetDescriptor {
 
 pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataError> {
     let _ = BackboneShell::get()
-        .find_session_by_id(&session_id)
+        .find_unit_model_by_key(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     Ok(SessionResponseData {})
 }
@@ -106,7 +106,7 @@ pub fn get_controller_routing_by_session_id(
     session_id: String,
 ) -> Result<ControllerRouting, DataError> {
     let session = BackboneShell::get()
-        .find_session_by_id(&session_id)
+        .find_unit_model_by_key(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let routing = get_controller_routing(&session.borrow());
     Ok(routing)
@@ -114,7 +114,7 @@ pub fn get_controller_routing_by_session_id(
 
 pub fn get_controller_preset_data(session_id: String) -> Result<CompartmentPresetData, DataError> {
     let session = BackboneShell::get()
-        .find_session_by_id(&session_id)
+        .find_unit_model_by_key(&session_id)
         .ok_or(DataError::SessionNotFound)?;
     let session = session.borrow();
     get_controller_preset_data_internal(&session)
@@ -263,7 +263,7 @@ impl TryFrom<&str> for Topic {
 }
 
 pub fn send_initial_feedback(session_id: &str) {
-    if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
+    if let Some(session) = BackboneShell::get().find_unit_model_by_key(session_id) {
         session.borrow_mut().send_all_feedback();
     }
 }

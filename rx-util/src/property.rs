@@ -115,7 +115,7 @@ where
     }
 
     /// Returns the current value of this property.
-    pub fn get_ref(&self) -> &T {
+    pub const fn get_ref(&self) -> &T {
         &self.value
     }
 

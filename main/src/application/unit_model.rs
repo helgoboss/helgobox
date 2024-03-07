@@ -84,6 +84,7 @@ pub struct UnitModel {
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
     pub unit_key: Prop<String>,
+    pub name: Option<String>,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -214,10 +215,12 @@ pub mod session_defaults {
 }
 
 impl UnitModel {
+    /// Creates an empty unit model.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         instance_id: InstanceId,
         unit_id: UnitId,
+        initial_name: Option<String>,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
@@ -314,6 +317,7 @@ impl UnitModel {
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
             memorized_main_compartment: None,
             auto_unit: auto_unit.clone(),
+            name: initial_name,
         };
         if let Some(auto_unit) = auto_unit {
             let initial_controller_preset_id = auto_unit
@@ -329,6 +333,14 @@ impl UnitModel {
                 .set_control_unit_palette_color(auto_unit.controller_palette_color);
         }
         model
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn name_or_key(&self) -> &str {
+        self.name.as_deref().unwrap_or(self.unit_key.get_ref())
     }
 
     pub fn auto_unit(&self) -> Option<&AutoUnitData> {
@@ -1070,6 +1082,10 @@ impl UnitModel {
         use SessionCommand as C;
         use SessionProp as P;
         let affected = match cmd {
+            C::SetUnitName(unit_name) => {
+                self.name = unit_name;
+                Some(One(SessionProp::UnitName))
+            }
             C::SetInstanceTrack(api_desc) => {
                 let virtual_track =
                     domain::TrackDescriptor::from_api(api_desc.clone()).unwrap_or_default();
@@ -2627,7 +2643,9 @@ impl UnitModel {
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self) {
-        self.ui().handle_everything_changed(self);
+        if let Some(ui) = self.ui.get() {
+            ui.handle_everything_changed(self);
+        }
         self.full_sync();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
@@ -2918,6 +2936,7 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 
 #[allow(dead_code)]
 pub enum SessionCommand {
+    SetUnitName(Option<String>),
     SetInstanceTrack(TrackDescriptor),
     SetInstanceFx(FxDescriptor),
     ChangeCompartment(CompartmentKind, CompartmentCommand),
@@ -2925,6 +2944,7 @@ pub enum SessionCommand {
 }
 
 pub enum SessionProp {
+    UnitName,
     InstanceTrack,
     InstanceFx,
     InCompartment(CompartmentKind, Affected<CompartmentProp>),

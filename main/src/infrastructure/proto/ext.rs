@@ -43,7 +43,7 @@ impl occasional_instance_update::Update {
             Unit {
                 id: unit_model.unit_id().into(),
                 key: unit_model.unit_key.get_ref().clone(),
-                name: "TODO".to_string(),
+                name: unit_model.name().map(|n| n.to_string()),
             }
         });
         Self::Units(Units {

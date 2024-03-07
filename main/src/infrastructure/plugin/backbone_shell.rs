@@ -1198,11 +1198,11 @@ impl BackboneShell {
         app_library.map_err(|e| anyhow::anyhow!(format!("{e:?}")))
     }
 
-    pub fn has_session(&self, session_id: &str) -> bool {
-        self.find_session_by_id(session_id).is_some()
+    pub fn has_unit_with_key(&self, unit_key: &str) -> bool {
+        self.find_unit_model_by_key(unit_key).is_some()
     }
 
-    pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedUnitModel> {
+    pub fn find_unit_model_by_key(&self, session_id: &str) -> Option<SharedUnitModel> {
         self.find_session(|session| {
             let Ok(session) = session.try_borrow() else {
                 return false;
@@ -1308,7 +1308,7 @@ impl BackboneShell {
     }
 
     pub fn find_unit_id_by_unit_key(&self, session_id: &str) -> Option<UnitId> {
-        let session = self.find_session_by_id(session_id)?;
+        let session = self.find_unit_model_by_key(session_id)?;
         let session = session.borrow();
         Some(session.unit_id())
     }

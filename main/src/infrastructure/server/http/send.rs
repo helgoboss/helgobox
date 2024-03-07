@@ -41,7 +41,7 @@ pub fn send_initial_session(
     session_id: &str,
 ) -> Result<(), &'static str> {
     let event = if BackboneShell::get()
-        .find_session_by_id(session_id)
+        .find_unit_model_by_key(session_id)
         .is_some()
     {
         get_session_updated_event(session_id, Some(SessionResponseData {}))
@@ -55,7 +55,7 @@ fn send_initial_controller_routing(
     client: &WebSocketClient,
     session_id: &str,
 ) -> Result<(), &'static str> {
-    let event = if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
+    let event = if let Some(session) = BackboneShell::get().find_unit_model_by_key(session_id) {
         get_controller_routing_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_controller_routing_updated_event(session_id, None)
@@ -64,7 +64,7 @@ fn send_initial_controller_routing(
 }
 
 fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let event = if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
+    let event = if let Some(session) = BackboneShell::get().find_unit_model_by_key(session_id) {
         get_active_controller_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_active_controller_updated_event(session_id, None)

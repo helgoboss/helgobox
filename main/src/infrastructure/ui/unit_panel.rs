@@ -9,8 +9,8 @@ use std::cell::RefCell;
 use std::fmt;
 
 use crate::application::{
-    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionProp,
-    SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
+    get_virtual_fx_label, get_virtual_track_label, Affected, CompartmentProp, SessionCommand,
+    SessionProp, SessionUi, UnitModel, VirtualFxType, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
@@ -129,14 +129,13 @@ impl UnitPanel {
             let state = self.state.borrow();
             let scroll_status = state.scroll_status.get_ref();
             let tags = unit_model.tags.get_ref();
+            let instance_id = unit_model.instance_id();
+            let unit_key = unit_model.unit_key();
             let mut text = format!(
-                "Showing mappings {} to {} of {} | Unit info: {} ({}/{})",
+                "Showing mappings {} to {} of {} | Instance ID: {instance_id} | Unit key: {unit_key}",
                 scroll_status.from_pos,
                 scroll_status.to_pos,
                 scroll_status.item_count,
-                unit_model.unit_key(),
-                unit_model.instance_id(),
-                unit_model.unit_id(),
             );
             if !tags.is_empty() {
                 let _ = write!(&mut text, " | Unit tags: {}", format_tags_as_csv(tags));
@@ -328,8 +327,14 @@ impl UnitPanel {
             return;
         }
         match affected {
-            One(InstanceTrack | InstanceFx) | Multiple => {
+            One(InstanceTrack | InstanceFx) => {
                 self.invalidate_status_2_text();
+            }
+            One(UnitName) => {
+                let _ = self.invalidate_unit_button();
+            }
+            Multiple => {
+                self.invalidate_all_controls();
             }
             _ => {}
         }
@@ -368,21 +373,22 @@ impl UnitPanel {
             .expect("instance panel doesn't exist anymore")
     }
 
-    fn edit_instance_data(&self) -> Result<(), &'static str> {
-        let (initial_session_id, initial_tags_as_csv) = self.do_with_session(|session| {
+    fn edit_unit_data(&self) -> Result<(), &'static str> {
+        let (initial_key, initial_name, initial_tags_as_csv) = self.do_with_session(|session| {
             (
                 session.unit_key().to_owned(),
+                session.name().map(|n| n.to_string()).unwrap_or_default(),
                 format_tags_as_csv(session.tags.get_ref()),
             )
         })?;
-        let initial_csv = format!("{initial_session_id}|{initial_tags_as_csv}");
+        let initial_csv = format!("{initial_key}|{initial_name}|{initial_tags_as_csv}");
         // Show UI
         let csv_result = Reaper::get().medium_reaper().get_user_inputs(
             "ReaLearn",
-            2,
-            "Unit ID,Tags,separator=|,extrawidth=200",
+            3,
+            "Unit Key,Unit Name,Tags,separator=|,extrawidth=200",
             initial_csv,
-            512,
+            1024,
         );
         // Check if cancelled
         let csv = match csv_result {
@@ -392,8 +398,8 @@ impl UnitPanel {
         };
         // Parse result CSV
         let split: Vec<_> = csv.to_str().split('|').collect();
-        let (session_id, tags_as_csv) = match split.as_slice() {
-            [session_id, tags_as_csv] => (session_id, tags_as_csv),
+        let (unit_key, unit_name, tags_as_csv) = match split.as_slice() {
+            [unit_key, unit_name, tags_as_csv] => (unit_key, unit_name, tags_as_csv),
             _ => return Err("couldn't split result"),
         };
         // Take care of tags
@@ -403,19 +409,32 @@ impl UnitPanel {
                 session.tags.set(tags);
             })?;
         }
-        // Take care of session ID
+        // Take care of unit name
+        let unit_name = if unit_name.trim().is_empty() {
+            None
+        } else {
+            Some(unit_name.to_string())
+        };
+        self.do_with_session_mut(|session| {
+            session.change_with_notification(
+                SessionCommand::SetUnitName(unit_name),
+                None,
+                self.session.clone(),
+            );
+        })?;
+        // Take care of unit key
         // TODO-low Introduce a SessionId newtype.
-        let new_session_id = session_id.replace(|ch| !nanoid::alphabet::SAFE.contains(&ch), "");
-        if !new_session_id.is_empty() && new_session_id != initial_session_id {
-            if BackboneShell::get().has_session(&new_session_id) {
+        let new_unit_key = unit_key.replace(|ch| !nanoid::alphabet::SAFE.contains(&ch), "");
+        if !new_unit_key.is_empty() && new_unit_key != initial_key {
+            if BackboneShell::get().has_unit_with_key(&new_unit_key) {
                 self.view.require_window().alert(
                     "ReaLearn",
-                    "There's another open ReaLearn unit which already has this unit ID!",
+                    "There's another open ReaLearn unit which already has this unit key!",
                 );
                 return Ok(());
             }
             self.do_with_session_mut(|session| {
-                session.unit_key.set(new_session_id);
+                session.unit_key.set(new_unit_key);
             })?;
         }
         Ok(())
@@ -457,7 +476,7 @@ impl View for UnitPanel {
                 self.open_unit_popup_menu();
             }
             root::IDC_EDIT_TAGS_BUTTON => {
-                self.edit_instance_data().unwrap();
+                self.edit_unit_data().unwrap();
             }
             _ => {}
         }
@@ -556,6 +575,7 @@ pub fn build_unit_label(
     build_unit_label_internal(unit_model, index, count).unwrap_or_default()
 }
 
+/// A given count means that we build the button label, in which case the total number of units will be displayed, too.
 fn build_unit_label_internal(
     unit_model: &UnitModel,
     index: Option<usize>,
@@ -564,14 +584,18 @@ fn build_unit_label_internal(
     use std::fmt::Write;
     let mut s = String::new();
     let pos = index.map(|i| i + 2).unwrap_or(1);
+    // Unit with position
     write!(&mut s, "Unit {pos}")?;
-    if let Some(c) = count {
-        write!(&mut s, "/{c}")?;
-    }
-    if index.is_none() {
-        write!(&mut s, " (main)")?;
-    } else if unit_model.auto_unit().is_some() {
+    // Indicate which one is an auto unit
+    if unit_model.auto_unit().is_some() {
         write!(&mut s, " (auto)")?;
     }
+    // Total unit count, only if button label
+    if let Some(c) = count {
+        // This is for a button label. We want to display the total unit count.
+        write!(&mut s, "/{c}")?;
+    }
+    let label = unit_model.name_or_key();
+    write!(&mut s, ": {label}")?;
     Ok(s)
 }

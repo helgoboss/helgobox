@@ -132,6 +132,7 @@ impl InstanceShell {
         let instance = Rc::new(RefCell::new(instance));
         let main_unit_shell = UnitShell::new(
             main_unit_id,
+            Some("Main".into()),
             instance_id,
             processor_context.clone(),
             instance.clone(),
@@ -253,8 +254,18 @@ impl InstanceShell {
     }
 
     fn create_additional_unit_shell(&self, auto_unit: Option<AutoUnitData>) -> UnitShell {
+        let initial_name = auto_unit.as_ref().and_then(|au| {
+            BackboneShell::get()
+                .controller_manager()
+                .borrow()
+                .find_controller_by_id(&au.controller_id)?
+                .name
+                .clone()
+                .into()
+        });
         UnitShell::new(
             UnitId::next(),
+            initial_name,
             self.instance_id,
             self.processor_context.get().clone(),
             self.instance.get().clone(),

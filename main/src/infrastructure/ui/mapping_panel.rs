@@ -997,7 +997,7 @@ impl MappingPanel {
                         mapping_key,
                     } => {
                         let session = BackboneShell::get()
-                            .find_session_by_id(&session_id)
+                            .find_unit_model_by_key(&session_id)
                             .ok_or("session not found")?;
                         let mapping_id = {
                             mapping_key.and_then(|key| {
@@ -5279,7 +5279,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ModifyMapping => match self.target.mapping_ref() {
                     MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
                     MappingRefModel::ForeignMapping { session_id, .. } => {
-                        if let Some(session) = BackboneShell::get().find_session_by_id(session_id) {
+                        if let Some(session) =
+                            BackboneShell::get().find_unit_model_by_key(session_id)
+                        {
                             Some(session.borrow().to_string())
                         } else {
                             Some("<Unit doesn't exist>".to_string())

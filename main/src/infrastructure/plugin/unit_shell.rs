@@ -59,6 +59,7 @@ impl UnitShell {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         unit_id: UnitId,
+        initial_name: Option<String>,
         instance_id: InstanceId,
         processor_context: ProcessorContext,
         parent_instance: SharedInstance,
@@ -129,6 +130,7 @@ impl UnitShell {
         let unit_model = UnitModel::new(
             instance_id,
             unit_id,
+            initial_name,
             &logger,
             processor_context.clone(),
             normal_main_task_sender.clone(),

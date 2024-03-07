@@ -887,7 +887,7 @@ pub mod qualified_occasional_unit_update {
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Update {
-        /// Everything within the unit has changed (e.g. unit data load).
+        /// Everything within the unit has changed (e.g. unit data load or replacing compartment).
         #[prost(bool, tag = "2")]
         EverythingHasChanged(bool),
         /// Updated controller routing (for projection).
@@ -908,8 +908,8 @@ pub struct Unit {
     pub id: u32,
     #[prost(string, tag = "2")]
     pub key: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub name: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
