@@ -49,7 +49,7 @@ impl ProtoReceivers {
         instance_id: InstanceId,
         process: &impl Fn(EventReply),
     ) {
-        future::join3(
+        future::join4(
             future::join5(
                 keep_processing_session_filtered_updates(
                     instance_id,
@@ -104,6 +104,11 @@ impl ProtoReceivers {
                 instance_id,
                 process,
                 &mut self.occasional_clip_update_receiver,
+            ),
+            keep_processing_session_filtered_updates(
+                instance_id,
+                process,
+                &mut self.occasional_unit_update_receiver,
             ),
         )
         .await;
