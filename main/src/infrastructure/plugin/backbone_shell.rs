@@ -44,11 +44,13 @@ use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
+use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
+use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
 use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPanel;
-use crate::infrastructure::plugin::toolbar::add_toolbar_button;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
     ini_util, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
+    ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
 };
 use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
@@ -82,7 +84,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -439,6 +441,11 @@ impl BackboneShell {
         // Must be called after registering actions and waking REAPER up, otherwise it won't find the command IDs.
         let _ = Self::register_extension_menu();
         let _ = Self::register_toolbar_icon_map();
+        for (key, value) in &config.toolbar {
+            if *value > 0 {
+                let _ = add_or_remove_toolbar_button(key, true);
+            }
+        }
         // Detect shutdown via hidden child window as suggested by Justin
         let shutdown_detection_panel = SharedView::new(ShutdownDetectionPanel::new());
         shutdown_detection_panel.clone().open(reaper_window());
@@ -1047,6 +1054,19 @@ impl BackboneShell {
         self.server.borrow_mut().stop();
     }
 
+    /// Requires REAPER version >= 711+dev0305.
+    pub fn toggle_toolbar_button_dynamically(&self, command_name: &str) -> anyhow::Result<()> {
+        self.change_config(|config| {
+            // Adjust config
+            let value = config.toolbar.entry(command_name.to_string()).or_insert(0);
+            let enable = *value == 0;
+            *value = enable.into();
+            // Apply
+            add_or_remove_toolbar_button(command_name, enable)?;
+            Ok(())
+        })
+    }
+
     /// Logging debug info is always initiated by a particular session.
     pub fn log_debug_info(&self, session_id: &str) {
         let msg = format!(
@@ -1070,11 +1090,12 @@ impl BackboneShell {
         self.sessions_changed_subject.borrow().clone()
     }
 
-    fn change_config(&self, op: impl FnOnce(&mut BackboneConfig)) {
+    fn change_config<R>(&self, op: impl FnOnce(&mut BackboneConfig) -> R) -> R {
         let mut config = self.config.borrow_mut();
-        op(&mut config);
+        let result = op(&mut config);
         config.save().unwrap();
         self.notify_changed();
+        result
     }
 
     fn helgoboss_resource_dir_path() -> PathBuf {
@@ -1521,9 +1542,10 @@ impl BackboneShell {
         }
     }
 
-    pub fn add_toolbar_buttons() {
+    /// This is only necessary for REAPER versions < 7.11+dev0305
+    pub fn add_toolbar_buttons_persistently() {
         for def in ACTION_DEFS.iter().filter(|def| def.add_toolbar_button) {
-            let result = add_toolbar_button(
+            let result = add_toolbar_button_persistently(
                 def.command_name,
                 &def.build_full_action_name(),
                 def.icon_file_name,
@@ -2135,6 +2157,7 @@ impl Drop for BackboneShell {
 #[serde(default)]
 pub struct BackboneConfig {
     main: MainConfig,
+    toolbar: HashMap<String, u8>,
 }
 
 impl BackboneConfig {
@@ -2168,6 +2191,10 @@ impl BackboneConfig {
 
     pub fn companion_web_app_url(&self) -> url::Url {
         Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
+    }
+
+    pub fn toolbar_button_is_enabled(&self, command_name: &str) -> bool {
+        self.toolbar.get(command_name).is_some_and(|v| *v != 0)
     }
 
     fn config_file_path() -> PathBuf {
@@ -2848,7 +2875,7 @@ impl ToolbarIconMap for BackboneShell {
         _toggle_state: Option<bool>,
     ) -> Option<&'static ReaperStr> {
         Reaper::get().with_our_command(command_id, |command| match command?.command_name() {
-            "HB_SHOW_HIDE_PLAYTIME" => Some(reaper_str!("toolbar_playtime")),
+            ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME => Some(reaper_str!("toolbar_playtime")),
             _ => None,
         })
     }

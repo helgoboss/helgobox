@@ -1,9 +1,12 @@
 use enumset::EnumSet;
+use reaper_high::Reaper;
 use reaper_low::raw;
 use std::fmt::Debug;
 
 use crate::base::notification::alert;
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{
+    BackboneShell, ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME, ACTION_SHOW_WELCOME_SCREEN_LABEL,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{fonts, symbols};
 use swell_ui::{SharedView, View, ViewContext, Window};
@@ -19,6 +22,14 @@ impl WelcomePanel {
             view: Default::default(),
         }
     }
+
+    fn toggle_toolbar_button(&self, command_name: &str) -> anyhow::Result<()> {
+        if custom_toolbar_api_is_available() {
+            BackboneShell::get().toggle_toolbar_button_dynamically(command_name)?;
+        }
+        self.invalidate_controls();
+        Ok(())
+    }
 }
 
 impl View for WelcomePanel {
@@ -32,8 +43,8 @@ impl View for WelcomePanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.center_on_screen();
-        let large_font = fonts::normal_font(window, 20);
-        let medium_font = fonts::normal_font(window, 14);
+        let large_font = fonts::normal_font(window, 18);
+        let medium_font = fonts::normal_font(window, 12);
         // Text 1
         let text_1 = window.require_control(root::ID_SETUP_INTRO_TEXT_1);
         text_1.set_cached_font(large_font);
@@ -45,7 +56,7 @@ impl View for WelcomePanel {
         // Text 3
         let text_3 = window.require_control(root::ID_SETUP_TIP_TEXT);
         let arrow = symbols::arrow_right_symbol();
-        text_3.set_text(format!("Tip: You can come back here at any time via\nExtensions {arrow} Helgobox {arrow} Show welcome screen"));
+        text_3.set_text(format!("Tip: You can come back here at any time via\nExtensions {arrow} Helgobox {arrow} {ACTION_SHOW_WELCOME_SCREEN_LABEL}"));
         // Checkboxes
         let playtime_checkbox = window.require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON);
         playtime_checkbox.check();
@@ -56,10 +67,15 @@ impl View for WelcomePanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON => {
-                self.invalidate_controls();
+                self.toggle_toolbar_button(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME)
+                    .expect("couldn't toggle toolbar button");
             }
             root::ID_SETUP_PANEL_OK => {
-                self.apply_and_close();
+                if custom_toolbar_api_is_available() {
+                    self.close()
+                } else {
+                    self.apply_and_close();
+                }
             }
             // IDCANCEL is escape button
             raw::IDCANCEL => {
@@ -70,13 +86,37 @@ impl View for WelcomePanel {
     }
 }
 
+fn custom_toolbar_api_is_available() -> bool {
+    Reaper::get()
+        .medium_reaper()
+        .low()
+        .pointers()
+        .GetCustomMenuOrToolbarItem
+        .is_some()
+}
+
 impl WelcomePanel {
     fn invalidate_controls(&self) {
-        let button_text = if self.build_instructions().is_empty() {
-            "Close"
-        } else {
-            "Continue"
-        };
+        self.invalidate_playtime_checkbox();
+        self.invalidate_button();
+    }
+
+    fn invalidate_playtime_checkbox(&self) {
+        let checked = BackboneShell::get()
+            .config()
+            .toolbar_button_is_enabled(ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME);
+        self.view
+            .require_control(root::ID_SETUP_ADD_PLAYTIME_TOOLBAR_BUTTON)
+            .set_checked(checked);
+    }
+
+    fn invalidate_button(&self) {
+        let button_text =
+            if self.build_instructions().is_empty() || custom_toolbar_api_is_available() {
+                "Close"
+            } else {
+                "Continue"
+            };
         self.view
             .require_control(root::ID_SETUP_PANEL_OK)
             .set_text(button_text);
@@ -88,7 +128,12 @@ impl WelcomePanel {
             for instruction in instructions {
                 instruction.execute();
             }
-            alert("Additional setup finished!")
+            let addition = if custom_toolbar_api_is_available() {
+                ""
+            } else {
+                "\n\nIf you enabled the toolbar button, please restart REAPER now (otherwise you will not see the button)!"
+            };
+            alert(format!("Additional setup finished!{addition}"));
         }
         self.close();
     }
@@ -115,7 +160,7 @@ impl SetupInstruction {
     pub fn execute(&self) {
         match self {
             SetupInstruction::PlaytimeToolbarButton => {
-                BackboneShell::add_toolbar_buttons();
+                BackboneShell::add_toolbar_buttons_persistently();
             }
         }
     }

@@ -6,11 +6,14 @@ use reaper_high::{ActionKind, KeyBinding, KeyBindingKind, Reaper};
 use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
 use swell_ui::menu_tree::{item, menu, Entry};
 
+pub const ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_PLAYTIME";
+pub const ACTION_SHOW_WELCOME_SCREEN_LABEL: &str = "Show welcome screen";
+
 pub const ACTION_DEFS: &[ActionDef] = &[
     ActionDef {
         section: ActionSection::General,
         command_name: "HB_SHOW_WELCOME_SCREEN",
-        action_name: "Show welcome screen",
+        action_name: ACTION_SHOW_WELCOME_SCREEN_LABEL,
         op: BackboneShell::show_welcome_screen,
         ..DEFAULT_DEF
     },
@@ -82,7 +85,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
     },
     ActionDef {
         section: ActionSection::Playtime,
-        command_name: "HB_SHOW_HIDE_PLAYTIME",
+        command_name: ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME,
         action_name: "Show/hide Playtime",
         op: BackboneShell::show_hide_playtime,
         add_toolbar_button: true,

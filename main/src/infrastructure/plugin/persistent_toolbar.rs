@@ -1,7 +1,11 @@
 use anyhow::{bail, Context};
 use reaper_high::Reaper;
 
-pub fn add_toolbar_button(
+/// This attempts to add a toolbar button persistently by modifying the "reaper-menu.ini" file.
+///
+/// This should only be used for REAPER versions < 711+dev0305. Later versions have API functions for dynamically
+/// adding and removing toolbar buttons, which is more flexible and doesn't require a restart of REAPER.
+pub fn add_toolbar_button_persistently(
     command_name: &str,
     action_label: &str,
     icon_file_name: &str,

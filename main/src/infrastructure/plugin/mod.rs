@@ -14,10 +14,11 @@ mod actions;
 mod ini_util;
 pub use actions::*;
 
+mod dynamic_toolbar;
+mod persistent_toolbar;
 #[cfg(debug_assertions)]
 mod sandbox;
 mod shutdown_detection_panel;
-mod toolbar;
 mod unit_shell;
 pub use unit_shell::*;
 
