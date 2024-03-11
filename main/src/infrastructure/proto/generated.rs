@@ -1512,9 +1512,17 @@ pub enum TriggerMatrixAction {
     SequencerStop = 20,
     SequencerWriteToArrangement = 21,
     SequencerCleanArrangement = 22,
-    ToggleLearnSimpleMapping = 23,
-    RemoveSimpleMapping = 24,
     TriggerSmartRecord = 25,
+    ToggleLearnSimpleMappingTrigger = 23,
+    ToggleLearnSimpleMappingSmartRecord = 26,
+    ToggleLearnSimpleMappingEnterSilenceModeOrPlayIgnited = 27,
+    ToggleLearnSimpleMappingSequencerRecordOnOffState = 28,
+    ToggleLearnSimpleMappingSequencerPlayOnOffState = 29,
+    RemoveSimpleMappingTrigger = 24,
+    RemoveSimpleMappingSmartRecord = 30,
+    RemoveSimpleMappingEnterSilenceModeOrPlayIgnited = 31,
+    RemoveSimpleMappingSequencerRecordOnOffState = 32,
+    RemoveSimpleMappingSequencerPlayOnOffState = 33,
 }
 impl TriggerMatrixAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1552,14 +1560,38 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::SequencerCleanArrangement => {
                 "TRIGGER_MATRIX_ACTION_SEQUENCER_CLEAN_ARRANGEMENT"
             }
-            TriggerMatrixAction::ToggleLearnSimpleMapping => {
-                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING"
-            }
-            TriggerMatrixAction::RemoveSimpleMapping => {
-                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING"
-            }
             TriggerMatrixAction::TriggerSmartRecord => {
                 "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD"
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingTrigger => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TRIGGER"
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSmartRecord => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SMART_RECORD"
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingEnterSilenceModeOrPlayIgnited => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_ENTER_SILENCE_MODE_OR_PLAY_IGNITED"
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSequencerRecordOnOffState => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_RECORD_ON_OFF_STATE"
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSequencerPlayOnOffState => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingTrigger => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TRIGGER"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSmartRecord => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SMART_RECORD"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingEnterSilenceModeOrPlayIgnited => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_ENTER_SILENCE_MODE_OR_PLAY_IGNITED"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSequencerRecordOnOffState => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_RECORD_ON_OFF_STATE"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSequencerPlayOnOffState => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE"
             }
         }
     }
@@ -1589,14 +1621,38 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_SEQUENCER_CLEAN_ARRANGEMENT" => {
                 Some(Self::SequencerCleanArrangement)
             }
-            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING" => {
-                Some(Self::ToggleLearnSimpleMapping)
-            }
-            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING" => {
-                Some(Self::RemoveSimpleMapping)
-            }
             "TRIGGER_MATRIX_ACTION_TRIGGER_SMART_RECORD" => {
                 Some(Self::TriggerSmartRecord)
+            }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TRIGGER" => {
+                Some(Self::ToggleLearnSimpleMappingTrigger)
+            }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SMART_RECORD" => {
+                Some(Self::ToggleLearnSimpleMappingSmartRecord)
+            }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_ENTER_SILENCE_MODE_OR_PLAY_IGNITED" => {
+                Some(Self::ToggleLearnSimpleMappingEnterSilenceModeOrPlayIgnited)
+            }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_RECORD_ON_OFF_STATE" => {
+                Some(Self::ToggleLearnSimpleMappingSequencerRecordOnOffState)
+            }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE" => {
+                Some(Self::ToggleLearnSimpleMappingSequencerPlayOnOffState)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TRIGGER" => {
+                Some(Self::RemoveSimpleMappingTrigger)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SMART_RECORD" => {
+                Some(Self::RemoveSimpleMappingSmartRecord)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_ENTER_SILENCE_MODE_OR_PLAY_IGNITED" => {
+                Some(Self::RemoveSimpleMappingEnterSilenceModeOrPlayIgnited)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_RECORD_ON_OFF_STATE" => {
+                Some(Self::RemoveSimpleMappingSequencerRecordOnOffState)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE" => {
+                Some(Self::RemoveSimpleMappingSequencerPlayOnOffState)
             }
             _ => None,
         }

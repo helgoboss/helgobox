@@ -21,7 +21,10 @@ use strum::EnumIter;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::{SeekBehavior, TrackScope};
+use realearn_api::persistence::{
+    PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
+    SeekBehavior, TrackScope,
+};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
@@ -32,12 +35,14 @@ use crate::domain::{
     FxOnlineTarget, FxOpenTarget, FxParameterTarget, FxParameterTouchStateTarget, FxPresetTarget,
     FxToolTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider, LoadFxSnapshotTarget,
     LoadPotPresetTarget, MappingControlContext, MidiSendTarget, ModifyMappingTarget, OscSendTarget,
-    PlayrateTarget, PreviewPotPresetTarget, RealTimeControlContext, RealTimeFxParameterTarget,
-    RouteMuteTarget, RoutePanTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget,
-    TakeMappingSnapshotTarget, TargetTypeDef, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMonitoringModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget, TransportTarget, UnitEvent,
+    PlayrateTarget, PlaytimeColumnActionTarget, PlaytimeMatrixActionTarget,
+    PlaytimeRowActionTarget, PlaytimeSlotTransportTarget, PreviewPotPresetTarget,
+    RealTimeControlContext, RealTimeFxParameterTarget, RouteMuteTarget, RoutePanTarget,
+    RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, TakeMappingSnapshotTarget, TargetTypeDef,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMonitoringModeTarget,
+    TrackMuteTarget, TrackPanTarget, TrackParentSendTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackTouchStateTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget, UnitEvent,
 };
 use crate::domain::{
     AnyOnTarget, BrowseGroupMappingsTarget, CompoundChangeEvent, EnableInstancesTarget,
@@ -47,6 +52,7 @@ use crate::domain::{
 };
 use base::default_util::is_default;
 use base::Global;
+use playtime_api::runtime::SimpleMappingTarget;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
@@ -138,11 +144,11 @@ pub enum ReaperTarget {
     SendMidi(MidiSendTarget),
     SendOsc(OscSendTarget),
     Dummy(DummyTarget),
-    PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget),
+    PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(crate::domain::PlaytimeControlUnitScrollTarget),
-    PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget),
-    PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget),
-    PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget),
+    PlaytimeSlotTransportAction(PlaytimeSlotTransportTarget),
+    PlaytimeColumnAction(PlaytimeColumnActionTarget),
+    PlaytimeRowAction(PlaytimeRowActionTarget),
     PlaytimeSlotSeek(crate::domain::PlaytimeSlotSeekTarget),
     PlaytimeSlotVolume(crate::domain::PlaytimeSlotVolumeTarget),
     PlaytimeSlotManagementAction(crate::domain::PlaytimeSlotManagementActionTarget),
@@ -273,36 +279,44 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
-    pub fn from_simple_target(simple_target: playtime_api::runtime::SimpleMappingTarget) -> Self {
-        use playtime_api::runtime::SimpleMappingTarget::*;
+    pub fn from_simple_target(simple_target: SimpleMappingTarget) -> Self {
+        use SimpleMappingTarget::*;
         match simple_target {
-            TriggerMatrix => {
-                Self::PlaytimeMatrixAction(crate::domain::PlaytimeMatrixActionTarget {
-                    action: realearn_api::persistence::PlaytimeMatrixAction::Stop,
-                })
-            }
-            TriggerColumn(t) => {
-                Self::PlaytimeColumnAction(crate::domain::PlaytimeColumnActionTarget {
-                    column_index: t.index,
-                    action: realearn_api::persistence::PlaytimeColumnAction::Stop,
-                })
-            }
-            TriggerRow(t) => Self::PlaytimeRowAction(crate::domain::PlaytimeRowActionTarget {
+            TriggerMatrix => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                action: PlaytimeMatrixAction::Stop,
+            }),
+            TriggerColumn(t) => Self::PlaytimeColumnAction(PlaytimeColumnActionTarget {
+                column_index: t.index,
+                action: PlaytimeColumnAction::Stop,
+            }),
+            TriggerRow(t) => Self::PlaytimeRowAction(PlaytimeRowActionTarget {
                 basics: crate::domain::ClipRowTargetBasics {
                     row_index: t.index,
-                    action: realearn_api::persistence::PlaytimeRowAction::PlayScene,
+                    action: PlaytimeRowAction::PlayScene,
                 },
             }),
-            TriggerSlot(t) => {
-                Self::PlaytimeSlotTransportAction(crate::domain::PlaytimeSlotTransportTarget {
-                    project: Reaper::get().current_project(),
-                    basics: crate::domain::ClipTransportTargetBasics {
-                        slot_address: t,
-                        action: realearn_api::persistence::PlaytimeSlotTransportAction::Trigger,
-                        options: Default::default(),
-                    },
+            TriggerSlot(t) => Self::PlaytimeSlotTransportAction(PlaytimeSlotTransportTarget {
+                project: Reaper::get().current_project(),
+                basics: crate::domain::ClipTransportTargetBasics {
+                    slot_address: t,
+                    action: PlaytimeSlotTransportAction::Trigger,
+                    options: Default::default(),
+                },
+            }),
+            SmartRecord => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                action: PlaytimeMatrixAction::SmartRecord,
+            }),
+            EnterSilenceModeOrPlayIgnited => {
+                Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited,
                 })
             }
+            SequencerRecordOnOffState => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                action: PlaytimeMatrixAction::SequencerRecordOnOffState,
+            }),
+            SequencerPlayOnOffState => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                action: PlaytimeMatrixAction::SequencerPlayOnOffState,
+            }),
         }
     }
 

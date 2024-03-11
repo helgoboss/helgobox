@@ -277,12 +277,50 @@ impl PlaytimeProtoRequestHandler {
                 matrix.tap_tempo();
                 Ok(())
             }
-            TriggerMatrixAction::ToggleLearnSimpleMapping => {
+            TriggerMatrixAction::ToggleLearnSimpleMappingTrigger => {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
                 Ok(())
             }
-            TriggerMatrixAction::RemoveSimpleMapping => {
+            TriggerMatrixAction::ToggleLearnSimpleMappingEnterSilenceModeOrPlayIgnited => {
+                matrix.toggle_learn_source_by_target(
+                    SimpleMappingTarget::EnterSilenceModeOrPlayIgnited,
+                );
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSmartRecord => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SmartRecord);
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSequencerPlayOnOffState => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SequencerPlayOnOffState);
+                Ok(())
+            }
+            TriggerMatrixAction::ToggleLearnSimpleMappingSequencerRecordOnOffState => {
+                matrix
+                    .toggle_learn_source_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingTrigger => {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingEnterSilenceModeOrPlayIgnited => {
+                matrix.toggle_learn_source_by_target(
+                    SimpleMappingTarget::EnterSilenceModeOrPlayIgnited,
+                );
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSmartRecord => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SmartRecord);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSequencerPlayOnOffState => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SequencerPlayOnOffState);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingSequencerRecordOnOffState => {
+                matrix
+                    .toggle_learn_source_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
                 Ok(())
             }
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),

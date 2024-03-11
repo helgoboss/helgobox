@@ -59,13 +59,14 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
+use realearn_api::persistence::Target::PlaytimeColumnAction;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
     LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PlaytimeColumnDescriptor, PlaytimeRowDescriptor, PlaytimeSlotDescriptor,
-    PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification, TargetTouchCause,
-    TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    MouseButton, PlaytimeColumnDescriptor, PlaytimeMatrixAction, PlaytimeRowDescriptor,
+    PlaytimeSlotDescriptor, PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification,
+    TargetTouchCause, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -1780,6 +1781,15 @@ impl TargetModel {
                     self.automation_mode = RealearnAutomationMode::from_reaper(am);
                 }
             },
+            PlaytimeMatrixAction(t) => {
+                self.clip_matrix_action = t.action;
+            }
+            PlaytimeColumnAction(t) => {
+                self.clip_column_action = t.action;
+            }
+            PlaytimeRowAction(t) => {
+                self.clip_row_action = t.basics.action;
+            }
             PlaytimeSlotTransportAction(t) => {
                 self.clip_transport_action = t.basics.action;
             }
@@ -2667,32 +2677,41 @@ impl TargetModel {
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
         use playtime_api::runtime::SimpleMappingTarget;
         use realearn_api::persistence;
-        use ReaperTargetType::*;
+        use ReaperTargetType as T;
         if self.category != TargetCategory::Reaper {
             return None;
         }
         let t = match self.r#type {
-            PlaytimeSlotTransportAction
+            T::PlaytimeSlotTransportAction
                 if self.clip_transport_action()
                     == persistence::PlaytimeSlotTransportAction::Trigger =>
             {
                 SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
             }
-            PlaytimeColumnAction
+            T::PlaytimeColumnAction
                 if self.clip_column_action() == persistence::PlaytimeColumnAction::Stop =>
             {
                 SimpleMappingTarget::TriggerColumn(self.clip_column.fixed_address()?)
             }
-            PlaytimeRowAction
+            T::PlaytimeRowAction
                 if self.clip_row_action() == persistence::PlaytimeRowAction::PlayScene =>
             {
                 SimpleMappingTarget::TriggerRow(self.clip_row.fixed_address()?)
             }
-            PlaytimeMatrixAction
-                if self.clip_matrix_action() == persistence::PlaytimeMatrixAction::Stop =>
-            {
-                SimpleMappingTarget::TriggerMatrix
-            }
+            T::PlaytimeMatrixAction => match self.clip_matrix_action {
+                PlaytimeMatrixAction::Stop => SimpleMappingTarget::TriggerMatrix,
+                PlaytimeMatrixAction::SmartRecord => SimpleMappingTarget::SmartRecord,
+                PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                    SimpleMappingTarget::EnterSilenceModeOrPlayIgnited
+                }
+                PlaytimeMatrixAction::SequencerRecordOnOffState => {
+                    SimpleMappingTarget::SequencerRecordOnOffState
+                }
+                PlaytimeMatrixAction::SequencerPlayOnOffState => {
+                    SimpleMappingTarget::SequencerPlayOnOffState
+                }
+                _ => return None,
+            },
             _ => return None,
         };
         Some(t)

@@ -1515,6 +1515,18 @@ pub enum PlaytimeMatrixAction {
     ClickOnOffState,
     #[display(fmt = "Enable/disable MIDI auto-quantize")]
     MidiAutoQuantizationOnOffState,
+    #[display(fmt = "Smart record")]
+    SmartRecord,
+    #[display(fmt = "Enable silence mode or play ignited")]
+    EnterSilenceModeOrPlayIgnited,
+    #[display(fmt = "Enable/disable silence mode")]
+    SilenceModeOnOffState,
+    #[display(fmt = "Panic")]
+    Panic,
+    #[display(fmt = "Enable/disable sequencer recording")]
+    SequencerRecordOnOffState,
+    #[display(fmt = "Enable/disable sequencer playing")]
+    SequencerPlayOnOffState,
 }
 
 impl Default for PlaytimeMatrixAction {

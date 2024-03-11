@@ -46,4 +46,8 @@ pub enum SimpleMappingTarget {
     TriggerColumn(ColumnAddress),
     TriggerRow(RowAddress),
     TriggerSlot(SlotAddress),
+    SmartRecord,
+    EnterSilenceModeOrPlayIgnited,
+    SequencerRecordOnOffState,
+    SequencerPlayOnOffState,
 }

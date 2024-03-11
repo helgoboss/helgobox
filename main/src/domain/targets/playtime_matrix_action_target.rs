@@ -79,10 +79,14 @@ mod playtime_impl {
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
     use playtime_api::persistence::{EvenQuantization, RecordLength};
-    use playtime_clip_engine::base::{ClipMatrixEvent, Matrix};
+    use playtime_clip_engine::base::{ClipMatrixEvent, Matrix, SequencerStatus};
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
     use realearn_api::persistence::PlaytimeMatrixAction;
 
+    use realearn_api::persistence::PlaytimeMatrixAction::{
+        EnterSilenceModeOrPlayIgnited, SequencerPlayOnOffState, SequencerRecordOnOffState,
+        SilenceModeOnOffState,
+    };
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {
@@ -147,6 +151,46 @@ mod playtime_impl {
                 }
                 PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
                     matrix.set_midi_auto_quantize_enabled(value.is_on());
+                }
+                PlaytimeMatrixAction::SmartRecord => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
+                    matrix.trigger_smart_record()?;
+                }
+                PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                    if value.is_on() {
+                        matrix.enter_silence_mode();
+                    } else {
+                        matrix.play_all_ignited();
+                    }
+                }
+                PlaytimeMatrixAction::SilenceModeOnOffState => {
+                    if value.is_on() {
+                        matrix.enter_silence_mode();
+                    } else {
+                        matrix.leave_silence_mode();
+                    }
+                }
+                PlaytimeMatrixAction::Panic => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
+                    matrix.panic();
+                }
+                PlaytimeMatrixAction::SequencerRecordOnOffState => {
+                    if value.is_on() {
+                        matrix.record_new_sequence();
+                    } else {
+                        matrix.stop_sequencer();
+                    }
+                }
+                PlaytimeMatrixAction::SequencerPlayOnOffState => {
+                    if value.is_on() {
+                        matrix.play_active_sequence()?;
+                    } else {
+                        matrix.stop_sequencer();
+                    }
                 }
             }
             Ok(HitResponse::processed_with_effect())
@@ -281,6 +325,22 @@ mod playtime_impl {
                         PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
                             matrix.midi_auto_quantize_enabled()
                         }
+                        PlaytimeMatrixAction::SmartRecord => {
+                            return None;
+                        }
+                        PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                            matrix.is_in_silence_mode()
+                        }
+                        PlaytimeMatrixAction::SilenceModeOnOffState => matrix.is_in_silence_mode(),
+                        PlaytimeMatrixAction::Panic => {
+                            return None;
+                        }
+                        PlaytimeMatrixAction::SequencerRecordOnOffState => {
+                            matrix.sequencer().status() == SequencerStatus::Recording
+                        }
+                        PlaytimeMatrixAction::SequencerPlayOnOffState => {
+                            matrix.sequencer().status() == SequencerStatus::Playing
+                        }
                     };
                     Some(AbsoluteValue::from_bool(bool_value))
                 })
@@ -341,11 +401,18 @@ mod playtime_impl {
             | Stop
             | Undo
             | Redo
-            | BuildScene => (
+            | BuildScene
+            | Panic
+            | SmartRecord => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
-            ClickOnOffState | MidiAutoQuantizationOnOffState => {
+            ClickOnOffState
+            | MidiAutoQuantizationOnOffState
+            | SilenceModeOnOffState
+            | SequencerRecordOnOffState
+            | SequencerPlayOnOffState
+            | EnterSilenceModeOrPlayIgnited => {
                 (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
             }
         }
