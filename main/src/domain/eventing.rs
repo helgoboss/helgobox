@@ -1,6 +1,6 @@
 use crate::domain::{
     CompartmentKind, CompoundMappingTarget, ControlLogContext, ControlLogEntry, FeedbackLogEntry,
-    InfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
+    InternalInfoEvent, MappingId, MessageCaptureResult, PluginParamIndex, PluginParams,
     ProjectionFeedbackValue, QualifiedMappingId, RawParamValue,
 };
 use base::hash_util::NonCryptoHashSet;
@@ -22,7 +22,7 @@ pub enum DomainEvent<'a> {
     },
     UpdatedAllParameters(PluginParams),
     TargetValueChanged(TargetValueChangedEvent<'a>),
-    Info(&'a InfoEvent),
+    Info(&'a InternalInfoEvent),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
     HandleTargetControl(TargetControlEvent),

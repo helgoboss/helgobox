@@ -30,6 +30,12 @@ use crate::infrastructure::server::data::get_controller_routing;
 use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
 impl occasional_instance_update::Update {
+    pub fn info_event(event: realearn_api::runtime::InstanceInfoEvent) -> Self {
+        let json =
+            serde_json::to_string(&event).expect("couldn't represent instance info event as JSON");
+        Self::InfoEvent(json)
+    }
+
     pub fn settings(instance_shell: &InstanceShell) -> Self {
         let settings = instance_shell.settings();
         let json =
@@ -66,9 +72,9 @@ impl occasional_global_update::Update {
         Self::ArrangementPlayState(ArrangementPlayState::from_engine(play_state).into())
     }
 
-    pub fn info_event(event: realearn_api::runtime::InfoEvent) -> Self {
+    pub fn info_event(event: realearn_api::runtime::GlobalInfoEvent) -> Self {
         let json =
-            serde_json::to_string(&event).expect("couldn't represent main info event as JSON");
+            serde_json::to_string(&event).expect("couldn't represent global info event as JSON");
         Self::InfoEvent(json)
     }
 

@@ -150,8 +150,8 @@ pub use lua_support::*;
 mod lua_module_container;
 pub use lua_module_container::*;
 
-mod info_event;
-pub use info_event::*;
+mod internal_info_event;
+pub use internal_info_event::*;
 
 mod instance;
 pub use instance::*;

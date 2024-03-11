@@ -264,7 +264,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 helgoboss_allocator::undesired_allocation_count();
             if current_undesired_allocation_count != self.last_undesired_allocation_count {
                 self.last_undesired_allocation_count = current_undesired_allocation_count;
-                let event = &crate::domain::InfoEvent::UndesiredAllocationCountChanged;
+                let event = &crate::domain::InternalInfoEvent::UndesiredAllocationCountChanged;
                 for p in self.main_processors.borrow_mut().iter_mut() {
                     p.process_info_event(event);
                 }

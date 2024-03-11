@@ -856,7 +856,7 @@ pub struct GetOccasionalInstanceUpdatesReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalInstanceUpdate {
-    #[prost(oneof = "occasional_instance_update::Update", tags = "1, 2, 3")]
+    #[prost(oneof = "occasional_instance_update::Update", tags = "1, 2, 3, 4")]
     pub update: ::core::option::Option<occasional_instance_update::Update>,
 }
 /// Nested message and enum types in `OccasionalInstanceUpdate`.
@@ -873,6 +873,9 @@ pub mod occasional_instance_update {
         /// Everything within the instance has changed (e.g. instance data load).
         #[prost(bool, tag = "3")]
         EverythingHasChanged(bool),
+        /// Info event as JSON.
+        #[prost(string, tag = "4")]
+        InfoEvent(::prost::alloc::string::String),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

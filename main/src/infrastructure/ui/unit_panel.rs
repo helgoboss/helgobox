@@ -15,8 +15,9 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::ui_util::format_tags_as_csv;
 use crate::domain::{
-    CompartmentKind, InfoEvent, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
-    QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent, TargetValueChangedEvent,
+    CompartmentKind, InstanceId, InternalInfoEvent, MappingId, MappingMatchedEvent,
+    ProjectionFeedbackValue, QualifiedMappingId, SourceFeedbackEvent, TargetControlEvent,
+    TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{update_auto_units_async, BackboneShell};
 use crate::infrastructure::server::http::{
@@ -27,6 +28,8 @@ use crate::infrastructure::ui::util::{header_panel_height, parse_tags_from_csv};
 use anyhow::Context;
 use base::{Global, SoundPlayer};
 use helgoboss_allocator::undesired_allocation_count;
+use playtime_api::runtime::InfoEvent;
+use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
@@ -37,6 +40,7 @@ type _MainPanel = UnitPanel;
 /// The complete ReaLearn panel containing everything.
 #[derive(Debug)]
 pub struct UnitPanel {
+    instance_id: InstanceId,
     view: ViewContext,
     session: WeakUnitModel,
     instance_panel: WeakView<InstancePanel>,
@@ -49,6 +53,7 @@ pub struct UnitPanel {
 
 impl UnitPanel {
     pub fn new(
+        instance_id: InstanceId,
         session: WeakUnitModel,
         instance_panel: WeakView<InstancePanel>,
     ) -> SharedView<Self> {
@@ -56,6 +61,7 @@ impl UnitPanel {
         let panel_manager = Rc::new(RefCell::new(panel_manager));
         let state = SharedMainState::default();
         let main_panel = Self {
+            instance_id,
             view: Default::default(),
             state: state.clone(),
             session: session.clone(),
@@ -309,15 +315,21 @@ impl UnitPanel {
         self.handle_affected_own(affected);
     }
 
-    fn handle_info_event(self: SharedView<Self>, event: &InfoEvent) {
+    fn handle_internal_info_event(self: SharedView<Self>, event: &InternalInfoEvent) {
         if !self.is_open() {
             return;
         }
         match event {
-            InfoEvent::UndesiredAllocationCountChanged => {
+            InternalInfoEvent::UndesiredAllocationCountChanged => {
                 self.invalidate_status_2_text();
             }
         }
+    }
+
+    fn handle_external_info_event(self: SharedView<Self>, event: InstanceInfoEvent) {
+        BackboneShell::get()
+            .proto_hub()
+            .notify_about_instance_info_event(self.instance_id, event);
     }
 
     fn handle_unit_name_changed(&self) {
@@ -563,8 +575,12 @@ impl SessionUi for Weak<UnitPanel> {
         upgrade_panel(self).handle_affected(affected, initiator);
     }
 
-    fn handle_info_event(&self, event: &InfoEvent) {
-        upgrade_panel(self).handle_info_event(event);
+    fn handle_internal_info_event(&self, event: &InternalInfoEvent) {
+        upgrade_panel(self).handle_internal_info_event(event);
+    }
+
+    fn handle_external_info_event(&self, event: InstanceInfoEvent) {
+        upgrade_panel(self).handle_external_info_event(event);
     }
 
     fn handle_everything_changed(&self, unit_model: &UnitModel) {

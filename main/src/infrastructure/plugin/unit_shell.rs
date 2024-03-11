@@ -148,7 +148,7 @@ impl UnitShell {
         );
         let shared_unit_model = Rc::new(RefCell::new(unit_model));
         let weak_session = Rc::downgrade(&shared_unit_model);
-        let unit_panel = UnitPanel::new(weak_session.clone(), instance_panel.clone());
+        let unit_panel = UnitPanel::new(instance_id, weak_session.clone(), instance_panel.clone());
         shared_unit_model
             .borrow_mut()
             .set_ui(Rc::downgrade(&unit_panel));

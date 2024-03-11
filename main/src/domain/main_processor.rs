@@ -9,7 +9,7 @@ use crate::domain::{
     FeedbackLogEntry, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, FinalRealFeedbackValue, FinalSourceFeedbackValue,
     GlobalControlAndFeedbackState, GroupId, HitInstructionContext, HitInstructionResponse,
-    InfoEvent, InstanceId, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
+    InstanceId, InternalInfoEvent, IoUpdatedEvent, KeyMessage, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent,
     MessageCaptureResult, MidiControlInput, MidiDestination, MidiScanResult, NoopLogger,
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
@@ -1847,7 +1847,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             && self.basics.settings.control_input == ControlInput::Osc(*device_id)
     }
 
-    pub fn process_info_event(&mut self, evt: &InfoEvent) {
+    pub fn process_info_event(&mut self, evt: &InternalInfoEvent) {
         self.basics
             .event_handler
             .handle_event_ignoring_error(DomainEvent::Info(evt));

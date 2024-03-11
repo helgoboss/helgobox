@@ -1,4 +1,4 @@
 #[derive(Debug)]
-pub enum InfoEvent {
+pub enum InternalInfoEvent {
     UndesiredAllocationCountChanged,
 }

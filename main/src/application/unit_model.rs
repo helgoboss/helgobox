@@ -13,11 +13,11 @@ use crate::domain::{
     CompartmentSettings, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, FinalSourceFeedbackValue, GroupId, GroupKey, IncomingCompoundSourceValue,
-    InfoEvent, InputDescriptor, InstanceId, LastTouchedTargetFilter, MainMapping, MappingId,
-    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, NormalMainTask,
-    OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
+    InputDescriptor, InstanceId, InternalInfoEvent, LastTouchedTargetFilter, MainMapping,
+    MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    NormalMainTask, OscFeedbackTask, ParamSetting, PluginParams, ProcessorContext,
+    ProjectionFeedbackValue, QualifiedMappingId, RealearnControlSurfaceMainTask, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SharedInstance, SharedUnit, SourceFeedbackEvent,
     StayActiveWhenProjectInBackground, Tag, TargetControlEvent, TargetTouchEvent,
     TargetValueChangedEvent, Unit, UnitContainer, UnitId, VirtualControlElementId, VirtualFx,
     VirtualSource, VirtualSourceValue, LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME,
@@ -26,7 +26,7 @@ use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThr
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::Reaper;
+use reaper_high::{Reaper, Track};
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -41,7 +41,8 @@ use itertools::Itertools;
 use realearn_api::persistence::{
     FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
 };
-use reaper_medium::RecordingInput;
+use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
+use reaper_medium::{InputMonitoringMode, RecordingInput};
 use std::error::Error;
 use std::fmt;
 use std::rc::{Rc, Weak};
@@ -58,7 +59,8 @@ pub trait SessionUi {
     fn mapping_matched(&self, event: MappingMatchedEvent);
     fn handle_target_control(&self, event: TargetControlEvent);
     fn handle_source_feedback(&self, event: SourceFeedbackEvent);
-    fn handle_info_event(&self, event: &InfoEvent);
+    fn handle_internal_info_event(&self, event: &InternalInfoEvent);
+    fn handle_external_info_event(&self, event: InstanceInfoEvent);
     fn handle_everything_changed(&self, unit_model: &UnitModel);
     fn handle_unit_name_changed(&self);
     fn handle_global_control_and_feedback_state_changed(&self);
@@ -1741,6 +1743,25 @@ impl UnitModel {
         reenable_control_after_touched: bool,
         ignore_sources: Vec<CompoundMappingSource>,
     ) -> Result<(), &'static str> {
+        // Warn if settings are not good
+        if self.control_input.get().is_midi_fx_input() {
+            if let Some(track) = self.processor_context.track() {
+                if !track
+                    .recording_input()
+                    .is_some_and(|i| matches!(i, RecordingInput::Midi { .. }))
+                {
+                    self.ui().handle_external_info_event(
+                        InstanceInfoEvent::MidiLearnFromFxInputButTrackHasAudioInput,
+                    );
+                } else if !track.is_armed(false)
+                    || track.input_monitoring_mode() != InputMonitoringMode::Normal
+                {
+                    self.ui().handle_external_info_event(
+                        InstanceInfoEvent::MidiLearnFromFxInputButTrackNotArmed,
+                    );
+                }
+            }
+        }
         let allow_virtual_sources = mapping_id.compartment != CompartmentKind::Controller;
         let osc_arg_index_hint = {
             let mapping = self
@@ -2695,7 +2716,7 @@ impl DomainEventHandler for WeakUnitModel {
         match event {
             Info(evt) => {
                 let s = session.try_borrow()?;
-                s.ui().handle_info_event(evt);
+                s.ui().handle_internal_info_event(evt);
             }
             ConditionsChanged => {
                 let s = session.try_borrow()?;

@@ -67,7 +67,7 @@ use realearn_api::persistence::{
     FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
     TrackDescriptor, TrackFxChain,
 };
-use realearn_api::runtime::{AutoAddedControllerEvent, InfoEvent};
+use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
     ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
@@ -2608,9 +2608,9 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
                 playtime_clip_engine::ClipEngine::get().handle_changed_licenses(source.licenses());
             // Send a notification to the app (if it wants to display "success")
             let info_event = if success {
-                InfoEvent::PlaytimeActivationSucceeded
+                GlobalInfoEvent::PlaytimeActivationSucceeded
             } else {
-                InfoEvent::PlaytimeActivationFailed
+                GlobalInfoEvent::PlaytimeActivationFailed
             };
             shell.proto_hub().notify_about_global_info_event(info_event);
             // Give all Playtime instances a chance to load previously unloaded matrices
@@ -2834,9 +2834,11 @@ async fn maybe_create_controller_for_device(
         .save_controller(controller)?;
     BackboneShell::get()
         .proto_hub()
-        .notify_about_global_info_event(InfoEvent::AutoAddedController(AutoAddedControllerEvent {
-            controller_id: outcome.id,
-        }));
+        .notify_about_global_info_event(GlobalInfoEvent::AutoAddedController(
+            AutoAddedControllerEvent {
+                controller_id: outcome.id,
+            },
+        ));
     Ok(())
 }
 

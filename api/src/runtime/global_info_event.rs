@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
-pub enum InfoEvent {
+pub enum GlobalInfoEvent {
     AutoAddedController(AutoAddedControllerEvent),
     PlaytimeActivationSucceeded,
     PlaytimeActivationFailed,

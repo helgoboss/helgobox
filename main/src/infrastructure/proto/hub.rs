@@ -11,7 +11,7 @@ use crate::infrastructure::proto::{
     OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch,
     ProtoRequestHandler, ProtoSenders, QualifiedOccasionalUnitUpdate,
 };
-use realearn_api::runtime::InfoEvent;
+use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::ChangeEvent;
 
 #[derive(Debug)]
@@ -43,7 +43,17 @@ impl ProtoHub {
         ))
     }
 
-    pub fn notify_about_global_info_event(&self, info_event: InfoEvent) {
+    pub fn notify_about_instance_info_event(
+        &self,
+        instance_id: InstanceId,
+        info_event: InstanceInfoEvent,
+    ) {
+        self.send_occasional_instance_updates(instance_id, || {
+            [occasional_instance_update::Update::info_event(info_event)]
+        });
+    }
+
+    pub fn notify_about_global_info_event(&self, info_event: GlobalInfoEvent) {
         self.send_occasional_global_updates(|| {
             [occasional_global_update::Update::info_event(info_event)]
         });

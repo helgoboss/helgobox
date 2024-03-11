@@ -1,8 +1,11 @@
 mod preset;
 pub use preset::*;
 
-mod info_event;
-pub use info_event::*;
+mod global_info_event;
+pub use global_info_event::*;
+
+mod instance_info_event;
+pub use instance_info_event::*;
 
 mod reaper;
 pub use reaper::*;
