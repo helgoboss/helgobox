@@ -1526,11 +1526,13 @@ pub enum TriggerMatrixAction {
     ToggleLearnSimpleMappingEnterSilenceModeOrPlayIgnited = 27,
     ToggleLearnSimpleMappingSequencerRecordOnOffState = 28,
     ToggleLearnSimpleMappingSequencerPlayOnOffState = 29,
+    ToggleLearnSimpleMappingTapTempo = 35,
     RemoveSimpleMappingTrigger = 24,
     RemoveSimpleMappingSmartRecord = 30,
     RemoveSimpleMappingEnterSilenceModeOrPlayIgnited = 31,
     RemoveSimpleMappingSequencerRecordOnOffState = 32,
     RemoveSimpleMappingSequencerPlayOnOffState = 33,
+    RemoveSimpleMappingTapTempo = 36,
     Activate = 34,
 }
 impl TriggerMatrixAction {
@@ -1587,6 +1589,9 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::ToggleLearnSimpleMappingSequencerPlayOnOffState => {
                 "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE"
             }
+            TriggerMatrixAction::ToggleLearnSimpleMappingTapTempo => {
+                "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TAP_TEMPO"
+            }
             TriggerMatrixAction::RemoveSimpleMappingTrigger => {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TRIGGER"
             }
@@ -1601,6 +1606,9 @@ impl TriggerMatrixAction {
             }
             TriggerMatrixAction::RemoveSimpleMappingSequencerPlayOnOffState => {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE"
+            }
+            TriggerMatrixAction::RemoveSimpleMappingTapTempo => {
+                "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TAP_TEMPO"
             }
             TriggerMatrixAction::Activate => "TRIGGER_MATRIX_ACTION_ACTIVATE",
         }
@@ -1649,6 +1657,9 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE" => {
                 Some(Self::ToggleLearnSimpleMappingSequencerPlayOnOffState)
             }
+            "TRIGGER_MATRIX_ACTION_TOGGLE_LEARN_SIMPLE_MAPPING_TAP_TEMPO" => {
+                Some(Self::ToggleLearnSimpleMappingTapTempo)
+            }
             "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TRIGGER" => {
                 Some(Self::RemoveSimpleMappingTrigger)
             }
@@ -1663,6 +1674,9 @@ impl TriggerMatrixAction {
             }
             "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE" => {
                 Some(Self::RemoveSimpleMappingSequencerPlayOnOffState)
+            }
+            "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TAP_TEMPO" => {
+                Some(Self::RemoveSimpleMappingTapTempo)
             }
             "TRIGGER_MATRIX_ACTION_ACTIVATE" => Some(Self::Activate),
             _ => None,

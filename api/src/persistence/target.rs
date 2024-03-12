@@ -1527,6 +1527,8 @@ pub enum PlaytimeMatrixAction {
     SequencerRecordOnOffState,
     #[display(fmt = "Enable/disable sequencer playing")]
     SequencerPlayOnOffState,
+    #[display(fmt = "Tap tempo")]
+    TapTempo,
 }
 
 impl Default for PlaytimeMatrixAction {

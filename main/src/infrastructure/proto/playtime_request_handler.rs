@@ -300,6 +300,10 @@ impl PlaytimeProtoRequestHandler {
                     .toggle_learn_source_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
                 Ok(())
             }
+            TriggerMatrixAction::ToggleLearnSimpleMappingTapTempo => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TapTempo);
+                Ok(())
+            }
             TriggerMatrixAction::RemoveSimpleMappingTrigger => {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
                 Ok(())
@@ -321,6 +325,10 @@ impl PlaytimeProtoRequestHandler {
             TriggerMatrixAction::RemoveSimpleMappingSequencerRecordOnOffState => {
                 matrix
                     .toggle_learn_source_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
+                Ok(())
+            }
+            TriggerMatrixAction::RemoveSimpleMappingTapTempo => {
+                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TapTempo);
                 Ok(())
             }
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),

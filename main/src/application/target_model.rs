@@ -2710,7 +2710,19 @@ impl TargetModel {
                 PlaytimeMatrixAction::SequencerPlayOnOffState => {
                     SimpleMappingTarget::SequencerPlayOnOffState
                 }
-                _ => return None,
+                PlaytimeMatrixAction::TapTempo => SimpleMappingTarget::TapTempo,
+                PlaytimeMatrixAction::Undo
+                | PlaytimeMatrixAction::Redo
+                | PlaytimeMatrixAction::BuildScene
+                | PlaytimeMatrixAction::SetRecordDurationToOpenEnd
+                | PlaytimeMatrixAction::SetRecordDurationToOneBar
+                | PlaytimeMatrixAction::SetRecordDurationToTwoBars
+                | PlaytimeMatrixAction::SetRecordDurationToFourBars
+                | PlaytimeMatrixAction::SetRecordDurationToEightBars
+                | PlaytimeMatrixAction::ClickOnOffState
+                | PlaytimeMatrixAction::MidiAutoQuantizationOnOffState
+                | PlaytimeMatrixAction::SilenceModeOnOffState
+                | PlaytimeMatrixAction::Panic => return None,
             },
             _ => return None,
         };

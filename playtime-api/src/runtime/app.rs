@@ -50,6 +50,7 @@ pub enum SimpleMappingTarget {
     EnterSilenceModeOrPlayIgnited,
     SequencerRecordOnOffState,
     SequencerPlayOnOffState,
+    TapTempo,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]

@@ -6,10 +6,6 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
 use base::{Global, NamedChannelSender};
-use playtime_api::runtime::SimpleMappingTarget::{
-    EnterSilenceModeOrPlayIgnited, SequencerPlayOnOffState, SequencerRecordOnOffState, SmartRecord,
-    TriggerMatrix,
-};
 use playtime_api::runtime::{
     ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
 };
@@ -228,6 +224,12 @@ impl SimpleMappingDesc {
                     action: PlaytimeMatrixAction::SequencerPlayOnOffState,
                 }),
                 toggle: true,
+            },
+            TapTempo => Self {
+                reaper_target: ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::TapTempo,
+                }),
+                toggle: false,
             },
         }
     }

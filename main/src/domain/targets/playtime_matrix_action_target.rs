@@ -83,10 +83,6 @@ mod playtime_impl {
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
     use realearn_api::persistence::PlaytimeMatrixAction;
 
-    use realearn_api::persistence::PlaytimeMatrixAction::{
-        EnterSilenceModeOrPlayIgnited, SequencerPlayOnOffState, SequencerRecordOnOffState,
-        SilenceModeOnOffState,
-    };
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {
@@ -191,6 +187,12 @@ mod playtime_impl {
                     } else {
                         matrix.stop_sequencer();
                     }
+                }
+                PlaytimeMatrixAction::TapTempo => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
+                    matrix.tap_tempo();
                 }
             }
             Ok(HitResponse::processed_with_effect())
@@ -341,6 +343,7 @@ mod playtime_impl {
                         PlaytimeMatrixAction::SequencerPlayOnOffState => {
                             matrix.sequencer().status() == SequencerStatus::Playing
                         }
+                        PlaytimeMatrixAction::TapTempo => return None,
                     };
                     Some(AbsoluteValue::from_bool(bool_value))
                 })
@@ -403,7 +406,8 @@ mod playtime_impl {
             | Redo
             | BuildScene
             | Panic
-            | SmartRecord => (
+            | SmartRecord
+            | TapTempo => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
