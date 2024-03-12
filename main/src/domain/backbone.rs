@@ -45,7 +45,7 @@ pub struct Backbone {
     /// We hold pointers to all ReaLearn instances in order to let instance B
     /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
     /// control the same clip matrix from different controllers.
-    // TODO-high Since the introduction of units, foreign matrixes are not used in practice. Let's
+    // TODO-high-playtime-refactoring Since the introduction of units, foreign matrixes are not used in practice. Let's
     //  keep this for a while and remove.
     instances: RefCell<NonCryptoHashMap<InstanceId, WeakInstance>>,
     was_processing_keyboard_input: Cell<bool>,
@@ -260,7 +260,7 @@ impl Backbone {
     //     self.owned_clip_matrix_mut().unwrap()
     // }
 
-    // TODO-high-ms5 Woah, ugly. This shouldn't be here anymore, the design involved and this dirt
+    // TODO-high-playtime-refactoring Woah, ugly. This shouldn't be here anymore, the design involved and this dirt
     //  stayed. self is not used. Same with _mut.
     /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
     /// if one is defined.

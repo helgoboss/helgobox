@@ -14,7 +14,7 @@ export type ApcKey25PlaytimePresetConfig = {
 }
 
 function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realearn.Compartment
-    -- TODO-high Make record and play buttons control Playtime's sequencer
+    -- TODO-high-playtime-before-release Make record and play buttons control Playtime's sequencer
 
     -- Aliases
 

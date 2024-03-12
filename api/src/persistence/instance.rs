@@ -18,7 +18,7 @@ pub struct InstanceControlSettings {
     // that specific controller. This way you can selectively enable controllers, either with
     // the global default preset or with your own one.
     //
-    // TODO-high Controller overrides are not yet implemented because about doubts.
+    // TODO-high-playtime-after-release Controller overrides are not yet implemented because about doubts.
     //  What if the user deletes the controller? Then all project/instance that have
     //  an override of that controller will reference a now gone controller. Consequently, the
     //  overrides will not work anymore. Ideas:

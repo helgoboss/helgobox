@@ -182,7 +182,7 @@ impl UnitShell {
             unit.clone(),
             BackboneShell::get(),
         );
-        // TODO-high-ms5 We should register this like the instance - one layer higher and only
+        // TODO-high-playtime-refactoring We should register this like the instance - one layer higher and only
         //  by passing the UnitShell (the root for everything unit-related).
         let unit_info = UnitInfo {
             unit_id,

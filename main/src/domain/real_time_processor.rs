@@ -1241,7 +1241,7 @@ pub struct RealTimeMappingUpdate {
 
 /// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
-// TODO-high-performance Might want to fix this.
+// TODO-high-playtime-refactoring Might want to fix this.
 #[allow(clippy::large_enum_variant)]
 pub enum FeedbackRealTimeTask {
     /// When it comes to MIDI feedback, the real-time processor is only responsible for FX output

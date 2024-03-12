@@ -18,7 +18,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::midi_input_devices(),
         Update::midi_output_devices(),
         Update::arrangement_play_state(Reaper::get().current_project().play_state()),
-        // TODO-high-ms3 Update when changed
+        // TODO-high-playtime-before-release Update when changed
         Update::audio_input_channels(),
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),

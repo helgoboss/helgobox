@@ -40,7 +40,7 @@ pub struct Controller {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_controller_preset: Option<CompartmentPresetId>,
     /// Default main preset to load whenever an auto unit with this controller is created.
-    // TODO-high The plan is to introduce an advanced mode where you don't just set a main preset but can define
+    // TODO-high-playtime-after-release The plan is to introduce an advanced mode where you don't just set a main preset but can define
     //  a decision table per controller. It's a list of rules. A rule is made from conditions
     //  (fixed number, typed, every condition optional, AND) and effects (fixed number, typed, optional).
     //  The default_main_preset would act as fallback, as last line in the list of rules, which doesn't

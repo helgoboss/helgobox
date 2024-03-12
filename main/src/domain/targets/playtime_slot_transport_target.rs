@@ -570,7 +570,7 @@ mod playtime_impl {
     impl ClipTransportTargetBasics {
         fn play_options(&self) -> ColumnPlaySlotOptions {
             ColumnPlaySlotOptions {
-                // TODO-high-ms5 Should we respect velocity for non-trigger transport actions as well?
+                // TODO-high-playtime-before-release Should we respect velocity for non-trigger transport actions as well?
                 velocity: Some(UnitValue::MAX),
                 stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
                 start_timing: self.options.play_start_timing,

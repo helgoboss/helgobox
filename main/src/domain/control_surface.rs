@@ -258,7 +258,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let timestamp = ControlEventTimestamp::now();
         #[cfg(debug_assertions)]
         {
-            // TODO-high This is propagated using main processors but it's a global event. We
+            // TODO-high-playtime-refactoring This is propagated using main processors but it's a global event. We
             //  should use the global control surface event handler for this!
             let current_undesired_allocation_count =
                 helgoboss_allocator::undesired_allocation_count();
@@ -783,7 +783,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
-        // TODO-high-refactoring We should do this in reaper-medium (in a more generic way) as soon as it turns
+        // TODO-high-playtime-refactoring We should do this in reaper-medium (in a more generic way) as soon as it turns
         //  out to work nicely. Related to this: https://github.com/helgoboss/reaper-rs/issues/54
         match self.change_event_queue.try_borrow_mut() {
             Ok(mut queue) => self.handle_event_internal(&event, &mut queue),

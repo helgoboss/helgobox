@@ -1102,12 +1102,16 @@ impl BackboneShell {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
-    pub fn app_base_dir_path() -> PathBuf {
+    pub fn app_dir_path() -> PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
+    pub fn app_binary_base_dir_path() -> PathBuf {
+        BackboneShell::app_dir_path().join("bin")
+    }
+
     pub fn app_config_dir_path() -> PathBuf {
-        BackboneShell::helgoboss_resource_dir_path().join("AppConfig")
+        BackboneShell::app_dir_path().join("etc")
     }
 
     pub fn app_settings_file_path() -> PathBuf {
@@ -2644,7 +2648,7 @@ impl CompartmentPresetManagerEventHandler for BackboneControllerPresetManagerEve
 
 fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     tracing::info!("Loading app library...");
-    let app_base_dir = BackboneShell::app_base_dir_path();
+    let app_base_dir = BackboneShell::app_binary_base_dir_path();
     let lib = crate::infrastructure::ui::AppLibrary::load(app_base_dir);
     match lib.as_ref() {
         Ok(_) => {
@@ -2660,7 +2664,7 @@ fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
 fn decompress_app() -> anyhow::Result<()> {
     // Check if decompression necessary
     let archive_file = &BackboneShell::app_archive_file_path();
-    let destination_dir = &BackboneShell::app_base_dir_path();
+    let destination_dir = &BackboneShell::app_binary_base_dir_path();
     let archive_metadata = archive_file.metadata()?;
     let archive_size = archive_metadata.len();
     let archive_modified = archive_metadata

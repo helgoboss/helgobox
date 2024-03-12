@@ -1232,7 +1232,7 @@ impl HeaderPanel {
             );
     }
 
-    // TODO-high-clip-matrix As soon as we implement this, we need to fix the clippy error.
+    // TODO-high-playtime-after-release As soon as we implement this, we need to fix the clippy error.
     #[allow(clippy::await_holding_refcell_ref)]
     fn freeze_clip_matrix(&self) {
         #[cfg(feature = "playtime")]

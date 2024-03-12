@@ -13,7 +13,7 @@
 
 --!strict
 
--- TODO-high Make record and play buttons control Playtime's sequencer
+-- TODO-high-playtime-before-release Make record and play buttons control Playtime's sequencer
 
 -- Configuration
 
