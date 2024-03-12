@@ -347,6 +347,14 @@ pub struct ClipAddress {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CellAddress {
+    #[prost(uint32, optional, tag = "1")]
+    pub column_index: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "2")]
+    pub row_index: ::core::option::Option<u32>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SlotAddress {
     #[prost(uint32, tag = "1")]
     pub column_index: u32,
@@ -1180,9 +1188,9 @@ pub mod occasional_matrix_update {
         /// Learn state
         #[prost(message, tag = "20")]
         LearnState(super::LearnState),
-        /// Active slot
+        /// Active cell
         #[prost(message, tag = "21")]
-        ActiveSlot(super::SlotAddress),
+        ActiveCell(super::CellAddress),
         /// Control units as JSON.
         #[prost(string, tag = "22")]
         ControlUnitConfig(::prost::alloc::string::String),
@@ -1523,6 +1531,7 @@ pub enum TriggerMatrixAction {
     RemoveSimpleMappingEnterSilenceModeOrPlayIgnited = 31,
     RemoveSimpleMappingSequencerRecordOnOffState = 32,
     RemoveSimpleMappingSequencerPlayOnOffState = 33,
+    Activate = 34,
 }
 impl TriggerMatrixAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1593,6 +1602,7 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::RemoveSimpleMappingSequencerPlayOnOffState => {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE"
             }
+            TriggerMatrixAction::Activate => "TRIGGER_MATRIX_ACTION_ACTIVATE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1654,6 +1664,7 @@ impl TriggerMatrixAction {
             "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_SEQUENCER_PLAY_ON_OFF_STATE" => {
                 Some(Self::RemoveSimpleMappingSequencerPlayOnOffState)
             }
+            "TRIGGER_MATRIX_ACTION_ACTIVATE" => Some(Self::Activate),
             _ => None,
         }
     }
@@ -1790,6 +1801,7 @@ pub enum TriggerColumnAction {
     Panic = 4,
     ToggleLearnSimpleMapping = 5,
     RemoveSimpleMapping = 6,
+    Activate = 7,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1809,6 +1821,7 @@ impl TriggerColumnAction {
             TriggerColumnAction::RemoveSimpleMapping => {
                 "TRIGGER_COLUMN_ACTION_REMOVE_SIMPLE_MAPPING"
             }
+            TriggerColumnAction::Activate => "TRIGGER_COLUMN_ACTION_ACTIVATE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1825,6 +1838,7 @@ impl TriggerColumnAction {
             "TRIGGER_COLUMN_ACTION_REMOVE_SIMPLE_MAPPING" => {
                 Some(Self::RemoveSimpleMapping)
             }
+            "TRIGGER_COLUMN_ACTION_ACTIVATE" => Some(Self::Activate),
             _ => None,
         }
     }
@@ -1844,6 +1858,7 @@ pub enum TriggerRowAction {
     ToggleLearnSimpleMapping = 9,
     RemoveSimpleMapping = 10,
     BuildSceneFromPlayingSlots = 11,
+    Activate = 12,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1870,6 +1885,7 @@ impl TriggerRowAction {
             TriggerRowAction::BuildSceneFromPlayingSlots => {
                 "TRIGGER_ROW_ACTION_BUILD_SCENE_FROM_PLAYING_SLOTS"
             }
+            TriggerRowAction::Activate => "TRIGGER_ROW_ACTION_ACTIVATE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1891,6 +1907,7 @@ impl TriggerRowAction {
             "TRIGGER_ROW_ACTION_BUILD_SCENE_FROM_PLAYING_SLOTS" => {
                 Some(Self::BuildSceneFromPlayingSlots)
             }
+            "TRIGGER_ROW_ACTION_ACTIVATE" => Some(Self::Activate),
             _ => None,
         }
     }

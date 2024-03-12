@@ -19,9 +19,10 @@ use crate::infrastructure::proto::{
     clip_content_info, generated, occasional_matrix_update, occasional_track_update,
     qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
-    AudioClipContentInfo, ClipAddress, ClipContentInfo, ContinuousClipUpdate, ContinuousSlotUpdate,
-    HistoryState, LearnState, MidiClipContentInfo, SequencerPlayState, SlotAddress, SlotPlayState,
-    TimeSignature, TrackColor, TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
+    AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ContinuousClipUpdate,
+    ContinuousSlotUpdate, HistoryState, LearnState, MidiClipContentInfo, SequencerPlayState,
+    SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring,
+    TrackList, TrackMidiInput,
 };
 
 impl occasional_matrix_update::Update {
@@ -83,9 +84,9 @@ impl occasional_matrix_update::Update {
         })
     }
 
-    pub fn active_slot(matrix: &Matrix) -> Self {
-        let active_slot = matrix.active_slot();
-        Self::ActiveSlot(SlotAddress::from_engine(active_slot))
+    pub fn active_cell(matrix: &Matrix) -> Self {
+        let active_cell = matrix.active_cell();
+        Self::ActiveCell(CellAddress::from_engine(active_cell))
     }
 
     pub fn control_unit_config(matrix: &Matrix) -> Self {

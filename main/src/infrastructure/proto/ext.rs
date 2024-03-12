@@ -14,13 +14,13 @@ use crate::domain::CompartmentKind;
 use crate::infrastructure::proto::{
     event_reply, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
-    Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate, GetContinuousColumnUpdatesReply,
-    GetContinuousMatrixUpdatesReply, GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply,
-    GetOccasionalColumnUpdatesReply, GetOccasionalGlobalUpdatesReply,
-    GetOccasionalInstanceUpdatesReply, GetOccasionalMatrixUpdatesReply,
-    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    GetOccasionalUnitUpdatesReply, LicenseState, MidiDeviceStatus, MidiInputDevice,
-    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    CellAddress, Compartment, ContinuousColumnUpdate, ContinuousMatrixUpdate,
+    GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
+    GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
+    GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
+    GetOccasionalTrackUpdatesReply, GetOccasionalUnitUpdatesReply, LicenseState, MidiDeviceStatus,
+    MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
     OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
@@ -273,6 +273,22 @@ impl SlotAddress {
 
     pub fn to_engine(&self) -> playtime_api::persistence::SlotAddress {
         playtime_api::persistence::SlotAddress::new(self.column_index as _, self.row_index as _)
+    }
+}
+
+impl CellAddress {
+    pub fn from_engine(address: playtime_api::runtime::CellAddress) -> Self {
+        Self {
+            column_index: address.column_index.map(|i| i as _),
+            row_index: address.row_index.map(|i| i as _),
+        }
+    }
+
+    pub fn to_engine(&self) -> playtime_api::runtime::CellAddress {
+        playtime_api::runtime::CellAddress::new(
+            self.column_index.map(|i| i as _),
+            self.row_index.map(|i| i as _),
+        )
     }
 }
 

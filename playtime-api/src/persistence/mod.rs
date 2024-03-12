@@ -23,6 +23,7 @@
 
 mod serialization;
 
+use crate::runtime::CellAddress;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
 use chrono::NaiveDateTime;
@@ -1670,6 +1671,10 @@ impl SlotAddress {
 
     pub fn row(&self) -> usize {
         self.row_index
+    }
+
+    pub fn to_cell_address(&self) -> CellAddress {
+        CellAddress::slot(self.column_index, self.row_index)
     }
 }
 

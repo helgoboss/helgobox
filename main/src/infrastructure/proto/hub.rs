@@ -311,7 +311,7 @@ mod playtime_impl {
                         update: Some(occasional_matrix_update::Update::silence_mode(matrix)),
                     }),
                     ClipMatrixEvent::ActiveSlotChanged => Some(OccasionalMatrixUpdate {
-                        update: Some(occasional_matrix_update::Update::active_slot(matrix)),
+                        update: Some(occasional_matrix_update::Update::active_cell(matrix)),
                     }),
                     ClipMatrixEvent::ControlUnitsChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::control_unit_config(

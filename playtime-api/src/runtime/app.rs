@@ -51,3 +51,43 @@ pub enum SimpleMappingTarget {
     SequencerRecordOnOffState,
     SequencerPlayOnOffState,
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
+pub struct CellAddress {
+    pub column_index: Option<usize>,
+    pub row_index: Option<usize>,
+}
+
+impl CellAddress {
+    pub fn new(column_index: Option<usize>, row_index: Option<usize>) -> Self {
+        Self {
+            column_index,
+            row_index,
+        }
+    }
+
+    pub fn matrix() -> Self {
+        Self::new(None, None)
+    }
+
+    pub fn column(column_index: usize) -> Self {
+        Self {
+            column_index: Some(column_index),
+            row_index: None,
+        }
+    }
+
+    pub fn row(row_index: usize) -> Self {
+        Self {
+            column_index: None,
+            row_index: Some(row_index),
+        }
+    }
+
+    pub fn slot(column_index: usize, row_index: usize) -> Self {
+        Self {
+            column_index: Some(column_index),
+            row_index: Some(row_index),
+        }
+    }
+}

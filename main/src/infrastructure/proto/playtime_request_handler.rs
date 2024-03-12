@@ -21,7 +21,7 @@ use base::tracing_util::ok_or_log_as_warn;
 use playtime_api::persistence::{
     ColumnAddress, MatrixSequenceId, RowAddress, SlotAddress, TrackId,
 };
-use playtime_api::runtime::SimpleMappingTarget;
+use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 
 use helgoboss_learn::UnitValue;
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
@@ -89,7 +89,7 @@ impl PlaytimeProtoRequestHandler {
                     allow_activate: false,
                 },
             ),
-            TriggerSlotAction::Activate => matrix.activate_slot(slot_address),
+            TriggerSlotAction::Activate => matrix.activate_cell(slot_address.to_cell_address()),
         })
     }
 
@@ -324,6 +324,7 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),
+            TriggerMatrixAction::Activate => matrix.activate_cell(CellAddress::matrix()),
         })
     }
 
@@ -360,6 +361,9 @@ impl PlaytimeProtoRequestHandler {
                     },
                 ));
                 Ok(())
+            }
+            TriggerColumnAction::Activate => {
+                matrix.activate_cell(CellAddress::column(column_index))
             }
         })
     }
@@ -444,6 +448,7 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerRowAction::BuildSceneFromPlayingSlots => matrix.build_scene(row_index),
+            TriggerRowAction::Activate => matrix.activate_cell(CellAddress::row(row_index)),
         })
     }
 
