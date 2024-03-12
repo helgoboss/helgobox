@@ -99,9 +99,8 @@ impl occasional_matrix_update::Update {
     }
 
     pub fn complete_persistent_data(matrix: &Matrix) -> Self {
-        let matrix_json =
-            serde_json::to_string(&matrix.save_internal(SaveOptions::without_contents()))
-                .expect("couldn't represent matrix as JSON");
+        let matrix_json = serde_json::to_string(&matrix.save_without_contents())
+            .expect("couldn't represent matrix as JSON");
         Self::CompletePersistentData(matrix_json)
     }
 
