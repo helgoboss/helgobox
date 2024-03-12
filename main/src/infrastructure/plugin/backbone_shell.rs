@@ -69,14 +69,16 @@ use realearn_api::persistence::{
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+    ChangeEvent, CrashInfo, Fx, GroupingBehavior, Guid, MiddlewareControlSurface, Project, Reaper,
+    Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
-    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
-    ReaProject, ReaperStr, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
+    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, GangBehavior, Hmenu,
+    HookCustomMenu, HookPostCommand, HookPostCommand2, InputMonitoringMode, MenuHookFlag,
+    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RecordingInput,
+    RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -1645,6 +1647,20 @@ impl BackboneShell {
                 let project = Reaper::get().current_project();
                 let track = project.insert_track_at(0)?;
                 track.set_name("Playtime");
+                track.set_recording_input(Some(RecordingInput::Midi {
+                    device_id: None,
+                    channel: None,
+                }));
+                track.arm(
+                    false,
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
+                track.set_input_monitoring_mode(
+                    InputMonitoringMode::Normal,
+                    GangBehavior::DenyGang,
+                    GroupingBehavior::PreventGrouping,
+                );
                 track
                     .normal_fx_chain()
                     .add_fx_by_original_name("<1751282284")
