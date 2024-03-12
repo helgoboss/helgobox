@@ -652,6 +652,9 @@ fn process_command(
         SaveCustomCompartmentData(req) => {
             handler.save_custom_compartment_data(req)?;
         }
+        InsertColumns(req) => {
+            handler.insert_columns(req)?;
+        }
     }
     Ok(())
 }

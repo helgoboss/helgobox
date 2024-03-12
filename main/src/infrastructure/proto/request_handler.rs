@@ -5,7 +5,7 @@ use crate::infrastructure::proto::{
     GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
     GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest, GetHostInfoReply,
     GetHostInfoRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    InsertColumnsRequest, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
     SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
@@ -250,6 +250,18 @@ impl ProtoRequestHandler {
             instance_shell.change_settings(|current_settings| *current_settings = settings);
             Ok(())
         })
+    }
+
+    pub fn insert_columns(&self, request: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.insert_columns(request)
+        }
     }
 
     pub fn trigger_global(&self, req: TriggerGlobalRequest) -> Result<Response<Empty>, Status> {

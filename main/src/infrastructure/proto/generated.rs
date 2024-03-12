@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -147,6 +147,8 @@ pub mod command_request {
         GetOccasionalUnitUpdates(super::GetOccasionalUnitUpdatesRequest),
         #[prost(message, tag = "46")]
         TriggerGlobal(super::TriggerGlobalRequest),
+        #[prost(message, tag = "47")]
+        InsertColumns(super::InsertColumnsRequest),
     }
 }
 /// Envelope for queries.
@@ -589,6 +591,16 @@ pub struct TriggerColumnRequest {
     pub column_address: ::core::option::Option<FullColumnAddress>,
     #[prost(enumeration = "TriggerColumnAction", tag = "2")]
     pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InsertColumnsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub column_address: ::core::option::Option<FullColumnAddress>,
+    #[prost(uint32, tag = "2")]
+    pub count: u32,
+    #[prost(enumeration = "ColumnKind", tag = "3")]
+    pub kind: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1741,6 +1753,32 @@ impl TriggerGlobalAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum ColumnKind {
+    Audio = 0,
+    Midi = 1,
+}
+impl ColumnKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            ColumnKind::Audio => "COLUMN_KIND_AUDIO",
+            ColumnKind::Midi => "COLUMN_KIND_MIDI",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COLUMN_KIND_AUDIO" => Some(Self::Audio),
+            "COLUMN_KIND_MIDI" => Some(Self::Midi),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum Compartment {
     Controller = 0,
     Main = 1,
@@ -2502,6 +2540,10 @@ pub mod helgobox_service_server {
         async fn trigger_column(
             &self,
             request: tonic::Request<super::TriggerColumnRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn insert_columns(
+            &self,
+            request: tonic::Request<super::InsertColumnsRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_column_settings(
             &self,
@@ -3816,6 +3858,53 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = TriggerColumnSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/InsertColumns" => {
+                    #[allow(non_camel_case_types)]
+                    struct InsertColumnsSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::InsertColumnsRequest>
+                    for InsertColumnsSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::InsertColumnsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::insert_columns(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = InsertColumnsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

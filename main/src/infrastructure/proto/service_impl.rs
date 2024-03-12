@@ -20,15 +20,16 @@ use crate::infrastructure::proto::{
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest,
     GetOccasionalUnitUpdatesReply, GetOccasionalUnitUpdatesRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, ProtoRequestHandler, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
-    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetRowDataRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalRequest,
-    TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest, ProtoRequestHandler,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
+    TriggerColumnRequest, TriggerGlobalRequest, TriggerMatrixRequest, TriggerRowRequest,
+    TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -696,6 +697,13 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<TriggerGlobalRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.trigger_global(request.into_inner())
+    }
+
+    async fn insert_columns(
+        &self,
+        request: Request<InsertColumnsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.insert_columns(request.into_inner())
     }
 }
 

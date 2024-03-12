@@ -19,10 +19,10 @@ use crate::infrastructure::proto::{
     clip_content_info, generated, occasional_matrix_update, occasional_track_update,
     qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, ArrangementPlayState,
-    AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ContinuousClipUpdate,
-    ContinuousSlotUpdate, HistoryState, LearnState, MidiClipContentInfo, SequencerPlayState,
-    SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring,
-    TrackList, TrackMidiInput,
+    AudioClipContentInfo, CellAddress, ClipAddress, ClipContentInfo, ColumnKind,
+    ContinuousClipUpdate, ContinuousSlotUpdate, HistoryState, LearnState, MidiClipContentInfo,
+    SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput,
+    TrackInputMonitoring, TrackList, TrackMidiInput,
 };
 
 impl occasional_matrix_update::Update {
@@ -156,6 +156,15 @@ impl generated::TrackInList {
             id: track.guid().to_string_without_braces(),
             name: track.name().unwrap_or_default().into_string(),
             level,
+        }
+    }
+}
+
+impl ColumnKind {
+    pub fn to_engine(&self) -> playtime_clip_engine::base::ColumnKind {
+        match self {
+            ColumnKind::Audio => base::ColumnKind::Audio,
+            ColumnKind::Midi => base::ColumnKind::Midi,
         }
     }
 }

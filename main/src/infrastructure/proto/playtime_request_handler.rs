@@ -1,20 +1,20 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest, DragRowAction,
-    DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress, FullColumnAddress,
-    FullRowAddress, FullSequenceId, FullSlotAddress, FullTrackAddress, GetArrangementInfoReply,
-    GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, MatrixVolumeKind, ProveAuthenticityReply,
-    ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
-    SetColumnTrackRequest, SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
-    TriggerTrackAction, TriggerTrackRequest,
+    ColumnKind, DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest,
+    DragRowAction, DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress,
+    FullColumnAddress, FullRowAddress, FullSequenceId, FullSlotAddress, FullTrackAddress,
+    GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest,
+    GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
+    MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest,
+    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
+    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
+    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
+    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
 };
 use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
@@ -197,6 +197,14 @@ impl PlaytimeProtoRequestHandler {
         self.handle_sequence_command(req.sequence_id, |matrix, seq_id| match action {
             TriggerSequenceAction::Activate => matrix.activate_sequence(seq_id),
             TriggerSequenceAction::Remove => matrix.remove_sequence(seq_id),
+        })
+    }
+
+    pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
+        let kind = ColumnKind::try_from(req.kind)
+            .map_err(|_| Status::invalid_argument("unknown column kind"))?;
+        self.handle_column_command(&req.column_address, |matrix, column_index| {
+            matrix.insert_columns(column_index, req.count as usize, kind.to_engine())
         })
     }
 
