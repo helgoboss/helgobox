@@ -1,12 +1,22 @@
 use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::domain::{
-    CompartmentKind, InstanceId, QualifiedClipMatrixEvent, RealTimeInstanceTask, ReaperTarget,
+    CompartmentKind, InstanceId, PlaytimeColumnActionTarget, PlaytimeMatrixActionTarget,
+    PlaytimeRowActionTarget, PlaytimeSlotTransportTarget, QualifiedClipMatrixEvent,
+    RealTimeInstanceTask, ReaperTarget,
 };
 use crate::infrastructure::plugin::WeakInstanceShell;
 use base::{Global, NamedChannelSender};
+use playtime_api::runtime::SimpleMappingTarget::{
+    EnterSilenceModeOrPlayIgnited, SequencerPlayOnOffState, SequencerRecordOnOffState, SmartRecord,
+    TriggerMatrix,
+};
 use playtime_api::runtime::{
     ControlUnit, ControlUnitId, SimpleMappingContainer, SimpleMappingTarget,
 };
+use realearn_api::persistence::{
+    PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
+};
+use reaper_high::Reaper;
 
 #[derive(Debug)]
 pub struct MatrixHandler {
@@ -130,11 +140,12 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     fn toggle_learn_source_by_target(&self, target: SimpleMappingTarget) {
         self.do_async_with_session(move |shared_session| {
             let mut session = shared_session.borrow_mut();
-            let reaper_target = ReaperTarget::from_simple_target(target);
+            let mapping_desc = SimpleMappingDesc::from_simple_target(target);
             session.toggle_learn_source_for_target(
                 &shared_session,
                 CompartmentKind::Main,
-                &reaper_target,
+                &mapping_desc.reaper_target,
+                mapping_desc.toggle,
             );
         });
     }
@@ -142,8 +153,82 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
     fn remove_mapping_by_target(&self, target: SimpleMappingTarget) {
         self.do_async_with_session(move |shared_session| {
             let mut session = shared_session.borrow_mut();
-            let reaper_target = ReaperTarget::from_simple_target(target);
-            session.remove_mapping_by_target(CompartmentKind::Main, &reaper_target);
+            let mapping_desc = SimpleMappingDesc::from_simple_target(target);
+            session.remove_mapping_by_target(CompartmentKind::Main, &mapping_desc.reaper_target);
         });
+    }
+}
+
+struct SimpleMappingDesc {
+    pub reaper_target: ReaperTarget,
+    pub toggle: bool,
+}
+
+impl SimpleMappingDesc {
+    pub fn from_simple_target(simple_target: SimpleMappingTarget) -> Self {
+        use SimpleMappingTarget::*;
+        match simple_target {
+            TriggerMatrix => Self {
+                reaper_target: ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::Stop,
+                }),
+                toggle: false,
+            },
+            TriggerColumn(t) => Self {
+                reaper_target: ReaperTarget::PlaytimeColumnAction(PlaytimeColumnActionTarget {
+                    column_index: t.index,
+                    action: PlaytimeColumnAction::Stop,
+                }),
+                toggle: false,
+            },
+            TriggerRow(t) => Self {
+                reaper_target: ReaperTarget::PlaytimeRowAction(PlaytimeRowActionTarget {
+                    basics: crate::domain::ClipRowTargetBasics {
+                        row_index: t.index,
+                        action: PlaytimeRowAction::PlayScene,
+                    },
+                }),
+                toggle: false,
+            },
+            TriggerSlot(t) => Self {
+                reaper_target: ReaperTarget::PlaytimeSlotTransportAction(
+                    PlaytimeSlotTransportTarget {
+                        project: Reaper::get().current_project(),
+                        basics: crate::domain::ClipTransportTargetBasics {
+                            slot_address: t,
+                            action: PlaytimeSlotTransportAction::Trigger,
+                            options: Default::default(),
+                        },
+                    },
+                ),
+                toggle: false,
+            },
+            SmartRecord => Self {
+                reaper_target: ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::SmartRecord,
+                }),
+                toggle: false,
+            },
+            EnterSilenceModeOrPlayIgnited => Self {
+                reaper_target: {
+                    ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                        action: PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited,
+                    })
+                },
+                toggle: true,
+            },
+            SequencerRecordOnOffState => Self {
+                reaper_target: ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::SequencerRecordOnOffState,
+                }),
+                toggle: true,
+            },
+            SequencerPlayOnOffState => Self {
+                reaper_target: ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
+                    action: PlaytimeMatrixAction::SequencerPlayOnOffState,
+                }),
+                toggle: true,
+            },
+        }
     }
 }

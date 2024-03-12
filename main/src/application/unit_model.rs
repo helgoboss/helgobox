@@ -2,9 +2,9 @@ use crate::application::{
     get_track_label, share_group, share_mapping, Affected, AutoUnitData, Change, ChangeResult,
     CompartmentCommand, CompartmentModel, CompartmentPresetManager, CompartmentPresetModel,
     CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel, MainPresetAutoLoadMode,
-    MappingCommand, MappingModel, MappingProp, PresetLinkManager, ProcessingRelevance, SharedGroup,
-    SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
-    MASTER_TRACK_LABEL,
+    MappingCommand, MappingModel, MappingProp, ModeCommand, PresetLinkManager, ProcessingRelevance,
+    SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp,
+    VirtualControlElementType, MASTER_TRACK_LABEL,
 };
 use crate::base::{notification, prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -36,7 +36,7 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::domain;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
-use helgoboss_learn::{ControlResult, ControlValue, UnitValue};
+use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
     FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
@@ -2413,6 +2413,7 @@ impl UnitModel {
         session: &SharedUnitModel,
         compartment: CompartmentKind,
         target: &ReaperTarget,
+        toggle: bool,
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
@@ -2428,6 +2429,11 @@ impl UnitModel {
                         None,
                         Rc::downgrade(session),
                         |ctx| {
+                            if toggle {
+                                ctx.mapping.mode_model.change(ModeCommand::SetAbsoluteMode(
+                                    AbsoluteMode::ToggleButton,
+                                ));
+                            }
                             ctx.mapping.target_model.apply_from_target(
                                 target,
                                 ctx.extended_context,

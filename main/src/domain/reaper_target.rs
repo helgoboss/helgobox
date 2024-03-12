@@ -279,47 +279,6 @@ impl Default for FxDisplayType {
 }
 
 impl ReaperTarget {
-    pub fn from_simple_target(simple_target: SimpleMappingTarget) -> Self {
-        use SimpleMappingTarget::*;
-        match simple_target {
-            TriggerMatrix => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                action: PlaytimeMatrixAction::Stop,
-            }),
-            TriggerColumn(t) => Self::PlaytimeColumnAction(PlaytimeColumnActionTarget {
-                column_index: t.index,
-                action: PlaytimeColumnAction::Stop,
-            }),
-            TriggerRow(t) => Self::PlaytimeRowAction(PlaytimeRowActionTarget {
-                basics: crate::domain::ClipRowTargetBasics {
-                    row_index: t.index,
-                    action: PlaytimeRowAction::PlayScene,
-                },
-            }),
-            TriggerSlot(t) => Self::PlaytimeSlotTransportAction(PlaytimeSlotTransportTarget {
-                project: Reaper::get().current_project(),
-                basics: crate::domain::ClipTransportTargetBasics {
-                    slot_address: t,
-                    action: PlaytimeSlotTransportAction::Trigger,
-                    options: Default::default(),
-                },
-            }),
-            SmartRecord => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                action: PlaytimeMatrixAction::SmartRecord,
-            }),
-            EnterSilenceModeOrPlayIgnited => {
-                Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                    action: PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited,
-                })
-            }
-            SequencerRecordOnOffState => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                action: PlaytimeMatrixAction::SequencerRecordOnOffState,
-            }),
-            SequencerPlayOnOffState => Self::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                action: PlaytimeMatrixAction::SequencerPlayOnOffState,
-            }),
-        }
-    }
-
     /// Returns `true` if the given change event can be a reason for re-resolving targets or
     /// auto-loading another main preset.
     pub fn changes_conditions(evt: CompoundChangeEvent) -> bool {

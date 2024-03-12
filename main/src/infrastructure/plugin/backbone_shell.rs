@@ -1979,7 +1979,7 @@ impl BackboneShell {
             Some(s) => {
                 let mapping =
                     s.borrow_mut()
-                        .toggle_learn_source_for_target(&s, compartment, target);
+                        .toggle_learn_source_for_target(&s, compartment, target, false);
                 s.borrow().show_mapping(compartment, mapping.borrow().id());
             }
         }
