@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -149,6 +149,8 @@ pub mod command_request {
         TriggerGlobal(super::TriggerGlobalRequest),
         #[prost(message, tag = "47")]
         InsertColumns(super::InsertColumnsRequest),
+        #[prost(message, tag = "48")]
+        TriggerInstance(super::TriggerInstanceRequest),
     }
 }
 /// Envelope for queries.
@@ -479,6 +481,14 @@ pub struct DeleteControllerRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TriggerGlobalRequest {
     #[prost(enumeration = "TriggerGlobalAction", tag = "1")]
+    pub action: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerInstanceRequest {
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
+    #[prost(enumeration = "TriggerInstanceAction", tag = "2")]
     pub action: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1517,6 +1527,33 @@ impl MatrixVolumeKind {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
+pub enum TriggerInstanceAction {
+    ShowHelgoboxPlugin = 0,
+}
+impl TriggerInstanceAction {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            TriggerInstanceAction::ShowHelgoboxPlugin => {
+                "TRIGGER_INSTANCE_ACTION_SHOW_HELGOBOX_PLUGIN"
+            }
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRIGGER_INSTANCE_ACTION_SHOW_HELGOBOX_PLUGIN" => {
+                Some(Self::ShowHelgoboxPlugin)
+            }
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
 pub enum TriggerMatrixAction {
     StopAllClips = 0,
     Undo = 7,
@@ -2510,6 +2547,10 @@ pub mod helgobox_service_server {
             request: tonic::Request<super::DeleteControllerRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// General instance commands
+        async fn trigger_instance(
+            &self,
+            request: tonic::Request<super::TriggerInstanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         async fn set_instance_settings(
             &self,
             request: tonic::Request<super::SetInstanceSettingsRequest>,
@@ -3479,6 +3520,53 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DeleteControllerSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/TriggerInstance" => {
+                    #[allow(non_camel_case_types)]
+                    struct TriggerInstanceSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::TriggerInstanceRequest>
+                    for TriggerInstanceSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::TriggerInstanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::trigger_instance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = TriggerInstanceSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

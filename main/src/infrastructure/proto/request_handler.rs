@@ -13,8 +13,9 @@ use crate::infrastructure::proto::{
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
     SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
-    TriggerGlobalRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest,
-    TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
+    TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
+    HOST_API_VERSION,
 };
 use anyhow::Context;
 use base::spawn_in_main_thread;
@@ -305,6 +306,20 @@ impl ProtoRequestHandler {
         {
             PlaytimeProtoRequestHandler.trigger_matrix(req)
         }
+    }
+
+    pub fn trigger_instance(&self, req: TriggerInstanceRequest) -> Result<Response<Empty>, Status> {
+        let action = TriggerInstanceAction::try_from(req.action)
+            .map_err(|_| Status::invalid_argument("unknown trigger instance action"))?;
+        self.handle_instance_command(req.instance_id, |instance| match action {
+            TriggerInstanceAction::ShowHelgoboxPlugin => {
+                instance
+                    .processor_context()
+                    .containing_fx()
+                    .show_in_floating_window();
+                Ok(())
+            }
+        })
     }
 
     pub fn set_matrix_settings(
