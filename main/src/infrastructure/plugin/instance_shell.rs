@@ -524,7 +524,7 @@ impl InstanceShell {
                     crate::infrastructure::data::ClipMatrixRefData::Own(m) => {
                         let mut instance = self.instance().borrow_mut();
                         self.clone()
-                            .get_or_insert_owned_clip_matrix(&mut instance)
+                            .get_or_insert_owned_clip_matrix(&mut instance)?
                             .load(*m)?;
                     }
                     crate::infrastructure::data::ClipMatrixRefData::Foreign(_) => {
@@ -623,7 +623,8 @@ impl InstanceShell {
             if instance.clip_matrix().is_some() {
                 return Ok(());
             }
-            self.clone().get_or_insert_owned_clip_matrix(&mut instance);
+            self.clone()
+                .get_or_insert_owned_clip_matrix(&mut instance)?;
             // For convenience, we automatically switch global control on. This, combined with automatically creating
             // a controller for a known device (see `maybe_create_controller_for_device`) leads to newly connected
             // controllers working automagically!
@@ -646,7 +647,7 @@ impl InstanceShell {
             let mut instance = self.instance().borrow_mut();
             if let Some(matrix) = matrix {
                 self.clone()
-                    .get_or_insert_owned_clip_matrix(&mut instance)
+                    .get_or_insert_owned_clip_matrix(&mut instance)?
                     .load(matrix)?;
             } else {
                 instance.set_clip_matrix(None);
@@ -663,7 +664,7 @@ impl InstanceShell {
     pub fn get_or_insert_owned_clip_matrix(
         self: SharedInstanceShell,
         instance: &mut Instance,
-    ) -> &mut playtime_clip_engine::base::Matrix {
+    ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
         let main_unit_model = Rc::downgrade(self.main_unit_shell.model());
         let weak_instance_shell = Arc::downgrade(&self);
         let create_handler =
@@ -678,8 +679,7 @@ impl InstanceShell {
                 );
                 Box::new(handler)
             };
-        instance.create_and_install_clip_matrix_if_necessary(create_handler);
-        let matrix = instance.clip_matrix_mut().unwrap();
-        matrix
+        instance.create_and_install_clip_matrix_if_necessary(create_handler)?;
+        Ok(instance.clip_matrix_mut().unwrap())
     }
 }

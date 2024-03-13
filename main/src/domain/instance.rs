@@ -1,5 +1,5 @@
 use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
-use anyhow::Context;
+use anyhow::{bail, Context};
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
@@ -309,14 +309,21 @@ impl Instance {
         self.playtime.clip_matrix.as_mut()
     }
 
-    /// Returns `true` if it installed a clip matrix.
+    /// Returns `Ok(true)` if it installed a clip matrix and `Ok(false)` if one was installed already.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the clip matrix can't be created, e.g. when on the monitoring FX chain.
     #[cfg(feature = "playtime")]
     pub(crate) fn create_and_install_clip_matrix_if_necessary(
         &mut self,
         create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
-    ) -> bool {
+    ) -> anyhow::Result<bool> {
         if self.playtime.clip_matrix.is_some() {
-            return false;
+            return Ok(false);
+        }
+        if self.processor_context.is_on_monitoring_fx_chain() {
+            bail!("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.");
         }
         let matrix = playtime_clip_engine::base::Matrix::new(
             create_handler(self),
@@ -330,7 +337,7 @@ impl Instance {
                 instance_id: self.id,
                 event: playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged,
             });
-        true
+        Ok(true)
     }
 
     #[cfg(feature = "playtime")]
