@@ -12,7 +12,7 @@ export type Matrix = {
 	clip_record_settings: MatrixClipRecordSettings,
 	common_tempo_range: TempoRange,
 	activate_slot_on_trigger: boolean?,
-	click_volume: Db?,
+	click_volume: number?,
 	color_palette: ColorPalette?,
 	content_quantization_settings: ContentQuantizationSettings?,
 	sequencer: MatrixSequencer?,
@@ -147,8 +147,8 @@ function module.MatrixSettings(value: MatrixSettings): MatrixSettings
 end
 
 export type TempoRange = {
-	min: Bpm,
-	max: Bpm,
+	min: number,
+	max: number,
 }
 --- Creates a TempoRange value.
 function module.TempoRange(value: TempoRange): TempoRange
@@ -775,7 +775,7 @@ end
 export type Row = {
 	id: RowId?,
 	name: string?,
-	tempo: Bpm?,
+	tempo: number?,
 	time_signature: TimeSignature?,
 }
 --- Creates a Row value.
@@ -993,7 +993,7 @@ export type Clip = {
 	stop_timing: ClipPlayStopTiming?,
 	velocity_sensitivity: number?,
 	looped: boolean,
-	volume: Db,
+	volume: number,
 	color: ClipColor,
 	dynamic_section: Section?,
 	fixed_section: Section,
@@ -1010,7 +1010,7 @@ export type ClipAudioSettings = {
 	time_stretch_mode: AudioTimeStretchMode?,
 	resample_mode: VirtualResampleMode?,
 	cache_behavior: AudioCacheBehavior?,
-	original_tempo: Bpm?,
+	original_tempo: number?,
 }
 --- Creates a ClipAudioSettings value.
 function module.ClipAudioSettings(value: ClipAudioSettings): ClipAudioSettings
@@ -1018,13 +1018,22 @@ function module.ClipAudioSettings(value: ClipAudioSettings): ClipAudioSettings
 end
 
 export type ClipMidiSettings = {
+	destination_channel: number?,
+	reset_settings: ClipMidiResetSettings?,
+}
+--- Creates a ClipMidiSettings value.
+function module.ClipMidiSettings(value: ClipMidiSettings): ClipMidiSettings
+	return value
+end
+
+export type ClipMidiResetSettings = {
 	interaction_reset_settings: MidiResetMessageRange,
 	loop_reset_settings: MidiResetMessageRange,
 	section_reset_settings: MidiResetMessageRange,
 	source_reset_settings: MidiResetMessageRange,
 }
---- Creates a ClipMidiSettings value.
-function module.ClipMidiSettings(value: ClipMidiSettings): ClipMidiSettings
+--- Creates a ClipMidiResetSettings value.
+function module.ClipMidiResetSettings(value: ClipMidiResetSettings): ClipMidiResetSettings
 	return value
 end
 
@@ -1050,8 +1059,8 @@ function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
 end
 
 export type Section = {
-	start_pos: DurationInSeconds,
-	length: DurationInSeconds?,
+	start_pos: number,
+	length: number?,
 }
 --- Creates a Section value.
 function module.Section(value: Section): Section
@@ -1198,12 +1207,7 @@ end
 export type ClipTimeBase_Time = { kind: "Time" }
 
 --- Material which needs to be adjusted to the current tempo.
-export type ClipTimeBase_Beat = {
-	kind: "Beat",
-	audio_tempo: Bpm?,
-	time_signature: TimeSignature,
-	downbeat: DurationInBeats,
-}
+export type ClipTimeBase_Beat = { kind: "Beat", audio_tempo: number?, time_signature: TimeSignature, downbeat: number }
 --- Decides if the clip will be adjusted to the current tempo.
 export type ClipTimeBase = ClipTimeBase_Time | ClipTimeBase_Beat
 
@@ -1231,9 +1235,9 @@ function module.ClipTimeBase.Beat(value: BeatTimeBase): ClipTimeBase_Beat
 end
 
 export type BeatTimeBase = {
-	audio_tempo: Bpm?,
+	audio_tempo: number?,
 	time_signature: TimeSignature,
-	downbeat: DurationInBeats,
+	downbeat: number,
 }
 --- Creates a BeatTimeBase value.
 function module.BeatTimeBase(value: BeatTimeBase): BeatTimeBase

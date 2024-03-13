@@ -2143,7 +2143,7 @@ impl TargetModel {
     fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
         use PlaytimeSlotDescriptor::*;
         let slot = match &self.playtime_slot {
-            Active => VirtualPlaytimeSlot::Selected,
+            Active => VirtualPlaytimeSlot::Active,
             ByIndex(address) => VirtualPlaytimeSlot::ByIndex(*address),
             Dynamic {
                 column_expression,
@@ -2169,7 +2169,7 @@ impl TargetModel {
     fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
         use PlaytimeRowDescriptor::*;
         let row = match &self.playtime_row {
-            Active => VirtualPlaytimeRow::Selected,
+            Active => VirtualPlaytimeRow::Active,
             ByIndex(address) => VirtualPlaytimeRow::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
@@ -4225,7 +4225,7 @@ impl TrackPropValues {
             index: track.index().unwrap_or_default(),
             clip_column: {
                 match track.clip_column().unwrap_or(&Default::default()) {
-                    VirtualPlaytimeColumn::Selected => PlaytimeColumnDescriptor::Active,
+                    VirtualPlaytimeColumn::Active => PlaytimeColumnDescriptor::Active,
                     VirtualPlaytimeColumn::ByIndex(i) => {
                         PlaytimeColumnDescriptor::ByIndex(ColumnAddress::new(*i))
                     }

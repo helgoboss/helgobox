@@ -155,9 +155,9 @@ mod playtime_impl {
                 }
                 PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
                     if value.is_on() {
-                        matrix.enter_silence_mode();
-                    } else {
                         matrix.play_all_ignited();
+                    } else {
+                        matrix.enter_silence_mode();
                     }
                 }
                 PlaytimeMatrixAction::SilenceModeOnOffState => {
@@ -248,7 +248,7 @@ mod playtime_impl {
                 | PlaytimeMatrixAction::SetRecordDurationToTwoBars
                 | PlaytimeMatrixAction::SetRecordDurationToFourBars
                 | PlaytimeMatrixAction::SetRecordDurationToEightBars => match evt {
-                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::RecordDurationChanged) => {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::MatrixSettingsChanged) => {
                         (true, None)
                     }
                     _ => (false, None),
@@ -330,7 +330,7 @@ mod playtime_impl {
                             return None;
                         }
                         PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
-                            matrix.is_in_silence_mode()
+                            !matrix.is_in_silence_mode()
                         }
                         PlaytimeMatrixAction::SilenceModeOnOffState => matrix.is_in_silence_mode(),
                         PlaytimeMatrixAction::Panic => {

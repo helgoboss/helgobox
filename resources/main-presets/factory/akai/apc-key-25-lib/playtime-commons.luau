@@ -355,13 +355,11 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         }
     end
 
-    local function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementActionKind)
+    local function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementAction)
         return partial_mapping {
             target = realearn.Target.PlaytimeSlotManagementAction {
                 slot = create_slot_selector(col, row),
-                action = {
-                    kind = action,
-                } :: any,
+                action = action,
             },
         }
     end

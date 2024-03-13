@@ -272,12 +272,8 @@ mod playtime_impl {
                         HitResponse::processed_with_effect()
                     }
                     Looped => {
-                        if value.is_on() {
-                            matrix.toggle_looped(self.basics.slot_address)?;
-                            HitResponse::processed_with_effect()
-                        } else {
-                            HitResponse::ignored()
-                        }
+                        matrix.set_slot_looped(self.basics.slot_address, value.is_on())?;
+                        HitResponse::processed_with_effect()
                     }
                 };
                 Ok(response)
@@ -556,7 +552,7 @@ mod playtime_impl {
                 Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
                     clip_play_state_unit_value(self.basics.action, first_clip.play_state())
                 }
-                Looped => transport_is_enabled_unit_value(first_clip.looped()),
+                Looped => return None,
             };
             Some(AbsoluteValue::Continuous(val))
         }

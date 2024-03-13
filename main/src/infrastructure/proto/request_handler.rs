@@ -252,7 +252,7 @@ impl ProtoRequestHandler {
         })
     }
 
-    pub fn insert_columns(&self, request: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
+    pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
             let _ = req;
@@ -260,7 +260,7 @@ impl ProtoRequestHandler {
         }
         #[cfg(feature = "playtime")]
         {
-            PlaytimeProtoRequestHandler.insert_columns(request)
+            PlaytimeProtoRequestHandler.insert_columns(req)
         }
     }
 

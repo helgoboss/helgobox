@@ -934,7 +934,7 @@ fn translate_type_name(ident: &str) -> Option<&str> {
     let translated = match ident {
         "usize" | "u8" | "u16" | "u32" | "u64" | "isize" | "i8" | "i16" | "i32" | "i64"
         | "NonZeroU32" => "number",
-        "f64" | "f32" => "number",
+        "f64" | "f32" | "Db" | "Bpm" | "DurationInSeconds" | "DurationInBeats" => "number",
         "PathBuf" | "NaiveDateTime" | "Version" | "String" => "string",
         "bool" => "boolean",
         // serde_json::Value

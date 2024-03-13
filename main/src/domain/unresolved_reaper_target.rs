@@ -743,7 +743,7 @@ impl Default for TrackRouteType {
 
 #[derive(Debug)]
 pub enum VirtualPlaytimeSlot {
-    Selected,
+    Active,
     ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
         column_evaluator: Box<ExpressionEvaluator>,
@@ -760,7 +760,7 @@ impl VirtualPlaytimeSlot {
         use playtime_api::persistence::SlotAddress;
         use VirtualPlaytimeSlot::*;
         let coordinates = match self {
-            Selected => return Err("the concept of a selected slot is not yet supported"),
+            Active => return Err("the concept of a selected slot is not yet supported"),
             ByIndex(address) => *address,
             Dynamic {
                 column_evaluator,
@@ -797,14 +797,14 @@ impl VirtualPlaytimeSlot {
 
 #[derive(Debug)]
 pub enum VirtualPlaytimeColumn {
-    Selected,
+    Active,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
 
 impl Default for VirtualPlaytimeColumn {
     fn default() -> Self {
-        Self::Selected
+        Self::Active
     }
 }
 
@@ -814,7 +814,7 @@ impl VirtualPlaytimeColumn {
     ) -> Result<VirtualPlaytimeColumn, &'static str> {
         use realearn_api::persistence::PlaytimeColumnDescriptor::*;
         let column = match descriptor {
-            Active => VirtualPlaytimeColumn::Selected,
+            Active => VirtualPlaytimeColumn::Active,
             ByIndex(address) => VirtualPlaytimeColumn::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
@@ -834,7 +834,7 @@ impl VirtualPlaytimeColumn {
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeColumn::*;
         let index = match self {
-            Selected => return Err("the concept of a selected column is not yet supported"),
+            Active => return Err("the concept of a selected column is not yet supported"),
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
@@ -861,14 +861,14 @@ impl VirtualPlaytimeColumn {
 
 #[derive(Debug)]
 pub enum VirtualPlaytimeRow {
-    Selected,
+    Active,
     ByIndex(usize),
     Dynamic(Box<ExpressionEvaluator>),
 }
 
 impl Default for VirtualPlaytimeRow {
     fn default() -> Self {
-        Self::Selected
+        Self::Active
     }
 }
 
@@ -880,7 +880,7 @@ impl VirtualPlaytimeRow {
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeRow::*;
         let index = match self {
-            Selected => return Err("the concept of a selected row is not yet supported"),
+            Active => return Err("the concept of a selected row is not yet supported"),
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);

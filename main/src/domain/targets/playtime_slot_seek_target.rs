@@ -49,6 +49,7 @@ pub struct PlaytimeSlotSeekTarget {
 
 pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Playtime,
+    hint: "Experimental, don't use!",
     name: "Slot seek",
     short_name: "Playtime slot seek",
     supports_feedback_resolution: true,

@@ -152,7 +152,7 @@ impl occasional_global_update::Update {
                 None
             }
         };
-        let json = value.map(|license| {
+        let json = value.map(|license: License| {
             let license_data = LicenseData::from(license);
             serde_json::to_string(&license_data.payload)
                 .expect("couldn't represent license payload as JSON")
@@ -383,5 +383,27 @@ impl From<Vec<QualifiedContinuousSlotUpdate>> for event_reply::Value {
         event_reply::Value::ContinuousSlotUpdatesReply(GetContinuousSlotUpdatesReply {
             slot_updates: value,
         })
+    }
+}
+
+impl ArrangementPlayState {
+    pub fn from_engine(play_state: PlayState) -> Self {
+        if play_state.is_recording {
+            if play_state.is_paused {
+                Self::RecordingPaused
+            } else {
+                Self::Recording
+            }
+        } else if play_state.is_playing {
+            if play_state.is_paused {
+                Self::PlayingPaused
+            } else {
+                Self::Playing
+            }
+        } else if play_state.is_paused {
+            Self::PlayingPaused
+        } else {
+            Self::Stopped
+        }
     }
 }

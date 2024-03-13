@@ -420,28 +420,6 @@ impl TrackInputMonitoring {
     }
 }
 
-impl ArrangementPlayState {
-    pub fn from_engine(play_state: reaper_medium::PlayState) -> Self {
-        if play_state.is_recording {
-            if play_state.is_paused {
-                Self::RecordingPaused
-            } else {
-                Self::Recording
-            }
-        } else if play_state.is_playing {
-            if play_state.is_paused {
-                Self::PlayingPaused
-            } else {
-                Self::Playing
-            }
-        } else if play_state.is_paused {
-            Self::PlayingPaused
-        } else {
-            Self::Stopped
-        }
-    }
-}
-
 impl SequencerPlayState {
     pub fn from_engine(play_state: base::SequencerStatus) -> Self {
         use SequencerStatus::*;

@@ -1529,7 +1529,7 @@ pub enum PlaytimeMatrixAction {
     MidiAutoQuantizationOnOffState,
     #[display(fmt = "Smart record")]
     SmartRecord,
-    #[display(fmt = "Enable silence mode or play ignited")]
+    #[display(fmt = "Play ignited or enable silence mode")]
     EnterSilenceModeOrPlayIgnited,
     #[display(fmt = "Enable/disable silence mode")]
     SilenceModeOnOffState,
@@ -1997,7 +1997,7 @@ pub enum PlaytimeSlotDescriptorKind {
 impl Display for PlaytimeSlotDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            PlaytimeSlotDescriptor::Active => f.write_str("Selected slot"),
+            PlaytimeSlotDescriptor::Active => f.write_str("Active slot"),
             PlaytimeSlotDescriptor::ByIndex(address) => address.fmt(f),
             PlaytimeSlotDescriptor::Dynamic {
                 column_expression,

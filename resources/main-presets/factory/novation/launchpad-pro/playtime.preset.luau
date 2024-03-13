@@ -238,16 +238,14 @@ function clip_transport_action(col: number, row: number, action: realearn.Playti
     }
 end
 
-function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementActionKind)
+function clip_management_action(col: number, row: number, action: realearn.PlaytimeSlotManagementAction)
     return partial_mapping {
         glue = {
             button_filter = "PressOnly",
         },
         target = realearn.Target.PlaytimeSlotManagementAction {
             slot = create_slot_selector(col, row),
-            action = {
-                kind = action,
-            } :: any,
+            action = action,
         },
     }
 end
@@ -559,7 +557,7 @@ for col = 0, column_count - 1 do
                 + create_normal_control_condition(slot_modes.double)
                 + feedback_disabled()
                 + slot_button(col, row)
-                + clip_management_action(col, row, "Double")
+                + clip_management_action(col, row, "DoubleClipSectionLength")
         )
         -- Feedback
         table.insert(

@@ -1500,8 +1500,8 @@ export type Target_PlaytimeSlotTransportAction = {
 	unit: TargetUnit?,
 	slot: PlaytimeSlotDescriptor,
 	action: PlaytimeSlotTransportAction,
-	record_only_if_track_armed: boolean?,
 	stop_column_if_slot_empty: boolean?,
+	record_only_if_track_armed: boolean?,
 	play_start_timing: playtime.ClipPlayStartTiming?,
 	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
@@ -2840,8 +2840,8 @@ export type PlaytimeSlotTransportActionTarget = {
 	unit: TargetUnit?,
 	slot: PlaytimeSlotDescriptor,
 	action: PlaytimeSlotTransportAction,
-	record_only_if_track_armed: boolean?,
 	stop_column_if_slot_empty: boolean?,
+	record_only_if_track_armed: boolean?,
 	play_start_timing: playtime.ClipPlayStartTiming?,
 	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
@@ -2921,104 +2921,15 @@ function module.PlaytimeSlotManagementActionTarget(
 	return value
 end
 
-export type PlaytimeSlotManagementAction_ClearSlot = { kind: "ClearSlot" }
-
-export type PlaytimeSlotManagementAction_FillSlotWithSelectedItem = { kind: "FillSlotWithSelectedItem" }
-
-export type PlaytimeSlotManagementAction_EditClip = { kind: "EditClip" }
-
-export type PlaytimeSlotManagementAction_CopyOrPasteClip = { kind: "CopyOrPasteClip" }
-
-export type PlaytimeSlotManagementAction_AdjustClipSectionLength = { kind: "AdjustClipSectionLength", factor: number }
-
-export type PlaytimeSlotManagementAction_QuantizationOnOffState = { kind: "QuantizationOnOffState" }
-
-export type PlaytimeSlotManagementAction_Duplicate = { kind: "Duplicate" }
-
-export type PlaytimeSlotManagementAction_Double = { kind: "Double" }
 export type PlaytimeSlotManagementAction =
-	PlaytimeSlotManagementAction_ClearSlot
-	| PlaytimeSlotManagementAction_FillSlotWithSelectedItem
-	| PlaytimeSlotManagementAction_EditClip
-	| PlaytimeSlotManagementAction_CopyOrPasteClip
-	| PlaytimeSlotManagementAction_AdjustClipSectionLength
-	| PlaytimeSlotManagementAction_QuantizationOnOffState
-	| PlaytimeSlotManagementAction_Duplicate
-	| PlaytimeSlotManagementAction_Double
-
---- A type that represents all possible kinds of PlaytimeSlotManagementAction.
-export type PlaytimeSlotManagementActionKind =
 	"ClearSlot"
 	| "FillSlotWithSelectedItem"
 	| "EditClip"
 	| "CopyOrPasteClip"
-	| "AdjustClipSectionLength"
+	| "DoubleClipSectionLength"
+	| "HalveClipSectionLength"
 	| "QuantizationOnOffState"
 	| "Duplicate"
-	| "Double"
-
---- Helper table to create PlaytimeSlotManagementAction values of different kinds.
-module.PlaytimeSlotManagementAction = {}
-
---- Creates a PlaytimeSlotManagementAction of kind ClearSlot.
-function module.PlaytimeSlotManagementAction.ClearSlot(): PlaytimeSlotManagementAction_ClearSlot
-	return {
-		kind = "ClearSlot",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind FillSlotWithSelectedItem.
-function module.PlaytimeSlotManagementAction.FillSlotWithSelectedItem(
-): PlaytimeSlotManagementAction_FillSlotWithSelectedItem
-	return {
-		kind = "FillSlotWithSelectedItem",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind EditClip.
-function module.PlaytimeSlotManagementAction.EditClip(): PlaytimeSlotManagementAction_EditClip
-	return {
-		kind = "EditClip",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind CopyOrPasteClip.
-function module.PlaytimeSlotManagementAction.CopyOrPasteClip(): PlaytimeSlotManagementAction_CopyOrPasteClip
-	return {
-		kind = "CopyOrPasteClip",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind AdjustClipSectionLength.
-function module.PlaytimeSlotManagementAction.AdjustClipSectionLength(
-	value: AdjustClipSectionLengthAction
-): PlaytimeSlotManagementAction_AdjustClipSectionLength
-	local t: any = table.clone(value)
-	t.kind = "AdjustClipSectionLength"
-	return t
-end
-
---- Creates a PlaytimeSlotManagementAction of kind QuantizationOnOffState.
-function module.PlaytimeSlotManagementAction.QuantizationOnOffState(
-): PlaytimeSlotManagementAction_QuantizationOnOffState
-	return {
-		kind = "QuantizationOnOffState",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind Duplicate.
-function module.PlaytimeSlotManagementAction.Duplicate(): PlaytimeSlotManagementAction_Duplicate
-	return {
-		kind = "Duplicate",
-	}
-end
-
---- Creates a PlaytimeSlotManagementAction of kind Double.
-function module.PlaytimeSlotManagementAction.Double(): PlaytimeSlotManagementAction_Double
-	return {
-		kind = "Double",
-	}
-end
 
 export type AdjustClipSectionLengthAction = {
 	factor: number,
@@ -3355,6 +3266,13 @@ export type PlaytimeMatrixAction =
 	| "SetRecordDurationToEightBars"
 	| "ClickOnOffState"
 	| "MidiAutoQuantizationOnOffState"
+	| "SmartRecord"
+	| "EnterSilenceModeOrPlayIgnited"
+	| "SilenceModeOnOffState"
+	| "Panic"
+	| "SequencerRecordOnOffState"
+	| "SequencerPlayOnOffState"
+	| "TapTempo"
 
 export type AnyOnParameter = "TrackSolo" | "TrackMute" | "TrackArm" | "TrackSelection"
 
@@ -3886,26 +3804,26 @@ end
 
 export type TrackRouteKind = "Send" | "Receive" | "HardwareOutput"
 
-export type PlaytimeSlotDescriptor_Selected = { address: "Selected" }
+export type PlaytimeSlotDescriptor_Active = { address: "Active" }
 
 export type PlaytimeSlotDescriptor_ByIndex = { address: "ByIndex", column_index: number, row_index: number }
 
 export type PlaytimeSlotDescriptor_Dynamic = { address: "Dynamic", column_expression: string, row_expression: string }
 export type PlaytimeSlotDescriptor =
-	PlaytimeSlotDescriptor_Selected
+	PlaytimeSlotDescriptor_Active
 	| PlaytimeSlotDescriptor_ByIndex
 	| PlaytimeSlotDescriptor_Dynamic
 
 --- A type that represents all possible kinds of PlaytimeSlotDescriptor.
-export type PlaytimeSlotDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+export type PlaytimeSlotDescriptorAddress = "Active" | "ByIndex" | "Dynamic"
 
 --- Helper table to create PlaytimeSlotDescriptor values of different kinds.
 module.PlaytimeSlotDescriptor = {}
 
---- Creates a PlaytimeSlotDescriptor of kind Selected.
-function module.PlaytimeSlotDescriptor.Selected(): PlaytimeSlotDescriptor_Selected
+--- Creates a PlaytimeSlotDescriptor of kind Active.
+function module.PlaytimeSlotDescriptor.Active(): PlaytimeSlotDescriptor_Active
 	return {
-		address = "Selected",
+		address = "Active",
 	}
 end
 
@@ -3925,26 +3843,28 @@ function module.PlaytimeSlotDescriptor.Dynamic(
 	return t
 end
 
-export type PlaytimeColumnDescriptor_Selected = { address: "Selected" }
+export type PlaytimeSlotDescriptorKind = "Active" | "ByIndex" | "Dynamic"
+
+export type PlaytimeColumnDescriptor_Active = { address: "Active" }
 
 export type PlaytimeColumnDescriptor_ByIndex = { address: "ByIndex", index: number }
 
 export type PlaytimeColumnDescriptor_Dynamic = { address: "Dynamic", expression: string }
 export type PlaytimeColumnDescriptor =
-	PlaytimeColumnDescriptor_Selected
+	PlaytimeColumnDescriptor_Active
 	| PlaytimeColumnDescriptor_ByIndex
 	| PlaytimeColumnDescriptor_Dynamic
 
 --- A type that represents all possible kinds of PlaytimeColumnDescriptor.
-export type PlaytimeColumnDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+export type PlaytimeColumnDescriptorAddress = "Active" | "ByIndex" | "Dynamic"
 
 --- Helper table to create PlaytimeColumnDescriptor values of different kinds.
 module.PlaytimeColumnDescriptor = {}
 
---- Creates a PlaytimeColumnDescriptor of kind Selected.
-function module.PlaytimeColumnDescriptor.Selected(): PlaytimeColumnDescriptor_Selected
+--- Creates a PlaytimeColumnDescriptor of kind Active.
+function module.PlaytimeColumnDescriptor.Active(): PlaytimeColumnDescriptor_Active
 	return {
-		address = "Selected",
+		address = "Active",
 	}
 end
 
@@ -3962,26 +3882,28 @@ function module.PlaytimeColumnDescriptor.Dynamic(value: { expression: string }):
 	return t
 end
 
-export type PlaytimeRowDescriptor_Selected = { address: "Selected" }
+export type PlaytimeColumnDescriptorKind = "Active" | "ByIndex" | "Dynamic"
+
+export type PlaytimeRowDescriptor_Active = { address: "Active" }
 
 export type PlaytimeRowDescriptor_ByIndex = { address: "ByIndex", index: number }
 
 export type PlaytimeRowDescriptor_Dynamic = { address: "Dynamic", expression: string }
 export type PlaytimeRowDescriptor =
-	PlaytimeRowDescriptor_Selected
+	PlaytimeRowDescriptor_Active
 	| PlaytimeRowDescriptor_ByIndex
 	| PlaytimeRowDescriptor_Dynamic
 
 --- A type that represents all possible kinds of PlaytimeRowDescriptor.
-export type PlaytimeRowDescriptorAddress = "Selected" | "ByIndex" | "Dynamic"
+export type PlaytimeRowDescriptorAddress = "Active" | "ByIndex" | "Dynamic"
 
 --- Helper table to create PlaytimeRowDescriptor values of different kinds.
 module.PlaytimeRowDescriptor = {}
 
---- Creates a PlaytimeRowDescriptor of kind Selected.
-function module.PlaytimeRowDescriptor.Selected(): PlaytimeRowDescriptor_Selected
+--- Creates a PlaytimeRowDescriptor of kind Active.
+function module.PlaytimeRowDescriptor.Active(): PlaytimeRowDescriptor_Active
 	return {
-		address = "Selected",
+		address = "Active",
 	}
 end
 
@@ -3998,6 +3920,8 @@ function module.PlaytimeRowDescriptor.Dynamic(value: { expression: string }): Pl
 	t.address = "Dynamic"
 	return t
 end
+
+export type PlaytimeRowDescriptorKind = "Active" | "ByIndex" | "Dynamic"
 
 export type MidiDestination_FxOutput = { kind: "FxOutput" }
 

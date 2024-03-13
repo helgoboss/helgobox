@@ -75,7 +75,7 @@ local mappings: { realearn.Mapping } = {
 }
 
 -- Encoder movement => Set FX parameter value
-for i = 0, 15 do
+for i = 0, multi_count - 1 do
     local m = realearn.Mapping {
         name = `Set parameter value {i + 1}`,
         source = realearn.Source.Virtual {
@@ -93,8 +93,8 @@ for i = 0, 15 do
 end
 
 -- Encoder push => Select bank
-for i = 0, 15 do
-    local normalized_bank = i / 15
+for i = 0, button_count - 1 do
+    local normalized_bank = i / (button_count - 1)
     local m = realearn.Mapping {
         name = `Switch to bank {i + 1}`,
         source = realearn.Source.Virtual {

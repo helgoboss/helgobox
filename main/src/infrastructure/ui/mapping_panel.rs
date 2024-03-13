@@ -3591,10 +3591,12 @@ impl<'a> MutableMappingPanel<'a> {
                     match self.mapping.target_model.playtime_column() {
                         PlaytimeColumnDescriptor::Active => {}
                         PlaytimeColumnDescriptor::ByIndex(_) => {
-                            let index = text.parse().unwrap_or_default();
+                            let position: usize = text.parse().unwrap_or_default();
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
-                                    PlaytimeColumnDescriptor::ByIndex(ColumnAddress { index }),
+                                    PlaytimeColumnDescriptor::ByIndex(ColumnAddress {
+                                        index: position.saturating_sub(1),
+                                    }),
                                 )),
                                 Some(edit_control_id),
                             );
@@ -3614,10 +3616,12 @@ impl<'a> MutableMappingPanel<'a> {
                     match self.mapping.target_model.playtime_row() {
                         PlaytimeRowDescriptor::Active => {}
                         PlaytimeRowDescriptor::ByIndex(_) => {
-                            let index = text.parse().unwrap_or_default();
+                            let position: usize = text.parse().unwrap_or_default();
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeRow(
-                                    PlaytimeRowDescriptor::ByIndex(RowAddress { index }),
+                                    PlaytimeRowDescriptor::ByIndex(RowAddress {
+                                        index: position.saturating_sub(1),
+                                    }),
                                 )),
                                 Some(edit_control_id),
                             );
@@ -3640,11 +3644,11 @@ impl<'a> MutableMappingPanel<'a> {
                     match self.mapping.target_model.playtime_slot() {
                         PlaytimeSlotDescriptor::Active => {}
                         PlaytimeSlotDescriptor::ByIndex(address) => {
-                            let index = text.parse().unwrap_or_default();
+                            let position: usize = text.parse().unwrap_or_default();
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
                                     PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
-                                        index,
+                                        position.saturating_sub(1),
                                         address.row_index,
                                     )),
                                 )),
@@ -3735,12 +3739,12 @@ impl<'a> MutableMappingPanel<'a> {
                     match self.mapping.target_model.playtime_slot() {
                         PlaytimeSlotDescriptor::Active => {}
                         PlaytimeSlotDescriptor::ByIndex(address) => {
-                            let index = text.parse().unwrap_or_default();
+                            let position: usize = text.parse().unwrap_or_default();
                             self.change_mapping_with_initiator(
                                 MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
                                     PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
                                         address.column_index,
-                                        index,
+                                        position.saturating_sub(1),
                                     )),
                                 )),
                                 Some(edit_control_id),
@@ -5284,7 +5288,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 | ReaperTargetType::PlaytimeSlotSeek
                 | ReaperTargetType::PlaytimeSlotVolume => match self.target.playtime_slot() {
                     PlaytimeSlotDescriptor::Active => None,
-                    PlaytimeSlotDescriptor::ByIndex(a) => Some(a.row_index.to_string()),
+                    PlaytimeSlotDescriptor::ByIndex(a) => Some((a.row_index + 1).to_string()),
                     PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
                         Some(row_expression.clone())
                     }
@@ -5353,7 +5357,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::PlaytimeColumnAction => {
                     let text = match self.target.playtime_column() {
                         PlaytimeColumnDescriptor::Active => None,
-                        PlaytimeColumnDescriptor::ByIndex(a) => Some(a.index.to_string()),
+                        PlaytimeColumnDescriptor::ByIndex(a) => Some((a.index + 1).to_string()),
                         PlaytimeColumnDescriptor::Dynamic { expression } => {
                             Some(expression.clone())
                         }
@@ -5363,7 +5367,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::PlaytimeRowAction => {
                     let text = match self.target.playtime_row() {
                         PlaytimeRowDescriptor::Active => None,
-                        PlaytimeRowDescriptor::ByIndex(a) => Some(a.index.to_string()),
+                        PlaytimeRowDescriptor::ByIndex(a) => Some((a.index + 1).to_string()),
                         PlaytimeRowDescriptor::Dynamic { expression } => Some(expression.clone()),
                     };
                     (text, false)
@@ -5374,7 +5378,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 | ReaperTargetType::PlaytimeSlotVolume => {
                     let text = match self.target.playtime_slot() {
                         PlaytimeSlotDescriptor::Active => None,
-                        PlaytimeSlotDescriptor::ByIndex(a) => Some(a.column_index.to_string()),
+                        PlaytimeSlotDescriptor::ByIndex(a) => {
+                            Some((a.column_index + 1).to_string())
+                        }
                         PlaytimeSlotDescriptor::Dynamic {
                             column_expression, ..
                         } => Some(column_expression.clone()),
