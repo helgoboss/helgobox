@@ -614,7 +614,7 @@ impl TargetModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
-            clip_management_action: model.clip_management_action().clone(),
+            clip_management_action: model.playtime_slot_management_action().clone(),
             next_bar: false,
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
@@ -631,24 +631,24 @@ impl TargetModelData {
                 .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only(),
             clip_slot: if model.target_type().supports_clip_slot() {
-                Some(model.clip_slot().clone())
+                Some(model.playtime_slot().clone())
             } else {
                 None
             },
             clip_column: output
                 .clip_column
-                .unwrap_or_else(|| model.clip_column().clone()),
-            clip_row: model.clip_row().clone(),
+                .unwrap_or_else(|| model.playtime_column().clone()),
+            clip_row: model.playtime_row().clone(),
             clip_transport_action: if model.target_type()
                 == ReaperTargetType::PlaytimeSlotTransportAction
             {
-                Some(model.clip_transport_action())
+                Some(model.playtime_slot_transport_action())
             } else {
                 None
             },
-            clip_column_action: model.clip_column_action(),
-            clip_row_action: model.clip_row_action(),
-            clip_matrix_action: model.clip_matrix_action(),
+            clip_column_action: model.playtime_column_action(),
+            clip_row_action: model.playtime_row_action(),
+            clip_matrix_action: model.playtime_matrix_action(),
             record_only_if_track_armed: model.record_only_if_track_armed(),
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
             clip_play_start_timing: model.clip_play_start_timing(),
@@ -900,10 +900,10 @@ impl TargetModelData {
             .unwrap_or(PlaytimeSlotDescriptor::ByIndex(
                 playtime_api::persistence::SlotAddress::new(self.slot_index, 0),
             ));
-        model.change(C::SetClipSlot(slot_descriptor));
-        model.change(C::SetClipColumn(self.clip_column.clone()));
-        model.change(C::SetClipRow(self.clip_row.clone()));
-        model.change(C::SetClipManagementAction(
+        model.change(C::SetPlaytimeSlot(slot_descriptor));
+        model.change(C::SetPlaytimeColumn(self.clip_column.clone()));
+        model.change(C::SetPlaytimeRow(self.clip_row.clone()));
+        model.change(C::SetPlaytimeSlotManagementAction(
             self.clip_management_action.clone(),
         ));
         let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
@@ -918,12 +918,14 @@ impl TargetModelData {
                 Repeat => T::Looped,
             }
         });
-        model.change(C::SetClipTransportAction(clip_transport_action));
-        model.change(C::SetClipColumnAction(self.clip_column_action));
-        model.change(C::SetClipRowAction(self.clip_row_action));
-        model.change(C::SetClipMatrixAction(self.clip_matrix_action));
-        model.change(C::SetClipPlayStartTiming(self.clip_play_start_timing));
-        model.change(C::SetClipPlayStopTiming(self.clip_play_stop_timing));
+        model.change(C::SetPlaytimeSlotTransportAction(clip_transport_action));
+        model.change(C::SetPlaytimeColumnAction(self.clip_column_action));
+        model.change(C::SetPlaytimeRowAction(self.clip_row_action));
+        model.change(C::SetPlaytimeMatrixAction(self.clip_matrix_action));
+        model.change(C::SetPlaytimeClipPlayStartTiming(
+            self.clip_play_start_timing,
+        ));
+        model.change(C::SetPlaytimeClipPlayStopTiming(self.clip_play_stop_timing));
         model.change(C::SetRecordOnlyIfTrackArmed(
             self.record_only_if_track_armed,
         ));

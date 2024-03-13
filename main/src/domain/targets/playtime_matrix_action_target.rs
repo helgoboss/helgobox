@@ -34,7 +34,6 @@ pub struct RealTimePlaytimeMatrixTarget {
 }
 
 pub const PLAYTIME_MATRIX_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Matrix action",
     short_name: "Playtime matrix action",

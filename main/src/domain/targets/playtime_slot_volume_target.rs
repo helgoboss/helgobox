@@ -33,7 +33,6 @@ pub struct PlaytimeSlotVolumeTarget {
 }
 
 pub const PLAYTIME_SLOT_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Slot volume",
     short_name: "Playtime slot volume",

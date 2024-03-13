@@ -468,12 +468,20 @@ impl Window {
         }
     }
 
-    pub fn select_combo_box_item_by_index(self, index: usize) -> Result<(), &'static str> {
+    pub fn select_combo_box_item_by_index_checked(self, index: usize) -> Result<(), &'static str> {
         if index >= self.combo_box_item_count() {
             return Err("index for combo box selection out of bound");
         }
         self.select_combo_box_item_by_index_internal(index);
         Ok(())
+    }
+
+    /// # Panics
+    ///
+    /// Panics if the index is out of bound.
+    pub fn select_combo_box_item_by_index(self, index: usize) {
+        self.select_combo_box_item_by_index_checked(index)
+            .expect("couldn't select combo box item by index");
     }
 
     fn select_combo_box_item_by_index_internal(self, index: usize) {

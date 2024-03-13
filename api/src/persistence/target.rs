@@ -846,9 +846,9 @@ pub struct PlaytimeSlotTransportActionTarget {
     pub slot: PlaytimeSlotDescriptor,
     pub action: PlaytimeSlotTransportAction,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub record_only_if_track_armed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_column_if_slot_empty: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_only_if_track_armed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -909,8 +909,20 @@ pub struct PlaytimeSlotManagementActionTarget {
     pub action: PlaytimeSlotManagementAction,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Display)]
-#[serde(tag = "kind")]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
 pub enum PlaytimeSlotManagementAction {
     #[display(fmt = "Clear slot")]
     ClearSlot,
@@ -920,14 +932,14 @@ pub enum PlaytimeSlotManagementAction {
     EditClip,
     #[display(fmt = "Copy or paste clip")]
     CopyOrPasteClip,
-    #[display(fmt = "Adjust section length")]
-    AdjustClipSectionLength(AdjustClipSectionLengthAction),
+    #[display(fmt = "Double clip section length")]
+    DoubleClipSectionLength,
+    #[display(fmt = "Halve clip section length")]
+    HalveClipSectionLength,
     #[display(fmt = "Quantization on/off state")]
     QuantizationOnOffState,
     #[display(fmt = "Duplicate")]
     Duplicate,
-    #[display(fmt = "Double")]
-    Double,
 }
 
 impl Default for PlaytimeSlotManagementAction {
@@ -1950,18 +1962,42 @@ impl Default for TrackRouteKind {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeSlotDescriptor {
-    Selected,
+    Active,
     ByIndex(playtime_api::persistence::SlotAddress),
     Dynamic {
         column_expression: String,
         row_expression: String,
     },
 }
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum PlaytimeSlotDescriptorKind {
+    #[default]
+    #[display(fmt = "Active")]
+    Active,
+    #[display(fmt = "At coordinates")]
+    ByIndex,
+    #[display(fmt = "Dynamic")]
+    Dynamic,
+}
 
 impl Display for PlaytimeSlotDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            PlaytimeSlotDescriptor::Selected => f.write_str("Selected slot"),
+            PlaytimeSlotDescriptor::Active => f.write_str("Selected slot"),
             PlaytimeSlotDescriptor::ByIndex(address) => address.fmt(f),
             PlaytimeSlotDescriptor::Dynamic {
                 column_expression,
@@ -1979,11 +2015,30 @@ impl Display for PlaytimeSlotDescriptor {
 
 impl Default for PlaytimeSlotDescriptor {
     fn default() -> Self {
-        Self::Selected
+        Self::Active
     }
 }
 
 impl PlaytimeSlotDescriptor {
+    pub fn from_kind(kind: PlaytimeSlotDescriptorKind) -> Self {
+        match kind {
+            PlaytimeSlotDescriptorKind::Active => Self::Active,
+            PlaytimeSlotDescriptorKind::ByIndex => Self::ByIndex(Default::default()),
+            PlaytimeSlotDescriptorKind::Dynamic => Self::Dynamic {
+                column_expression: "".to_string(),
+                row_expression: "".to_string(),
+            },
+        }
+    }
+
+    pub fn kind(&self) -> PlaytimeSlotDescriptorKind {
+        match self {
+            Self::Active => PlaytimeSlotDescriptorKind::Active,
+            Self::ByIndex(_) => PlaytimeSlotDescriptorKind::ByIndex,
+            Self::Dynamic { .. } => PlaytimeSlotDescriptorKind::Dynamic,
+        }
+    }
+
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::SlotAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -1996,18 +2051,61 @@ impl PlaytimeSlotDescriptor {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeColumnDescriptor {
-    Selected,
+    Active,
     ByIndex(playtime_api::persistence::ColumnAddress),
     Dynamic { expression: String },
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum PlaytimeColumnDescriptorKind {
+    #[default]
+    #[display(fmt = "Active")]
+    Active,
+    #[display(fmt = "At position")]
+    ByIndex,
+    #[display(fmt = "Dynamic")]
+    Dynamic,
+}
+
 impl Default for PlaytimeColumnDescriptor {
     fn default() -> Self {
-        Self::Selected
+        Self::Active
     }
 }
 
 impl PlaytimeColumnDescriptor {
+    pub fn from_kind(kind: PlaytimeColumnDescriptorKind) -> Self {
+        match kind {
+            PlaytimeColumnDescriptorKind::Active => Self::Active,
+            PlaytimeColumnDescriptorKind::ByIndex => Self::ByIndex(Default::default()),
+            PlaytimeColumnDescriptorKind::Dynamic => Self::Dynamic {
+                expression: "".to_string(),
+            },
+        }
+    }
+
+    pub fn kind(&self) -> PlaytimeColumnDescriptorKind {
+        match self {
+            Self::Active => PlaytimeColumnDescriptorKind::Active,
+            Self::ByIndex(_) => PlaytimeColumnDescriptorKind::ByIndex,
+            Self::Dynamic { .. } => PlaytimeColumnDescriptorKind::Dynamic,
+        }
+    }
+
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::ColumnAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -2020,7 +2118,7 @@ impl PlaytimeColumnDescriptor {
 impl Display for PlaytimeColumnDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            PlaytimeColumnDescriptor::Selected => f.write_str("Selected column"),
+            PlaytimeColumnDescriptor::Active => f.write_str("Selected column"),
             PlaytimeColumnDescriptor::ByIndex(address) => address.fmt(f),
             PlaytimeColumnDescriptor::Dynamic { .. } => f.write_str("Dynamic column"),
         }
@@ -2030,15 +2128,40 @@ impl Display for PlaytimeColumnDescriptor {
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "address")]
 pub enum PlaytimeRowDescriptor {
-    Selected,
+    Active,
     ByIndex(playtime_api::persistence::RowAddress),
     Dynamic { expression: String },
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum PlaytimeRowDescriptorKind {
+    #[display(fmt = "Active")]
+    #[default]
+    Active,
+    #[display(fmt = "At position")]
+    ByIndex,
+    #[display(fmt = "Dynamic")]
+    Dynamic,
 }
 
 impl Display for PlaytimeRowDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            PlaytimeRowDescriptor::Selected => f.write_str("Selected row"),
+            PlaytimeRowDescriptor::Active => f.write_str("Selected row"),
             PlaytimeRowDescriptor::ByIndex(address) => address.fmt(f),
             PlaytimeRowDescriptor::Dynamic { .. } => f.write_str("Dynamic row"),
         }
@@ -2046,6 +2169,24 @@ impl Display for PlaytimeRowDescriptor {
 }
 
 impl PlaytimeRowDescriptor {
+    pub fn from_kind(kind: PlaytimeRowDescriptorKind) -> Self {
+        match kind {
+            PlaytimeRowDescriptorKind::Active => Self::Active,
+            PlaytimeRowDescriptorKind::ByIndex => Self::ByIndex(Default::default()),
+            PlaytimeRowDescriptorKind::Dynamic => Self::Dynamic {
+                expression: "".to_string(),
+            },
+        }
+    }
+
+    pub fn kind(&self) -> PlaytimeRowDescriptorKind {
+        match self {
+            Self::Active => PlaytimeRowDescriptorKind::Active,
+            Self::ByIndex(_) => PlaytimeRowDescriptorKind::ByIndex,
+            Self::Dynamic { .. } => PlaytimeRowDescriptorKind::Dynamic,
+        }
+    }
+
     pub fn fixed_address(&self) -> Option<playtime_api::persistence::RowAddress> {
         if let Self::ByIndex(address) = self {
             Some(*address)
@@ -2057,7 +2198,7 @@ impl PlaytimeRowDescriptor {
 
 impl Default for PlaytimeRowDescriptor {
     fn default() -> Self {
-        Self::Selected
+        Self::Active
     }
 }
 

@@ -59,14 +59,16 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
-use realearn_api::persistence::Target::PlaytimeColumnAction;
+use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming, ColumnAddress};
 use realearn_api::persistence::{
-    Axis, BrowseTracksMode, FxChainDescriptor, FxDescriptorCommons, FxToolAction,
-    LearnTargetMappingModification, LearnableTargetKind, MappingModification,
+    Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
+    FxToolAction, LearnTargetMappingModification, LearnableTargetKind, MappingModification,
     MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PlaytimeColumnDescriptor, PlaytimeMatrixAction, PlaytimeRowDescriptor,
-    PlaytimeSlotDescriptor, PotFilterKind, SeekBehavior, SetTargetToLastTouchedMappingModification,
-    TargetTouchCause, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
+    PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
+    PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
+    SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
+    TrackFxChain, TrackScope, TrackToolAction,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -147,16 +149,16 @@ pub enum TargetCommand {
     SetMouseActionType(MouseActionType),
     SetAxis(Axis),
     SetMouseButton(MouseButton),
-    SetClipSlot(realearn_api::persistence::PlaytimeSlotDescriptor),
-    SetClipColumn(realearn_api::persistence::PlaytimeColumnDescriptor),
-    SetClipRow(realearn_api::persistence::PlaytimeRowDescriptor),
-    SetClipManagementAction(realearn_api::persistence::PlaytimeSlotManagementAction),
-    SetClipTransportAction(realearn_api::persistence::PlaytimeSlotTransportAction),
-    SetClipMatrixAction(realearn_api::persistence::PlaytimeMatrixAction),
-    SetClipColumnAction(realearn_api::persistence::PlaytimeColumnAction),
-    SetClipRowAction(realearn_api::persistence::PlaytimeRowAction),
-    SetClipPlayStartTiming(Option<playtime_api::persistence::ClipPlayStartTiming>),
-    SetClipPlayStopTiming(Option<playtime_api::persistence::ClipPlayStopTiming>),
+    SetPlaytimeSlot(PlaytimeSlotDescriptor),
+    SetPlaytimeColumn(PlaytimeColumnDescriptor),
+    SetPlaytimeRow(PlaytimeRowDescriptor),
+    SetPlaytimeSlotManagementAction(PlaytimeSlotManagementAction),
+    SetPlaytimeSlotTransportAction(PlaytimeSlotTransportAction),
+    SetPlaytimeMatrixAction(PlaytimeMatrixAction),
+    SetPlaytimeColumnAction(PlaytimeColumnAction),
+    SetPlaytimeRowAction(PlaytimeRowAction),
+    SetPlaytimeClipPlayStartTiming(Option<playtime_api::persistence::ClipPlayStartTiming>),
+    SetPlaytimeClipPlayStopTiming(Option<playtime_api::persistence::ClipPlayStopTiming>),
     SetRecordOnlyIfTrackArmed(bool),
     SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
@@ -248,16 +250,16 @@ pub enum TargetProp {
     MouseActionType,
     Axis,
     MouseButton,
-    ClipSlot,
-    ClipColumn,
-    ClipRow,
-    ClipManagementAction,
-    ClipTransportAction,
-    ClipMatrixAction,
-    ClipColumnAction,
-    ClipRowAction,
-    ClipPlayStartTiming,
-    ClipPlayStopTiming,
+    PlaytimeSlot,
+    PlaytimeColumn,
+    PlaytimeRow,
+    PlaytimeSlotManagementAction,
+    PlaytimeSlotTransportAction,
+    PlaytimeMatrixAction,
+    PlaytimeColumnAction,
+    PlaytimeRowAction,
+    PlaytimeClipPlayStartTiming,
+    PlaytimeClipPlayStopTiming,
     RecordOnlyIfTrackArmed,
     StopColumnIfSlotEmpty,
     PollForFeedback,
@@ -596,45 +598,45 @@ impl<'a> Change<'a> for TargetModel {
                 self.mapping_snapshot_default_value = v;
                 One(P::MappingSnapshotDefaultValue)
             }
-            C::SetClipSlot(s) => {
-                self.clip_slot = s;
-                One(P::ClipSlot)
+            C::SetPlaytimeSlot(s) => {
+                self.playtime_slot = s;
+                One(P::PlaytimeSlot)
             }
-            C::SetClipColumn(c) => {
-                self.clip_column = c;
-                One(P::ClipColumn)
+            C::SetPlaytimeColumn(c) => {
+                self.playtime_column = c;
+                One(P::PlaytimeColumn)
             }
-            C::SetClipRow(r) => {
-                self.clip_row = r;
-                One(P::ClipRow)
+            C::SetPlaytimeRow(r) => {
+                self.playtime_row = r;
+                One(P::PlaytimeRow)
             }
-            C::SetClipManagementAction(v) => {
-                self.clip_management_action = v;
-                One(P::ClipManagementAction)
+            C::SetPlaytimeSlotManagementAction(v) => {
+                self.playtime_slot_management_action = v;
+                One(P::PlaytimeSlotManagementAction)
             }
-            C::SetClipTransportAction(v) => {
-                self.clip_transport_action = v;
-                One(P::ClipTransportAction)
+            C::SetPlaytimeSlotTransportAction(v) => {
+                self.playtime_slot_transport_action = v;
+                One(P::PlaytimeSlotTransportAction)
             }
-            C::SetClipMatrixAction(v) => {
-                self.clip_matrix_action = v;
-                One(P::ClipMatrixAction)
+            C::SetPlaytimeMatrixAction(v) => {
+                self.playtime_matrix_action = v;
+                One(P::PlaytimeMatrixAction)
             }
-            C::SetClipColumnAction(v) => {
-                self.clip_column_action = v;
-                One(P::ClipColumnAction)
+            C::SetPlaytimeColumnAction(v) => {
+                self.playtime_column_action = v;
+                One(P::PlaytimeColumnAction)
             }
-            C::SetClipRowAction(v) => {
-                self.clip_row_action = v;
-                One(P::ClipRowAction)
+            C::SetPlaytimeRowAction(v) => {
+                self.playtime_row_action = v;
+                One(P::PlaytimeRowAction)
             }
-            C::SetClipPlayStartTiming(v) => {
+            C::SetPlaytimeClipPlayStartTiming(v) => {
                 self.clip_play_start_timing = v;
-                One(P::ClipPlayStartTiming)
+                One(P::PlaytimeClipPlayStartTiming)
             }
-            C::SetClipPlayStopTiming(v) => {
+            C::SetPlaytimeClipPlayStopTiming(v) => {
                 self.clip_play_stop_timing = v;
-                One(P::ClipPlayStopTiming)
+                One(P::PlaytimeClipPlayStopTiming)
             }
             C::SetRecordOnlyIfTrackArmed(v) => {
                 self.record_only_if_track_armed = v;
@@ -693,7 +695,7 @@ pub struct TargetModel {
     track_index: u32,
     track_expression: String,
     enable_only_if_track_selected: bool,
-    clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
+    clip_column_track_context: ClipColumnTrackContext,
     track_tool_action: TrackToolAction,
     gang_behavior: TrackGangBehavior,
     browse_tracks_mode: BrowseTracksMode,
@@ -775,18 +777,18 @@ pub struct TargetModel {
     axis: Axis,
     mouse_button: MouseButton,
     // # For clip targets
-    clip_slot: realearn_api::persistence::PlaytimeSlotDescriptor,
-    clip_column: realearn_api::persistence::PlaytimeColumnDescriptor,
-    clip_row: realearn_api::persistence::PlaytimeRowDescriptor,
-    clip_management_action: realearn_api::persistence::PlaytimeSlotManagementAction,
-    clip_transport_action: realearn_api::persistence::PlaytimeSlotTransportAction,
-    clip_matrix_action: realearn_api::persistence::PlaytimeMatrixAction,
-    clip_column_action: realearn_api::persistence::PlaytimeColumnAction,
-    clip_row_action: realearn_api::persistence::PlaytimeRowAction,
+    playtime_slot: PlaytimeSlotDescriptor,
+    playtime_column: PlaytimeColumnDescriptor,
+    playtime_row: PlaytimeRowDescriptor,
+    playtime_slot_management_action: PlaytimeSlotManagementAction,
+    playtime_slot_transport_action: PlaytimeSlotTransportAction,
+    playtime_matrix_action: PlaytimeMatrixAction,
+    playtime_column_action: PlaytimeColumnAction,
+    playtime_row_action: PlaytimeRowAction,
     record_only_if_track_armed: bool,
     stop_column_if_slot_empty: bool,
-    clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
-    clip_play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
+    clip_play_start_timing: Option<ClipPlayStartTiming>,
+    clip_play_stop_timing: Option<ClipPlayStopTiming>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -930,18 +932,18 @@ impl Default for TargetModel {
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
-            clip_slot: Default::default(),
-            clip_column: Default::default(),
-            clip_row: Default::default(),
-            clip_management_action: Default::default(),
-            clip_transport_action: Default::default(),
-            clip_column_action: Default::default(),
-            clip_matrix_action: Default::default(),
+            playtime_slot: Default::default(),
+            playtime_column: Default::default(),
+            playtime_row: Default::default(),
+            playtime_slot_management_action: Default::default(),
+            playtime_slot_transport_action: Default::default(),
+            playtime_column_action: Default::default(),
+            playtime_matrix_action: Default::default(),
             record_only_if_track_armed: false,
             stop_column_if_slot_empty: false,
             clip_play_start_timing: None,
             clip_column_track_context: Default::default(),
-            clip_row_action: Default::default(),
+            playtime_row_action: Default::default(),
             clip_play_stop_timing: None,
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
@@ -1245,10 +1247,8 @@ impl TargetModel {
         self.osc_dev_id
     }
 
-    pub fn clip_management_action(
-        &self,
-    ) -> &realearn_api::persistence::PlaytimeSlotManagementAction {
-        &self.clip_management_action
+    pub fn playtime_slot_management_action(&self) -> PlaytimeSlotManagementAction {
+        self.playtime_slot_management_action
     }
 
     pub fn poll_for_feedback(&self) -> bool {
@@ -1505,7 +1505,7 @@ impl TargetModel {
                 self.track_name = track.name;
             }
             FromClipColumn => {
-                self.clip_column = track.clip_column;
+                self.playtime_column = track.clip_column;
                 self.clip_column_track_context = track.clip_column_track_context;
             }
             Unit | Selected | AllSelected | Master | Dynamic | DynamicTcp | DynamicMcp => {}
@@ -1732,13 +1732,13 @@ impl TargetModel {
             self.track_exclusivity = track_exclusivity;
         }
         if let Some(slot_address) = target.clip_slot_address() {
-            self.clip_slot = PlaytimeSlotDescriptor::ByIndex(slot_address);
+            self.playtime_slot = PlaytimeSlotDescriptor::ByIndex(slot_address);
         }
         if let Some(column_address) = target.clip_column_address() {
-            self.clip_column = PlaytimeColumnDescriptor::ByIndex(column_address);
+            self.playtime_column = PlaytimeColumnDescriptor::ByIndex(column_address);
         }
         if let Some(row_address) = target.clip_row_address() {
-            self.clip_row = PlaytimeRowDescriptor::ByIndex(row_address);
+            self.playtime_row = PlaytimeRowDescriptor::ByIndex(row_address);
         }
 
         match target {
@@ -1782,16 +1782,16 @@ impl TargetModel {
                 }
             },
             PlaytimeMatrixAction(t) => {
-                self.clip_matrix_action = t.action;
+                self.playtime_matrix_action = t.action;
             }
             PlaytimeColumnAction(t) => {
-                self.clip_column_action = t.action;
+                self.playtime_column_action = t.action;
             }
             PlaytimeRowAction(t) => {
-                self.clip_row_action = t.basics.action;
+                self.playtime_row_action = t.basics.action;
             }
             PlaytimeSlotTransportAction(t) => {
-                self.clip_transport_action = t.basics.action;
+                self.playtime_slot_transport_action = t.basics.action;
             }
             _ => {}
         };
@@ -1871,7 +1871,7 @@ impl TargetModel {
             name: self.track_name.clone(),
             expression: self.track_expression.clone(),
             index: self.track_index,
-            clip_column: self.clip_column.clone(),
+            clip_column: self.playtime_column.clone(),
             clip_column_track_context: self.clip_column_track_context,
         }
     }
@@ -2086,7 +2086,7 @@ impl TargetModel {
             },
             FromClipColumn => TrackDescriptor::FromClipColumn {
                 commons,
-                column: self.clip_column.clone(),
+                column: self.playtime_column.clone(),
                 context: self.clip_column_track_context,
             },
         }
@@ -2141,9 +2141,9 @@ impl TargetModel {
     }
 
     fn virtual_clip_slot(&self) -> Result<VirtualPlaytimeSlot, &'static str> {
-        use realearn_api::persistence::PlaytimeSlotDescriptor::*;
-        let slot = match &self.clip_slot {
-            Selected => VirtualPlaytimeSlot::Selected,
+        use PlaytimeSlotDescriptor::*;
+        let slot = match &self.playtime_slot {
+            Active => VirtualPlaytimeSlot::Selected,
             ByIndex(address) => VirtualPlaytimeSlot::ByIndex(*address),
             Dynamic {
                 column_expression,
@@ -2163,13 +2163,13 @@ impl TargetModel {
     }
 
     fn virtual_clip_column(&self) -> Result<VirtualPlaytimeColumn, &'static str> {
-        VirtualPlaytimeColumn::from_descriptor(&self.clip_column)
+        VirtualPlaytimeColumn::from_descriptor(&self.playtime_column)
     }
 
     fn virtual_clip_row(&self) -> Result<VirtualPlaytimeRow, &'static str> {
-        use realearn_api::persistence::PlaytimeRowDescriptor::*;
-        let row = match &self.clip_row {
-            Selected => VirtualPlaytimeRow::Selected,
+        use PlaytimeRowDescriptor::*;
+        let row = match &self.playtime_row {
+            Active => VirtualPlaytimeRow::Selected,
             ByIndex(address) => VirtualPlaytimeRow::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,
@@ -2503,7 +2503,7 @@ impl TargetModel {
                         UnresolvedReaperTarget::PlaytimeSlotTransportAction(
                             crate::domain::UnresolvedPlaytimeSlotTransportTarget {
                                 slot: self.virtual_clip_slot()?,
-                                action: self.clip_transport_action,
+                                action: self.playtime_slot_transport_action,
                                 options: self.clip_transport_options(),
                             },
                         )
@@ -2511,13 +2511,13 @@ impl TargetModel {
                     PlaytimeColumnAction => UnresolvedReaperTarget::PlaytimeColumnAction(
                         crate::domain::UnresolvedPlaytimeColumnActionTarget {
                             column: self.virtual_clip_column()?,
-                            action: self.clip_column_action,
+                            action: self.playtime_column_action,
                         },
                     ),
                     PlaytimeRowAction => UnresolvedReaperTarget::PlaytimeRowAction(
                         crate::domain::UnresolvedPlaytimeRowActionTarget {
                             row: self.virtual_clip_row()?,
-                            action: self.clip_row_action,
+                            action: self.playtime_row_action,
                         },
                     ),
                     PlaytimeSlotSeek => UnresolvedReaperTarget::PlaytimeSlotSeek(
@@ -2535,13 +2535,13 @@ impl TargetModel {
                         UnresolvedReaperTarget::PlaytimeSlotManagementAction(
                             crate::domain::UnresolvedPlaytimeSlotManagementActionTarget {
                                 slot: self.virtual_clip_slot()?,
-                                action: self.clip_management_action.clone(),
+                                action: self.playtime_slot_management_action.clone(),
                             },
                         )
                     }
                     PlaytimeMatrixAction => UnresolvedReaperTarget::PlaytimeMatrixAction(
                         crate::domain::UnresolvedPlaytimeMatrixActionTarget {
-                            action: self.clip_matrix_action,
+                            action: self.playtime_matrix_action,
                         },
                     ),
                     PlaytimeControlUnitScroll => UnresolvedReaperTarget::PlaytimeControlUnitScroll(
@@ -2650,28 +2650,28 @@ impl TargetModel {
         }
     }
 
-    pub fn clip_slot(&self) -> &realearn_api::persistence::PlaytimeSlotDescriptor {
-        &self.clip_slot
+    pub fn playtime_slot(&self) -> &PlaytimeSlotDescriptor {
+        &self.playtime_slot
     }
 
-    pub fn clip_column(&self) -> &realearn_api::persistence::PlaytimeColumnDescriptor {
-        &self.clip_column
+    pub fn playtime_column(&self) -> &PlaytimeColumnDescriptor {
+        &self.playtime_column
     }
 
-    pub fn clip_row(&self) -> &realearn_api::persistence::PlaytimeRowDescriptor {
-        &self.clip_row
+    pub fn playtime_row(&self) -> &PlaytimeRowDescriptor {
+        &self.playtime_row
     }
 
-    pub fn clip_transport_action(&self) -> realearn_api::persistence::PlaytimeSlotTransportAction {
-        self.clip_transport_action
+    pub fn playtime_slot_transport_action(&self) -> PlaytimeSlotTransportAction {
+        self.playtime_slot_transport_action
     }
 
-    pub fn clip_matrix_action(&self) -> realearn_api::persistence::PlaytimeMatrixAction {
-        self.clip_matrix_action
+    pub fn playtime_matrix_action(&self) -> PlaytimeMatrixAction {
+        self.playtime_matrix_action
     }
 
-    pub fn clip_column_action(&self) -> realearn_api::persistence::PlaytimeColumnAction {
-        self.clip_column_action
+    pub fn playtime_column_action(&self) -> PlaytimeColumnAction {
+        self.playtime_column_action
     }
 
     pub fn simple_target(&self) -> Option<playtime_api::runtime::SimpleMappingTarget> {
@@ -2683,22 +2683,22 @@ impl TargetModel {
         }
         let t = match self.r#type {
             T::PlaytimeSlotTransportAction
-                if self.clip_transport_action()
+                if self.playtime_slot_transport_action()
                     == persistence::PlaytimeSlotTransportAction::Trigger =>
             {
-                SimpleMappingTarget::TriggerSlot(self.clip_slot.fixed_address()?)
+                SimpleMappingTarget::TriggerSlot(self.playtime_slot.fixed_address()?)
             }
             T::PlaytimeColumnAction
-                if self.clip_column_action() == persistence::PlaytimeColumnAction::Stop =>
+                if self.playtime_column_action() == persistence::PlaytimeColumnAction::Stop =>
             {
-                SimpleMappingTarget::TriggerColumn(self.clip_column.fixed_address()?)
+                SimpleMappingTarget::TriggerColumn(self.playtime_column.fixed_address()?)
             }
             T::PlaytimeRowAction
-                if self.clip_row_action() == persistence::PlaytimeRowAction::PlayScene =>
+                if self.playtime_row_action() == persistence::PlaytimeRowAction::PlayScene =>
             {
-                SimpleMappingTarget::TriggerRow(self.clip_row.fixed_address()?)
+                SimpleMappingTarget::TriggerRow(self.playtime_row.fixed_address()?)
             }
-            T::PlaytimeMatrixAction => match self.clip_matrix_action {
+            T::PlaytimeMatrixAction => match self.playtime_matrix_action {
                 PlaytimeMatrixAction::Stop => SimpleMappingTarget::TriggerMatrix,
                 PlaytimeMatrixAction::SmartRecord => SimpleMappingTarget::SmartRecord,
                 PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
@@ -2735,8 +2735,8 @@ impl TargetModel {
         }
     }
 
-    pub fn clip_row_action(&self) -> realearn_api::persistence::PlaytimeRowAction {
-        self.clip_row_action
+    pub fn playtime_row_action(&self) -> PlaytimeRowAction {
+        self.playtime_row_action
     }
 
     pub fn record_only_if_track_armed(&self) -> bool {
@@ -2747,11 +2747,11 @@ impl TargetModel {
         self.stop_column_if_slot_empty
     }
 
-    pub fn clip_play_start_timing(&self) -> Option<playtime_api::persistence::ClipPlayStartTiming> {
+    pub fn clip_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
         self.clip_play_start_timing
     }
 
-    pub fn clip_play_stop_timing(&self) -> Option<playtime_api::persistence::ClipPlayStopTiming> {
+    pub fn clip_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
         self.clip_play_stop_timing
     }
 
@@ -2849,10 +2849,14 @@ impl TargetModel {
         if !self.r#type.definition().supports_axis() {
             return false;
         }
-        matches!(
-            self.mouse_action_type,
-            MouseActionType::MoveTo | MouseActionType::MoveBy | MouseActionType::Scroll
-        )
+        if self.r#type == ReaperTargetType::Mouse {
+            matches!(
+                self.mouse_action_type,
+                MouseActionType::MoveTo | MouseActionType::MoveBy | MouseActionType::Scroll
+            )
+        } else {
+            true
+        }
     }
 
     pub fn supports_mouse_button(&self) -> bool {
@@ -3255,30 +3259,30 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type;
                 match tt {
                     PlaytimeSlotTransportAction => {
-                        let slot = &self.target.clip_slot;
-                        let action = &self.target.clip_transport_action;
+                        let slot = &self.target.playtime_slot;
+                        let action = &self.target.playtime_slot_transport_action;
                         write!(f, "{tt}\n{slot}\n{action}")
                     }
                     PlaytimeSlotSeek => {
-                        let slot = &self.target.clip_slot;
+                        let slot = &self.target.playtime_slot;
                         write!(f, "{tt}\n{slot}")
                     }
                     PlaytimeSlotVolume => {
-                        let slot = &self.target.clip_slot;
+                        let slot = &self.target.playtime_slot;
                         write!(f, "{tt}\n{slot}")
                     }
                     PlaytimeColumnAction => {
-                        let column = &self.target.clip_column;
-                        let action = &self.target.clip_column_action;
+                        let column = &self.target.playtime_column;
+                        let action = &self.target.playtime_column_action;
                         write!(f, "{tt}\n{column}\n{action}")
                     }
                     PlaytimeRowAction => {
-                        let row = &self.target.clip_row;
-                        let action = &self.target.clip_row_action;
+                        let row = &self.target.playtime_row;
+                        let action = &self.target.playtime_row_action;
                         write!(f, "{tt}\n{row}\n{action}")
                     }
                     PlaytimeMatrixAction => {
-                        let action = &self.target.clip_matrix_action;
+                        let action = &self.target.playtime_matrix_action;
                         write!(f, "{tt}\n{action}")
                     }
                     PlaytimeControlUnitScroll => {
@@ -3286,8 +3290,8 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         write!(f, "{tt}\n{axis}")
                     }
                     PlaytimeSlotManagementAction => {
-                        let slot = &self.target.clip_slot;
-                        let action = &self.target.clip_management_action;
+                        let slot = &self.target.playtime_slot;
+                        let action = &self.target.playtime_slot_management_action;
                         write!(f, "{tt}\n{slot}\n{action}")
                     }
                     Action => write!(
@@ -4208,8 +4212,8 @@ pub struct TrackPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
-    pub clip_column: realearn_api::persistence::PlaytimeColumnDescriptor,
-    pub clip_column_track_context: realearn_api::persistence::ClipColumnTrackContext,
+    pub clip_column: PlaytimeColumnDescriptor,
+    pub clip_column_track_context: ClipColumnTrackContext,
 }
 
 impl TrackPropValues {
@@ -4221,10 +4225,10 @@ impl TrackPropValues {
             index: track.index().unwrap_or_default(),
             clip_column: {
                 match track.clip_column().unwrap_or(&Default::default()) {
-                    VirtualPlaytimeColumn::Selected => PlaytimeColumnDescriptor::Selected,
-                    VirtualPlaytimeColumn::ByIndex(i) => PlaytimeColumnDescriptor::ByIndex(
-                        playtime_api::persistence::ColumnAddress::new(*i),
-                    ),
+                    VirtualPlaytimeColumn::Selected => PlaytimeColumnDescriptor::Active,
+                    VirtualPlaytimeColumn::ByIndex(i) => {
+                        PlaytimeColumnDescriptor::ByIndex(ColumnAddress::new(*i))
+                    }
                     VirtualPlaytimeColumn::Dynamic(_) => PlaytimeColumnDescriptor::Dynamic {
                         expression: Default::default(),
                     },

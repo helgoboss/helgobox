@@ -28,7 +28,11 @@ use helgoboss_learn::{
 };
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
-    MonitoringMode, MouseButton, PotFilterKind, SeekBehavior, TrackToolAction,
+    MonitoringMode, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor,
+    PlaytimeColumnDescriptorKind, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor,
+    PlaytimeRowDescriptorKind, PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind,
+    PlaytimeSlotManagementAction, PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
+    TrackToolAction,
 };
 use swell_ui::{
     DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
@@ -56,7 +60,8 @@ use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
     ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
-    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
+    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, VirtualPlaytimeColumn,
+    WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -82,6 +87,7 @@ use crate::infrastructure::ui::{
 };
 use base::hash_util::NonCryptoHashMap;
 use base::Global;
+use playtime_api::persistence::{ColumnAddress, RowAddress, SlotAddress};
 
 #[derive(Debug)]
 pub struct MappingPanel {
@@ -584,7 +590,10 @@ impl MappingPanel {
                                             P::ActiveMappingsOnly => {
                                                 view.invalidate_target_check_box_2();
                                             }
-                                            P::ClipPlayStartTiming | P::ClipPlayStopTiming | P::ClipRow | P::ClipRowAction | P::StopColumnIfSlotEmpty | P::ClipSlot | P::ClipColumn | P::ClipManagementAction | P::ClipTransportAction | P::ClipColumnAction | P::RecordOnlyIfTrackArmed  | P::ClipMatrixAction => {}
+                                            P::PlaytimeClipPlayStartTiming | P::PlaytimeClipPlayStopTiming | P::PlaytimeRow | P::PlaytimeRowAction | P::StopColumnIfSlotEmpty | P::PlaytimeSlot | P::PlaytimeColumn | P::PlaytimeSlotManagementAction | P::PlaytimeSlotTransportAction | P::PlaytimeColumnAction | P::RecordOnlyIfTrackArmed  | P::PlaytimeMatrixAction => {
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
                                             P::TouchedRouteParameterType => {
                                                 view.invalidate_target_line_3_combo_box_2();
                                             }
@@ -2746,6 +2755,11 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetBookmarkType(bookmark_type),
                     ));
                 }
+                ReaperTargetType::PlaytimeSlotTransportAction => {
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetStopColumnIfSlotEmpty(is_checked),
+                    ));
+                }
                 _ if self.mapping.target_model.supports_fx_chain() => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetFxIsInputFx(is_checked),
@@ -2997,6 +3011,39 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::PlaytimeColumnAction => {
+                    let kind = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    let desc = PlaytimeColumnDescriptor::from_kind(kind);
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeColumn(desc),
+                    ));
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    let kind = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    let desc = PlaytimeRowDescriptor::from_kind(kind);
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeRow(desc),
+                    ));
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    let kind = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    let desc = PlaytimeSlotDescriptor::from_kind(kind);
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeSlot(desc),
+                    ));
+                }
                 t if t.supports_fx() => {
                     let fx_type = combo
                         .selected_combo_box_item_index()
@@ -3188,6 +3235,41 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetMappingModificationKind(v),
                     ));
                 }
+                ReaperTargetType::PlaytimeMatrixAction => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid matrix action");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeMatrixAction(v),
+                    ));
+                }
+                ReaperTargetType::PlaytimeColumnAction => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid column action");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeColumnAction(v),
+                    ));
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid row action");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeRowAction(v),
+                    ));
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid slot management action");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeSlotManagementAction(v),
+                    ));
+                }
+                ReaperTargetType::PlaytimeSlotTransportAction => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid slot transport action");
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetPlaytimeSlotTransportAction(v),
+                    ));
+                }
                 _ if self.mapping.target_model.supports_track() => {
                     let project = self
                         .session
@@ -3241,11 +3323,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetSeekBehavior(v),
                     ));
                 }
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
-                    let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid axis type");
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetAxis(v)));
-                }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid action invocation type");
@@ -3296,6 +3373,11 @@ impl<'a> MutableMappingPanel<'a> {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetTouchedRouteParameterType(v),
                     ));
+                }
+                t if self.mapping.target_model.supports_axis() => {
+                    let i = combo.selected_combo_box_item_index();
+                    let v = i.try_into().expect("invalid axis type");
+                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetAxis(v)));
                 }
                 _ => {}
             },
@@ -3504,6 +3586,84 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(edit_control_id),
                     );
                 }
+                ReaperTargetType::PlaytimeColumnAction => {
+                    let text = control.text().unwrap_or_default();
+                    match self.mapping.target_model.playtime_column() {
+                        PlaytimeColumnDescriptor::Active => {}
+                        PlaytimeColumnDescriptor::ByIndex(_) => {
+                            let index = text.parse().unwrap_or_default();
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
+                                    PlaytimeColumnDescriptor::ByIndex(ColumnAddress { index }),
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                        PlaytimeColumnDescriptor::Dynamic { .. } => {
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeColumn(
+                                    PlaytimeColumnDescriptor::Dynamic { expression: text },
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                    }
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    let text = control.text().unwrap_or_default();
+                    match self.mapping.target_model.playtime_row() {
+                        PlaytimeRowDescriptor::Active => {}
+                        PlaytimeRowDescriptor::ByIndex(_) => {
+                            let index = text.parse().unwrap_or_default();
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeRow(
+                                    PlaytimeRowDescriptor::ByIndex(RowAddress { index }),
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                        PlaytimeRowDescriptor::Dynamic { .. } => {
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeRow(
+                                    PlaytimeRowDescriptor::Dynamic { expression: text },
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                    }
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume
+                | ReaperTargetType::PlaytimeSlotSeek => {
+                    let text = control.text().unwrap_or_default();
+                    match self.mapping.target_model.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => {}
+                        PlaytimeSlotDescriptor::ByIndex(address) => {
+                            let index = text.parse().unwrap_or_default();
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
+                                        index,
+                                        address.row_index,
+                                    )),
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                        PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::Dynamic {
+                                        column_expression: text,
+                                        row_expression: row_expression.clone(),
+                                    },
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                    }
+                }
                 t if t.supports_fx() => match self.mapping.target_model.fx_type() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -3567,6 +3727,40 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     VirtualFxParameterType::ById => {}
                 },
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotVolume
+                | ReaperTargetType::PlaytimeSlotSeek => {
+                    let text = control.text().unwrap_or_default();
+                    match self.mapping.target_model.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => {}
+                        PlaytimeSlotDescriptor::ByIndex(address) => {
+                            let index = text.parse().unwrap_or_default();
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::ByIndex(SlotAddress::new(
+                                        address.column_index,
+                                        index,
+                                    )),
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                        PlaytimeSlotDescriptor::Dynamic {
+                            column_expression, ..
+                        } => {
+                            self.change_mapping_with_initiator(
+                                MappingCommand::ChangeTarget(TargetCommand::SetPlaytimeSlot(
+                                    PlaytimeSlotDescriptor::Dynamic {
+                                        column_expression: column_expression.clone(),
+                                        row_expression: text,
+                                    },
+                                )),
+                                Some(edit_control_id),
+                            );
+                        }
+                    }
+                }
                 t if t.supports_send() => match self.mapping.target_model.route_selector_type() {
                     TrackRouteSelectorType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -3843,9 +4037,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let combo = self
             .view
             .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX);
-        combo
-            .select_combo_box_item_by_index(self.mapping.feedback_send_behavior().into())
-            .unwrap();
+        combo.select_combo_box_item_by_index(self.mapping.feedback_send_behavior().into());
     }
 
     fn invalidate_beep_on_success_checkbox(&self) {
@@ -3919,8 +4111,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_category_combo_box(&self) {
         self.view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
-            .select_combo_box_item_by_index(self.source.category().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.source.category().into());
     }
 
     fn invalidate_target_category_combo_box(&self) {
@@ -3930,8 +4121,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_visible(self.mapping.compartment() != CompartmentKind::Main);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .select_combo_box_item_by_index(self.target.category().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.target.category().into());
     }
 
     fn invalidate_source_line_2(&self) {
@@ -3952,7 +4142,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             _ => return,
         };
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        b.select_combo_box_item_by_index(item_index).unwrap();
+        b.select_combo_box_item_by_index(item_index);
     }
 
     fn invalidate_source_learn_button(&self) {
@@ -4029,8 +4219,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 MidiSourceType::Script => {
                     b.fill_combo_box_indexed(MidiScriptKind::iter());
                     b.show();
-                    b.select_combo_box_item_by_index(self.source.midi_script_kind().into())
-                        .unwrap();
+                    b.select_combo_box_item_by_index(self.source.midi_script_kind().into());
                 }
                 t if t.supports_channel() => {
                     b.fill_combo_box_with_data_small(
@@ -4057,8 +4246,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     );
                     b.fill_combo_box_with_data_small(contents);
                     b.show();
-                    b.select_combo_box_item_by_index(self.source.parameter_index().get() as usize)
-                        .unwrap();
+                    b.select_combo_box_item_by_index(self.source.parameter_index().get() as usize);
                 }
                 _ => b.hide(),
             },
@@ -4207,8 +4395,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 b.fill_combo_box_indexed(MackieSevenSegmentDisplayScope::iter());
                                 b.select_combo_box_item_by_index(
                                     self.source.mackie_7_segment_display_scope().into(),
-                                )
-                                .unwrap();
+                                );
                             }
                             LaunchpadProScrollingText => {
                                 b.hide();
@@ -4449,8 +4636,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     t if t.supports_custom_character() => {
                         b.show();
                         b.fill_combo_box_indexed(SourceCharacter::iter());
-                        b.select_combo_box_item_by_index(self.source.custom_character().into())
-                            .unwrap();
+                        b.select_combo_box_item_by_index(self.source.custom_character().into());
                     }
                     _ => {
                         b.hide();
@@ -4495,14 +4681,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                     b.fill_combo_box_indexed(MidiClockTransportMessage::iter());
                     b.select_combo_box_item_by_index(
                         self.source.midi_clock_transport_message().into(),
-                    )
-                    .unwrap();
+                    );
                 }
                 MidiSourceType::Display => {
                     b.show();
                     b.fill_combo_box_indexed(DisplayType::iter());
-                    b.select_combo_box_item_by_index(self.source.display_type().into())
-                        .unwrap();
+                    b.select_combo_box_item_by_index(self.source.display_type().into());
                 }
                 _ => {
                     b.hide();
@@ -4589,14 +4773,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseGroup => Some("Group"),
                 ReaperTargetType::BrowseTracks => Some("Scope"),
                 ReaperTargetType::ModifyMapping => Some("Kind"),
-                ReaperTargetType::PlaytimeMatrixAction => Some("Action"),
-                ReaperTargetType::PlaytimeControlUnitScroll => Some("Axis"),
-                ReaperTargetType::PlaytimeRowAction => Some("Row"),
-                ReaperTargetType::PlaytimeColumnAction => Some("Column"),
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
+                ReaperTargetType::PlaytimeMatrixAction
+                | ReaperTargetType::PlaytimeRowAction
+                | ReaperTargetType::PlaytimeColumnAction
+                | ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction => Some("Action"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -4622,20 +4803,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let params = unit.parameter_manager().params();
                     let compartment_params = params.compartment_params(self.mapping.compartment());
                     Some(get_param_name(compartment_params, param_index))
-                }
-                ReaperTargetType::PlaytimeMatrixAction => {
-                    Some(self.target.clip_matrix_action().to_string())
-                }
-                ReaperTargetType::PlaytimeControlUnitScroll => Some(self.target.axis().to_string()),
-                ReaperTargetType::PlaytimeRowAction => Some(self.target.clip_row().to_string()),
-                ReaperTargetType::PlaytimeColumnAction => {
-                    Some(self.target.clip_column().to_string())
-                }
-                ReaperTargetType::PlaytimeSlotManagementAction
-                | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeSlotVolume => {
-                    Some(format!("{:#}", self.target.clip_slot()))
                 }
                 _ => None,
             },
@@ -4664,51 +4831,39 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ if self.target.supports_track() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualTrackType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.track_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.track_type().into());
                 }
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
                     combo.fill_combo_box_indexed(BookmarkAnchorType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.bookmark_anchor_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.bookmark_anchor_type().into());
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
                     combo.fill_combo_box_indexed(MappingSnapshotTypeForLoad::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping
-                                .target_model
-                                .mapping_snapshot_type_for_load()
-                                .into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping
+                            .target_model
+                            .mapping_snapshot_type_for_load()
+                            .into(),
+                    );
                 }
                 ReaperTargetType::TakeMappingSnapshot => {
                     combo.show();
                     combo.fill_combo_box_indexed(MappingSnapshotTypeForTake::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping
-                                .target_model
-                                .mapping_snapshot_type_for_take()
-                                .into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping
+                            .target_model
+                            .mapping_snapshot_type_for_take()
+                            .into(),
+                    );
                 }
-                t if t.supports_feedback_resolution()
-                    && t != ReaperTargetType::PlaytimeSlotSeek =>
-                {
+                t if t.supports_feedback_resolution() => {
                     combo.show();
                     combo.fill_combo_box_indexed(FeedbackResolution::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.feedback_resolution().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.feedback_resolution().into(),
+                    );
                 }
                 _ => {
                     combo.hide();
@@ -4731,41 +4886,33 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Mouse => {
                     combo.show();
                     combo.fill_combo_box_indexed(MouseActionType::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.mouse_action_type().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.mouse_action_type().into(),
+                    );
                 }
                 ReaperTargetType::Transport => {
                     combo.show();
                     combo.fill_combo_box_indexed(TransportAction::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.transport_action().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.transport_action().into(),
+                    );
                 }
                 ReaperTargetType::AnyOn => {
                     combo.show();
                     combo.fill_combo_box_indexed(AnyOnParameter::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.any_on_parameter().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.any_on_parameter().into(),
+                    );
                 }
                 ReaperTargetType::AutomationModeOverride => {
                     combo.show();
                     combo.fill_combo_box_indexed(AutomationModeOverrideType::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping
-                                .target_model
-                                .automation_mode_override_type()
-                                .into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping
+                            .target_model
+                            .automation_mode_override_type()
+                            .into(),
+                    );
                 }
                 ReaperTargetType::GoToBookmark
                     if self.target.bookmark_anchor_type() == BookmarkAnchorType::Id =>
@@ -4808,11 +4955,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => {
                     combo.show();
                     combo.fill_combo_box_indexed(SendMidiDestination::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.send_midi_destination().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.send_midi_destination().into(),
+                    );
                 }
                 ReaperTargetType::SendOsc => {
                     combo.show();
@@ -4841,29 +4986,64 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::BrowseTracks => {
                     combo.show();
                     combo.fill_combo_box_indexed(BrowseTracksMode::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.browse_tracks_mode().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.browse_tracks_mode().into(),
+                    );
                 }
                 ReaperTargetType::BrowsePotFilterItems => {
                     combo.show();
                     combo.fill_combo_box_indexed(PotFilterKind::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.pot_filter_item_kind().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.pot_filter_item_kind().into(),
+                    );
                 }
                 ReaperTargetType::ModifyMapping => {
                     combo.show();
                     combo.fill_combo_box_indexed(MappingModificationKind::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.mapping_modification_kind().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.mapping_modification_kind().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeMatrixAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeMatrixAction::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.playtime_matrix_action().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeColumnAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeColumnAction::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.playtime_column_action().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeRowAction::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping.target_model.playtime_row_action().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeSlotManagementAction::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping
+                            .target_model
+                            .playtime_slot_management_action()
+                            .into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeSlotTransportAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeSlotTransportAction::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.mapping
+                            .target_model
+                            .playtime_slot_transport_action()
+                            .into(),
+                    );
                 }
                 _ if self.target.supports_track() => {
                     if matches!(
@@ -4883,7 +5063,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 .and_then(|tracks| tracks.into_iter().next())
                             {
                                 let i = resolved_track.index().unwrap();
-                                combo.select_combo_box_item_by_index(i as _).unwrap();
+                                combo.select_combo_box_item_by_index(i as _);
                             } else {
                                 combo.select_new_combo_box_item(
                                     get_non_present_virtual_track_label(&virtual_track),
@@ -5097,53 +5277,49 @@ impl<'a> ImmutableMappingPanel<'a> {
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
-        match self.target_category() {
+        let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_fx_parameter() => {
-                    let text = match self.target.param_type() {
-                        VirtualFxParameterType::Dynamic => {
-                            Some(self.target.param_expression().to_owned())
-                        }
-                        VirtualFxParameterType::ByName => Some(self.target.param_name().to_owned()),
-                        VirtualFxParameterType::ByIndex => {
-                            let index = self.target.param_index();
-                            Some((index + 1).to_string())
-                        }
-                        VirtualFxParameterType::ById => None,
-                    };
-                    control.set_text_or_hide(text);
-                }
-                t if t.supports_send() => {
-                    let text = match self.target.route_selector_type() {
-                        TrackRouteSelectorType::Dynamic => {
-                            self.target.route_expression().to_owned()
-                        }
-                        TrackRouteSelectorType::ByName => self.target.route_name().to_owned(),
-                        TrackRouteSelectorType::ByIndex => {
-                            let index = self.target.route_index();
-                            (index + 1).to_string()
-                        }
-                        _ => {
-                            control.hide();
-                            return;
-                        }
-                    };
-                    control.set_text(text);
-                    control.show();
-                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotVolume => match self.target.playtime_slot() {
+                    PlaytimeSlotDescriptor::Active => None,
+                    PlaytimeSlotDescriptor::ByIndex(a) => Some(a.row_index.to_string()),
+                    PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
+                        Some(row_expression.clone())
+                    }
+                },
+                t if t.supports_fx_parameter() => match self.target.param_type() {
+                    VirtualFxParameterType::Dynamic => {
+                        Some(self.target.param_expression().to_owned())
+                    }
+                    VirtualFxParameterType::ByName => Some(self.target.param_name().to_owned()),
+                    VirtualFxParameterType::ByIndex => {
+                        let index = self.target.param_index();
+                        Some((index + 1).to_string())
+                    }
+                    VirtualFxParameterType::ById => None,
+                },
+                t if t.supports_send() => match self.target.route_selector_type() {
+                    TrackRouteSelectorType::Dynamic => {
+                        Some(self.target.route_expression().to_owned())
+                    }
+                    TrackRouteSelectorType::ByName => Some(self.target.route_name().to_owned()),
+                    TrackRouteSelectorType::ByIndex => {
+                        let index = self.target.route_index();
+                        Some((index + 1).to_string())
+                    }
+                    _ => None,
+                },
                 t if t.supports_tags() => {
                     let text = format_tags_as_csv(self.target.tags());
-                    control.set_text(text);
-                    control.show();
+                    Some(text)
                 }
-                _ => {
-                    control.hide();
-                }
+                _ => None,
             },
-            TargetCategory::Virtual => {
-                control.hide();
-            }
-        }
+            TargetCategory::Virtual => None,
+        };
+        control.set_text_or_hide(text);
     }
 
     fn invalidate_target_line_3_edit_control(&self, initiator: Option<u32>) {
@@ -5174,6 +5350,37 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .unwrap_or_default();
                     (Some(text), false)
                 }
+                ReaperTargetType::PlaytimeColumnAction => {
+                    let text = match self.target.playtime_column() {
+                        PlaytimeColumnDescriptor::Active => None,
+                        PlaytimeColumnDescriptor::ByIndex(a) => Some(a.index.to_string()),
+                        PlaytimeColumnDescriptor::Dynamic { expression } => {
+                            Some(expression.clone())
+                        }
+                    };
+                    (text, false)
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    let text = match self.target.playtime_row() {
+                        PlaytimeRowDescriptor::Active => None,
+                        PlaytimeRowDescriptor::ByIndex(a) => Some(a.index.to_string()),
+                        PlaytimeRowDescriptor::Dynamic { expression } => Some(expression.clone()),
+                    };
+                    (text, false)
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    let text = match self.target.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => None,
+                        PlaytimeSlotDescriptor::ByIndex(a) => Some(a.column_index.to_string()),
+                        PlaytimeSlotDescriptor::Dynamic {
+                            column_expression, ..
+                        } => Some(column_expression.clone()),
+                    };
+                    (text, false)
+                }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type() {
                         VirtualFxType::Dynamic => Some(self.target.fx_expression().to_owned()),
@@ -5199,9 +5406,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
-                    Some("Axis")
-                }
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
@@ -5211,11 +5415,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 ReaperTargetType::ModifyMapping => Some("Unit"),
-                ReaperTargetType::PlaytimeSlotTransportAction
-                | ReaperTargetType::PlaytimeColumnAction
-                | ReaperTargetType::PlaytimeRowAction
-                | ReaperTargetType::PlaytimeSlotManagementAction => Some("Action"),
+                ReaperTargetType::PlaytimeColumnAction => Some("Column"),
+                ReaperTargetType::PlaytimeRowAction => Some("Row"),
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
+                t if self.mapping.target_model.supports_axis() => Some("Axis"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
                 t if t.supports_send() => Some("Kind"),
@@ -5288,18 +5495,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                         }
                     }
                 },
-                ReaperTargetType::PlaytimeSlotTransportAction => {
-                    Some(self.target.clip_transport_action().to_string())
-                }
-                ReaperTargetType::PlaytimeColumnAction => {
-                    Some(self.target.clip_column_action().to_string())
-                }
-                ReaperTargetType::PlaytimeRowAction => {
-                    Some(self.target.clip_row_action().to_string())
-                }
-                ReaperTargetType::PlaytimeSlotManagementAction => {
-                    Some(self.target.clip_management_action().to_string())
-                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5372,19 +5567,35 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::PlaytimeColumnAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeColumnDescriptorKind::iter());
+                    combo.select_combo_box_item_by_index(
+                        self.target.playtime_column().kind().into(),
+                    );
+                }
+                ReaperTargetType::PlaytimeRowAction => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeRowDescriptorKind::iter());
+                    combo.select_combo_box_item_by_index(self.target.playtime_row().kind().into());
+                }
+                ReaperTargetType::PlaytimeSlotManagementAction
+                | ReaperTargetType::PlaytimeSlotTransportAction
+                | ReaperTargetType::PlaytimeSlotSeek
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlaytimeSlotDescriptorKind::iter());
+                    combo.select_combo_box_item_by_index(self.target.playtime_slot().kind().into());
+                }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.fx_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.fx_type().into());
                 }
                 t if t.supports_send() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackRouteType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.route_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.route_type().into());
                 }
                 _ => combo.hide(),
             },
@@ -5407,42 +5618,34 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.show();
                     combo.fill_combo_box_indexed(SimpleExclusivity::iter());
                     let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
-                    combo
-                        .select_combo_box_item_by_index(simple_exclusivity.into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(simple_exclusivity.into());
                 }
                 ReaperTargetType::TrackTool => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackToolAction::iter());
                     let action: TrackToolAction = self.target.track_tool_action();
-                    combo.select_combo_box_item_by_index(action.into()).unwrap();
+                    combo.select_combo_box_item_by_index(action.into());
                 }
                 ReaperTargetType::FxTool => {
                     combo.show();
                     combo.fill_combo_box_indexed(FxToolAction::iter());
                     let action: FxToolAction = self.target.fx_tool_action();
-                    combo.select_combo_box_item_by_index(action.into()).unwrap();
+                    combo.select_combo_box_item_by_index(action.into());
                 }
                 t if t.supports_fx_parameter() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxParameterType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.param_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.param_type().into());
                 }
                 t if t.supports_exclusivity() => {
                     combo.show();
                     combo.fill_combo_box_indexed(Exclusivity::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.exclusivity().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.exclusivity().into());
                 }
                 t if t.supports_send() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackRouteSelectorType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.route_selector_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.route_selector_type().into());
                 }
                 _ => combo.hide(),
             },
@@ -5487,9 +5690,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                         .ok()
                                         .and_then(|fxs| fxs.into_iter().next())
                                     {
-                                        combo
-                                            .select_combo_box_item_by_index(fx.index() as _)
-                                            .unwrap();
+                                        combo.select_combo_box_item_by_index(fx.index() as _);
                                     } else {
                                         combo.select_new_combo_box_item(get_optional_fx_label(
                                             &chain_fx, None,
@@ -5513,69 +5714,53 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_seek_behavior() => {
                     combo.show();
                     combo.fill_combo_box_indexed(SeekBehavior::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.seek_behavior().into())
-                        .unwrap();
-                }
-                ReaperTargetType::Mouse if self.mapping.target_model.supports_axis() => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(Axis::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.axis().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.seek_behavior().into());
                 }
                 ReaperTargetType::Action => {
                     combo.show();
                     combo.fill_combo_box_indexed(ActionInvocationType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.action_invocation_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.target.action_invocation_type().into(),
+                    );
                 }
                 ReaperTargetType::TrackSolo => {
                     combo.show();
                     combo.fill_combo_box_indexed(SoloBehavior::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.solo_behavior().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.solo_behavior().into());
                 }
                 ReaperTargetType::TrackShow => {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnTrackArea::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.track_area().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.track_area().into());
                 }
                 ReaperTargetType::RouteTouchState => {
                     combo.show();
                     combo.fill_combo_box_indexed(TouchedRouteParameterType::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.target.touched_route_parameter_type().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.target.touched_route_parameter_type().into(),
+                    );
                 }
                 ReaperTargetType::TrackMonitoringMode => {
                     combo.show();
                     combo.fill_combo_box_indexed(MonitoringMode::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.monitoring_mode().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.monitoring_mode().into());
                 }
                 _ if self.target.supports_automation_mode() => {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnAutomationMode::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.automation_mode().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.automation_mode().into());
                 }
                 ReaperTargetType::TrackTouchState => {
                     combo.show();
                     combo.fill_combo_box_indexed(TouchedTrackParameterType::iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.target.touched_track_parameter_type().into(),
-                        )
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(
+                        self.target.touched_track_parameter_type().into(),
+                    );
+                }
+                t if self.mapping.target_model.supports_axis() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(Axis::iter());
+                    combo.select_combo_box_item_by_index(self.target.axis().into());
                 }
                 _ => {
                     combo.hide();
@@ -5600,9 +5785,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Mouse if self.mapping.target_model.supports_mouse_button() => {
                     combo.show();
                     combo.fill_combo_box_indexed(MouseButton::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.mouse_button().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.mouse_button().into());
                 }
                 t if t.supports_fx_parameter()
                     && self.target.param_type() == VirtualFxParameterType::ById =>
@@ -5613,7 +5796,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
                         let param_index = self.target.param_index();
                         combo
-                            .select_combo_box_item_by_index(param_index as _)
+                            .select_combo_box_item_by_index_checked(param_index as _)
                             .unwrap_or_else(|_| {
                                 let label = get_fx_param_label(None, param_index);
                                 combo.select_new_combo_box_item(label.into_owned());
@@ -5625,16 +5808,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_track_exclusivity() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackExclusivity::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.track_exclusivity().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.track_exclusivity().into());
                 }
                 t if t.supports_fx_display_type() => {
                     combo.show();
                     combo.fill_combo_box_indexed(FxDisplayType::iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.fx_display_type().into())
-                        .unwrap();
+                    combo.select_combo_box_item_by_index(self.target.fx_display_type().into());
                 }
                 t if t.supports_send() => {
                     if self.target.route_selector_type() == TrackRouteSelectorType::ById {
@@ -5654,7 +5833,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 // Hardware output uses indexes, not IDs.
                                 let i = self.target.route_index();
                                 combo
-                                    .select_combo_box_item_by_index(i as _)
+                                    .select_combo_box_item_by_index_checked(i as _)
                                     .unwrap_or_else(|_| {
                                         let pity_label = format!("{}. <Not present>", i + 1);
                                         combo.select_new_combo_box_item(pity_label);
@@ -5668,7 +5847,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                         self.mapping.compartment(),
                                     ) {
                                         let i = route.track_route_index().unwrap();
-                                        combo.select_combo_box_item_by_index(i as _).unwrap();
+                                        combo.select_combo_box_item_by_index(i as _);
                                     } else {
                                         combo.select_new_combo_box_item(
                                             get_non_present_virtual_route_label(&virtual_route),
@@ -5704,6 +5883,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Some(("Regions", is_regions))
                 }
                 ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play())),
+                ReaperTargetType::PlaytimeSlotTransportAction => {
+                    Some(("Stop if empty", self.target.stop_column_if_slot_empty()))
+                }
                 _ if self.target.supports_fx_chain() => {
                     let is_input_fx = self.target.fx_is_input_fx();
                     let label = if self.target.track_type() == VirtualTrackType::Master {
@@ -6066,8 +6248,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
-            .select_combo_box_item_by_index(self.mode.absolute_mode().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.mode.absolute_mode().into());
     }
 
     fn invalidate_mode_control_appearance(&self) {
@@ -6616,8 +6797,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_feedback_type_combo_box(&self) {
         self.view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
-            .select_combo_box_item_by_index(self.mode.feedback_type().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.mode.feedback_type().into());
     }
 
     fn invalidate_mode_make_absolute_check_box(&self) {
@@ -6629,23 +6809,19 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
-            .select_combo_box_item_by_index(self.mode.out_of_range_behavior().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.mode.out_of_range_behavior().into());
     }
 
     fn invalidate_mode_group_interaction_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
-            .select_combo_box_item_by_index(self.mode.group_interaction().into())
-            .unwrap();
+            .select_combo_box_item_by_index(self.mode.group_interaction().into());
     }
 
     fn invalidate_mode_fire_mode_combo_box(&self) {
         let combo = self.view.require_control(root::ID_MODE_FIRE_COMBO_BOX);
         combo.set_enabled(self.target_category() != TargetCategory::Virtual);
-        combo
-            .select_combo_box_item_by_index(self.mapping.mode_model.fire_mode().into())
-            .unwrap();
+        combo.select_combo_box_item_by_index(self.mapping.mode_model.fire_mode().into());
     }
 
     fn invalidate_mode_round_target_value_check_box(&self) {
@@ -6658,24 +6834,21 @@ impl<'a> ImmutableMappingPanel<'a> {
         let mode = self.mode.takeover_mode();
         self.view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
-            .select_combo_box_item_by_index(mode.into())
-            .unwrap();
+            .select_combo_box_item_by_index(mode.into());
     }
 
     fn invalidate_mode_button_usage_combo_box(&self) {
         let usage = self.mode.button_usage();
         self.view
             .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
-            .select_combo_box_item_by_index(usage.into())
-            .unwrap();
+            .select_combo_box_item_by_index(usage.into());
     }
 
     fn invalidate_mode_encoder_usage_combo_box(&self) {
         let usage = self.mode.encoder_usage();
         self.view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
-            .select_combo_box_item_by_index(usage.into())
-            .unwrap();
+            .select_combo_box_item_by_index(usage.into());
     }
 
     fn invalidate_mode_reverse_check_box(&self) {
@@ -7438,7 +7611,7 @@ fn select_bookmark_in_combo_box(combo: Window, anchor_type: BookmarkAnchorType, 
             .select_combo_box_item_by_data(bookmark_ref as _)
             .is_ok(),
         BookmarkAnchorType::Index => combo
-            .select_combo_box_item_by_index(bookmark_ref as _)
+            .select_combo_box_item_by_index_checked(bookmark_ref as _)
             .is_ok(),
     };
     if !successful {
@@ -7584,7 +7757,7 @@ fn channel_menu<R>(f: impl Fn(u8) -> R) -> Vec<R> {
 fn invalidate_with_osc_arg_type_tag(b: Window, tag: OscTypeTag) {
     b.fill_combo_box_indexed(OscTypeTag::iter());
     b.show();
-    b.select_combo_box_item_by_index(tag.into()).unwrap();
+    b.select_combo_box_item_by_index(tag.into());
 }
 
 fn invalidate_with_osc_arg_index(combo: Window, index: Option<u32>) {

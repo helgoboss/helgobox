@@ -37,7 +37,6 @@ pub struct PlaytimeSlotManagementActionTarget {
 }
 
 pub const PLAYTIME_SLOT_MANAGEMENT_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Slot management action",
     short_name: "Playtime slot management action",
@@ -76,7 +75,7 @@ mod playtime_impl {
             context: MappingControlContext,
         ) -> anyhow::Result<HitResponse> {
             use PlaytimeSlotManagementAction as A;
-            match &self.action {
+            match self.action {
                 A::ClearSlot => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
@@ -104,12 +103,17 @@ mod playtime_impl {
                     }
                     Ok(HitResponse::processed_with_effect())
                 })?,
-                A::AdjustClipSectionLength(a) => {
+                A::DoubleClipSectionLength | A::HalveClipSectionLength => {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
                     self.with_matrix(context, |matrix| {
-                        matrix.adjust_slot_dynamic_section_length(self.slot_address, a.factor)?;
+                        let factor = if self.action == A::DoubleClipSectionLength {
+                            2.0
+                        } else {
+                            0.5
+                        };
+                        matrix.adjust_slot_dynamic_section_length(self.slot_address, factor)?;
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
@@ -143,15 +147,6 @@ mod playtime_impl {
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
-                A::Double => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    self.with_matrix(context, |matrix| {
-                        matrix.adjust_slot_dynamic_section_length(self.slot_address, 2.0)?;
-                        Ok(HitResponse::processed_with_effect())
-                    })?
-                }
             }
         }
 
@@ -172,8 +167,8 @@ mod playtime_impl {
                 | A::FillSlotWithSelectedItem
                 | A::CopyOrPasteClip
                 | A::Duplicate
-                | A::Double
-                | A::AdjustClipSectionLength(_) => (
+                | A::HalveClipSectionLength
+                | A::DoubleClipSectionLength => (
                     ControlType::AbsoluteContinuousRetriggerable,
                     TargetCharacter::Trigger,
                 ),
@@ -249,9 +244,9 @@ mod playtime_impl {
                 A::ClearSlot
                 | A::FillSlotWithSelectedItem
                 | A::CopyOrPasteClip
-                | A::AdjustClipSectionLength(_)
-                | A::Duplicate
-                | A::Double => Some(AbsoluteValue::default()),
+                | A::DoubleClipSectionLength
+                | A::HalveClipSectionLength
+                | A::Duplicate => Some(AbsoluteValue::default()),
                 A::EditClip => Backbone::get()
                     .with_clip_matrix(context.instance(), |matrix| {
                         let clip_address = ClipAddress::new(self.slot_address, 0);

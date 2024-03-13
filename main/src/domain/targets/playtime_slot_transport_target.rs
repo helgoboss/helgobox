@@ -69,7 +69,6 @@ pub struct RealTimePlaytimeSlotTransportTarget {
 }
 
 pub const PLAYTIME_SLOT_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Slot transport action",
     short_name: "Playtime slot transport action",

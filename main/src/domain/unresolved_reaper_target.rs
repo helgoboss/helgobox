@@ -814,7 +814,7 @@ impl VirtualPlaytimeColumn {
     ) -> Result<VirtualPlaytimeColumn, &'static str> {
         use realearn_api::persistence::PlaytimeColumnDescriptor::*;
         let column = match descriptor {
-            Selected => VirtualPlaytimeColumn::Selected,
+            Active => VirtualPlaytimeColumn::Selected,
             ByIndex(address) => VirtualPlaytimeColumn::ByIndex(address.index),
             Dynamic {
                 expression: index_expression,

@@ -6,7 +6,6 @@ use crate::domain::{
 use realearn_api::persistence::PlaytimeColumnAction;
 
 pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Column action",
     short_name: "Playtime column action",

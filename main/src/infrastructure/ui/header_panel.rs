@@ -1433,15 +1433,13 @@ impl HeaderPanel {
         if self.active_compartment() == CompartmentKind::Main {
             label.show();
             combo.show();
-            combo
-                .select_combo_box_item_by_index(
-                    self.session()
-                        .borrow()
-                        .main_preset_auto_load_mode
-                        .get()
-                        .into(),
-                )
-                .unwrap();
+            combo.select_combo_box_item_by_index(
+                self.session()
+                    .borrow()
+                    .main_preset_auto_load_mode
+                    .get()
+                    .into(),
+            );
         } else {
             label.hide();
             combo.hide();

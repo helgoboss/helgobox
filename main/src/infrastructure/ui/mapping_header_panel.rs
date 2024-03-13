@@ -194,8 +194,7 @@ impl MappingHeaderPanel {
     fn invalidate_activation_type_combo_box(&self, item: &dyn Item) {
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
-            .select_combo_box_item_by_index(item.activation_type().into())
-            .unwrap();
+            .select_combo_box_item_by_index(item.activation_type().into());
     }
 
     fn invalidate_activation_setting_1_controls(&self, item: &dyn Item) {

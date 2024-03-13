@@ -48,7 +48,6 @@ pub struct RealTimePlaytimeRowTarget {
 }
 
 pub const PLAYTIME_ROW_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Row action",
     short_name: "Playtime row action",

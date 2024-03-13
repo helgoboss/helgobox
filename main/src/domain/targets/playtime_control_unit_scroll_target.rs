@@ -27,10 +27,10 @@ pub struct PlaytimeControlUnitScrollTarget {
 }
 
 pub const PLAYTIME_CONTROL_UNIT_SCROLL_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Control unit scroll",
     short_name: "Playtime scroll",
+    supports_axis: true,
     ..DEFAULT_TARGET
 };
 

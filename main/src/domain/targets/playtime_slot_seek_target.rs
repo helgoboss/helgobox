@@ -48,7 +48,6 @@ pub struct PlaytimeSlotSeekTarget {
 }
 
 pub const PLAYTIME_SLOT_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
-    lua_only: true,
     section: TargetSection::Playtime,
     name: "Slot seek",
     short_name: "Playtime slot seek",
