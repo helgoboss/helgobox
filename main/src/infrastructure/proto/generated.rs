@@ -1326,6 +1326,9 @@ pub struct TrackMidiInput {
     pub device: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag = "2")]
     pub channel: ::core::option::Option<u32>,
+    /// TODO-high Currently not used, waiting for Justin's reply
+    #[prost(uint32, optional, tag = "3")]
+    pub destination_channel: ::core::option::Option<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

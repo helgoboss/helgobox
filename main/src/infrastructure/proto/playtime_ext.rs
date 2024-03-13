@@ -374,6 +374,8 @@ impl TrackInput {
                 let midi_input = TrackMidiInput {
                     device: device_id.map(|id| id.get() as _),
                     channel: channel.map(|ch| ch.get() as _),
+                    // TODO-high-playtime-before-release Map track's mapped MIDI channel to here
+                    destination_channel: None,
                 };
                 Some(Input::Midi(midi_input))
             }

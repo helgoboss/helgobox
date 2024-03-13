@@ -1258,8 +1258,17 @@ impl Default for ClipAudioSettings {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct ClipMidiSettings {
+    /// If set, all MIDI channel MIDI events will be remapped to this channel.
+    pub destination_channel: Option<u8>,
+    /// Reset settings.
+    #[serde(default)]
+    pub reset_settings: ClipMidiResetSettings,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct ClipMidiResetSettings {
     /// For fine-tuning instant start/stop of a MIDI clip when in the middle of the source or section.
     ///
     /// - The left interaction reset messages are sent whenever resuming after pause.
@@ -1299,13 +1308,13 @@ pub struct ClipMidiSettings {
     pub source_reset_settings: MidiResetMessageRange,
 }
 
-impl Default for ClipMidiSettings {
+impl Default for ClipMidiResetSettings {
     fn default() -> Self {
         Self::RIGHT_LIGHT
     }
 }
 
-impl ClipMidiSettings {
+impl ClipMidiResetSettings {
     pub const NONE: Self = Self {
         interaction_reset_settings: MidiResetMessageRange::NONE,
         loop_reset_settings: MidiResetMessageRange::NONE,
