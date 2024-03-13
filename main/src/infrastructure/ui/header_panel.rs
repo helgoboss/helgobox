@@ -257,6 +257,22 @@ impl HeaderPanel {
             .open_popup_menu(menu, Window::cursor_pos())
     }
 
+    fn prompt_whether_to_open_projection_in_app(&self) -> Option<bool> {
+        let menu = {
+            use swell_ui::menu_tree::*;
+            anonymous_menu(vec![
+                item("Open in browser (old)", false),
+                item(
+                    "Open in app (new, but temporarily only works for Playtime testers)",
+                    true,
+                ),
+            ])
+        };
+        self.view
+            .require_window()
+            .open_popup_menu(menu, Window::cursor_pos())
+    }
+
     fn browse_presets(&self) {
         let menu = {
             let compartment = self.active_compartment();
@@ -2225,6 +2241,20 @@ impl HeaderPanel {
         Ok(())
     }
 
+    fn show_projection(&self) {
+        if let Some(show_in_app) = self.prompt_whether_to_open_projection_in_app() {
+            if show_in_app {
+                self.show_projection_in_app();
+            } else {
+                self.show_projection_in_browser();
+            }
+        }
+    }
+
+    fn show_projection_in_browser(&self) {
+        self.companion_app_presenter.show_app_info();
+    }
+
     fn show_projection_in_app(&self) {
         let unit_id = self.session().borrow().unit_id();
         self.instance_panel()
@@ -2686,7 +2716,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             root::ID_PROJECTION_BUTTON => {
-                self.show_projection_in_app();
+                self.show_projection();
             }
             root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
                 self.update_compartment(CompartmentKind::Controller)
