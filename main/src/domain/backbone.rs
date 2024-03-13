@@ -275,7 +275,7 @@ impl Backbone {
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let instance = instance.borrow();
-        let matrix = instance.clip_matrix().context(NO_CLIP_MATRIX_SET)?;
+        let matrix = instance.get_clip_matrix()?;
         Ok(f(matrix))
     }
 
@@ -288,7 +288,7 @@ impl Backbone {
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let mut instance = instance.borrow_mut();
-        let matrix = instance.clip_matrix_mut().context(NO_CLIP_MATRIX_SET)?;
+        let matrix = instance.get_clip_matrix_mut()?;
         Ok(f(matrix))
     }
 
@@ -427,9 +427,6 @@ fn update_io_usage<D: Eq + Hash + Copy>(
     }
     device != previously_used_device
 }
-
-#[cfg(feature = "playtime")]
-const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
 
 #[derive(Clone, Debug)]
 pub struct TargetTouchEvent {

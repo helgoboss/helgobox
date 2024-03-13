@@ -325,9 +325,10 @@ impl ReaperTarget {
             CompoundChangeEvent::Instance(_) => false,
             #[cfg(feature = "playtime")]
             CompoundChangeEvent::ClipMatrix(e) => {
+                use playtime_clip_engine::base::ClipMatrixEvent;
                 matches!(
                     e,
-                    playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged
+                    ClipMatrixEvent::EverythingChanged | ClipMatrixEvent::ActiveCellChanged
                 )
             }
         }

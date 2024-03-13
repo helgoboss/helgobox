@@ -766,7 +766,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .send_complaining(global_event);
             }
             // Process feedback
-            self.process_feedback_related_reaper_event(|mapping, target| {
+            self.process_feedback_related_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::Unit(&event),
@@ -814,7 +814,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if event.instance_id != self.basics.instance_id {
             return;
         }
-        self.process_feedback_related_reaper_event(|mapping, target| {
+        self.process_feedback_related_event(|mapping, target| {
             mapping.process_change_event(
                 target,
                 CompoundChangeEvent::Instance(&event.event),
@@ -863,8 +863,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         } else {
+            if ReaperTarget::changes_conditions(CompoundChangeEvent::ClipMatrix(event)) {
+                self.basics.notify_conditions_changed();
+            }
             // Other property of clip changed.
-            self.process_feedback_related_reaper_event(|mapping, target| {
+            self.process_feedback_related_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::ClipMatrix(event),
@@ -1673,7 +1676,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_compartment_parameter_feedback(&mut self, param_index: PluginParamIndex) {
         let change_event = CompoundChangeEvent::CompartmentParameter(param_index);
-        self.process_feedback_related_reaper_event(|mapping, target| {
+        self.process_feedback_related_event(|mapping, target| {
             mapping.process_change_event(
                 target,
                 change_event,
@@ -1712,7 +1715,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.notify_conditions_changed();
             }
             // Okay, not fired that frequently, we can iterate over all mappings
-            self.process_feedback_related_reaper_event(|mapping, target| {
+            self.process_feedback_related_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::Additional(event),
@@ -1785,7 +1788,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Process for feedback
         for event in events {
-            self.process_feedback_related_reaper_event(|mapping, target| {
+            self.process_feedback_related_event(|mapping, target| {
                 mapping.process_change_event(
                     target,
                     CompoundChangeEvent::Reaper(event),
@@ -1802,7 +1805,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// this by deferring the value query to the next main cycle, but now that we have the nice
     /// non-rx change detection technique, we can do it right here, feedback without delay and
     /// avoid a redundant query.
-    fn process_feedback_related_reaper_event(
+    fn process_feedback_related_event(
         &self,
         mut f: impl Fn(&MainMapping, &ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {

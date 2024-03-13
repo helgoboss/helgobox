@@ -91,4 +91,8 @@ impl CellAddress {
             row_index: Some(row_index),
         }
     }
+
+    pub fn to_slot_address(&self) -> Option<SlotAddress> {
+        Some(SlotAddress::new(self.column_index?, self.row_index?))
+    }
 }

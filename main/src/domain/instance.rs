@@ -1,4 +1,5 @@
 use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
+use anyhow::Context;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
@@ -281,6 +282,24 @@ impl Instance {
     }
 
     #[cfg(feature = "playtime")]
+    pub fn get_clip_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
+        self.playtime
+            .clip_matrix
+            .as_ref()
+            .context(NO_CLIP_MATRIX_SET)
+    }
+
+    #[cfg(feature = "playtime")]
+    pub fn get_clip_matrix_mut(
+        &mut self,
+    ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
+        self.playtime
+            .clip_matrix
+            .as_mut()
+            .context(NO_CLIP_MATRIX_SET)
+    }
+
+    #[cfg(feature = "playtime")]
     pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
         self.playtime.clip_matrix.as_ref()
     }
@@ -426,3 +445,6 @@ pub enum PotStateChangedEvent {
     IndexesRebuilt,
     PresetLoaded,
 }
+
+#[cfg(feature = "playtime")]
+const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";

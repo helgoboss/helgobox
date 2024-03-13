@@ -29,6 +29,8 @@ use enum_dispatch::enum_dispatch;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use playtime_api::persistence::SlotAddress;
+use playtime_api::runtime::CellAddress;
 use realearn_api::persistence::{
     FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
@@ -756,11 +758,20 @@ impl VirtualPlaytimeSlot {
         &self,
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
-    ) -> Result<playtime_api::persistence::SlotAddress, &'static str> {
+    ) -> Result<SlotAddress, &'static str> {
         use playtime_api::persistence::SlotAddress;
         use VirtualPlaytimeSlot::*;
         let coordinates = match self {
-            Active => return Err("the concept of a selected slot is not yet supported"),
+            Active => {
+                let instance = context.control_context.instance.borrow();
+                let matrix = instance
+                    .get_clip_matrix()
+                    .map_err(|_| "couldn't get matrix")?;
+                matrix
+                    .active_cell()
+                    .to_slot_address()
+                    .ok_or("no slot active")?
+            }
             ByIndex(address) => *address,
             Dynamic {
                 column_evaluator,
@@ -834,7 +845,16 @@ impl VirtualPlaytimeColumn {
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeColumn::*;
         let index = match self {
-            Active => return Err("the concept of a selected column is not yet supported"),
+            Active => {
+                let instance = context.control_context.instance.borrow();
+                let matrix = instance
+                    .get_clip_matrix()
+                    .map_err(|_| "couldn't get matrix")?;
+                matrix
+                    .active_cell()
+                    .column_index
+                    .ok_or("no column selected")?
+            }
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
@@ -880,7 +900,13 @@ impl VirtualPlaytimeRow {
     ) -> Result<usize, &'static str> {
         use VirtualPlaytimeRow::*;
         let index = match self {
-            Active => return Err("the concept of a selected row is not yet supported"),
+            Active => {
+                let instance = context.control_context.instance.borrow();
+                let matrix = instance
+                    .get_clip_matrix()
+                    .map_err(|_| "couldn't get matrix")?;
+                matrix.active_cell().row_index.ok_or("no row selected")?
+            }
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
                 let compartment_params = context.params().compartment_params(compartment);
@@ -890,13 +916,6 @@ impl VirtualPlaytimeRow {
                 ))?
             }
         };
-        // let row_exists = BackboneState::get()
-        //     .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
-        //         index < matrix.row_count()
-        //     })?;
-        // if !row_exists {
-        //     return Err("row doesn't exist");
-        // }
         Ok(index)
     }
 
