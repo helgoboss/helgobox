@@ -847,12 +847,6 @@ pub struct PlaytimeSlotTransportActionTarget {
     pub action: PlaytimeSlotTransportAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_column_if_slot_empty: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub record_only_if_track_armed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]

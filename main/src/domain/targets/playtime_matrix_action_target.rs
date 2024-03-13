@@ -366,7 +366,7 @@ mod playtime_impl {
                     }
                     let matrix = context.clip_matrix()?;
                     let matrix = matrix.lock();
-                    matrix.stop(None);
+                    matrix.stop();
                     Ok(())
                 }
                 _ => Err("only matrix stop has real-time target support"),

@@ -294,16 +294,10 @@ fn convert_real_target(
                 commons,
                 slot: data.clip_slot.unwrap_or_default(),
                 action: data.clip_transport_action.unwrap_or_default(),
-                record_only_if_track_armed: style.required_value_with_default(
-                    data.record_only_if_track_armed,
-                    defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED,
-                ),
                 stop_column_if_slot_empty: style.required_value_with_default(
                     data.stop_column_if_slot_empty,
                     defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY,
                 ),
-                play_start_timing: data.clip_play_start_timing,
-                play_stop_timing: data.clip_play_stop_timing,
             },
         ),
         PlaytimeColumnAction => {

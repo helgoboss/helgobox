@@ -3,7 +3,6 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 use playtime_api::persistence::SlotAddress;
-use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming};
 use realearn_api::persistence::PlaytimeSlotTransportAction;
 use reaper_high::Project;
 
@@ -16,14 +15,9 @@ pub struct UnresolvedPlaytimeSlotTransportTarget {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct ClipTransportOptions {
-    /// If this is on and one of the record actions is triggered, it will only have an effect if
-    /// the record track of the clip column is armed.
-    pub record_only_if_track_armed: bool,
     /// This is only ever taken care of from the main thread because only the main thread can decide whether
     /// to record *or* stop the column.
     pub stop_column_if_slot_empty: bool,
-    pub play_start_timing: Option<ClipPlayStartTiming>,
-    pub play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotTransportTarget {
@@ -179,10 +173,7 @@ mod playtime_impl {
                             matrix
                                 .play_slot(self.basics.slot_address, self.basics.play_options())?;
                         } else {
-                            matrix.stop_slot(
-                                self.basics.slot_address,
-                                self.basics.options.play_stop_timing,
-                            )?;
+                            matrix.stop_slot(self.basics.slot_address)?;
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -197,10 +188,7 @@ mod playtime_impl {
                     }
                     Stop => {
                         if value.is_on() {
-                            matrix.stop_slot(
-                                self.basics.slot_address,
-                                self.basics.options.play_stop_timing,
-                            )?;
+                            matrix.stop_slot(self.basics.slot_address)?;
                             HitResponse::processed_with_effect()
                         } else {
                             HitResponse::ignored()
@@ -216,19 +204,14 @@ mod playtime_impl {
                     }
                     RecordStop => {
                         if value.is_on() {
-                            if self.basics.options.record_only_if_track_armed
-                                && !matrix.column_is_armed_for_recording(
-                                    self.basics.slot_address.column(),
-                                )
+                            if !matrix
+                                .column_is_armed_for_recording(self.basics.slot_address.column())
                             {
                                 bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                             }
                             matrix.record_or_overdub_slot(self.basics.slot_address)?;
                         } else {
-                            matrix.stop_slot(
-                                self.basics.slot_address,
-                                self.basics.options.play_stop_timing,
-                            )?;
+                            matrix.stop_slot(self.basics.slot_address)?;
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -236,25 +219,19 @@ mod playtime_impl {
                         if value.is_on() {
                             if matrix.slot_is_empty(self.basics.slot_address) {
                                 // Slot is empty.
-                                if self.basics.options.record_only_if_track_armed {
-                                    // Record only if armed.
-                                    if matrix.column_is_armed_for_recording(
-                                        self.basics.slot_address.column(),
-                                    ) {
-                                        // Is armed, so record.
-                                        matrix.record_or_overdub_slot(self.basics.slot_address)?;
-                                    } else if self.basics.options.stop_column_if_slot_empty {
-                                        // Not armed but column stopping on empty slots enabled.
-                                        // Since we already know that the slot is empty, we do
-                                        // it explicitly without invoking play passing that option.
-                                        matrix
-                                            .stop_column(self.basics.slot_address.column(), None)?;
-                                    } else {
-                                        bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
-                                    }
-                                } else {
-                                    // Definitely record.
+                                // Record only if armed.
+                                if matrix.column_is_armed_for_recording(
+                                    self.basics.slot_address.column(),
+                                ) {
+                                    // Is armed, so record.
                                     matrix.record_or_overdub_slot(self.basics.slot_address)?;
+                                } else if self.basics.options.stop_column_if_slot_empty {
+                                    // Not armed but column stopping on empty slots enabled.
+                                    // Since we already know that the slot is empty, we do
+                                    // it explicitly without invoking play passing that option.
+                                    matrix.stop_column(self.basics.slot_address.column())?;
+                                } else {
+                                    bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                 }
                             } else {
                                 // Slot is filled.
@@ -264,10 +241,7 @@ mod playtime_impl {
                                 )?;
                             }
                         } else {
-                            matrix.stop_slot(
-                                self.basics.slot_address,
-                                self.basics.options.play_stop_timing,
-                            )?;
+                            matrix.stop_slot(self.basics.slot_address)?;
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -496,10 +470,7 @@ mod playtime_impl {
                     if value.is_on() {
                         matrix.play_slot(self.basics.slot_address, self.basics.play_options())?;
                     } else {
-                        matrix.stop_slot(
-                            self.basics.slot_address,
-                            self.basics.options.play_stop_timing,
-                        )?;
+                        matrix.stop_slot(self.basics.slot_address)?;
                     }
                     Ok(false)
                 }
@@ -514,10 +485,7 @@ mod playtime_impl {
                 }
                 Stop => {
                     if value.is_on() {
-                        matrix.stop_slot(
-                            self.basics.slot_address,
-                            self.basics.options.play_stop_timing,
-                        )?;
+                        matrix.stop_slot(self.basics.slot_address)?;
                     }
                     // Completely handled in real-time, no need to forward to main thread
                     Ok(false)
@@ -568,7 +536,6 @@ mod playtime_impl {
                 // TODO-high-playtime-before-release Should we respect velocity for non-trigger transport actions as well?
                 velocity: Some(UnitValue::MAX),
                 stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
-                start_timing: self.options.play_start_timing,
             }
         }
     }

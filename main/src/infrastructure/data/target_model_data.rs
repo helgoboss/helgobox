@@ -467,28 +467,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub record_only_if_track_armed: bool,
-    /// New since ReaLearn v2.13.0-pre.4
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
     pub stop_column_if_slot_empty: bool,
-    /// New since ReaLearn v2.13.0-pre.4
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
-    pub clip_play_start_timing: Option<playtime_api::persistence::ClipPlayStartTiming>,
-    /// New since ReaLearn v2.13.0-pre.4
-    #[serde(
-        default,
-        deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
-    )]
-    pub clip_play_stop_timing: Option<playtime_api::persistence::ClipPlayStopTiming>,
     /// New since ReaLearn v2.13.0-pre.4
     #[serde(
         default,
@@ -649,10 +628,7 @@ impl TargetModelData {
             clip_column_action: model.playtime_column_action(),
             clip_row_action: model.playtime_row_action(),
             clip_matrix_action: model.playtime_matrix_action(),
-            record_only_if_track_armed: model.record_only_if_track_armed(),
             stop_column_if_slot_empty: model.stop_column_if_slot_empty(),
-            clip_play_start_timing: model.clip_play_start_timing(),
-            clip_play_stop_timing: model.clip_play_stop_timing(),
             axis: model.axis(),
             mouse_action: model.mouse_action(),
             pot_filter_item_kind: model.pot_filter_item_kind(),
@@ -922,13 +898,6 @@ impl TargetModelData {
         model.change(C::SetPlaytimeColumnAction(self.clip_column_action));
         model.change(C::SetPlaytimeRowAction(self.clip_row_action));
         model.change(C::SetPlaytimeMatrixAction(self.clip_matrix_action));
-        model.change(C::SetPlaytimeClipPlayStartTiming(
-            self.clip_play_start_timing,
-        ));
-        model.change(C::SetPlaytimeClipPlayStopTiming(self.clip_play_stop_timing));
-        model.change(C::SetRecordOnlyIfTrackArmed(
-            self.record_only_if_track_armed,
-        ));
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
         if self.category == TargetCategory::Reaper
             && self.r#type == ReaperTargetType::PlaytimeControlUnitScroll

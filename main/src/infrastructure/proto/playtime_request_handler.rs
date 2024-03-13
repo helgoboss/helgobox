@@ -46,10 +46,9 @@ impl PlaytimeProtoRequestHandler {
                 ColumnPlaySlotOptions {
                     velocity: Some(UnitValue::MAX),
                     stop_column_if_slot_empty: false,
-                    start_timing: None,
                 },
             ),
-            TriggerSlotAction::Stop => matrix.stop_slot(slot_address, None),
+            TriggerSlotAction::Stop => matrix.stop_slot(slot_address),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
             TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
             TriggerSlotAction::Copy => matrix.copy_slot(slot_address),
@@ -357,7 +356,7 @@ impl PlaytimeProtoRequestHandler {
         let action = TriggerColumnAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger column action"))?;
         self.handle_column_command(&req.column_address, |matrix, column_index| match action {
-            TriggerColumnAction::Stop => matrix.stop_column(column_index, None),
+            TriggerColumnAction::Stop => matrix.stop_column(column_index),
             TriggerColumnAction::Remove => matrix.remove_column(column_index),
             TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index),
             TriggerColumnAction::Insert => matrix.insert_column(column_index),

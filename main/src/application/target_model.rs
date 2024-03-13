@@ -157,9 +157,6 @@ pub enum TargetCommand {
     SetPlaytimeMatrixAction(PlaytimeMatrixAction),
     SetPlaytimeColumnAction(PlaytimeColumnAction),
     SetPlaytimeRowAction(PlaytimeRowAction),
-    SetPlaytimeClipPlayStartTiming(Option<playtime_api::persistence::ClipPlayStartTiming>),
-    SetPlaytimeClipPlayStopTiming(Option<playtime_api::persistence::ClipPlayStopTiming>),
-    SetRecordOnlyIfTrackArmed(bool),
     SetStopColumnIfSlotEmpty(bool),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
@@ -258,9 +255,6 @@ pub enum TargetProp {
     PlaytimeMatrixAction,
     PlaytimeColumnAction,
     PlaytimeRowAction,
-    PlaytimeClipPlayStartTiming,
-    PlaytimeClipPlayStopTiming,
-    RecordOnlyIfTrackArmed,
     StopColumnIfSlotEmpty,
     PollForFeedback,
     Tags,
@@ -630,18 +624,6 @@ impl<'a> Change<'a> for TargetModel {
                 self.playtime_row_action = v;
                 One(P::PlaytimeRowAction)
             }
-            C::SetPlaytimeClipPlayStartTiming(v) => {
-                self.clip_play_start_timing = v;
-                One(P::PlaytimeClipPlayStartTiming)
-            }
-            C::SetPlaytimeClipPlayStopTiming(v) => {
-                self.clip_play_stop_timing = v;
-                One(P::PlaytimeClipPlayStopTiming)
-            }
-            C::SetRecordOnlyIfTrackArmed(v) => {
-                self.record_only_if_track_armed = v;
-                One(P::RecordOnlyIfTrackArmed)
-            }
             C::SetStopColumnIfSlotEmpty(v) => {
                 self.stop_column_if_slot_empty = v;
                 One(P::StopColumnIfSlotEmpty)
@@ -785,10 +767,7 @@ pub struct TargetModel {
     playtime_matrix_action: PlaytimeMatrixAction,
     playtime_column_action: PlaytimeColumnAction,
     playtime_row_action: PlaytimeRowAction,
-    record_only_if_track_armed: bool,
     stop_column_if_slot_empty: bool,
-    clip_play_start_timing: Option<ClipPlayStartTiming>,
-    clip_play_stop_timing: Option<ClipPlayStopTiming>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -939,12 +918,9 @@ impl Default for TargetModel {
             playtime_slot_transport_action: Default::default(),
             playtime_column_action: Default::default(),
             playtime_matrix_action: Default::default(),
-            record_only_if_track_armed: false,
             stop_column_if_slot_empty: false,
-            clip_play_start_timing: None,
             clip_column_track_context: Default::default(),
             playtime_row_action: Default::default(),
-            clip_play_stop_timing: None,
             track_tool_action: Default::default(),
             fx_tool_action: Default::default(),
             gang_behavior: Default::default(),
@@ -2739,28 +2715,13 @@ impl TargetModel {
         self.playtime_row_action
     }
 
-    pub fn record_only_if_track_armed(&self) -> bool {
-        self.record_only_if_track_armed
-    }
-
     pub fn stop_column_if_slot_empty(&self) -> bool {
         self.stop_column_if_slot_empty
     }
 
-    pub fn clip_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
-        self.clip_play_start_timing
-    }
-
-    pub fn clip_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
-        self.clip_play_stop_timing
-    }
-
     pub fn clip_transport_options(&self) -> crate::domain::ClipTransportOptions {
         crate::domain::ClipTransportOptions {
-            record_only_if_track_armed: self.record_only_if_track_armed,
             stop_column_if_slot_empty: self.stop_column_if_slot_empty,
-            play_start_timing: self.clip_play_start_timing,
-            play_stop_timing: self.clip_play_stop_timing,
         }
     }
 

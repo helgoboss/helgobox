@@ -157,7 +157,7 @@ mod playtime_impl {
                                 if !value.is_on() {
                                     return Ok(HitResponse::ignored());
                                 }
-                                matrix.stop_column(self.column_index, None)?;
+                                matrix.stop_column(self.column_index)?;
                             }
                             PlaytimeColumnAction::ArmState => {
                                 matrix.set_column_armed(self.column_index, value.is_on())?;
@@ -263,7 +263,7 @@ mod playtime_impl {
                     }
                     let matrix = context.clip_matrix()?;
                     let matrix = matrix.lock();
-                    matrix.stop_column(self.column_index, None)
+                    matrix.stop_column(self.column_index)
                 }
                 PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
                     Err("real-time control not supported")

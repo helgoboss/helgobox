@@ -749,14 +749,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             r#type: ReaperTargetType::PlaytimeSlotTransportAction,
             clip_slot: Some(d.slot),
             clip_transport_action: Some(d.action),
-            record_only_if_track_armed: d
-                .record_only_if_track_armed
-                .unwrap_or(defaults::TARGET_RECORD_ONLY_IF_TRACK_ARMED),
             stop_column_if_slot_empty: d
                 .stop_column_if_slot_empty
                 .unwrap_or(defaults::TARGET_STOP_COLUMN_IF_SLOT_EMPTY),
-            clip_play_start_timing: d.play_start_timing,
-            clip_play_stop_timing: d.play_stop_timing,
             ..init(d.commons)
         },
         Target::PlaytimeColumnAction(d) => TargetModelData {

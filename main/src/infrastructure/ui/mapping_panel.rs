@@ -590,7 +590,7 @@ impl MappingPanel {
                                             P::ActiveMappingsOnly => {
                                                 view.invalidate_target_check_box_2();
                                             }
-                                            P::PlaytimeClipPlayStartTiming | P::PlaytimeClipPlayStopTiming | P::PlaytimeRow | P::PlaytimeRowAction | P::StopColumnIfSlotEmpty | P::PlaytimeSlot | P::PlaytimeColumn | P::PlaytimeSlotManagementAction | P::PlaytimeSlotTransportAction | P::PlaytimeColumnAction | P::RecordOnlyIfTrackArmed  | P::PlaytimeMatrixAction => {
+                                            P::PlaytimeRow | P::PlaytimeRowAction | P::StopColumnIfSlotEmpty | P::PlaytimeSlot | P::PlaytimeColumn | P::PlaytimeSlotManagementAction | P::PlaytimeSlotTransportAction | P::PlaytimeColumnAction | P::PlaytimeMatrixAction => {
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
                                             }
