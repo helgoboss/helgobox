@@ -5,7 +5,7 @@ use playtime_clip_engine::base::{
     SequencerStatus, Slot,
 };
 use playtime_clip_engine::rt::{
-    ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents, InternalClipPlayState,
+    ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{base, clip_timeline, Timeline};
 use reaper_high::Project;
@@ -232,8 +232,8 @@ impl occasional_track_update::Update {
 }
 
 impl qualified_occasional_slot_update::Update {
-    pub fn play_state(play_state: InternalClipPlayState) -> Self {
-        Self::PlayState(SlotPlayState::from_engine(play_state.get()).into())
+    pub fn play_state(play_state: ClipPlayState) -> Self {
+        Self::PlayState(SlotPlayState::from_engine(play_state).into())
     }
 
     pub fn complete_persistent_data(_matrix: &Matrix, slot: &Slot) -> Self {

@@ -47,17 +47,17 @@ pub fn resolve_virtual_track_by_playtime_column(
 #[cfg(feature = "playtime")]
 pub(crate) fn clip_play_state_unit_value(
     action: realearn_api::persistence::PlaytimeSlotTransportAction,
-    play_state: playtime_clip_engine::rt::InternalClipPlayState,
+    play_state: playtime_clip_engine::rt::ClipPlayState,
 ) -> UnitValue {
     use playtime_clip_engine::rt::ClipPlayState;
     use realearn_api::persistence::PlaytimeSlotTransportAction::*;
     match action {
         Trigger | PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
         Stop => transport_is_enabled_unit_value(matches!(
-            play_state.get(),
+            play_state,
             ClipPlayState::Stopped | ClipPlayState::Ignited
         )),
-        Pause => transport_is_enabled_unit_value(play_state.get() == ClipPlayState::Paused),
+        Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
         RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
         Looped => panic!("wrong argument"),
     }

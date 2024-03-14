@@ -87,7 +87,7 @@ mod playtime_impl {
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
         rt::supplier::audio::GlobalBlockProvider,
-        rt::{ClipPlayState, InternalClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent},
+        rt::{ClipPlayState, QualifiedSlotChangeEvent, SlotChangeEvent},
     };
 
     impl RealearnTarget for PlaytimeSlotSeekTarget {
@@ -155,9 +155,9 @@ mod playtime_impl {
                             (false, None)
                         }
                     }
-                    SlotChangeEvent::PlayState(InternalClipPlayState(
-                        ClipPlayState::Stopped | ClipPlayState::Ignited,
-                    )) => (true, Some(AbsoluteValue::Continuous(UnitValue::MIN))),
+                    SlotChangeEvent::PlayState(ClipPlayState::Stopped | ClipPlayState::Ignited) => {
+                        (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
+                    }
                     _ => (false, None),
                 },
                 _ => (false, None),

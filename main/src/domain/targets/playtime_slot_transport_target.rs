@@ -114,13 +114,13 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
-    use playtime_clip_engine::rt::TriggerSlotMainOptions;
+    use playtime_clip_engine::rt::{ClipPlayState, TriggerSlotMainOptions};
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
         base::ClipMatrixEvent,
         rt::{
-            ClipChangeEvent, ColumnPlaySlotOptions, InternalClipPlayState,
-            QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
+            ClipChangeEvent, ColumnPlaySlotOptions, QualifiedClipChangeEvent,
+            QualifiedSlotChangeEvent, SlotChangeEvent,
         },
     };
     use realearn_api::persistence::PlaytimeSlotTransportAction;
@@ -131,7 +131,7 @@ mod playtime_impl {
         pub fn clip_play_state(
             &self,
             matrix: &playtime_clip_engine::base::Matrix,
-        ) -> Option<InternalClipPlayState> {
+        ) -> Option<ClipPlayState> {
             let slot = matrix.find_slot(self.basics.slot_address)?;
             if slot.is_empty() {
                 return None;
