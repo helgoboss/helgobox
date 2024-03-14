@@ -115,7 +115,7 @@ impl Plugin for HelgoboxPlugin {
 
     fn get_info(&self) -> Info {
         firewall(|| Info {
-            name: "Helgobox (ReaLearn & Playtime)".to_string(),
+            name: "Helgobox - ReaLearn & Playtime".to_string(),
             vendor: "Helgoboss".to_string(),
             unique_id: HELGOBOX_UNIQUE_VST_PLUGIN_ID,
             preset_chunks: true,
