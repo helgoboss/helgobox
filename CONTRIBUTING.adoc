@@ -353,9 +353,10 @@ Some SVGs embedded in the architecture documentation are generated via link:http
 This serves mainly as checklist for ReaLearn's author.
 
 . Take care of app versioning
-** Host repository: Adjust `HOST_API_VERSION` and `MIN_APP_API_VERSION`
+** Plug-in repository: Adjust `HOST_API_VERSION` and `MIN_APP_API_VERSION`
 ** App repository: Adjust `appApiVersion` (macOS, Swift), `APP_API_VERSION` (Windows, C++) and `_minHostApiVersionString` (Dart)
-. Bump up the version number in link:main/Cargo.toml[main/Cargo.toml].
+. Bump up the app version number in `pubspec.yaml`.
+. Bump up the plug-in version number in link:main/Cargo.toml[main/Cargo.toml].
 ** Either to a prerelease (e.g. `2.0.0-pre1`) or a final release (e.g. `2.0.0`).
 ** This is important for having the correct version number displayed in ReaLearn UI.
 . Build at least once via `cargo build --features playtime,egui`.
@@ -370,7 +371,7 @@ This serves mainly as checklist for ReaLearn's author.
 ** In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user
  guide changes.
 ** Push via `git push origin HEAD` and wait until Netlify deployed the page.
-** All of the following stuff needs to be done using Netlify's branch preview if it's a prerelease!
+** All the following stuff needs to be done using Netlify's branch preview if it's a prerelease!
 ** Update https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index].
 *** Generate ReaLearn-only ReaPack index by requesting https://www.helgoboss.org/projects/realearn/reapack.txt[/projects/realearn/reapack.txt].
 *** Integrate the generated index by copying everything from `&lt;category name=&quot;Extensions&quot;&gt;` and pasting it to the
