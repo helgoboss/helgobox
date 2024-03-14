@@ -412,7 +412,7 @@ fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering
     }
 }
 
-pub fn midi_output_port_patterns_match(patterns: &Vec<String>, out_port_name: &str) -> bool {
+pub fn midi_output_port_patterns_match(patterns: &[String], out_port_name: &str) -> bool {
     if patterns.is_empty() {
         return true;
     }

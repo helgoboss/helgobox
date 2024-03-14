@@ -29,7 +29,7 @@ use playtime_clip_engine::rt::TriggerSlotMainOptions;
 use playtime_clip_engine::{
     base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
 };
-use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Reaper, Track};
+use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Track};
 use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 

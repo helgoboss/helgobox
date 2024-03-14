@@ -30,7 +30,6 @@ use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use playtime_api::persistence::SlotAddress;
-use playtime_api::runtime::CellAddress;
 use realearn_api::persistence::{
     FxChainDescriptor, FxDescriptorCommons, TrackDescriptorCommons, TrackScope,
 };
@@ -759,18 +758,24 @@ impl VirtualPlaytimeSlot {
         context: ExtendedProcessorContext,
         compartment: CompartmentKind,
     ) -> Result<SlotAddress, &'static str> {
-        use playtime_api::persistence::SlotAddress;
         use VirtualPlaytimeSlot::*;
         let coordinates = match self {
             Active => {
-                let instance = context.control_context.instance.borrow();
-                let matrix = instance
-                    .get_clip_matrix()
-                    .map_err(|_| "couldn't get matrix")?;
-                matrix
-                    .active_cell()
-                    .to_slot_address()
-                    .ok_or("no slot active")?
+                #[cfg(not(feature = "playtime"))]
+                {
+                    return Err("Playtime not available");
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    let instance = context.control_context.instance.borrow();
+                    let matrix = instance
+                        .get_playtime_matrix()
+                        .map_err(|_| "couldn't get matrix")?;
+                    matrix
+                        .active_cell()
+                        .to_slot_address()
+                        .ok_or("no slot active")?
+                }
             }
             ByIndex(address) => *address,
             Dynamic {
@@ -846,14 +851,21 @@ impl VirtualPlaytimeColumn {
         use VirtualPlaytimeColumn::*;
         let index = match self {
             Active => {
-                let instance = context.control_context.instance.borrow();
-                let matrix = instance
-                    .get_clip_matrix()
-                    .map_err(|_| "couldn't get matrix")?;
-                matrix
-                    .active_cell()
-                    .column_index
-                    .ok_or("no column selected")?
+                #[cfg(not(feature = "playtime"))]
+                {
+                    return Err("Playtime not available");
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    let instance = context.control_context.instance.borrow();
+                    let matrix = instance
+                        .get_playtime_matrix()
+                        .map_err(|_| "couldn't get matrix")?;
+                    matrix
+                        .active_cell()
+                        .column_index
+                        .ok_or("no column selected")?
+                }
             }
             ByIndex(index) => *index,
             Dynamic(evaluator) => {
@@ -901,11 +913,18 @@ impl VirtualPlaytimeRow {
         use VirtualPlaytimeRow::*;
         let index = match self {
             Active => {
-                let instance = context.control_context.instance.borrow();
-                let matrix = instance
-                    .get_clip_matrix()
-                    .map_err(|_| "couldn't get matrix")?;
-                matrix.active_cell().row_index.ok_or("no row selected")?
+                #[cfg(not(feature = "playtime"))]
+                {
+                    return Err("Playtime not available");
+                }
+                #[cfg(feature = "playtime")]
+                {
+                    let instance = context.control_context.instance.borrow();
+                    let matrix = instance
+                        .get_playtime_matrix()
+                        .map_err(|_| "couldn't get matrix")?;
+                    matrix.active_cell().row_index.ok_or("no row selected")?
+                }
             }
             ByIndex(index) => *index,
             Dynamic(evaluator) => {

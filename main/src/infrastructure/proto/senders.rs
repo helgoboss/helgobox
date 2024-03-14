@@ -113,58 +113,6 @@ impl ProtoReceivers {
         )
         .await;
     }
-
-    pub fn process_pending_updates(
-        &mut self,
-        instance_id: InstanceId,
-        process: &impl Fn(EventReply),
-    ) {
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_matrix_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_track_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_column_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_row_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_slot_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.occasional_clip_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.continuous_matrix_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.continuous_column_update_receiver,
-        );
-        process_pending_updates(
-            instance_id,
-            process,
-            &mut self.continuous_slot_update_receiver,
-        );
-    }
 }
 
 async fn keep_processing_session_filtered_updates<T>(
@@ -198,25 +146,6 @@ where
             };
             process(reply);
         }
-    }
-}
-
-fn process_pending_updates<T>(
-    instance_id: InstanceId,
-    process: impl Fn(EventReply),
-    receiver: &mut Receiver<WithInstanceId<T>>,
-    // to_reply_value: impl Fn(Vec<T>) -> event_reply::Value
-) where
-    T: Clone + Into<event_reply::Value>,
-{
-    while let Ok(batch) = receiver.try_recv() {
-        if batch.instance_id != instance_id {
-            continue;
-        }
-        let reply = EventReply {
-            value: Some(batch.value.into()),
-        };
-        process(reply);
     }
 }
 

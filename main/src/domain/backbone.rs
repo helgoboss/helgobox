@@ -275,7 +275,7 @@ impl Backbone {
         f: impl FnOnce(&playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let instance = instance.borrow();
-        let matrix = instance.get_clip_matrix()?;
+        let matrix = instance.get_playtime_matrix()?;
         Ok(f(matrix))
     }
 
@@ -288,7 +288,7 @@ impl Backbone {
         f: impl FnOnce(&mut playtime_clip_engine::base::Matrix) -> R,
     ) -> anyhow::Result<R> {
         let mut instance = instance.borrow_mut();
-        let matrix = instance.get_clip_matrix_mut()?;
+        let matrix = instance.get_playtime_matrix_mut()?;
         Ok(f(matrix))
     }
 

@@ -1474,7 +1474,7 @@ fn process_real_mapping_in_real_time(
                 ),
                 RealTimeReaperTarget::PlaytimeSlotTransport(t) => {
                     let result = t.hit(control_value, control_context);
-                    if result.is_ok_and(|forward_to_main_thread| forward_to_main_thread == true) {
+                    if result.is_ok_and(|forward_to_main_thread| forward_to_main_thread) {
                         // Important: We must forward to main thread in this case in order to possibly record!
                         return true;
                     }

@@ -6,10 +6,10 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, occasional_matrix_update,
-    qualified_occasional_unit_update, HelgoboxServiceImpl, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch,
-    ProtoRequestHandler, ProtoSenders, QualifiedOccasionalUnitUpdate,
+    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
+    HelgoboxServiceImpl, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
+    OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders,
+    QualifiedOccasionalUnitUpdate,
 };
 use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use reaper_high::ChangeEvent;

@@ -18,8 +18,8 @@ use reaper_high::Project;
 use std::cell::RefCell;
 use std::iter::once;
 use std::rc::Rc;
+use std::sync;
 use std::sync::{Arc, Mutex, RwLock};
-use std::{iter, sync};
 use swell_ui::SharedView;
 use vst::plugin::HostCallback;
 
@@ -187,7 +187,7 @@ impl InstanceShell {
 
     pub fn all_unit_models(&self) -> impl Iterator<Item = SharedUnitModel> {
         let additional_unit_models = self.additional_unit_models();
-        once(self.main_unit_shell().model().clone()).chain(additional_unit_models.into_iter())
+        once(self.main_unit_shell().model().clone()).chain(additional_unit_models)
     }
 
     pub fn additional_unit_models(&self) -> Vec<SharedUnitModel> {

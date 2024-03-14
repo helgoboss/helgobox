@@ -11,7 +11,6 @@ use base::Global;
 use libloading::{Library, Symbol};
 
 use crate::domain::InstanceId;
-use crate::infrastructure::proto::query::Value;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
 use prost::Message;

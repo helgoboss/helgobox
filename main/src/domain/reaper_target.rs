@@ -21,10 +21,7 @@ use strum::EnumIter;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::{
-    PlaytimeColumnAction, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeSlotTransportAction,
-    SeekBehavior, TrackScope,
-};
+use realearn_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
@@ -52,7 +49,6 @@ use crate::domain::{
 };
 use base::default_util::is_default;
 use base::Global;
-use playtime_api::runtime::SimpleMappingTarget;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.

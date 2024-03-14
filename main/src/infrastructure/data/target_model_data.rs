@@ -593,7 +593,7 @@ impl TargetModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_dev_id: model.osc_dev_id(),
             slot_index: 0,
-            clip_management_action: model.playtime_slot_management_action().clone(),
+            clip_management_action: model.playtime_slot_management_action(),
             next_bar: false,
             buffered: false,
             poll_for_feedback: model.poll_for_feedback(),
@@ -880,7 +880,7 @@ impl TargetModelData {
         model.change(C::SetPlaytimeColumn(self.clip_column.clone()));
         model.change(C::SetPlaytimeRow(self.clip_row.clone()));
         model.change(C::SetPlaytimeSlotManagementAction(
-            self.clip_management_action.clone(),
+            self.clip_management_action,
         ));
         let clip_transport_action = self.clip_transport_action.unwrap_or_else(|| {
             use PlaytimeSlotTransportAction as T;

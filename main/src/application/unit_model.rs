@@ -26,7 +26,7 @@ use base::{Global, NamedChannelSender, SenderToNormalThread, SenderToRealTimeThr
 use derivative::Derivative;
 use enum_map::EnumMap;
 
-use reaper_high::{Reaper, Track};
+use reaper_high::Reaper;
 use rx_util::Notifier;
 use rxrust::prelude::*;
 use slog::{debug, trace};
@@ -41,7 +41,7 @@ use itertools::Itertools;
 use realearn_api::persistence::{
     FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
 };
-use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
+use realearn_api::runtime::InstanceInfoEvent;
 use reaper_medium::{InputMonitoringMode, RecordingInput};
 use std::error::Error;
 use std::fmt;

@@ -1,19 +1,16 @@
-use crate::application::WeakUnitModel;
 use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto::{
-    event_reply, occasional_global_update, reply, Empty, EventReply,
-    GetOccasionalGlobalUpdatesReply, OccasionalGlobalUpdate, ProtoReceivers, Reply,
+    event_reply, occasional_global_update, reply, EventReply, GetOccasionalGlobalUpdatesReply,
+    OccasionalGlobalUpdate, ProtoReceivers, Reply,
 };
-use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
 use prost::Message;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::time::Duration;
-use swell_ui::{SharedView, View, ViewContext, Window};
+use swell_ui::Window;
 use tokio::task::JoinHandle;
 
 pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
@@ -234,106 +231,9 @@ impl AppInstance for StandaloneAppInstance {
 }
 
 #[derive(Debug)]
-pub struct AppPanel {
-    view: ViewContext,
-    instance_id: InstanceId,
-    running_state: RefCell<Option<ParentedAppRunningState>>,
-}
-
-#[derive(Debug)]
-struct ParentedAppRunningState {
-    common_state: CommonAppRunningState,
-    event_receivers: Option<ProtoReceivers>,
-}
-
-impl ParentedAppRunningState {
-    pub fn send_pending_events(&mut self, instance_id: InstanceId) {
-        let (Some(app_callback), Some(event_receivers)) =
-            (self.common_state.app_callback, &mut self.event_receivers)
-        else {
-            return;
-        };
-        event_receivers.process_pending_updates(instance_id, &|event_reply| {
-            let reply = Reply {
-                value: Some(reply::Value::EventReply(event_reply)),
-            };
-            send_to_app(app_callback, &reply);
-        });
-    }
-}
-
-#[derive(Debug)]
 struct CommonAppRunningState {
     app_handle: AppHandle,
     app_callback: Option<AppCallback>,
-}
-
-impl AppPanel {
-    pub fn new(instance_id: InstanceId) -> Self {
-        Self {
-            view: Default::default(),
-            instance_id,
-            running_state: RefCell::new(None),
-        }
-    }
-
-    pub fn send_to_app(&self, reply: &Reply) -> Result<()> {
-        self.running_state
-            .borrow()
-            .as_ref()
-            .context("app not open")?
-            .common_state
-            .send(reply)
-    }
-
-    pub fn notify_app_is_ready(&self, callback: AppCallback) {
-        let mut open_state = self.running_state.borrow_mut();
-        let Some(open_state) = open_state.as_mut() else {
-            return;
-        };
-        // Handshake finished! The app has the host callback and we have the app callback.
-        open_state.common_state.app_callback = Some(callback);
-        // Now we can start passing events to the app callback
-        self.start_timer();
-    }
-
-    fn start_timer(&self) {
-        self.view
-            .require_window()
-            .set_timer(TIMER_ID, Duration::from_millis(30));
-    }
-
-    fn stop_timer(&self) {
-        self.view.require_window().kill_timer(TIMER_ID);
-    }
-
-    fn open_internal(&self, window: Window) -> Result<()> {
-        window.set_text("Playtime");
-        let app_library = BackboneShell::get_app_library()?;
-        let app_handle = app_library.start_app_instance(
-            Some(window),
-            self.instance_id,
-            "/projection".to_string(),
-        )?;
-        let running_state = ParentedAppRunningState {
-            common_state: CommonAppRunningState {
-                app_handle,
-                app_callback: None,
-            },
-            event_receivers: Some(subscribe_to_events()),
-        };
-        *self.running_state.borrow_mut() = Some(running_state);
-        Ok(())
-    }
-
-    fn stop(&self, window: Window) -> Result<()> {
-        self.running_state
-            .borrow_mut()
-            .take()
-            .ok_or(anyhow!("app was already stopped"))?
-            .common_state
-            .stop(Some(window))
-    }
 }
 
 impl CommonAppRunningState {
@@ -360,105 +260,6 @@ impl CommonAppRunningState {
         BackboneShell::get_app_library()?.stop_app_instance(window, self.app_handle)
     }
 }
-
-impl View for AppPanel {
-    fn dialog_resource_id(&self) -> u32 {
-        root::ID_EMPTY_PANEL
-    }
-
-    fn view_context(&self) -> &ViewContext {
-        &self.view
-    }
-
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
-        self.open_internal(window).is_ok()
-    }
-
-    fn close_requested(self: SharedView<Self>) -> bool {
-        // Don't really close window (along with the app instance). Just hide it. It's a bit faster
-        // when next opening the window.
-        self.view.require_window().hide();
-        true
-    }
-
-    fn on_destroy(self: SharedView<Self>, window: Window) {
-        self.stop(window).unwrap();
-    }
-
-    fn shown_or_hidden(self: SharedView<Self>, shown: bool) -> bool {
-        if shown {
-            // Send events to app again.
-            if let Some(open_state) = self.running_state.borrow_mut().as_mut() {
-                open_state.event_receivers = Some(subscribe_to_events());
-            } else {
-                // We also get called when the window is first opened, *before* `opened` is called!
-                // In that case, `open_state` is not set yet. That's how we know it's the first opening,
-                // not a subsequent show. We don't need to do anything in that case.
-                return false;
-            }
-            // Start processing events again when shown
-            self.start_timer();
-            // Send a reset event to the app. That's not necessary when the app is first
-            // shown because it resubscribes to everything on start anyway. But it's important for
-            // subsequent shows because the app was not aware that it was not fed with events while
-            // hidden.
-            let _ = self.send_to_app(&Reply {
-                value: Some(reply::Value::EventReply(EventReply {
-                    value: Some(event_reply::Value::Reset(Empty {})),
-                })),
-            });
-        } else {
-            // Don't process events while hidden
-            if let Some(open_state) = self.running_state.borrow_mut().as_mut() {
-                open_state.event_receivers = None;
-            }
-            self.stop_timer();
-        }
-        true
-    }
-
-    /// On Windows, this is necessary to resize contained app.
-    ///
-    /// On macOS, this would have no effect because the app window is not a child view (NSView) but
-    /// a child window (NSWindow). Resizing according to the parent window (the SWELL window) is
-    /// done on app side.
-    #[cfg(target_os = "windows")]
-    fn resized(self: SharedView<Self>) -> bool {
-        crate::infrastructure::ui::egui_views::on_parent_window_resize(self.view.require_window())
-    }
-
-    fn timer(&self, id: usize) -> bool {
-        if id != TIMER_ID {
-            return false;
-        }
-        let mut open_state = self.running_state.borrow_mut();
-        let Some(open_state) = open_state.as_mut() else {
-            return false;
-        };
-        open_state.send_pending_events(self.instance_id);
-        true
-    }
-
-    /// On Windows, this is necessary to make keyboard input work for the contained app. We
-    /// basically forward all keyboard messages (which come from the RealearnAccelerator) to the
-    /// first child of the first child, which is the Flutter window.
-    #[cfg(target_os = "windows")]
-    fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
-        self.view.window()?.first_child()?.first_child()
-    }
-
-    /// On macOS, the app window is a child *window* of this window, not a child *view*. In general,
-    /// keyboard input is made possible there by allowing the child window to become a key window
-    /// (= get real focus). This is done on app side. However, one corner case is that the user
-    /// clicks the title bar of this window (= the parent window). In this case, the parent window
-    /// becomes the key window and we need to forward keyboard events to the child window.
-    #[cfg(target_os = "macos")]
-    fn get_keyboard_event_receiver(&self, _focused_window: Window) -> Option<Window> {
-        self.view.window()?.first_child_window()
-    }
-}
-
-const TIMER_ID: usize = 322;
 
 fn send_to_app(app_callback: AppCallback, reply: &Reply) {
     let vec = reply.encode_to_vec();

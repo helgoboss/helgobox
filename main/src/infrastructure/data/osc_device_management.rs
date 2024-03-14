@@ -51,7 +51,7 @@ impl OscDeviceManager {
         Ok(())
     }
 
-    pub fn devices(&self) -> impl Iterator<Item = &OscDevice> + ExactSizeIterator {
+    pub fn devices(&self) -> impl ExactSizeIterator<Item = &OscDevice> {
         self.config.devices.iter()
     }
 

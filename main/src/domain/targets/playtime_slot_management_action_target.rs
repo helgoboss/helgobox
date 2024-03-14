@@ -20,7 +20,7 @@ impl UnresolvedReaperTargetDef for UnresolvedPlaytimeSlotManagementActionTarget 
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let target = PlaytimeSlotManagementActionTarget {
             slot_address: self.slot.resolve(context, compartment)?,
-            action: self.action.clone(),
+            action: self.action,
         };
         Ok(vec![ReaperTarget::PlaytimeSlotManagementAction(target)])
     }

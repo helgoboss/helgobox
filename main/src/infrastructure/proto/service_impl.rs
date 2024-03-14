@@ -1,4 +1,3 @@
-use crate::domain::InstanceId;
 use crate::infrastructure::plugin::BackboneShell;
 #[cfg(not(feature = "playtime"))]
 use crate::infrastructure::proto::playtime_not_available_status;

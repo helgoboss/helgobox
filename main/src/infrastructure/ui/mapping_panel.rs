@@ -60,8 +60,7 @@ use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
     ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
-    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, VirtualPlaytimeColumn,
-    WithControlContext,
+    TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -3374,7 +3373,7 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetTouchedRouteParameterType(v),
                     ));
                 }
-                t if self.mapping.target_model.supports_axis() => {
+                _ if self.mapping.target_model.supports_axis() => {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid axis type");
                     self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetAxis(v)));
@@ -5428,7 +5427,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 | ReaperTargetType::PlaytimeSlotSeek
                 | ReaperTargetType::PlaytimeSlotVolume => Some("Slot"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
-                t if self.mapping.target_model.supports_axis() => Some("Axis"),
+                _ if self.mapping.target_model.supports_axis() => Some("Axis"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_seek_behavior() => Some("Behavior"),
                 t if t.supports_send() => Some("Kind"),
@@ -5763,7 +5762,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.touched_track_parameter_type().into(),
                     );
                 }
-                t if self.mapping.target_model.supports_axis() => {
+                _ if self.mapping.target_model.supports_axis() => {
                     combo.show();
                     combo.fill_combo_box_indexed(Axis::iter());
                     combo.select_combo_box_item_by_index(self.target.axis().into());
@@ -7553,7 +7552,7 @@ fn get_text_right_to_step_size_edit_control(
     }
 }
 
-fn track_combo_box_entries(project: Project) -> impl Iterator<Item = String> + ExactSizeIterator {
+fn track_combo_box_entries(project: Project) -> impl ExactSizeIterator<Item = String> {
     let mut current_folder_level: i32 = 0;
     project.tracks().enumerate().map(move |(i, track)| {
         let indentation = ".".repeat(current_folder_level.unsigned_abs() as usize * 4);
@@ -7565,7 +7564,7 @@ fn track_combo_box_entries(project: Project) -> impl Iterator<Item = String> + E
     })
 }
 
-fn fx_combo_box_entries(chain: &FxChain) -> impl Iterator<Item = String> + ExactSizeIterator + '_ {
+fn fx_combo_box_entries(chain: &FxChain) -> impl ExactSizeIterator<Item = String> + '_ {
     chain
         .fxs()
         .enumerate()
@@ -7589,9 +7588,7 @@ fn send_combo_box_entries(track: &Track, route_type: TrackRouteType) -> Vec<Stri
     }
 }
 
-fn fx_parameter_combo_box_entries(
-    fx: &Fx,
-) -> impl Iterator<Item = String> + ExactSizeIterator + '_ {
+fn fx_parameter_combo_box_entries(fx: &Fx) -> impl ExactSizeIterator<Item = String> + '_ {
     fx.parameters()
         .map(|param| get_fx_param_label(Some(&param), param.index()).to_string())
 }

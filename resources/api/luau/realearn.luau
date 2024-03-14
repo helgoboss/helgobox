@@ -1501,9 +1501,6 @@ export type Target_PlaytimeSlotTransportAction = {
 	slot: PlaytimeSlotDescriptor,
 	action: PlaytimeSlotTransportAction,
 	stop_column_if_slot_empty: boolean?,
-	record_only_if_track_armed: boolean?,
-	play_start_timing: playtime.ClipPlayStartTiming?,
-	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
 
 export type Target_PlaytimeColumnAction = {
@@ -2841,9 +2838,6 @@ export type PlaytimeSlotTransportActionTarget = {
 	slot: PlaytimeSlotDescriptor,
 	action: PlaytimeSlotTransportAction,
 	stop_column_if_slot_empty: boolean?,
-	record_only_if_track_armed: boolean?,
-	play_start_timing: playtime.ClipPlayStartTiming?,
-	play_stop_timing: playtime.ClipPlayStopTiming?,
 }
 --- Creates a PlaytimeSlotTransportActionTarget value.
 function module.PlaytimeSlotTransportActionTarget(

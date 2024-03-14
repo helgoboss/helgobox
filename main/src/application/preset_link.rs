@@ -67,7 +67,7 @@ impl PresetLinkMutator for FxPresetLinkConfig {
 }
 
 impl FxPresetLinkConfig {
-    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
+    pub fn links(&self) -> impl ExactSizeIterator<Item = &FxPresetLink> + '_ {
         self.links.iter()
     }
 }

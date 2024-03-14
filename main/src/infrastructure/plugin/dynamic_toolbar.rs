@@ -1,9 +1,5 @@
-use crate::infrastructure::plugin::ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME;
-use anyhow::{bail, Context};
 use reaper_high::Reaper;
-use reaper_medium::{
-    CommandId, CommandItem, MenuOrToolbarItem, PositionDescriptor, UiRefreshBehavior,
-};
+use reaper_medium::{CommandId, MenuOrToolbarItem, PositionDescriptor, UiRefreshBehavior};
 
 /// Dynamically adds or removes a toolbar button without persisting it.
 ///
@@ -21,7 +17,7 @@ pub fn add_or_remove_toolbar_button(command_name: &str, add: bool) -> anyhow::Re
     let command_id = action.command_id()?;
     let reaper = Reaper::get().medium_reaper();
     match scan_toolbar_for_command_id(command_id) {
-        ToolbarScanOutcome::Exists { pos } => {
+        Some(pos) => {
             if !add {
                 reaper.delete_custom_menu_or_toolbar_item(
                     "Main toolbar",
@@ -30,7 +26,7 @@ pub fn add_or_remove_toolbar_button(command_name: &str, add: bool) -> anyhow::Re
                 )?;
             }
         }
-        ToolbarScanOutcome::DoesntExist { .. } => {
+        None => {
             if add {
                 reaper.add_custom_menu_or_toolbar_item_command(
                     "Main toolbar",
@@ -47,7 +43,7 @@ pub fn add_or_remove_toolbar_button(command_name: &str, add: bool) -> anyhow::Re
     Ok(())
 }
 
-fn scan_toolbar_for_command_id(command_id: CommandId) -> ToolbarScanOutcome {
+fn scan_toolbar_for_command_id(command_id: CommandId) -> Option<u32> {
     let reaper = Reaper::get().medium_reaper();
     let mut i = 0;
     loop {
@@ -55,22 +51,12 @@ fn scan_toolbar_for_command_id(command_id: CommandId) -> ToolbarScanOutcome {
             reaper.get_custom_menu_or_toolbar_item("Main toolbar", i, |result| match result? {
                 MenuOrToolbarItem::Command(item) if item.command_id == command_id => Some(Some(i)),
                 _ => Some(None),
-            });
+            })?;
         match pos {
-            None => {
-                return ToolbarScanOutcome::DoesntExist {
-                    toolbar_size: i + 1,
-                }
-            }
-            Some(None) => i += 1,
-            Some(Some(pos)) => {
-                return ToolbarScanOutcome::Exists { pos };
+            None => i += 1,
+            Some(pos) => {
+                return Some(pos);
             }
         }
     }
-}
-
-enum ToolbarScanOutcome {
-    Exists { pos: u32 },
-    DoesntExist { toolbar_size: u32 },
 }

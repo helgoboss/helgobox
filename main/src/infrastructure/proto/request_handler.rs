@@ -22,11 +22,11 @@ use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
 use reaper_high::Reaper;
 
-use crate::domain::{CompartmentKind, InstanceId, UnitId};
+use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::CompartmentModelData;
-use tonic::{Request, Response, Status};
+use tonic::{Response, Status};
 
 #[cfg(feature = "playtime")]
 use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
@@ -655,16 +655,6 @@ impl ProtoRequestHandler {
         handler: impl FnOnce(&InstanceShell) -> anyhow::Result<()>,
     ) -> Result<Response<Empty>, Status> {
         self.handle_instance_command_internal(instance_id, handler)?;
-        Ok(Response::new(Empty {}))
-    }
-
-    fn handle_unit_command<R>(
-        &self,
-        instance_id: u32,
-        unit_id: Option<u32>,
-        handler: impl FnOnce(&InstanceShell, &UnitShell) -> anyhow::Result<R>,
-    ) -> Result<Response<Empty>, Status> {
-        self.handle_unit_command_internal(instance_id, unit_id, handler)?;
         Ok(Response::new(Empty {}))
     }
 

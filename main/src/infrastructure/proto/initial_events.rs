@@ -3,7 +3,6 @@ use crate::infrastructure::proto::{
     occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate,
 };
-use crate::infrastructure::server::data::get_controller_routing;
 use reaper_high::Reaper;
 
 pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {

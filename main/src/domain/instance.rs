@@ -1,5 +1,4 @@
 use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
-use anyhow::{bail, Context};
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
@@ -282,7 +281,8 @@ impl Instance {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn get_clip_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
+    pub fn get_playtime_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
+        use anyhow::Context;
         self.playtime
             .clip_matrix
             .as_ref()
@@ -290,9 +290,10 @@ impl Instance {
     }
 
     #[cfg(feature = "playtime")]
-    pub fn get_clip_matrix_mut(
+    pub fn get_playtime_matrix_mut(
         &mut self,
     ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
+        use anyhow::Context;
         self.playtime
             .clip_matrix
             .as_mut()
@@ -323,7 +324,7 @@ impl Instance {
             return Ok(false);
         }
         if self.processor_context.is_on_monitoring_fx_chain() {
-            bail!("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.");
+            anyhow::bail!("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.");
         }
         let matrix = playtime_clip_engine::base::Matrix::new(
             create_handler(self),

@@ -2,7 +2,6 @@ use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use reaper_high::Reaper;
 use reaper_medium::{PlayState, ReaperString};
-use std::iter;
 
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
@@ -200,7 +199,7 @@ impl MidiInputDevices {
 }
 
 impl Compartment {
-    pub fn to_engine(&self) -> CompartmentKind {
+    pub fn to_engine(self) -> CompartmentKind {
         match self {
             Compartment::Controller => CompartmentKind::Controller,
             Compartment::Main => CompartmentKind::Main,

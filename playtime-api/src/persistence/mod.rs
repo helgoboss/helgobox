@@ -33,8 +33,8 @@ use std::cmp;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-// TODO-medium Add start time detection
-// TODO-medium Add legato
+// TODO-high-playtime-after-release Add start time detection
+// TODO-high-playtime-after-release Add legato
 
 /// Only used for JSON schema generation.
 pub struct PlaytimePersistenceRoot {
@@ -318,7 +318,7 @@ pub struct MatrixClipRecordSettings {
     /// If `true`, starts playing the clip right after recording.
     pub looped: bool,
     /// If `true`, sets the global tempo to the tempo of this clip right after recording.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     pub lead_tempo: bool,
     pub midi_settings: MatrixClipRecordMidiSettings,
     pub audio_settings: MatrixClipRecordAudioSettings,
@@ -415,43 +415,30 @@ impl Default for MatrixClipRecordSettings {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipRecordMidiSettings {
     pub record_mode: MidiClipRecordMode,
     /// If `true`, attempts to detect the actual start of the recorded MIDI material and derives
     /// the downbeat position from that.
     pub detect_downbeat: bool,
     /// Makes the global record button work for MIDI by allowing global input detection.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     pub detect_input: bool,
     /// Applies quantization while recording using the current quantization settings.
-    // TODO-clip-implement
     pub auto_quantize: bool,
     /// These are the MIDI settings each recorded and otherwise created clip will get.
     #[serde(default)]
     pub clip_settings: ClipMidiSettings,
 }
 
-impl Default for MatrixClipRecordMidiSettings {
-    fn default() -> Self {
-        Self {
-            record_mode: Default::default(),
-            detect_downbeat: false,
-            detect_input: false,
-            auto_quantize: false,
-            clip_settings: Default::default(),
-        }
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
     /// the downbeat position from that.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     pub detect_downbeat: bool,
     /// Makes the global record button work for audio by allowing global input detection.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     pub detect_input: bool,
 }
 
@@ -596,7 +583,7 @@ pub enum MidiClipRecordMode {
     /// Records more material onto an existing clip, overwriting existing material.
     ///
     /// Falls back to Normal when used on an empty slot.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     Replace,
 }
 
@@ -674,9 +661,6 @@ pub enum ResolvedClipPlayStopTiming {
     UntilEndOfClip,
 }
 
-// TODO-low This was generic before (9265c028). Now it's duplicated instead for easier Dart
-//  conversion. If we need to use generics one day more extensively, there's probably a way to make
-//  it work.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStartTimingOverrideAfterRecording {
@@ -982,11 +966,11 @@ pub struct Row {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// An optional tempo associated with this row.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tempo: Option<Bpm>,
     /// An optional time signature associated with this row.
-    // TODO-clip-implement
+    // TODO-high-playtime-after-release
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_signature: Option<TimeSignature>,
 }

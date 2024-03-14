@@ -1214,7 +1214,7 @@ pub enum PotFilterKind {
 impl PotFilterKind {
     /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
-    pub fn enum_iter() -> impl Iterator<Item = Self> + ExactSizeIterator {
+    pub fn enum_iter() -> impl ExactSizeIterator<Item = Self> {
         Self::iter()
     }
 

@@ -31,8 +31,6 @@ use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
 use crate::infrastructure::ui::{menus, MessagePanel};
-#[allow(unused)]
-use anyhow::{anyhow, Context};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
@@ -45,7 +43,6 @@ use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
-use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
 use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPanel;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
@@ -57,7 +54,7 @@ use crate::infrastructure::server::services::Services;
 use crate::infrastructure::ui::instance_panel::InstancePanel;
 use crate::infrastructure::ui::util::open_child_panel;
 use crate::infrastructure::ui::welcome_panel::WelcomePanel;
-use anyhow::bail;
+use anyhow::{bail, Context};
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
@@ -70,16 +67,14 @@ use realearn_api::persistence::{
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, GroupingBehavior, Guid, MiddlewareControlSurface, Project, Reaper,
-    Track,
+    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, GangBehavior, Hmenu,
-    HookCustomMenu, HookPostCommand, HookPostCommand2, InputMonitoringMode, MenuHookFlag,
-    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RecordingInput,
-    RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
+    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
+    ReaProject, ReaperStr, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -1644,78 +1639,7 @@ impl BackboneShell {
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
         {
-            fn add_and_show_playtime() -> anyhow::Result<()> {
-                let project = Reaper::get().current_project();
-                let track = project.insert_track_at(0)?;
-                track.set_name("Playtime");
-                track.set_recording_input(Some(RecordingInput::Midi {
-                    device_id: None,
-                    channel: None,
-                }));
-                track.arm(
-                    false,
-                    GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
-                );
-                track.set_input_monitoring_mode(
-                    InputMonitoringMode::Normal,
-                    GangBehavior::DenyGang,
-                    GroupingBehavior::PreventGrouping,
-                );
-                track
-                    .normal_fx_chain()
-                    .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
-                    .context("Couldn't add Helgobox. Maybe not installed?")?
-                    .hide_floating_window();
-                // The rest needs to be done async because the instance initializes itself async
-                // (because FX not yet available when plug-in instantiated).
-                Global::task_support()
-                    .do_later_in_main_thread_from_main_thread_asap(|| {
-                        enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
-                    })
-                    .unwrap();
-                Ok(())
-            }
-
-            fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
-                let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-                // We don't really need to do that via the external API but on the other hand, this is the only
-                // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
-                // to add integration tests in order to quickly realize if this works or not.
-                // TODO-low Add integration tests instead of using API here.
-                let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
-                    .context(
-                        "Couldn't load Helgobox API even after adding Helgobox. Old version?",
-                    )?;
-                let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-                    .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
-                let instance_id =
-                    helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
-                playtime_api.HB_CreateClipMatrix(instance_id);
-                playtime_api.HB_ShowOrHidePlaytime(instance_id);
-                Ok(())
-            }
-
-            fn show_or_hide_playtime() -> anyhow::Result<()> {
-                let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
-                let Some(playtime_api) =
-                    playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
-                else {
-                    // Project doesn't have any Helgobox instance yet. Add one.
-                    add_and_show_playtime()?;
-                    return Ok(());
-                };
-                let helgobox_instance = playtime_api
-                    .HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
-                if helgobox_instance == -1 {
-                    // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
-                    add_and_show_playtime()?;
-                    return Ok(());
-                }
-                playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
-                Ok(())
-            }
-            show_or_hide_playtime().expect("couldn't show/hide playtime");
+            playtime_impl::show_or_hide_playtime().expect("couldn't show/hide playtime");
         }
     }
 
@@ -2906,4 +2830,81 @@ impl ToolbarIconMap for BackboneShell {
 
 fn reaper_window() -> Window {
     Window::from_hwnd(Reaper::get().main_window())
+}
+
+#[cfg(feature = "playtime")]
+mod playtime_impl {
+    use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
+    use anyhow::Context;
+    use base::Global;
+    use reaper_high::{GroupingBehavior, Reaper};
+    use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
+
+    fn add_and_show_playtime() -> anyhow::Result<()> {
+        let project = Reaper::get().current_project();
+        let track = project.insert_track_at(0)?;
+        track.set_name("Playtime");
+        track.set_recording_input(Some(RecordingInput::Midi {
+            device_id: None,
+            channel: None,
+        }));
+        track.arm(
+            false,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        track.set_input_monitoring_mode(
+            InputMonitoringMode::Normal,
+            GangBehavior::DenyGang,
+            GroupingBehavior::PreventGrouping,
+        );
+        track
+            .normal_fx_chain()
+            .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
+            .context("Couldn't add Helgobox. Maybe not installed?")?
+            .hide_floating_window();
+        // The rest needs to be done async because the instance initializes itself async
+        // (because FX not yet available when plug-in instantiated).
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(|| {
+                enable_playtime_for_first_helgobox_instance_and_show_it().unwrap();
+            })
+            .unwrap();
+        Ok(())
+    }
+
+    fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {
+        let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+        // We don't really need to do that via the external API but on the other hand, this is the only
+        // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
+        // to add integration tests in order to quickly realize if this works or not.
+        // TODO-low Add integration tests instead of using API here.
+        let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
+            .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
+        let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+            .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;
+        let instance_id = helgobox_api.HB_FindFirstHelgoboxInstanceInProject(std::ptr::null_mut());
+        playtime_api.HB_CreateClipMatrix(instance_id);
+        playtime_api.HB_ShowOrHidePlaytime(instance_id);
+        Ok(())
+    }
+
+    pub fn show_or_hide_playtime() -> anyhow::Result<()> {
+        let plugin_context = Reaper::get().medium_reaper().low().plugin_context();
+        let Some(playtime_api) = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
+        else {
+            // Project doesn't have any Helgobox instance yet. Add one.
+            add_and_show_playtime()?;
+            return Ok(());
+        };
+        let helgobox_instance =
+            playtime_api.HB_FindFirstPlaytimeHelgoboxInstanceInProject(std::ptr::null_mut());
+        if helgobox_instance == -1 {
+            // Project doesn't have any Playtime-enabled Helgobox instance yet. Add one.
+            add_and_show_playtime()?;
+            return Ok(());
+        }
+        playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
+        Ok(())
+    }
 }

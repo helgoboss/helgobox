@@ -1,3 +1,4 @@
+#[allow(clippy::enum_variant_names)]
 mod generated;
 pub use generated::*;
 

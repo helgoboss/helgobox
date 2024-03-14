@@ -59,7 +59,7 @@ use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
-use playtime_api::persistence::{ClipPlayStartTiming, ClipPlayStopTiming, ColumnAddress};
+use playtime_api::persistence::ColumnAddress;
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
     FxToolAction, LearnTargetMappingModification, LearnableTargetKind, MappingModification,
@@ -2511,7 +2511,7 @@ impl TargetModel {
                         UnresolvedReaperTarget::PlaytimeSlotManagementAction(
                             crate::domain::UnresolvedPlaytimeSlotManagementActionTarget {
                                 slot: self.virtual_clip_slot()?,
-                                action: self.playtime_slot_management_action.clone(),
+                                action: self.playtime_slot_management_action,
                             },
                         )
                     }
