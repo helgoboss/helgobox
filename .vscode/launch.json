@@ -13,7 +13,7 @@
             "name": "Portable Linux",
             "type": "lldb",
             "request": "launch",
-            "program": "/home/helgoboss/Downloads/reaper_linux_x86_64/REAPER/reaper",
+            "program": "/home/helgoboss/opt/REAPER/reaper",
             "args": [],
             "cwd": "${workspaceFolder}"
         },
