@@ -97,7 +97,9 @@ fn custom_toolbar_api_is_available() -> bool {
 
 impl WelcomePanel {
     fn invalidate_controls(&self) {
-        self.invalidate_playtime_checkbox();
+        if custom_toolbar_api_is_available() {
+            self.invalidate_playtime_checkbox();
+        }
         self.invalidate_button();
     }
 

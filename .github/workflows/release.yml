@@ -59,26 +59,26 @@ jobs:
             strip-cmd: strip
             profile: release
             features: ""
-#          - artifact: linux-aarch64
-#            os: ubuntu-22.04
-#            toolchain-suffix: x86_64-unknown-linux-gnu
-#            lib-file-name: librealearn.so
-#            extension-file-name: ""
-#            target: aarch64-unknown-linux-gnu
-#            use-cross: true
-#            strip-cmd: aarch64-linux-gnu-strip
-#            profile: release
-#            features: ""
-#          - artifact: linux-armv7
-#            os: ubuntu-22.04
-#            toolchain-suffix: x86_64-unknown-linux-gnu
-#            lib-file-name: librealearn.so
-#            extension-file-name: ""
-#            target: armv7-unknown-linux-gnueabihf
-#            use-cross: true
-#            strip-cmd: arm-linux-gnueabihf-strip
-#            profile: release
-#            features: ""
+    #          - artifact: linux-aarch64
+    #            os: ubuntu-22.04
+    #            toolchain-suffix: x86_64-unknown-linux-gnu
+    #            lib-file-name: librealearn.so
+    #            extension-file-name: ""
+    #            target: aarch64-unknown-linux-gnu
+    #            use-cross: true
+    #            strip-cmd: aarch64-linux-gnu-strip
+    #            profile: release
+    #            features: ""
+    #          - artifact: linux-armv7
+    #            os: ubuntu-22.04
+    #            toolchain-suffix: x86_64-unknown-linux-gnu
+    #            lib-file-name: librealearn.so
+    #            extension-file-name: ""
+    #            target: armv7-unknown-linux-gnueabihf
+    #            use-cross: true
+    #            strip-cmd: arm-linux-gnueabihf-strip
+    #            profile: release
+    #            features: ""
     env:
       # This is relevant for macOS builds only (and only if not overridden).
       # TODO-high This is temporarily 10.9 (should be 10.7) until  https://github.com/rust-lang/cc-rs/issues/902 is fixed
@@ -99,7 +99,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.75.0-${{ matrix.toolchain-suffix }}
+          toolchain: 1.76.0-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
       # Install OS dependencies (Linux/macOS only)
@@ -289,15 +289,15 @@ jobs:
           asset_name: realearn-linux-x86_64.so
           asset_content_type: application/octet-stream
       # Upload Linux aarch64 artifacts
-#      - name: Upload linux-aarch64 release artifact
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-aarch64/librealearn.so
-#          asset_name: realearn-linux-aarch64.so
-#          asset_content_type: application/octet-stream
+      #      - name: Upload linux-aarch64 release artifact
+      #        uses: actions/upload-release-asset@v1
+      #        env:
+      #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #        with:
+      #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #          asset_path: ./linux-aarch64/librealearn.so
+      #          asset_name: realearn-linux-aarch64.so
+      #          asset_content_type: application/octet-stream
       # Upload Linux armv7 artifacts
 #      - name: Upload linux-armv7 release artifact
 #        uses: actions/upload-release-asset@v1

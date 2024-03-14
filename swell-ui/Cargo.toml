@@ -20,6 +20,7 @@ fragile.workspace = true
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
 libloading.workspace = true
+palette.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.3.0-beta.3"

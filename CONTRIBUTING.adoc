@@ -3,22 +3,23 @@
 :sectnums:
 :sectnumlevels: 2
 
-Contributions are welcome! *However, please open an issue first and discuss the details with me, preferably before you start working on a pull request!* And if possible, avoid very large PRs. I usually can't find the time to process large PRs.
+Contributions are welcome! *However, please open an issue first and discuss the details with me, preferably before you start working on a pull request!* And if possible, avoid very large PRs.
+I usually can't find the time to process large PRs.
 
 == Basics
 
-ReaLearn is written in the programming language https://www.rust-lang.org/[Rust]. It makes heavy use of
+ReaLearn is written in the programming language https://www.rust-lang.org/[Rust].
+It makes heavy use of
 https://github.com/helgoboss/reaper-rs[reaper-rs], which provides Rust bindings for the
-https://www.reaper.fm/sdk/plugin/plugin.php[REAPER C++ API]. _reaper-rs_ was developed together with ReaLearn
-but is designed as independent library that can be used for REAPER plug-ins of all sorts.
+https://www.reaper.fm/sdk/plugin/plugin.php[REAPER C++ API]. _reaper-rs_ was developed together with ReaLearn but is designed as independent library that can be used for REAPER plug-ins of all sorts.
 
-Another noteworthy dependency and byproduct of ReaLearn is https://github.com/helgoboss/helgoboss-learn[helgoboss-learn], a crate which
-provides DAW-agnostic MIDI learn logic (basically the _source_ and _mode_ parts of ReaLearn). Like _reaper-rs_, it's
-designed as independent library and could be used to provide similar MIDI-learn functionality in other DAWs.
+Another noteworthy dependency and byproduct of ReaLearn is https://github.com/helgoboss/helgoboss-learn[helgoboss-learn], a crate which provides DAW-agnostic MIDI learn logic (basically the _source_ and _mode_ parts of ReaLearn).
+Like _reaper-rs_, it's designed as independent library and could be used to provide similar MIDI-learn functionality in other DAWs.
 
 == Code statistics
 
-Use https://github.com/XAMPPRocky/tokei[Tokei] or https://github.com/o2sh/onefetch:[Onefetch] to display some interesting statistics about the code, e.g. the lines of code and used languages. The file `.tokeignore` contains code to be ignored when counting the lines of code.
+Use https://github.com/XAMPPRocky/tokei[Tokei] or https://github.com/o2sh/onefetch:[Onefetch] to display some interesting statistics about the code, e.g. the lines of code and used languages.
+The file `.tokeignore` contains code to be ignored when counting the lines of code.
 
 == Architecture
 
@@ -27,9 +28,9 @@ See link:ARCHITECTURE.adoc[here].
 == Directory structure
 
 |===
-|Directory entry |Content 
+|Directory entry |Content
 
-|`/` |Workspace root 
+|`/` |Workspace root
 |`/allocator` |A custom global allocator for deferring deallocation in real-time threads
 |`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script)
 |`/base` |Very generic utility code used by many crates in the workspace
@@ -90,13 +91,13 @@ cargo run helgobox-artwork-processor
 
 === Windows
 
-In the following you will find the complete instructions for Windows 10, including Rust setup. Points where you have to consider the target
-architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
+In the following you will find the complete instructions for Windows 10, including Rust setup.
+Points where you have to consider the target architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
 
 . Enable "Developer mode" in the Windows settings (this is needed because ReaLearn uses link:https://stackoverflow.com/a/59761201[Symlinks within its Git repository])
 . Setup "Build tools for Visual Studio 2019"
-* Rust uses native build toolchains. On Windows, it's necessary to use the MSVC (Microsoft Visual Studio
- C++) toolchain because REAPER plug-ins only work with that.
+* Rust uses native build toolchains.
+On Windows, it's necessary to use the MSVC (Microsoft Visual Studio C++) toolchain because REAPER plug-ins only work with that.
 * https://visualstudio.microsoft.com/downloads/[Visual Studio downloads] → All downloads → Tools for Visual Studio 2019
  → Build Tools for Visual Studio 2019
 * Start it and follow the installer instructions
@@ -113,7 +114,7 @@ architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
 +
 [source,shell]
 ----
-rustup default 1.75.0-x86_64-pc-windows-msvc
+rustup default 1.76.0-x86_64-pc-windows-msvc
 ----
 . Download and install https://git-scm.com/download/win[Git for Windows]
 . Clone the ReaLearn Git repository
@@ -140,8 +141,7 @@ cargo build --features egui
 
 === Linux
 
-Complete instructions to build ReaLearn from a _fresh_ Ubuntu 18.04.3 LTS installation,
-including Rust setup:
+Complete instructions to build ReaLearn from a _fresh_ Ubuntu 18.04.3 LTS installation, including Rust setup:
 
 [source,shell]
 ----
@@ -155,7 +155,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (defau
 source $HOME/.cargo/env
 
 # Set the correct toolchain default
-rustup default 1.75.0-x86_64-unknown-linux-gnu
+rustup default 1.76.0-x86_64-unknown-linux-gnu
 
 # Clone ReaLearn repository
 git clone https://github.com/helgoboss/realearn.git
@@ -180,29 +180,25 @@ Some words about the native dependencies:
 * `php` is needed to translate the ReaLearn dialog resource file to C++ so it can be processed by the SWELL
  dialog generator. It's also necessary for generating the 64-bit EEL assembler code. All of this is the
  typical WDL C++ way of doing things, no Rust specifics here.
-* `nasm` is needed for assembling the 64-bit EEL assembler code to produce `asm-nseel-x64.o`, which is
- necessary to make the custom https://www.cockos.com/EEL2/[EEL] control and feedback transformations in ReaLearn's
- absolute mode work.
-* `llvm-dev libclang-dev clang` are necessary for building with feature `generate` (to generate
- bindings to C).
+* `nasm` is needed for assembling the 64-bit EEL assembler code to produce `asm-nseel-x64.o`, which is necessary to make the custom https://www.cockos.com/EEL2/[EEL] control and feedback transformations in ReaLearn's absolute mode work.
+* `llvm-dev libclang-dev clang` are necessary for building with feature `generate` (to generate bindings to C).
 * `libxdo-dev` is needed to control the mouse (see target "Global: Mouse")
 * `libx11-dev libxcursor-dev libxcb-dri2-0-dev libxcb-icccm4-dev libx11-xcb-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev` are necessary for https://github.com/BillyDM/egui-baseview[egui-baseview] (https://github.com/emilk/egui[egui] is the GUI framework used for ReaLearn's control transformation editor)
 * `libspeechd-dev` is necessary for the speech source
-* `libgtk-3-dev` is necessary to obtain the X window and X display from a SWELL
-  OS window, in order to fire up OpenGL/egui in it
+* `libgtk-3-dev` is necessary to obtain the X window and X display from a SWELL OS window, in order to fire up OpenGL/egui in it
 
 === macOS
 
-The following instructions include Rust setup. However, it's very well possible that some native toolchain setup
-instructions are missing, because I don't have a bare macOS installation at my disposal. The Rust installation script
-should provide you with the necessary instructions if something is missing.
+The following instructions include Rust setup.
+However, it's very well possible that some native toolchain setup instructions are missing, because I don't have a bare macOS installation at my disposal.
+The Rust installation script should provide you with the necessary instructions if something is missing.
 
 [source,shell]
 ----
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
 source $HOME/.cargo/env
-rustup default 1.75.0-x86_64-apple-darwin
+rustup default 1.76.0-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads
@@ -226,19 +222,23 @@ cargo build --features egui
 
 == GUI
 
-The GUI dialogs are defined in the `dialogs` directory. Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file (`target/generated/msvc.rc`) and a Rust file which contains all the resource ID constants (`main/src/infrastructure/ui/bindings.rs`).
+The GUI dialogs are defined in the `dialogs` directory.
+Whenever ReaLearn is built, the code there generates an old-school Windows dialog resource file (`target/generated/msvc.rc`) and a Rust file which contains all the resource ID constants (`main/src/infrastructure/ui/bindings.rs`).
 
 Previously I used the Visual Studio C++ 2019 resource editor to WYSIWYG-edit this file as part of the solution
 link:main/src/infrastructure/ui/msvc/msvc.sln[msvc.sln], but this was too tedious.
 
-WARNING: You can still preview the generated file in Visual Studio but don't edit the RC file, the changes will be overwritten at build time! Adjust the Rust code in the `dialogs` directory instead.
+WARNING: You can still preview the generated file in Visual Studio but don't edit the RC file, the changes will be overwritten at build time!
+Adjust the Rust code in the `dialogs` directory instead.
 
 On macOS and Linux, an extra step will happen at build time: It will try to use a PHP script (part of Cockos SWELL) to generate
-`target/generated/msvc.rc_mac_dlg`, which is a translation of the RC file to C code using SWELL. So make sure you have PHP installed on these platforms!
+`target/generated/msvc.rc_mac_dlg`, which is a translation of the RC file to C code using SWELL.
+So make sure you have PHP installed on these platforms!
 
 == Test
 
-Yes, there are tests but there should be more. While ReaLearn's basic building blocks
+Yes, there are tests but there should be more.
+While ReaLearn's basic building blocks
 https://github.com/helgoboss/helgoboss-learn[helgoboss-learn] and https://github.com/helgoboss/reaper-rs[reaper-rs]
 are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect.
 
@@ -253,16 +253,15 @@ RUST_MIN_STACK=104857600 cargo test
 
 === Integration tests
 
-There's a growing built-in
-integration test, launchable via action `[developer] ReaLearn: Run integration test`. In future, it would be nice to run
-this integration test during continuous integration, just like in _reaper-rs_.
+There's a growing built-in integration test, launchable via action `[developer] ReaLearn: Run integration test`.
+In future, it would be nice to run this integration test during continuous integration, just like in _reaper-rs_.
 
 == Log
 
-It's possible to make ReaLearn output log messages to `stdout` by setting the `REALEARN_LOG` environment variable,
-e.g. to `debug,vst=info`. It follows https://docs.rs/env_logger/0.8.2/env_logger/index.html[this] format. Beware
-that e.g. on Windows, `stdout` is not shown, not even when executing REAPER from the command line. One way to make it
-visible is to execute REAPER with a debugger.
+It's possible to make ReaLearn output log messages to `stdout` by setting the `REALEARN_LOG` environment variable, e.g. to `debug,vst=info`.
+It follows https://docs.rs/env_logger/0.8.2/env_logger/index.html[this] format.
+Beware that e.g. on Windows, `stdout` is not shown, not even when executing REAPER from the command line.
+One way to make it visible is to execute REAPER with a debugger.
 
 == Metrics
 
@@ -271,7 +270,8 @@ It's possible to make ReaLearn expose execution metrics.
 === Prometheus endpoint
 
 * If the projection server is running, metrics will then be exposed at `/realearn/metrics` in the popular
-https://prometheus.io/[Prometheus] format. That's great for visualization.
+https://prometheus.io/[Prometheus] format.
+That's great for visualization.
 ** Just add this to your `prometheus.yml` (you might need to adjust the port):
 [source,yaml]
 ----
@@ -290,18 +290,20 @@ Prometheus is usually available at http://localhost:9090/.
 
 - You can turn on ReaLearn metrics by setting the environment variable `REALEARN_METRICS` (value doesn't matter).
 - If this environment variable is set (value doesn't matter), ReaLearn will record some metrics and expose them on the Prometheus endpoint mentioned above.
-- If ReaLearn is built with the Playtime Clip Engine, this flag will also enable Clip Engine metrics. This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.
+- If ReaLearn is built with the Playtime Clip Engine, this flag will also enable Clip Engine metrics.
+This can negatively effect clip playing performance because many clip engine metrics are captured in real-time threads.
 
 == Debug
 
 === Debug REAPER scanning ReaLearn
 
-Set `vst_scan=1` in the `[reaper]` section of `reaper.ini`. That makes the debugged REAPER process itself do the scanning.
+Set `vst_scan=1` in the `[reaper]` section of `reaper.ini`.
+That makes the debugged REAPER process itself do the scanning.
 
 === Obtain debug symbols
 
-Debug symbols are stripped from release builds but stored as build artifact of the GitHub Actions "Create release"
-workflow. If you want the symbols for a specific build, proceed as follows:
+Debug symbols are stripped from release builds but stored as build artifact of the GitHub Actions "Create release" workflow.
+If you want the symbols for a specific build, proceed as follows:
 
 . Open the https://github.com/helgoboss/realearn/actions?query=workflow%3A%22Create+release%22[list of ReaLearn "Create release" workflows].
 . Use the branch filter to show all releases builds made for a specific version, e.g. "v1.11.0".
@@ -314,22 +316,25 @@ workflow. If you want the symbols for a specific build, proceed as follows:
 
 === Turn on complete backtraces
 
-As soon as you have the debug symbols, you can make ReaLearn print full backtraces (including line number etc.)
-in the REAPER ReaScript console. Here's how you do it.
+As soon as you have the debug symbols, you can make ReaLearn print full backtraces (including line number etc.) in the REAPER ReaScript console.
+Here's how you do it.
 
 ==== Windows
 
 . Set the environment variable `_NT_ALT_SYMBOL_PATH` to some directory of your choice.
 . Copy the PDB file in there.
-. Fire up REAPER with ReaLearn an make it panic. You should see a complete backtrace now.
+. Fire up REAPER with ReaLearn an make it panic.
+You should see a complete backtrace now.
 
 === Lookup symbols for symbol-less backtraces
 
-The problem with release builds is that they don't contain debug symbols and therefore backtraces usually contain not
-much more than memory addresses. Especially backtraces generated by Windows release builds leave a lot to be desired.
+The problem with release builds is that they don't contain debug symbols and therefore backtraces usually contain not much more than memory addresses.
+Especially backtraces generated by Windows release builds leave a lot to be desired.
 
 ReaLearn has a built-in REAPER action which attempts to look up symbol information for a given error report:
-"ReaLearn: Resolve symbols from clipboard". Works on Windows only. To be used like this:
+"ReaLearn: Resolve symbols from clipboard".
+Works on Windows only.
+To be used like this:
 
 . Make sure the PDB for the release build in question is on the search path (see section above).
 . Fire up an ReaLearn using exactly that release build.
@@ -343,10 +348,10 @@ All documentation is written in AsciiDoc:
 - link:doc/user-guide.adoc[User guide]
 - link:ARCHITECTURE.adoc[Architecture]
 
-Some SVGs embedded in the architecture documentation are generated via link:https://nodejs.org/[NodeJS] / link:https://svgjs.dev/[SVG.js] in link:doc/svg-gen/index.js[]. After modifying this file, you need to execute the following command in the project root:
+Some SVGs embedded in the architecture documentation are generated via link:https://nodejs.org/[NodeJS] / link:https://svgjs.dev/[SVG.js] in link:doc/svg-gen/index.js[].
+After modifying this file, you need to execute the following command in the project root:
 
  node doc/svg-gen/index.js
-
 
 == Release
 
@@ -368,18 +373,16 @@ This serves mainly as checklist for ReaLearn's author.
 ** Can only be done by @helgoboss because it needs access to the https://github.com/helgoboss/helgoboss-org[helgoboss.org website repository].
 ** If it's a prerelease, make sure we are on a prerelease cycle branch of the website repository.
 ** Add a changelog entry in https://github.com/helgoboss/helgoboss-org/blob/master/src/data/projects/realearn/data.yaml[data.yaml].
-** In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user
- guide changes.
+** In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user guide changes.
 ** Push via `git push origin HEAD` and wait until Netlify deployed the page.
 ** All the following stuff needs to be done using Netlify's branch preview if it's a prerelease!
 ** Update https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index].
 *** Generate ReaLearn-only ReaPack index by requesting https://www.helgoboss.org/projects/realearn/reapack.txt[/projects/realearn/reapack.txt].
 *** Integrate the generated index by copying everything from `&lt;category name=&quot;Extensions&quot;&gt;` and pasting it to the
- https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index] without
- overwriting the preset categories on the top of the file.
+https://github.com/helgoboss/reaper-packages/blob/master/index.xml[helgoboss ReaPack index] without overwriting the preset categories on the top of the file.
 *** Don't push the index yet!
 ** Author a REAPER forum ReaLearn thread entry with help of https://www.helgoboss.org/projects/realearn/reaper-forum.txt[/projects/realearn/reaper-forum.txt]
- but don't submit yet!
+but don't submit yet!
 ** Download the user guide by requesting https://www.helgoboss.org/projects/realearn/user-guide[/projects/realearn/user-guide].
 ** Copy the corresponding changelog entry in markdown format by requesting https://www.helgoboss.org/projects/realearn/changelog.md[/projects/realearn/changelog.md].
 . Once the release job has finished successfully, edit the not-yet-published release that has been created.
@@ -394,10 +397,14 @@ This serves mainly as checklist for ReaLearn's author.
 
 === Windows: ReaLearn DLL doesn't unload
 
-In REAPER for Windows it's possible to enable complete unload of VST plug-ins (Preferences -> Plug-ins -> VST -> Allow complete unload of VST plug-ins). This also affects ReaLearn. Removing the last ReaLearn instance should work with and without this flag enabled, it's important to test this.
+In REAPER for Windows it's possible to enable complete unload of VST plug-ins (Preferences -> Plug-ins -> VST -> Allow complete unload of VST plug-ins).
+This also affects ReaLearn.
+Removing the last ReaLearn instance should work with and without this flag enabled, it's important to test this.
 
-I ran into a case in which Windows was *not* unloading ReaLearn even though that option was enabled. The reason turned out to be a registry entry that Windows must have created automatically at some point:
+I ran into a case in which Windows was *not* unloading ReaLearn even though that option was enabled.
+The reason turned out to be a registry entry that Windows must have created automatically at some point:
 
 `HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers` -> `C:\REAPER\reaper.exe` with value `$ IgnoreFreeLibrary<realearn.dll>`
 
-Removing this entry made unloading work again. What a nasty trap!
+Removing this entry made unloading work again.
+What a nasty trap!

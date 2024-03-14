@@ -6261,6 +6261,7 @@ dependencies = [
  "fragile",
  "libloading 0.8.0",
  "objc2",
+ "palette",
  "raw-window-handle 0.4.3",
  "reaper-common-types",
  "reaper-low",

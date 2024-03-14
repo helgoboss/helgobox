@@ -42,7 +42,6 @@ impl AppLibrary {
                     // depend on it.
                     "flutter_windows.dll",
                     // The rest can have an arbitrary order.
-                    "device_info_plus.dll",
                     "desktop_drop_plugin.dll",
                     "native_context_menu_plugin.dll",
                     "screen_retriever_plugin.dll",
@@ -54,23 +53,23 @@ impl AppLibrary {
             )
         } else if cfg!(target_os = "macos") {
             (
-                    "Contents/MacOS/helgobox",
-                    [
-                        // Important: This must be the first. Because below plug-in libraries
-                        // depend on it.
-                        "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
-                        // The rest can have an arbitrary order.
-                        "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
-                        "Contents/Frameworks/device_info_plus.framework/device_info_plus",
-                        "Contents/Frameworks/desktop_drop.framework/desktop_drop",
-                        "Contents/Frameworks/native_context_menu.framework/native_context_menu",
-                        "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
-                        "Contents/Frameworks/screen_retriever.framework/screen_retriever",
-                        "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
-                        "Contents/Frameworks/window_manager.framework/window_manager",
-                        "Contents/Frameworks/pointer_lock.framework/pointer_lock",
-                    ].as_slice(),
-                )
+                "Contents/MacOS/helgobox",
+                [
+                    // Important: This must be the first. Because below plug-in libraries
+                    // depend on it.
+                    "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+                    // The rest can have an arbitrary order.
+                    "Contents/Frameworks/cryptography_flutter.framework/cryptography_flutter",
+                    "Contents/Frameworks/device_info_plus.framework/device_info_plus",
+                    "Contents/Frameworks/desktop_drop.framework/desktop_drop",
+                    "Contents/Frameworks/native_context_menu.framework/native_context_menu",
+                    "Contents/Frameworks/path_provider_foundation.framework/path_provider_foundation",
+                    "Contents/Frameworks/screen_retriever.framework/screen_retriever",
+                    "Contents/Frameworks/url_launcher_macos.framework/url_launcher_macos",
+                    "Contents/Frameworks/window_manager.framework/window_manager",
+                    "Contents/Frameworks/pointer_lock.framework/pointer_lock",
+                ].as_slice(),
+            )
         } else if cfg!(target_os = "linux") {
             (
                 "helgobox.so",
