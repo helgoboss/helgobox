@@ -1058,7 +1058,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             })
             .collect();
         self.process_activation_effects(compartment, activation_effects, true);
-        // Control ("ReaLearn parameter source")
+        // Control ("Helgobox parameter source")
         let control_payload = RealearnParameterChangePayload {
             compartment,
             parameter_index: compartment.to_compartment_param_index(index),

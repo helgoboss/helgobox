@@ -137,7 +137,7 @@ pub fn start_async_deallocation_thread(
     receiver: AsyncDeallocatorCommandReceiver,
 ) -> JoinHandle<AsyncDeallocatorCommandReceiver> {
     thread::Builder::new()
-        .name("ReaLearn deallocator".to_string())
+        .name("Helgobox deallocator".to_string())
         .spawn(move || {
             while let Ok(cmd) = receiver.0.recv() {
                 match cmd {

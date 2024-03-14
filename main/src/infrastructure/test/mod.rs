@@ -1,4 +1,5 @@
 use crate::domain::{with_fx_name, FinalSourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
+use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::{BackboneShell, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use base::future_util::millis;
@@ -114,13 +115,10 @@ async fn setup() -> RealearnTestInstance {
     let track = project.add_track().unwrap();
     let fx = track
         .normal_fx_chain()
-        .add_fx_by_original_name("ReaLearn (Helgoboss)")
+        .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
         .expect("couldn't find ReaLearn plug-in");
     // Then
     assert!(fx.parameter_count() >= PLUGIN_PARAMETER_COUNT + 2);
-    with_fx_name(&fx, |fx_name| {
-        assert_eq!(fx_name.as_ref(), "VSTi: ReaLearn (Helgoboss)");
-    });
     moment().await;
     let session = BackboneShell::get()
         .find_session_by_containing_fx(&fx)

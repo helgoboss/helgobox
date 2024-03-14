@@ -774,7 +774,7 @@ impl HeaderPanel {
                 if app.server_is_running() {
                     app.stop_server_persistently();
                     self.view.require_window().alert(
-                        "ReaLearn",
+                        "Helgobox",
                         "Stopped projection server and permanently disabled it.",
                     );
                 } else {
@@ -782,7 +782,7 @@ impl HeaderPanel {
                         Ok(_) => {
                             self.view
                                 .require_window()
-                                .alert("ReaLearn", "Successfully started projection server and permanently enabled it.");
+                                .alert("Helgobox", "Successfully started projection server and permanently enabled it.");
                         }
                         Err(info) => {
                             warn_about_failed_server_start(info);
@@ -804,9 +804,9 @@ impl HeaderPanel {
                         "Couldn't add firewall rule because {reason}. Please try to do it manually!",
                     ),
                 };
-                self.view.require_window().alert("ReaLearn", msg);
+                self.view.require_window().alert("Helgobox", msg);
             }
-            MainMenuAction::ChangeSessionId => self.change_session_id(),
+            MainMenuAction::ChangeSessionId => self.change_unit_id(),
             MainMenuAction::CreateCompartmentPresetWorkspace => {
                 self.create_compartment_preset_workspace(false)
             }
@@ -1895,8 +1895,8 @@ impl HeaderPanel {
             }
             Tagged(DataObject::Instance(Envelope { value: d, ..})) => {
                 if self.view.require_window().confirm(
-                    "ReaLearn",
-                    "Do you want to continue replacing the complete ReaLearn instance with the data in the clipboard?",
+                    "Helgobox",
+                    "Do you want to continue replacing the complete Helgobox instance with the data in the clipboard?",
                 ) {
                     let instance_panel = self.instance_panel();
                     instance_panel.show_unit(None);
@@ -1939,7 +1939,7 @@ impl HeaderPanel {
                         }
                     };
                     if self.view.require_window().confirm(
-                        "ReaLearn",
+                        "Playtime",
                         format!("Do you want to replace the current {old_matrix_label} with the {new_matrix_label} in the clipboard?"),
                     ) {
                         self.instance_panel().shell()?.load_clip_matrix(*value)?;
@@ -2323,9 +2323,9 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn change_session_id(&self) {
+    fn change_unit_id(&self) {
         self.view.require_window().alert(
-            "ReaLearn",
+            "Helgobox",
             "Please change the unit ID using the \"Unit data...\" button on the bottom right!",
         );
     }

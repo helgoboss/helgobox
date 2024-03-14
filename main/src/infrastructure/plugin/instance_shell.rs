@@ -487,7 +487,7 @@ impl InstanceShell {
             Ok(d) => d,
             Err(e) => {
                 bail!(
-                    "ReaLearn couldn't restore this unit: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
+                    "Helgobox couldn't restore this unit: {}\n\nPlease also attach the following text when reporting this: \n\n{}",
                     e,
                     std::str::from_utf8(data).unwrap_or("UTF-8 decoding error")
                 )

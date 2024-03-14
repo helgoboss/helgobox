@@ -139,10 +139,10 @@ fn get_containing_fx(host: &HostCallback) -> anyhow::Result<Fx> {
             .fx_by_index(index)
             .context("couldn't find containing FX on track FX chains")?
     } else if let Some(_take) = unsafe { vst_context.request_containing_take(aeffect) } {
-        bail!("ReaLearn as take FX is not supported yet");
+        bail!("Helgobox as take FX is not supported yet");
     } else {
         let TrackFxLocation::InputFxChain(index) = fx_location else {
-            bail!("ReaLearn FX has no track but also doesn't seem to be on monitoring FX chain",);
+            bail!("Helgobox FX has no track but also doesn't seem to be on monitoring FX chain",);
         };
         Reaper::get().monitoring_fx_chain().fx_by_index(index)
             .context("Couldn't find containing FX on monitoring FX chain. It's okay if this occurs during plug-in scanning.")?

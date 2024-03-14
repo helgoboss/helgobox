@@ -44,7 +44,7 @@ pub fn create(
             create_rect(386, 5 + line_spacing, 76, 14),
         ),
         ctext(
-            "ReaLearn",
+            "Helgobox",
             ids.named_id("ID_MAIN_PANEL_VERSION_TEXT"),
             create_rect(text_line_left, 5 + line_spacing * 2, text_line_width, 9),
         ),

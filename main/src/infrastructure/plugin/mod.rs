@@ -4,7 +4,7 @@ mod debug_util;
 mod helgobox_plugin_editor;
 mod tracing_util;
 pub use backbone_shell::*;
-mod helgobox_plugin;
+pub mod helgobox_plugin;
 mod instance_parameter_container;
 mod instance_shell;
 pub use instance_shell::*;

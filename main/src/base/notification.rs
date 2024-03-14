@@ -64,5 +64,5 @@ pub fn notify_user_about_anyhow_error(e: anyhow::Error) {
 pub fn alert<'a>(msg: impl Into<ReaperStringArg<'a>>) {
     Reaper::get()
         .medium_reaper()
-        .show_message_box(msg, "ReaLearn", MessageBoxType::Okay);
+        .show_message_box(msg, "Helgobox", MessageBoxType::Okay);
 }

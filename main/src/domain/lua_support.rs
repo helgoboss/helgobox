@@ -123,7 +123,7 @@ impl AsRef<Lua> for SafeLua {
 
 #[derive(Debug, derive_more::Display)]
 enum RealearnScriptError {
-    #[display(fmt = "ReaLearn script took too long to execute")]
+    #[display(fmt = "Helgobox script took too long to execute")]
     Timeout,
 }
 

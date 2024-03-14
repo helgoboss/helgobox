@@ -11,7 +11,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         + NOT_WS_GROUP];
     Dialog {
         id: ids.named_id("ID_MESSAGE_PANEL"),
-        caption: "ReaLearn",
+        caption: "Helgobox",
         rect: context.rect(0, 0, 300, 40),
         styles: Styles(vec![
             DS_SETFONT,

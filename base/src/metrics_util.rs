@@ -113,7 +113,7 @@ pub fn record_duration_internal(id: &'static str, delta: Duration) {
     if let Some(sender) = METRICS_SENDER.get() {
         let task = MetricsRecorderCommand::Histogram { id, delta };
         if sender.try_send(task).is_err() {
-            tracing::debug!("ReaLearn metrics channel is full");
+            tracing::debug!("Helgobox metrics channel is full");
         }
     }
 }

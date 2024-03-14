@@ -8,7 +8,7 @@ pub fn prompt_for(caption: &str, initial_value: &str) -> Option<String> {
     let captions_csv = format!("{caption},separator=|,extrawidth=200");
     Reaper::get()
         .medium_reaper()
-        .get_user_inputs("ReaLearn", 1, captions_csv, initial_value, 256)
+        .get_user_inputs("Helgobox", 1, captions_csv, initial_value, 256)
         .map(|r| r.to_str().trim().to_owned())
 }
 

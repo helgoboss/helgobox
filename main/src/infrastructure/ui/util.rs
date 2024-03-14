@@ -605,7 +605,7 @@ pub fn open_in_text_editor(
             _ => e.to_string()
         };
         parent_window
-            .alert("ReaLearn", format!("Couldn't obtain text:\n\n{msg}"));
+            .alert("Helgobox", format!("Couldn't obtain text:\n\n{msg}"));
         "couldn't obtain text"
     })
 }

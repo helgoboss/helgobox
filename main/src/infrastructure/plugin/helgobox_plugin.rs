@@ -43,6 +43,12 @@ use vst::host::Host;
 /// Just the old term as alias for easier class search.
 type _RealearnPlugin = HelgoboxPlugin;
 
+/// In C++ this is the same like "hbrl" (= Helgoboss ReaLearn)
+pub const HELGOBOX_UNIQUE_VST_PLUGIN_ID: i32 = 1751282284;
+
+/// Can be passed to `add_fx_by_original_name`.
+pub const HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING: &str = "<1751282284";
+
 /// The actual VST plug-in and thus main entry point.
 ///
 /// Owns the instance shell, but not immediately. It's created as soon as the containing FX is
@@ -108,20 +114,17 @@ impl Plugin for HelgoboxPlugin {
     }
 
     fn get_info(&self) -> Info {
-        firewall(|| {
-            Info {
-                name: "ReaLearn".to_string(),
-                vendor: "Helgoboss".to_string(),
-                // In C++ this is the same like 'hbrl'
-                unique_id: 1751282284,
-                preset_chunks: true,
-                category: Category::Synth,
-                parameters: PLUGIN_PARAMETER_COUNT as i32,
-                f64_precision: true,
-                inputs: 2,
-                outputs: 0,
-                ..Default::default()
-            }
+        firewall(|| Info {
+            name: "Helgobox (ReaLearn & Playtime)".to_string(),
+            vendor: "Helgoboss".to_string(),
+            unique_id: HELGOBOX_UNIQUE_VST_PLUGIN_ID,
+            preset_chunks: true,
+            category: Category::Synth,
+            parameters: PLUGIN_PARAMETER_COUNT as i32,
+            f64_precision: true,
+            inputs: 2,
+            outputs: 0,
+            ..Default::default()
         })
         .unwrap_or_default()
     }
@@ -145,10 +148,10 @@ impl Plugin for HelgoboxPlugin {
             // Trick to find out whether we are only being scanned.
             self.is_plugin_scan = unsafe { (*self.host.raw_effect()).reserved1 == 0 };
             if self.is_plugin_scan {
-                tracing::debug!("ReaLearn is being scanned by REAPER");
+                tracing::debug!("Helgobox is being scanned by REAPER");
                 return;
             }
-            tracing::debug!("ReaLearn is being opened by REAPER");
+            tracing::debug!("Helgobox is being opened by REAPER");
             self._reaper_guard = Some(self.ensure_reaper_setup());
             // At this point, REAPER cannot reliably give us the containing FX. As a
             // consequence we also don't have a instance shell yet, because creating an incomplete

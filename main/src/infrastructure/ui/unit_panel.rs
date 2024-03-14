@@ -242,7 +242,7 @@ impl UnitPanel {
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
             .set_text(format!(
-                "ReaLearn {}",
+                "Helgobox {}",
                 BackboneShell::detailed_version_label()
             ));
     }

@@ -130,7 +130,7 @@ type ResultHandler<C, R> = Box<dyn FnOnce(&mut C, R) + Send>;
 static POT_WORKER_RUNTIME: Lazy<std::io::Result<Runtime>> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .enable_time()
-        .thread_name("ReaLearn Pot Worker")
+        .thread_name("Helgobox Pot Worker")
         .worker_threads(1)
         .build()
 });

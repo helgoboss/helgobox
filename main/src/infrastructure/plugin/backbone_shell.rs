@@ -45,6 +45,7 @@ use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
+use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
 use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
 use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPanel;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
@@ -284,7 +285,7 @@ impl BackboneShell {
             context,
             logger,
             CrashInfo {
-                plugin_name: "ReaLearn".to_string(),
+                plugin_name: "Helgobox".to_string(),
                 plugin_version: BackboneShell::detailed_version_label().to_string(),
                 support_email_address: "info@helgoboss.org".to_string(),
             },
@@ -679,7 +680,7 @@ impl BackboneShell {
         // Start async runtime
         let async_runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .thread_name("ReaLearn async runtime")
+            .thread_name("Helgobox async runtime")
             .worker_threads(1)
             .build()
             .expect("couldn't start ReaLearn async runtime");
@@ -1663,7 +1664,7 @@ impl BackboneShell {
                 );
                 track
                     .normal_fx_chain()
-                    .add_fx_by_original_name("<1751282284")
+                    .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
                     .context("Couldn't add Helgobox. Maybe not installed?")?
                     .hide_floating_window();
                 // The rest needs to be done async because the instance initializes itself async
