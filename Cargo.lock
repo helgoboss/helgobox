@@ -3352,9 +3352,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libdbus-sys"
@@ -4500,6 +4500,7 @@ dependencies = [
  "helgoboss-midi",
  "indexmap 2.1.0",
  "itertools 0.12.0",
+ "libc",
  "metrics",
  "nanoid",
  "num",
@@ -4519,7 +4520,6 @@ dependencies = [
  "strum",
  "swell-ui",
  "thiserror",
- "thread-priority",
  "tinyvec",
  "tokio",
  "tracing",
@@ -5075,7 +5075,6 @@ version = "0.1.0"
 [[package]]
 name = "reaper-common-types"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "hex-literal",
  "nutype",
@@ -5086,7 +5085,6 @@ dependencies = [
 [[package]]
 name = "reaper-fluent"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "fragile",
  "reaper-low",
@@ -5097,7 +5095,6 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -5127,7 +5124,6 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "c_str_macro",
  "cc 1.0.83",
@@ -5141,7 +5137,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "darling 0.10.2",
  "quote",
@@ -5151,7 +5146,6 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -5170,7 +5164,6 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -5439,7 +5432,6 @@ checksum = "3cd14fd5e3b777a7422cca79358c57a8f6e3a703d9ac187448d0daf220c2407f"
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7c1d9979cba236f19f60fb73de0adc3bd6f5820d"
 dependencies = [
  "splitty",
 ]
@@ -6414,20 +6406,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.48",
-]
-
-[[package]]
-name = "thread-priority"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a617e9eeeb20448b01a8e2427fb80dfbc9c49d79a1de3b11f25731edbf547e3c"
-dependencies = [
- "bitflags 2.4.1",
- "cfg-if",
- "libc",
- "log",
- "rustversion",
- "winapi",
 ]
 
 [[package]]
