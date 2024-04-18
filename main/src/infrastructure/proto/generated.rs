@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 50, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -107,6 +107,10 @@ pub mod command_request {
         /// Event re-subscription commands (only for occasional aggregate events, the rest will be sent anyway)
         #[prost(message, tag = "37")]
         GetOccasionalGlobalUpdates(super::GetOccasionalGlobalUpdatesRequest),
+        #[prost(message, tag = "50")]
+        GetOccasionalPlaytimeEngineUpdates(
+            super::GetOccasionalPlaytimeEngineUpdatesRequest,
+        ),
         #[prost(message, tag = "40")]
         GetOccasionalInstanceUpdates(super::GetOccasionalInstanceUpdatesRequest),
         #[prost(message, tag = "25")]
