@@ -34,10 +34,12 @@ impl occasional_playtime_engine_update::Update {
     }
 
     pub fn engine_stats() -> Self {
+        let pre_buffer_stat =
+            global_steady_timeline().last_pre_buffered_blocks_of_playing_clips_stat();
         let stats = PlaytimeEngineStats {
-            min_buffered_blocks: 0,
-            avg_buffered_blocks: 0,
-            max_buffered_blocks: 0,
+            min_buffered_blocks: pre_buffer_stat.min as _,
+            avg_buffered_blocks: pre_buffer_stat.avg as _,
+            max_buffered_blocks: pre_buffer_stat.max as _,
             future_size_in_blocks: global_steady_timeline().tempo_buffer_future_size() as _,
         };
         Self::EngineStats(stats)
