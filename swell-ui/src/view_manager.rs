@@ -183,8 +183,9 @@ unsafe extern "C" fn view_dialog_proc(
             match msg {
                 raw::WM_INITDIALOG => {
                     view.view_context().window.replace(Some(window));
-                    if view.show_window_on_init() {
-                        let keyboard_focus_desired = view.opened(window);
+                    let show_window = view.show_window_on_init();
+                    let keyboard_focus_desired = view.opened(window);
+                    if show_window {
                         window.show();
                         // WM_INITDIALOG is special in a DialogProc in that we don't need to use
                         // `SetWindowLong()` for return values with special meaning.

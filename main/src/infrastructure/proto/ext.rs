@@ -17,13 +17,14 @@ use crate::infrastructure::proto::{
     GetContinuousColumnUpdatesReply, GetContinuousMatrixUpdatesReply,
     GetContinuousSlotUpdatesReply, GetOccasionalClipUpdatesReply, GetOccasionalColumnUpdatesReply,
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
-    GetOccasionalMatrixUpdatesReply, GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply,
-    GetOccasionalTrackUpdatesReply, GetOccasionalUnitUpdatesReply, LicenseState, MidiDeviceStatus,
-    MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate, OccasionalMatrixUpdate, QualifiedContinuousSlotUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
-    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
-    SlotAddress, Unit, Units,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply,
+    GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
+    GetOccasionalUnitUpdatesReply, LicenseState, MidiDeviceStatus, MidiInputDevice,
+    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
+    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
+    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
+    QualifiedOccasionalUnitUpdate, SlotAddress, Unit, Units,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
@@ -133,32 +134,6 @@ impl occasional_global_update::Update {
         let json = serde_json::to_string(manager.controller_config())
             .expect("couldn't represent controller config as JSON");
         Self::ControllerConfig(json)
-    }
-
-    pub fn playtime_license_state() -> Self {
-        let value = {
-            #[cfg(feature = "playtime")]
-            {
-                let clip_engine = playtime_clip_engine::ClipEngine::get();
-                if clip_engine.has_valid_license() {
-                    clip_engine.license()
-                } else {
-                    None
-                }
-            }
-            #[cfg(not(feature = "playtime"))]
-            {
-                None
-            }
-        };
-        let json = value.map(|license: License| {
-            let license_data = LicenseData::from(license);
-            serde_json::to_string(&license_data.payload)
-                .expect("couldn't represent license payload as JSON")
-        });
-        Self::PlaytimeLicenseState(LicenseState {
-            license_payload: json,
-        })
     }
 
     pub fn license_info(license_manager: &LicenseManager) -> Self {
@@ -358,6 +333,14 @@ impl From<Vec<QualifiedOccasionalClipUpdate>> for event_reply::Value {
         event_reply::Value::OccasionalClipUpdatesReply(GetOccasionalClipUpdatesReply {
             clip_updates: value,
         })
+    }
+}
+
+impl From<Vec<OccasionalPlaytimeEngineUpdate>> for event_reply::Value {
+    fn from(value: Vec<OccasionalPlaytimeEngineUpdate>) -> Self {
+        event_reply::Value::OccasionalPlaytimeEngineUpdatesReply(
+            GetOccasionalPlaytimeEngineUpdatesReply { updates: value },
+        )
     }
 }
 

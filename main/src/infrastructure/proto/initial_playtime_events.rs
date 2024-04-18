@@ -1,14 +1,26 @@
 use crate::infrastructure::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_slot_update, ClipAddress, OccasionalMatrixUpdate, OccasionalTrackUpdate,
-    QualifiedOccasionalClipUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    SlotAddress,
+    qualified_occasional_slot_update, ClipAddress, OccasionalGlobalUpdate, OccasionalMatrixUpdate,
+    OccasionalPlaytimeEngineUpdate, OccasionalTrackUpdate, QualifiedOccasionalClipUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
 use base::hash_util::NonCryptoHashMap;
 use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
-use reaper_high::{Guid, OrCurrentProject, Track};
+use reaper_high::{Guid, OrCurrentProject, Reaper, Track};
 use reaper_medium::Db;
 use std::iter;
+
+pub fn create_initial_engine_updates() -> Vec<OccasionalPlaytimeEngineUpdate> {
+    use crate::infrastructure::proto::generated::occasional_playtime_engine_update::Update;
+    fn create(updates: impl Iterator<Item = Update>) -> Vec<OccasionalPlaytimeEngineUpdate> {
+        updates
+            .into_iter()
+            .map(|u| OccasionalPlaytimeEngineUpdate { update: Some(u) })
+            .collect()
+    }
+    let updates = [Update::playtime_license_state(), Update::engine_settings()];
+    create(updates.into_iter())
+}
 
 pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalMatrixUpdate> {
     use occasional_matrix_update::Update;

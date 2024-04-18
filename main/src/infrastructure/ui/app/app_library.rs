@@ -557,6 +557,9 @@ fn process_command(
         TriggerGlobal(req) => {
             handler.trigger_global(req)?;
         }
+        SetPlaytimeEngineSettings(req) => {
+            handler.set_playtime_engine_settings(req)?;
+        }
         SetMatrixSettings(req) => {
             handler.set_matrix_settings(req)?;
         }

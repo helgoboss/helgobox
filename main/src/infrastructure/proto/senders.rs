@@ -2,9 +2,9 @@ use crate::domain::InstanceId;
 use crate::infrastructure::proto::{
     event_reply, ContinuousColumnUpdate, ContinuousMatrixUpdate, EventReply,
     OccasionalGlobalUpdate, OccasionalInstanceUpdate, OccasionalMatrixUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    QualifiedOccasionalUnitUpdate,
+    OccasionalPlaytimeEngineUpdate, QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate,
+    QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate,
+    QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
 };
 use futures::future;
 use tokio::sync::broadcast::{Receiver, Sender};
@@ -16,6 +16,7 @@ pub struct ProtoSenders {
     pub occasional_global_update_sender: Sender<OccasionalGlobalUpdateBatch>,
     pub occasional_instance_update_sender: Sender<OccasionalInstanceUpdateBatch>,
     pub occasional_unit_update_sender: Sender<OccasionalUnitUpdateBatch>,
+    pub occasional_playtime_engine_update_sender: Sender<OccasionalPlaytimeEngineUpdateBatch>,
     pub occasional_matrix_update_sender: Sender<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_sender: Sender<OccasionalTrackUpdateBatch>,
     pub occasional_column_update_sender: Sender<OccasionalColumnUpdateBatch>,
@@ -32,6 +33,7 @@ pub struct ProtoReceivers {
     pub occasional_global_update_receiver: Receiver<OccasionalGlobalUpdateBatch>,
     pub occasional_instance_update_receiver: Receiver<OccasionalInstanceUpdateBatch>,
     pub occasional_unit_update_receiver: Receiver<OccasionalUnitUpdateBatch>,
+    pub occasional_playtime_engine_update_receiver: Receiver<OccasionalPlaytimeEngineUpdateBatch>,
     pub occasional_matrix_update_receiver: Receiver<OccasionalMatrixUpdateBatch>,
     pub occasional_track_update_receiver: Receiver<OccasionalTrackUpdateBatch>,
     pub occasional_column_update_receiver: Receiver<OccasionalColumnUpdateBatch>,
@@ -49,7 +51,7 @@ impl ProtoReceivers {
         instance_id: InstanceId,
         process: &impl Fn(EventReply),
     ) {
-        future::join4(
+        future::join5(
             future::join5(
                 keep_processing_session_filtered_updates(
                     instance_id,
@@ -110,6 +112,10 @@ impl ProtoReceivers {
                 process,
                 &mut self.occasional_unit_update_receiver,
             ),
+            keep_processing_updates(
+                process,
+                &mut self.occasional_playtime_engine_update_receiver,
+            ),
         )
         .await;
     }
@@ -161,6 +167,7 @@ impl ProtoSenders {
             occasional_global_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_instance_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_unit_update_sender: tokio::sync::broadcast::channel(100).0,
+            occasional_playtime_engine_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_matrix_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_track_update_sender: tokio::sync::broadcast::channel(100).0,
             occasional_column_update_sender: tokio::sync::broadcast::channel(100).0,
@@ -178,6 +185,9 @@ impl ProtoSenders {
             occasional_global_update_receiver: self.occasional_global_update_sender.subscribe(),
             occasional_instance_update_receiver: self.occasional_instance_update_sender.subscribe(),
             occasional_unit_update_receiver: self.occasional_unit_update_sender.subscribe(),
+            occasional_playtime_engine_update_receiver: self
+                .occasional_playtime_engine_update_sender
+                .subscribe(),
             occasional_matrix_update_receiver: self.occasional_matrix_update_sender.subscribe(),
             occasional_track_update_receiver: self.occasional_track_update_sender.subscribe(),
             occasional_column_update_receiver: self.occasional_column_update_sender.subscribe(),
@@ -200,6 +210,7 @@ pub struct WithInstanceId<T> {
 pub type OccasionalGlobalUpdateBatch = Vec<OccasionalGlobalUpdate>;
 pub type OccasionalInstanceUpdateBatch = WithInstanceId<Vec<OccasionalInstanceUpdate>>;
 pub type OccasionalUnitUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalUnitUpdate>>;
+pub type OccasionalPlaytimeEngineUpdateBatch = Vec<OccasionalPlaytimeEngineUpdate>;
 pub type OccasionalMatrixUpdateBatch = WithInstanceId<Vec<OccasionalMatrixUpdate>>;
 pub type OccasionalTrackUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalTrackUpdate>>;
 pub type OccasionalColumnUpdateBatch = WithInstanceId<Vec<QualifiedOccasionalColumnUpdate>>;

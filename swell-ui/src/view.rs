@@ -72,8 +72,6 @@ pub trait View: Debug {
     /// WM_INITDIALOG.
     ///
     /// Should return `true` if you want the window to be actually shown when it's created.
-    ///
-    /// Only if `true`, `opened` will be called in the next step.
     fn show_window_on_init(&self) -> bool {
         true
     }

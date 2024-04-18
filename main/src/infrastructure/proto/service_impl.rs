@@ -15,7 +15,8 @@ use crate::infrastructure::proto::{
     GetOccasionalColumnUpdatesRequest, GetOccasionalGlobalUpdatesReply,
     GetOccasionalGlobalUpdatesRequest, GetOccasionalInstanceUpdatesReply,
     GetOccasionalInstanceUpdatesRequest, GetOccasionalMatrixUpdatesReply,
-    GetOccasionalMatrixUpdatesRequest, GetOccasionalRowUpdatesReply,
+    GetOccasionalMatrixUpdatesRequest, GetOccasionalPlaytimeEngineUpdatesReply,
+    GetOccasionalPlaytimeEngineUpdatesRequest, GetOccasionalRowUpdatesReply,
     GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
     GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest,
     GetOccasionalUnitUpdatesReply, GetOccasionalUnitUpdatesRequest, GetProjectDirReply,
@@ -25,10 +26,11 @@ use crate::infrastructure::proto::{
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
     SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
+    SetPlaytimeEngineSettingsRequest, SetRowDataRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalRequest,
+    TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
+    TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -292,6 +294,37 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
                 |matrix_updates| GetOccasionalMatrixUpdatesReply { matrix_updates },
                 Some(GetOccasionalMatrixUpdatesReply {
                     matrix_updates: initial_updates,
+                })
+                .into_iter(),
+            )
+        }
+    }
+
+    type GetOccasionalPlaytimeEngineUpdatesStream =
+        SyncBoxStream<'static, Result<GetOccasionalPlaytimeEngineUpdatesReply, Status>>;
+
+    async fn get_occasional_playtime_engine_updates(
+        &self,
+        _request: Request<GetOccasionalPlaytimeEngineUpdatesRequest>,
+    ) -> Result<Response<Self::GetOccasionalPlaytimeEngineUpdatesStream>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = request;
+            Err(playtime_not_available_status())
+        }
+        #[cfg(feature = "playtime")]
+        {
+            let initial_updates = crate::infrastructure::proto::create_initial_engine_updates();
+            let receiver = self
+                .senders
+                .occasional_playtime_engine_update_sender
+                .subscribe();
+            stream(
+                receiver,
+                |updates| GetOccasionalPlaytimeEngineUpdatesReply { updates },
+                |_| true,
+                Some(GetOccasionalPlaytimeEngineUpdatesReply {
+                    updates: initial_updates,
                 })
                 .into_iter(),
             )
@@ -710,6 +743,14 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<InsertColumnsRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.insert_columns(request.into_inner())
+    }
+
+    async fn set_playtime_engine_settings(
+        &self,
+        request: Request<SetPlaytimeEngineSettingsRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .set_playtime_engine_settings(request.into_inner())
     }
 }
 

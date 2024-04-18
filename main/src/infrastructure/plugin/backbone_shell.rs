@@ -43,8 +43,8 @@ use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
 use crate::infrastructure::plugin::dynamic_toolbar::add_or_remove_toolbar_button;
+use crate::infrastructure::plugin::hidden_helper_panel::HiddenHelperPanel;
 use crate::infrastructure::plugin::persistent_toolbar::add_toolbar_button_persistently;
-use crate::infrastructure::plugin::shutdown_detection_panel::ShutdownDetectionPanel;
 use crate::infrastructure::plugin::tracing_util::TracingHook;
 use crate::infrastructure::plugin::{
     ini_util, update_auto_units_async, SharedInstanceShell, WeakInstanceShell,
@@ -60,6 +60,7 @@ use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use playtime_api::persistence::PlaytimeSettings;
 use realearn_api::persistence::{
     CompartmentPresetId, Controller, ControllerConnection, Envelope, FxChainDescriptor,
     FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
@@ -190,7 +191,7 @@ pub struct BackboneShell {
     proto_hub: crate::infrastructure::proto::ProtoHub,
     welcome_panel: RefCell<Option<SharedView<WelcomePanel>>>,
     /// We need to keep this panel in memory in order to be informed when it's destroyed.
-    _shutdown_detection_panel: SharedView<ShutdownDetectionPanel>,
+    _shutdown_detection_panel: SharedView<HiddenHelperPanel>,
     audio_block_counter: Arc<AtomicU32>,
 }
 
@@ -445,7 +446,7 @@ impl BackboneShell {
             }
         }
         // Detect shutdown via hidden child window as suggested by Justin
-        let shutdown_detection_panel = SharedView::new(ShutdownDetectionPanel::new());
+        let shutdown_detection_panel = SharedView::new(HiddenHelperPanel::new());
         shutdown_detection_panel.clone().open(reaper_window());
         BackboneShell {
             _tracing_hook: tracing_hook,
@@ -573,13 +574,34 @@ impl BackboneShell {
                 crate::infrastructure::ui::copy_text_to_clipboard(text);
                 Ok(())
             }
+
+            fn changed_settings(&self, settings: PlaytimeSettings) -> anyhow::Result<()> {
+                BackboneShell::get()
+                    .proto_hub
+                    .notify_playtime_settings_changed();
+                let json = serde_json::to_string_pretty(&settings)?;
+                let settings_path = BackboneShell::playtime_settings_file_path();
+                fs::create_dir_all(
+                    &settings_path
+                        .parent()
+                        .context("Playtime settings file has not parent")?,
+                )?;
+                fs::write(settings_path, json)?;
+                Ok(())
+            }
         }
         let args = playtime_clip_engine::ClipEngineInitArgs {
             available_licenses: license_manager.licenses(),
+            settings: Self::read_playtime_settings(),
             metrics_recorder,
             integration: Box::new(RealearnClipEngineIntegration),
         };
         ClipEngine::make_available_globally(|| ClipEngine::new(args));
+    }
+
+    fn read_playtime_settings() -> Option<PlaytimeSettings> {
+        let json = fs::read_to_string(Self::playtime_settings_file_path()).ok()?;
+        serde_json::from_str(&json).ok()
     }
 
     /// This will cause all main processors to "switch all lights off".
@@ -1104,6 +1126,10 @@ impl BackboneShell {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
+    pub fn playtime_dir_path() -> PathBuf {
+        BackboneShell::helgoboss_resource_dir_path().join("Playtime")
+    }
+
     pub fn app_binary_base_dir_path() -> PathBuf {
         BackboneShell::app_dir_path().join("bin")
     }
@@ -1114,6 +1140,10 @@ impl BackboneShell {
 
     pub fn app_settings_file_path() -> PathBuf {
         BackboneShell::app_config_dir_path().join("settings.json")
+    }
+
+    pub fn playtime_settings_file_path() -> PathBuf {
+        BackboneShell::playtime_dir_path().join("settings.json")
     }
 
     pub fn read_app_settings() -> Option<String> {

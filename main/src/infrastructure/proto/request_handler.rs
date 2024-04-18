@@ -10,12 +10,12 @@ use crate::infrastructure::proto::{
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
     SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
-    TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
-    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
-    HOST_API_VERSION,
+    SetPlaytimeEngineSettingsRequest, SetRowDataRequest, SetSequenceInfoRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
+    TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest, TriggerInstanceAction,
+    TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest,
+    TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
 };
 use anyhow::Context;
 use base::spawn_in_main_thread;
@@ -26,7 +26,7 @@ use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::CompartmentModelData;
-use tonic::{Response, Status};
+use tonic::{Request, Response, Status};
 
 #[cfg(feature = "playtime")]
 use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
@@ -251,6 +251,21 @@ impl ProtoRequestHandler {
             instance_shell.change_settings(|current_settings| *current_settings = settings);
             Ok(())
         })
+    }
+
+    pub fn set_playtime_engine_settings(
+        &self,
+        req: SetPlaytimeEngineSettingsRequest,
+    ) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.set_playtime_engine_settings(req)
+        }
     }
 
     pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {

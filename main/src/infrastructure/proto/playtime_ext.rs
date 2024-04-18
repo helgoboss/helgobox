@@ -1,4 +1,7 @@
+use helgoboss_license_api::persistence::LicenseData;
+use helgoboss_license_api::runtime::License;
 use helgoboss_midi::Channel;
+use playtime_api::persistence::PlaytimeSettings;
 use playtime_api::runtime::ControlUnitConfig;
 use playtime_clip_engine::base::{
     Clip, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer, SaveOptions,
@@ -7,21 +10,65 @@ use playtime_clip_engine::base::{
 use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
-use playtime_clip_engine::{base, clip_timeline, Timeline};
+use playtime_clip_engine::{base, clip_timeline, global_steady_timeline, ClipEngine, Timeline};
 use reaper_high::Project;
 use reaper_medium::{Bpm, Db, MidiInputDeviceId, ReaperPanValue, RecordingInput, RgbColor};
 use std::num::NonZeroU32;
 
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
-    clip_content_info, generated, occasional_matrix_update, occasional_track_update,
-    qualified_occasional_clip_update, qualified_occasional_column_update,
+    clip_content_info, generated, occasional_matrix_update, occasional_playtime_engine_update,
+    occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, AudioClipContentInfo,
     CellAddress, ClipAddress, ClipContentInfo, ColumnKind, ContinuousClipUpdate,
-    ContinuousSlotUpdate, HistoryState, LearnState, MidiClipContentInfo, SequencerPlayState,
-    SlotAddress, SlotPlayState, TimeSignature, TrackColor, TrackInput, TrackInputMonitoring,
-    TrackList, TrackMidiInput,
+    ContinuousSlotUpdate, HistoryState, LearnState, LicenseState, MidiClipContentInfo,
+    PlaytimeEngineStats, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor,
+    TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
 };
+
+impl occasional_playtime_engine_update::Update {
+    pub fn engine_settings() -> Self {
+        let settings = ClipEngine::get().settings();
+        let json = serde_json::to_string(&settings).expect("couldn't serialize playtime settings");
+        Self::EngineSettings(json)
+    }
+
+    pub fn engine_stats() -> Self {
+        let stats = PlaytimeEngineStats {
+            min_buffered_blocks: 0,
+            avg_buffered_blocks: 0,
+            max_buffered_blocks: 0,
+            future_size_in_blocks: global_steady_timeline().tempo_buffer_future_size() as _,
+        };
+        Self::EngineStats(stats)
+    }
+
+    pub fn playtime_license_state() -> Self {
+        let value = {
+            #[cfg(feature = "playtime")]
+            {
+                let clip_engine = playtime_clip_engine::ClipEngine::get();
+                if clip_engine.has_valid_license() {
+                    clip_engine.license()
+                } else {
+                    None
+                }
+            }
+            #[cfg(not(feature = "playtime"))]
+            {
+                None
+            }
+        };
+        let json = value.map(|license: License| {
+            let license_data = LicenseData::from(license);
+            serde_json::to_string(&license_data.payload)
+                .expect("couldn't represent license payload as JSON")
+        });
+        Self::LicenseState(LicenseState {
+            license_payload: json,
+        })
+    }
+}
 
 impl occasional_matrix_update::Update {
     pub fn master_volume(db: Db) -> Self {
@@ -447,6 +494,8 @@ impl ContinuousClipUpdate {
             position_in_seconds: event.seconds.get(),
             source_position_in_frames: event.source_pos_in_frames,
             peak: event.peak.get(),
+            // TODO-high CONTINUE
+            miss_count: 0,
         }
     }
 }

@@ -33,14 +33,43 @@ use std::cmp;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
+/// Global settings that apply to all Playtime instances.
+///
+/// This is different from the app settings (which are also global) in that the app settings are only about GUI
+/// aspects (less important) and managed by the app. Whereas the engine settings configure settings that
+/// apply even without GUI, and they are managed by the engine.
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+pub struct PlaytimeSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tempo_latency: Option<TempoLatency>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum TempoLatency {
+    Auto,
+    Manual(ManualTempoLatency),
+}
+
+impl Default for TempoLatency {
+    fn default() -> Self {
+        Self::Manual(Default::default())
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct ManualTempoLatency {
+    pub millis: u32,
+}
+
+impl Default for ManualTempoLatency {
+    fn default() -> Self {
+        Self { millis: 200 }
+    }
+}
+
 // TODO-high-playtime-after-release Add start time detection
 // TODO-high-playtime-after-release Add legato
-
-/// Only used for JSON schema generation.
-pub struct PlaytimePersistenceRoot {
-    _matrix: Matrix,
-    _even_quantization: EvenQuantization,
-}
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Matrix {

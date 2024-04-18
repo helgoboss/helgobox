@@ -9,17 +9,18 @@ use crate::infrastructure::proto::{
     MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest,
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest,
     SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
-    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
-    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
+    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
+    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
+    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
+    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
+    TriggerTrackAction, TriggerTrackRequest,
 };
 use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
 use playtime_api::persistence::{
-    ColumnAddress, MatrixSequenceId, RowAddress, SlotAddress, TrackId,
+    ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
 };
 use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 
@@ -197,6 +198,18 @@ impl PlaytimeProtoRequestHandler {
             TriggerSequenceAction::Activate => matrix.activate_sequence(seq_id),
             TriggerSequenceAction::Remove => matrix.remove_sequence(seq_id),
         })
+    }
+
+    pub fn set_playtime_engine_settings(
+        &self,
+        request: SetPlaytimeEngineSettingsRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let settings: PlaytimeSettings = serde_json::from_str(&request.settings)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        ClipEngine::get()
+            .set_settings(settings)
+            .map_err(|e| Status::unknown(e.to_string()))?;
+        Ok(Response::new(Empty {}))
     }
 
     pub fn insert_columns(&self, req: InsertColumnsRequest) -> Result<Response<Empty>, Status> {
