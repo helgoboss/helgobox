@@ -1,9 +1,14 @@
-use reaper_high::Reaper;
-use std::fmt::Arguments;
+use std::fmt::{Arguments, Debug};
 use std::io::{IoSlice, Write};
 use std::sync::mpsc::{Receiver, Sender};
+use std::time::Duration;
 use std::{mem, thread};
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+
+use reaper_high::Reaper;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{registry, EnvFilter};
+
+use crate::infrastructure::plugin::tracing_spam_filter::SpamFilter;
 
 #[derive(Debug)]
 pub struct TracingHook {
@@ -40,15 +45,15 @@ impl TracingHook {
         //  audio hook and using a large ring buffer to avoid any allocation when sending the log
         //  messages?
         let cloned_sender = sender.clone();
-        let subscriber = FmtSubscriber::builder()
+        let fmt_layer = tracing_subscriber::fmt::layer()
             .pretty()
             // .with_thread_ids(true)
             // .with_thread_names(true)
             // .compact()
-            .with_env_filter(env_filter)
-            .with_writer(move || AsyncWriter::new(std::io::stdout(), cloned_sender.clone()))
-            .finish();
-        tracing::subscriber::set_global_default(subscriber)
+            .with_writer(move || AsyncWriter::new(std::io::stdout(), cloned_sender.clone()));
+        let inner_subscriber = registry().with(env_filter).with(fmt_layer);
+        let spam_filter = SpamFilter::new(1, Duration::from_secs(30), inner_subscriber);
+        tracing::subscriber::set_global_default(spam_filter)
             .expect("setting default subscriber failed");
         let hook = Self { sender };
         Some(hook)

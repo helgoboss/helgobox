@@ -2,6 +2,7 @@ mod api_impl;
 mod backbone_shell;
 mod debug_util;
 mod helgobox_plugin_editor;
+mod tracing_spam_filter;
 mod tracing_util;
 pub use backbone_shell::*;
 pub mod helgobox_plugin;

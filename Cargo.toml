@@ -62,6 +62,7 @@ regex = "1"
 walkdir = "2"
 either = "1.8.0"
 tracing = "0.1.31"
+tracing-core = "0.1.32"
 futures = { version = "0.3", default-features = false }
 derivative = "2.2.0"
 tempfile = "3.1.0"

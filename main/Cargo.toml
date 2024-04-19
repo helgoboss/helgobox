@@ -70,6 +70,7 @@ slog.workspace = true
 slog-async = "2.5.2"
 # New logging (for clip matrix)
 tracing.workspace = true
+tracing-core.workspace = true
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 # For interacting with the OS clipboard
 arboard = "3.3.0"
