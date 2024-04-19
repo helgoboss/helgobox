@@ -52,7 +52,7 @@ impl TracingHook {
             // .compact()
             .with_writer(move || AsyncWriter::new(std::io::stdout(), cloned_sender.clone()));
         let inner_subscriber = registry().with(env_filter).with(fmt_layer);
-        let spam_filter = SpamFilter::new(1, Duration::from_secs(30), inner_subscriber);
+        let spam_filter = SpamFilter::new(1, Duration::from_secs(10), inner_subscriber);
         tracing::subscriber::set_global_default(spam_filter)
             .expect("setting default subscriber failed");
         let hook = Self { sender };

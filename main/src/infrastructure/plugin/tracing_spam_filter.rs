@@ -56,7 +56,6 @@ impl<S> SpamFilter<S> {
                     // Special case (allows us to write "spam = 0", which makes sense if 0 comes from a variable)
                     return true;
                 }
-                spam.last_timestamp = Instant::now();
                 if spam.last_timestamp.elapsed() < self.reset_after {
                     // Not yet reset time
                     let include = if spam.num_occurrences >= spam.max_log_count {
@@ -64,7 +63,7 @@ impl<S> SpamFilter<S> {
                         if spam.num_occurrences == spam.max_log_count {
                             let payload = event.metadata().name();
                             tracing::warn!(
-                                "Span {payload} occurred again but will not be logged anymore for {:?}",
+                                "Tracing event {payload} occurred again but will not be logged anymore unless it calms down for {:?}",
                                 self.reset_after
                             );
                         }
@@ -73,10 +72,12 @@ impl<S> SpamFilter<S> {
                         // Threshold not exceeded yet
                         true
                     };
+                    spam.last_timestamp = Instant::now();
                     spam.num_occurrences += 1;
                     include
                 } else {
                     // Reset
+                    spam.last_timestamp = Instant::now();
                     spam.num_occurrences = 1;
                     true
                 }
