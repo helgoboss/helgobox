@@ -12,8 +12,9 @@ use tracing_core::{Dispatch, Event, Field, Interest, LevelFilter, Metadata, Subs
 /// A tracing subscriber that introduces special handling for tracing events with a "spam" field: It prevents the
 /// console from being spammed by repeated events of one kind.
 ///
-/// The default behavior is that such an event is logged 1 time only. If the "spam" field has a literal integer value
-/// `n`, the event is logged at a maximum `n` times.
+/// - `spam = false`: Logs as usual, no limits
+/// - `spam = true`: Logs at a maximum one time
+/// - `spam = 5`: Logs at a maximum 5 times
 ///
 /// The counter for each event is reset after a configurable amount of time.
 pub struct SpamFilter<S> {
@@ -25,12 +26,16 @@ pub struct SpamFilter<S> {
 
 struct Spam {
     max_log_count: u32,
-    current_log_count: u32,
+    num_occurrences: u32,
     last_timestamp: Instant,
 }
 
 impl<S> SpamFilter<S> {
     pub fn new(default_max_log_count: u32, reset_after: Duration, subscriber: S) -> Self {
+        assert!(
+            default_max_log_count > 0,
+            "default_max_log_count must be > 0"
+        );
         Self {
             default_max_log_count,
             reset_after,
@@ -47,20 +52,32 @@ impl<S> SpamFilter<S> {
         match map.entry(event.metadata().callsite()) {
             Entry::Occupied(e) => {
                 let spam = e.into_mut();
+                if spam.max_log_count == 0 {
+                    // Special case (allows us to write "spam = 0", which makes sense if 0 comes from a variable)
+                    return true;
+                }
                 spam.last_timestamp = Instant::now();
                 if spam.last_timestamp.elapsed() < self.reset_after {
                     // Not yet reset time
-                    if spam.current_log_count >= spam.max_log_count {
+                    let include = if spam.num_occurrences >= spam.max_log_count {
                         // Threshold exceeded
+                        if spam.num_occurrences == spam.max_log_count {
+                            let payload = event.metadata().name();
+                            tracing::warn!(
+                                "Span {payload} occurred again but will not be logged anymore for {:?}",
+                                self.reset_after
+                            );
+                        }
                         false
                     } else {
                         // Threshold not exceeded yet
-                        spam.current_log_count += 1;
                         true
-                    }
+                    };
+                    spam.num_occurrences += 1;
+                    include
                 } else {
                     // Reset
-                    spam.current_log_count = 1;
+                    spam.num_occurrences = 1;
                     true
                 }
             }
@@ -71,7 +88,7 @@ impl<S> SpamFilter<S> {
                 event.record(&mut max_log_count_extractor);
                 let initial = Spam {
                     max_log_count: max_log_count_extractor.max_log_count,
-                    current_log_count: 1,
+                    num_occurrences: 1,
                     last_timestamp: Instant::now(),
                 };
                 e.insert(initial);
@@ -152,10 +169,17 @@ impl<S: Subscriber> Subscriber for SpamFilter<S> {
 struct MaxLogCountExtractor {
     max_log_count: u32,
 }
+
 impl field::Visit for MaxLogCountExtractor {
     fn record_i64(&mut self, field: &Field, value: i64) {
         if field.name() == "spam" {
             self.max_log_count = value as u32;
+        }
+    }
+
+    fn record_bool(&mut self, field: &Field, value: bool) {
+        if field.name() == "spam" {
+            self.max_log_count = value.into();
         }
     }
 
