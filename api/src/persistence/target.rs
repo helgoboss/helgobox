@@ -1409,6 +1409,14 @@ pub enum PlaytimeSlotTransportAction {
     /// - If slot recording, has no effect or stops recording.
     #[display(fmt = "Record/play/stop")]
     RecordPlayStop,
+    /// Starts or stops overdubbing.
+    ///
+    /// - If slot is stopped, starts playing and overdubbing.
+    /// - If slot is playing, continues playing and starts overdubbing.
+    /// - If slot is overdubbing or recording, continues playing and stops overdubbing.
+    /// - If slot empty or not MIDI, does nothing.
+    #[display(fmt = "Overdub/play")]
+    OverdubPlay,
     /// Changes the loop setting.
     ///
     /// - If slot is filled, sets looped on or off.

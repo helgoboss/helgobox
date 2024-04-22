@@ -114,6 +114,7 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
+    use playtime_clip_engine::base::ClipAddress;
     use playtime_clip_engine::rt::{ClipPlayState, TriggerSlotMainOptions};
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::{
@@ -249,6 +250,15 @@ mod playtime_impl {
                         matrix.set_slot_looped(self.basics.slot_address, value.is_on())?;
                         HitResponse::processed_with_effect()
                     }
+                    OverdubPlay => {
+                        if value.is_on() {
+                            matrix
+                                .midi_overdub_clip(ClipAddress::new(self.basics.slot_address, 0))?;
+                        } else {
+                            matrix.stop_slot(self.basics.slot_address)?;
+                        }
+                        HitResponse::processed_with_effect()
+                    }
                 };
                 Ok(response)
             })?
@@ -304,7 +314,7 @@ mod playtime_impl {
                     match event {
                         SlotChangeEvent::PlayState(new_state) => match self.basics.action {
                             Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
-                            | RecordPlayStop => {
+                            | RecordPlayStop | OverdubPlay => {
                                 tracing::debug!(
                                     "Changed play state of {} to {new_state:?}",
                                     self.basics.slot_address
@@ -353,7 +363,10 @@ mod playtime_impl {
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
             use PlaytimeSlotTransportAction::*;
-            if matches!(self.basics.action, RecordStop | RecordPlayStop | Looped) {
+            if matches!(
+                self.basics.action,
+                RecordStop | RecordPlayStop | OverdubPlay | Looped
+            ) {
                 // These are not for real-time usage.
                 return None;
             }
@@ -401,7 +414,7 @@ mod playtime_impl {
                     use PlaytimeSlotTransportAction::*;
                     let val = match self.basics.action {
                         Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop
-                        | RecordPlayStop => {
+                        | RecordPlayStop | OverdubPlay => {
                             let play_state = self.clip_play_state(matrix)?;
                             tracing::trace!(
                                 "Current play state of {}: {play_state:?}",
@@ -428,7 +441,7 @@ mod playtime_impl {
 
     impl RealTimePlaytimeSlotTransportTarget {
         /// This returns `Ok(true)` if the event should still be forwarded to the main thread because there's still
-        /// something to do but it can only be done in the main thread (e.g. when triggering in order to possibly
+        /// something to do, but it can only be done in the main thread (e.g. when triggering in order to possibly
         /// record when slot empty or to activate the slot).
         pub fn hit(
             &mut self,
@@ -497,7 +510,9 @@ mod playtime_impl {
                     // Completely handled in real-time, no need to forward to main thread
                     Ok(false)
                 }
-                RecordStop | RecordPlayStop => Err("record not supported for real-time target"),
+                RecordStop | RecordPlayStop | OverdubPlay => {
+                    Err("record not supported for real-time target")
+                }
                 Looped => Err("setting looped not supported for real-time target"),
             }
         }
@@ -517,7 +532,8 @@ mod playtime_impl {
                 return Some(AbsoluteValue::Continuous(UnitValue::MIN));
             };
             let val = match self.basics.action {
-                Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop => {
+                Trigger | PlayStop | PlayPause | Stop | Pause | RecordStop | RecordPlayStop
+                | OverdubPlay => {
                     clip_play_state_unit_value(self.basics.action, first_clip.play_state())
                 }
                 Looped => return None,
@@ -551,7 +567,7 @@ mod playtime_impl {
                 TargetCharacter::Continuous,
             ),
             // Retriggerable because we want to be able to retrigger play!
-            PlayStop | PlayPause | RecordPlayStop => (
+            PlayStop | PlayPause | RecordPlayStop | OverdubPlay => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Switch,
             ),

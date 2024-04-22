@@ -58,7 +58,9 @@ pub(crate) fn clip_play_state_unit_value(
             ClipPlayState::Stopped | ClipPlayState::Ignited
         )),
         Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
-        RecordStop => transport_is_enabled_unit_value(play_state.is_as_good_as_recording()),
+        RecordStop | OverdubPlay => {
+            transport_is_enabled_unit_value(play_state.is_as_good_as_recording())
+        }
         Looped => panic!("wrong argument"),
     }
 }
