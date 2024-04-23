@@ -719,9 +719,13 @@ mod playtime_impl {
                     ChangeEvent::TrackSelectedChanged(e) => {
                         column_track_update(matrix, &e.track, || Update::selected(e.new_value))
                     }
-                    ChangeEvent::MasterTempoChanged(e) => Some(R::Matrix(
-                        occasional_matrix_update::Update::tempo(e.new_value),
-                    )),
+                    ChangeEvent::MasterTempoChanged(_) => {
+                        // It's important not to take the given tempo value because REAPER doesn't really support
+                        // project-specific tempo notifications. The change could come from any project. We query
+                        // our matrix explicitly (and it might just as well turn out that the tempo for that matrix
+                        // hasn't changed at all, but that's okay).
+                        Some(R::Matrix(occasional_matrix_update::Update::tempo(matrix)))
+                    }
                     _ => None,
                 };
                 if let Some(update) = update {

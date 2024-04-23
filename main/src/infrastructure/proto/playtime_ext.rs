@@ -10,8 +10,10 @@ use playtime_clip_engine::base::{
 use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
-use playtime_clip_engine::{base, clip_timeline, global_steady_timeline, ClipEngine, Timeline};
-use reaper_high::Project;
+use playtime_clip_engine::{
+    base, clip_timeline, ClipEngine, SteadyProjectTimelineHandle, Timeline, GLOBAL_AUDIO_STATE,
+};
+use reaper_high::{Project, Reaper};
 use reaper_medium::{Bpm, Db, MidiInputDeviceId, ReaperPanValue, RecordingInput, RgbColor};
 use std::num::NonZeroU32;
 
@@ -34,15 +36,17 @@ impl occasional_playtime_engine_update::Update {
     }
 
     pub fn engine_stats() -> Self {
-        let pre_buffer_stat =
-            global_steady_timeline().last_pre_buffered_blocks_of_playing_clips_stat();
-        let stats = PlaytimeEngineStats {
-            min_buffered_blocks: pre_buffer_stat.min as _,
-            avg_buffered_blocks: pre_buffer_stat.avg as _,
-            max_buffered_blocks: pre_buffer_stat.max as _,
-            future_size_in_blocks: global_steady_timeline().tempo_buffer_future_size() as _,
-        };
-        Self::EngineStats(stats)
+        let project = Reaper::get().current_project();
+        SteadyProjectTimelineHandle::new(project).with_timeline(|timeline| {
+            let pre_buffer_stat = timeline.last_pre_buffered_blocks_of_playing_clips_stat();
+            let stats = PlaytimeEngineStats {
+                min_buffered_blocks: pre_buffer_stat.min as _,
+                avg_buffered_blocks: pre_buffer_stat.avg as _,
+                max_buffered_blocks: pre_buffer_stat.max as _,
+                future_size_in_blocks: timeline.tempo_buffer_future_size() as _,
+            };
+            Self::EngineStats(stats)
+        })
     }
 
     pub fn playtime_license_state() -> Self {
@@ -93,8 +97,8 @@ impl occasional_matrix_update::Update {
         Self::Mute(mute)
     }
 
-    pub fn tempo(bpm: Bpm) -> Self {
-        Self::Tempo(bpm.get())
+    pub fn tempo(matrix: &Matrix) -> Self {
+        Self::Tempo(matrix.tempo().get())
     }
 
     pub fn sequencer_play_state(play_state: base::SequencerStatus) -> Self {
