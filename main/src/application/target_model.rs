@@ -58,6 +58,7 @@ use std::borrow::Cow;
 use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
+use crate::domain::ReaperTargetType::PlaytimeControlUnitScroll;
 use base::hash_util::NonCryptoHashSet;
 use playtime_api::persistence::ColumnAddress;
 use realearn_api::persistence::{
@@ -2525,6 +2526,9 @@ impl TargetModel {
                             axis: self.axis,
                         },
                     ),
+                    PlaytimeBrowseCells => UnresolvedReaperTarget::PlaytimeBrowseCells(
+                        crate::domain::UnresolvedPlaytimeBrowseCellsTarget { axis: self.axis },
+                    ),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
                             compartment,
@@ -3246,7 +3250,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         let action = &self.target.playtime_matrix_action;
                         write!(f, "{tt}\n{action}")
                     }
-                    PlaytimeControlUnitScroll => {
+                    PlaytimeControlUnitScroll | PlaytimeBrowseCells => {
                         let axis = &self.target.axis;
                         write!(f, "{tt}\n{axis}")
                     }

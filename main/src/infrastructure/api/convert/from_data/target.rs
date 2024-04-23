@@ -326,6 +326,12 @@ fn convert_real_target(
                 axis: data.axis,
             },
         ),
+        PlaytimeBrowseCells => {
+            T::PlaytimeBrowseCells(realearn_api::persistence::PlaytimeBrowseCellsTarget {
+                commons,
+                axis: data.axis,
+            })
+        }
         PlaytimeSlotSeek => {
             T::PlaytimeSlotSeek(realearn_api::persistence::PlaytimeSlotSeekTarget {
                 commons,

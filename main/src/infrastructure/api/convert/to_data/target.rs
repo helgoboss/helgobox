@@ -805,6 +805,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             axis: d.axis,
             ..init(d.commons)
         },
+        Target::PlaytimeBrowseCells(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::PlaytimeBrowseCells,
+            axis: d.axis,
+            ..init(d.commons)
+        },
         Target::SendMidi(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SendMidi,

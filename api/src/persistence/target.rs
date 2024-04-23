@@ -147,6 +147,7 @@ pub enum Target {
     #[serde(alias = "ClipMatrixAction")]
     PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(PlaytimeControlUnitScrollTarget),
+    PlaytimeBrowseCells(PlaytimeBrowseCellsTarget),
     #[serde(alias = "ClipSeek")]
     PlaytimeSlotSeek(PlaytimeSlotSeekTarget),
     #[serde(alias = "ClipVolume")]
@@ -874,6 +875,13 @@ pub struct PlaytimeMatrixActionTarget {
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlaytimeControlUnitScrollTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub axis: Axis,
+}
+
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
+pub struct PlaytimeBrowseCellsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub axis: Axis,

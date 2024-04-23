@@ -706,6 +706,7 @@ pub enum ReaperTargetType {
     // Clip matrix
     PlaytimeMatrixAction = 51,
     PlaytimeControlUnitScroll = 64,
+    PlaytimeBrowseCells = 65,
 
     // Misc
     SendMidi = 29,
@@ -836,6 +837,7 @@ impl ReaperTargetType {
             PlaytimeSlotManagementAction => &crate::domain::PLAYTIME_SLOT_MANAGEMENT_TARGET,
             PlaytimeMatrixAction => &crate::domain::PLAYTIME_MATRIX_TARGET,
             PlaytimeControlUnitScroll => &crate::domain::PLAYTIME_CONTROL_UNIT_SCROLL_TARGET,
+            PlaytimeBrowseCells => &crate::domain::PLAYTIME_BROWSE_CELLS_TARGET,
             SendMidi => &MIDI_SEND_TARGET,
             SendOsc => &OSC_SEND_TARGET,
             Dummy => &DUMMY_TARGET,

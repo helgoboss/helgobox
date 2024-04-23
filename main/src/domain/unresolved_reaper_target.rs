@@ -104,6 +104,7 @@ pub enum UnresolvedReaperTarget {
     PlaytimeSlotManagementAction(crate::domain::UnresolvedPlaytimeSlotManagementActionTarget),
     PlaytimeMatrixAction(crate::domain::UnresolvedPlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(crate::domain::UnresolvedPlaytimeControlUnitScrollTarget),
+    PlaytimeBrowseCells(crate::domain::UnresolvedPlaytimeBrowseCellsTarget),
     LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
     TakeMappingSnapshot(UnresolvedTakeMappingSnapshotTarget),
     EnableMappings(UnresolvedEnableMappingsTarget),

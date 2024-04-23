@@ -900,7 +900,10 @@ impl TargetModelData {
         model.change(C::SetPlaytimeMatrixAction(self.clip_matrix_action));
         model.change(C::SetStopColumnIfSlotEmpty(self.stop_column_if_slot_empty));
         if self.category == TargetCategory::Reaper
-            && self.r#type == ReaperTargetType::PlaytimeControlUnitScroll
+            && matches!(
+                self.r#type,
+                ReaperTargetType::PlaytimeControlUnitScroll | ReaperTargetType::PlaytimeBrowseCells
+            )
         {
             // We set this only when we actually have the control unit scroll target. Because
             // the axis model property is also used for other things.

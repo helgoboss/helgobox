@@ -30,8 +30,12 @@ pub use playtime_slot_volume_target::*;
 
 mod playtime_slot_management_action_target;
 pub use playtime_slot_management_action_target::*;
+
 mod playtime_control_unit_scroll_target;
 pub use playtime_control_unit_scroll_target::*;
+
+mod playtime_browse_cells_target;
+pub use playtime_browse_cells_target::*;
 
 mod track_peak_target;
 pub use track_peak_target::*;

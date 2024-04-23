@@ -24,6 +24,7 @@ use helgoboss_learn::{
 use realearn_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
+use crate::domain::ReaperTargetType::PlaytimeBrowseCells;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
     AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,
@@ -142,6 +143,7 @@ pub enum ReaperTarget {
     Dummy(DummyTarget),
     PlaytimeMatrixAction(PlaytimeMatrixActionTarget),
     PlaytimeControlUnitScroll(crate::domain::PlaytimeControlUnitScrollTarget),
+    PlaytimeBrowseCells(crate::domain::PlaytimeBrowseCellsTarget),
     PlaytimeSlotTransportAction(PlaytimeSlotTransportTarget),
     PlaytimeColumnAction(PlaytimeColumnActionTarget),
     PlaytimeRowAction(PlaytimeRowActionTarget),
@@ -674,6 +676,7 @@ impl<'a> Target<'a> for ReaperTarget {
             PlaytimeSlotManagementAction(t) => t.current_value(context),
             PlaytimeMatrixAction(t) => t.current_value(context),
             PlaytimeControlUnitScroll(t) => t.current_value(context),
+            PlaytimeBrowseCells(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             TakeMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
