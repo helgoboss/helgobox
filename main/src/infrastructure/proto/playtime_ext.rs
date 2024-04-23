@@ -226,7 +226,7 @@ impl TimeSignature {
     }
 
     pub fn from_engine(project: Project) -> Self {
-        let timeline = clip_timeline(Some(project), true);
+        let timeline = clip_timeline(project, true);
         let time_signature = timeline.time_signature_at(timeline.cursor_pos());
         TimeSignature {
             numerator: time_signature.numerator.get(),

@@ -1,6 +1,7 @@
 use crate::domain::{
     AnyThreadBackboneState, Backbone, CompartmentKind, ProcessorContext, RealTimeInstance, UnitId,
 };
+use anyhow::Context;
 use base::hash_util::NonCryptoHashMap;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use fragile::Fragile;
@@ -9,7 +10,7 @@ use pot::{
     SharedRuntimePotUnit,
 };
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::{ChangeEvent, Fx};
+use reaper_high::{ChangeEvent, Fx, OrCurrentProject};
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::num::ParseIntError;
@@ -215,7 +216,8 @@ impl Instance {
         let Some(matrix) = self.playtime.clip_matrix.as_mut() else {
             return vec![];
         };
-        let events = matrix.poll(self.processor_context.project());
+        let project = self.processor_context.project().or_current_project();
+        let events = matrix.poll(project);
         self.handler
             .clip_matrix_changed(self.id, matrix, &events, true);
         events
@@ -340,13 +342,9 @@ impl Instance {
         if self.playtime.clip_matrix.is_some() {
             return Ok(false);
         }
-        if self.processor_context.is_on_monitoring_fx_chain() {
-            anyhow::bail!("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.");
-        }
-        let matrix = playtime_clip_engine::base::Matrix::new(
-            create_handler(self),
-            self.processor_context.track().cloned(),
-        );
+        let track = self.processor_context.track()
+            .context("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.")?;
+        let matrix = playtime_clip_engine::base::Matrix::new(create_handler(self), track.clone());
         self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()));
         self.set_clip_matrix(Some(matrix));
         self.playtime

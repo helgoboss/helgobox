@@ -521,7 +521,7 @@ impl PlaytimeProtoRequestHandler {
         self.handle_matrix_command(req.matrix_id, |matrix| {
             match kind {
                 MatrixVolumeKind::Master => {
-                    let project = matrix.permanent_project().or_current_project();
+                    let project = matrix.project();
                     project.master_track()?.set_volume(
                         db.to_linear_volume_value(),
                         GangBehavior::DenyGang,
@@ -543,7 +543,7 @@ impl PlaytimeProtoRequestHandler {
         let pan = ReaperPanValue::try_from(req.pan)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(req.matrix_id, |matrix| {
-            let project = matrix.permanent_project().or_current_project();
+            let project = matrix.project();
             project.master_track()?.set_pan(
                 Pan::from_reaper_value(pan),
                 GangBehavior::DenyGang,
@@ -623,7 +623,7 @@ impl PlaytimeProtoRequestHandler {
         let peak_file_future =
             self.handle_clip_internal(&req.clip_address, |matrix, clip_address| {
                 let clip = matrix.get_clip(clip_address)?;
-                let peak_file_future = clip.peak_file_contents(matrix.permanent_project())?;
+                let peak_file_future = clip.peak_file_contents(matrix.project())?;
                 Ok(peak_file_future)
             })?;
         let reply = GetClipDetailReply {
@@ -646,7 +646,7 @@ impl PlaytimeProtoRequestHandler {
         req: GetProjectDirRequest,
     ) -> Result<Response<GetProjectDirReply>, Status> {
         let project_dir = self.handle_matrix_internal(req.matrix_id, |matrix| {
-            let project = matrix.temporary_project();
+            let project = matrix.project();
             let project_dir = project
                 .directory()
                 .unwrap_or_else(|| project.recording_path());
@@ -803,7 +803,7 @@ impl PlaytimeProtoRequestHandler {
         self.handle_matrix_internal(track_address.matrix_id, |matrix| {
             let guid = Guid::from_string_without_braces(&track_address.track_id)
                 .map_err(anyhow::Error::msg)?;
-            let track = matrix.temporary_project().track_by_guid(&guid)?;
+            let track = matrix.project().track_by_guid(&guid)?;
             handler(matrix, track)
         })
     }

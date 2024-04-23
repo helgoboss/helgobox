@@ -285,8 +285,8 @@ mod playtime_impl {
             matrix: &Matrix,
             events: &[ClipMatrixEvent],
             is_poll: bool,
-            project: Option<Project>,
         ) {
+            let project = matrix.project();
             self.send_occasional_matrix_updates_caused_by_matrix(matrix_id, matrix, events);
             self.send_occasional_track_updates_caused_by_matrix(matrix_id, events);
             self.send_occasional_column_updates(matrix_id, matrix, events);
@@ -350,7 +350,7 @@ mod playtime_impl {
                     }),
                     ClipMatrixEvent::TimeSignatureChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::time_signature(
-                            matrix.temporary_project(),
+                            matrix.project(),
                         )),
                     }),
                     ClipMatrixEvent::SequencerPlayStateChanged => Some(OccasionalMatrixUpdate {
@@ -654,8 +654,7 @@ mod playtime_impl {
                 )
             });
             if track_list_might_have_changed {
-                let update =
-                    occasional_matrix_update::Update::track_list(matrix.temporary_project());
+                let update = occasional_matrix_update::Update::track_list(matrix.project());
                 let _ = matrix_update_sender.send(OccasionalMatrixUpdateBatch {
                     instance_id: matrix_id,
                     value: vec![OccasionalMatrixUpdate {
@@ -775,7 +774,7 @@ mod playtime_impl {
             }
         }
 
-        fn send_continuous_matrix_updates(&self, matrix_id: InstanceId, project: Option<Project>) {
+        fn send_continuous_matrix_updates(&self, matrix_id: InstanceId, project: Project) {
             let sender = &self.senders.continuous_matrix_update_sender;
             if sender.receiver_count() == 0 {
                 return;
@@ -798,7 +797,6 @@ mod playtime_impl {
                     bar: (next_bar.position() - 1) as i32,
                     beat: full_beats.get(),
                     peaks: project
-                        .or_current_project()
                         .master_track()
                         .map(|t| get_track_peaks(&t))
                         .unwrap_or_default(),

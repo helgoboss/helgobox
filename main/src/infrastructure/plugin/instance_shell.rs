@@ -81,7 +81,6 @@ impl InstanceHandler for CustomInstanceHandler {
             matrix,
             events,
             is_poll,
-            self.project,
         );
     }
 

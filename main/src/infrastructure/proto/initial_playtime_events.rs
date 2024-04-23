@@ -33,7 +33,7 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
     let Some(matrix) = matrix else {
         return create(iter::once(Update::MatrixExists(false)));
     };
-    let project = matrix.permanent_project().or_current_project();
+    let project = matrix.project();
     let master_track = project.master_track().expect("project gone");
     let updates = [
         Update::MatrixExists(true),
