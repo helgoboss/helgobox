@@ -18,9 +18,11 @@ pub type SharedAppInstance = Rc<RefCell<dyn AppInstance>>;
 pub trait AppInstance: Debug {
     fn is_running(&self) -> bool;
 
+    fn has_focus(&self) -> bool;
+
     fn is_visible(&self) -> bool;
 
-    fn start_or_show(&mut self, owning_window: Window, location: String) -> Result<()>;
+    fn start_or_show(&mut self, owning_window: Window, location: Option<String>) -> Result<()>;
 
     fn hide(&mut self) -> Result<()>;
 
@@ -93,11 +95,15 @@ impl AppInstance for DummyAppInstance {
         false
     }
 
+    fn has_focus(&self) -> bool {
+        false
+    }
+
     fn is_visible(&self) -> bool {
         false
     }
 
-    fn start_or_show(&mut self, _owning_window: Window, _location: String) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, _location: Option<String>) -> Result<()> {
         bail!("not implemented for Linux")
     }
 
@@ -144,6 +150,13 @@ impl AppInstance for StandaloneAppInstance {
         self.running_state.is_some()
     }
 
+    fn has_focus(&self) -> bool {
+        match &self.running_state {
+            None => false,
+            Some(state) => state.common_state.has_focus(),
+        }
+    }
+
     fn is_visible(&self) -> bool {
         match &self.running_state {
             None => false,
@@ -151,27 +164,30 @@ impl AppInstance for StandaloneAppInstance {
         }
     }
 
-    fn start_or_show(&mut self, _owning_window: Window, location: String) -> Result<()> {
+    fn start_or_show(&mut self, _owning_window: Window, location: Option<String>) -> Result<()> {
         let app_library = BackboneShell::get_app_library()?;
         if let Some(running_state) = &self.running_state {
             app_library.show_app_instance(None, running_state.common_state.app_handle)?;
-            // Hmmm, yeah ...
-            let _ = self.send(&Reply {
-                value: Some(reply::Value::EventReply(EventReply {
-                    value: Some(event_reply::Value::OccasionalGlobalUpdatesReply(
-                        GetOccasionalGlobalUpdatesReply {
-                            global_updates: vec![OccasionalGlobalUpdate {
-                                update: Some(occasional_global_update::Update::GoToLocation(
-                                    location,
-                                )),
-                            }],
-                        },
-                    )),
-                })),
-            });
+            if let Some(location) = location {
+                // Hmmm, yeah ...
+                let _ = self.send(&Reply {
+                    value: Some(reply::Value::EventReply(EventReply {
+                        value: Some(event_reply::Value::OccasionalGlobalUpdatesReply(
+                            GetOccasionalGlobalUpdatesReply {
+                                global_updates: vec![OccasionalGlobalUpdate {
+                                    update: Some(occasional_global_update::Update::GoToLocation(
+                                        location,
+                                    )),
+                                }],
+                            },
+                        )),
+                    })),
+                });
+            }
             return Ok(());
         }
-        let app_handle = app_library.start_app_instance(None, self.instance_id, location)?;
+        let start_location = location.unwrap_or_else(|| "/".to_string());
+        let app_handle = app_library.start_app_instance(None, self.instance_id, start_location)?;
         let running_state = StandaloneAppRunningState {
             common_state: CommonAppRunningState {
                 app_handle,
@@ -249,6 +265,15 @@ impl CommonAppRunningState {
         };
         app_library
             .app_instance_is_visible(self.app_handle)
+            .unwrap_or(false)
+    }
+
+    pub fn has_focus(&self) -> bool {
+        let Ok(app_library) = BackboneShell::get_app_library() else {
+            return false;
+        };
+        app_library
+            .app_instance_has_focus(self.app_handle)
             .unwrap_or(false)
     }
 

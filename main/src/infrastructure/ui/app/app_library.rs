@@ -22,7 +22,7 @@ use std::env;
 use std::ffi::{c_char, c_uint, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null, null_mut, NonNull};
 use swell_ui::Window;
 use tonic::Status;
 
@@ -191,6 +191,17 @@ impl AppLibrary {
         Ok(visible)
     }
 
+    pub fn app_instance_has_focus(&self, app_handle: AppHandle) -> Result<bool> {
+        let visible = unsafe {
+            let app_instance_has_focus: Symbol<AppInstanceHasFocus> = self
+                .main_library
+                .get(b"app_instance_has_focus\0")
+                .map_err(|_| anyhow!("failed to load app_instance_has_focus function"))?;
+            app_instance_has_focus(app_handle)
+        };
+        Ok(visible)
+    }
+
     pub fn stop_app_instance(
         &self,
         parent_window: Option<Window>,
@@ -300,6 +311,9 @@ type ShowAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: App
 
 /// Signature of the function that we use to hide an app instance.
 type HideAppInstance = unsafe extern "C" fn(app_handle: AppHandle);
+
+/// Signature of the function that we use to check whether an app instance has focus.
+type AppInstanceHasFocus = unsafe extern "C" fn(app_handle: AppHandle) -> bool;
 
 /// Signature of the function that we use to check whether an app instance is visible.
 type AppInstanceIsVisible = unsafe extern "C" fn(app_handle: AppHandle) -> bool;

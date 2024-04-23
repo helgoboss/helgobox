@@ -68,7 +68,8 @@ use realearn_api::persistence::{
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
+    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, OrCurrentProject, Project, Reaper,
+    Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
@@ -85,6 +86,7 @@ use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::ffi::c_int;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
@@ -1664,6 +1666,47 @@ impl BackboneShell {
             Some(t) => t,
         };
         BackboneShell::get().start_learning_source_for_target(CompartmentKind::Main, target);
+    }
+
+    pub fn toggle_app_focus() {
+        let _ = Self::get().toggle_app_focus_internal();
+    }
+
+    fn toggle_app_focus_internal(&self) -> anyhow::Result<()> {
+        let project = Reaper::get().current_project();
+        let instance_id = self
+            .find_first_helgobox_instance_in_project(project)
+            .context("no Helgobox instance")?;
+        let instance_panel = self
+            .find_instance_panel_by_instance_id(instance_id)
+            .context("instance panel not found")?;
+        instance_panel.toggle_app_instance_focus();
+        Ok(())
+    }
+
+    pub fn find_first_helgobox_instance_in_project(&self, project: Project) -> Option<InstanceId> {
+        self.find_first_helgobox_instance_matching(|instance| {
+            instance
+                .processor_context
+                .project()
+                .is_some_and(|p| p == project)
+        })
+    }
+
+    pub fn find_first_playtime_helgobox_instance_in_project(
+        &self,
+        project: Project,
+    ) -> Option<InstanceId> {
+        self.find_first_helgobox_instance_matching(|info| {
+            if info.processor_context.project() != Some(project) {
+                return false;
+            }
+            let Some(instance) = info.instance.upgrade() else {
+                return false;
+            };
+            let instance_state = instance.borrow();
+            instance_state.has_clip_matrix()
+        })
     }
 
     pub fn show_hide_playtime() {

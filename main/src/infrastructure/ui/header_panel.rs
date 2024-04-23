@@ -2256,12 +2256,11 @@ impl HeaderPanel {
     fn show_projection_in_app(&self) {
         let unit_id = self.session().borrow().unit_id();
         self.instance_panel()
-            .start_or_show_app_instance(format!("/projection/{unit_id}"));
+            .start_or_show_app_instance(Some(format!("/projection/{unit_id}")));
     }
 
     fn show_app(&self) {
-        self.instance_panel()
-            .start_or_show_app_instance("/".to_string());
+        self.instance_panel().start_or_show_app_instance(None);
     }
 
     fn close_app(&self) {

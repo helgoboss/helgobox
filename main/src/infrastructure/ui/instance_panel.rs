@@ -50,7 +50,16 @@ impl InstancePanel {
         &self.app_instance
     }
 
-    pub fn start_or_show_app_instance(&self, location: String) {
+    pub fn toggle_app_instance_focus(&self) {
+        let mut app_instance = self.app_instance.borrow_mut();
+        if app_instance.has_focus() {
+            reaper_main_window().focus();
+        } else {
+            let _ = app_instance.start_or_show(reaper_main_window(), None);
+        }
+    }
+
+    pub fn start_or_show_app_instance(&self, location: Option<String>) {
         let result = self
             .app_instance
             .borrow_mut()
@@ -58,7 +67,7 @@ impl InstancePanel {
         crate::base::notification::notify_user_on_anyhow_error(result);
     }
 
-    pub fn start_show_or_hide_app_instance(&self, location: String) {
+    pub fn start_show_or_hide_app_instance(&self, location: Option<String>) {
         if self.app_instance.borrow_mut().is_visible() {
             self.hide_app_instance();
         } else {

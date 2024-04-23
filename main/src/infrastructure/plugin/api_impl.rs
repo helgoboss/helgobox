@@ -36,16 +36,7 @@ fn find_first_playtime_helgobox_instance_in_project(
         .map(Project::new)
         .or_current_project();
     let instance_id = BackboneShell::get()
-        .find_first_helgobox_instance_matching(|info| {
-            if info.processor_context.project() != Some(project) {
-                return false;
-            }
-            let Some(instance) = info.instance.upgrade() else {
-                return false;
-            };
-            let instance_state = instance.borrow();
-            instance_state.has_clip_matrix()
-        })
+        .find_first_playtime_helgobox_instance_in_project(project)
         .context("Project doesn't contain Helgobox instance with a Playtime Clip Matrix")?;
     Ok(u32::from(instance_id) as _)
 }
@@ -55,12 +46,7 @@ fn find_first_helgobox_instance_in_project(project: *mut ReaProject) -> anyhow::
         .map(Project::new)
         .or_current_project();
     let instance_id = BackboneShell::get()
-        .find_first_helgobox_instance_matching(|instance| {
-            instance
-                .processor_context
-                .project()
-                .is_some_and(|p| p == project)
-        })
+        .find_first_helgobox_instance_in_project(project)
         .context("Project doesn't contain Helgobox instance")?;
     Ok(u32::from(instance_id) as _)
 }
@@ -76,10 +62,10 @@ fn create_clip_matrix(instance_id: c_int) -> anyhow::Result<()> {
 
 fn show_or_hide_playtime(instance_id: c_int) -> anyhow::Result<()> {
     let instance_id = u32::try_from(instance_id)?;
-    let main_panel = BackboneShell::get()
+    let instance_panel = BackboneShell::get()
         .find_instance_panel_by_instance_id(instance_id.into())
         .context("Instance not found")?;
-    main_panel.start_show_or_hide_app_instance("/playtime".to_string());
+    instance_panel.start_show_or_hide_app_instance(Some("/playtime".to_string()));
     Ok(())
 }
 

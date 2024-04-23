@@ -7,6 +7,7 @@ use reaper_medium::{AcceleratorBehavior, AcceleratorKeyCode};
 use swell_ui::menu_tree::{item, menu, Entry};
 
 pub const ACTION_SHOW_HIDE_PLAYTIME_COMMAND_NAME: &str = "HB_SHOW_HIDE_PLAYTIME";
+pub const ACTION_TOGGLE_APP_FOCUS_COMMAND_NAME: &str = "HB_TOGGLE_APP_FOCUS";
 pub const ACTION_SHOW_WELCOME_SCREEN_LABEL: &str = "Show welcome screen";
 
 pub const ACTION_DEFS: &[ActionDef] = &[
@@ -93,6 +94,18 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         default_key_binding: Some(KeyBinding {
             behavior: make_bitflags!(AcceleratorBehavior::{Shift | Control | VirtKey}),
             key_code: AcceleratorKeyCode::new(b'P' as _),
+            kind: KeyBindingKind::GlobalText,
+        }),
+        ..DEFAULT_DEF
+    },
+    ActionDef {
+        section: ActionSection::General,
+        command_name: ACTION_TOGGLE_APP_FOCUS_COMMAND_NAME,
+        action_name: "Toggle app focus",
+        op: BackboneShell::toggle_app_focus,
+        default_key_binding: Some(KeyBinding {
+            behavior: make_bitflags!(AcceleratorBehavior::{Shift | Control | VirtKey}),
+            key_code: AcceleratorKeyCode::new(b'H' as _),
             kind: KeyBindingKind::GlobalText,
         }),
         ..DEFAULT_DEF
