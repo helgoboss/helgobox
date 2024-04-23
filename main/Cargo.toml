@@ -218,7 +218,7 @@ tts = { git = "https://github.com/helgoboss/tts-rs", branch = "helgoboss-fixes" 
 # For detecting the Windows version (to determine whether special characters can be displayed)
 sys-info = "0.9.1"
 # For converting virtual umlaut/special keys into character codes (keyboard source)
-winapi.workspace = true
+winapi = { workspace = true, features = ["winuser"] }
 
 
 [build-dependencies]
