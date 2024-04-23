@@ -467,6 +467,7 @@ impl InstanceShell {
                 #[cfg(not(feature = "playtime"))]
                 None
             },
+            custom_data: instance.custom_data().clone(),
         }
     }
 
@@ -516,6 +517,10 @@ impl InstanceShell {
         instance
             .borrow_mut()
             .restore_pot_unit(instance_data.pot_state.clone());
+        // Custom data
+        instance
+            .borrow_mut()
+            .set_custom_data(instance_data.custom_data);
         // Clip matrix
         #[cfg(feature = "playtime")]
         {

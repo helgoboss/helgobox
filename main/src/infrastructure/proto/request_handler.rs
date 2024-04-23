@@ -3,19 +3,20 @@ use crate::infrastructure::proto::{
     AddLicenseRequest, Compartment, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
     DragRowRequest, DragSlotRequest, Empty, FullCompartmentId, GetAppSettingsReply,
     GetAppSettingsRequest, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
-    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest, GetHostInfoReply,
-    GetHostInfoRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
+    GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
+    GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
+    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
     SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
-    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetPlaytimeEngineSettingsRequest, SetRowDataRequest, SetSequenceInfoRequest,
-    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
-    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
-    TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest, TriggerInstanceAction,
-    TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSequenceRequest,
-    TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
+    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
+    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
+    TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest,
+    TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest,
+    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
 };
 use anyhow::Context;
 use base::spawn_in_main_thread;
@@ -565,7 +566,7 @@ impl ProtoRequestHandler {
         Ok(Response::new(Empty {}))
     }
 
-    pub async fn get_compartment_data(
+    pub fn get_compartment_data(
         &self,
         request: GetCompartmentDataRequest,
     ) -> Result<Response<GetCompartmentDataReply>, Status> {
@@ -606,6 +607,36 @@ impl ProtoRequestHandler {
                 Ok(Response::new(Empty {}))
             },
         )
+    }
+
+    pub fn get_custom_instance_data(
+        &self,
+        request: GetCustomInstanceDataRequest,
+    ) -> Result<Response<GetCustomInstanceDataReply>, Status> {
+        self.handle_instance_command_internal(request.instance_id, |instance| {
+            let instance = instance.instance().borrow();
+            let data = instance.custom_data().get(&request.custom_key);
+            let reply = GetCustomInstanceDataReply {
+                data: if let Some(d) = data {
+                    Some(serde_json::to_string(d)?)
+                } else {
+                    None
+                },
+            };
+            Ok(Response::new(reply))
+        })
+    }
+
+    pub fn set_custom_instance_data(
+        &self,
+        request: SetCustomInstanceDataRequest,
+    ) -> Result<Response<Empty>, Status> {
+        self.handle_instance_command(request.instance_id, |instance| {
+            let mut instance = instance.instance().borrow_mut();
+            let value = serde_json::from_str(&request.custom_data)?;
+            instance.update_custom_data_key(request.custom_key, value);
+            Ok(())
+        })
     }
 
     pub async fn get_host_info(

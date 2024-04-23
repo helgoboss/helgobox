@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 50, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49"
+        tags = "1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 50, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -147,6 +147,8 @@ pub mod command_request {
         SetAppSettings(super::SetAppSettingsRequest),
         #[prost(message, tag = "44")]
         SaveCustomCompartmentData(super::SaveCustomCompartmentDataRequest),
+        #[prost(message, tag = "51")]
+        SetCustomInstanceData(super::SetCustomInstanceDataRequest),
         #[prost(message, tag = "45")]
         GetOccasionalUnitUpdates(super::GetOccasionalUnitUpdatesRequest),
         #[prost(message, tag = "46")]
@@ -179,7 +181,7 @@ pub struct QueryRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Query {
-    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "query::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8")]
     pub value: ::core::option::Option<query::Value>,
 }
 /// Nested message and enum types in `Query`.
@@ -201,6 +203,8 @@ pub mod query {
         GetAppSettings(super::GetAppSettingsRequest),
         #[prost(message, tag = "7")]
         GetCompartmentData(super::GetCompartmentDataRequest),
+        #[prost(message, tag = "8")]
+        GetCustomInstanceData(super::GetCustomInstanceDataRequest),
     }
 }
 /// Envelope for query results.
@@ -221,7 +225,7 @@ pub struct QueryReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResult {
-    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8")]
+    #[prost(oneof = "query_result::Value", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub value: ::core::option::Option<query_result::Value>,
 }
 /// Nested message and enum types in `QueryResult`.
@@ -245,6 +249,8 @@ pub mod query_result {
         GetAppSettingsReply(super::GetAppSettingsReply),
         #[prost(message, tag = "8")]
         GetCompartmentDataReply(super::GetCompartmentDataReply),
+        #[prost(message, tag = "9")]
+        GetCustomInstanceDataReply(super::GetCustomInstanceDataReply),
     }
 }
 /// Should contain all possible *event* replies from above service.
@@ -542,6 +548,13 @@ pub struct GetHostInfoReply {
 pub struct GetAppSettingsRequest {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetCustomInstanceDataReply {
+    /// Custom instance data as JSON
+    #[prost(string, optional, tag = "1")]
+    pub data: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAppSettingsReply {
     /// App settings as JSON
     #[prost(string, optional, tag = "1")]
@@ -646,6 +659,27 @@ pub struct SetInstanceSettingsRequest {
     /// Instance settings as JSON
     #[prost(string, tag = "2")]
     pub settings: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetCustomInstanceDataRequest {
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
+    /// The custom-data key, e.g. "app".
+    #[prost(string, tag = "2")]
+    pub custom_key: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetCustomInstanceDataRequest {
+    #[prost(uint32, tag = "1")]
+    pub instance_id: u32,
+    /// The custom-data key, e.g. "app".
+    #[prost(string, tag = "2")]
+    pub custom_key: ::prost::alloc::string::String,
+    /// Custom instance data as JSON.
+    #[prost(string, tag = "3")]
+    pub custom_data: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2554,6 +2588,14 @@ pub mod helgobox_service_server {
             tonic::Response<super::GetAppSettingsReply>,
             tonic::Status,
         >;
+        /// General instance queries
+        async fn get_custom_instance_data(
+            &self,
+            request: tonic::Request<super::GetCustomInstanceDataRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetCustomInstanceDataReply>,
+            tonic::Status,
+        >;
         /// Playtime matrix queries
         async fn get_project_dir(
             &self,
@@ -2619,6 +2661,10 @@ pub mod helgobox_service_server {
         async fn set_instance_settings(
             &self,
             request: tonic::Request<super::SetInstanceSettingsRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn set_custom_instance_data(
+            &self,
+            request: tonic::Request<super::SetCustomInstanceDataRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Playtime matrix commands
         async fn trigger_matrix(
@@ -3174,6 +3220,56 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetAppSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/GetCustomInstanceData" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetCustomInstanceDataSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::GetCustomInstanceDataRequest>
+                    for GetCustomInstanceDataSvc<T> {
+                        type Response = super::GetCustomInstanceDataReply;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetCustomInstanceDataRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::get_custom_instance_data(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetCustomInstanceDataSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -3752,6 +3848,56 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SetInstanceSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/SetCustomInstanceData" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetCustomInstanceDataSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::SetCustomInstanceDataRequest>
+                    for SetCustomInstanceDataSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetCustomInstanceDataRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::set_custom_instance_data(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SetCustomInstanceDataSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -1,5 +1,9 @@
-use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
+use crate::domain::{
+    AnyThreadBackboneState, Backbone, CompartmentKind, ProcessorContext, RealTimeInstance, UnitId,
+};
+use base::hash_util::NonCryptoHashMap;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
+use fragile::Fragile;
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
     SharedRuntimePotUnit,
@@ -35,6 +39,7 @@ pub struct Instance {
     pub audio_hook_task_sender: base::SenderToRealTimeThread<crate::domain::NormalAudioHookTask>,
     pub real_time_instance_task_sender:
         base::SenderToRealTimeThread<crate::domain::RealTimeInstanceTask>,
+    custom_data: NonCryptoHashMap<String, serde_json::Value>,
     #[cfg(feature = "playtime")]
     pub playtime: PlaytimeInstance,
 }
@@ -150,6 +155,7 @@ impl Instance {
             },
             audio_hook_task_sender,
             real_time_instance_task_sender,
+            custom_data: Default::default(),
         };
         (instance, rt_instance)
     }
@@ -160,6 +166,17 @@ impl Instance {
 
     pub fn main_unit_id(&self) -> UnitId {
         self.main_unit_id
+    }
+
+    pub fn custom_data(&self) -> &NonCryptoHashMap<String, serde_json::Value> {
+        &self.custom_data
+    }
+
+    pub fn set_custom_data(&mut self, data: NonCryptoHashMap<String, serde_json::Value>) {
+        self.custom_data = data;
+    }
+    pub fn update_custom_data_key(&mut self, key: String, value: serde_json::Value) {
+        self.custom_data.insert(key, value);
     }
 
     /// Returns the runtime pot unit associated with this instance.

@@ -10,27 +10,27 @@ use crate::infrastructure::proto::{
     GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetContinuousColumnUpdatesReply, GetContinuousColumnUpdatesRequest,
     GetContinuousMatrixUpdatesReply, GetContinuousMatrixUpdatesRequest,
-    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetOccasionalClipUpdatesReply,
-    GetOccasionalClipUpdatesRequest, GetOccasionalColumnUpdatesReply,
-    GetOccasionalColumnUpdatesRequest, GetOccasionalGlobalUpdatesReply,
-    GetOccasionalGlobalUpdatesRequest, GetOccasionalInstanceUpdatesReply,
-    GetOccasionalInstanceUpdatesRequest, GetOccasionalMatrixUpdatesReply,
-    GetOccasionalMatrixUpdatesRequest, GetOccasionalPlaytimeEngineUpdatesReply,
-    GetOccasionalPlaytimeEngineUpdatesRequest, GetOccasionalRowUpdatesReply,
-    GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply, GetOccasionalSlotUpdatesRequest,
-    GetOccasionalTrackUpdatesReply, GetOccasionalTrackUpdatesRequest,
-    GetOccasionalUnitUpdatesReply, GetOccasionalUnitUpdatesRequest, GetProjectDirReply,
-    GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest, ProtoRequestHandler,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
-    SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetInstanceSettingsRequest, SetMatrixPanRequest, SetMatrixSettingsRequest,
-    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
-    SetPlaytimeEngineSettingsRequest, SetRowDataRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalRequest,
-    TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest, TriggerSlotRequest,
-    TriggerTrackRequest,
+    GetContinuousSlotUpdatesReply, GetContinuousSlotUpdatesRequest, GetCustomInstanceDataReply,
+    GetCustomInstanceDataRequest, GetOccasionalClipUpdatesReply, GetOccasionalClipUpdatesRequest,
+    GetOccasionalColumnUpdatesReply, GetOccasionalColumnUpdatesRequest,
+    GetOccasionalGlobalUpdatesReply, GetOccasionalGlobalUpdatesRequest,
+    GetOccasionalInstanceUpdatesReply, GetOccasionalInstanceUpdatesRequest,
+    GetOccasionalMatrixUpdatesReply, GetOccasionalMatrixUpdatesRequest,
+    GetOccasionalPlaytimeEngineUpdatesReply, GetOccasionalPlaytimeEngineUpdatesRequest,
+    GetOccasionalRowUpdatesReply, GetOccasionalRowUpdatesRequest, GetOccasionalSlotUpdatesReply,
+    GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
+    GetOccasionalTrackUpdatesRequest, GetOccasionalUnitUpdatesReply,
+    GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
+    InsertColumnsRequest, ProtoRequestHandler, ProveAuthenticityReply, ProveAuthenticityRequest,
+    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
+    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
+    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
+    TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
 };
 use base::future_util;
 use futures::{FutureExt, Stream, StreamExt};
@@ -713,7 +713,6 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<GetCompartmentDataReply>, Status> {
         self.command_handler
             .get_compartment_data(request.into_inner())
-            .await
     }
 
     async fn save_custom_compartment_data(
@@ -722,6 +721,22 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Empty>, Status> {
         self.command_handler
             .save_custom_compartment_data(request.into_inner())
+    }
+
+    async fn get_custom_instance_data(
+        &self,
+        request: Request<GetCustomInstanceDataRequest>,
+    ) -> Result<Response<GetCustomInstanceDataReply>, Status> {
+        self.command_handler
+            .get_custom_instance_data(request.into_inner())
+    }
+
+    async fn set_custom_instance_data(
+        &self,
+        request: Request<SetCustomInstanceDataRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .set_custom_instance_data(request.into_inner())
     }
 
     async fn trigger_global(

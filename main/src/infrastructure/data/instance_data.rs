@@ -1,7 +1,9 @@
 use crate::infrastructure::data::{ClipMatrixRefData, UnitData};
 use base::default_util::{deserialize_null_default, is_default};
+use base::hash_util::NonCryptoHashMap;
 use realearn_api::persistence::InstanceSettings;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -34,6 +36,12 @@ pub struct InstanceData {
         skip_serializing_if = "is_default"
     )]
     pub clip_matrix: Option<ClipMatrixRefData>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub custom_data: NonCryptoHashMap<String, serde_json::Value>,
 }
 
 impl Default for InstanceOrUnitData {
@@ -55,6 +63,7 @@ impl InstanceOrUnitData {
                 main_unit: d,
                 additional_units: vec![],
                 settings: Default::default(),
+                custom_data: Default::default(),
             },
         }
     }

@@ -24,6 +24,6 @@ base64 = "0.21.2"
 # For proper error types
 thiserror.workspace = true
 # For date/time persistence
-chrono = { workspace = true, features = ["serde"]}
+chrono = { workspace = true, features = ["serde"] }
 # For better error handling
 anyhow.workspace = true

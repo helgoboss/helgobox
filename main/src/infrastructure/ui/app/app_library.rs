@@ -11,6 +11,7 @@ use base::Global;
 use libloading::{Library, Symbol};
 
 use crate::domain::InstanceId;
+use crate::infrastructure::proto::command_request::Value;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
 use prost::Message;
@@ -426,8 +427,14 @@ fn process_query_request(
         }
         GetCompartmentData(req) => {
             send_query_reply_to_app(instance_id, req_id, async move {
-                let value = handler.get_compartment_data(req).await?.into_inner();
+                let value = handler.get_compartment_data(req)?.into_inner();
                 Ok(query_result::Value::GetCompartmentDataReply(value))
+            });
+        }
+        GetCustomInstanceData(req) => {
+            send_query_reply_to_app(instance_id, req_id, async move {
+                let value = handler.get_custom_instance_data(req)?.into_inner();
+                Ok(query_result::Value::GetCustomInstanceDataReply(value))
             });
         }
     }
@@ -670,6 +677,9 @@ fn process_command(
         }
         InsertColumns(req) => {
             handler.insert_columns(req)?;
+        }
+        SetCustomInstanceData(req) => {
+            handler.set_custom_instance_data(req)?;
         }
     }
     Ok(())
