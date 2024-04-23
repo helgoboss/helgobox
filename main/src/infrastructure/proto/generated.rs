@@ -1623,6 +1623,12 @@ impl MatrixVolumeKind {
 #[repr(i32)]
 pub enum TriggerInstanceAction {
     ShowHelgoboxPlugin = 0,
+    ArrangementTogglePlayStop = 1,
+    ArrangementPlay = 2,
+    ArrangementStop = 3,
+    ArrangementPause = 4,
+    ArrangementStartRecording = 5,
+    ArrangementStopRecording = 6,
 }
 impl TriggerInstanceAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1634,6 +1640,24 @@ impl TriggerInstanceAction {
             TriggerInstanceAction::ShowHelgoboxPlugin => {
                 "TRIGGER_INSTANCE_ACTION_SHOW_HELGOBOX_PLUGIN"
             }
+            TriggerInstanceAction::ArrangementTogglePlayStop => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
+            }
+            TriggerInstanceAction::ArrangementPlay => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_PLAY"
+            }
+            TriggerInstanceAction::ArrangementStop => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_STOP"
+            }
+            TriggerInstanceAction::ArrangementPause => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_PAUSE"
+            }
+            TriggerInstanceAction::ArrangementStartRecording => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_START_RECORDING"
+            }
+            TriggerInstanceAction::ArrangementStopRecording => {
+                "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_STOP_RECORDING"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1641,6 +1665,18 @@ impl TriggerInstanceAction {
         match value {
             "TRIGGER_INSTANCE_ACTION_SHOW_HELGOBOX_PLUGIN" => {
                 Some(Self::ShowHelgoboxPlugin)
+            }
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP" => {
+                Some(Self::ArrangementTogglePlayStop)
+            }
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_PLAY" => Some(Self::ArrangementPlay),
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_STOP" => Some(Self::ArrangementStop),
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_PAUSE" => Some(Self::ArrangementPause),
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_START_RECORDING" => {
+                Some(Self::ArrangementStartRecording)
+            }
+            "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_STOP_RECORDING" => {
+                Some(Self::ArrangementStopRecording)
             }
             _ => None,
         }
@@ -1832,12 +1868,7 @@ impl TriggerMatrixAction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum TriggerGlobalAction {
-    ArrangementTogglePlayStop = 0,
-    ArrangementPlay = 2,
-    ArrangementStop = 3,
-    ArrangementPause = 4,
-    ArrangementStartRecording = 5,
-    ArrangementStopRecording = 6,
+    Placeholder = 0,
 }
 impl TriggerGlobalAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1846,41 +1877,13 @@ impl TriggerGlobalAction {
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            TriggerGlobalAction::ArrangementTogglePlayStop => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP"
-            }
-            TriggerGlobalAction::ArrangementPlay => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PLAY"
-            }
-            TriggerGlobalAction::ArrangementStop => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP"
-            }
-            TriggerGlobalAction::ArrangementPause => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PAUSE"
-            }
-            TriggerGlobalAction::ArrangementStartRecording => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_START_RECORDING"
-            }
-            TriggerGlobalAction::ArrangementStopRecording => {
-                "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP_RECORDING"
-            }
+            TriggerGlobalAction::Placeholder => "TRIGGER_GLOBAL_ACTION_PLACEHOLDER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_TOGGLE_PLAY_STOP" => {
-                Some(Self::ArrangementTogglePlayStop)
-            }
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PLAY" => Some(Self::ArrangementPlay),
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP" => Some(Self::ArrangementStop),
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_PAUSE" => Some(Self::ArrangementPause),
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_START_RECORDING" => {
-                Some(Self::ArrangementStartRecording)
-            }
-            "TRIGGER_GLOBAL_ACTION_ARRANGEMENT_STOP_RECORDING" => {
-                Some(Self::ArrangementStopRecording)
-            }
+            "TRIGGER_GLOBAL_ACTION_PLACEHOLDER" => Some(Self::Placeholder),
             _ => None,
         }
     }

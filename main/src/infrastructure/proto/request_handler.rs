@@ -21,7 +21,7 @@ use crate::infrastructure::proto::{
 use anyhow::Context;
 use base::spawn_in_main_thread;
 use helgoboss_license_api::persistence::LicenseKey;
-use reaper_high::Reaper;
+use reaper_high::{OrCurrentProject, Reaper};
 
 use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
@@ -284,30 +284,8 @@ impl ProtoRequestHandler {
     pub fn trigger_global(&self, req: TriggerGlobalRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerGlobalAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger global action"))?;
-        let project = Reaper::get().current_project();
         match action {
-            TriggerGlobalAction::ArrangementTogglePlayStop => {
-                if project.is_playing() {
-                    project.stop();
-                } else {
-                    project.play();
-                }
-            }
-            TriggerGlobalAction::ArrangementPlay => {
-                project.play();
-            }
-            TriggerGlobalAction::ArrangementStop => {
-                project.stop();
-            }
-            TriggerGlobalAction::ArrangementPause => {
-                project.pause();
-            }
-            TriggerGlobalAction::ArrangementStartRecording => {
-                Reaper::get().enable_record_in_current_project();
-            }
-            TriggerGlobalAction::ArrangementStopRecording => {
-                Reaper::get().disable_record_in_current_project();
-            }
+            TriggerGlobalAction::Placeholder => {}
         }
         Ok(Response::new(Empty {}))
     }
@@ -327,14 +305,41 @@ impl ProtoRequestHandler {
     pub fn trigger_instance(&self, req: TriggerInstanceRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerInstanceAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger instance action"))?;
-        self.handle_instance_command(req.instance_id, |instance| match action {
-            TriggerInstanceAction::ShowHelgoboxPlugin => {
-                instance
-                    .processor_context()
-                    .containing_fx()
-                    .show_in_floating_window();
-                Ok(())
+        self.handle_instance_command(req.instance_id, |instance| {
+            let project = instance.processor_context().project().or_current_project();
+            match action {
+                TriggerInstanceAction::ShowHelgoboxPlugin => {
+                    instance
+                        .processor_context()
+                        .containing_fx()
+                        .show_in_floating_window();
+                }
+                TriggerInstanceAction::ArrangementTogglePlayStop => {
+                    if project.is_playing() {
+                        project.stop();
+                    } else {
+                        project.play();
+                    }
+                }
+                TriggerInstanceAction::ArrangementPlay => {
+                    project.play();
+                }
+                TriggerInstanceAction::ArrangementStop => {
+                    project.stop();
+                }
+                TriggerInstanceAction::ArrangementPause => {
+                    project.pause();
+                }
+                TriggerInstanceAction::ArrangementStartRecording => {
+                    // Recording not supported per project
+                    Reaper::get().enable_record_in_current_project();
+                }
+                TriggerInstanceAction::ArrangementStopRecording => {
+                    // Recording not supported per project
+                    Reaper::get().disable_record_in_current_project();
+                }
             }
+            Ok(())
         })
     }
 
