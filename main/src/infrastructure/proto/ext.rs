@@ -1,17 +1,15 @@
 use enumflags2::BitFlags;
-use helgoboss_license_api::persistence::LicenseData;
-use helgoboss_license_api::runtime::License;
 use reaper_high::Reaper;
 use reaper_medium::{PlayState, ReaperString};
-use std::collections::HashMap;
 
+use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
+
+use crate::application::UnitModel;
+use crate::domain::CompartmentKind;
 use crate::infrastructure::data::{
     ControllerManager, FileBasedControllerPresetManager, FileBasedMainPresetManager, LicenseManager,
 };
 use crate::infrastructure::plugin::InstanceShell;
-
-use crate::application::UnitModel;
-use crate::domain::CompartmentKind;
 use crate::infrastructure::proto::{
     event_reply, occasional_global_update, occasional_instance_update,
     qualified_occasional_unit_update, ArrangementPlayState, AudioInputChannel, AudioInputChannels,
@@ -21,15 +19,14 @@ use crate::infrastructure::proto::{
     GetOccasionalGlobalUpdatesReply, GetOccasionalInstanceUpdatesReply,
     GetOccasionalMatrixUpdatesReply, GetOccasionalPlaytimeEngineUpdatesReply,
     GetOccasionalRowUpdatesReply, GetOccasionalSlotUpdatesReply, GetOccasionalTrackUpdatesReply,
-    GetOccasionalUnitUpdatesReply, HostColorScheme, LicenseState, MidiDeviceStatus,
-    MidiInputDevice, MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
+    GetOccasionalUnitUpdatesReply, HostColorScheme, MidiDeviceStatus, MidiInputDevice,
+    MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
     OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
     QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
     QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
     QualifiedOccasionalUnitUpdate, RgbColor, SlotAddress, Unit, Units,
 };
 use crate::infrastructure::server::data::get_controller_routing;
-use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
 impl occasional_instance_update::Update {
     pub fn info_event(event: realearn_api::runtime::InstanceInfoEvent) -> Self {
@@ -66,6 +63,25 @@ impl qualified_occasional_unit_update::Update {
         let json = serde_json::to_string(&controller_routing)
             .expect("couldn't represent controller routing as JSON");
         Self::ControllerRouting(json)
+    }
+}
+
+impl RgbColor {
+    pub fn from_engine(color: Option<reaper_medium::RgbColor>) -> Self {
+        Self {
+            color: color
+                .map(|c| (((c.r as u32) << 16) + ((c.g as u32) << 8) + (c.b as u32)) as i32),
+        }
+    }
+
+    pub fn to_engine(&self) -> Option<reaper_medium::RgbColor> {
+        let c = self.color?;
+        let dest = reaper_medium::RgbColor {
+            r: ((c >> 16) & 0xFF) as u8,
+            g: ((c >> 8) & 0xFF) as u8,
+            b: (c & 0xFF) as u8,
+        };
+        Some(dest)
     }
 }
 

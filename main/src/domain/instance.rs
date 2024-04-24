@@ -1,16 +1,14 @@
-use crate::domain::{
-    AnyThreadBackboneState, Backbone, CompartmentKind, ProcessorContext, RealTimeInstance, UnitId,
-};
+use crate::domain::{AnyThreadBackboneState, Backbone, ProcessorContext, RealTimeInstance, UnitId};
+#[allow(unused_imports)]
 use anyhow::Context;
 use base::hash_util::NonCryptoHashMap;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
-use fragile::Fragile;
 use pot::{
     CurrentPreset, OptFilter, PotFavorites, PotFilterExcludes, PotIntegration, PotUnit, PresetId,
     SharedRuntimePotUnit,
 };
 use realearn_api::persistence::PotFilterKind;
-use reaper_high::{ChangeEvent, Fx, OrCurrentProject};
+use reaper_high::{ChangeEvent, Fx};
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::num::ParseIntError;
@@ -209,39 +207,6 @@ impl Instance {
         self.pot_unit.persistent_state()
     }
 
-    /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
-    /// (not borrowed from another instance).
-    #[cfg(feature = "playtime")]
-    pub fn poll_owned_clip_matrix(&mut self) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
-        let Some(matrix) = self.playtime.clip_matrix.as_mut() else {
-            return vec![];
-        };
-        let project = self.processor_context.project().or_current_project();
-        let events = matrix.poll(project);
-        self.handler
-            .clip_matrix_changed(self.id, matrix, &events, true);
-        events
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn process_non_polled_clip_matrix_event(
-        &self,
-        event: &crate::domain::QualifiedClipMatrixEvent,
-    ) {
-        if event.instance_id != self.id {
-            return;
-        }
-        let Some(matrix) = self.clip_matrix() else {
-            return;
-        };
-        self.handler.clip_matrix_changed(
-            self.id,
-            matrix,
-            std::slice::from_ref(&event.event),
-            false,
-        );
-    }
-
     pub fn process_control_surface_change_events(&mut self, events: &[ChangeEvent]) {
         #[cfg(not(feature = "playtime"))]
         {
@@ -298,83 +263,122 @@ impl Instance {
             false
         }
     }
+}
 
-    #[cfg(feature = "playtime")]
-    pub fn get_playtime_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
-        use anyhow::Context;
-        self.playtime
-            .clip_matrix
-            .as_ref()
-            .context(NO_CLIP_MATRIX_SET)
-    }
+#[cfg(feature = "playtime")]
+mod playtime_impl {
+    use crate::domain::instance::NO_CLIP_MATRIX_SET;
+    use crate::domain::{Instance, QualifiedClipMatrixEvent};
+    use anyhow::Context;
+    use base::NamedChannelSender;
+    use reaper_high::OrCurrentProject;
 
-    #[cfg(feature = "playtime")]
-    pub fn get_playtime_matrix_mut(
-        &mut self,
-    ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
-        use anyhow::Context;
-        self.playtime
-            .clip_matrix
-            .as_mut()
-            .context(NO_CLIP_MATRIX_SET)
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
-        self.playtime.clip_matrix.as_ref()
-    }
-
-    #[cfg(feature = "playtime")]
-    pub fn clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
-        self.playtime.clip_matrix.as_mut()
-    }
-
-    /// Returns `Ok(true)` if it installed a clip matrix and `Ok(false)` if one was installed already.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the clip matrix can't be created, e.g. when on the monitoring FX chain.
-    #[cfg(feature = "playtime")]
-    pub(crate) fn create_and_install_clip_matrix_if_necessary(
-        &mut self,
-        create_handler: impl FnOnce(&Instance) -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
-    ) -> anyhow::Result<bool> {
-        if self.playtime.clip_matrix.is_some() {
-            return Ok(false);
+    impl Instance {
+        /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
+        /// (not borrowed from another instance).
+        pub fn poll_owned_clip_matrix(
+            &mut self,
+        ) -> Vec<playtime_clip_engine::base::ClipMatrixEvent> {
+            let Some(matrix) = self.playtime.clip_matrix.as_mut() else {
+                return vec![];
+            };
+            let project = self.processor_context.project().or_current_project();
+            let events = matrix.poll(project);
+            self.handler
+                .clip_matrix_changed(self.id, matrix, &events, true);
+            events
         }
-        let track = self.processor_context.track()
-            .context("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.")?;
-        let matrix = playtime_clip_engine::base::Matrix::new(create_handler(self), track.clone());
-        self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()));
-        self.set_clip_matrix(Some(matrix));
-        self.playtime
-            .clip_matrix_event_sender
-            .send_complaining(QualifiedClipMatrixEvent {
-                instance_id: self.id,
-                event: playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged,
-            });
-        Ok(true)
-    }
 
-    #[cfg(feature = "playtime")]
-    pub fn set_clip_matrix(&mut self, matrix: Option<playtime_clip_engine::base::Matrix>) {
-        if self.playtime.clip_matrix.is_some() {
-            tracing::debug!("Shutdown existing clip matrix");
-            self.update_real_time_clip_matrix(None);
+        pub fn process_non_polled_clip_matrix_event(
+            &self,
+            event: &crate::domain::QualifiedClipMatrixEvent,
+        ) {
+            if event.instance_id != self.id {
+                return;
+            }
+            let Some(matrix) = self.clip_matrix() else {
+                return;
+            };
+            self.handler.clip_matrix_changed(
+                self.id,
+                matrix,
+                std::slice::from_ref(&event.event),
+                false,
+            );
         }
-        self.playtime.clip_matrix = matrix;
-    }
 
-    #[cfg(feature = "playtime")]
-    pub(super) fn update_real_time_clip_matrix(
-        &self,
-        real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
-    ) {
-        let rt_task = crate::domain::RealTimeInstanceTask::SetClipMatrix {
-            matrix: real_time_matrix,
-        };
-        self.real_time_instance_task_sender
-            .send_complaining(rt_task);
+        pub fn get_playtime_matrix(&self) -> anyhow::Result<&playtime_clip_engine::base::Matrix> {
+            self.playtime
+                .clip_matrix
+                .as_ref()
+                .context(NO_CLIP_MATRIX_SET)
+        }
+
+        pub fn get_playtime_matrix_mut(
+            &mut self,
+        ) -> anyhow::Result<&mut playtime_clip_engine::base::Matrix> {
+            self.playtime
+                .clip_matrix
+                .as_mut()
+                .context(NO_CLIP_MATRIX_SET)
+        }
+
+        pub fn clip_matrix(&self) -> Option<&playtime_clip_engine::base::Matrix> {
+            self.playtime.clip_matrix.as_ref()
+        }
+
+        pub fn clip_matrix_mut(&mut self) -> Option<&mut playtime_clip_engine::base::Matrix> {
+            self.playtime.clip_matrix.as_mut()
+        }
+
+        /// Returns `Ok(true)` if it installed a clip matrix and `Ok(false)` if one was installed already.
+        ///
+        /// # Errors
+        ///
+        /// Returns an error if the clip matrix can't be created, e.g. when on the monitoring FX chain.
+        pub(crate) fn create_and_install_clip_matrix_if_necessary(
+            &mut self,
+            create_handler: impl FnOnce(
+                &Instance,
+            )
+                -> Box<dyn playtime_clip_engine::base::ClipMatrixHandler>,
+        ) -> anyhow::Result<bool> {
+            if self.playtime.clip_matrix.is_some() {
+                return Ok(false);
+            }
+            let track = self.processor_context.track()
+                .context("Sorry, Playtime is not intended to be used from the monitoring FX chain! If you have a really good use case for that, please write to info@helgoboss.org and we will see what we can do.")?;
+            let matrix =
+                playtime_clip_engine::base::Matrix::new(create_handler(self), track.clone());
+            self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()));
+            self.set_clip_matrix(Some(matrix));
+            self.playtime
+                .clip_matrix_event_sender
+                .send_complaining(QualifiedClipMatrixEvent {
+                    instance_id: self.id,
+                    event: playtime_clip_engine::base::ClipMatrixEvent::EverythingChanged,
+                });
+            Ok(true)
+        }
+
+        pub fn set_clip_matrix(&mut self, matrix: Option<playtime_clip_engine::base::Matrix>) {
+            if self.playtime.clip_matrix.is_some() {
+                tracing::debug!("Shutdown existing clip matrix");
+                self.update_real_time_clip_matrix(None);
+            }
+            self.playtime.clip_matrix = matrix;
+        }
+
+        pub(super) fn update_real_time_clip_matrix(
+            &self,
+            real_time_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
+        ) {
+            let rt_task = crate::domain::RealTimeInstanceTask::SetClipMatrix {
+                matrix: real_time_matrix,
+            };
+            self.real_time_instance_task_sender
+                .send_complaining(rt_task);
+        }
     }
 }
 

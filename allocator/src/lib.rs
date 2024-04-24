@@ -17,8 +17,8 @@ use std::thread::JoinHandle;
 
 #[cfg(debug_assertions)]
 thread_local! {
-    static ALLOC_FORBID_COUNT: Cell<u32> = Cell::new(0);
-    static ALLOC_PERMIT_COUNT: Cell<u32> = Cell::new(0);
+    static ALLOC_FORBID_COUNT: Cell<u32> = const { Cell::new(0) };
+    static ALLOC_PERMIT_COUNT: Cell<u32> = const { Cell::new(0) };
 }
 
 static UNDESIRED_ALLOCATION_COUNTER: AtomicU32 = AtomicU32::new(0);

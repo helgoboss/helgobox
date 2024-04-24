@@ -58,7 +58,6 @@ use std::borrow::Cow;
 use std::error::Error;
 
 use crate::domain::ui_util::format_tags_as_csv;
-use crate::domain::ReaperTargetType::PlaytimeControlUnitScroll;
 use base::hash_util::NonCryptoHashSet;
 use playtime_api::persistence::ColumnAddress;
 use realearn_api::persistence::{

@@ -1,7 +1,11 @@
+use std::num::NonZeroU32;
+
 use helgoboss_license_api::persistence::LicenseData;
 use helgoboss_license_api::runtime::License;
 use helgoboss_midi::Channel;
-use playtime_api::persistence::PlaytimeSettings;
+use reaper_high::{Project, Reaper};
+use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
+
 use playtime_api::runtime::ControlUnitConfig;
 use playtime_clip_engine::base::{
     Clip, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer, SaveOptions,
@@ -11,11 +15,8 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{
-    base, clip_timeline, ClipEngine, SteadyProjectTimelineHandle, Timeline, GLOBAL_AUDIO_STATE,
+    base, clip_timeline, ClipEngine, SteadyProjectTimelineHandle, Timeline,
 };
-use reaper_high::{Project, Reaper};
-use reaper_medium::{Bpm, Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
-use std::num::NonZeroU32;
 
 use crate::infrastructure::proto::track_input::Input;
 use crate::infrastructure::proto::{
@@ -393,25 +394,6 @@ impl SlotPlayState {
             Recording => Self::Recording,
             ScheduledForRecordingStop => Self::ScheduledForRecordingStop,
         }
-    }
-}
-
-impl RgbColor {
-    pub fn from_engine(color: Option<reaper_medium::RgbColor>) -> Self {
-        Self {
-            color: color
-                .map(|c| (((c.r as u32) << 16) + ((c.g as u32) << 8) + (c.b as u32)) as i32),
-        }
-    }
-
-    pub fn to_engine(&self) -> Option<reaper_medium::RgbColor> {
-        let c = self.color?;
-        let dest = reaper_medium::RgbColor {
-            r: ((c >> 16) & 0xFF) as u8,
-            g: ((c >> 8) & 0xFF) as u8,
-            b: (c & 0xFF) as u8,
-        };
-        Some(dest)
     }
 }
 

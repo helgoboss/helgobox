@@ -1,3 +1,7 @@
+use reaper_high::ChangeEvent;
+
+use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
+
 use crate::application::UnitModel;
 use crate::domain::{InstanceId, UnitId};
 use crate::infrastructure::data::{
@@ -6,13 +10,11 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::InstanceShell;
 use crate::infrastructure::proto::helgobox_service_server::HelgoboxServiceServer;
 use crate::infrastructure::proto::{
-    occasional_global_update, occasional_instance_update, occasional_playtime_engine_update,
-    qualified_occasional_unit_update, HelgoboxServiceImpl, OccasionalGlobalUpdate,
-    OccasionalInstanceUpdate, OccasionalInstanceUpdateBatch, OccasionalPlaytimeEngineUpdate,
-    OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders, QualifiedOccasionalUnitUpdate,
+    occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
+    HelgoboxServiceImpl, OccasionalGlobalUpdate, OccasionalInstanceUpdate,
+    OccasionalInstanceUpdateBatch, OccasionalUnitUpdateBatch, ProtoRequestHandler, ProtoSenders,
+    QualifiedOccasionalUnitUpdate,
 };
-use realearn_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
-use reaper_high::ChangeEvent;
 
 #[derive(Debug)]
 pub struct ProtoHub {
@@ -98,7 +100,7 @@ impl ProtoHub {
         });
         #[cfg(feature = "playtime")]
         self.send_occasional_playtime_engine_updates(|| {
-            [occasional_playtime_engine_update::Update::playtime_license_state()]
+            [crate::infrastructure::proto::occasional_playtime_engine_update::Update::playtime_license_state()]
         });
     }
 
@@ -215,6 +217,23 @@ impl ProtoHub {
 
 #[cfg(feature = "playtime")]
 mod playtime_impl {
+    use std::collections::HashMap;
+
+    use reaper_high::{AvailablePanValue, ChangeEvent, Guid, PanExt, Project, Track};
+    use reaper_medium::Db;
+
+    use base::hash_util::NonCryptoHashMap;
+    use base::peak_util;
+    use playtime_api::persistence::EvenQuantization;
+    use playtime_clip_engine::{
+        base::{ClipMatrixEvent, Matrix, PlaytimeTrackInputProps},
+        clip_timeline,
+        rt::{
+            ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
+        },
+        Laziness, Timeline,
+    };
+
     use crate::domain::InstanceId;
     use crate::infrastructure::proto;
     use crate::infrastructure::proto::senders::{
@@ -234,22 +253,6 @@ mod playtime_impl {
     use crate::infrastructure::proto::{
         occasional_playtime_engine_update, OccasionalPlaytimeEngineUpdate, ProtoHub,
     };
-    use base::hash_util::NonCryptoHashMap;
-    use base::peak_util;
-    use playtime_api::persistence::{EvenQuantization, PlaytimeSettings};
-    use playtime_clip_engine::{
-        base::{ClipMatrixEvent, Matrix, PlaytimeTrackInputProps},
-        clip_timeline,
-        rt::{
-            ClipChangeEvent, QualifiedClipChangeEvent, QualifiedSlotChangeEvent, SlotChangeEvent,
-        },
-        Laziness, Timeline,
-    };
-    use reaper_high::{
-        AvailablePanValue, ChangeEvent, Guid, OrCurrentProject, PanExt, Project, Track,
-    };
-    use reaper_medium::Db;
-    use std::collections::HashMap;
 
     impl ProtoHub {
         pub fn notify_engine_stats_changed(&self) {

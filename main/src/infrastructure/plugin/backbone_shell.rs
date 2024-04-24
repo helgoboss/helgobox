@@ -60,7 +60,6 @@ use base::metrics_util::MetricsHook;
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use playtime_api::persistence::PlaytimeSettings;
 use realearn_api::persistence::{
     CompartmentPresetId, Controller, ControllerConnection, Envelope, FxChainDescriptor,
     FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
@@ -68,8 +67,7 @@ use realearn_api::persistence::{
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
-    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, OrCurrentProject, Project, Reaper,
-    Track,
+    ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
@@ -86,7 +84,6 @@ use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::ffi::c_int;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
@@ -351,7 +348,7 @@ impl BackboneShell {
         );
         // This just initializes the clip engine, it doesn't add any clip matrix yet, so resource consumption is low.
         #[cfg(feature = "playtime")]
-        Self::init_clip_engine(&license_manager);
+        playtime_impl::init_clip_engine(&license_manager);
         // This is the backbone representation in the domain layer, of course we need this now already.
         let backbone_state = Backbone::new(
             additional_feedback_event_sender.clone(),
@@ -547,63 +544,6 @@ impl BackboneShell {
         static TEMP_DIR: Lazy<Option<TempDir>> =
             Lazy::new(|| tempfile::Builder::new().prefix("realearn-").tempdir().ok());
         TEMP_DIR.as_ref()
-    }
-
-    #[cfg(feature = "playtime")]
-    fn init_clip_engine(license_manager: &LicenseManager) {
-        use playtime_clip_engine::ClipEngine;
-        #[derive(Debug)]
-        struct RealearnMetricsRecorder;
-        impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
-            fn record_duration(&self, id: &'static str, delta: std::time::Duration) {
-                base::metrics_util::record_duration_internal(id, delta);
-            }
-        }
-        let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =
-            if base::metrics_util::metrics_are_enabled() {
-                Some(&RealearnMetricsRecorder)
-            } else {
-                None
-            };
-        #[derive(Debug)]
-        struct RealearnClipEngineIntegration;
-        impl playtime_clip_engine::ClipEngineIntegration for RealearnClipEngineIntegration {
-            fn export_to_clipboard(
-                &self,
-                item: &dyn playtime_clip_engine::PlaytimeItem,
-            ) -> anyhow::Result<()> {
-                let text = crate::infrastructure::ui::lua_serializer::to_string(item)?;
-                crate::infrastructure::ui::copy_text_to_clipboard(text);
-                Ok(())
-            }
-
-            fn changed_settings(&self, settings: PlaytimeSettings) -> anyhow::Result<()> {
-                BackboneShell::get()
-                    .proto_hub
-                    .notify_playtime_settings_changed();
-                let json = serde_json::to_string_pretty(&settings)?;
-                let settings_path = BackboneShell::playtime_settings_file_path();
-                fs::create_dir_all(
-                    &settings_path
-                        .parent()
-                        .context("Playtime settings file has not parent")?,
-                )?;
-                fs::write(settings_path, json)?;
-                Ok(())
-            }
-        }
-        let args = playtime_clip_engine::ClipEngineInitArgs {
-            available_licenses: license_manager.licenses(),
-            settings: Self::read_playtime_settings(),
-            metrics_recorder,
-            integration: Box::new(RealearnClipEngineIntegration),
-        };
-        ClipEngine::make_available_globally(|| ClipEngine::new(args));
-    }
-
-    fn read_playtime_settings() -> Option<PlaytimeSettings> {
-        let json = fs::read_to_string(Self::playtime_settings_file_path()).ok()?;
-        serde_json::from_str(&json).ok()
     }
 
     /// This will cause all main processors to "switch all lights off".
@@ -1128,10 +1068,6 @@ impl BackboneShell {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
-    pub fn playtime_dir_path() -> PathBuf {
-        BackboneShell::helgoboss_resource_dir_path().join("Playtime")
-    }
-
     pub fn app_binary_base_dir_path() -> PathBuf {
         BackboneShell::app_dir_path().join("bin")
     }
@@ -1142,10 +1078,6 @@ impl BackboneShell {
 
     pub fn app_settings_file_path() -> PathBuf {
         BackboneShell::app_config_dir_path().join("settings.json")
-    }
-
-    pub fn playtime_settings_file_path() -> PathBuf {
-        BackboneShell::playtime_dir_path().join("settings.json")
     }
 
     pub fn read_app_settings() -> Option<String> {
@@ -2907,11 +2839,31 @@ fn reaper_window() -> Window {
 
 #[cfg(feature = "playtime")]
 mod playtime_impl {
+    use crate::infrastructure::data::LicenseManager;
     use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
+    use crate::infrastructure::plugin::BackboneShell;
     use anyhow::Context;
     use base::Global;
+    use playtime_api::persistence::PlaytimeSettings;
     use reaper_high::{GroupingBehavior, Reaper};
     use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
+    use std::fs;
+    use std::path::PathBuf;
+
+    impl BackboneShell {
+        pub(crate) fn read_playtime_settings() -> Option<PlaytimeSettings> {
+            let json = fs::read_to_string(Self::playtime_settings_file_path()).ok()?;
+            serde_json::from_str(&json).ok()
+        }
+
+        pub fn playtime_settings_file_path() -> PathBuf {
+            Self::playtime_dir_path().join("settings.json")
+        }
+
+        pub fn playtime_dir_path() -> PathBuf {
+            Self::helgoboss_resource_dir_path().join("Playtime")
+        }
+    }
 
     fn add_and_show_playtime() -> anyhow::Result<()> {
         let project = Reaper::get().current_project();
@@ -2944,6 +2896,57 @@ mod playtime_impl {
             })
             .unwrap();
         Ok(())
+    }
+
+    pub fn init_clip_engine(license_manager: &LicenseManager) {
+        use playtime_clip_engine::ClipEngine;
+        #[derive(Debug)]
+        struct RealearnMetricsRecorder;
+        impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
+            fn record_duration(&self, id: &'static str, delta: std::time::Duration) {
+                base::metrics_util::record_duration_internal(id, delta);
+            }
+        }
+        let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =
+            if base::metrics_util::metrics_are_enabled() {
+                Some(&RealearnMetricsRecorder)
+            } else {
+                None
+            };
+        #[derive(Debug)]
+        struct RealearnClipEngineIntegration;
+        impl playtime_clip_engine::ClipEngineIntegration for RealearnClipEngineIntegration {
+            fn export_to_clipboard(
+                &self,
+                item: &dyn playtime_clip_engine::PlaytimeItem,
+            ) -> anyhow::Result<()> {
+                let text = crate::infrastructure::ui::lua_serializer::to_string(item)?;
+                crate::infrastructure::ui::copy_text_to_clipboard(text);
+                Ok(())
+            }
+
+            fn changed_settings(&self, settings: PlaytimeSettings) -> anyhow::Result<()> {
+                BackboneShell::get()
+                    .proto_hub
+                    .notify_playtime_settings_changed();
+                let json = serde_json::to_string_pretty(&settings)?;
+                let settings_path = BackboneShell::playtime_settings_file_path();
+                fs::create_dir_all(
+                    settings_path
+                        .parent()
+                        .context("Playtime settings file has not parent")?,
+                )?;
+                fs::write(settings_path, json)?;
+                Ok(())
+            }
+        }
+        let args = playtime_clip_engine::ClipEngineInitArgs {
+            available_licenses: license_manager.licenses(),
+            settings: BackboneShell::read_playtime_settings(),
+            metrics_recorder,
+            integration: Box::new(RealearnClipEngineIntegration),
+        };
+        ClipEngine::make_available_globally(|| ClipEngine::new(args));
     }
 
     fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {

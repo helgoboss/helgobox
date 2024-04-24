@@ -1,9 +1,9 @@
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
-    create_initial_engine_updates, create_initial_global_updates, create_initial_instance_updates,
-    create_initial_unit_updates, event_reply, query_result, reply, request, EventReply,
-    ProtoRequestHandler, QueryReply, QueryResult, Reply, Request,
+    create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
+    event_reply, query_result, reply, request, EventReply, ProtoRequestHandler, QueryReply,
+    QueryResult, Reply, Request,
 };
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};
@@ -11,7 +11,6 @@ use base::Global;
 use libloading::{Library, Symbol};
 
 use crate::domain::InstanceId;
-use crate::infrastructure::proto::command_request::Value;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::base::Matrix;
 use prost::Message;
@@ -22,7 +21,7 @@ use std::env;
 use std::ffi::{c_char, c_uint, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::ptr::{null, null_mut, NonNull};
+use std::ptr::{null_mut, NonNull};
 use swell_ui::Window;
 use tonic::Status;
 
@@ -495,16 +494,18 @@ fn process_command(
             })
             .map_err(to_status)?;
         }
-        GetOccasionalPlaytimeEngineUpdates(req) => {
+        GetOccasionalPlaytimeEngineUpdates(_) => {
             #[cfg(not(feature = "playtime"))]
             {
-                let _ = req;
                 return playtime_not_available();
             }
             #[cfg(feature = "playtime")]
             {
-                send_initial_events_to_app(instance_id, create_initial_engine_updates)
-                    .map_err(to_status)?;
+                send_initial_events_to_app(
+                    instance_id,
+                    crate::infrastructure::proto::create_initial_engine_updates,
+                )
+                .map_err(to_status)?;
             }
         }
         GetOccasionalMatrixUpdates(req) => {

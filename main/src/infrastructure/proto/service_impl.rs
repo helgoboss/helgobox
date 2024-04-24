@@ -309,7 +309,6 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
     ) -> Result<Response<Self::GetOccasionalPlaytimeEngineUpdatesStream>, Status> {
         #[cfg(not(feature = "playtime"))]
         {
-            let _ = request;
             Err(playtime_not_available_status())
         }
         #[cfg(feature = "playtime")]

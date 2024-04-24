@@ -79,9 +79,7 @@ impl<'a> ToolbarItem<'a> {
         let Some(("item", i)) = key.split_once('_') else {
             return None;
         };
-        let Some((command, desc)) = value.split_once(' ') else {
-            return None;
-        };
+        let (command, desc) = value.split_once(' ')?;
         let item = ToolbarItem {
             index: i.parse().ok()?,
             command,

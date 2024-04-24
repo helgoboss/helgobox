@@ -3,7 +3,6 @@ use base::default_util::{deserialize_null_default, is_default};
 use base::hash_util::NonCryptoHashMap;
 use realearn_api::persistence::InstanceSettings;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

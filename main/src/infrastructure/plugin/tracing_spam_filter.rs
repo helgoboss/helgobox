@@ -150,6 +150,7 @@ impl<S: Subscriber> Subscriber for SpamFilter<S> {
         self.subscriber.clone_span(id)
     }
 
+    #[allow(deprecated)]
     fn drop_span(&self, id: Id) {
         self.subscriber.drop_span(id)
     }

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct InstanceSettings {

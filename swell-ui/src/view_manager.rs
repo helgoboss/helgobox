@@ -328,4 +328,4 @@ fn hiword_signed(wparam: usize) -> i16 {
 }
 
 // Used for global dialog proc reentrancy check.
-thread_local!(static DIALOG_PROC_ALREADY_ENTERED: Cell<bool> = Cell::new(false));
+thread_local!(static DIALOG_PROC_ALREADY_ENTERED: Cell<bool> = const { Cell::new(false) });

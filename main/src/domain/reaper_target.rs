@@ -24,7 +24,6 @@ use helgoboss_learn::{
 use realearn_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
-use crate::domain::ReaperTargetType::PlaytimeBrowseCells;
 use crate::domain::{
     get_reaper_track_area_of_scope, handle_exclusivity, ActionTarget, AdditionalFeedbackEvent,
     AllTrackFxEnableTarget, AutomationModeOverrideTarget, BrowseFxsTarget,

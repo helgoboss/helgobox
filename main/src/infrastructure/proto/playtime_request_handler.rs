@@ -1,3 +1,20 @@
+use reaper_high::{GroupingBehavior, Guid, Pan, Track};
+use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
+use tonic::{Response, Status};
+
+use base::future_util;
+use base::tracing_util::ok_or_log_as_warn;
+use helgoboss_learn::UnitValue;
+use playtime_api::persistence::{
+    ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
+};
+use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
+use playtime_clip_engine::rt::TriggerSlotMainOptions;
+#[cfg(feature = "playtime")]
+use playtime_clip_engine::{
+    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
+};
+
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
@@ -17,22 +34,6 @@ use crate::infrastructure::proto::{
     TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
     TriggerTrackAction, TriggerTrackRequest,
 };
-use base::future_util;
-use base::tracing_util::ok_or_log_as_warn;
-use playtime_api::persistence::{
-    ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
-};
-use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
-
-use helgoboss_learn::UnitValue;
-use playtime_clip_engine::rt::TriggerSlotMainOptions;
-#[cfg(feature = "playtime")]
-use playtime_clip_engine::{
-    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
-};
-use reaper_high::{GroupingBehavior, Guid, OrCurrentProject, Pan, Track};
-use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
-use tonic::{Response, Status};
 
 #[derive(Debug)]
 pub struct PlaytimeProtoRequestHandler;

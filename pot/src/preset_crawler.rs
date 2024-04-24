@@ -128,9 +128,7 @@ impl PresetCrawlingState {
     /// deterministic. Getting the chunk for one preset multiple times can yield different results!
     fn make_stop_check(&mut self, preset: &CrawledPreset) -> Option<NextCrawlStep> {
         // If we haven't crawled anything yet, there's nothing to check.
-        let Some((_, last_preset)) = self.crawled_presets.last() else {
-            return None;
-        };
+        let (_, last_preset) = self.crawled_presets.last()?;
         // Check if we get multiple equally named presets in a row.
         if preset.name == last_preset.name {
             // Same name like last crawled preset

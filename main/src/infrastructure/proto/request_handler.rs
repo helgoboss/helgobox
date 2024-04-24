@@ -1,4 +1,17 @@
+use anyhow::Context;
+use helgoboss_license_api::persistence::LicenseKey;
+use reaper_high::{OrCurrentProject, Reaper};
+use tonic::{Response, Status};
+
+use base::spawn_in_main_thread;
+
+use crate::domain::{CompartmentKind, UnitId};
+use crate::infrastructure::api::convert::from_data;
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::data::CompartmentModelData;
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell, UnitShell};
+#[cfg(feature = "playtime")]
+use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
 use crate::infrastructure::proto::{
     AddLicenseRequest, Compartment, DeleteControllerRequest, DragClipRequest, DragColumnRequest,
     DragRowRequest, DragSlotRequest, Empty, FullCompartmentId, GetAppSettingsReply,
@@ -18,19 +31,6 @@ use crate::infrastructure::proto::{
     TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest,
     TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
 };
-use anyhow::Context;
-use base::spawn_in_main_thread;
-use helgoboss_license_api::persistence::LicenseKey;
-use reaper_high::{OrCurrentProject, Reaper};
-
-use crate::domain::{CompartmentKind, UnitId};
-use crate::infrastructure::api::convert::from_data;
-use crate::infrastructure::api::convert::from_data::ConversionStyle;
-use crate::infrastructure::data::CompartmentModelData;
-use tonic::{Request, Response, Status};
-
-#[cfg(feature = "playtime")]
-use crate::infrastructure::proto::PlaytimeProtoRequestHandler;
 
 #[derive(Debug)]
 pub struct ProtoRequestHandler;

@@ -1,14 +1,17 @@
+use std::iter;
+
+use reaper_high::{Guid, Track};
+use reaper_medium::Db;
+
+use base::hash_util::NonCryptoHashMap;
+use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
+
 use crate::infrastructure::proto::{
     occasional_matrix_update, occasional_track_update, qualified_occasional_clip_update,
-    qualified_occasional_slot_update, ClipAddress, OccasionalGlobalUpdate, OccasionalMatrixUpdate,
+    qualified_occasional_slot_update, ClipAddress, OccasionalMatrixUpdate,
     OccasionalPlaytimeEngineUpdate, OccasionalTrackUpdate, QualifiedOccasionalClipUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, SlotAddress,
 };
-use base::hash_util::NonCryptoHashMap;
-use playtime_clip_engine::base::{Matrix, PlaytimeTrackInputProps};
-use reaper_high::{Guid, OrCurrentProject, Reaper, Track};
-use reaper_medium::Db;
-use std::iter;
 
 pub fn create_initial_engine_updates() -> Vec<OccasionalPlaytimeEngineUpdate> {
     use crate::infrastructure::proto::generated::occasional_playtime_engine_update::Update;

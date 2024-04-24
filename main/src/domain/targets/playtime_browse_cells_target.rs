@@ -1,9 +1,7 @@
 use crate::domain::{
-    convert_unit_to_discrete_value_with_none, CompartmentKind, ControlContext,
-    ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
+    CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::UnitValue;
 
 use realearn_api::persistence::Axis;
 
@@ -50,18 +48,15 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        convert_count_to_step_size, convert_unit_to_discrete_value,
-        convert_unit_to_discrete_value_with_none, CompoundChangeEvent, ControlContext, HitResponse,
-        MappingControlContext, PlaytimeBrowseCellsTarget, RealearnTarget, ReaperTargetType,
-        TargetCharacter, UnitEvent,
+        convert_count_to_step_size, convert_unit_to_discrete_value_with_none, CompoundChangeEvent,
+        ControlContext, HitResponse, MappingControlContext, PlaytimeBrowseCellsTarget,
+        RealearnTarget, ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-    use playtime_api::persistence::SlotAddress;
     use playtime_api::runtime::CellAddress;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::base::ClipMatrixEvent;
-    use realearn_api::persistence::{Axis, TrackScope};
-    use reaper_high::Project;
+    use realearn_api::persistence::Axis;
 
     impl PlaytimeBrowseCellsTarget {
         fn column_or_row_count(&self, context: ControlContext) -> u32 {

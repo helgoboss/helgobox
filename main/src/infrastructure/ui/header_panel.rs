@@ -2001,6 +2001,7 @@ impl HeaderPanel {
     }
 
     pub fn export_to_clipboard(&self) -> anyhow::Result<()> {
+        #[allow(dead_code)]
         enum MenuAction {
             None,
             ExportInstance(SerializationFormat),
@@ -2811,6 +2812,7 @@ fn edit_fx_id(fx_id: &FxId) -> Result<FxId, EditFxIdError> {
 #[derive(Debug)]
 enum EditFxIdError {
     Cancelled,
+    #[allow(dead_code)]
     Unexpected(&'static str),
 }
 
@@ -2889,6 +2891,7 @@ fn edit_compartment_parameter(
 #[derive(Debug)]
 enum EditOscDevError {
     Cancelled,
+    #[allow(dead_code)]
     Unexpected(&'static str),
 }
 

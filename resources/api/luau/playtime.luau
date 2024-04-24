@@ -5,6 +5,57 @@
 --- Contains types and helper functions for building Playtime presets
 local module = {}
 
+--- Global settings that apply to all Playtime instances.
+---
+--- This is different from the app settings (which are also global) in that the app settings are only about GUI
+--- aspects (less important) and managed by the app. Whereas the engine settings configure settings that
+--- apply even without GUI, and they are managed by the engine.
+export type PlaytimeSettings = {
+	tempo_latency: TempoLatency?,
+}
+--- Creates a PlaytimeSettings value.
+--- Global settings that apply to all Playtime instances.
+---
+--- This is different from the app settings (which are also global) in that the app settings are only about GUI
+--- aspects (less important) and managed by the app. Whereas the engine settings configure settings that
+--- apply even without GUI, and they are managed by the engine.
+function module.PlaytimeSettings(value: PlaytimeSettings): PlaytimeSettings
+	return value
+end
+
+export type TempoLatency_Auto = { kind: "Auto" }
+
+export type TempoLatency_Manual = { kind: "Manual", millis: number }
+export type TempoLatency = TempoLatency_Auto | TempoLatency_Manual
+
+--- A type that represents all possible kinds of TempoLatency.
+export type TempoLatencyKind = "Auto" | "Manual"
+
+--- Helper table to create TempoLatency values of different kinds.
+module.TempoLatency = {}
+
+--- Creates a TempoLatency of kind Auto.
+function module.TempoLatency.Auto(): TempoLatency_Auto
+	return {
+		kind = "Auto",
+	}
+end
+
+--- Creates a TempoLatency of kind Manual.
+function module.TempoLatency.Manual(value: ManualTempoLatency): TempoLatency_Manual
+	local t: any = table.clone(value)
+	t.kind = "Manual"
+	return t
+end
+
+export type ManualTempoLatency = {
+	millis: number,
+}
+--- Creates a ManualTempoLatency value.
+function module.ManualTempoLatency(value: ManualTempoLatency): ManualTempoLatency
+	return value
+end
+
 export type Matrix = {
 	columns: { Column }?,
 	rows: { Row }?,

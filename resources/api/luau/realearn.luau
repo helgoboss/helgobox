@@ -1525,6 +1525,8 @@ export type Target_PlaytimeMatrixAction = {
 
 export type Target_PlaytimeControlUnitScroll = { kind: "PlaytimeControlUnitScroll", unit: TargetUnit?, axis: Axis }
 
+export type Target_PlaytimeBrowseCells = { kind: "PlaytimeBrowseCells", unit: TargetUnit?, axis: Axis }
+
 export type Target_PlaytimeSlotSeek = {
 	kind: "PlaytimeSlotSeek",
 	unit: TargetUnit?,
@@ -1663,6 +1665,7 @@ export type Target =
 	| Target_PlaytimeRowAction
 	| Target_PlaytimeMatrixAction
 	| Target_PlaytimeControlUnitScroll
+	| Target_PlaytimeBrowseCells
 	| Target_PlaytimeSlotSeek
 	| Target_PlaytimeSlotVolume
 	| Target_PlaytimeSlotManagementAction
@@ -1732,6 +1735,7 @@ export type TargetKind =
 	| "PlaytimeRowAction"
 	| "PlaytimeMatrixAction"
 	| "PlaytimeControlUnitScroll"
+	| "PlaytimeBrowseCells"
 	| "PlaytimeSlotSeek"
 	| "PlaytimeSlotVolume"
 	| "PlaytimeSlotManagementAction"
@@ -2095,6 +2099,13 @@ function module.Target.PlaytimeControlUnitScroll(
 ): Target_PlaytimeControlUnitScroll
 	local t: any = table.clone(value)
 	t.kind = "PlaytimeControlUnitScroll"
+	return t
+end
+
+--- Creates a Target of kind PlaytimeBrowseCells.
+function module.Target.PlaytimeBrowseCells(value: PlaytimeBrowseCellsTarget): Target_PlaytimeBrowseCells
+	local t: any = table.clone(value)
+	t.kind = "PlaytimeBrowseCells"
 	return t
 end
 
@@ -2884,6 +2895,15 @@ function module.PlaytimeControlUnitScrollTarget(value: PlaytimeControlUnitScroll
 	return value
 end
 
+export type PlaytimeBrowseCellsTarget = {
+	unit: TargetUnit?,
+	axis: Axis,
+}
+--- Creates a PlaytimeBrowseCellsTarget value.
+function module.PlaytimeBrowseCellsTarget(value: PlaytimeBrowseCellsTarget): PlaytimeBrowseCellsTarget
+	return value
+end
+
 export type PlaytimeSlotSeekTarget = {
 	unit: TargetUnit?,
 	slot: PlaytimeSlotDescriptor,
@@ -3242,6 +3262,7 @@ export type PlaytimeSlotTransportAction =
 	| "Pause"
 	| "RecordStop"
 	| "RecordPlayStop"
+	| "OverdubPlay"
 	| "Looped"
 
 export type PlaytimeColumnAction = "Stop" | "ArmState" | "ArmStateExclusive"
