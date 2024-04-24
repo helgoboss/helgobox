@@ -16,6 +16,7 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     let global_updates = [
         Update::midi_input_devices(),
         Update::midi_output_devices(),
+        Update::host_color_scheme(),
         Update::arrangement_play_state(Reaper::get().current_project().play_state()),
         // TODO-high-playtime-before-release Update when changed
         Update::audio_input_channels(),

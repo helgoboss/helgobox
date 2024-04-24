@@ -437,7 +437,7 @@ pub struct SetTrackColorRequest {
     #[prost(message, optional, tag = "1")]
     pub track_address: ::core::option::Option<FullTrackAddress>,
     #[prost(message, optional, tag = "2")]
-    pub color: ::core::option::Option<TrackColor>,
+    pub color: ::core::option::Option<RgbColor>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1184,7 +1184,7 @@ pub struct PlaytimeEngineStats {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1223,7 +1223,16 @@ pub mod occasional_global_update {
         /// Requests the app to change the location (route).
         #[prost(string, tag = "11")]
         GoToLocation(::prost::alloc::string::String),
+        /// Color scheme of the host.
+        #[prost(message, tag = "12")]
+        HostColorScheme(super::HostColorScheme),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HostColorScheme {
+    #[prost(map = "string, message", tag = "1")]
+    pub colors: ::std::collections::HashMap<::prost::alloc::string::String, RgbColor>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1368,7 +1377,7 @@ pub mod occasional_track_update {
         Name(::prost::alloc::string::String),
         /// Track color
         #[prost(message, tag = "2")]
-        Color(super::TrackColor),
+        Color(super::RgbColor),
         /// Track recording input
         #[prost(message, tag = "3")]
         Input(super::TrackInput),
@@ -1397,7 +1406,7 @@ pub mod occasional_track_update {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TrackColor {
+pub struct RgbColor {
     #[prost(int32, optional, tag = "1")]
     pub color: ::core::option::Option<i32>,
 }

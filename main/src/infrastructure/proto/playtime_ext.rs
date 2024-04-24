@@ -14,7 +14,7 @@ use playtime_clip_engine::{
     base, clip_timeline, ClipEngine, SteadyProjectTimelineHandle, Timeline, GLOBAL_AUDIO_STATE,
 };
 use reaper_high::{Project, Reaper};
-use reaper_medium::{Bpm, Db, MidiInputDeviceId, ReaperPanValue, RecordingInput, RgbColor};
+use reaper_medium::{Bpm, Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 use std::num::NonZeroU32;
 
 use crate::infrastructure::proto::track_input::Input;
@@ -24,7 +24,7 @@ use crate::infrastructure::proto::{
     qualified_occasional_row_update, qualified_occasional_slot_update, AudioClipContentInfo,
     CellAddress, ClipAddress, ClipContentInfo, ColumnKind, ContinuousClipUpdate,
     ContinuousSlotUpdate, HistoryState, LearnState, LicenseState, MidiClipContentInfo,
-    PlaytimeEngineStats, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature, TrackColor,
+    PlaytimeEngineStats, RgbColor, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
     TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
 };
 
@@ -245,7 +245,7 @@ impl occasional_track_update::Update {
     }
 
     pub fn color(track: &reaper_high::Track) -> Self {
-        Self::Color(TrackColor::from_engine(track.custom_color()))
+        Self::Color(RgbColor::from_engine(track.custom_color()))
     }
 
     pub fn input(input: Option<RecordingInput>) -> Self {
@@ -396,17 +396,17 @@ impl SlotPlayState {
     }
 }
 
-impl TrackColor {
-    pub fn from_engine(color: Option<RgbColor>) -> Self {
+impl RgbColor {
+    pub fn from_engine(color: Option<reaper_medium::RgbColor>) -> Self {
         Self {
             color: color
                 .map(|c| (((c.r as u32) << 16) + ((c.g as u32) << 8) + (c.b as u32)) as i32),
         }
     }
 
-    pub fn to_engine(&self) -> Option<RgbColor> {
+    pub fn to_engine(&self) -> Option<reaper_medium::RgbColor> {
         let c = self.color?;
-        let dest = RgbColor {
+        let dest = reaper_medium::RgbColor {
             r: ((c >> 16) & 0xFF) as u8,
             g: ((c >> 8) & 0xFF) as u8,
             b: (c & 0xFF) as u8,
