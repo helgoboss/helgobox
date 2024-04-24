@@ -40,9 +40,9 @@ impl occasional_playtime_engine_update::Update {
         SteadyProjectTimelineHandle::new(project).with_timeline(|timeline| {
             let pre_buffer_stat = timeline.last_pre_buffered_blocks_of_playing_clips_stat();
             let stats = PlaytimeEngineStats {
-                min_buffered_blocks: pre_buffer_stat.min as _,
-                avg_buffered_blocks: pre_buffer_stat.avg as _,
-                max_buffered_blocks: pre_buffer_stat.max as _,
+                min_buffered_blocks: pre_buffer_stat.min() as _,
+                avg_buffered_blocks: pre_buffer_stat.avg() as _,
+                max_buffered_blocks: pre_buffer_stat.max() as _,
                 future_size_in_blocks: timeline.tempo_buffer_future_size() as _,
             };
             Self::EngineStats(stats)
