@@ -774,7 +774,7 @@ fn to_status(err: anyhow::Error) -> Status {
 
 /// The minimum version of the app API that the host (Helgobox) requires to properly
 /// communicates with it. Keep this up-to-date!
-pub const MIN_APP_API_VERSION: Version = Version::new(3, 0, 0);
+pub const MIN_APP_API_VERSION: Version = Version::new(4, 0, 0);
 
 #[cfg(not(feature = "playtime"))]
 fn playtime_not_available() -> Result<(), Status> {
