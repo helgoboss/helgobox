@@ -633,7 +633,7 @@ impl BackboneShell {
             .load_osc_devices_from_disk();
         // Start thread for async deallocation
         let async_deallocation_thread = start_async_deallocation_thread(
-            RealearnDeallocator::with_metrics("async_deallocation"),
+            RealearnDeallocator::with_metrics("helgobox.allocator.async_deallocation"),
             sleeping_state.async_deallocation_receiver,
         );
         // Start async runtime
@@ -2843,6 +2843,7 @@ mod playtime_impl {
     use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
     use crate::infrastructure::plugin::BackboneShell;
     use anyhow::Context;
+    use base::metrics_util::{record_duration_internal, record_occurrence};
     use base::Global;
     use playtime_api::persistence::PlaytimeSettings;
     use reaper_high::{GroupingBehavior, Reaper};
@@ -2904,7 +2905,11 @@ mod playtime_impl {
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
             fn record_duration(&self, id: &'static str, delta: std::time::Duration) {
-                base::metrics_util::record_duration_internal(id, delta);
+                record_duration_internal(id, delta);
+            }
+
+            fn record_occurrence(&self, id: &'static str) {
+                record_occurrence(id);
             }
         }
         let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =

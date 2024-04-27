@@ -5,7 +5,7 @@ use crate::domain::{
     SharedRealTimeInstance, UnitId,
 };
 use base::byte_pattern::{BytePattern, PatternByte};
-use base::metrics_util::record_duration;
+use base::metrics_util::{measure_time, record_duration};
 use base::non_blocking_lock;
 use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
@@ -496,9 +496,13 @@ impl OnAudioBuffer for RealearnAudioHook {
         assert_no_alloc(|| {
             let is_pre = !args.is_post;
             if is_pre {
-                self.on_pre(args);
+                measure_time("helgobox.rt.audio_hook.pre", || {
+                    self.on_pre(args);
+                });
             } else {
-                self.on_post(args);
+                measure_time("helgobox.rt.audio_hook.post", || {
+                    self.on_post(args);
+                });
             }
         });
     }
