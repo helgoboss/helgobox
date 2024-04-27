@@ -84,7 +84,7 @@ pub enum NormalAudioHookTask {
     /// Gives up immediately if the output device or optional input device is not open.
     RequestMidiDeviceIdentity(RequestMidiDeviceIdentityCommand),
     #[cfg(feature = "playtime")]
-    PlaytimeClipEngineCommand(playtime_clip_engine::rt::audio_hook::ClipEngineAudioHookCommand),
+    PlaytimeClipEngineCommand(playtime_clip_engine::rt::audio_hook::PlaytimeAudioHookCommand),
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -136,7 +136,7 @@ pub struct RealearnAudioHook {
     initialized: bool,
     counter: Arc<AtomicU32>,
     #[cfg(feature = "playtime")]
-    clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook,
+    clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook,
 }
 
 #[derive(Debug)]
@@ -167,8 +167,7 @@ impl RealearnAudioHook {
             initialized: false,
             counter,
             #[cfg(feature = "playtime")]
-            clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::ClipEngineAudioHook::new(
-            ),
+            clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook::new(),
         }
     }
 
