@@ -167,15 +167,15 @@ impl HeaderPanel {
         use SessionProp::*;
         match affected {
             One(InCompartment(compartment, One(InGroup(_, _))))
-                if *compartment == self.active_compartment() =>
-            {
-                self.invalidate_group_controls();
-            }
+            if *compartment == self.active_compartment() =>
+                {
+                    self.invalidate_group_controls();
+                }
             One(InCompartment(compartment, One(Notes)))
-                if *compartment == self.active_compartment() =>
-            {
-                self.invalidate_notes_button();
-            }
+            if *compartment == self.active_compartment() =>
+                {
+                    self.invalidate_notes_button();
+                }
             _ => {}
         }
         if let Some(open_group_panel) = self.group_panel.borrow_mut().as_ref() {
@@ -297,9 +297,9 @@ impl HeaderPanel {
         let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
         if compartment_is_dirty
             && !self
-                .view
-                .require_window()
-                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
+            .view
+            .require_window()
+            .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
         {
             self.invalidate_preset_browse_button();
             return;
@@ -422,19 +422,19 @@ impl HeaderPanel {
                         "<New group>",
                         MainMenuAction::MoveListedMappingsToGroup(None),
                     ))
-                    .chain(session.groups_sorted(compartment).map(move |g| {
-                        let g = g.borrow();
-                        let g_id = g.id();
-                        item_with_opts(
-                            g.to_string(),
-                            ItemOpts {
-                                enabled: group_id != Some(g_id),
-                                checked: false,
-                            },
-                            MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
-                        )
-                    }))
-                    .collect(),
+                        .chain(session.groups_sorted(compartment).map(move |g| {
+                            let g = g.borrow();
+                            let g_id = g.id();
+                            item_with_opts(
+                                g.to_string(),
+                                ItemOpts {
+                                    enabled: group_id != Some(g_id),
+                                    checked: false,
+                                },
+                                MainMenuAction::MoveListedMappingsToGroup(Some(g_id)),
+                            )
+                        }))
+                        .collect(),
                 ),
                 menu(
                     "Advanced",
@@ -917,7 +917,7 @@ impl HeaderPanel {
             |count|
                 format!(
                     "This clears the names of {count} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
-                )            ,
+                ),
             |_| String::new(),
         );
     }
@@ -1156,27 +1156,27 @@ impl HeaderPanel {
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
-            .with(self.session.clone())
-            .finally(move |_| {
-                main_state_1
-                    .borrow_mut()
-                    .is_learning_source_filter
-                    .set(false);
-            })
-            .do_async(move |session, capture_event: MessageCaptureEvent| {
-                let virtual_source_value = if capture_event.allow_virtual_sources {
-                    session
-                        .borrow()
-                        .virtualize_source_value(capture_event.result.message())
-                } else {
-                    None
-                };
-                let filter = SourceFilter {
-                    message_capture_result: capture_event.result,
-                    virtual_source_value,
-                };
-                main_state_2.borrow_mut().source_filter.set(Some(filter));
-            });
+                .with(self.session.clone())
+                .finally(move |_| {
+                    main_state_1
+                        .borrow_mut()
+                        .is_learning_source_filter
+                        .set(false);
+                })
+                .do_async(move |session, capture_event: MessageCaptureEvent| {
+                    let virtual_source_value = if capture_event.allow_virtual_sources {
+                        session
+                            .borrow()
+                            .virtualize_source_value(capture_event.result.message())
+                    } else {
+                        None
+                    };
+                    let filter = SourceFilter {
+                        message_capture_result: capture_event.result,
+                        virtual_source_value,
+                    };
+                    main_state_2.borrow_mut().source_filter.set(Some(filter));
+                });
         }
     }
 
@@ -1195,16 +1195,16 @@ impl HeaderPanel {
                     .take_until(self.view.closed())
                     .take(1),
             )
-            .with(Rc::downgrade(&self.main_state))
-            .finally(|main_state| {
-                main_state.borrow_mut().is_learning_target_filter.set(false);
-            })
-            .do_sync(|main_state, target| {
-                main_state
-                    .borrow_mut()
-                    .target_filter
-                    .set(Some((*target).clone()));
-            });
+                .with(Rc::downgrade(&self.main_state))
+                .finally(|main_state| {
+                    main_state.borrow_mut().is_learning_target_filter.set(false);
+                })
+                .do_sync(|main_state, target| {
+                    main_state
+                        .borrow_mut()
+                        .target_filter
+                        .set(Some((*target).clone()));
+                });
         }
     }
 
@@ -1893,7 +1893,7 @@ impl HeaderPanel {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
             }
-            Tagged(DataObject::Instance(Envelope { value: d, ..})) => {
+            Tagged(DataObject::Instance(Envelope { value: d, .. })) => {
                 if self.view.require_window().confirm(
                     "Helgobox",
                     "Do you want to continue replacing the complete Helgobox instance with the data in the clipboard?",
@@ -1904,7 +1904,7 @@ impl HeaderPanel {
                     instance_shell.apply_data(InstanceOrUnitData::InstanceData(*d))?;
                 }
             }
-            Tagged(DataObject::Unit(Envelope { value: d, ..})) => {
+            Tagged(DataObject::Unit(Envelope { value: d, .. })) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     "Do you want to continue replacing this complete ReaLearn unit with the data in the clipboard?",
@@ -1946,20 +1946,20 @@ impl HeaderPanel {
                     }
                 }
             }
-            Tagged(DataObject::MainCompartment(Envelope {value, version })) => {
+            Tagged(DataObject::MainCompartment(Envelope { value, version })) => {
                 let compartment = CompartmentKind::Main;
                 self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
-            Tagged(DataObject::ControllerCompartment(Envelope {value, version })) => {
+            Tagged(DataObject::ControllerCompartment(Envelope { value, version })) => {
                 let compartment = CompartmentKind::Controller;
                 self.import_compartment(compartment, version.as_ref(), value);
                 self.update_compartment(compartment);
             }
-            Tagged(DataObject::Mappings{..}) => {
+            Tagged(DataObject::Mappings { .. }) => {
                 bail!("The clipboard contains just a lose collection of mappings. Please import them using the context menus.")
             }
-            Tagged(DataObject::Mapping{..}) => {
+            Tagged(DataObject::Mapping { .. }) => {
                 bail!("The clipboard contains just one single mapping. Please import it using the context menus.")
             }
             _ => {
@@ -2356,11 +2356,9 @@ impl HeaderPanel {
                     let menu_entry_label =
                         build_create_compartment_preset_workspace_label(*compartment, true);
                     let text = format!(
-                        "This factory preset is written in Lua. Are you familiar with Lua and want to customize the Lua code to your own needs?\n\
+                        "This factory preset was written in the scripting language Lua. If you continue, ReaLearn will save it as user preset which contains a simple flat list of mappings (no code). Do you want to continue?\n\
                         \n\
-                        If yes, you should do this instead: Main menu => {PRESET_RELATED_MENU_LABEL} => {menu_entry_label}.\n\
-                        \n\
-                        If you press no, ReaLearn will save your compartment as JSON preset, which is basically just a logic-less list of mappings.",
+                        If you are you familiar with Lua and want to customize the Lua code to your own needs, do this instead: Main menu => {PRESET_RELATED_MENU_LABEL} => {menu_entry_label}.",
                     );
                     if !self.view.require_window().confirm("ReaLearn", text) {
                         return Ok(());
@@ -2556,10 +2554,10 @@ impl HeaderPanel {
                 )
                 .take_until(self.view.closed()),
         )
-        .with(Rc::downgrade(&self))
-        .do_async(move |view, _| {
-            view.invalidate_preset_controls();
-        });
+            .with(Rc::downgrade(&self))
+            .do_async(move |view, _| {
+                view.invalidate_preset_controls();
+            });
         when(
             BackboneShell::get()
                 .osc_device_manager()
@@ -2567,11 +2565,11 @@ impl HeaderPanel {
                 .changed()
                 .take_until(self.view.closed()),
         )
-        .with(Rc::downgrade(&self))
-        .do_async(move |view, _| {
-            view.invalidate_control_input_button();
-            view.invalidate_feedback_output_button();
-        });
+            .with(Rc::downgrade(&self))
+            .do_async(move |view, _| {
+                view.invalidate_control_input_button();
+                view.invalidate_feedback_output_button();
+            });
         // Enables/disables save button depending on dirty state.
         when(
             session.compartment_is_dirty[CompartmentKind::Controller]
@@ -2579,15 +2577,15 @@ impl HeaderPanel {
                 .merge(session.compartment_is_dirty[CompartmentKind::Main].changed())
                 .take_until(self.view.closed()),
         )
-        .with(Rc::downgrade(&self))
-        .do_sync(move |view, _| {
-            view.invalidate_preset_buttons();
-        });
+            .with(Rc::downgrade(&self))
+            .do_sync(move |view, _| {
+                view.invalidate_preset_buttons();
+            });
     }
 
     fn when<I: Send + Sync + Clone + 'static>(
         self: &SharedView<Self>,
-        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
+        event: impl LocalObservable<'static, Item=I, Err=()> + 'static,
         reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))
@@ -3082,27 +3080,27 @@ fn generate_fx_to_preset_links_menu_entries(
                 "<Edit FX ID...>",
                 MainMenuAction::EditPresetLinkFxId(scope, fx_id_0),
             ))
-            .chain(once(item(
-                "<Remove link>",
-                MainMenuAction::RemovePresetLink(scope, fx_id_1),
-            )))
-            .chain(build_compartment_preset_menu_entries(
-                main_preset_manager.common_preset_infos(),
-                move |info| {
-                    let fx_id = fx_id_2.clone();
-                    let preset_id = info.id.clone();
-                    MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
-                },
-                |info| info.id == preset_id_0,
-            ))
-            .chain(once(
-                if main_preset_manager.find_by_id(&link.preset_id).is_some() {
-                    Entry::Nothing
-                } else {
-                    disabled_item(format!("<Not present> ({})", link.preset_id))
-                },
-            ))
-            .collect(),
+                .chain(once(item(
+                    "<Remove link>",
+                    MainMenuAction::RemovePresetLink(scope, fx_id_1),
+                )))
+                .chain(build_compartment_preset_menu_entries(
+                    main_preset_manager.common_preset_infos(),
+                    move |info| {
+                        let fx_id = fx_id_2.clone();
+                        let preset_id = info.id.clone();
+                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
+                    },
+                    |info| info.id == preset_id_0,
+                ))
+                .chain(once(
+                    if main_preset_manager.find_by_id(&link.preset_id).is_some() {
+                        Entry::Nothing
+                    } else {
+                        disabled_item(format!("<Not present> ({})", link.preset_id))
+                    },
+                ))
+                .collect(),
         )
     });
     once(add_link_entry).chain(link_entries).collect()
