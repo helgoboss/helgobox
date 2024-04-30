@@ -12,7 +12,7 @@ use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
 #[cfg(feature = "playtime")]
 use playtime_clip_engine::{
-    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, ClipEngine,
+    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, PlaytimeEngine,
 };
 
 use crate::infrastructure::plugin::BackboneShell;
@@ -207,7 +207,7 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<Empty>, Status> {
         let settings: PlaytimeSettings = serde_json::from_str(&request.settings)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        ClipEngine::get()
+        PlaytimeEngine::get()
             .set_settings(settings)
             .map_err(|e| Status::unknown(e.to_string()))?;
         Ok(Response::new(Empty {}))
@@ -637,7 +637,7 @@ impl PlaytimeProtoRequestHandler {
         &self,
         req: ProveAuthenticityRequest,
     ) -> Result<Response<ProveAuthenticityReply>, Status> {
-        let signature = ClipEngine::prove_authenticity(&req.challenge)
+        let signature = PlaytimeEngine::prove_authenticity(&req.challenge)
             .ok_or_else(|| Status::unknown("authenticity proof failed"))?;
         Ok(Response::new(ProveAuthenticityReply { signature }))
     }

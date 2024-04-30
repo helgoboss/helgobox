@@ -180,7 +180,7 @@ impl occasional_global_update::Update {
                         }
                         #[cfg(feature = "playtime")]
                         {
-                            playtime_clip_engine::ClipEngine::validate_license(license).is_ok()
+                            playtime_clip_engine::PlaytimeEngine::validate_license(license).is_ok()
                         }
                     };
                     ValidatedLicense {

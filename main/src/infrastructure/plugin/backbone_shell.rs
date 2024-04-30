@@ -633,7 +633,7 @@ impl BackboneShell {
             .load_osc_devices_from_disk();
         // Start thread for async deallocation
         let async_deallocation_thread = start_async_deallocation_thread(
-            RealearnDeallocator::with_metrics("async_deallocation"),
+            RealearnDeallocator::with_metrics("helgobox.allocator.async_deallocation"),
             sleeping_state.async_deallocation_receiver,
         );
         // Start async runtime
@@ -2554,8 +2554,8 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
         #[cfg(feature = "playtime")]
         {
             // Let the Playtime Clip Engine check if it finds a suitable license
-            let success =
-                playtime_clip_engine::ClipEngine::get().handle_changed_licenses(source.licenses());
+            let success = playtime_clip_engine::PlaytimeEngine::get()
+                .handle_changed_licenses(source.licenses());
             // Send a notification to the app (if it wants to display "success")
             let info_event = if success {
                 GlobalInfoEvent::PlaytimeActivationSucceeded
@@ -2843,6 +2843,7 @@ mod playtime_impl {
     use crate::infrastructure::plugin::helgobox_plugin::HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING;
     use crate::infrastructure::plugin::BackboneShell;
     use anyhow::Context;
+    use base::metrics_util::{record_duration_internal, record_occurrence};
     use base::Global;
     use playtime_api::persistence::PlaytimeSettings;
     use reaper_high::{GroupingBehavior, Reaper};
@@ -2899,12 +2900,16 @@ mod playtime_impl {
     }
 
     pub fn init_clip_engine(license_manager: &LicenseManager) {
-        use playtime_clip_engine::ClipEngine;
+        use playtime_clip_engine::PlaytimeEngine;
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
             fn record_duration(&self, id: &'static str, delta: std::time::Duration) {
-                base::metrics_util::record_duration_internal(id, delta);
+                record_duration_internal(id, delta);
+            }
+
+            fn record_occurrence(&self, id: &'static str) {
+                record_occurrence(id);
             }
         }
         let metrics_recorder: Option<playtime_clip_engine::StaticMetricsRecorder> =
@@ -2914,8 +2919,8 @@ mod playtime_impl {
                 None
             };
         #[derive(Debug)]
-        struct RealearnClipEngineIntegration;
-        impl playtime_clip_engine::ClipEngineIntegration for RealearnClipEngineIntegration {
+        struct RealearnPlaytimeIntegration;
+        impl playtime_clip_engine::PlaytimeIntegration for RealearnPlaytimeIntegration {
             fn export_to_clipboard(
                 &self,
                 item: &dyn playtime_clip_engine::PlaytimeItem,
@@ -2940,13 +2945,13 @@ mod playtime_impl {
                 Ok(())
             }
         }
-        let args = playtime_clip_engine::ClipEngineInitArgs {
+        let args = playtime_clip_engine::PlaytimeEngineInitArgs {
             available_licenses: license_manager.licenses(),
             settings: BackboneShell::read_playtime_settings(),
             metrics_recorder,
-            integration: Box::new(RealearnClipEngineIntegration),
+            integration: Box::new(RealearnPlaytimeIntegration),
         };
-        ClipEngine::make_available_globally(|| ClipEngine::new(args));
+        PlaytimeEngine::make_available_globally(|| PlaytimeEngine::new(args));
     }
 
     fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {

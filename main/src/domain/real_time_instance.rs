@@ -17,7 +17,7 @@ pub struct RealTimeInstance {
 #[derive(Debug)]
 struct PlaytimeRtInstance {
     clip_matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
-    clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook,
+    clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::PlaytimeFxHook,
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ pub enum RealTimeInstanceTask {
         matrix: Option<playtime_clip_engine::rt::WeakRtMatrix>,
     },
     #[cfg(feature = "playtime")]
-    PlaytimeClipEngineCommand(playtime_clip_engine::rt::fx_hook::ClipEngineFxHookCommand),
+    PlaytimeClipEngineCommand(playtime_clip_engine::rt::fx_hook::PlaytimeFxHookCommand),
 }
 
 impl RealTimeInstance {
@@ -37,7 +37,7 @@ impl RealTimeInstance {
             #[cfg(feature = "playtime")]
             playtime: PlaytimeRtInstance {
                 clip_matrix: None,
-                clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::ClipEngineFxHook::new(),
+                clip_engine_fx_hook: playtime_clip_engine::rt::fx_hook::PlaytimeFxHook::new(),
             },
         }
     }

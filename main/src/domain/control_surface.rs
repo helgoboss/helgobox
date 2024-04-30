@@ -390,10 +390,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Important because we deferred the change event handling, so it could be invalid now!
         // See https://github.com/helgoboss/realearn/issues/672.
         normal_events.retain(|e| e.is_still_valid());
-        let monitoring_fx_events =
-            metrics_util::measure_time("detect_monitoring_fx_changes", || {
-                self.monitoring_fx_chain_change_detector.poll_for_changes()
-            });
+        let monitoring_fx_events = metrics_util::measure_time(
+            "helgobox.control_surface.detect_monitoring_fx_changes",
+            || self.monitoring_fx_chain_change_detector.poll_for_changes(),
+        );
         if normal_events.is_empty() && monitoring_fx_events.is_empty() {
             return;
         }
@@ -768,11 +768,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn poll_for_more_change_events(&mut self) {
         let mut change_event_queue = self.change_event_queue.borrow_mut();
-        measure_time("poll_for_more_change_events", || {
-            self.change_detection_middleware.run(&mut |change_event| {
-                change_event_queue.push(change_event);
-            });
-        });
+        measure_time(
+            "helgobox.control_surface.poll_for_more_change_events",
+            || {
+                self.change_detection_middleware.run(&mut |change_event| {
+                    change_event_queue.push(change_event);
+                });
+            },
+        );
     }
 }
 

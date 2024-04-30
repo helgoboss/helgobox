@@ -15,7 +15,7 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{
-    base, clip_timeline, ClipEngine, SteadyProjectTimelineHandle, Timeline,
+    base, clip_timeline, PlaytimeEngine, SteadyProjectTimelineHandle, Timeline,
 };
 
 use crate::infrastructure::proto::track_input::Input;
@@ -31,7 +31,7 @@ use crate::infrastructure::proto::{
 
 impl occasional_playtime_engine_update::Update {
     pub fn engine_settings() -> Self {
-        let settings = ClipEngine::get().settings();
+        let settings = PlaytimeEngine::get().settings();
         let json = serde_json::to_string(&settings).expect("couldn't serialize playtime settings");
         Self::EngineSettings(json)
     }
@@ -54,7 +54,7 @@ impl occasional_playtime_engine_update::Update {
         let value = {
             #[cfg(feature = "playtime")]
             {
-                let clip_engine = playtime_clip_engine::ClipEngine::get();
+                let clip_engine = playtime_clip_engine::PlaytimeEngine::get();
                 if clip_engine.has_valid_license() {
                     clip_engine.license()
                 } else {
