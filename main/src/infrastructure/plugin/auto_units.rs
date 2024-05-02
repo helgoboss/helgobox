@@ -236,10 +236,12 @@ fn get_suitability_of_controller_preset_for_controller(
                 return ControllerSuitability::NotSuitable;
             };
             let out_dev_id = MidiOutputDeviceId::new(output_port.get() as _);
-            let out_dev_name = Reaper::get()
-                .midi_output_device_by_id(out_dev_id)
-                .name()
-                .into_string();
+            let Some(out_dev_name) = Reaper::get().midi_output_device_by_id(out_dev_id).name()
+            else {
+                // If the controller doesn't have a name / is not available, it can't match an output port pattern.
+                return ControllerSuitability::NotSuitable;
+            };
+            let out_dev_name = out_dev_name.into_string();
             if midi_output_port_patterns_match(patterns, &out_dev_name) {
                 identity_pattern_suitability
             } else {

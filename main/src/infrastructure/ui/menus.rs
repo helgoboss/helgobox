@@ -228,7 +228,7 @@ pub fn get_osc_device_list_label(dev: &OscDevice, is_output: bool) -> String {
 
 pub fn get_midi_input_device_list_label(dev: MidiInputDevice) -> String {
     get_midi_device_list_label(
-        dev.name(),
+        dev.name().unwrap_or_default(),
         dev.id().get(),
         MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
     )
@@ -236,7 +236,7 @@ pub fn get_midi_input_device_list_label(dev: MidiInputDevice) -> String {
 
 pub fn get_midi_output_device_list_label(dev: MidiOutputDevice) -> String {
     get_midi_device_list_label(
-        dev.name(),
+        dev.name().unwrap_or_default(),
         dev.id().get(),
         MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
     )

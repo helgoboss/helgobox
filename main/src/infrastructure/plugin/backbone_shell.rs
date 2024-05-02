@@ -2706,6 +2706,7 @@ async fn maybe_create_controller_for_device(
     let out_port_name = Reaper::get()
         .midi_output_device_by_id(out_dev_id)
         .name()
+        .ok_or("MIDI output device doesn't return name / is not available")?
         .into_string();
     tracing::debug!(msg = "Input not yet used. Finding matching controller preset...", %out_port_name);
     let controller_preset = controller_preset_manager
