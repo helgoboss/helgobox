@@ -389,6 +389,7 @@ impl SlotPlayState {
             ScheduledForPlayStart => Self::ScheduledForPlayStart,
             Playing => Self::Playing,
             Paused => Self::Paused,
+            ScheduledForPlayRestart => Self::ScheduledForPlayRestart,
             ScheduledForPlayStop => Self::ScheduledForPlayStop,
             ScheduledForRecordingStart => Self::ScheduledForRecordingStart,
             Recording => Self::Recording,
