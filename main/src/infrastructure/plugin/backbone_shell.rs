@@ -2492,23 +2492,7 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
             .proto_hub()
             .notify_midi_output_devices_changed();
         update_auto_units_async();
-        // Maybe create controller for each added device
-        let added_devices = diff.added_devices.clone();
-        spawn_in_main_thread(async move {
-            // Prevent multiple tasks of this kind from running at the same time
-            static IS_RUNNING: AtomicBool = AtomicBool::new(false);
-            if IS_RUNNING.swap(true, Ordering::Relaxed) {
-                return Ok(());
-            }
-            // Now, let's go
-            for out_dev_id in added_devices.iter().copied() {
-                if let Err(error) = maybe_create_controller_for_device(out_dev_id).await {
-                    tracing::warn!(msg = "Couldn't automatically create controller for device", %out_dev_id, %error);
-                }
-            }
-            IS_RUNNING.store(false, Ordering::Relaxed);
-            Ok(())
-        });
+        maybe_create_controller_for_each_added_device(diff);
     }
 
     fn process_reaper_change_events(&self, change_events: &[ChangeEvent]) {
@@ -2989,4 +2973,36 @@ mod playtime_impl {
         playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
         Ok(())
     }
+}
+
+fn maybe_create_controller_for_each_added_device(diff: &DeviceDiff<MidiOutputDeviceId>) {
+    if Reaper::get()
+        .medium_reaper()
+        .low()
+        .pointers()
+        .midi_init
+        .is_none()
+    {
+        // REAPER version < 6.47
+        tracing::warn!(
+            "Unable to create controller for added device because REAPER version < 6.47"
+        );
+        return;
+    }
+    let added_devices = diff.added_devices.clone();
+    spawn_in_main_thread(async move {
+        // Prevent multiple tasks of this kind from running at the same time
+        static IS_RUNNING: AtomicBool = AtomicBool::new(false);
+        if IS_RUNNING.swap(true, Ordering::Relaxed) {
+            return Ok(());
+        }
+        // Now, let's go
+        for out_dev_id in added_devices.iter().copied() {
+            if let Err(error) = maybe_create_controller_for_device(out_dev_id).await {
+                tracing::warn!(msg = "Couldn't automatically create controller for device", %out_dev_id, %error);
+            }
+        }
+        IS_RUNNING.store(false, Ordering::Relaxed);
+        Ok(())
+    });
 }
