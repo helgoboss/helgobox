@@ -173,6 +173,9 @@ local feedback_table: { [string]: FeedbackEntry? } = {
     ["playtime.slot_state.scheduled_for_play_stop"] = {
         behavior = blinking,
     },
+    ["playtime.slot_state.scheduled_for_play_restart"] = {
+        behavior = blinking,
+    },
     ["playtime.slot_state.scheduled_for_record_start"] = {
         behavior = medium,
         color = red_color,

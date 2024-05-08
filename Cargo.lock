@@ -5077,7 +5077,6 @@ version = "0.1.0"
 [[package]]
 name = "reaper-common-types"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "hex-literal",
  "nutype",
@@ -5088,7 +5087,6 @@ dependencies = [
 [[package]]
 name = "reaper-fluent"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "fragile",
  "reaper-low",
@@ -5099,7 +5097,6 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "backtrace",
  "base64 0.13.0",
@@ -5129,7 +5126,6 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "c_str_macro",
  "cc 1.0.83",
@@ -5143,7 +5139,6 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "darling 0.10.2",
  "quote",
@@ -5153,7 +5148,6 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -5172,7 +5166,6 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -5426,7 +5419,6 @@ checksum = "3cd14fd5e3b777a7422cca79358c57a8f6e3a703d9ac187448d0daf220c2407f"
 [[package]]
 name = "rppxml-parser"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#b5ec43a9d2fa6b513a18ddd0fef1cbcd07c48a2d"
 dependencies = [
  "splitty",
 ]
@@ -5564,9 +5556,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.21.11"
+version = "0.21.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fecbfb7b1444f477b345853b1fce097a2c6fb637b2bfb87e6bc5db0f043fae4"
+checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
 dependencies = [
  "log",
  "ring",

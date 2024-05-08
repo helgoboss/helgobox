@@ -11,6 +11,7 @@ local feedback_value_table = {
         ["playtime.slot_state.playing"] = 1.0,
         ["playtime.slot_state.paused"] = 0.3,
         ["playtime.slot_state.scheduled_for_play_stop"] = 0.4,
+        ["playtime.slot_state.scheduled_for_play_restart"] = 0.4,
         ["playtime.slot_state.scheduled_for_record_start"] = 0.4,
         ["playtime.slot_state.recording"] = 1.0,
         ["playtime.slot_state.scheduled_for_record_stop"] = 0.4,

@@ -44,3 +44,6 @@ pub mod byte_pattern;
 pub mod serde_json_util;
 
 pub mod panic_util;
+
+mod approx_f64;
+pub use approx_f64::*;
