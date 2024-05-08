@@ -1595,9 +1595,6 @@ pub struct ContinuousClipUpdate {
     /// Number between 0 and 1.
     #[prost(double, tag = "4")]
     pub peak: f64,
-    /// Total number of pre-buffer misses / audio dropouts (audio only).
-    #[prost(uint32, tag = "5")]
-    pub miss_count: u32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

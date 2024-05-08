@@ -483,8 +483,6 @@ impl ContinuousClipUpdate {
             position_in_seconds: event.seconds.get(),
             source_position_in_frames: event.source_pos_in_frames,
             peak: event.peak.get(),
-            // TODO-high CONTINUE
-            miss_count: 0,
         }
     }
 }
