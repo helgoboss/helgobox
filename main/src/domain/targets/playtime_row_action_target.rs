@@ -123,10 +123,10 @@ mod playtime_impl {
                         return Ok(HitResponse::ignored());
                     }
                     self.with_matrix(context.control_context, |matrix| {
-                        if matrix.scene_is_empty(self.basics.row_index) {
-                            matrix.paste_scene(self.basics.row_index)?;
+                        if matrix.row_is_empty(self.basics.row_index) {
+                            matrix.paste_row(self.basics.row_index)?;
                         } else {
-                            matrix.copy_scene(self.basics.row_index)?;
+                            matrix.copy_row(self.basics.row_index)?;
                         }
                         Ok(HitResponse::processed_with_effect())
                     })?
@@ -136,7 +136,7 @@ mod playtime_impl {
                         return Ok(HitResponse::ignored());
                     }
                     self.with_matrix(context.control_context, |matrix| {
-                        matrix.clear_scene(self.basics.row_index)?;
+                        matrix.clear_row(self.basics.row_index)?;
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
@@ -208,9 +208,7 @@ mod playtime_impl {
                 BuildScene => None,
                 CopyOrPasteScene | ClearScene => {
                     let row_is_empty = self
-                        .with_matrix(context, |matrix| {
-                            matrix.scene_is_empty(self.basics.row_index)
-                        })
+                        .with_matrix(context, |matrix| matrix.row_is_empty(self.basics.row_index))
                         .ok()?;
                     Some(AbsoluteValue::from_bool(!row_is_empty))
                 }

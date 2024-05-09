@@ -143,9 +143,9 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown drag row action"))?;
         self.handle_matrix_command(req.matrix_id, |matrix| match action {
             DragRowAction::MoveContent => matrix
-                .move_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
+                .move_row_content_to(req.source_row_index as _, req.destination_row_index as _),
             DragRowAction::CopyContent => matrix
-                .copy_scene_content_to(req.source_row_index as _, req.destination_row_index as _),
+                .copy_row_content_to(req.source_row_index as _, req.destination_row_index as _),
             DragRowAction::Reorder => {
                 matrix.reorder_rows(req.source_row_index as _, req.destination_row_index as _)
             }
@@ -456,10 +456,10 @@ impl PlaytimeProtoRequestHandler {
                 matrix.play_scene(row_index);
                 Ok(())
             }
-            TriggerRowAction::Clear => matrix.clear_scene(row_index),
-            TriggerRowAction::Copy => matrix.copy_scene(row_index),
-            TriggerRowAction::Cut => matrix.cut_scene(row_index),
-            TriggerRowAction::Paste => matrix.paste_scene(row_index),
+            TriggerRowAction::Clear => matrix.clear_row(row_index),
+            TriggerRowAction::Copy => matrix.copy_row(row_index),
+            TriggerRowAction::Cut => matrix.cut_row(row_index),
+            TriggerRowAction::Paste => matrix.paste_row(row_index),
             TriggerRowAction::Remove => matrix.remove_row(row_index),
             TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
             TriggerRowAction::Insert => matrix.insert_row(row_index),
