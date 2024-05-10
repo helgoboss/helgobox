@@ -6,7 +6,7 @@ use base::future_util;
 use base::tracing_util::ok_or_log_as_warn;
 use helgoboss_learn::UnitValue;
 use playtime_api::persistence::{
-    ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
+    ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
 };
 use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
 use playtime_clip_engine::rt::TriggerSlotMainOptions;
@@ -20,19 +20,19 @@ use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     ColumnKind, DragClipAction, DragClipRequest, DragColumnAction, DragColumnRequest,
     DragRowAction, DragRowRequest, DragSlotAction, DragSlotRequest, Empty, FullClipAddress,
-    FullColumnAddress, FullRowAddress, FullSequenceId, FullSlotAddress, FullTrackAddress,
-    GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply, GetClipDetailRequest,
-    GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
-    MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest, SetClipDataRequest,
-    SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipAction, TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest,
-    TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest,
-    TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest,
-    TriggerTrackAction, TriggerTrackRequest,
+    FullClipId, FullColumnAddress, FullRowAddress, FullSequenceId, FullSlotAddress,
+    FullTrackAddress, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
+    GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
+    InsertColumnsRequest, MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest,
+    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
+    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
+    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
+    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
+    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
 };
 
 #[derive(Debug)]
@@ -622,8 +622,8 @@ impl PlaytimeProtoRequestHandler {
         req: GetClipDetailRequest,
     ) -> Result<Response<GetClipDetailReply>, Status> {
         let peak_file_future =
-            self.handle_clip_internal(&req.clip_address, |matrix, clip_address| {
-                let clip = matrix.get_clip(clip_address)?;
+            self.handle_clip_by_id_internal(req.clip_id, |matrix, clip_id| {
+                let clip = matrix.get_clip_by_id(&clip_id)?;
                 let peak_file_future = clip.peak_file_contents(matrix.project())?;
                 Ok(peak_file_future)
             })?;
@@ -782,6 +782,17 @@ impl PlaytimeProtoRequestHandler {
         self.handle_matrix_internal(full_clip_address.matrix_id, |matrix| {
             handler(matrix, clip_addr)
         })
+    }
+
+    pub(crate) fn handle_clip_by_id_internal<R>(
+        &self,
+        full_clip_id: Option<FullClipId>,
+        handler: impl FnOnce(&mut Matrix, ClipId) -> anyhow::Result<R>,
+    ) -> Result<R, Status> {
+        let full_clip_id =
+            full_clip_id.ok_or_else(|| Status::invalid_argument("need full clip ID"))?;
+        let clip_id = ClipId::new(full_clip_id.clip_id);
+        self.handle_matrix_internal(full_clip_id.matrix_id, |matrix| handler(matrix, clip_id))
     }
 
     fn handle_track_command(
