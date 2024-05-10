@@ -37,7 +37,6 @@ swell-ui.workspace = true
 rx-util.workspace = true
 pot.workspace = true
 realearn-api.workspace = true
-realearn-csi.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true

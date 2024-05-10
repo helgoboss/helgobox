@@ -4972,7 +4972,6 @@ dependencies = [
  "raw-window-handle 0.4.3",
  "rcgen",
  "realearn-api",
- "realearn-csi",
  "realearn-dialogs",
  "reaper-common-types",
  "reaper-high",

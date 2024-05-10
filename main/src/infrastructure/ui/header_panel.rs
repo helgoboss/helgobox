@@ -1886,9 +1886,9 @@ impl HeaderPanel {
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        BackboneShell::warn_if_envelope_version_higher(res.value.version());
+        BackboneShell::warn_if_envelope_version_higher(res.version());
         use UntaggedDataObject::*;
-        match res.value {
+        match res {
             PresetLike(preset_data) => {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
@@ -1965,12 +1965,6 @@ impl HeaderPanel {
             _ => {
                 bail!("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.")
             }
-        }
-        if !res.annotations.is_empty() {
-            notify_processing_result(
-                "Import from clipboard",
-                res.annotations.into_iter().map(|a| a.to_string()).collect(),
-            );
         }
         Ok(())
     }
