@@ -1388,7 +1388,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .basics
             .event_handler
             .auto_load_different_preset_if_necessary()
-            == Ok(true)
+            .is_ok_and(|loaded| loaded)
         {
             // If another preset was loaded, we don't need to refresh all targets because
             // another preset is being loaded anyway.
