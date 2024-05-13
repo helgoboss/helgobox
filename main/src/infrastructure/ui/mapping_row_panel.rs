@@ -433,7 +433,7 @@ impl MappingRowPanel {
         });
         self.when(
             session
-                .main_preset_auto_load_mode
+                .auto_load_mode
                 .changed()
                 .merge(session.learn_many_state_changed()),
             |view| {

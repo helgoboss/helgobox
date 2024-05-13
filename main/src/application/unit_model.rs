@@ -1,7 +1,7 @@
 use crate::application::{
-    get_track_label, share_group, share_mapping, Affected, AutoUnitData, Change, ChangeResult,
-    CompartmentCommand, CompartmentModel, CompartmentPresetManager, CompartmentPresetModel,
-    CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel, MainPresetAutoLoadMode,
+    get_track_label, share_group, share_mapping, Affected, AutoLoadMode, AutoUnitData, Change,
+    ChangeResult, CompartmentCommand, CompartmentModel, CompartmentPresetManager,
+    CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel,
     MappingCommand, MappingModel, MappingProp, ModeCommand, PresetLinkManager, ProcessingRelevance,
     SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp,
     VirtualControlElementType, MASTER_TRACK_LABEL,
@@ -39,7 +39,7 @@ use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
-    FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+    CompartmentPresetId, FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
 };
 use realearn_api::runtime::InstanceInfoEvent;
 use reaper_medium::{InputMonitoringMode, RecordingInput};
@@ -102,7 +102,9 @@ pub struct UnitModel {
     pub reset_feedback_when_releasing_source: Prop<bool>,
     pub control_input: Prop<ControlInput>,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
-    pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
+    pub auto_load_mode: Prop<AutoLoadMode>,
+    pub auto_load_fallback_compartment: Option<CompartmentModel>,
+    pub auto_load_fallback_preset_id: Option<String>,
     // --
     pub lives_on_upper_floor: Prop<bool>,
     pub tags: Prop<Vec<Tag>>,
@@ -150,7 +152,6 @@ pub struct UnitModel {
     control_surface_main_task_sender: &'static RealearnControlSurfaceMainTaskSender,
     instance_track_descriptor: TrackDescriptor,
     instance_fx_descriptor: FxDescriptor,
-    memorized_main_compartment: Option<CompartmentModel>,
     /// Set if this unit was added automatically.
     auto_unit: Option<AutoUnitData>,
 }
@@ -199,7 +200,7 @@ impl LearnManyState {
 }
 
 pub mod session_defaults {
-    use crate::application::MainPresetAutoLoadMode;
+    use crate::application::AutoLoadMode;
     use crate::domain::StayActiveWhenProjectInBackground;
     use realearn_api::persistence::FxDescriptor;
 
@@ -211,7 +212,7 @@ pub mod session_defaults {
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
     pub const RESET_FEEDBACK_WHEN_RELEASING_SOURCE: bool = true;
-    pub const MAIN_PRESET_AUTO_LOAD_MODE: MainPresetAutoLoadMode = MainPresetAutoLoadMode::Off;
+    pub const MAIN_PRESET_AUTO_LOAD_MODE: AutoLoadMode = AutoLoadMode::Off;
     /// This is mainly for backward-compatibility with "Auto-load: Depending on focused FX"
     /// but also is a quite common use case, so why not.
     pub const INSTANCE_FX_DESCRIPTOR: FxDescriptor = FxDescriptor::Focused;
@@ -276,7 +277,9 @@ impl UnitModel {
             ),
             control_input: prop(initial_input),
             feedback_output: prop(initial_output),
-            main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
+            auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
+            auto_load_fallback_compartment: None,
+            auto_load_fallback_preset_id: None,
             lives_on_upper_floor: prop(false),
             tags: Default::default(),
             compartment_is_dirty: Default::default(),
@@ -318,7 +321,6 @@ impl UnitModel {
             control_surface_main_task_sender,
             instance_track_descriptor: Default::default(),
             instance_fx_descriptor: session_defaults::INSTANCE_FX_DESCRIPTOR,
-            memorized_main_compartment: None,
             auto_unit: auto_unit.clone(),
             name: initial_name,
         };
@@ -619,23 +621,24 @@ impl UnitModel {
         });
     }
 
-    pub fn activate_main_preset_auto_load_mode(&mut self, mode: MainPresetAutoLoadMode) {
-        self.main_preset_auto_load_mode.set(mode);
+    pub fn activate_auto_load_mode(&mut self, mode: AutoLoadMode) {
+        // Memorize or clear current preset ID for fallback purposes
+        self.auto_load_fallback_preset_id = match mode {
+            AutoLoadMode::Off => None,
+            AutoLoadMode::UnitFx => self.active_main_preset_id.clone(),
+        };
+        // Set auto-load mode
+        self.auto_load_mode.set(mode);
     }
 
     pub fn main_preset_is_auto_loaded(&self) -> bool {
-        self.main_preset_auto_load_mode.get().is_on() && self.active_main_preset_id.is_some()
+        self.auto_load_mode.get().is_on() && self.active_main_preset_id.is_some()
     }
 
     /// This returns an early `false` if the desired preset is already active.
-    fn auto_load_preset_linked_to_fx_if_not_yet_active(&mut self, fx_id: Option<FxId>) -> bool {
+    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>) -> bool {
         let final_preset_id = fx_id.and_then(|fx_id| self.find_preset_linked_to_fx(fx_id));
-        // Activate preset if not active already.
-        if self.active_main_preset_id == final_preset_id {
-            return false;
-        }
-        self.activate_main_preset_for_auto_load(final_preset_id);
-        true
+        self.auto_load_preset(final_preset_id)
     }
 
     fn find_preset_linked_to_fx(&self, fx_id: FxId) -> Option<String> {
@@ -681,7 +684,7 @@ impl UnitModel {
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.reset_feedback_when_releasing_source.changed())
-            .merge(self.main_preset_auto_load_mode.changed())
+            .merge(self.auto_load_mode.changed())
             .merge(self.real_input_logging_enabled.changed())
             .merge(self.real_output_logging_enabled.changed())
             .merge(self.virtual_input_logging_enabled.changed())
@@ -2096,15 +2099,23 @@ impl UnitModel {
         self.compartment_is_dirty[compartment].set(false);
     }
 
-    pub fn memorized_main_compartment(&self) -> Option<&CompartmentModel> {
-        self.memorized_main_compartment.as_ref()
+    pub fn auto_load_fallback_compartment(&self) -> Option<&CompartmentModel> {
+        self.auto_load_fallback_compartment.as_ref()
     }
 
-    pub fn set_memorized_main_compartment_without_notification(
+    pub fn set_auto_load_fallback_compartment_model(
         &mut self,
-        model: Option<CompartmentModel>,
+        compartment: Option<CompartmentModel>,
     ) {
-        self.memorized_main_compartment = model;
+        self.auto_load_fallback_compartment = compartment;
+    }
+
+    pub fn auto_load_fallback_preset_id(&self) -> Option<&str> {
+        self.auto_load_fallback_preset_id.as_deref()
+    }
+
+    pub fn set_auto_load_fallback_preset_id(&mut self, preset_id: Option<String>) {
+        self.auto_load_fallback_preset_id = preset_id;
     }
 
     pub fn activate_preset(&mut self, compartment: CompartmentKind, id: Option<String>) {
@@ -2126,19 +2137,48 @@ impl UnitModel {
         self.activate_main_preset_internal(id, model);
     }
 
-    fn activate_main_preset_for_auto_load(&mut self, id: Option<String>) {
-        let model = if let Some(id) = id.as_ref() {
-            if self.active_main_preset_id.is_none() {
-                self.memorized_main_compartment =
-                    Some(self.extract_compartment_model(CompartmentKind::Main));
+    /// This returns an early `false` if the desired preset is already active.
+    fn auto_load_preset(&mut self, preset_id: Option<String>) -> bool {
+        if self.active_main_preset_id == preset_id {
+            return false;
+        }
+        let instruction = self.take_auto_load_preset_load_instruction(preset_id);
+        self.activate_main_preset_internal(instruction.preset_id, instruction.compartment_model);
+        true
+    }
+
+    fn take_auto_load_preset_load_instruction(
+        &mut self,
+        preset_id: Option<String>,
+    ) -> PresetLoadInstruction {
+        if let Some(preset_id) = preset_id {
+            // There's a linked preset. Try to load it.
+            let compartment_model = self
+                .main_preset_manager
+                .find_by_id(&preset_id)
+                .map(|p| p.model().clone());
+            // Maybe save current mappings for later fallback
+            if compartment_model.is_some()
+                && self.active_main_preset_id.is_none()
+                && self.auto_load_fallback_preset_id.is_none()
+            {
+                // Currently, <None> preset is active and there's no fallback preset.
+                // Save current mappings, so that we can fall back to them later on.
+                let compartment_model = self.extract_compartment_model(CompartmentKind::Main);
+                self.auto_load_fallback_compartment = Some(compartment_model);
             }
-            self.main_preset_manager
-                .find_by_id(id)
-                .map(|preset| preset.model().clone())
+            PresetLoadInstruction::new(Some(preset_id), compartment_model)
+        } else if let Some(fallback_preset_id) = &self.auto_load_fallback_preset_id {
+            // There's no linked preset. We have a fallback preset though.
+            let compartment_model = self
+                .main_preset_manager
+                .find_by_id(fallback_preset_id)
+                .map(|p| p.model().clone());
+            PresetLoadInstruction::new(Some(fallback_preset_id.clone()), compartment_model)
         } else {
-            self.memorized_main_compartment.take()
-        };
-        self.activate_main_preset_internal(id, model);
+            // There's no linked preset and also no fallback preset. Fall back to ad-hoc memorized compartment.
+            PresetLoadInstruction::new(None, self.auto_load_fallback_compartment.take())
+        }
     }
 
     fn activate_main_preset_internal(
@@ -2859,7 +2899,7 @@ impl DomainEventHandler for WeakUnitModel {
         let mut session = session
             .try_borrow_mut()
             .map_err(|_| "session already borrowed")?;
-        if session.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::UnitFx {
+        if session.auto_load_mode.get() != AutoLoadMode::UnitFx {
             return Ok(false);
         }
         let fx_id = {
@@ -2884,7 +2924,7 @@ impl DomainEventHandler for WeakUnitModel {
                 .as_ref()
                 .and_then(|f| FxId::from_fx(f, false).ok())
         };
-        let loaded = session.auto_load_preset_linked_to_fx_if_not_yet_active(fx_id);
+        let loaded = session.auto_load_preset_linked_to_fx(fx_id);
         Ok(loaded)
     }
 }
@@ -3049,4 +3089,18 @@ fn compile_common_lua(
     })?;
     env.set("require", require)?;
     lua.compile_and_execute(compartment.to_string(), code, env)
+}
+
+struct PresetLoadInstruction {
+    preset_id: Option<String>,
+    compartment_model: Option<CompartmentModel>,
+}
+
+impl PresetLoadInstruction {
+    pub fn new(preset_id: Option<String>, compartment_model: Option<CompartmentModel>) -> Self {
+        Self {
+            preset_id,
+            compartment_model,
+        }
+    }
 }

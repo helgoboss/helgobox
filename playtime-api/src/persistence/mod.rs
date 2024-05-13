@@ -838,13 +838,17 @@ pub struct ClipId(String);
 
 impl ClipId {
     pub fn random() -> Self {
-        Default::default()
+        Self(nanoid::nanoid!())
+    }
+
+    pub fn new(raw: String) -> Self {
+        Self(raw)
     }
 }
 
 impl Default for ClipId {
     fn default() -> Self {
-        Self(nanoid::nanoid!())
+        Self::random()
     }
 }
 

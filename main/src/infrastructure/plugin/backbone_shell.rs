@@ -38,7 +38,7 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::base::notification::notify_user_about_anyhow_error;
+use crate::base::notification::{notify_user_about_anyhow_error, notify_user_on_anyhow_error};
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
@@ -1644,7 +1644,8 @@ impl BackboneShell {
     pub fn show_hide_playtime() {
         #[cfg(feature = "playtime")]
         {
-            playtime_impl::show_or_hide_playtime().expect("couldn't show/hide playtime");
+            let result = playtime_impl::show_or_hide_playtime();
+            notify_user_on_anyhow_error(result);
         }
     }
 
@@ -2492,23 +2493,7 @@ impl ControlSurfaceEventHandler for BackboneControlSurfaceEventHandler {
             .proto_hub()
             .notify_midi_output_devices_changed();
         update_auto_units_async();
-        // Maybe create controller for each added device
-        let added_devices = diff.added_devices.clone();
-        spawn_in_main_thread(async move {
-            // Prevent multiple tasks of this kind from running at the same time
-            static IS_RUNNING: AtomicBool = AtomicBool::new(false);
-            if IS_RUNNING.swap(true, Ordering::Relaxed) {
-                return Ok(());
-            }
-            // Now, let's go
-            for out_dev_id in added_devices.iter().copied() {
-                if let Err(error) = maybe_create_controller_for_device(out_dev_id).await {
-                    tracing::warn!(msg = "Couldn't automatically create controller for device", %out_dev_id, %error);
-                }
-            }
-            IS_RUNNING.store(false, Ordering::Relaxed);
-            Ok(())
-        });
+        maybe_create_controller_for_each_added_device(diff);
     }
 
     fn process_reaper_change_events(&self, change_events: &[ChangeEvent]) {
@@ -2885,11 +2870,17 @@ mod playtime_impl {
             GangBehavior::DenyGang,
             GroupingBehavior::PreventGrouping,
         );
-        track
+        let fx = track
             .normal_fx_chain()
             .add_fx_by_original_name(HELGOBOX_UNIQUE_VST_PLUGIN_ADD_STRING)
-            .context("Couldn't add Helgobox. Maybe not installed?")?
-            .hide_floating_window();
+            .with_context(|| {
+                if Reaper::get().vst_scan_is_enabled() {
+                    "Looks like Helgobox VST plug-in is not installed! Did you follow the official installation instructions?"
+                } else {
+                    "It was not possible to add Helgobox VST plug-in, probably because you have VST scanning disabled in the REAPER preferences!\n\nPlease open REAPER's FX browser and press F5 to rescan. After that, try again!\n\nAs an alternative, re-enable VST scanning in Preferences/Plug-ins/VST and restart REAPER."
+                }
+            })?;
+        fx.hide_floating_window();
         // The rest needs to be done async because the instance initializes itself async
         // (because FX not yet available when plug-in instantiated).
         Global::task_support()
@@ -2989,4 +2980,36 @@ mod playtime_impl {
         playtime_api.HB_ShowOrHidePlaytime(helgobox_instance);
         Ok(())
     }
+}
+
+fn maybe_create_controller_for_each_added_device(diff: &DeviceDiff<MidiOutputDeviceId>) {
+    if Reaper::get()
+        .medium_reaper()
+        .low()
+        .pointers()
+        .midi_init
+        .is_none()
+    {
+        // REAPER version < 6.47
+        tracing::warn!(
+            "Unable to create controller for added device because REAPER version < 6.47"
+        );
+        return;
+    }
+    let added_devices = diff.added_devices.clone();
+    spawn_in_main_thread(async move {
+        // Prevent multiple tasks of this kind from running at the same time
+        static IS_RUNNING: AtomicBool = AtomicBool::new(false);
+        if IS_RUNNING.swap(true, Ordering::Relaxed) {
+            return Ok(());
+        }
+        // Now, let's go
+        for out_dev_id in added_devices.iter().copied() {
+            if let Err(error) = maybe_create_controller_for_device(out_dev_id).await {
+                tracing::warn!(msg = "Couldn't automatically create controller for device", %out_dev_id, %error);
+            }
+        }
+        IS_RUNNING.store(false, Ordering::Relaxed);
+        Ok(())
+    });
 }

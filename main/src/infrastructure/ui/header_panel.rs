@@ -13,10 +13,10 @@ use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, Weak
 
 use crate::application::{
     get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
-    Affected, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
-    CompartmentProp, FxId, FxPresetLinkConfig, MainPresetAutoLoadMode, MappingCommand,
-    MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping, SharedUnitModel,
-    VirtualControlElementType, WeakUnitModel,
+    Affected, AutoLoadMode, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, MappingCommand, MappingModel, PresetLinkMutator,
+    SessionCommand, SessionProp, SharedMapping, SharedUnitModel, VirtualControlElementType,
+    WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -1434,11 +1434,7 @@ impl HeaderPanel {
             label.show();
             combo.show();
             combo.select_combo_box_item_by_index(
-                self.session()
-                    .borrow()
-                    .main_preset_auto_load_mode
-                    .get()
-                    .into(),
+                self.session().borrow().auto_load_mode.get().into(),
             );
         } else {
             label.hide();
@@ -1595,7 +1591,7 @@ impl HeaderPanel {
     fn fill_preset_auto_load_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
-            .fill_combo_box_indexed(MainPresetAutoLoadMode::iter());
+            .fill_combo_box_indexed(AutoLoadMode::iter());
     }
 
     fn invalidate_control_input_button(&self) {
@@ -1788,15 +1784,13 @@ impl HeaderPanel {
 
     fn update_preset_auto_load_mode(&self) {
         self.main_state.borrow_mut().stop_filter_learning();
-        let mode: MainPresetAutoLoadMode = self
+        let mode: AutoLoadMode = self
             .view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid preset auto-load mode");
-        self.session()
-            .borrow_mut()
-            .activate_main_preset_auto_load_mode(mode);
+        self.session().borrow_mut().activate_auto_load_mode(mode);
     }
 
     fn mappings_are_read_only(&self) -> bool {
@@ -1886,9 +1880,9 @@ impl HeaderPanel {
             let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        BackboneShell::warn_if_envelope_version_higher(res.value.version());
+        BackboneShell::warn_if_envelope_version_higher(res.version());
         use UntaggedDataObject::*;
-        match res.value {
+        match res {
             PresetLike(preset_data) => {
                 let compartment = self.active_compartment();
                 self.import_compartment(compartment, preset_data.version.as_ref(), preset_data.data);
@@ -1965,12 +1959,6 @@ impl HeaderPanel {
             _ => {
                 bail!("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.")
             }
-        }
-        if !res.annotations.is_empty() {
-            notify_processing_result(
-                "Import from clipboard",
-                res.annotations.into_iter().map(|a| a.to_string()).collect(),
-            );
         }
         Ok(())
     }
@@ -2535,7 +2523,7 @@ impl HeaderPanel {
         self.when(main_state.active_compartment.changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(session.main_preset_auto_load_mode.changed(), |view, _| {
+        self.when(session.auto_load_mode.changed(), |view, _| {
             view.invalidate_all_controls();
         });
         self.when(session.group_list_changed(), |view, _| {

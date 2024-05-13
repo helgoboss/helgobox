@@ -18,7 +18,6 @@ use crate::infrastructure::ui::util::open_in_browser;
 use mlua::{Lua, LuaSerdeExt, Value};
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
-use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 use reaper_high::Reaper;
 use semver::Version;
 
@@ -217,27 +216,16 @@ impl DataObject {
 pub fn deserialize_data_object(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> anyhow::Result<AnnotatedResult<UntaggedDataObject>> {
+) -> anyhow::Result<UntaggedDataObject> {
     let json_err = match deserialize_untagged_data_object_from_json(text) {
         Ok(o) => {
-            return Ok(AnnotatedResult::without_annotations(o));
+            return Ok(o);
         }
         Err(e) => e,
     };
     let lua_err = match deserialize_untagged_data_object_from_lua(text, conversion_context) {
         Ok(o) => {
-            return Ok(AnnotatedResult::without_annotations(o));
-        }
-        Err(e) => e,
-    };
-    let csi_err = match deserialize_data_object_from_csi(text, conversion_context) {
-        Ok(r) => {
-            let untagged_data_object = UntaggedDataObject::Tagged(r.value);
-            let annotated_result = AnnotatedResult {
-                value: untagged_data_object,
-                annotations: r.annotations,
-            };
-            return Ok(annotated_result);
+            return Ok(o);
         }
         Err(e) => e,
     };
@@ -246,9 +234,7 @@ pub fn deserialize_data_object(
         Invalid JSON: \n\
         {json_err}\n\n\
         Invalid Lua: \n\
-        {lua_err:#}\n\n\
-        Invalid CSI: \n\
-        {csi_err}"
+        {lua_err:#}"
     );
     Err(msg)
 }
@@ -261,19 +247,6 @@ pub fn deserialize_untagged_data_object_from_json(
     text: &str,
 ) -> anyhow::Result<UntaggedDataObject> {
     Ok(serde_json::from_str(text)?)
-}
-
-pub fn deserialize_data_object_from_csi(
-    text: &str,
-    conversion_context: &impl ApiToDataConversionContext,
-) -> Result<AnnotatedResult<DataObject>, Box<dyn Error>> {
-    let csi_object = deserialize_csi_object_from_csi(text)?;
-    let api_object_res = CsiObject::try_into_api_object(csi_object)?;
-    let res = AnnotatedResult {
-        value: DataObject::try_from_api_object(api_object_res.value, conversion_context)?,
-        annotations: api_object_res.annotations,
-    };
-    Ok(res)
 }
 
 pub fn deserialize_untagged_data_object_from_lua(

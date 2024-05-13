@@ -1,7 +1,7 @@
 use crate::application::{
-    reaper_supports_global_midi_filter, CompartmentCommand, CompartmentInSession,
-    FxPresetLinkConfig, GroupModel, MainPresetAutoLoadMode, SessionCommand, SharedUnitModel,
-    UnitModel, WeakUnitModel,
+    reaper_supports_global_midi_filter, AutoLoadMode, CompartmentCommand, CompartmentInSession,
+    CompartmentModel, FxPresetLinkConfig, GroupModel, SessionCommand, SharedUnitModel, UnitModel,
+    WeakUnitModel,
 };
 use crate::domain::{
     compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
@@ -199,7 +199,7 @@ pub struct UnitData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    main_preset_auto_load_mode: MainPresetAutoLoadMode,
+    main_preset_auto_load_mode: AutoLoadMode,
     // String key workaround because otherwise deserialization doesn't work with flattening,
     // which is used in CompartmentModelData.
     #[serde(
@@ -290,9 +290,31 @@ pub struct UnitData {
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
-        skip_serializing_if = "is_default"
+        skip_serializing_if = "is_default",
+        alias = "memorizedMainCompartment"
     )]
-    memorized_main_compartment: Option<CompartmentModelData>,
+    auto_load_fallback: Option<AutoLoadFallbackData>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum AutoLoadFallbackData {
+    Compartment(CompartmentModelData),
+    Preset(String),
+}
+
+impl AutoLoadFallbackData {
+    fn from_model(
+        fallback_preset_id: Option<&str>,
+        fallback_compartment_model: Option<&CompartmentModel>,
+    ) -> Option<Self> {
+        fallback_preset_id
+            .map(|id| Self::Preset(id.to_string()))
+            .or_else(|| {
+                fallback_compartment_model
+                    .map(|m| Self::Compartment(CompartmentModelData::from_model(m)))
+            })
+    }
 }
 
 fn focused_fx_descriptor() -> FxDescriptor {
@@ -412,7 +434,7 @@ impl Default for UnitData {
             mapping_snapshots: vec![],
             controller_mapping_snapshots: vec![],
             pot_state: Default::default(),
-            memorized_main_compartment: None,
+            auto_load_fallback: None,
         }
     }
 }
@@ -445,7 +467,7 @@ impl UnitData {
             );
             Some(group_model_data)
         };
-        let main_preset_auto_load_mode = session.main_preset_auto_load_mode.get();
+        let main_preset_auto_load_mode = session.auto_load_mode.get();
         let unit = session.unit().borrow();
         let plugin_params = unit.parameter_manager().params();
         UnitData {
@@ -538,9 +560,10 @@ impl UnitData {
                 CompartmentKind::Controller,
             ),
             pot_state: None,
-            memorized_main_compartment: session
-                .memorized_main_compartment()
-                .map(CompartmentModelData::from_model),
+            auto_load_fallback: AutoLoadFallbackData::from_model(
+                session.auto_load_fallback_preset_id(),
+                session.auto_load_fallback_compartment(),
+            ),
         }
     }
 
@@ -798,7 +821,7 @@ impl UnitData {
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         session.set_active_main_preset_id_without_notification(self.active_main_preset_id.clone());
         session
-            .main_preset_auto_load_mode
+            .auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
         session.tags.set_without_notification(self.tags.clone());
         session.set_instance_preset_link_config(self.instance_preset_link_config.clone());
@@ -808,13 +831,18 @@ impl UnitData {
             self.instance_track.clone(),
         ));
         let _ = session.change(SessionCommand::SetInstanceFx(self.instance_fx.clone()));
-        let memorized_main_compartment =
-            if let Some(data) = self.memorized_main_compartment.as_ref() {
-                Some(data.to_model(self.version.as_ref(), CompartmentKind::Main, Some(session))?)
-            } else {
-                None
+        let (auto_load_fallback_preset_id, auto_load_fallback_compartment_model) =
+            match &self.auto_load_fallback {
+                None => (None, None),
+                Some(AutoLoadFallbackData::Preset(id)) => (Some(id.clone()), None),
+                Some(AutoLoadFallbackData::Compartment(data)) => {
+                    let compartment_model =
+                        data.to_model(self.version.as_ref(), CompartmentKind::Main, Some(session))?;
+                    (None, Some(compartment_model))
+                }
             };
-        session.set_memorized_main_compartment_without_notification(memorized_main_compartment);
+        session.set_auto_load_fallback_preset_id(auto_load_fallback_preset_id);
+        session.set_auto_load_fallback_compartment_model(auto_load_fallback_compartment_model);
         // Instance state (don't borrow sooner because the session methods might also borrow it)
         {
             let unit = session.unit().clone();

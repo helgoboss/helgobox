@@ -351,6 +351,14 @@ pub struct FullSequenceId {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FullClipId {
+    #[prost(uint32, tag = "1")]
+    pub matrix_id: u32,
+    #[prost(string, tag = "2")]
+    pub clip_id: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FullClipAddress {
     #[prost(uint32, tag = "1")]
     pub matrix_id: u32,
@@ -836,7 +844,7 @@ pub struct GetCompartmentDataRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetClipDetailRequest {
     #[prost(message, optional, tag = "1")]
-    pub clip_address: ::core::option::Option<FullClipAddress>,
+    pub clip_id: ::core::option::Option<FullClipId>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
