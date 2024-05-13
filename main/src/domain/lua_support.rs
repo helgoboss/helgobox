@@ -70,7 +70,7 @@ impl SafeLua {
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
     pub fn start_execution_time_limit_countdown(self) -> anyhow::Result<Self> {
-        const MAX_DURATION: Duration = Duration::from_millis(200);
+        const MAX_DURATION: Duration = Duration::from_millis(1000);
         let instant = Instant::now();
         self.0.set_interrupt(move |_lua| {
             if instant.elapsed() > MAX_DURATION {
