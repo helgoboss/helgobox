@@ -30,6 +30,7 @@ use chrono::NaiveDateTime;
 use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds};
 use serde::{Deserialize, Serialize};
 use std::cmp;
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
@@ -98,6 +99,8 @@ pub struct Matrix {
     pub content_quantization_settings: ContentQuantizationSettings,
     #[serde(default)]
     pub sequencer: MatrixSequencer,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub unknown_props: Option<BTreeMap<String, serde_json::Value>>,
 }
 
 // This default is only used to create the initial undo point.
@@ -114,6 +117,7 @@ impl Default for Matrix {
             color_palette: None,
             content_quantization_settings: Default::default(),
             sequencer: Default::default(),
+            unknown_props: None,
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::persistence::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.
 #[derive(Default, Serialize, Deserialize)]
@@ -36,4 +36,6 @@ pub struct Compartment {
     /// Can contain text notes, e.g. a helpful description of this compartment, instructions etc.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub unknown_props: Option<BTreeMap<String, serde_json::Value>>,
 }

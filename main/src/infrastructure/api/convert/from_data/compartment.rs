@@ -37,6 +37,7 @@ pub fn convert_compartment(
         common_lua: style.required_value(data.common_lua),
         custom_data: style.required_value(data.custom_data.into_iter().collect()),
         notes: style.required_value(data.notes),
+        unknown_props: Default::default(),
     };
     Ok(compartment)
 }

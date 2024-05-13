@@ -1,10 +1,12 @@
 use anyhow::{anyhow, bail, Context};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::os::raw::c_void;
 
 use serde::{Deserialize, Serialize, Serializer};
 
+use crate::base::notification;
 use crate::domain::{CompartmentKind, FsDirLuaModuleFinder, LuaModuleContainer, SafeLua};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
@@ -20,6 +22,7 @@ use base::hash_util::NonCryptoHashSet;
 use mlua::prelude::{LuaError, LuaResult};
 use mlua::serde::de;
 use mlua::{Lua, LuaSerdeExt, Value};
+use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use reaper_high::Reaper;
@@ -94,12 +97,19 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> anyhow::Result<Self> {
         let data_object = match api_object {
-            ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
+            ApiObject::ClipMatrix(envelope) => {
+                if let Some(FlexibleMatrix::Unsigned(m)) = &*envelope.value {
+                    warn_about_unknown_props("importing Playtime matrix", &m.unknown_props);
+                }
+                DataObject::ClipMatrix(envelope)
+            }
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
+                warn_about_unknown_props("importing main compartment", &c.unknown_props);
                 let data_compartment = to_data::convert_compartment(CompartmentKind::Main, *c)?;
                 DataObject::MainCompartment(Envelope::new(version, Box::new(data_compartment)))
             }
             ApiObject::ControllerCompartment(Envelope { value: c, version }) => {
+                warn_about_unknown_props("importing controller compartment", &c.unknown_props);
                 let data_compartment =
                     to_data::convert_compartment(CompartmentKind::Controller, *c)?;
                 DataObject::ControllerCompartment(Envelope::new(
@@ -226,6 +236,7 @@ pub fn deserialize_data_object(
     let lua_preset_result = parse_lua_frontmatter::<CommonPresetMetaData>(text)
         .and_then(|meta_data| {
             let compartment = lua.from_value::<persistence::Compartment>(value)?;
+            warn_about_unknown_props("importing as Lua preset", &compartment.unknown_props);
             // When importing a Lua preset, we expect at least the "mappings" property. It's not strictly necessary
             // for a preset to have mappings, but when importing stuff it's important that we have good error reporting.
             // If we accept pretty much all possible tables as valid Lua preset, the user will never see an error
@@ -416,4 +427,19 @@ fn execute_lua_import_script<'a>(
     // Recursive tables are always forbidden in import scenarios, so we check for them right here
     verify_no_recursive_tables(&value)?;
     Ok(value)
+}
+
+fn warn_about_unknown_props(
+    label: &str,
+    unknown_props: &Option<BTreeMap<String, serde_json::Value>>,
+) {
+    let Some(unknown_props) = unknown_props.as_ref() else {
+        return;
+    };
+    if unknown_props.is_empty() {
+        return;
+    }
+    let keys: Vec<_> = unknown_props.keys().collect();
+    let msg = format!("The following imported properties were ignored when {label}: {keys:?}");
+    notification::warn(msg);
 }

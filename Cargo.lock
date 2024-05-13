@@ -4466,6 +4466,7 @@ dependencies = [
  "reaper-low",
  "rmp-serde",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
