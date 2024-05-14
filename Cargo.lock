@@ -3539,9 +3539,9 @@ dependencies = [
 
 [[package]]
 name = "luajit-src"
-version = "210.5.4+c525bcb"
+version = "210.5.5+f2336c4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a10ab4ed12d22cb50ef43ece4f6c5ca594b2d2480019e87facfd422225a9908"
+checksum = "d8bcba9790f4e3b1c1467d75cdd011a63bbe6bc75da95af5d2cb4e3631f939c4"
 dependencies = [
  "cc 1.0.83",
  "which 5.0.0",
@@ -3745,6 +3745,7 @@ dependencies = [
 [[package]]
 name = "mlua"
 version = "0.9.7"
+source = "git+https://github.com/mlua-rs/mlua.git?rev=59c9abbac76b7ec60c470c94698dfb29f6683b2e#59c9abbac76b7ec60c470c94698dfb29f6683b2e"
 dependencies = [
  "bstr 1.9.0",
  "erased-serde",
@@ -3760,6 +3761,7 @@ dependencies = [
 [[package]]
 name = "mlua-sys"
 version = "0.6.0"
+source = "git+https://github.com/mlua-rs/mlua.git?rev=59c9abbac76b7ec60c470c94698dfb29f6683b2e#59c9abbac76b7ec60c470c94698dfb29f6683b2e"
 dependencies = [
  "cc 1.0.83",
  "cfg-if",
