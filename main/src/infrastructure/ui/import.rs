@@ -1,9 +1,12 @@
 use anyhow::{anyhow, bail, Context};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::Debug;
+use std::os::raw::c_void;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
+use crate::base::notification;
 use crate::domain::{CompartmentKind, FsDirLuaModuleFinder, LuaModuleContainer, SafeLua};
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
@@ -15,55 +18,29 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
+use base::hash_util::NonCryptoHashSet;
+use mlua::prelude::{LuaError, LuaResult};
+use mlua::serde::de;
 use mlua::{Lua, LuaSerdeExt, Value};
+use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use reaper_high::Reaper;
 use semver::Version;
+use serde::de::DeserializeOwned;
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum UntaggedApiObject {
-    Tagged(ApiObject),
-    LuaPresetLike(Box<persistence::Compartment>),
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
+// TODO-high CONTINUE The problem with vonglan's code is that it's not interpreted as Tagged ApiObject because
+//  it contains some error deep inside. So serde tries LuaPresetLike and succeeds BECAUSE everything in `Compartment`
+//  is optional ... and it succeeds without failing. It matches too easily. We should:
+//  2. Collect unknown properties and report them in case of success if non-empty (on the console as warning)
+//     #[serde(flatten)]
+//     other: serde_json::Value
 pub enum UntaggedDataObject {
     Tagged(DataObject),
     PresetLike(CommonPresetData),
 }
 
 impl UntaggedDataObject {
-    pub fn try_from_untagged_api_object(
-        api_object: UntaggedApiObject,
-        conversion_context: &impl ApiToDataConversionContext,
-        preset_meta_data: Option<CommonPresetMetaData>,
-    ) -> anyhow::Result<Self> {
-        match api_object {
-            UntaggedApiObject::Tagged(o) => {
-                let data_object = DataObject::try_from_api_object(o, conversion_context)?;
-                Ok(Self::Tagged(data_object))
-            }
-            UntaggedApiObject::LuaPresetLike(compartment_content) => {
-                let preset_meta_data = preset_meta_data.context(
-                    "not a real Lua preset because it doesn't contain meta data (at least name)",
-                )?;
-                let compartment_data = to_data::convert_compartment(
-                    conversion_context.compartment(),
-                    *compartment_content,
-                )?;
-                let common_preset_data = CommonPresetData {
-                    version: preset_meta_data.realearn_version,
-                    name: preset_meta_data.name,
-                    data: Box::new(compartment_data),
-                };
-                Ok(UntaggedDataObject::PresetLike(common_preset_data))
-            }
-        }
-    }
-
     pub fn version(&self) -> Option<&Version> {
         match self {
             UntaggedDataObject::Tagged(o) => o.version(),
@@ -120,12 +97,19 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> anyhow::Result<Self> {
         let data_object = match api_object {
-            ApiObject::ClipMatrix(envelope) => DataObject::ClipMatrix(envelope),
+            ApiObject::ClipMatrix(envelope) => {
+                if let Some(FlexibleMatrix::Unsigned(m)) = &*envelope.value {
+                    warn_about_unknown_props("importing Playtime matrix", &m.unknown_props);
+                }
+                DataObject::ClipMatrix(envelope)
+            }
             ApiObject::MainCompartment(Envelope { value: c, version }) => {
+                warn_about_unknown_props("importing main compartment", &c.unknown_props);
                 let data_compartment = to_data::convert_compartment(CompartmentKind::Main, *c)?;
                 DataObject::MainCompartment(Envelope::new(version, Box::new(data_compartment)))
             }
             ApiObject::ControllerCompartment(Envelope { value: c, version }) => {
+                warn_about_unknown_props("importing controller compartment", &c.unknown_props);
                 let data_compartment =
                     to_data::convert_compartment(CompartmentKind::Controller, *c)?;
                 DataObject::ControllerCompartment(Envelope::new(
@@ -217,52 +201,84 @@ pub fn deserialize_data_object(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
 ) -> anyhow::Result<UntaggedDataObject> {
-    let json_err = match deserialize_untagged_data_object_from_json(text) {
-        Ok(o) => {
-            return Ok(o);
-        }
+    // Try as JSON data object
+    let json_data_object_result =
+        serde_json::from_str::<DataObject>(text).map(UntaggedDataObject::Tagged);
+    let json_data_object_error = match json_data_object_result {
+        Ok(object) => return Ok(object),
         Err(e) => e,
     };
-    let lua_err = match deserialize_untagged_data_object_from_lua(text, conversion_context) {
-        Ok(o) => {
-            return Ok(o);
-        }
+    // That didn't work. Try as JSON preset.
+    let json_preset_result =
+        serde_json::from_str::<CommonPresetData>(text).map(UntaggedDataObject::PresetLike);
+    let json_preset_error = match json_preset_result {
+        Ok(object) => return Ok(object),
         Err(e) => e,
     };
-    let msg = anyhow!(
+    // That didn't work. Execute as Lua.
+    let lua = SafeLua::new()?;
+    let value = execute_lua_import_script(&lua, text, conversion_context.compartment(), true)?;
+    // At first try deserializing as Lua API object
+    let lua_api_object_result = lua
+        .from_value::<ApiObject>(value.clone())
+        .and_then(|api_object| {
+            DataObject::try_from_api_object(api_object, conversion_context)
+                .context("converting API object to data object")
+        })
+        .map(UntaggedDataObject::Tagged);
+    let lua_api_object_error = match lua_api_object_result {
+        Ok(object) => return Ok(object),
+        Err(e) => e,
+    };
+    // That wasn't it. Try deserializing as Lua preset.
+    // We don't need the full metadata here (controller/main-preset specific), just the common one.
+    // Actually only the version is important because it might influence import behavior.
+    let lua_preset_result = parse_lua_frontmatter::<CommonPresetMetaData>(text)
+        .and_then(|meta_data| {
+            let compartment = lua.from_value::<persistence::Compartment>(value)?;
+            warn_about_unknown_props("importing as Lua preset", &compartment.unknown_props);
+            // When importing a Lua preset, we expect at least the "mappings" property. It's not strictly necessary
+            // for a preset to have mappings, but when importing stuff it's important that we have good error reporting.
+            // If we accept pretty much all possible tables as valid Lua preset, the user will never see an error
+            // message when he made a grave error, e.g. providing a completely different data structure with only
+            // unknown properties.
+            compartment
+                .mappings
+                .as_ref()
+                .context("property \"mappings\" not provided")?;
+            Ok((meta_data, compartment))
+        })
+        .and_then(|(meta_data, compartment)| {
+            let compartment_data =
+                to_data::convert_compartment(conversion_context.compartment(), compartment)?;
+            let common_preset_data = CommonPresetData {
+                version: meta_data.realearn_version,
+                name: meta_data.name,
+                data: Box::new(compartment_data),
+            };
+            Ok(common_preset_data)
+        })
+        .map(UntaggedDataObject::PresetLike);
+    let lua_preset_error = match lua_preset_result {
+        Ok(object) => return Ok(object),
+        Err(e) => e,
+    };
+    // Nothing fits :(
+    bail!(
         "Clipboard content doesn't look like proper ReaLearn import data:\n\n\
-        Invalid JSON: \n\
-        {json_err}\n\n\
-        Invalid Lua: \n\
-        {lua_err:#}"
+        Invalid JSON API object:\n\
+        {json_data_object_error}\n\n\
+        Invalid JSON preset:\n\
+        {json_preset_error:#}\n\n\
+        Invalid Lua API object:\n\
+        {lua_api_object_error:#}\n\n\
+        Invalid Lua preset:\n\
+        {lua_preset_error}"
     );
-    Err(msg)
 }
 
 pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
     Ok(serde_json::from_str(text)?)
-}
-
-pub fn deserialize_untagged_data_object_from_json(
-    text: &str,
-) -> anyhow::Result<UntaggedDataObject> {
-    Ok(serde_json::from_str(text)?)
-}
-
-pub fn deserialize_untagged_data_object_from_lua(
-    text: &str,
-    conversion_context: &impl ApiToDataConversionContext,
-) -> anyhow::Result<UntaggedDataObject> {
-    let untagged_api_object: UntaggedApiObject =
-        deserialize_from_lua(text, conversion_context.compartment())?;
-    // We don't need the full metadata here (controller/main-preset specific), just the common one.
-    // Actually only the version is important because it might influence import behavior.
-    let preset_meta_data = parse_lua_frontmatter(text).ok();
-    UntaggedDataObject::try_from_untagged_api_object(
-        untagged_api_object,
-        conversion_context,
-        preset_meta_data,
-    )
 }
 
 pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<String> {
@@ -272,7 +288,7 @@ pub fn serialize_data_object_to_json(object: DataObject) -> anyhow::Result<Strin
 /// Runs without importing the result and also doesn't have an execution time limit.
 pub fn dry_run_lua_script(text: &str, active_compartment: CompartmentKind) -> anyhow::Result<()> {
     let lua = SafeLua::new()?;
-    let value = execute_lua_import_script(&lua, text, active_compartment)?;
+    let value = execute_lua_import_script(&lua, text, active_compartment, false)?;
     let json = serde_json::to_string_pretty(&value)?;
     match BackboneShell::get_temp_dir() {
         None => {
@@ -316,24 +332,47 @@ pub fn deserialize_api_object_from_lua(
     text: &str,
     active_compartment: CompartmentKind,
 ) -> anyhow::Result<ApiObject> {
-    deserialize_from_lua(text, active_compartment)
+    let lua = SafeLua::new()?;
+    let value = execute_lua_import_script(&lua, text, active_compartment, true)?;
+    lua.from_value(value)
 }
 
-fn deserialize_from_lua<T>(text: &str, active_compartment: CompartmentKind) -> anyhow::Result<T>
-where
-    T: for<'a> Deserialize<'a> + 'static,
-{
-    let lua = SafeLua::new()?;
-    let lua = lua.start_execution_time_limit_countdown()?;
-    let value = execute_lua_import_script(&lua, text, active_compartment)?;
-    Ok(lua.as_ref().from_value(value)?)
+fn verify_no_recursive_tables(value: &Value) -> Result<(), LuaError> {
+    verify_no_recursive_tables_internal(value, &mut Default::default(), &mut Default::default())
+}
+
+fn verify_no_recursive_tables_internal(
+    value: &Value,
+    visited_tables: &mut NonCryptoHashSet<*const c_void>,
+    key_stack: &mut Vec<String>,
+) -> Result<(), LuaError> {
+    if let Value::Table(t) = value {
+        let table_pointer = t.to_pointer();
+        if !visited_tables.insert(table_pointer) {
+            let msg = format!("Detected recursive table at {key_stack:?}");
+            return Err(LuaError::runtime(msg));
+        }
+        t.for_each(|key: Value, value: Value| {
+            key_stack.push(key.to_string().unwrap_or_default());
+            verify_no_recursive_tables_internal(&key, visited_tables, key_stack)?;
+            verify_no_recursive_tables_internal(&value, visited_tables, key_stack)?;
+            key_stack.pop();
+            Ok(())
+        })?;
+        visited_tables.remove(&table_pointer);
+    }
+    Ok(())
 }
 
 fn execute_lua_import_script<'a>(
     lua: &'a SafeLua,
     code: &str,
     active_compartment: CompartmentKind,
+    limit_execution_time: bool,
 ) -> anyhow::Result<mlua::Value<'a>> {
+    if limit_execution_time {
+        lua.start_execution_time_limit_countdown();
+    }
     let env = lua.create_fresh_environment(true)?;
     // Add some useful functions (hidden, undocumented, subject to change!)
     // TODO-high-playtime-before-release This should either be removed or made official (by putting it into preset_runtime.luau)
@@ -383,5 +422,24 @@ fn execute_lua_import_script<'a>(
     let preset_dir = BackboneShell::realearn_compartment_preset_dir_path(active_compartment);
     let module_finder = FsDirLuaModuleFinder::new(preset_dir.join(whoami::username()));
     let module_container = LuaModuleContainer::new(Ok(module_finder));
-    module_container.execute_as_module(lua.as_ref(), None, "Import".to_string(), code)
+    let value =
+        module_container.execute_as_module(lua.as_ref(), None, "Import".to_string(), code)?;
+    // Recursive tables are always forbidden in import scenarios, so we check for them right here
+    verify_no_recursive_tables(&value)?;
+    Ok(value)
+}
+
+fn warn_about_unknown_props(
+    label: &str,
+    unknown_props: &Option<BTreeMap<String, serde_json::Value>>,
+) {
+    let Some(unknown_props) = unknown_props.as_ref() else {
+        return;
+    };
+    if unknown_props.is_empty() {
+        return;
+    }
+    let keys: Vec<_> = unknown_props.keys().collect();
+    let msg = format!("The following imported properties were ignored when {label}: {keys:?}");
+    notification::warn(msg);
 }

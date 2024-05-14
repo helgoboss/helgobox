@@ -1,5 +1,7 @@
 use anyhow::anyhow;
+use mlua::serde::de;
 use mlua::{ChunkMode, Function, Lua, Table, Value, VmState};
+use serde::de::DeserializeOwned;
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -69,8 +71,8 @@ impl SafeLua {
     }
 
     /// Call before executing user code in order to prevent code from taking too long to execute.
-    pub fn start_execution_time_limit_countdown(self) -> anyhow::Result<Self> {
-        const MAX_DURATION: Duration = Duration::from_millis(200);
+    pub fn start_execution_time_limit_countdown(&self) {
+        const MAX_DURATION: Duration = Duration::from_millis(1000);
         let instant = Instant::now();
         self.0.set_interrupt(move |_lua| {
             if instant.elapsed() > MAX_DURATION {
@@ -81,7 +83,14 @@ impl SafeLua {
                 Ok(VmState::Continue)
             }
         });
-        Ok(self)
+    }
+
+    pub fn from_value<T>(&self, value: Value) -> anyhow::Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let result = T::deserialize(de::Deserializer::new(value))?;
+        Ok(result)
     }
 }
 

@@ -480,7 +480,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                         Ok(Rc::new(IncludedDirLuaModuleFinder::new(module_root)))
                     }
                 };
-                let lua = lua.start_execution_time_limit_countdown()?;
+                lua.start_execution_time_limit_countdown();
                 let module_container = LuaModuleContainer::new(module_finder);
                 let value = module_container.execute_as_module(
                     lua.as_ref(),
