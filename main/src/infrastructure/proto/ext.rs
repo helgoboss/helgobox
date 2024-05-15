@@ -1,6 +1,6 @@
 use enumflags2::BitFlags;
 use reaper_high::Reaper;
-use reaper_medium::{PlayState, ReaperString};
+use reaper_medium::{EnumPitchShiftModesResult, PlayState, ReaperStr, ReaperString};
 
 use realearn_api::runtime::{ControllerPreset, LicenseInfo, MainPreset, ValidatedLicense};
 
@@ -22,9 +22,10 @@ use crate::infrastructure::proto::{
     GetOccasionalUnitUpdatesReply, HostColorScheme, MidiDeviceStatus, MidiInputDevice,
     MidiInputDevices, MidiOutputDevice, MidiOutputDevices, OccasionalGlobalUpdate,
     OccasionalInstanceUpdate, OccasionalMatrixUpdate, OccasionalPlaytimeEngineUpdate,
-    QualifiedContinuousSlotUpdate, QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate,
-    QualifiedOccasionalRowUpdate, QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate,
-    QualifiedOccasionalUnitUpdate, RgbColor, SlotAddress, Unit, Units,
+    PitchShiftMode, PitchShiftModes, PitchShiftSubMode, QualifiedContinuousSlotUpdate,
+    QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
+    QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
+    ResampleMode, ResampleModes, RgbColor, SlotAddress, Unit, Units,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 
@@ -128,6 +129,16 @@ impl occasional_global_update::Update {
     pub fn audio_input_channels() -> Self {
         Self::AudioInputChannels(AudioInputChannels::from_engine(
             Reaper::get().input_channels(),
+        ))
+    }
+
+    pub fn resample_modes() -> Self {
+        Self::ResampleModes(ResampleModes::from_engine(Reaper::get().resample_modes()))
+    }
+
+    pub fn pitch_shift_modes() -> Self {
+        Self::PitchShiftModes(PitchShiftModes::from_engine(
+            Reaper::get().pitch_shift_modes(),
         ))
     }
 
@@ -262,6 +273,56 @@ impl AudioInputChannels {
                 .map(|(i, name)| AudioInputChannel {
                     index: i as u32,
                     name: name.into_string(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl ResampleModes {
+    pub fn from_engine(modes: impl Iterator<Item = &'static ReaperStr>) -> Self {
+        Self {
+            modes: modes
+                .enumerate()
+                .map(|(i, name)| ResampleMode {
+                    index: i as u32,
+                    name: name.to_string(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl PitchShiftModes {
+    pub fn from_engine(modes: impl Iterator<Item = EnumPitchShiftModesResult<'static>>) -> Self {
+        Self {
+            modes: modes
+                .enumerate()
+                .filter_map(|(i, res)| match res {
+                    EnumPitchShiftModesResult::Unsupported => None,
+                    EnumPitchShiftModesResult::Supported { name } => {
+                        Some(PitchShiftMode::from_engine(
+                            reaper_medium::PitchShiftMode::new(i as u32),
+                            name,
+                        ))
+                    }
+                })
+                .collect(),
+        }
+    }
+}
+
+impl PitchShiftMode {
+    pub fn from_engine(mode: reaper_medium::PitchShiftMode, name: &ReaperStr) -> Self {
+        Self {
+            index: mode.get(),
+            name: name.to_string(),
+            sub_modes: Reaper::get()
+                .pitch_shift_sub_modes(mode)
+                .enumerate()
+                .map(|(i, name)| PitchShiftSubMode {
+                    index: i as u32,
+                    name: name.to_string(),
                 })
                 .collect(),
         }

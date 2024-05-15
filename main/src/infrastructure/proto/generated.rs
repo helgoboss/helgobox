@@ -1207,7 +1207,7 @@ pub struct PlaytimeEngineStats {
 pub struct OccasionalGlobalUpdate {
     #[prost(
         oneof = "occasional_global_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14"
     )]
     pub update: ::core::option::Option<occasional_global_update::Update>,
 }
@@ -1249,6 +1249,12 @@ pub mod occasional_global_update {
         /// Color scheme of the host.
         #[prost(message, tag = "12")]
         HostColorScheme(super::HostColorScheme),
+        /// Resample modes.
+        #[prost(message, tag = "13")]
+        ResampleModes(super::ResampleModes),
+        /// Pitch-shift modes.
+        #[prost(message, tag = "14")]
+        PitchShiftModes(super::PitchShiftModes),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -1517,6 +1523,44 @@ pub struct AudioInputChannels {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AudioInputChannel {
+    #[prost(uint32, tag = "1")]
+    pub index: u32,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResampleModes {
+    #[prost(message, repeated, tag = "1")]
+    pub modes: ::prost::alloc::vec::Vec<ResampleMode>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResampleMode {
+    #[prost(uint32, tag = "1")]
+    pub index: u32,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PitchShiftModes {
+    #[prost(message, repeated, tag = "1")]
+    pub modes: ::prost::alloc::vec::Vec<PitchShiftMode>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PitchShiftMode {
+    #[prost(uint32, tag = "1")]
+    pub index: u32,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub sub_modes: ::prost::alloc::vec::Vec<PitchShiftSubMode>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PitchShiftSubMode {
     #[prost(uint32, tag = "1")]
     pub index: u32,
     #[prost(string, tag = "2")]

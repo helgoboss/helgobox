@@ -20,6 +20,8 @@ pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
         Update::arrangement_play_state(Reaper::get().current_project().play_state()),
         // TODO-high-playtime-before-release Update when changed
         Update::audio_input_channels(),
+        Update::resample_modes(),
+        Update::pitch_shift_modes(),
         Update::controller_presets(&BackboneShell::get().controller_preset_manager().borrow()),
         Update::main_presets(&BackboneShell::get().main_preset_manager().borrow()),
         Update::controller_config(&BackboneShell::get().controller_manager().borrow()),
