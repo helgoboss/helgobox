@@ -1751,6 +1751,8 @@ pub enum TriggerMatrixAction {
     RemoveSimpleMappingSequencerPlayOnOffState = 33,
     RemoveSimpleMappingTapTempo = 36,
     Activate = 34,
+    /// Brings all clips online again.
+    ReloadAllClips = 37,
 }
 impl TriggerMatrixAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1828,6 +1830,9 @@ impl TriggerMatrixAction {
                 "TRIGGER_MATRIX_ACTION_REMOVE_SIMPLE_MAPPING_TAP_TEMPO"
             }
             TriggerMatrixAction::Activate => "TRIGGER_MATRIX_ACTION_ACTIVATE",
+            TriggerMatrixAction::ReloadAllClips => {
+                "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1896,6 +1901,7 @@ impl TriggerMatrixAction {
                 Some(Self::RemoveSimpleMappingTapTempo)
             }
             "TRIGGER_MATRIX_ACTION_ACTIVATE" => Some(Self::Activate),
+            "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS" => Some(Self::ReloadAllClips),
             _ => None,
         }
     }

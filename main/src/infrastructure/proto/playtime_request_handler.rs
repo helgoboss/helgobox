@@ -246,6 +246,10 @@ impl PlaytimeProtoRequestHandler {
             TriggerMatrixAction::CreateMatrix => {
                 unreachable!("matrix creation handled above")
             }
+            TriggerMatrixAction::ReloadAllClips => {
+                matrix.reload_all_clips();
+                Ok(())
+            }
             TriggerMatrixAction::SequencerCleanArrangement => matrix.clean_arrangement(),
             TriggerMatrixAction::SequencerWriteToArrangement => {
                 matrix.write_active_sequence_to_arrangement()
