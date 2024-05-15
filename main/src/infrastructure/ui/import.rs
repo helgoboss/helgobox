@@ -29,12 +29,6 @@ use reaper_high::Reaper;
 use semver::Version;
 use serde::de::DeserializeOwned;
 
-// TODO-high CONTINUE The problem with vonglan's code is that it's not interpreted as Tagged ApiObject because
-//  it contains some error deep inside. So serde tries LuaPresetLike and succeeds BECAUSE everything in `Compartment`
-//  is optional ... and it succeeds without failing. It matches too easily. We should:
-//  2. Collect unknown properties and report them in case of success if non-empty (on the console as warning)
-//     #[serde(flatten)]
-//     other: serde_json::Value
 pub enum UntaggedDataObject {
     Tagged(DataObject),
     PresetLike(CommonPresetData),

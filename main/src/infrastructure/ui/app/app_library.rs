@@ -600,6 +600,9 @@ fn process_command(
         SetMatrixTempo(req) => {
             handler.set_matrix_tempo(req)?;
         }
+        SetMatrixPlayRate(req) => {
+            handler.set_matrix_play_rate(req)?;
+        }
         SetMatrixTimeSignature(req) => {
             handler.set_matrix_time_signature(req)?;
         }

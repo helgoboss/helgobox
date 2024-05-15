@@ -580,17 +580,16 @@ mod playtime_impl {
                         event,
                     }) => {
                         use ClipChangeEvent::*;
+                        let employment = matrix.find_clip_employment(*clip_address)?;
                         let update = match event {
                             Everything | Volume(_) | Looped(_) => {
-                                let clip = matrix.find_clip(*clip_address)?;
                                 qualified_occasional_clip_update::Update::complete_persistent_data(
-                                    clip,
+                                    &employment.clip,
                                 )
                                 .ok()?
                             }
                             Content => {
-                                let clip = matrix.find_clip(*clip_address)?;
-                                qualified_occasional_clip_update::Update::content_info(clip)
+                                qualified_occasional_clip_update::Update::content_info(employment)
                             }
                         };
                         Some(QualifiedOccasionalClipUpdate {
@@ -728,6 +727,12 @@ mod playtime_impl {
                         // our matrix explicitly (and it might just as well turn out that the tempo for that matrix
                         // hasn't changed at all, but that's okay).
                         Some(R::Matrix(occasional_matrix_update::Update::tempo(matrix)))
+                    }
+                    ChangeEvent::MasterPlayRateChanged(_) => {
+                        // It's the same with the play rate
+                        Some(R::Matrix(occasional_matrix_update::Update::play_rate(
+                            matrix,
+                        )))
                     }
                     _ => None,
                 };

@@ -429,7 +429,7 @@ impl ReaperTarget {
                 // TODO-low In future this might come from a certain project
                 project: Reaper::get().current_project(),
             }),
-            MasterPlayrateChanged(e) if e.touched => Playrate(PlayrateTarget {
+            MasterPlayRateChanged(e) if e.touched => Playrate(PlayrateTarget {
                 // TODO-low In future this might come from a certain project
                 project: Reaper::get().current_project(),
             }),

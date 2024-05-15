@@ -23,13 +23,14 @@ use crate::infrastructure::proto::{
     SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetSequenceInfoRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest,
-    SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest,
-    TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction, TriggerGlobalRequest,
-    TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest, TriggerRowRequest,
-    TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest, HOST_API_VERSION,
+    SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
+    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
+    SetTrackVolumeRequest, TriggerClipRequest, TriggerColumnRequest, TriggerGlobalAction,
+    TriggerGlobalRequest, TriggerInstanceAction, TriggerInstanceRequest, TriggerMatrixRequest,
+    TriggerRowRequest, TriggerSequenceRequest, TriggerSlotRequest, TriggerTrackRequest,
+    HOST_API_VERSION,
 };
 
 #[derive(Debug)]
@@ -430,6 +431,21 @@ impl ProtoRequestHandler {
         #[cfg(feature = "playtime")]
         {
             PlaytimeProtoRequestHandler.set_matrix_tempo(req)
+        }
+    }
+
+    pub fn set_matrix_play_rate(
+        &self,
+        req: SetMatrixPlayRateRequest,
+    ) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.set_matrix_play_rate(req)
         }
     }
 

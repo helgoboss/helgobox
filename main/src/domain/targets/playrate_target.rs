@@ -98,7 +98,7 @@ impl RealearnTarget for PlayrateTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Reaper(ChangeEvent::MasterPlayrateChanged(e))
+            CompoundChangeEvent::Reaper(ChangeEvent::MasterPlayRateChanged(e))
                 if e.project == self.project =>
             {
                 (

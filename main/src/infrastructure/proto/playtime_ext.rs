@@ -8,8 +8,8 @@ use reaper_medium::{Db, MidiInputDeviceId, ReaperPanValue, RecordingInput};
 
 use playtime_api::runtime::ControlUnitConfig;
 use playtime_clip_engine::base::{
-    Clip, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer, SaveOptions,
-    SequencerStatus, Slot,
+    Clip, ClipEmployment, ClipSource, ColumnTrackInputMonitoring, History, Matrix, MatrixSequencer,
+    SaveOptions, SequencerStatus, Slot,
 };
 use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
@@ -40,11 +40,14 @@ impl occasional_playtime_engine_update::Update {
         let project = Reaper::get().current_project();
         SteadyProjectTimelineHandle::new(project).with_timeline(|timeline| {
             let pre_buffer_stat = timeline.last_pre_buffered_blocks_of_playing_clips_stat();
+            let engine_stats = PlaytimeEngine::stats();
             let stats = PlaytimeEngineStats {
                 min_buffered_blocks: pre_buffer_stat.min() as _,
                 avg_buffered_blocks: pre_buffer_stat.avg() as _,
                 max_buffered_blocks: pre_buffer_stat.max() as _,
                 future_size_in_blocks: timeline.tempo_buffer_future_size() as _,
+                num_pre_buffer_fallbacks: engine_stats.num_pre_buffer_fallbacks,
+                num_pre_buffer_misses: engine_stats.num_pre_buffer_misses,
             };
             Self::EngineStats(stats)
         })
@@ -100,6 +103,10 @@ impl occasional_matrix_update::Update {
 
     pub fn tempo(matrix: &Matrix) -> Self {
         Self::Tempo(matrix.tempo().get())
+    }
+
+    pub fn play_rate(matrix: &Matrix) -> Self {
+        Self::PlayRate(matrix.play_rate().get())
     }
 
     pub fn sequencer_play_state(play_state: base::SequencerStatus) -> Self {
@@ -326,17 +333,19 @@ impl qualified_occasional_clip_update::Update {
         Ok(Self::CompletePersistentData(json))
     }
 
-    pub fn content_info(clip: &Clip) -> Self {
+    pub fn content_info(clip_employment: &ClipEmployment) -> Self {
         Self::ContentInfo(ClipContentInfo {
-            info: Some(clip_content_info::Info::from_engine(clip)),
+            info: Some(clip_content_info::Info::from_engine(clip_employment)),
         })
     }
 }
 
 impl clip_content_info::Info {
-    pub fn from_engine(clip: &Clip) -> Self {
-        match clip.source() {
-            ClipSource::File(_) => Self::Audio(AudioClipContentInfo {}),
+    pub fn from_engine(clip_employment: &ClipEmployment) -> Self {
+        match clip_employment.clip.source() {
+            ClipSource::File(_) => Self::Audio(AudioClipContentInfo {
+                online: clip_employment.online_data.is_some(),
+            }),
             ClipSource::MidiSequence(s) => Self::Midi(MidiClipContentInfo {
                 quantized: s.is_quantized(),
             }),

@@ -45,17 +45,12 @@ pub struct PlaytimeSettings {
     pub tempo_latency: Option<TempoLatency>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum TempoLatency {
+    #[default]
     Auto,
     Manual(ManualTempoLatency),
-}
-
-impl Default for TempoLatency {
-    fn default() -> Self {
-        Self::Manual(Default::default())
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]

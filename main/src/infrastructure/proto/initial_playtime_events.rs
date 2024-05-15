@@ -46,6 +46,7 @@ pub fn create_initial_matrix_updates(matrix: Option<&Matrix>) -> Vec<OccasionalM
         Update::pan(master_track.pan().reaper_value()),
         Update::mute(master_track.is_muted()),
         Update::tempo(matrix),
+        Update::play_rate(matrix),
         Update::sequencer_play_state(matrix.sequencer().status()),
         Update::complete_persistent_data(matrix),
         Update::history_state(matrix),
@@ -135,11 +136,11 @@ pub fn create_initial_clip_updates(matrix: Option<&Matrix>) -> Vec<QualifiedOcca
         return vec![];
     };
     matrix
-        .clips()
+        .clip_employments()
         .map(|item| QualifiedOccasionalClipUpdate {
             clip_address: Some(ClipAddress::from_engine(item.address)),
             update: Some(qualified_occasional_clip_update::Update::content_info(
-                item.clip,
+                item.clip_employment,
             )),
         })
         .collect()

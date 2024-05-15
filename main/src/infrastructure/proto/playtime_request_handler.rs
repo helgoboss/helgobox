@@ -1,5 +1,7 @@
 use reaper_high::{GroupingBehavior, Guid, Pan, Track};
-use reaper_medium::{Bpm, Db, GangBehavior, ReaperPanValue, SoloMode};
+use reaper_medium::{
+    Bpm, Db, GangBehavior, NormalizedPlayRate, PlaybackSpeedFactor, ReaperPanValue, SoloMode,
+};
 use tonic::{Response, Status};
 
 use base::future_util;
@@ -25,7 +27,7 @@ use crate::infrastructure::proto::{
     GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
     InsertColumnsRequest, MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest,
     SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetMatrixPanRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
     SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
     SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
@@ -493,6 +495,18 @@ impl PlaytimeProtoRequestHandler {
         let bpm = Bpm::try_from(req.bpm).map_err(|e| Status::invalid_argument(e.to_string()))?;
         self.handle_matrix_command(req.matrix_id, |matrix| {
             matrix.set_tempo(bpm);
+            Ok(())
+        })
+    }
+
+    pub fn set_matrix_play_rate(
+        &self,
+        req: SetMatrixPlayRateRequest,
+    ) -> Result<Response<Empty>, Status> {
+        let play_rate = PlaybackSpeedFactor::try_from(req.play_rate)
+            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        self.handle_matrix_command(req.matrix_id, |matrix| {
+            matrix.set_play_rate(play_rate);
             Ok(())
         })
     }

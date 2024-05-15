@@ -25,9 +25,9 @@ use crate::infrastructure::proto::{
     SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
     SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
-    SetMatrixSettingsRequest, SetMatrixTempoRequest, SetMatrixTimeSignatureRequest,
-    SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest, SetRowDataRequest,
-    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
+    SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
     SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
     TriggerColumnRequest, TriggerGlobalRequest, TriggerInstanceRequest, TriggerMatrixRequest,
     TriggerRowRequest, TriggerSlotRequest, TriggerTrackRequest,
@@ -547,6 +547,14 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<SetMatrixTempoRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.set_matrix_tempo(request.into_inner())
+    }
+
+    async fn set_matrix_play_rate(
+        &self,
+        request: Request<SetMatrixPlayRateRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler
+            .set_matrix_play_rate(request.into_inner())
     }
 
     async fn set_matrix_time_signature(
