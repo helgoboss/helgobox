@@ -781,7 +781,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        measure_time("run_control_surface", || {
+        measure_time("helgobox.control_surface.run", || {
             self.run_internal();
         });
     }

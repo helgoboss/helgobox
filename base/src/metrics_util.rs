@@ -96,26 +96,22 @@ pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
     }
     let start = Instant::now();
     let result = f();
-    record_duration_internal(id, start.elapsed());
+    record_duration(id, start.elapsed());
     result
 }
 
 /// Records the given duration into a histogram.
 pub fn record_duration(id: &'static str, delta: Duration) {
-    record_duration_internal(id, delta);
-}
-
-pub fn metrics_are_enabled() -> bool {
-    METRICS_SENDER.get().is_some()
-}
-
-pub fn record_duration_internal(id: &'static str, delta: Duration) {
     if let Some(sender) = METRICS_SENDER.get() {
         let task = MetricsRecorderCommand::Histogram { id, delta };
         if sender.try_send(task).is_err() {
             tracing::debug!("Helgobox metrics channel is full");
         }
     }
+}
+
+pub fn metrics_are_enabled() -> bool {
+    METRICS_SENDER.get().is_some()
 }
 
 enum MetricsRecorderCommand {

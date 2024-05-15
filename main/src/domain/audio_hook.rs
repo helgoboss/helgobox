@@ -199,6 +199,9 @@ impl RealearnAudioHook {
     }
 
     fn on_pre(&mut self, args: OnAudioBufferArgs) {
+        let current_time = Instant::now();
+        let time_of_last_run = self.time_of_last_run.replace(current_time);
+        // Increment counter
         self.counter.fetch_add(1, Ordering::Relaxed);
         let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
         // Pre-poll Playtime
@@ -209,8 +212,6 @@ impl RealearnAudioHook {
         }
         // Detect rebirth
         let might_be_rebirth = {
-            let current_time = Instant::now();
-            let time_of_last_run = self.time_of_last_run.replace(current_time);
             if let Some(time) = time_of_last_run {
                 current_time.duration_since(time) > Duration::from_secs(1)
             } else {
@@ -244,7 +245,7 @@ impl RealearnAudioHook {
         // Record some metrics
         let _ = args;
         if let Some(time_of_last_run) = self.time_of_last_run {
-            record_duration("audio_callback_total", time_of_last_run.elapsed());
+            record_duration("helgobox.rt.audio_hook.total", time_of_last_run.elapsed());
         }
     }
 
