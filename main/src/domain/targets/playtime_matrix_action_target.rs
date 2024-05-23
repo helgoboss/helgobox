@@ -153,7 +153,7 @@ mod playtime_impl {
                     }
                     matrix.trigger_smart_record()?;
                 }
-                PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                     if value.is_on() {
                         matrix.play_all_ignited();
                     } else {
@@ -332,7 +332,7 @@ mod playtime_impl {
                         PlaytimeMatrixAction::SmartRecord => {
                             return None;
                         }
-                        PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                        PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                             !matrix.is_in_silence_mode()
                         }
                         PlaytimeMatrixAction::SilenceModeOnOffState => matrix.is_in_silence_mode(),
@@ -431,7 +431,7 @@ mod playtime_impl {
             | SilenceModeOnOffState
             | SequencerRecordOnOffState
             | SequencerPlayOnOffState
-            | EnterSilenceModeOrPlayIgnited => {
+            | PlayIgnitedOrEnterSilenceMode => {
                 (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
             }
         }

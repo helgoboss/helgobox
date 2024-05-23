@@ -1540,7 +1540,8 @@ pub enum PlaytimeMatrixAction {
     #[display(fmt = "Smart record")]
     SmartRecord,
     #[display(fmt = "Play ignited or enable silence mode")]
-    EnterSilenceModeOrPlayIgnited,
+    #[serde(alias = "EnterSilenceModeOrPlayIgnited")]
+    PlayIgnitedOrEnterSilenceMode,
     #[display(fmt = "Enable/disable silence mode")]
     SilenceModeOnOffState,
     #[display(fmt = "Panic")]

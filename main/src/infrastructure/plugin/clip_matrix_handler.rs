@@ -208,7 +208,7 @@ impl SimpleMappingDesc {
             EnterSilenceModeOrPlayIgnited => Self {
                 reaper_target: {
                     ReaperTarget::PlaytimeMatrixAction(PlaytimeMatrixActionTarget {
-                        action: PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited,
+                        action: PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode,
                     })
                 },
                 toggle: true,

@@ -2680,7 +2680,7 @@ impl TargetModel {
             T::PlaytimeMatrixAction => match self.playtime_matrix_action {
                 PlaytimeMatrixAction::Stop => SimpleMappingTarget::TriggerMatrix,
                 PlaytimeMatrixAction::SmartRecord => SimpleMappingTarget::SmartRecord,
-                PlaytimeMatrixAction::EnterSilenceModeOrPlayIgnited => {
+                PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                     SimpleMappingTarget::EnterSilenceModeOrPlayIgnited
                 }
                 PlaytimeMatrixAction::SequencerRecordOnOffState => {
