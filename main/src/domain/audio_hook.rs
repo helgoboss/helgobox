@@ -245,11 +245,8 @@ impl RealearnAudioHook {
         // Pre-poll Playtime
         #[cfg(feature = "playtime")]
         {
-            // TODO-high CONTINUE We can make one function call out of this
             self.clip_engine_audio_hook
-                .on_pre_poll_1(block_props.to_playtime());
-            self.clip_engine_audio_hook
-                .on_pre_poll_2(block_props.to_playtime(), args.reg);
+                .on_pre_poll(block_props.to_playtime(), args.reg);
         }
         // Process some tasks
         self.check_for_midi_device_inquiry_response();
