@@ -15,7 +15,7 @@ use playtime_clip_engine::rt::{
     ClipPlayState, ContinuousClipChangeEvent, ContinuousClipChangeEvents,
 };
 use playtime_clip_engine::{
-    base, clip_timeline, PlaytimeEngine, SteadyProjectTimelineHandle, Timeline,
+    base, clip_timeline, PlaytimeEngine, PlaytimeMainEngine, SteadyProjectTimelineHandle, Timeline,
 };
 
 use crate::infrastructure::proto::track_input::Input;
@@ -31,7 +31,7 @@ use crate::infrastructure::proto::{
 
 impl occasional_playtime_engine_update::Update {
     pub fn engine_settings() -> Self {
-        let settings = PlaytimeEngine::get().settings();
+        let settings = PlaytimeEngine::get().main().settings();
         let json = serde_json::to_string(&settings).expect("couldn't serialize playtime settings");
         Self::EngineSettings(json)
     }
@@ -40,7 +40,7 @@ impl occasional_playtime_engine_update::Update {
         let project = Reaper::get().current_project();
         SteadyProjectTimelineHandle::new(project).with_timeline(|timeline| {
             let pre_buffer_stat = timeline.last_pre_buffered_blocks_of_playing_clips_stat();
-            let engine_stats = PlaytimeEngine::stats();
+            let engine_stats = PlaytimeEngine::get().stats();
             let stats = PlaytimeEngineStats {
                 min_buffered_blocks: pre_buffer_stat.min() as _,
                 avg_buffered_blocks: pre_buffer_stat.avg() as _,
@@ -57,7 +57,7 @@ impl occasional_playtime_engine_update::Update {
         let value = {
             #[cfg(feature = "playtime")]
             {
-                let clip_engine = playtime_clip_engine::PlaytimeEngine::get();
+                let clip_engine = playtime_clip_engine::PlaytimeEngine::get().main();
                 if clip_engine.has_valid_license() {
                     clip_engine.license()
                 } else {

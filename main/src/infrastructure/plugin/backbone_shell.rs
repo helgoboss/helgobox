@@ -2540,6 +2540,7 @@ impl LicenseManagerEventHandler for BackboneLicenseManagerEventHandler {
         {
             // Let the Playtime Clip Engine check if it finds a suitable license
             let success = playtime_clip_engine::PlaytimeEngine::get()
+                .main()
                 .handle_changed_licenses(source.licenses());
             // Send a notification to the app (if it wants to display "success")
             let info_event = if success {
@@ -2832,6 +2833,7 @@ mod playtime_impl {
     use base::metrics_util::{record_duration, record_occurrence};
     use base::Global;
     use playtime_api::persistence::PlaytimeSettings;
+    use playtime_clip_engine::PlaytimeEngine;
     use reaper_high::{GroupingBehavior, Reaper};
     use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
     use std::fs;
@@ -2892,7 +2894,7 @@ mod playtime_impl {
     }
 
     pub fn init_clip_engine(license_manager: &LicenseManager) {
-        use playtime_clip_engine::PlaytimeEngine;
+        use playtime_clip_engine::PlaytimeMainEngine;
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {
@@ -2943,7 +2945,7 @@ mod playtime_impl {
             metrics_recorder,
             integration: Box::new(RealearnPlaytimeIntegration),
         };
-        PlaytimeEngine::make_available_globally(|| PlaytimeEngine::new(args));
+        PlaytimeEngine::make_available_globally(PlaytimeEngine::new(args));
     }
 
     fn enable_playtime_for_first_helgobox_instance_and_show_it() -> anyhow::Result<()> {

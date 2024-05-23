@@ -278,7 +278,10 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            if !matches!(self.action, PlaytimeMatrixAction::Stop) {
+            if !matches!(
+                self.action,
+                PlaytimeMatrixAction::Stop | PlaytimeMatrixAction::SmartRecord
+            ) {
                 return None;
             }
             let t = RealTimePlaytimeMatrixTarget {
@@ -354,20 +357,33 @@ mod playtime_impl {
         }
     }
     impl RealTimePlaytimeMatrixTarget {
+        /// This returns `Ok(true)` if the event should still be forwarded to the main thread because there's still
+        /// something to do, but it can only be done in the main thread (e.g. when using smart record and there's
+        /// no tempo detection recording to be stopped).
         pub fn hit(
             &mut self,
             value: ControlValue,
             context: RealTimeControlContext,
-        ) -> Result<(), &'static str> {
+        ) -> Result<bool, &'static str> {
             match self.action {
+                // TODO-medium Making tempo tap rt-capable might also make sense!
                 PlaytimeMatrixAction::Stop => {
                     if !value.is_on() {
-                        return Ok(());
+                        return Ok(false);
                     }
                     let matrix = context.clip_matrix()?;
                     let matrix = matrix.lock();
                     matrix.stop();
-                    Ok(())
+                    Ok(false)
+                }
+                PlaytimeMatrixAction::SmartRecord => {
+                    if !value.is_on() {
+                        return Ok(false);
+                    }
+                    let matrix = context.clip_matrix()?;
+                    let matrix = matrix.lock();
+                    let forward_to_main_thread = !matrix.maybe_stop_tempo_detection_recording();
+                    Ok(forward_to_main_thread)
                 }
                 _ => Err("only matrix stop has real-time target support"),
             }

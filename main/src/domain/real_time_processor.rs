@@ -1482,7 +1482,14 @@ fn process_real_mapping_in_real_time(
                 }
                 RealTimeReaperTarget::PlaytimeColumn(t) => t.hit(control_value, control_context),
                 RealTimeReaperTarget::PlaytimeRow(t) => t.hit(control_value, control_context),
-                RealTimeReaperTarget::PlaytimeMatrix(t) => t.hit(control_value, control_context),
+                RealTimeReaperTarget::PlaytimeMatrix(t) => {
+                    let result = t.hit(control_value, control_context);
+                    if result.is_ok_and(|forward_to_main_thread| forward_to_main_thread) {
+                        // Important: We must forward to main thread in this case!
+                        return true;
+                    }
+                    result.map(|_| ())
+                }
                 RealTimeReaperTarget::FxParameter(t) => t.hit(control_value),
             };
             match hit_result {

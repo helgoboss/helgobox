@@ -345,9 +345,6 @@ pub struct MatrixClipRecordSettings {
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
     pub looped: bool,
-    /// If `true`, sets the global tempo to the tempo of this clip right after recording.
-    // TODO-high-playtime-after-release
-    pub lead_tempo: bool,
     pub midi_settings: MatrixClipRecordMidiSettings,
     pub audio_settings: MatrixClipRecordAudioSettings,
 }
@@ -436,7 +433,6 @@ impl Default for MatrixClipRecordSettings {
             play_stop_timing: Default::default(),
             time_base: Default::default(),
             looped: true,
-            lead_tempo: false,
             midi_settings: Default::default(),
             audio_settings: Default::default(),
         }

@@ -301,10 +301,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_beats_as_feedback_events();
         self.detect_device_changes(timestamp);
         self.process_incoming_osc_messages(timestamp);
-        // Drive clip matrix
+        // Drive Playtime
         #[cfg(feature = "playtime")]
         {
-            self.poll_clip_matrixes();
+            self.poll_playtime();
             self.process_incoming_clip_matrix_events();
         }
         // Finally let the ReaLearn main processors do their regular job (the instances)
@@ -467,7 +467,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     #[cfg(feature = "playtime")]
-    fn poll_clip_matrixes(&mut self) {
+    fn poll_playtime(&mut self) {
+        // Poll Playtime engine
+        playtime_clip_engine::PlaytimeEngine::get().poll();
+        // Poll all Playtime matrixes
         for instance in self.instances() {
             let (instance_id, events) = {
                 let mut instance = instance.borrow_mut();

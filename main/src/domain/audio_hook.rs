@@ -204,13 +204,31 @@ impl RealearnAudioHook {
         // Increment counter
         self.counter.fetch_add(1, Ordering::Relaxed);
         let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-        // Pre-poll Playtime
-        #[cfg(feature = "playtime")]
-        {
-            self.clip_engine_audio_hook
-                .on_pre_poll_1(block_props.to_playtime());
-        }
-        // Detect rebirth
+        // Call ReaLearn real-time processors (= process MIDI messages coming in from hardware devices).
+        // We do this here already, *before* pre-polling recording and advancing Playtime's tempo buffer (done in `on_pre_poll_1`)!
+        // Reason: When recording a new clip with tempo detection (= recording in silence mode), it's ideal
+        // if pressing a stop button on the controller *instantly* stops recording, detects the new tempo,
+        // applies it to the current block and starts playing the clip. Instantly = at the start of *this* block,
+        // without waiting until the next block. This is only possible if at the very beginning of the
+        // block it's already known that the stop button was pressed, before the block tempo props are determined.
+        //
+        // Playtime steps:
+        //
+        // 1. Process MIDI messages coming in from hardware devices
+        // 2. For each record-clip task:
+        // 2.1 Write incoming data to recording clip
+        // 2.2 Commit recording if necessary (if tempo detection enabled, also reset timeline with new tempo and no count-in)
+        //     - Maybe we can unify manual stop and scheduled stop this way
+        //     - One way is to process RtColumn commands generally in the audio hook.
+        //       - Pro: No need to make "stop recording" a special command. All commands will be executed before preview registers,
+        //         that is, before other columns have been played.
+        //       - Con: I had the idea of a future refactoring: To do resolving/scheduling eagerly when processing
+        //         the command instead of later when processing the slots. Since block tempo props are by definition
+        //         not 100% decided yet when processing commands from the audio hook in this early stage, this would
+        //         become impossible.
+        //
+        // 3. Advance tempo buffer
+        // 4. Play clip from start (process preview registers, which REAPER does after executing the pre-audio-hook)
         let might_be_rebirth = {
             if let Some(time) = time_of_last_run {
                 current_time.duration_since(time) > Duration::from_secs(1)
@@ -218,15 +236,18 @@ impl RealearnAudioHook {
                 false
             }
         };
+        self.call_real_time_processors(block_props, might_be_rebirth);
         // Do some ReaLearn things. The order probably matters here!
         self.process_feedback_commands();
         self.call_real_time_instances(block_props);
-        self.call_real_time_processors(block_props, might_be_rebirth);
         // Process incoming commands, including Playtime commands
         self.process_normal_commands(block_props);
         // Pre-poll Playtime
         #[cfg(feature = "playtime")]
         {
+            // TODO-high CONTINUE We can make one function call out of this
+            self.clip_engine_audio_hook
+                .on_pre_poll_1(block_props.to_playtime());
             self.clip_engine_audio_hook
                 .on_pre_poll_2(block_props.to_playtime(), args.reg);
         }
