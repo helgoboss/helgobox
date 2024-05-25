@@ -6,14 +6,26 @@ local playtime_util = require("playtime_util")
 
 local module = {}
 
-export type ApcKey25PlaytimePresetConfig = {
+export type ApcPlaytimePresetConfig = {
     mute_track_button_id: string,
     arm_track_button_id: string,
     use_column_stop_buttons: boolean,
     stop_column_if_slot_empty: boolean,
+    column_count: number,
+    row_count: number,
+    up_button_id: string,
+    down_button_id: string,
+    left_button_id: string,
+    right_button_id: string,
+    volume_button_id: string,
+    pan_button_id: string,
+    send_button_id: string,
+    device_button_id: string,
+    stop_all_clips_button_id: string,
+    stop_all_clips_need_shift: boolean,
 }
 
-function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realearn.Compartment
+function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Compartment
     -- TODO-high-playtime-before-release Make record and play buttons control Playtime's sequencer
 
     -- Aliases
@@ -38,8 +50,6 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
 
     -- Constants
 
-    local column_count = 8
-    local row_count = 5
     local column_mode_count = 100
     local knob_mode_count = 100
 
@@ -389,6 +399,14 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         }
     end
 
+    local function pick_up()
+        return partial_mapping {
+            glue = {
+                takeover_mode = "PickUpTolerant",
+            },
+        }
+    end
+
     local function incremental()
         return partial_mapping {
             glue = {
@@ -568,14 +586,12 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
     -- Mappings
 
     local mappings = {
-        name("Stop all clips") + no_mod + button("stop-all-clips") + clip_matrix_action("Stop"),
         name("Play/stop") + no_mod + button("play") + toggle() + transport_action("PlayStop"),
         name("Shift modifier") + button("shift") + set_param(params.shift.index),
         name("Sustain modifier") + button("sustain") + set_param(params.sustain.index),
         name("Undo") + shift + button("play") + clip_matrix_action("Undo"),
         name("Redo") + shift + button("record") + clip_matrix_action("Redo"),
         name("Build scene") + sustain + button("record") + clip_matrix_action("BuildScene"),
-        name("Click") + shift + button("stop-all-clips") + reaper_action(40364),
         name("Switch send")
             + group(groups.knob_sends)
             + feedback_disabled()
@@ -632,27 +648,45 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         name("Record open-ended")
             + group(groups.record_settings)
             + shift_and_sustain
-            + button("stop-all-clips")
+            + button(config.stop_all_clips_button_id)
             + clip_matrix_action("SetRecordDurationToOpenEnd"),
     }
+
+    if config.stop_all_clips_need_shift then
+        -- We have a device that has a "Stop all clips" button but it needs shift to be pressed
+        table.insert(
+            mappings,
+            name("Stop all clips") + shift + button(config.stop_all_clips_button_id) + clip_matrix_action("Stop")
+        )
+    else
+        -- We have a device with a dedicated "Stop all clips" button
+        table.insert(
+            mappings,
+            name("Stop all clips") + no_mod + button(config.stop_all_clips_button_id) + clip_matrix_action("Stop")
+        )
+        table.insert(
+            mappings,
+            name("Click") + shift + button(config.stop_all_clips_button_id) + reaper_action(40364)
+        )
+    end
 
     if config.use_column_stop_buttons then
         -- Scrolling
         table.insert(
             mappings,
-            name("Scroll up") + shift_or_sustain + button("col1/stop") + turbo() + scroll_vertically(-1)
+            name("Scroll up") + shift_or_sustain + button(config.up_button_id) + turbo() + scroll_vertically(-1)
         )
         table.insert(
             mappings,
-            name("Scroll down") + shift_or_sustain + button("col2/stop") + turbo() + scroll_vertically(1)
+            name("Scroll down") + shift_or_sustain + button(config.down_button_id) + turbo() + scroll_vertically(1)
         )
         table.insert(
             mappings,
-            name("Scroll left") + shift_or_sustain + button("col3/stop") + turbo() + scroll_horizontally(-1)
+            name("Scroll left") + shift_or_sustain + button(config.left_button_id) + turbo() + scroll_horizontally(-1)
         )
         table.insert(
             mappings,
-            name("Scroll right") + shift_or_sustain + button("col4/stop") + turbo() + scroll_horizontally(1)
+            name("Scroll right") + shift_or_sustain + button(config.right_button_id) + turbo() + scroll_horizontally(1)
         )
         -- Modes
         table.insert(
@@ -660,7 +694,7 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
             name("Knob volume mode")
                 + group(groups.knob_modes)
                 + shift
-                + button("col5/stop")
+                + button(config.volume_button_id)
                 + set_knob_mode(knob_modes.volume)
         )
         table.insert(
@@ -668,7 +702,7 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
             name("Knob pan mode")
                 + group(groups.knob_modes)
                 + shift
-                + button("col6/stop")
+                + button(config.pan_button_id)
                 + set_knob_mode(knob_modes.pan)
         )
         table.insert(
@@ -676,7 +710,7 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
             name("Knob send mode")
                 + group(groups.knob_modes)
                 + shift
-                + button("col7/stop")
+                + button(config.send_button_id)
                 + set_knob_mode(knob_modes.sends)
         )
         table.insert(
@@ -684,13 +718,13 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
             name("Knob device mode")
                 + group(groups.knob_modes)
                 + shift
-                + button("col8/stop")
+                + button(config.device_button_id)
                 + set_knob_mode(knob_modes.device)
         )
     end
 
     -- For each column
-    for col = 0, column_count - 1 do
+    for col = 0, config.column_count - 1 do
         -- Column stop button functions
         if config.use_column_stop_buttons then
             table.insert(
@@ -741,20 +775,20 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         -- Knob functions
         table.insert(
             mappings,
-            name("Track volume") + group(groups.knob_volume) + multi(col) + column_track_target(col, "TrackVolume")
+            name("Track volume") + group(groups.knob_volume) + multi(col) + pick_up() + column_track_target(col, "TrackVolume")
         )
         table.insert(
             mappings,
-            name("Track pan") + group(groups.knob_pan) + multi(col) + column_track_target(col, "TrackPan")
+            name("Track pan") + group(groups.knob_pan) + multi(col) + pick_up() + column_track_target(col, "TrackPan")
         )
         table.insert(
             mappings,
-            name("Track send volume") + group(groups.knob_sends) + multi(col) + route_target(col, "RouteVolume")
+            name("Track send volume") + group(groups.knob_sends) + multi(col) + pick_up() + route_target(col, "RouteVolume")
         )
     end
 
     -- For each row
-    for row = 0, row_count - 1 do
+    for row = 0, config.row_count - 1 do
         table.insert(
             mappings,
             name("Play scene")
@@ -786,8 +820,8 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
     end
 
     -- For each slot
-    for col = 0, column_count - 1 do
-        for row = 0, row_count - 1 do
+    for col = 0, config.column_count - 1 do
+        for row = 0, config.row_count - 1 do
             -- Feedback
             table.insert(
                 mappings,
@@ -863,8 +897,8 @@ function module.create_compartment(config: ApcKey25PlaytimePresetConfig): realea
         custom_data = {
             playtime = {
                 control_unit = {
-                    column_count = column_count,
-                    row_count = row_count,
+                    column_count = config.column_count,
+                    row_count = config.row_count,
                 },
             },
         },

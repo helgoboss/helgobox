@@ -11,6 +11,7 @@
 --- # interested in "Control". Both MIDI ports reply with the same device identity. If we
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
+--- # On Windows, the naming is different, that's why there's also "MIDIOUT2".
 --- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
 --- provided_schemes: [akai/apc-key-25-mk2, grid]
 
@@ -27,7 +28,7 @@ local realearn = require("realearn")
 
 -- Define MIDI scripts
 
-local common_lua = preset_runtime.include_str("akai/apc-key-25-mk2-lib/compartment-common.luau")
+local common_lua = preset_runtime.include_str("akai/apc-mk2-lib/compartment-common.luau")
 
 local function build_pad_script(pad_index: number): string
     return `return require("compartment").pad_script({pad_index}, y, context)`
