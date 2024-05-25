@@ -574,7 +574,7 @@ pub fn menu_containing_compartment_presets(
         .chain(build_compartment_preset_menu_entries(
             preset_manager.common_preset_infos(),
             |info| Some(info.id.clone()),
-            |info| current_value.is_some_and(|id| id == info.id),
+            current_value,
         ))
         .collect(),
     )
@@ -593,7 +593,7 @@ enum PresetCategory<'a> {
 pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
     build_id: impl Fn(&CommonPresetInfo) -> T + 'a,
-    is_current_value: impl Fn(&CommonPresetInfo) -> bool + 'a,
+    current_id: Option<&'a str>,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     let preset_infos: Vec<_> = preset_infos.collect();
     let mut categorized_infos: NonCryptoIndexMap<PresetCategory, Vec<&CommonPresetInfo>> =
@@ -604,7 +604,7 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
             // Preset directly in user preset root = "Unsorted"
             PresetCategory::UserUnsorted
         } else {
-            // Preset in sub directory (good)
+            // Preset in subdirectory (good)
             let component = path
                 .components()
                 .next()
@@ -623,22 +623,31 @@ pub fn build_compartment_preset_menu_entries<'a, T: 'static>(
         .into_iter()
         .map(move |(category, mut infos)| {
             infos.sort_by_key(|info| &info.meta_data.name);
-            menu(
-                category.to_string(),
-                build_compartment_preset_menu_entries_internal(
-                    infos.into_iter(),
-                    &build_id,
-                    &is_current_value,
-                )
-                .collect(),
-            )
+            let entries = build_compartment_preset_menu_entries_internal(
+                infos.into_iter(),
+                &build_id,
+                current_id,
+            );
+            let mut contains_current_entry = false;
+            let entries = entries
+                .inspect(|e| {
+                    if let Entry::Item(item) = e {
+                        if item.opts.checked {
+                            contains_current_entry = true;
+                        }
+                    }
+                })
+                .collect();
+            let category_suffix = if contains_current_entry { " *" } else { "" };
+            let category_label = format!("{category}{category_suffix}");
+            menu(category_label, entries)
         })
 }
 
 fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
     preset_infos: impl Iterator<Item = &'a CommonPresetInfo> + 'a,
     build_id: &'a (impl Fn(&CommonPresetInfo) -> T + 'a),
-    is_current_value: &'a (impl Fn(&CommonPresetInfo) -> bool + 'a),
+    current_id: Option<&'a str>,
 ) -> impl Iterator<Item = Entry<T>> + 'a {
     preset_infos.map(move |info| {
         let id = build_id(info);
@@ -646,7 +655,7 @@ fn build_compartment_preset_menu_entries_internal<'a, T: 'static>(
             info.meta_data.name.clone(),
             ItemOpts {
                 enabled: true,
-                checked: is_current_value(info),
+                checked: current_id.is_some_and(|id| id == info.id),
             },
             id,
         )

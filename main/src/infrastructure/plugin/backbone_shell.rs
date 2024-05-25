@@ -2669,7 +2669,7 @@ async fn maybe_create_controller_for_device(
     // Process identity reply
     let identity_reply = identity_reply_result?;
     let in_dev_id = identity_reply.input_device_id;
-    tracing::debug!(
+    tracing::info!(
         msg = "Received identity reply from MIDI device",
         %out_dev_id,
         %in_dev_id,
@@ -2694,7 +2694,7 @@ async fn maybe_create_controller_for_device(
         .name()
         .ok_or("MIDI output device doesn't return name / is not available")?
         .into_string();
-    tracing::debug!(msg = "Input not yet used. Finding matching controller preset...", %out_port_name);
+    tracing::info!(msg = "Input not yet used. Finding matching controller preset...", %out_port_name);
     let controller_preset = controller_preset_manager
         .find_controller_preset_compatible_with_device(
             &identity_reply.device_inquiry_reply.message,
