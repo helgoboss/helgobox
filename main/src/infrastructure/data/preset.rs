@@ -31,7 +31,7 @@ use std::str::FromStr;
 
 use nanoid::nanoid;
 use slug::slugify;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
@@ -89,39 +89,65 @@ pub struct MainPresetSelectionConditions {
 impl FileBasedCompartmentPresetManager<MainPresetMetaData> {
     pub fn find_most_suitable_main_preset_for_schemes(
         &self,
-        virtual_control_schemes: &HashSet<VirtualControlSchemeId>,
+        provided_schemes: &[VirtualControlSchemeId],
         conditions: MainPresetSelectionConditions,
     ) -> Option<&PresetInfo<MainPresetMetaData>> {
+        // Find main preset candidates and calculate their individual "matching" rank
         let mut candidates: Vec<_> = self
             .preset_infos
             .iter()
-            .filter_map(|info| {
-                let intersection_count = info
-                    .specific_meta_data
-                    .used_schemes
-                    .intersection(virtual_control_schemes)
-                    .count();
-                if intersection_count == 0 {
-                    return None;
-                }
-                Some((info, intersection_count))
+            .filter_map(|preset| {
+                let rank = MainPresetRank::calculate(&preset.specific_meta_data, provided_schemes)?;
+                Some(MainPresetCandidate { preset, rank })
             })
             .collect();
-        candidates.sort_unstable_by(|(preset_a, rank_a), (preset_b, rank_b)| {
+        // Sort ascending by suitability
+        candidates.sort_unstable_by(|candidate_a, candidate_b| {
             // Prefer Playtime preset if at least one instance has a Playtime clip matrix
             if conditions.at_least_one_instance_has_playtime_clip_matrix {
-                let ord = preset_a
-                    .specific_meta_data
-                    .requires_playtime()
-                    .cmp(&preset_b.specific_meta_data.requires_playtime());
+                let candidate_a_requires_playtime =
+                    candidate_a.preset.specific_meta_data.requires_playtime();
+                let candidate_b_requires_playtime =
+                    &candidate_b.preset.specific_meta_data.requires_playtime();
+                let ord = candidate_a_requires_playtime.cmp(candidate_b_requires_playtime);
                 if ord.is_ne() {
                     return ord;
                 }
             }
             // Apart from that, prefer higher rank
-            rank_a.cmp(rank_b)
+            candidate_a.rank.cmp(&candidate_b.rank)
         });
-        Some(candidates.into_iter().next()?.0)
+        // Now choose *from the right* (the maximum)
+        Some(candidates.pop()?.preset)
+    }
+}
+
+#[derive(Debug)]
+struct MainPresetCandidate<'a> {
+    preset: &'a PresetInfo<MainPresetMetaData>,
+    rank: MainPresetRank,
+}
+
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
+struct MainPresetRank {
+    specificity: u8,
+    coverage: u8,
+}
+
+impl MainPresetRank {
+    fn calculate(
+        main_preset: &MainPresetMetaData,
+        provided_schemes: &[VirtualControlSchemeId],
+    ) -> Option<Self> {
+        let coverage = main_preset.calc_scheme_coverage(provided_schemes);
+        if coverage == 0 {
+            return None;
+        }
+        let rank = Self {
+            specificity: main_preset.calc_scheme_specificity(provided_schemes)?,
+            coverage,
+        };
+        Some(rank)
     }
 }
 

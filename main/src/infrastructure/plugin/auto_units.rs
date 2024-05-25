@@ -200,11 +200,9 @@ fn get_suitability_of_controller_preset_for_main_preset(
     controller_preset_meta_data: &ControllerPresetMetaData,
     main_preset_meta_data: &MainPresetMetaData,
 ) -> MainPresetSuitability {
-    let intersection_count = main_preset_meta_data
-        .used_schemes
-        .intersection(&controller_preset_meta_data.provided_schemes)
-        .count();
-    MainPresetSuitability::new(intersection_count as u8)
+    let coverage =
+        main_preset_meta_data.calc_scheme_coverage(&controller_preset_meta_data.provided_schemes);
+    MainPresetSuitability::new(coverage)
 }
 
 fn get_suitability_of_controller_preset_for_controller(

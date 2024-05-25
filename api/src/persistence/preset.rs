@@ -1,7 +1,7 @@
 use crate::util::deserialize_null_default;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 /// Meta data that is common to both main and controller presets.
 ///
@@ -91,18 +91,23 @@ pub struct ControllerPresetMetaData {
     /// Provided virtual control schemes.
     ///
     /// Will be used for finding the correct controller preset when calculating auto units.
+    ///
+    /// The order matters! It directly influences the choice of the best-suited main presets. In particular,
+    /// schemes that are more specific to this particular controller (e.g. "novation/launchpad-mk3") should come first.
+    /// Generic schemes (e.g. "grid") should come last. When auto-picking a main preset, matches of more specific
+    /// schemes will be favored over less specific ones.
     #[serde(default)]
-    pub provided_schemes: HashSet<VirtualControlSchemeId>,
+    pub provided_schemes: Vec<VirtualControlSchemeId>,
 }
 
-/// Meta data that is specific to main presets.
+/// Metadata that is specific to main presets.
 #[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MainPresetMetaData {
     /// Used virtual control schemes.
     ///
     /// Will be used for finding the correct controller preset when calculating auto units.
     #[serde(default)]
-    pub used_schemes: HashSet<VirtualControlSchemeId>,
+    pub used_schemes: BTreeSet<VirtualControlSchemeId>,
     /// A set of features that a Helgobox instance needs to provide for the preset to make sense.
     ///
     /// See [instance_features].
@@ -118,6 +123,48 @@ pub struct MainPresetMetaData {
 impl MainPresetMetaData {
     pub fn requires_playtime(&self) -> bool {
         self.required_features.contains(instance_features::PLAYTIME)
+    }
+
+    /// Higher specificity means that the main preset uses a scheme provided by the controller that's more specific to
+    /// that particular controller (and therefore better suited).
+    ///
+    /// When picking the "best" main preset for a given controller preset, this is the first criteria taken into
+    /// account, if there are two competing main preset candidates.
+    ///
+    /// Given a controller preset that provides the schemes [bla, foo].
+    /// If main preset A uses schemes [bla] and main preset B [foo], we want main preset A to win because
+    /// "bla" comes first in the controller preset's list of provided schemes, meaning that "bla" is the
+    /// more specific scheme.
+    ///
+    /// An example where this matters in practice:
+    /// - Controller preset "Launchpad Pro mk3 - Live mode" provides schemes [novation/launchpad-pro-mk3/live, grid]
+    /// - Main preset "Generic grid controller - Playtime" uses schemes [grid]
+    /// - Main preset "Launchpad Pro mk3 - Playtime" uses schemes [novation/launchpad-pro-mk3/live]
+    ///
+    /// Without that rule, it could easily happen that "Generic grid controller - Playtime" will be picked. Bad!
+    ///
+    /// Returns `None` if no scheme matches.
+    pub fn calc_scheme_specificity(
+        &self,
+        provided_schemes: &[VirtualControlSchemeId],
+    ) -> Option<u8> {
+        let lowest_matching_index = self
+            .used_schemes
+            .iter()
+            .filter_map(|used_scheme| provided_schemes.iter().position(|s| s == used_scheme))
+            .min()?;
+        Some((provided_schemes.len() - lowest_matching_index) as u8)
+    }
+
+    /// Higher coverage means that the main preset uses more schemes provided by the controller.
+    ///
+    /// When picking the "best" main preset for a given controller preset, this is the second criteria taken into
+    /// account, if the specificity of two main preset candidates is the same.
+    pub fn calc_scheme_coverage(&self, provided_schemes: &[VirtualControlSchemeId]) -> u8 {
+        self.used_schemes
+            .iter()
+            .filter(|used_scheme| provided_schemes.contains(used_scheme))
+            .count() as u8
     }
 }
 
