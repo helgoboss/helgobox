@@ -27,12 +27,15 @@ use crate::runtime::CellAddress;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
 use chrono::NaiveDateTime;
+use derive_more::Display;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
+use strum::EnumIter;
 
 /// Global settings that apply to all Playtime instances.
 ///
@@ -339,7 +342,10 @@ pub struct MatrixClipPlayAudioSettings {
 pub struct MatrixClipRecordSettings {
     pub start_timing: ClipRecordStartTiming,
     pub stop_timing: ClipRecordStopTiming,
-    pub duration: RecordLength,
+    #[serde(default)]
+    pub length_mode: RecordLengthMode,
+    #[serde(default)]
+    pub custom_length: EvenQuantization,
     pub play_start_timing: ClipPlayStartTimingOverrideAfterRecording,
     pub play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
     pub time_base: ClipRecordTimeBase,
@@ -347,6 +353,31 @@ pub struct MatrixClipRecordSettings {
     pub looped: bool,
     pub midi_settings: MatrixClipRecordMidiSettings,
     pub audio_settings: MatrixClipRecordAudioSettings,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum RecordLengthMode {
+    /// Records open-ended until the user decides to stop.
+    #[display(fmt = "Open end")]
+    #[default]
+    OpenEnd = 0,
+    /// Records at a maximum as much material as defined by `custom_length`.
+    #[display(fmt = "Custom length")]
+    CustomLength = 1,
 }
 
 impl MatrixClipRecordSettings {
@@ -428,7 +459,8 @@ impl Default for MatrixClipRecordSettings {
         Self {
             start_timing: Default::default(),
             stop_timing: Default::default(),
-            duration: Default::default(),
+            length_mode: Default::default(),
+            custom_length: Default::default(),
             play_start_timing: Default::default(),
             play_stop_timing: Default::default(),
             time_base: Default::default(),
@@ -464,21 +496,6 @@ pub struct MatrixClipRecordAudioSettings {
     /// Makes the global record button work for audio by allowing global input detection.
     // TODO-high-playtime-after-release
     pub detect_input: bool,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum RecordLength {
-    /// Records open-ended until the user decides to stop.
-    OpenEnd,
-    /// Records exactly as much material as defined by the given quantization.
-    Quantized(EvenQuantization),
-}
-
-impl Default for RecordLength {
-    fn default() -> Self {
-        Self::OpenEnd
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]

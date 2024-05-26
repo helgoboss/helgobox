@@ -29,3 +29,7 @@ chrono = { workspace = true, features = ["serde"] }
 anyhow.workspace = true
 # For capturing and reporting unknown properties
 serde_json.workspace = true
+# For primitive enums
+strum.workspace = true
+# For primitive enums
+num_enum.workspace = true

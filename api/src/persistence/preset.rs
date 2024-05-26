@@ -107,7 +107,7 @@ pub struct MainPresetMetaData {
     ///
     /// Will be used for finding the correct controller preset when calculating auto units.
     #[serde(default)]
-    pub used_schemes: BTreeSet<VirtualControlSchemeId>,
+    pub used_schemes: HashSet<VirtualControlSchemeId>,
     /// A set of features that a Helgobox instance needs to provide for the preset to make sense.
     ///
     /// See [instance_features].

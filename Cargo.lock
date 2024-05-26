@@ -4463,12 +4463,14 @@ dependencies = [
  "chrono",
  "derive_more",
  "nanoid",
+ "num_enum 0.7.2",
  "realearn-macros",
  "reaper-common-types",
  "reaper-low",
  "rmp-serde",
  "serde",
  "serde_json",
+ "strum",
  "thiserror",
 ]
 

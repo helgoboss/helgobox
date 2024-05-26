@@ -1529,16 +1529,10 @@ pub enum PlaytimeMatrixAction {
     Redo,
     #[display(fmt = "Build scene")]
     BuildScene,
-    #[display(fmt = "Set record duration to open end")]
-    SetRecordDurationToOpenEnd,
-    #[display(fmt = "Set record duration to 1 bar")]
-    SetRecordDurationToOneBar,
-    #[display(fmt = "Set record duration to 2 bars")]
-    SetRecordDurationToTwoBars,
-    #[display(fmt = "Set record duration to 4 bars")]
-    SetRecordDurationToFourBars,
-    #[display(fmt = "Set record duration to 8 bars")]
-    SetRecordDurationToEightBars,
+    #[display(fmt = "Set record length mode")]
+    SetRecordLengthMode,
+    #[display(fmt = "Set custom record length in bars")]
+    SetCustomRecordLengthInBars,
     #[display(fmt = "Enable/disable click")]
     ClickOnOffState,
     #[display(fmt = "Enable/disable MIDI auto-quantize")]

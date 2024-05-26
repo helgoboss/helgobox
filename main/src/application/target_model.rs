@@ -2693,11 +2693,8 @@ impl TargetModel {
                 PlaytimeMatrixAction::Undo
                 | PlaytimeMatrixAction::Redo
                 | PlaytimeMatrixAction::BuildScene
-                | PlaytimeMatrixAction::SetRecordDurationToOpenEnd
-                | PlaytimeMatrixAction::SetRecordDurationToOneBar
-                | PlaytimeMatrixAction::SetRecordDurationToTwoBars
-                | PlaytimeMatrixAction::SetRecordDurationToFourBars
-                | PlaytimeMatrixAction::SetRecordDurationToEightBars
+                | PlaytimeMatrixAction::SetRecordLengthMode
+                | PlaytimeMatrixAction::SetCustomRecordLengthInBars
                 | PlaytimeMatrixAction::ClickOnOffState
                 | PlaytimeMatrixAction::MidiAutoQuantizationOnOffState
                 | PlaytimeMatrixAction::SilenceModeOnOffState

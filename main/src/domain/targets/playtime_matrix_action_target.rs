@@ -70,18 +70,21 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        format_value_as_on_off, Backbone, CompoundChangeEvent, ControlContext, HitResponse,
-        MappingControlContext, PlaytimeMatrixActionTarget, RealTimeControlContext,
-        RealTimePlaytimeMatrixTarget, RealTimeReaperTarget, RealearnTarget, ReaperTargetType,
-        TargetCharacter,
+        convert_count_to_step_size, convert_unit_to_discrete_value, format_value_as_on_off,
+        Backbone, CompoundChangeEvent, ControlContext, HitResponse, MappingControlContext,
+        PlaytimeMatrixActionTarget, RealTimeControlContext, RealTimePlaytimeMatrixTarget,
+        RealTimeReaperTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
     };
-    use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+    use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 
-    use playtime_api::persistence::{EvenQuantization, RecordLength};
+    use playtime_api::persistence::{EvenQuantization, RecordLengthMode};
     use playtime_clip_engine::base::{ClipMatrixEvent, Matrix, SequencerStatus};
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
     use realearn_api::persistence::PlaytimeMatrixAction;
 
+    use crate::domain::targets::playtime_matrix_action_target::{
+        MAX_RECORD_LENGTH_BARS_COUNT, MAX_RECORD_LENGTH_MODES_COUNT,
+    };
     use std::borrow::Cow;
 
     impl PlaytimeMatrixActionTarget {
@@ -111,35 +114,18 @@ mod playtime_impl {
                     }
                     matrix.build_scene_in_first_empty_row()?;
                 }
-                PlaytimeMatrixAction::SetRecordDurationToOpenEnd => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    matrix.set_record_duration(RecordLength::OpenEnd);
+                PlaytimeMatrixAction::SetRecordLengthMode => {
+                    let value = value
+                        .to_discrete_value(MAX_RECORD_LENGTH_MODES_COUNT)
+                        .map_err(anyhow::Error::msg)?;
+                    let mode = RecordLengthMode::try_from(value.actual() as usize)?;
+                    matrix.set_record_length_mode(mode);
                 }
-                PlaytimeMatrixAction::SetRecordDurationToOneBar => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    matrix.set_record_duration(record_duration_in_bars(1));
-                }
-                PlaytimeMatrixAction::SetRecordDurationToTwoBars => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    matrix.set_record_duration(record_duration_in_bars(2));
-                }
-                PlaytimeMatrixAction::SetRecordDurationToFourBars => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    matrix.set_record_duration(record_duration_in_bars(4));
-                }
-                PlaytimeMatrixAction::SetRecordDurationToEightBars => {
-                    if !value.is_on() {
-                        return Ok(HitResponse::ignored());
-                    }
-                    matrix.set_record_duration(record_duration_in_bars(8));
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                    let value = value
+                        .to_discrete_value(MAX_RECORD_LENGTH_BARS_COUNT)
+                        .map_err(anyhow::Error::msg)?;
+                    matrix.set_custom_record_length(EvenQuantization::new(value.actual(), 1)?);
                 }
                 PlaytimeMatrixAction::ClickOnOffState => {
                     matrix.set_click_enabled(value.is_on());
@@ -243,11 +229,8 @@ mod playtime_impl {
                     },
                     _ => (false, None),
                 },
-                PlaytimeMatrixAction::SetRecordDurationToOpenEnd
-                | PlaytimeMatrixAction::SetRecordDurationToOneBar
-                | PlaytimeMatrixAction::SetRecordDurationToTwoBars
-                | PlaytimeMatrixAction::SetRecordDurationToFourBars
-                | PlaytimeMatrixAction::SetRecordDurationToEightBars => match evt {
+                PlaytimeMatrixAction::SetRecordLengthMode
+                | PlaytimeMatrixAction::SetCustomRecordLengthInBars => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::MatrixSettingsChanged) => {
                         (true, None)
                     }
@@ -322,24 +305,23 @@ mod playtime_impl {
                         }
                         PlaytimeMatrixAction::Undo => matrix.can_undo(),
                         PlaytimeMatrixAction::Redo => matrix.can_redo(),
-                        PlaytimeMatrixAction::SetRecordDurationToOpenEnd => {
-                            matrix.settings().clip_record_settings.duration == RecordLength::OpenEnd
+                        PlaytimeMatrixAction::SetRecordLengthMode => {
+                            let value = matrix.settings().clip_record_settings.length_mode as usize;
+                            return Some(AbsoluteValue::Discrete(Fraction::new(
+                                value as _,
+                                MAX_RECORD_LENGTH_MODES_COUNT,
+                            )));
                         }
-                        PlaytimeMatrixAction::SetRecordDurationToOneBar => {
-                            matrix.settings().clip_record_settings.duration
-                                == record_duration_in_bars(1)
-                        }
-                        PlaytimeMatrixAction::SetRecordDurationToTwoBars => {
-                            matrix.settings().clip_record_settings.duration
-                                == record_duration_in_bars(2)
-                        }
-                        PlaytimeMatrixAction::SetRecordDurationToFourBars => {
-                            matrix.settings().clip_record_settings.duration
-                                == record_duration_in_bars(4)
-                        }
-                        PlaytimeMatrixAction::SetRecordDurationToEightBars => {
-                            matrix.settings().clip_record_settings.duration
-                                == record_duration_in_bars(8)
+                        PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                            let custom_length =
+                                matrix.settings().clip_record_settings.custom_length;
+                            if custom_length.denominator() != 1 {
+                                return None;
+                            }
+                            return Some(AbsoluteValue::Discrete(Fraction::new(
+                                custom_length.numerator(),
+                                MAX_RECORD_LENGTH_BARS_COUNT,
+                            )));
                         }
                         PlaytimeMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
                         PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
@@ -427,18 +409,21 @@ mod playtime_impl {
     fn control_type_and_character(action: PlaytimeMatrixAction) -> (ControlType, TargetCharacter) {
         use PlaytimeMatrixAction::*;
         match action {
-            SetRecordDurationToOpenEnd
-            | SetRecordDurationToOneBar
-            | SetRecordDurationToTwoBars
-            | SetRecordDurationToFourBars
-            | SetRecordDurationToEightBars
-            | Stop
-            | Undo
-            | Redo
-            | BuildScene
-            | Panic
-            | SmartRecord
-            | TapTempo => (
+            SetRecordLengthMode => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(MAX_RECORD_LENGTH_MODES_COUNT),
+                    is_retriggerable: false,
+                },
+                TargetCharacter::Discrete,
+            ),
+            SetCustomRecordLengthInBars => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(MAX_RECORD_LENGTH_BARS_COUNT),
+                    is_retriggerable: false,
+                },
+                TargetCharacter::Discrete,
+            ),
+            Stop | Undo | Redo | BuildScene | Panic | SmartRecord | TapTempo => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
@@ -452,8 +437,7 @@ mod playtime_impl {
             }
         }
     }
-    /// Panics if you pass zero.
-    fn record_duration_in_bars(bars: u32) -> RecordLength {
-        RecordLength::Quantized(EvenQuantization::new(bars, 1).unwrap())
-    }
 }
+
+const MAX_RECORD_LENGTH_MODES_COUNT: u32 = 10;
+const MAX_RECORD_LENGTH_BARS_COUNT: u32 = 128;
