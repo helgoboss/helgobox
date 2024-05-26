@@ -589,6 +589,17 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
 
     -- For the last row of slots or - if available - the dedicated column action buttons
     for col = 0, column_count - 1 do
+        if config.has_dedicated_column_action_buttons then
+            table.insert(
+                mappings,
+                name("Activate column")
+                + column_mode_is(column_modes.normal)
+                + column_action_button(col)
+                + select_colors
+                + clip_column_action(col, "Activate")
+            )
+        end
+
         local source = if config.has_dedicated_column_action_buttons then column_action_button(col) else slot_button(col, row_count - 1)
         -- Record-arm track
         table.insert(

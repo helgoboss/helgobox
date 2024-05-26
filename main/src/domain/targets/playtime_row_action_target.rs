@@ -85,13 +85,16 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        Backbone, ControlContext, HitResponse, MappingControlContext, PlaytimeRowActionTarget,
-        RealTimeControlContext, RealTimePlaytimeRowTarget, RealTimeReaperTarget, RealearnTarget,
-        ReaperTargetType, TargetCharacter,
+        Backbone, CompoundChangeEvent, ControlContext, HitResponse, MappingControlContext,
+        PlaytimeRowActionTarget, RealTimeControlContext, RealTimePlaytimeRowTarget,
+        RealTimeReaperTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
     use playtime_api::persistence::RowAddress;
-    use realearn_api::persistence::PlaytimeRowAction;
+    use playtime_api::runtime::CellAddress;
+    use playtime_clip_engine::base::ClipMatrixEvent;
+    use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
+    use realearn_api::persistence::{PlaytimeColumnAction, PlaytimeRowAction};
 
     impl PlaytimeRowActionTarget {
         fn hit_internal(
@@ -137,6 +140,16 @@ mod playtime_impl {
                     }
                     self.with_matrix(context.control_context, |matrix| {
                         matrix.clear_row(self.basics.row_index)?;
+                        Ok(HitResponse::processed_with_effect())
+                    })?
+                }
+                PlaytimeRowAction::Activate => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
+                    self.with_matrix(context.control_context, |matrix| {
+                        matrix
+                            .activate_cell(CellAddress::new(None, Some(self.basics.row_index)))?;
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
@@ -194,6 +207,23 @@ mod playtime_impl {
                 PlaytimeRowAction::BuildScene => false,
                 PlaytimeRowAction::CopyOrPasteScene => true,
                 PlaytimeRowAction::ClearScene => true,
+                PlaytimeRowAction::Activate => true,
+            }
+        }
+
+        fn process_change_event(
+            &self,
+            evt: CompoundChangeEvent,
+            _: ControlContext,
+        ) -> (bool, Option<AbsoluteValue>) {
+            match self.basics.action {
+                PlaytimeRowAction::Activate => match evt {
+                    CompoundChangeEvent::ClipMatrix(
+                        ClipMatrixEvent::ActiveCellChanged | ClipMatrixEvent::EverythingChanged,
+                    ) => (true, None),
+                    _ => (false, None),
+                },
+                _ => (false, None),
             }
         }
     }
@@ -211,6 +241,14 @@ mod playtime_impl {
                         .with_matrix(context, |matrix| matrix.row_is_empty(self.basics.row_index))
                         .ok()?;
                     Some(AbsoluteValue::from_bool(!row_is_empty))
+                }
+                Activate => {
+                    let row_is_active = self
+                        .with_matrix(context, |matrix| {
+                            matrix.active_cell().column_index == Some(self.basics.row_index)
+                        })
+                        .ok()?;
+                    Some(AbsoluteValue::from_bool(row_is_active))
                 }
             }
         }

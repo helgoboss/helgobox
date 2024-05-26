@@ -3266,9 +3266,9 @@ export type PlaytimeSlotTransportAction =
 	| "OverdubPlay"
 	| "Looped"
 
-export type PlaytimeColumnAction = "Stop" | "ArmState" | "ArmStateExclusive"
+export type PlaytimeColumnAction = "Stop" | "ArmState" | "ArmStateExclusive" | "Activate"
 
-export type PlaytimeRowAction = "PlayScene" | "BuildScene" | "ClearScene" | "CopyOrPasteScene"
+export type PlaytimeRowAction = "PlayScene" | "BuildScene" | "ClearScene" | "CopyOrPasteScene" | "Activate"
 
 export type PlaytimeMatrixAction =
 	"Stop"

@@ -1461,6 +1461,8 @@ pub enum PlaytimeColumnAction {
     ArmState,
     #[display(fmt = "Arm/Disarm exclusive")]
     ArmStateExclusive,
+    #[display(fmt = "Activate")]
+    Activate,
 }
 
 impl Default for PlaytimeColumnAction {
@@ -1492,6 +1494,8 @@ pub enum PlaytimeRowAction {
     ClearScene,
     #[display(fmt = "Copy or paste")]
     CopyOrPasteScene,
+    #[display(fmt = "Activate")]
+    Activate,
 }
 
 impl Default for PlaytimeRowAction {

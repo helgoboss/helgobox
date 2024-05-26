@@ -85,6 +85,7 @@ mod playtime_impl {
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
     use playtime_api::persistence::ColumnAddress;
+    use playtime_api::runtime::CellAddress;
     use playtime_clip_engine::base::ClipMatrixEvent;
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
     use realearn_api::persistence::PlaytimeColumnAction;
@@ -99,6 +100,9 @@ mod playtime_impl {
                     PlaytimeColumnAction::Stop => matrix.column_is_stoppable(self.column_index),
                     PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
                         matrix.column_is_armed_for_recording(self.column_index)
+                    }
+                    PlaytimeColumnAction::Activate => {
+                        matrix.active_cell().column_index == Some(self.column_index)
                     }
                 })
                 .ok()?;
@@ -121,7 +125,9 @@ mod playtime_impl {
                     let is_stoppable = matrix.column_is_stoppable(self.column_index);
                     Some(AbsoluteValue::from_bool(is_stoppable))
                 }
-                PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => None,
+                PlaytimeColumnAction::ArmState
+                | PlaytimeColumnAction::ArmStateExclusive
+                | PlaytimeColumnAction::Activate => None,
             }
         }
 
@@ -149,7 +155,7 @@ mod playtime_impl {
             context: MappingControlContext,
         ) -> Result<HitResponse, &'static str> {
             let response = Backbone::get()
-                .with_clip_matrix(
+                .with_clip_matrix_mut(
                     context.control_context.instance(),
                     |matrix| -> anyhow::Result<HitResponse> {
                         match self.action {
@@ -167,6 +173,15 @@ mod playtime_impl {
                                     self.column_index,
                                     value.is_on(),
                                 )?;
+                            }
+                            PlaytimeColumnAction::Activate => {
+                                if !value.is_on() {
+                                    return Ok(HitResponse::ignored());
+                                }
+                                matrix.activate_cell(CellAddress::new(
+                                    Some(self.column_index),
+                                    None,
+                                ))?;
                             }
                         }
                         Ok(HitResponse::processed_with_effect())
@@ -210,6 +225,12 @@ mod playtime_impl {
                         _ => (false, None),
                     }
                 }
+                PlaytimeColumnAction::Activate => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ActiveCellChanged) => {
+                        (true, None)
+                    }
+                    _ => (false, None),
+                },
             }
         }
 
@@ -240,7 +261,7 @@ mod playtime_impl {
     fn control_type_and_character(action: PlaytimeColumnAction) -> (ControlType, TargetCharacter) {
         use PlaytimeColumnAction::*;
         match action {
-            Stop => (
+            Stop | Activate => (
                 ControlType::AbsoluteContinuousRetriggerable,
                 TargetCharacter::Trigger,
             ),
@@ -265,9 +286,9 @@ mod playtime_impl {
                     let matrix = matrix.lock();
                     matrix.stop_column(self.column_index)
                 }
-                PlaytimeColumnAction::ArmState | PlaytimeColumnAction::ArmStateExclusive => {
-                    Err("real-time control not supported")
-                }
+                PlaytimeColumnAction::ArmState
+                | PlaytimeColumnAction::ArmStateExclusive
+                | PlaytimeColumnAction::Activate => Err("real-time control not supported"),
             }
         }
     }
