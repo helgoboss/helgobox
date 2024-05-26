@@ -67,6 +67,7 @@ export type Matrix = {
 	color_palette: ColorPalette?,
 	content_quantization_settings: ContentQuantizationSettings?,
 	sequencer: MatrixSequencer?,
+	unknown_props: BTreeMap<string, any>?,
 }
 --- Creates a Matrix value.
 function module.Matrix(value: Matrix): Matrix
@@ -239,7 +240,6 @@ export type MatrixClipRecordSettings = {
 	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
 	time_base: ClipRecordTimeBase,
 	looped: boolean,
-	lead_tempo: boolean,
 	midi_settings: MatrixClipRecordMidiSettings,
 	audio_settings: MatrixClipRecordAudioSettings,
 }

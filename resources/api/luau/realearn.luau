@@ -16,6 +16,7 @@ export type Compartment = {
 	common_lua: string?,
 	custom_data: { [string]: any }?,
 	notes: string?,
+	unknown_props: BTreeMap<string, any>?,
 }
 --- Creates a Compartment value.
 --- Complete content of a ReaLearn compartment, including mappings, groups, parameters etc.
@@ -3282,7 +3283,7 @@ export type PlaytimeMatrixAction =
 	| "ClickOnOffState"
 	| "MidiAutoQuantizationOnOffState"
 	| "SmartRecord"
-	| "EnterSilenceModeOrPlayIgnited"
+	| "PlayIgnitedOrEnterSilenceMode"
 	| "SilenceModeOnOffState"
 	| "Panic"
 	| "SequencerRecordOnOffState"

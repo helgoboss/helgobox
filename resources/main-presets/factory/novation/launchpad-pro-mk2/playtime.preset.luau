@@ -19,8 +19,11 @@ return commons.create_compartment {
     undo_button_id = "undo",
     undo_needs_shift = false,
     redo_button_id = "undo",
+    redo_needs_shift = true,
     click_button_id = "click",
     click_needs_shift = false,
     double_button_id = "double",
     double_needs_shift = false,
+    tap_button_id = nil,
+    tap_needs_shift = false,
 }

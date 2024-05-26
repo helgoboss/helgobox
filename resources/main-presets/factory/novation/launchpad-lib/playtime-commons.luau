@@ -13,10 +13,13 @@ export type LaunchpadPlaytimePresetConfig = {
     undo_button_id: string,
     undo_needs_shift: boolean,
     redo_button_id: string,
+    redo_needs_shift: boolean,
     click_button_id: string,
     click_needs_shift: boolean,
     double_button_id: string,
     double_needs_shift: boolean,
+    tap_button_id: string?,
+    tap_needs_shift: boolean,
 }
 
 function module.create_compartment(config: LaunchpadPlaytimePresetConfig): realearn.Compartment
@@ -447,9 +450,9 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         name("Shift") + button("shift") + shift_colors + set_param(params.shift.index),
         name("Click") + button(config.click_button_id) + shift_config(config.click_needs_shift) + toggle() + clip_matrix_action("ClickOnOffState"),
         name("Undo") + button(config.undo_button_id) + shift_is(config.undo_needs_shift) + feedback_disabled() + clip_matrix_action("Undo"),
-        name("Undo LED") + button(config.undo_button_id) + shift_config(config.undo_needs_shift) + control_disabled() + led_on_off(),
-        name("Redo") + button(config.redo_button_id) + shift_is(true) + feedback_disabled() + clip_matrix_action("Redo"),
-        name("Redo LED") + button(config.redo_button_id) + shift_is(true) + shift_colors + control_disabled() + led_on_off(),
+        name("Undo LED") + button(config.undo_button_id) + shift_config(config.undo_needs_shift) + led_on_off(),
+        name("Redo") + button(config.redo_button_id) + shift_is(config.redo_needs_shift) + feedback_disabled() + clip_matrix_action("Redo"),
+        name("Redo LED") + button(config.redo_button_id) + shift_config(config.redo_needs_shift) + led_on_off(),
         name("Delete") + button("delete") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.delete),
         name("Quantise") + button("quantize") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.quantise),
         name("Record Quantise") + button("quantize") + shift_is(true) + shift_colors + toggle() + clip_matrix_action(
@@ -457,7 +460,20 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         ),
         name("Duplicate") + button("duplicate") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.duplicate),
         name("Double") + button(config.double_button_id) + shift_config(config.double_needs_shift) + set_slot_mode(slot_modes.double),
+        name("Play") + button("play") + shift_is(false) + normal_colors + toggle() + clip_matrix_action("PlayIgnitedOrEnterSilenceMode"),
+        name("Record") + button("record") + shift_is(false) + arm_colors + clip_matrix_action("SmartRecord"),
     }
+
+    if config.tap_button_id then
+        table.insert(
+            mappings,
+            name("Tap") + button(config.tap_button_id) + shift_is(config.tap_needs_shift) + feedback_disabled() + clip_matrix_action("TapTempo")
+        )
+        table.insert(
+            mappings,
+            name("Tap LED") + button(config.tap_button_id) + shift_config(config.tap_needs_shift) + led_on_off()
+        )
+    end
 
     local function add_scroll_mappings(b: string, target: partial.Partial)
         table.insert(mappings, name(b) + button(b) + feedback_disabled() + turbo() + target)

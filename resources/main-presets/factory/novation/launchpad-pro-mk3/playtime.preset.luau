@@ -20,8 +20,11 @@ return commons.create_compartment {
     undo_button_id = "record-arm",
     undo_needs_shift = true,
     redo_button_id = "mute",
+    redo_needs_shift = true,
     click_button_id = "solo",
     click_needs_shift = true,
     double_button_id = "duplicate",
     double_needs_shift = true,
+    tap_button_id = "sends",
+    tap_needs_shift = true,
 }

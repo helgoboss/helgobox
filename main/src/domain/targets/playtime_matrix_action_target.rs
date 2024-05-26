@@ -61,7 +61,7 @@ mod no_playtime_impl {
             &mut self,
             _value: ControlValue,
             _context: RealTimeControlContext,
-        ) -> Result<(), &'static str> {
+        ) -> Result<bool, &'static str> {
             Err("Playtime not available")
         }
     }
@@ -265,6 +265,22 @@ mod playtime_impl {
                     }
                     _ => (false, None),
                 },
+                PlaytimeMatrixAction::SmartRecord => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
+                        QualifiedSlotChangeEvent { event, .. },
+                    )) => match event {
+                        SlotChangeEvent::PlayState(_) => (true, None),
+                        _ => (false, None),
+                    },
+                    _ => (false, None),
+                },
+                PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode
+                | PlaytimeMatrixAction::SilenceModeOnOffState => match evt {
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SilenceModeChanged) => {
+                        (true, None)
+                    }
+                    _ => (false, None),
+                },
                 _ => (false, None),
             }
         }
@@ -330,7 +346,7 @@ mod playtime_impl {
                             matrix.midi_auto_quantize_enabled()
                         }
                         PlaytimeMatrixAction::SmartRecord => {
-                            return None;
+                            matrix.num_really_recording_clips() > 0
                         }
                         PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                             !matrix.is_in_silence_mode()
