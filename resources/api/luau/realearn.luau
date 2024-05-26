@@ -2945,6 +2945,7 @@ export type PlaytimeSlotManagementAction =
 	| "HalveClipSectionLength"
 	| "QuantizationOnOffState"
 	| "Duplicate"
+	| "Activate"
 
 export type AdjustClipSectionLengthAction = {
 	factor: number,

@@ -147,6 +147,15 @@ mod playtime_impl {
                         Ok(HitResponse::processed_with_effect())
                     })?
                 }
+                A::Activate => {
+                    if !value.is_on() {
+                        return Ok(HitResponse::ignored());
+                    }
+                    self.with_matrix(context, |matrix| {
+                        matrix.activate_cell(self.slot_address.to_cell_address())?;
+                        Ok(HitResponse::processed_with_effect())
+                    })?
+                }
             }
         }
 
@@ -168,7 +177,8 @@ mod playtime_impl {
                 | A::CopyOrPasteClip
                 | A::Duplicate
                 | A::HalveClipSectionLength
-                | A::DoubleClipSectionLength => (
+                | A::DoubleClipSectionLength
+                | A::Activate => (
                     ControlType::AbsoluteContinuousRetriggerable,
                     TargetCharacter::Trigger,
                 ),
@@ -230,6 +240,12 @@ mod playtime_impl {
                     )) if clip_address.slot_address == self.slot_address => (true, None),
                     _ => (false, None),
                 },
+                PlaytimeSlotManagementAction::Activate => match evt {
+                    CompoundChangeEvent::ClipMatrix(
+                        ClipMatrixEvent::ActiveCellChanged | ClipMatrixEvent::EverythingChanged,
+                    ) => (true, None),
+                    _ => (false, None),
+                },
                 _ => (false, None),
             }
         }
@@ -247,6 +263,14 @@ mod playtime_impl {
                 | A::DoubleClipSectionLength
                 | A::HalveClipSectionLength
                 | A::Duplicate => Some(AbsoluteValue::default()),
+                A::Activate => Backbone::get()
+                    .with_clip_matrix(context.instance(), |matrix| {
+                        let is_editing =
+                            matrix.active_cell() == self.slot_address.to_cell_address();
+                        let value = convert_bool_to_unit_value(is_editing);
+                        Some(AbsoluteValue::Continuous(value))
+                    })
+                    .ok()?,
                 A::EditClip => Backbone::get()
                     .with_clip_matrix(context.instance(), |matrix| {
                         let clip_address = ClipAddress::new(self.slot_address, 0);

@@ -942,6 +942,8 @@ pub enum PlaytimeSlotManagementAction {
     QuantizationOnOffState,
     #[display(fmt = "Duplicate")]
     Duplicate,
+    #[display(fmt = "Activate")]
+    Activate,
 }
 
 impl Default for PlaytimeSlotManagementAction {

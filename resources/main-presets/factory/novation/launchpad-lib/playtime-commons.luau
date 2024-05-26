@@ -389,9 +389,16 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
 
     local function slot_mode_is(slot_mode: Mode)
         return partial_mapping {
-            activation_condition = realearn.ActivationCondition.Bank {
-                parameter = params.slot_mode.index,
-                bank_index = slot_mode.index,
+            activation_condition = realearn.ActivationCondition.Expression {
+                condition = `p[{params.shift.index}] == 0.0 && p[{params.slot_mode.index}] == {slot_mode.index}`,
+            },
+        }
+    end
+
+    local function column_mode_is_normal_and_slot_mode_is(slot_mode: Mode)
+        return partial_mapping {
+            activation_condition = realearn.ActivationCondition.Expression {
+                condition = `p[{params.shift.index}] == 0.0 && p[{params.column_mode.index}] == {column_modes.normal.index} && p[{params.slot_mode.index}] == {slot_mode.index}`,
             },
         }
     end
@@ -401,14 +408,6 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             activation_condition = realearn.ActivationCondition.Bank {
                 parameter = params.column_mode.index,
                 bank_index = column_mode.index,
-            },
-        }
-    end
-
-    local function column_mode_is_normal_and_slot_mode_is(slot_mode: Mode)
-        return partial_mapping {
-            activation_condition = realearn.ActivationCondition.Expression {
-                condition = `p[{params.column_mode.index}] == {column_modes.normal.index} && p[{params.slot_mode.index}] == {slot_mode.index}`,
             },
         }
     end
@@ -529,6 +528,15 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 end
                 return partial_mapping {}
             end
+            -- Activate slot (shift)
+            table.insert(
+                mappings,
+                name("Activate slot")
+                    + shift_is(true)
+                    + feedback_disabled()
+                    + slot_button(col, row)
+                    + clip_management_action(col, row, "Activate")
+            )
             -- Control (normal)
             table.insert(
                 mappings,
