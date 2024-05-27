@@ -163,7 +163,7 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
         }
     end
 
-    local function multi(index: number)
+    local function knob(index: number)
         return partial_mapping {
             source = realearn.Source.Virtual {
                 character = "Multi",
@@ -190,7 +190,12 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
     end
 
     local function slot_button(col: number, row: number)
-        return button(`col{col + 1}/row{row + 1}/pad`)
+        return partial_mapping {
+            source = realearn.Source.Virtual {
+                character = "Multi",
+                id = `col{col + 1}/row{row + 1}/pad`,
+            },
+        }
     end
 
     local function shift_pressed(on: boolean)
@@ -294,7 +299,6 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
     local shift = shift_pressed(true)
     local sustain = sustain_pressed(true)
     local shift_or_sustain = shift_or_sustain_pressed()
-    local shift_and_sustain = shift_and_sustain_pressed()
     local short_press = fire_max(200)
     local long_press = fire_after_timeout(1000)
     local single_press = fire_on_single_press(200)
@@ -625,31 +629,6 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
             + shift
             + button("row5/play")
             + set_column_mode(column_modes.select),
-        name("Record 1 bar")
-            + group(groups.record_settings)
-            + shift_and_sustain
-            + button("row1/play")
-            + clip_matrix_action("SetRecordDurationToOneBar"),
-        name("Record 2 bars")
-            + group(groups.record_settings)
-            + shift_and_sustain
-            + button("row2/play")
-            + clip_matrix_action("SetRecordDurationToTwoBars"),
-        name("Record 4 bars")
-            + group(groups.record_settings)
-            + shift_and_sustain
-            + button("row3/play")
-            + clip_matrix_action("SetRecordDurationToFourBars"),
-        name("Record 8 bars")
-            + group(groups.record_settings)
-            + shift_and_sustain
-            + button("row4/play")
-            + clip_matrix_action("SetRecordDurationToEightBars"),
-        name("Record open-ended")
-            + group(groups.record_settings)
-            + shift_and_sustain
-            + button(config.stop_all_clips_button_id)
-            + clip_matrix_action("SetRecordDurationToOpenEnd"),
     }
 
     if config.stop_all_clips_need_shift then
@@ -775,15 +754,15 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
         -- Knob functions
         table.insert(
             mappings,
-            name("Track volume") + group(groups.knob_volume) + multi(col) + pick_up() + column_track_target(col, "TrackVolume")
+            name("Track volume") + group(groups.knob_volume) + knob(col) + pick_up() + column_track_target(col, "TrackVolume")
         )
         table.insert(
             mappings,
-            name("Track pan") + group(groups.knob_pan) + multi(col) + pick_up() + column_track_target(col, "TrackPan")
+            name("Track pan") + group(groups.knob_pan) + knob(col) + pick_up() + column_track_target(col, "TrackPan")
         )
         table.insert(
             mappings,
-            name("Track send volume") + group(groups.knob_sends) + multi(col) + pick_up() + route_target(col, "RouteVolume")
+            name("Track send volume") + group(groups.knob_sends) + knob(col) + pick_up() + route_target(col, "RouteVolume")
         )
     end
 

@@ -36,7 +36,7 @@ for col = 0, column_count - 1 do
         local mapping = realearn.Mapping {
             name = `Trigger slot {col + 1}/{row + 1}`,
             source = realearn.Source.Virtual {
-                character = "Button",
+                character = "Multi",
                 id = `col{col + 1}/row{row + 1}/pad`,
             },
             glue = {

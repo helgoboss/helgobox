@@ -14,7 +14,6 @@
 local commons = require("novation/launchpad-lib/playtime-commons")
 
 return commons.create_compartment {
-    pad_character = "Multi",
     stop_column_if_slot_empty = true,
     has_dedicated_column_action_buttons = false,
     has_shift_button = true,

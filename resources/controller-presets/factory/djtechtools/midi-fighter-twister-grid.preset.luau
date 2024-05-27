@@ -23,7 +23,7 @@ return commons.create_compartment {
     create_push_target = function (col, row)
         return realearn.Target.Virtual {
             id = `col{col +1 }/row{row + 1}/pad`,
-            character = "Button",
+            character = "Multi",
         }
     end,
     create_turn_target = function (col, row)

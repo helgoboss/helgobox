@@ -8,7 +8,6 @@ local playtime_util = require("playtime_util")
 local module = {}
 
 export type LaunchpadPlaytimePresetConfig = {
-    pad_character: realearn.VirtualControlElementCharacter,
     stop_column_if_slot_empty: boolean,
     has_dedicated_column_action_buttons: boolean,
     has_shift_button: boolean,
@@ -183,7 +182,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     local function pad(id: string)
         return partial_mapping {
             source = realearn.Source.Virtual {
-                character = config.pad_character,
+                character = "Multi",
                 id = id,
             },
         }
