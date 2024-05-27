@@ -13,7 +13,9 @@ use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
 use reaper_low::raw;
-use reaper_medium::{Hbrush, InitialAction, PromptForActionResult, SectionId, WindowContext};
+use reaper_medium::{
+    Hbrush, InitialAction, NativeColor, PromptForActionResult, SectionId, WindowContext,
+};
 use rxrust::prelude::*;
 use strum::IntoEnumIterator;
 
@@ -7875,8 +7877,8 @@ impl ChangeColorInstruction {
 
 fn show_feedback_popup_menu(
     window: Window,
-    color: Option<VirtualColor>,
-    background_color: Option<VirtualColor>,
+    current_color: Option<VirtualColor>,
+    current_background_color: Option<VirtualColor>,
 ) -> Result<FeedbackPopupMenuResult, &'static str> {
     enum MenuAction {
         ControllerDefault(ColorTarget),
@@ -7889,8 +7891,8 @@ fn show_feedback_popup_menu(
         use MenuAction::*;
         let create_color_target_menu = |color_target: ColorTarget| {
             let relevant_color = match color_target {
-                ColorTarget::Color => &color,
-                ColorTarget::BackgroundColor => &background_color,
+                ColorTarget::Color => &current_color,
+                ColorTarget::BackgroundColor => &current_background_color,
             };
             menu(
                 color_target.to_string(),
@@ -7952,14 +7954,23 @@ fn show_feedback_popup_menu(
             );
             FeedbackPopupMenuResult::ChangeColor(instruction)
         }
-        MenuAction::OpenColorPicker(target) => {
+        MenuAction::OpenColorPicker(color_target) => {
+            let relevant_color = match color_target {
+                ColorTarget::Color => &current_color,
+                ColorTarget::BackgroundColor => &current_background_color,
+            };
             let reaper = Reaper::get().medium_reaper();
+            let current_color = if let Some(VirtualColor::Rgb(c)) = relevant_color {
+                reaper.color_to_native(reaper_medium::RgbColor::rgb(c.r(), c.g(), c.b()))
+            } else {
+                NativeColor::default()
+            };
             if let Some(native_color) =
-                reaper.gr_select_color(WindowContext::Win(window.raw_hwnd()))
+                reaper.gr_select_color(WindowContext::Win(window.raw_hwnd()), current_color)
             {
                 let reaper_medium::RgbColor { r, g, b } = reaper.color_from_native(native_color);
                 let instruction = ChangeColorInstruction::new(
-                    target,
+                    color_target,
                     Some(VirtualColor::Rgb(RgbColor::new(r, g, b))),
                 );
                 FeedbackPopupMenuResult::ChangeColor(instruction)
