@@ -2,6 +2,8 @@ use crate::domain::{
     CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use helgoboss_learn::{ControlValue, UnitValue};
+use playtime_api::persistence::RecordLengthMode;
 
 use realearn_api::persistence::PlaytimeMatrixAction;
 
@@ -82,10 +84,8 @@ mod playtime_impl {
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
     use realearn_api::persistence::PlaytimeMatrixAction;
 
-    use crate::domain::targets::playtime_matrix_action_target::{
-        MAX_RECORD_LENGTH_BARS_COUNT, MAX_RECORD_LENGTH_MODES_COUNT,
-    };
     use std::borrow::Cow;
+    use std::str::FromStr;
 
     impl PlaytimeMatrixActionTarget {
         fn invoke(&self, matrix: &mut Matrix, value: ControlValue) -> anyhow::Result<HitResponse> {
@@ -115,17 +115,15 @@ mod playtime_impl {
                     matrix.build_scene_in_first_empty_row()?;
                 }
                 PlaytimeMatrixAction::SetRecordLengthMode => {
-                    let value = value
-                        .to_discrete_value(MAX_RECORD_LENGTH_MODES_COUNT)
-                        .map_err(anyhow::Error::msg)?;
-                    let mode = RecordLengthMode::try_from(value.actual() as usize)?;
+                    let mode = convert_control_value_to_record_length_mode(value)?;
                     matrix.set_record_length_mode(mode);
                 }
                 PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
                     let value = value
-                        .to_discrete_value(MAX_RECORD_LENGTH_BARS_COUNT)
+                        .to_discrete_value(RECORD_LENGTH_BARS_COUNT)
                         .map_err(anyhow::Error::msg)?;
-                    matrix.set_custom_record_length(EvenQuantization::new(value.actual(), 1)?);
+                    let quantization = EvenQuantization::new(value.actual() + 1, 1)?;
+                    matrix.set_custom_record_length(quantization);
                 }
                 PlaytimeMatrixAction::ClickOnOffState => {
                     matrix.set_click_enabled(value.is_on());
@@ -183,13 +181,81 @@ mod playtime_impl {
             Ok(HitResponse::processed_with_effect())
         }
     }
+
     impl RealearnTarget for PlaytimeMatrixActionTarget {
         fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
             control_type_and_character(self.action)
         }
 
-        fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
-            format_value_as_on_off(value).to_string()
+        fn format_value_without_unit(&self, value: UnitValue, context: ControlContext) -> String {
+            match self.action {
+                PlaytimeMatrixAction::SetRecordLengthMode => {
+                    convert_control_value_to_record_length_mode(ControlValue::AbsoluteContinuous(
+                        value,
+                    ))
+                    .map(|m| serde_plain::to_string(&m).unwrap())
+                    .unwrap_or_else(|_| "<Reserved>".to_string())
+                }
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                    self.format_as_discrete_or_percentage(value, context)
+                }
+                _ => format_value_as_on_off(value).to_string(),
+            }
+        }
+
+        fn convert_unit_value_to_discrete_value(
+            &self,
+            value: UnitValue,
+            _context: ControlContext,
+        ) -> Result<u32, &'static str> {
+            match self.action {
+                PlaytimeMatrixAction::SetRecordLengthMode => {
+                    Ok(value.to_discrete(RECORD_LENGTH_MODES_COUNT - 1))
+                }
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                    Ok(value.to_discrete(RECORD_LENGTH_BARS_COUNT - 1) + 1)
+                }
+                _ => Err("not supported"),
+            }
+        }
+
+        fn convert_discrete_value_to_unit_value(
+            &self,
+            value: u32,
+            _context: ControlContext,
+        ) -> Result<UnitValue, &'static str> {
+            match self.action {
+                PlaytimeMatrixAction::SetRecordLengthMode => {
+                    let uv = value as f64 / (RECORD_LENGTH_MODES_COUNT - 1) as f64;
+                    Ok(UnitValue::new_clamped(uv))
+                }
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                    convert_record_length_numerator_to_unit_value(value)
+                }
+                _ => Err("not supported"),
+            }
+        }
+
+        fn parse_as_value(
+            &self,
+            text: &str,
+            _context: ControlContext,
+        ) -> Result<UnitValue, &'static str> {
+            match self.action {
+                PlaytimeMatrixAction::SetRecordLengthMode => {
+                    let mode: RecordLengthMode =
+                        serde_plain::from_str(text).map_err(|_| "invalid mode")?;
+                    let uv = UnitValue::new_clamped(
+                        mode as usize as f64 / (RECORD_LENGTH_MODES_COUNT - 1) as f64,
+                    );
+                    Ok(uv)
+                }
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
+                    let numerator = text.parse().map_err(|_| "no valid number")?;
+                    convert_record_length_numerator_to_unit_value(numerator)
+                }
+                _ => Err("not supported"),
+            }
         }
 
         fn hit(
@@ -292,6 +358,13 @@ mod playtime_impl {
         fn is_available(&self, _: ControlContext) -> bool {
             true
         }
+
+        fn value_unit(&self, context: ControlContext) -> &'static str {
+            match self.action {
+                PlaytimeMatrixAction::SetCustomRecordLengthInBars => "bars",
+                _ => self.value_unit_default(context),
+            }
+        }
     }
     impl<'a> Target<'a> for PlaytimeMatrixActionTarget {
         type Context = ControlContext<'a>;
@@ -307,10 +380,8 @@ mod playtime_impl {
                         PlaytimeMatrixAction::Redo => matrix.can_redo(),
                         PlaytimeMatrixAction::SetRecordLengthMode => {
                             let value = matrix.settings().clip_record_settings.length_mode as usize;
-                            return Some(AbsoluteValue::Discrete(Fraction::new(
-                                value as _,
-                                MAX_RECORD_LENGTH_MODES_COUNT,
-                            )));
+                            let fraction = Fraction::new(value as _, RECORD_LENGTH_MODES_COUNT - 1);
+                            return Some(AbsoluteValue::Discrete(fraction));
                         }
                         PlaytimeMatrixAction::SetCustomRecordLengthInBars => {
                             let custom_length =
@@ -318,10 +389,11 @@ mod playtime_impl {
                             if custom_length.denominator() != 1 {
                                 return None;
                             }
-                            return Some(AbsoluteValue::Discrete(Fraction::new(
-                                custom_length.numerator(),
-                                MAX_RECORD_LENGTH_BARS_COUNT,
-                            )));
+                            let fraction = Fraction::new(
+                                custom_length.numerator() - 1,
+                                RECORD_LENGTH_BARS_COUNT - 1,
+                            );
+                            return Some(AbsoluteValue::Discrete(fraction));
                         }
                         PlaytimeMatrixAction::ClickOnOffState => matrix.click_is_enabled(),
                         PlaytimeMatrixAction::MidiAutoQuantizationOnOffState => {
@@ -411,14 +483,14 @@ mod playtime_impl {
         match action {
             SetRecordLengthMode => (
                 ControlType::AbsoluteDiscrete {
-                    atomic_step_size: convert_count_to_step_size(MAX_RECORD_LENGTH_MODES_COUNT),
+                    atomic_step_size: convert_count_to_step_size(RECORD_LENGTH_MODES_COUNT),
                     is_retriggerable: false,
                 },
                 TargetCharacter::Discrete,
             ),
             SetCustomRecordLengthInBars => (
                 ControlType::AbsoluteDiscrete {
-                    atomic_step_size: convert_count_to_step_size(MAX_RECORD_LENGTH_BARS_COUNT),
+                    atomic_step_size: convert_count_to_step_size(RECORD_LENGTH_BARS_COUNT),
                     is_retriggerable: false,
                 },
                 TargetCharacter::Discrete,
@@ -437,7 +509,27 @@ mod playtime_impl {
             }
         }
     }
-}
 
-const MAX_RECORD_LENGTH_MODES_COUNT: u32 = 10;
-const MAX_RECORD_LENGTH_BARS_COUNT: u32 = 128;
+    fn convert_control_value_to_record_length_mode(
+        value: ControlValue,
+    ) -> anyhow::Result<RecordLengthMode> {
+        let value = value
+            .to_discrete_value(RECORD_LENGTH_MODES_COUNT)
+            .map_err(anyhow::Error::msg)?;
+        let mode = RecordLengthMode::try_from(value.actual() as usize)?;
+        Ok(mode)
+    }
+
+    fn convert_record_length_numerator_to_unit_value(
+        value: u32,
+    ) -> Result<UnitValue, &'static str> {
+        let shifted_value = value
+            .checked_sub(1)
+            .ok_or("length of 0 bars is not possible")?;
+        let uv = shifted_value as f64 / (RECORD_LENGTH_BARS_COUNT - 1) as f64;
+        Ok(UnitValue::new_clamped(uv))
+    }
+
+    const RECORD_LENGTH_MODES_COUNT: u32 = 10;
+    const RECORD_LENGTH_BARS_COUNT: u32 = 64;
+}

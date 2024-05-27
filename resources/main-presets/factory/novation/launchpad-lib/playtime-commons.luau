@@ -51,6 +51,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     local row_count = 8
     local slot_mode_count = 100
     local column_mode_count = 100
+    local long_press_millis = 300
 
     -- Slot modes
 
@@ -106,6 +107,10 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             stop_clip = {
                 index = 5,
                 label = "Stop clip",
+            },
+            set_record_length = {
+                index = 6,
+                label = "Set record length",
             },
         }
     end
@@ -373,18 +378,42 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             glue = realearn.Glue {
                 target_interval = { 0.0, 0.0 },
                 fire_mode = realearn.FireMode.Normal {
-                    press_duration_interval = { 300, 10000 },
+                    press_duration_interval = { long_press_millis, 10000 },
                 },
             },
         }
     end
 
-    local function set_slot_mode(mode: Mode)
+    local function fire_if_pressed_less_than(millis: number)
+        return partial_mapping {
+            glue = realearn.Glue {
+                fire_mode = realearn.FireMode.Normal {
+                    press_duration_interval = { 0, millis }
+                },
+            },
+        }
+    end
+
+    local function fire_after_timeout(millis: number)
+        return partial_mapping {
+            glue = realearn.Glue {
+                fire_mode = realearn.FireMode.AfterTimeout {
+                    timeout = millis,
+                },
+            },
+        }
+    end
+
+    local function set_slot_mode_momentary(mode: Mode)
         return set_mode_momentary(mode, slot_mode_count, params.slot_mode.index)
     end
 
-    local function set_column_mode(mode: Mode)
+    local function set_column_mode_toggle(mode: Mode)
         return set_mode_toggle(mode, column_mode_count, params.column_mode.index)
+    end
+
+    local function set_column_mode_momentary(mode: Mode)
+        return set_mode_momentary(mode, column_mode_count, params.column_mode.index)
     end
 
     local function slot_mode_is(slot_mode: Mode)
@@ -431,6 +460,15 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         }
     end
 
+    local function discrete_target_interval(min: number, max: number, count: number)
+        local max_val = count - 1
+        return partial_mapping {
+            glue = realearn.Glue {
+                target_interval = {min / max_val, max / max_val},
+            },
+        }
+    end
+
     -- Mappings
 
     local normal_colors = colors(23, 122)
@@ -452,13 +490,19 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         name("Undo LED") + button(config.undo_button_id) + shift_config(config.undo_needs_shift) + led_on_off(),
         name("Redo") + button(config.redo_button_id) + shift_is(config.redo_needs_shift) + feedback_disabled() + clip_matrix_action("Redo"),
         name("Redo LED") + button(config.redo_button_id) + shift_config(config.redo_needs_shift) + led_on_off(),
-        name("Delete") + button("delete") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.delete),
-        name("Quantise") + button("quantize") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.quantise),
+        name("Delete") + button("delete") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.delete),
+        name("Quantise") + button("quantize") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.quantise),
         name("Record Quantise") + button("quantize") + shift_is(true) + shift_colors + toggle() + clip_matrix_action(
             "MidiAutoQuantizationOnOffState"
         ),
-        name("Duplicate") + button("duplicate") + shift_is(false) + normal_colors + set_slot_mode(slot_modes.duplicate),
-        name("Double") + button(config.double_button_id) + shift_config(config.double_needs_shift) + set_slot_mode(slot_modes.double),
+        -- When short-pressing "Fixed length" button, toggle between open ended and custom-length mode
+        name("Fixed length") + button("fixed-length") + shift_is(false) + fire_if_pressed_less_than(long_press_millis) + normal_colors + toggle() + discrete_target_interval(0, 1, 10) + clip_matrix_action("SetRecordLengthMode"),
+        -- When long-pressing "Fixed length" button, allow user to configure custom length via column action buttons 
+        name("Fixed length - Long press 1") + button("fixed-length") + shift_is(false) + fire_after_timeout(long_press_millis) + feedback_disabled() + set_column_mode_momentary(column_modes.set_record_length),
+        -- When long-pressing "Fixed length" button, also enter custom-length mode
+        name("Fixed length - Long press 2") + button("fixed-length") + shift_is(false) + fire_after_timeout(long_press_millis) + feedback_disabled() + discrete_target_interval(1, 1, 10) + clip_matrix_action("SetRecordLengthMode"),
+        name("Duplicate") + button("duplicate") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.duplicate),
+        name("Double") + button(config.double_button_id) + shift_config(config.double_needs_shift) + set_slot_mode_momentary(slot_modes.double),
         name("Play") + button("play") + shift_is(false) + normal_colors + toggle() + clip_matrix_action("PlayIgnitedOrEnterSilenceMode"),
         name("Record") + button("record") + shift_is(false) + arm_colors + clip_matrix_action("SmartRecord"),
     }
@@ -485,7 +529,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     add_scroll_mappings("cursor-right", scroll_horizontally(1))
 
     local function add_column_mode_mappings(n: string, b: string, m: Mode, partial: partial.Partial)
-        table.insert(mappings, name(n) + button(b) + shift_is(false) + partial + set_column_mode(m))
+        table.insert(mappings, name(n) + button(b) + shift_is(false) + partial + set_column_mode_toggle(m))
         table.insert(
             mappings,
             name(`{n} auto-release`)
@@ -605,6 +649,14 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + column_action_button(col)
                 + select_colors
                 + clip_column_action(col, "Activate")
+            )
+            table.insert(
+                mappings,
+                name(`Set custom record length to {col + 1} bars`)
+                + column_mode_is(column_modes.set_record_length)
+                + column_action_button(col)
+                + discrete_target_interval(col, col, 64)
+                + clip_matrix_action("SetCustomRecordLengthInBars")
             )
         end
 

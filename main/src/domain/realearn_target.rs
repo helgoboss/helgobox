@@ -184,6 +184,10 @@ pub trait RealearnTarget {
 
     /// For mapping panel.
     fn value_unit(&self, context: ControlContext) -> &'static str {
+        self.value_unit_default(context)
+    }
+
+    fn value_unit_default(&self, context: ControlContext) -> &'static str {
         match self.character(context) {
             TargetCharacter::Trigger | TargetCharacter::Discrete => "",
             _ => "%",

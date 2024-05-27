@@ -53,6 +53,7 @@ itertools = "0.12.0"
 wildmatch = "2.1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
+serde_plain = "1.0.2"
 derive_more = "0.99.16"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 enum-map = { version = "2.4.1", features = ["serde"] }

@@ -208,6 +208,8 @@ camino.workspace = true
 auto_impl.workspace = true
 # For some color in the otherwise boring GUI
 palette.workspace = true
+# For parsing/formatting enum-like target values from/to a stable and ID-like representation
+serde_plain.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 # For speech source

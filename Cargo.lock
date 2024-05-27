@@ -4992,6 +4992,7 @@ dependencies = [
  "serde",
  "serde_ini",
  "serde_json",
+ "serde_plain",
  "serde_repr",
  "serde_with",
  "serde_yaml",
@@ -5768,6 +5769,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebd154a240de39fdebcf5775d2675c204d7c13cf39a4c697be6493c8e734337c"
 dependencies = [
  "itoa 1.0.6",
+ "serde",
+]
+
+[[package]]
+name = "serde_plain"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ce1fc6db65a611022b23a0dec6975d63fb80a302cb3388835ff02c097258d50"
+dependencies = [
  "serde",
 ]
 

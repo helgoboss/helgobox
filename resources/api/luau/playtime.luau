@@ -235,7 +235,8 @@ end
 export type MatrixClipRecordSettings = {
 	start_timing: ClipRecordStartTiming,
 	stop_timing: ClipRecordStopTiming,
-	duration: RecordLength,
+	length_mode: RecordLengthMode?,
+	custom_length: EvenQuantization?,
 	play_start_timing: ClipPlayStartTimingOverrideAfterRecording,
 	play_stop_timing: ClipPlayStopTimingOverrideAfterRecording,
 	time_base: ClipRecordTimeBase,
@@ -248,6 +249,8 @@ export type MatrixClipRecordSettings = {
 function module.MatrixClipRecordSettings(value: MatrixClipRecordSettings): MatrixClipRecordSettings
 	return value
 end
+
+export type RecordLengthMode = "OpenEnd" | "CustomLength"
 
 export type MatrixClipRecordMidiSettings = {
 	record_mode: MidiClipRecordMode,
@@ -268,35 +271,6 @@ export type MatrixClipRecordAudioSettings = {
 --- Creates a MatrixClipRecordAudioSettings value.
 function module.MatrixClipRecordAudioSettings(value: MatrixClipRecordAudioSettings): MatrixClipRecordAudioSettings
 	return value
-end
-
---- Records open-ended until the user decides to stop.
-export type RecordLength_OpenEnd = { kind: "OpenEnd" }
-
---- Records exactly as much material as defined by the given quantization.
-export type RecordLength_Quantized = { kind: "Quantized", numerator: number, denominator: number }
-export type RecordLength = RecordLength_OpenEnd | RecordLength_Quantized
-
---- A type that represents all possible kinds of RecordLength.
-export type RecordLengthKind = "OpenEnd" | "Quantized"
-
---- Helper table to create RecordLength values of different kinds.
-module.RecordLength = {}
-
---- Creates a RecordLength of kind OpenEnd.
---- Records open-ended until the user decides to stop.
-function module.RecordLength.OpenEnd(): RecordLength_OpenEnd
-	return {
-		kind = "OpenEnd",
-	}
-end
-
---- Creates a RecordLength of kind Quantized.
---- Records exactly as much material as defined by the given quantization.
-function module.RecordLength.Quantized(value: EvenQuantization): RecordLength_Quantized
-	local t: any = table.clone(value)
-	t.kind = "Quantized"
-	return t
 end
 
 --- Derives the time base of the resulting clip from the clip start timing.
