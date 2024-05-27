@@ -20,6 +20,17 @@ return commons.create_compartment {
     has_duplicate_button = false,
     has_play_button = false,
     has_record_button = false,
+
+    stop_clip_button_id = nil,
+    stop_clip_needs_mixer = false,
+    mute_button_id = nil,
+    mute_needs_mixer = false,
+    solo_button_id = nil,
+    solo_needs_mixer = false,
+    record_arm_button_id = nil,
+    record_arm_needs_mixer = false,
+    track_select_button_id = nil,
+
     undo_button_id = nil,
     undo_needs_shift = true,
     redo_button_id = nil,
@@ -31,4 +42,5 @@ return commons.create_compartment {
     tap_button_id = nil,
     tap_needs_shift = true,
     use_last_row_play_button_for_column_modes = true,
+    use_session_button_for_column_modes = false,
 }

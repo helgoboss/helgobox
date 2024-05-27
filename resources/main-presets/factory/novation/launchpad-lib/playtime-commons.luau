@@ -9,6 +9,11 @@ local module = {}
 
 export type LaunchpadPlaytimePresetConfig = {
     stop_column_if_slot_empty: boolean,
+
+    --- If true, the last row of pads will not be used to switch between column modes. Instead, dedicated column
+    --- action buttons will be used for that purpose.
+    ---
+    --- This flag is tailored to the Launchpad Pro mk3
     has_dedicated_column_action_buttons: boolean,
     has_shift_button: boolean,
     has_delete_button: boolean,
@@ -17,6 +22,26 @@ export type LaunchpadPlaytimePresetConfig = {
     has_duplicate_button: boolean,
     has_play_button: boolean,
     has_record_button: boolean,
+
+    --- Button that switches to column mode "Stop clip"
+    stop_clip_button_id: string?,
+    --- Whether mixer mode needs to be active for the button to work
+    stop_clip_needs_mixer: boolean,
+    --- Button that switches to column mode "Mute"
+    mute_button_id: string?,
+    --- Whether mixer mode needs to be active for the button to work
+    mute_needs_mixer: boolean,
+    --- Button that switches to column mode "Solo"
+    solo_button_id: string?,
+    --- Whether mixer mode needs to be active for the button to work
+    solo_needs_mixer: boolean,
+    --- Button that switches to column mode "Record arm"
+    record_arm_button_id: string?,
+    --- Whether mixer mode needs to be active for the button to work
+    record_arm_needs_mixer: boolean,
+    --- Button that switches to column mode "Track select"
+    track_select_button_id: string?,
+
     undo_button_id: string?,
     undo_needs_shift: boolean,
     redo_button_id: string?,
@@ -27,7 +52,17 @@ export type LaunchpadPlaytimePresetConfig = {
     double_needs_shift: boolean,
     tap_button_id: string?,
     tap_needs_shift: boolean,
+
+    --- If true, the last row play button switches between a few column modes according to the Launchpad Mini layout.
+    ---
+    --- This flag is tailored to the Launchpad Mini mk3.
     use_last_row_play_button_for_column_modes: boolean,
+
+    --- If set, pressing the mixer button will turn all row play buttons into column mode buttons according
+    --- to the Launchpad X layout.
+    ---
+    --- This flag is tailored to the Launchpad X.
+    mixer_button_id: string?,
 }
 
 function module.create_compartment(config: LaunchpadPlaytimePresetConfig): realearn.Compartment
@@ -143,6 +178,10 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name = "Column mode",
             value_count = column_mode_count,
             value_labels = util.extract_labels(sorted_column_modes),
+        },
+        mixer = {
+            index = 3,
+            name = "Mixer modifier",
         },
     }
 
@@ -449,17 +488,25 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         }
     end
 
-    local function shift_is(on: boolean)
+    local function modifier_is(param: realearn.Parameter, on: boolean)
         return partial_mapping {
             activation_condition = realearn.ActivationCondition.Modifier {
                 modifiers = {
                     {
-                        parameter = params.shift.index,
+                        parameter = param.index,
                         on = on,
                     },
                 },
             },
         }
+    end
+
+    local function shift_is(on: boolean)
+        return modifier_is(params.shift, on)
+    end
+
+    local function mixer_is(on: boolean)
+        return modifier_is(params.mixer, on)
     end
 
     local function led_on_off()
@@ -660,6 +707,17 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         )
     end
 
+    if config.mixer_button_id then
+        table.insert(
+            mappings,
+            name("Toggle mixer mode")
+                + button(config.mixer_button_id)
+                + shift_colors
+                + toggle()
+                + set_param(params.mixer.index)
+        )
+    end
+
     local function add_scroll_mappings(b: string, target: partial.Partial)
         table.insert(mappings, name(b) + button(b) + feedback_disabled() + turbo() + target)
         table.insert(mappings, name(b) + button(b) + control_disabled() + colors(0, 23) + target)
@@ -670,51 +728,82 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     add_scroll_mappings("cursor-left", scroll_horizontally(-1))
     add_scroll_mappings("cursor-right", scroll_horizontally(1))
 
-    local function add_column_mode_mappings(n: string, b: string, m: Mode, partial: partial.Partial)
-        table.insert(mappings, name(n) + button(b) + shift_is(false) + partial + set_column_mode_toggle(m))
+    local function add_column_mode_mappings(label: string, button_id: string, needs_mixer_mode: boolean, mode: Mode, partial: partial.Partial)
+        local condition
+        if needs_mixer_mode then
+            condition = mixer_is(true)
+        else
+            condition = shift_is(false)
+        end
+        
+        table.insert(mappings, name(label) + button(button_id) + condition + partial + set_column_mode_toggle(mode))
         table.insert(
             mappings,
-            name(`{n} auto-release`)
+            name(`{label} auto-release`)
                 + feedback_disabled()
-                + button(b)
+                + button(button_id)
+                + condition
                 + auto_release()
                 + compartment_parameter_target(params.column_mode.index)
         )
     end
 
-    add_column_mode_mappings("Record Arm", "record-arm", column_modes.record_arm, arm_colors)
-    add_column_mode_mappings("Track Select", "track-select", column_modes.track_select, select_colors)
-    add_column_mode_mappings("Mute", "mute", column_modes.mute, mute_colors)
-    add_column_mode_mappings("Solo", "solo", column_modes.solo, solo_colors)
-    add_column_mode_mappings("Stop clip", "stop-clip", column_modes.stop_clip, stop_clip_colors)
+    if config.record_arm_button_id then
+        add_column_mode_mappings("Record Arm", config.record_arm_button_id, config.record_arm_needs_mixer, column_modes.record_arm, arm_colors)
+    end
+    if config.track_select_button_id then
+        add_column_mode_mappings("Track Select", config.track_select_button_id, false, column_modes.track_select, select_colors)
+    end
+    if config.mute_button_id then
+        add_column_mode_mappings("Mute", config.mute_button_id, config.mute_needs_mixer, column_modes.mute, mute_colors)
+    end
+    if config.solo_button_id then
+        add_column_mode_mappings("Solo", config.solo_button_id, config.solo_needs_mixer, column_modes.solo, solo_colors)
+    end
+    if config.stop_clip_button_id then
+        add_column_mode_mappings("Stop clip", config.stop_clip_button_id, config.stop_clip_needs_mixer, column_modes.stop_clip, stop_clip_colors)
+    end
 
     -- For each row
     for row = 0, row_count - 1 do
         if config.use_last_row_play_button_for_column_modes and row == row_count - 1 then
             local function val(mode: Mode): number
-                return mode.index / (column_mode_count - 1);
+                return mode.index / (column_mode_count - 1)
             end
             table.insert(
                 mappings,
-                name("Switch column mode") + feedback_disabled() + row_play_button(row) + partial_mapping {
-                    glue = realearn.Glue {
-                        absolute_mode = "IncrementalButton",
-                        target_value_sequence = `0, {val(column_modes.stop_clip)}, {val(column_modes.solo)}, {val(column_modes.mute)}`,
-                        wrap = true,
-                    },
-                    target = realearn.Target.CompartmentParameterValue {
-                        parameter = realearn.CompartmentParameterDescriptor.ById {
-                            index = params.column_mode.index,
+                name("Switch column mode")
+                    + feedback_disabled()
+                    + row_play_button(row)
+                    + partial_mapping {
+                        glue = realearn.Glue {
+                            absolute_mode = "IncrementalButton",
+                            target_value_sequence = `0, {val(column_modes.stop_clip)}, {val(column_modes.solo)}, {val(
+                                column_modes.mute
+                            )}`,
+                            wrap = true,
                         },
-                    },
-                }
+                        target = realearn.Target.CompartmentParameterValue {
+                            parameter = realearn.CompartmentParameterDescriptor.ById {
+                                index = params.column_mode.index,
+                            },
+                        },
+                    }
             )
         else
+            local condition = partial_mapping {}
+            if config.mixer_button_id then
+                condition = mixer_is(false)
+            end
             table.insert(
                 mappings,
-                name("Play scene") + feedback_disabled() + row_play_button(row) + clip_row_action(row, "PlayScene")
+                name("Play scene")
+                    + condition
+                    + feedback_disabled()
+                    + row_play_button(row)
+                    + clip_row_action(row, "PlayScene")
             )
-            table.insert(mappings, name("Play scene LED") + row_play_button(row) + led_on_off())
+            table.insert(mappings, name("Play scene LED") + condition + row_play_button(row) + led_on_off())
         end
     end
 
