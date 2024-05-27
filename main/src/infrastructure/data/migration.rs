@@ -16,6 +16,8 @@ pub struct MigrationDescriptor {
     pub jump_overhaul_485: bool,
     /// https://github.com/helgoboss/realearn/issues/761
     pub action_invocation_swap_761: bool,
+    /// https://github.com/helgoboss/realearn/issues/928
+    pub fire_mode_after_timeout_release_928: bool,
 }
 
 impl MigrationDescriptor {
@@ -41,6 +43,11 @@ impl MigrationDescriptor {
                 v >= absolute_7_bit_intro_version && v < swap_fix_version
             } else {
                 false
+            },
+            fire_mode_after_timeout_release_928: if let Some(v) = preset_version {
+                v < &Version::parse("2.14.0-pre.15").unwrap()
+            } else {
+                true
             },
         }
     }

@@ -387,7 +387,19 @@ impl ModeModelData {
         model.change(P::SetFireMode(self.fire_mode));
         model.change(P::SetOutOfRangeBehavior(actual_out_of_range_behavior));
         model.change(P::SetRoundTargetValue(self.round_target_value));
-        model.change(P::SetButtonUsage(self.button_usage));
+        let button_usage = if migration_descriptor.fire_mode_after_timeout_release_928 {
+            if matches!(
+                self.fire_mode,
+                FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring
+            ) {
+                ButtonUsage::PressOnly
+            } else {
+                self.button_usage
+            }
+        } else {
+            self.button_usage
+        };
+        model.change(P::SetButtonUsage(button_usage));
         model.change(P::SetEncoderUsage(self.encoder_usage));
         model.change(P::SetRotate(self.rotate_is_enabled));
         model.change(P::SetMakeAbsolute(self.make_absolute_enabled));
