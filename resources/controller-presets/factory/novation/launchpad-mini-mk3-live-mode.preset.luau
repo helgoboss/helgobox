@@ -1,14 +1,14 @@
---- name: Launchpad Pro mk3 - Live mode
+--- name: Launchpad Mini mk3 - Live mode
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
 --- description: |
----     This controller preset exposes all control elements of the Launchpad Pro mk3 in a neutral way. It supports
+---     This controller preset exposes all control elements of the Launchpad Mini mk3 in a neutral way. It supports
 ---     ReaLearn color feedback as well as Playtime slot status feedback.
 --- device_manufacturer: Novation
---- device_name: Launchpad Pro mk3
---- midi_identity_pattern: F0 7E ?  06 02 00 20 29 23 01 00 00 * F7
---- midi_output_port_patterns: ["*DAW*", "Launchpad Pro"]
---- provided_schemes: [novation/launchpad-pro-mk3/live, grid]
+--- device_name: Launchpad Mini mk3
+--- midi_identity_pattern: F0 7E ?  06 02 00 20 29 13 01 00 00 * F7
+--- midi_output_port_patterns: ["*DAW*", "Launchpad Mini"]
+--- provided_schemes: [novation/launchpad-mini-mk3/live, grid]
 
 --!strict
 
@@ -51,10 +51,9 @@ local init_mapping = realearn.Mapping {
 local standalone_mode = 0x00
 local daw_mode = 0x01
 local session_layout = 0x00
-local session_layout_page = 0x00
 local mode = if y == nil then standalone_mode else daw_mode
-local enter_or_leave_daw_mode_msg = { 0xF0, 0x00, 0x20, 0x29, 0x02, 0x0E, 0x10, mode, 0xF7 }
-local select_session_layout = { 0xF0, 0x00, 0x20, 0x29, 0x02, 0x0E, 0x00, session_layout, session_layout_page, 0x00, 0xF7 }
+local enter_or_leave_daw_mode_msg = { 0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x10, mode, 0xF7 }
+local select_session_layout = { 0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x00, session_layout, 0xF7 }
 
 local messages = {
     enter_or_leave_daw_mode_msg,
@@ -74,28 +73,15 @@ return {
 
 local mappings = {
     init_mapping,
-    simple_button("shift", "Shift", 90),
-    simple_button("cursor-left", "Left", 91),
-    simple_button("cursor-right", "Right", 92),
-    simple_button("session", "Session", 93),
 
-    simple_button("cursor-up", "Up", 80),
-    simple_button("cursor-down", "Down", 70),
-    simple_button("delete", "Clear", 60),
-    simple_button("duplicate", "Duplicate", 50),
-    simple_button("quantize", "Quantise", 40),
-    simple_button("fixed-length", "Fixed length", 30),
-    simple_button("play", "Play", 20),
-    simple_button("record", "Record", 10),
-
-    simple_button("record-arm", "Record Arm", 1),
-    simple_button("mute", "Mute", 2),
-    simple_button("solo", "Solo", 3),
-    simple_button("volume", "Volume", 4),
-    simple_button("pan", "Pan", 5),
-    simple_button("sends", "Sends", 6),
-    simple_button("device", "Device", 7),
-    simple_button("stop-clip", "Stop Clip", 8),
+    simple_button("cursor-up", "Up", 91),
+    simple_button("cursor-down", "Down", 92),
+    simple_button("cursor-left", "Left", 93),
+    simple_button("cursor-right", "Right", 94),
+    simple_button("session", "Session", 95),
+    simple_button("drums", "Drums", 96),
+    simple_button("keys", "Keys", 97),
+    simple_button("user", "User", 98),
 }
 
 -- Clip launch buttons
@@ -115,7 +101,7 @@ for col = 0, 7 do
             },
             target = realearn.Target.Virtual {
                 id = id,
-                character = "Multi",
+                character = "Button",
             },
         }
         local feedback_mapping = realearn.Mapping {
@@ -127,7 +113,7 @@ for col = 0, 7 do
             },
             target = realearn.Target.Virtual {
                 id = id,
-                character = "Multi",
+                character = "Button",
             },
         }
         table.insert(mappings, control_mapping)
@@ -144,25 +130,6 @@ for row = 0, 7 do
         source = realearn.Source.MidiControlChangeValue {
             channel = 0,
             controller_number = 19 + (7 - row) * 10,
-            character = "Button",
-        },
-        target = realearn.Target.Virtual {
-            id = id,
-            character = "Button",
-        },
-    }
-    table.insert(mappings, mapping)
-end
-
--- Column action buttons
-for col = 0, 7 do
-    local human_col = col + 1
-    local id = `col{human_col}/action`
-    local mapping = realearn.Mapping {
-        id = id,
-        source = realearn.Source.MidiControlChangeValue {
-            channel = 0,
-            controller_number = 101 + col,
             character = "Button",
         },
         target = realearn.Target.Virtual {

@@ -19,7 +19,7 @@ local realearn = require("realearn")
 
 -- Define MIDI scripts
 
-local common_lua = preset_runtime.include_str("novation/launchpad-pro-mk2-lib/compartment-common.luau")
+local common_lua = preset_runtime.include_str("novation/launchpad-lib/compartment-common.luau")
 
 local function build_pad_script(pad_index: number): string
     return `return require("compartment").pad_script({pad_index}, y, context)`

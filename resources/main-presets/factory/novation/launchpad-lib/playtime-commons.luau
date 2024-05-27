@@ -8,18 +8,27 @@ local playtime_util = require("playtime_util")
 local module = {}
 
 export type LaunchpadPlaytimePresetConfig = {
+    pad_character: realearn.VirtualControlElementCharacter,
     stop_column_if_slot_empty: boolean,
     has_dedicated_column_action_buttons: boolean,
-    undo_button_id: string,
+    has_shift_button: boolean,
+    has_delete_button: boolean,
+    has_quantize_button: boolean,
+    has_fixed_length_button: boolean,
+    has_duplicate_button: boolean,
+    has_play_button: boolean,
+    has_record_button: boolean,
+    undo_button_id: string?,
     undo_needs_shift: boolean,
-    redo_button_id: string,
+    redo_button_id: string?,
     redo_needs_shift: boolean,
-    click_button_id: string,
+    click_button_id: string?,
     click_needs_shift: boolean,
-    double_button_id: string,
+    double_button_id: string?,
     double_needs_shift: boolean,
     tap_button_id: string?,
     tap_needs_shift: boolean,
+    use_last_row_play_button_for_column_modes: boolean,
 }
 
 function module.create_compartment(config: LaunchpadPlaytimePresetConfig): realearn.Compartment
@@ -171,10 +180,10 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         }
     end
 
-    local function multi(id: string)
+    local function pad(id: string)
         return partial_mapping {
             source = realearn.Source.Virtual {
-                character = "Multi",
+                character = config.pad_character,
                 id = id,
             },
         }
@@ -194,7 +203,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     end
 
     local function slot_button(col: number, row: number)
-        return multi(`col{col + 1}/row{row + 1}/pad`)
+        return pad(`col{col + 1}/row{row + 1}/pad`)
     end
 
     local function column_action_button(col: number)
@@ -388,7 +397,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         return partial_mapping {
             glue = realearn.Glue {
                 fire_mode = realearn.FireMode.Normal {
-                    press_duration_interval = { 0, millis }
+                    press_duration_interval = { 0, millis },
                 },
             },
         }
@@ -464,7 +473,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         local max_val = count - 1
         return partial_mapping {
             glue = realearn.Glue {
-                target_interval = {min / max_val, max / max_val},
+                target_interval = { min / max_val, max / max_val },
             },
         }
     end
@@ -483,38 +492,172 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
         return shift_is(needs_shift) + (if needs_shift then shift_colors else normal_colors)
     end
 
-    local mappings = {
-        name("Shift") + button("shift") + shift_colors + set_param(params.shift.index),
-        name("Click") + button(config.click_button_id) + shift_config(config.click_needs_shift) + toggle() + clip_matrix_action("ClickOnOffState"),
-        name("Undo") + button(config.undo_button_id) + shift_is(config.undo_needs_shift) + feedback_disabled() + clip_matrix_action("Undo"),
-        name("Undo LED") + button(config.undo_button_id) + shift_config(config.undo_needs_shift) + led_on_off(),
-        name("Redo") + button(config.redo_button_id) + shift_is(config.redo_needs_shift) + feedback_disabled() + clip_matrix_action("Redo"),
-        name("Redo LED") + button(config.redo_button_id) + shift_config(config.redo_needs_shift) + led_on_off(),
-        name("Delete") + button("delete") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.delete),
-        name("Quantise") + button("quantize") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.quantise),
-        name("Record Quantise") + button("quantize") + shift_is(true) + shift_colors + toggle() + clip_matrix_action(
-            "MidiAutoQuantizationOnOffState"
-        ),
+    local mappings = {}
+
+    if config.has_shift_button then
+        table.insert(mappings, name("Shift") + button("shift") + shift_colors + set_param(params.shift.index))
+    end
+
+    if config.has_delete_button then
+        table.insert(
+            mappings,
+            name("Delete")
+                + button("delete")
+                + shift_is(false)
+                + normal_colors
+                + set_slot_mode_momentary(slot_modes.delete)
+        )
+    end
+
+    if config.has_fixed_length_button then
         -- When short-pressing "Fixed length" button, toggle between open ended and custom-length mode
-        name("Fixed length") + button("fixed-length") + shift_is(false) + fire_if_pressed_less_than(long_press_millis) + normal_colors + toggle() + discrete_target_interval(0, 1, 10) + clip_matrix_action("SetRecordLengthMode"),
-        -- When long-pressing "Fixed length" button, allow user to configure custom length via column action buttons 
-        name("Fixed length - Long press 1") + button("fixed-length") + shift_is(false) + fire_after_timeout(long_press_millis) + feedback_disabled() + set_column_mode_momentary(column_modes.set_record_length),
+        table.insert(
+            mappings,
+            name("Fixed length")
+                + button("fixed-length")
+                + shift_is(false)
+                + fire_if_pressed_less_than(long_press_millis)
+                + normal_colors
+                + toggle()
+                + discrete_target_interval(0, 1, 10)
+                + clip_matrix_action("SetRecordLengthMode")
+        )
+        -- When long-pressing "Fixed length" button, allow user to configure custom length via column action buttons
+        table.insert(
+            mappings,
+            name("Fixed length - Long press 1")
+                + button("fixed-length")
+                + shift_is(false)
+                + fire_after_timeout(long_press_millis)
+                + feedback_disabled()
+                + set_column_mode_momentary(column_modes.set_record_length)
+        )
         -- When long-pressing "Fixed length" button, also enter custom-length mode
-        name("Fixed length - Long press 2") + button("fixed-length") + shift_is(false) + fire_after_timeout(long_press_millis) + feedback_disabled() + discrete_target_interval(1, 1, 10) + clip_matrix_action("SetRecordLengthMode"),
-        name("Duplicate") + button("duplicate") + shift_is(false) + normal_colors + set_slot_mode_momentary(slot_modes.duplicate),
-        name("Double") + button(config.double_button_id) + shift_config(config.double_needs_shift) + set_slot_mode_momentary(slot_modes.double),
-        name("Play") + button("play") + shift_is(false) + normal_colors + toggle() + clip_matrix_action("PlayIgnitedOrEnterSilenceMode"),
-        name("Record") + button("record") + shift_is(false) + arm_colors + clip_matrix_action("SmartRecord"),
-    }
+        table.insert(
+            mappings,
+            name("Fixed length - Long press 2")
+                + button("fixed-length")
+                + shift_is(false)
+                + fire_after_timeout(long_press_millis)
+                + feedback_disabled()
+                + discrete_target_interval(1, 1, 10)
+                + clip_matrix_action("SetRecordLengthMode")
+        )
+    end
+
+    if config.has_duplicate_button then
+        table.insert(
+            mappings,
+            name("Duplicate")
+                + button("duplicate")
+                + shift_is(false)
+                + normal_colors
+                + set_slot_mode_momentary(slot_modes.duplicate)
+        )
+    end
+
+    if config.has_play_button then
+        table.insert(
+            mappings,
+            name("Play")
+                + button("play")
+                + shift_is(false)
+                + normal_colors
+                + toggle()
+                + clip_matrix_action("PlayIgnitedOrEnterSilenceMode")
+        )
+    end
+
+    if config.has_record_button then
+        table.insert(
+            mappings,
+            name("Record") + button("record") + shift_is(false) + arm_colors + clip_matrix_action("SmartRecord")
+        )
+    end
+
+    if config.has_quantize_button then
+        table.insert(
+            mappings,
+            name("Quantise")
+                + button("quantize")
+                + shift_is(false)
+                + normal_colors
+                + set_slot_mode_momentary(slot_modes.quantise)
+        )
+        table.insert(
+            mappings,
+            name("Record Quantise")
+                + button("quantize")
+                + shift_is(true)
+                + shift_colors
+                + toggle()
+                + clip_matrix_action("MidiAutoQuantizationOnOffState")
+        )
+    end
+
+    if config.click_button_id then
+        table.insert(
+            mappings,
+            name("Click")
+                + button(config.click_button_id)
+                + shift_config(config.click_needs_shift)
+                + toggle()
+                + clip_matrix_action("ClickOnOffState")
+        )
+    end
+
+    if config.undo_button_id then
+        table.insert(
+            mappings,
+            name("Undo")
+                + button(config.undo_button_id)
+                + shift_is(config.undo_needs_shift)
+                + feedback_disabled()
+                + clip_matrix_action("Undo")
+        )
+        table.insert(
+            mappings,
+            name("Undo LED") + button(config.undo_button_id) + shift_config(config.undo_needs_shift) + led_on_off()
+        )
+    end
+
+    if config.redo_button_id then
+        table.insert(
+            mappings,
+            name("Redo")
+                + button(config.redo_button_id)
+                + shift_is(config.redo_needs_shift)
+                + feedback_disabled()
+                + clip_matrix_action("Redo")
+        )
+        table.insert(
+            mappings,
+            name("Redo LED") + button(config.redo_button_id) + shift_config(config.redo_needs_shift) + led_on_off()
+        )
+    end
 
     if config.tap_button_id then
         table.insert(
             mappings,
-            name("Tap") + button(config.tap_button_id) + shift_is(config.tap_needs_shift) + feedback_disabled() + clip_matrix_action("TapTempo")
+            name("Tap")
+                + button(config.tap_button_id)
+                + shift_is(config.tap_needs_shift)
+                + feedback_disabled()
+                + clip_matrix_action("TapTempo")
         )
         table.insert(
             mappings,
             name("Tap LED") + button(config.tap_button_id) + shift_config(config.tap_needs_shift) + led_on_off()
+        )
+    end
+
+    if config.double_button_id then
+        table.insert(
+            mappings,
+            name("Double")
+                + button(config.double_button_id)
+                + shift_config(config.double_needs_shift)
+                + set_slot_mode_momentary(slot_modes.double)
         )
     end
 
@@ -548,11 +691,32 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
 
     -- For each row
     for row = 0, row_count - 1 do
-        table.insert(
-            mappings,
-            name("Play scene") + feedback_disabled() + row_play_button(row) + clip_row_action(row, "PlayScene")
-        )
-        table.insert(mappings, name("Play scene LED") + row_play_button(row) + led_on_off())
+        if config.use_last_row_play_button_for_column_modes and row == row_count - 1 then
+            local function val(mode: Mode): number
+                return mode.index / (column_mode_count - 1);
+            end
+            table.insert(
+                mappings,
+                name("Switch column mode") + feedback_disabled() + row_play_button(row) + partial_mapping {
+                    glue = realearn.Glue {
+                        absolute_mode = "IncrementalButton",
+                        target_value_sequence = `0, {val(column_modes.stop_clip)}, {val(column_modes.solo)}, {val(column_modes.mute)}`,
+                        wrap = true,
+                    },
+                    target = realearn.Target.CompartmentParameterValue {
+                        parameter = realearn.CompartmentParameterDescriptor.ById {
+                            index = params.column_mode.index,
+                        },
+                    },
+                }
+            )
+        else
+            table.insert(
+                mappings,
+                name("Play scene") + feedback_disabled() + row_play_button(row) + clip_row_action(row, "PlayScene")
+            )
+            table.insert(mappings, name("Play scene LED") + row_play_button(row) + led_on_off())
+        end
     end
 
     -- For each slot
@@ -645,22 +809,24 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             table.insert(
                 mappings,
                 name("Activate column")
-                + column_mode_is(column_modes.normal)
-                + column_action_button(col)
-                + select_colors
-                + clip_column_action(col, "Activate")
+                    + column_mode_is(column_modes.normal)
+                    + column_action_button(col)
+                    + select_colors
+                    + clip_column_action(col, "Activate")
             )
             table.insert(
                 mappings,
                 name(`Set custom record length to {col + 1} bars`)
-                + column_mode_is(column_modes.set_record_length)
-                + column_action_button(col)
-                + discrete_target_interval(col, col, 64)
-                + clip_matrix_action("SetCustomRecordLengthInBars")
+                    + column_mode_is(column_modes.set_record_length)
+                    + column_action_button(col)
+                    + discrete_target_interval(col, col, 64)
+                    + clip_matrix_action("SetCustomRecordLengthInBars")
             )
         end
 
-        local source = if config.has_dedicated_column_action_buttons then column_action_button(col) else slot_button(col, row_count - 1)
+        local source = if config.has_dedicated_column_action_buttons
+            then column_action_button(col)
+            else slot_button(col, row_count - 1)
         -- Record-arm track
         table.insert(
             mappings,
