@@ -42,5 +42,5 @@ return commons.create_compartment {
     tap_button_id = nil,
     tap_needs_shift = true,
     use_last_row_play_button_for_column_modes = true,
-    use_session_button_for_column_modes = false,
+    use_mk1_colors = false,
 }

@@ -1,11 +1,11 @@
---- name: Launchpad X - Playtime
+--- name: Launchpad mk1 - Playtime
 --- realearn_version: 2.16.0-pre.8
 --- author: helgoboss
 --- description: |
----     This main preset turns the Launchpad X into a capable device for controlling Playtime.
+---     This main preset turns the Launchpad mk1 into a capable device for controlling Playtime.
 ---     
----     The following features are not yet supported: Note, Custom, Volume, Pan, Send A, Send B, Capture MIDI
---- used_schemes: [novation/launchpad-x/live]
+---     The following features are not yet supported: vol, pan, snd A, snd B
+--- used_schemes: [novation/launchpad-mk1]
 --- required_features: [playtime]
 
 --!strict
@@ -21,7 +21,7 @@ return commons.create_compartment {
     has_fixed_length_button = false,
     has_duplicate_button = false,
     has_play_button = false,
-    has_record_button = true,
+    has_record_button = false,
 
     stop_clip_button_id = "row5/play",
     stop_clip_needs_mixer = true,
@@ -44,6 +44,6 @@ return commons.create_compartment {
     tap_button_id = nil,
     tap_needs_shift = false,
     use_last_row_play_button_for_column_modes = false,
-    mixer_button_id = "session",
-    use_mk1_colors = false,
+    mixer_button_id = "mixer",
+    use_mk1_colors = true,
 }

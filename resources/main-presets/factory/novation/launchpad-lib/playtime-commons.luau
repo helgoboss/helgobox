@@ -59,15 +59,19 @@ export type LaunchpadPlaytimePresetConfig = {
     use_last_row_play_button_for_column_modes: boolean,
 
     --- If set, pressing the mixer button will turn all row play buttons into column mode buttons according
-    --- to the Launchpad X layout.
+    --- to the Launchpad mk1 and Launchpad X layout.
     ---
-    --- This flag is tailored to the Launchpad X.
+    --- This flag is tailored to the Launchpad mk1 and Launchpad X.
     mixer_button_id: string?,
+
+    --- If true, normal buttons will use the color velocity values of the Launchpad mk1, which are different
+    --- from more recent Launchpad versions.
+    ---
+    --- This doesn't affect the slot play state stuff. This part is handled by the controller preset.
+    use_mk1_colors: boolean,
 }
 
 function module.create_compartment(config: LaunchpadPlaytimePresetConfig): realearn.Compartment
-    -- TODO-high-playtime-before-release Make record and play buttons control Playtime's sequencer
-
     -- Aliases
 
     local partial_mapping = util.partial_mapping
@@ -359,7 +363,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     ---
     --- Attention: Since the source interval also influences the control direction, this should in most cases
     --- be used only for feedback-only mappings.
-    local function colors(off: number, on: number)
+    local function color_pair(off: number, on: number)
         if off > on then
             error("on color must be >= off color")
         end
@@ -369,6 +373,42 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             },
         }
     end
+
+
+    -- All color velocity values for Launchpad mk1
+    local mk1 = {
+        off = 12,
+        red_low = 13,
+        red_full = 15,
+        amber_low = 29,
+        amber_full = 63,
+        yellow_full = 62,
+        green_low = 28,
+        green_full = 60,
+        red_flashing = 11,
+        amber_flashing = 59,
+        yellow_flashing = 58,
+        green_flashing = 56,
+    }
+
+    -- Some color velocity values for Launchpads > mk1
+    local mkn = {
+        off = 0,
+        green_low = 23,
+        green_full = 122,
+        gray = 1,
+        white = 3,
+        red_low = 7,
+        red_full = 72,
+        sky_low = 39,
+        sky_full = 78,
+        yellow_low = 15,
+        yellow_high = 74,
+        blue_low = 47,
+        blue_full = 66,
+        amber_low = 11,
+        amber_full = 84,
+    }
 
     local function set_mode_momentary(mode: Mode, mode_count: number, mode_param_index: number)
         local target_value = mode.index / (mode_count - 1)
@@ -387,6 +427,29 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             },
         }
     end
+
+    local colors = if config.use_mk1_colors
+        then {
+            off_normal = color_pair(mk1.off, mk1.amber_full),
+            normal = color_pair(mk1.green_low, mk1.green_full),
+            shift = color_pair(mk1.amber_low, mk1.amber_full),
+            arm = color_pair(mk1.red_low, mk1.red_full),
+            select = color_pair(mk1.amber_low, mk1.amber_full),
+            mute = color_pair(mk1.amber_low, mk1.yellow_full),
+            solo = color_pair(mk1.amber_low, mk1.amber_full),
+            stop_clip = color_pair(mk1.amber_low, mk1.amber_full),
+        }
+        else {
+            off_normal = color_pair(mkn.off, mkn.green_low),
+            normal = color_pair(mkn.green_low, mkn.green_full),
+            shift = color_pair(mkn.gray, mkn.white),
+            arm = color_pair(mkn.red_low, mkn.red_full),
+            select = color_pair(mkn.sky_low, mkn.sky_full),
+            mute = color_pair(mkn.yellow_low, mkn.yellow_high),
+            solo = color_pair(mkn.blue_low, mkn.blue_full),
+            stop_clip = color_pair(mkn.amber_low, mkn.amber_full),
+        }
+
 
     local function compartment_parameter_target(index: number)
         return partial_mapping {
@@ -526,22 +589,14 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
 
     -- Mappings
 
-    local normal_colors = colors(23, 122)
-    local shift_colors = colors(1, 3)
-    local arm_colors = colors(7, 72)
-    local select_colors = colors(39, 78)
-    local mute_colors = colors(15, 74)
-    local solo_colors = colors(47, 66)
-    local stop_clip_colors = colors(11, 84)
-
     local function shift_config(needs_shift: boolean)
-        return shift_is(needs_shift) + (if needs_shift then shift_colors else normal_colors)
+        return shift_is(needs_shift) + (if needs_shift then colors.shift else colors.normal)
     end
 
     local mappings = {}
 
     if config.has_shift_button then
-        table.insert(mappings, name("Shift") + button("shift") + shift_colors + set_param(params.shift.index))
+        table.insert(mappings, name("Shift") + button("shift") + colors.shift + set_param(params.shift.index))
     end
 
     if config.has_delete_button then
@@ -550,7 +605,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Delete")
                 + button("delete")
                 + shift_is(false)
-                + normal_colors
+                + colors.normal
                 + set_slot_mode_momentary(slot_modes.delete)
         )
     end
@@ -563,7 +618,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + button("fixed-length")
                 + shift_is(false)
                 + fire_if_pressed_less_than(long_press_millis)
-                + normal_colors
+                + colors.normal
                 + toggle()
                 + discrete_target_interval(0, 1, 10)
                 + clip_matrix_action("SetRecordLengthMode")
@@ -597,7 +652,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Duplicate")
                 + button("duplicate")
                 + shift_is(false)
-                + normal_colors
+                + colors.normal
                 + set_slot_mode_momentary(slot_modes.duplicate)
         )
     end
@@ -608,7 +663,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Play")
                 + button("play")
                 + shift_is(false)
-                + normal_colors
+                + colors.normal
                 + toggle()
                 + clip_matrix_action("PlayIgnitedOrEnterSilenceMode")
         )
@@ -617,7 +672,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     if config.has_record_button then
         table.insert(
             mappings,
-            name("Record") + button("record") + shift_is(false) + arm_colors + clip_matrix_action("SmartRecord")
+            name("Record") + button("record") + shift_is(false) + colors.arm + clip_matrix_action("SmartRecord")
         )
     end
 
@@ -627,7 +682,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Quantise")
                 + button("quantize")
                 + shift_is(false)
-                + normal_colors
+                + colors.normal
                 + set_slot_mode_momentary(slot_modes.quantise)
         )
         table.insert(
@@ -635,7 +690,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Record Quantise")
                 + button("quantize")
                 + shift_is(true)
-                + shift_colors
+                + colors.shift
                 + toggle()
                 + clip_matrix_action("MidiAutoQuantizationOnOffState")
         )
@@ -712,7 +767,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             mappings,
             name("Toggle mixer mode")
                 + button(config.mixer_button_id)
-                + shift_colors
+                + colors.shift
                 + toggle()
                 + set_param(params.mixer.index)
         )
@@ -720,7 +775,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
 
     local function add_scroll_mappings(b: string, target: partial.Partial)
         table.insert(mappings, name(b) + button(b) + feedback_disabled() + turbo() + target)
-        table.insert(mappings, name(b) + button(b) + control_disabled() + colors(0, 23) + target)
+        table.insert(mappings, name(b) + button(b) + control_disabled() + colors.off_normal + target)
     end
 
     add_scroll_mappings("cursor-up", scroll_vertically(-1))
@@ -728,14 +783,20 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     add_scroll_mappings("cursor-left", scroll_horizontally(-1))
     add_scroll_mappings("cursor-right", scroll_horizontally(1))
 
-    local function add_column_mode_mappings(label: string, button_id: string, needs_mixer_mode: boolean, mode: Mode, partial: partial.Partial)
+    local function add_column_mode_mappings(
+        label: string,
+        button_id: string,
+        needs_mixer_mode: boolean,
+        mode: Mode,
+        partial: partial.Partial
+    )
         local condition
         if needs_mixer_mode then
             condition = mixer_is(true)
         else
             condition = shift_is(false)
         end
-        
+
         table.insert(mappings, name(label) + button(button_id) + condition + partial + set_column_mode_toggle(mode))
         table.insert(
             mappings,
@@ -749,19 +810,37 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
     end
 
     if config.record_arm_button_id then
-        add_column_mode_mappings("Record Arm", config.record_arm_button_id, config.record_arm_needs_mixer, column_modes.record_arm, arm_colors)
+        add_column_mode_mappings(
+            "Record Arm",
+            config.record_arm_button_id,
+            config.record_arm_needs_mixer,
+            column_modes.record_arm,
+            colors.arm
+        )
     end
     if config.track_select_button_id then
-        add_column_mode_mappings("Track Select", config.track_select_button_id, false, column_modes.track_select, select_colors)
+        add_column_mode_mappings(
+            "Track Select",
+            config.track_select_button_id,
+            false,
+            column_modes.track_select,
+            colors.select
+        )
     end
     if config.mute_button_id then
-        add_column_mode_mappings("Mute", config.mute_button_id, config.mute_needs_mixer, column_modes.mute, mute_colors)
+        add_column_mode_mappings("Mute", config.mute_button_id, config.mute_needs_mixer, column_modes.mute, colors.mute)
     end
     if config.solo_button_id then
-        add_column_mode_mappings("Solo", config.solo_button_id, config.solo_needs_mixer, column_modes.solo, solo_colors)
+        add_column_mode_mappings("Solo", config.solo_button_id, config.solo_needs_mixer, column_modes.solo, colors.solo)
     end
     if config.stop_clip_button_id then
-        add_column_mode_mappings("Stop clip", config.stop_clip_button_id, config.stop_clip_needs_mixer, column_modes.stop_clip, stop_clip_colors)
+        add_column_mode_mappings(
+            "Stop clip",
+            config.stop_clip_button_id,
+            config.stop_clip_needs_mixer,
+            column_modes.stop_clip,
+            colors.stop_clip
+        )
     end
 
     -- For each row
@@ -803,7 +882,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                     + row_play_button(row)
                     + clip_row_action(row, "PlayScene")
             )
-            table.insert(mappings, name("Play scene LED") + condition + row_play_button(row) + led_on_off())
+            table.insert(mappings, name("Play scene LED") + condition + row_play_button(row) + colors.off_normal + led_on_off())
         end
     end
 
@@ -899,7 +978,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 name("Activate column")
                     + column_mode_is(column_modes.normal)
                     + column_action_button(col)
-                    + select_colors
+                    + colors.select
                     + clip_column_action(col, "Activate")
             )
             table.insert(
@@ -922,7 +1001,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + column_mode_is(column_modes.record_arm)
                 + source
                 + toggle()
-                + arm_colors
+                + colors.arm
                 + clip_column_action(col, "ArmStateExclusive")
         )
         -- Select track
@@ -932,7 +1011,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + column_mode_is(column_modes.track_select)
                 + source
                 + toggle()
-                + select_colors
+                + colors.select
                 + column_track_target(col, "TrackSelectionState", true)
         )
         -- Mute track
@@ -942,7 +1021,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + column_mode_is(column_modes.mute)
                 + source
                 + toggle()
-                + mute_colors
+                + colors.mute
                 + column_track_target(col, "TrackMuteState")
         )
         -- Solo track
@@ -952,7 +1031,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
                 + column_mode_is(column_modes.solo)
                 + source
                 + toggle()
-                + solo_colors
+                + colors.solo
                 + column_track_target(col, "TrackSoloState")
         )
         -- Stop column
@@ -961,7 +1040,7 @@ function module.create_compartment(config: LaunchpadPlaytimePresetConfig): reale
             name("Stop column")
                 + column_mode_is(column_modes.stop_clip)
                 + source
-                + stop_clip_colors
+                + colors.stop_clip
                 + clip_column_action(col, "Stop")
         )
     end

@@ -48,4 +48,5 @@ return commons.create_compartment {
     tap_needs_shift = true,
     use_last_row_play_button_for_column_modes = false,
     mixer_button_id = nil,
+    use_mk1_colors = false,
 }
