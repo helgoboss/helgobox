@@ -12,7 +12,7 @@
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic
 --- # controller detection feature takes the "Notes" port ... and things wouldn't work!
 --- # On Windows, the naming is different, that's why there's also "MIDIOUT2".
---- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
+--- midi_output_port_patterns: ["*Control*", "APC mini mk2"]
 --- provided_schemes: [akai/apc-mini-mk2, grid]
 
 --!strict
