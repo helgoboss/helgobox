@@ -4,7 +4,7 @@ use crate::application::{
     CompartmentPresetModel, CompartmentProp, FxId, FxPresetLinkConfig, GroupCommand, GroupModel,
     MappingCommand, MappingModel, MappingProp, ModeCommand, PresetLinkManager, ProcessingRelevance,
     SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp,
-    VirtualControlElementType, MASTER_TRACK_LABEL,
+    MASTER_TRACK_LABEL,
 };
 use crate::base::{notification, prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -40,6 +40,7 @@ use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
     CompartmentPresetId, FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+    VirtualControlElementCharacter,
 };
 use realearn_api::runtime::InstanceInfoEvent;
 use reaper_medium::{InputMonitoringMode, RecordingInput};
@@ -167,7 +168,7 @@ pub struct LearnManyState {
 pub enum LearnManySubState {
     LearningSource {
         // Only relevant in controller compartment
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
     },
     LearningTarget,
 }
@@ -176,13 +177,13 @@ impl LearnManyState {
     pub fn learning_source(
         compartment: CompartmentKind,
         current_mapping_id: MappingId,
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
     ) -> LearnManyState {
         LearnManyState {
             compartment,
             current_mapping_id,
             sub_state: LearnManySubState::LearningSource {
-                control_element_type,
+                control_element_character,
             },
         }
     }
@@ -1379,7 +1380,7 @@ impl UnitModel {
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
     ) -> SharedMapping {
         let mut mapping = MappingModel::new(
             compartment,
@@ -1391,9 +1392,9 @@ impl UnitModel {
         let _ = mapping.change(MappingCommand::SetName(new_name));
         if compartment == CompartmentKind::Controller {
             let next_control_element_index =
-                self.get_next_control_element_index(control_element_type);
+                self.get_next_control_element_index(control_element_character);
             mapping.target_model =
-                TargetModel::virtual_default(control_element_type, next_control_element_index);
+                TargetModel::virtual_default(control_element_character, next_control_element_index);
         }
         self.add_mapping(compartment, mapping)
     }
@@ -1448,14 +1449,14 @@ impl UnitModel {
             .collect()
     }
 
-    fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
+    fn get_next_control_element_index(&self, character: VirtualControlElementCharacter) -> u32 {
         let max_index_so_far = self
             .mappings(CompartmentKind::Controller)
             .filter_map(|m| {
                 let m = m.borrow();
                 let target = &m.target_model;
                 if target.category() != TargetCategory::Virtual
-                    || target.control_element_type() != element_type
+                    || target.control_element_character() != character
                 {
                     return None;
                 }
@@ -1480,7 +1481,7 @@ impl UnitModel {
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
     ) {
         // Prepare
         self.disable_control();
@@ -1490,7 +1491,7 @@ impl UnitModel {
             session,
             compartment,
             initial_group_id,
-            control_element_type,
+            control_element_character,
         );
         // After target learned, add new mapping and start learning its source
         let instance_state = self.unit.borrow();
@@ -1512,7 +1513,7 @@ impl UnitModel {
                 &session,
                 compartment,
                 initial_group_id,
-                control_element_type,
+                control_element_character,
             );
         });
     }
@@ -1524,7 +1525,7 @@ impl UnitModel {
         // Only relevant for main mapping compartment
         initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
     ) {
         let ignore_sources: Vec<_> = match compartment {
             // When batch-learning controller mappings, we just want to learn sources that have
@@ -1538,13 +1539,14 @@ impl UnitModel {
             // mappings, so this is not necessary.
             CompartmentKind::Main => vec![],
         };
-        let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
+        let mapping =
+            self.add_default_mapping(compartment, initial_group_id, control_element_character);
         let qualified_mapping_id = mapping.borrow().qualified_id();
         self.learn_many_state
             .set(Some(LearnManyState::learning_source(
                 compartment,
                 qualified_mapping_id.id,
-                control_element_type,
+                control_element_character,
             )));
         self.start_learning_source_internal(
             Rc::downgrade(session),
@@ -2460,7 +2462,7 @@ impl UnitModel {
                 let m = self.add_default_mapping(
                     compartment,
                     GroupId::default(),
-                    VirtualControlElementType::Multi,
+                    VirtualControlElementCharacter::Multi,
                 );
                 {
                     let mut mapping = m.borrow_mut();

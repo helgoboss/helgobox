@@ -9,8 +9,7 @@ use crate::domain::{
     SendMidiDestination, TouchedRouteParameterType, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_osc_arg_type,
-    convert_osc_value_range, convert_tags,
+    convert_control_element_id, convert_osc_arg_type, convert_osc_value_range, convert_tags,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
@@ -975,7 +974,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
         }
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
-            control_element_type: convert_control_element_type(d.character.unwrap_or_default()),
+            control_element_type: d.character.unwrap_or_default(),
             control_element_index: convert_control_element_id(d.id),
             ..Default::default()
         },

@@ -34,7 +34,7 @@ use realearn_api::persistence::{
     PlaytimeColumnDescriptorKind, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor,
     PlaytimeRowDescriptorKind, PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind,
     PlaytimeSlotManagementAction, PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
-    TrackToolAction,
+    TrackToolAction, VirtualControlElementCharacter,
 };
 use swell_ui::{
     DeviceContext, DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView,
@@ -51,8 +51,8 @@ use crate::application::{
     ModeProp, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, SessionProp,
     SharedMapping, SharedUnitModel, SourceCategory, SourceCommand, SourceModel, SourceProp,
     TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
-    TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
+    TargetProp, TargetUnit, TrackRouteSelectorType, UnitModel, VirtualFxParameterType,
+    VirtualFxType, VirtualTrackType, WeakUnitModel, KEY_UNDEFINED_LABEL,
 };
 use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::{
@@ -669,7 +669,8 @@ impl MappingPanel {
                 }
             }
             TargetCategory::Virtual => {
-                let control_element_type = mapping.borrow().target_model.control_element_type();
+                let control_element_type =
+                    mapping.borrow().target_model.control_element_character();
                 let window = self.view.require_window();
                 let text = prompt_for_predefined_control_element_name(
                     window,
@@ -846,7 +847,7 @@ impl MappingPanel {
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let control_element_type = mapping.borrow().source_model.control_element_type();
+        let control_element_type = mapping.borrow().source_model.control_element_character();
         let window = self.view.require_window();
         let controller_mappings: Vec<_> = {
             let session = self.session();
@@ -1591,7 +1592,7 @@ impl MappingPanel {
             (
                 mapping.target_model.category(),
                 mapping.target_model.target_type(),
-                mapping.target_model.control_element_type(),
+                mapping.target_model.control_element_character(),
             )
         };
         match target_category {
@@ -1604,10 +1605,10 @@ impl MappingPanel {
                 }
             }
             TargetCategory::Virtual => {
-                let menu = menus::virtual_control_element_type_menu(control_element_type);
+                let menu = menus::virtual_control_element_character_menu(control_element_type);
                 if let Some(t) = window.open_popup_menu(menu, Window::cursor_pos()) {
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetControlElementType(t),
+                        TargetCommand::SetControlElementCharacter(t),
                     ));
                 }
             }
@@ -2120,7 +2121,7 @@ impl<'a> MutableMappingPanel<'a> {
             Virtual => {
                 let element_type = i.try_into().expect("invalid virtual source type");
                 self.change_mapping(MappingCommand::ChangeSource(
-                    SourceCommand::SetControlElementType(element_type),
+                    SourceCommand::SetControlElementCharacter(element_type),
                 ));
             }
             _ => {}
@@ -4143,7 +4144,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let item_index = match self.source.category() {
             Midi => self.source.midi_source_type().into(),
             Reaper => self.source.reaper_source_type().into(),
-            Virtual => self.source.control_element_type().into(),
+            Virtual => self.source.control_element_character().into(),
             _ => return,
         };
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
@@ -4737,7 +4738,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 (label, hint.to_string())
             }
             Virtual => {
-                let label = self.target.control_element_type().to_string();
+                let label = self.target.control_element_character().to_string();
                 (label, "".to_owned())
             }
         };
@@ -6946,7 +6947,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category() {
             Midi => b.fill_combo_box_indexed(MidiSourceType::iter()),
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::iter()),
-            Virtual => b.fill_combo_box_indexed(VirtualControlElementType::iter()),
+            Virtual => b.fill_combo_box_indexed(VirtualControlElementCharacter::iter()),
             Osc | Never | Keyboard => {}
         };
     }
@@ -7790,24 +7791,24 @@ fn osc_arg_indexes() -> impl Iterator<Item = (isize, String)> {
 
 fn prompt_for_predefined_control_element_name(
     window: Window,
-    r#type: VirtualControlElementType,
+    character: VirtualControlElementCharacter,
     grouped_mappings: &NonCryptoHashMap<VirtualControlElement, Vec<&SharedMapping>>,
 ) -> Option<String> {
     let pure_menu = {
         use swell_ui::menu_tree::*;
-        let daw_control_names = match r#type {
-            VirtualControlElementType::Multi => {
+        let daw_control_names = match character {
+            VirtualControlElementCharacter::Multi => {
                 control_element_domains::daw::PREDEFINED_VIRTUAL_MULTI_NAMES
             }
-            VirtualControlElementType::Button => {
+            VirtualControlElementCharacter::Button => {
                 control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
             }
         };
-        let grid_control_names = match r#type {
-            VirtualControlElementType::Multi => {
+        let grid_control_names = match character {
+            VirtualControlElementCharacter::Multi => {
                 control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES
             }
-            VirtualControlElementType::Button => {
+            VirtualControlElementCharacter::Button => {
                 control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
             }
         };
@@ -7822,8 +7823,10 @@ fn prompt_for_predefined_control_element_name(
                 chunked_number_menu(100, 10, true, |i| {
                     let label = {
                         let pos = i + 1;
-                        let element =
-                            r#type.create_control_element(VirtualControlElementId::Indexed(i));
+                        let element = VirtualControlElement::new(
+                            VirtualControlElementId::Indexed(i),
+                            character,
+                        );
                         match grouped_mappings.get(&element) {
                             None => pos.to_string(),
                             Some(mappings) => {

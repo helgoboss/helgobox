@@ -1,7 +1,6 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_keystroke,
-    convert_osc_arg_type, convert_osc_value_range,
+    convert_control_element_id, convert_keystroke, convert_osc_arg_type, convert_osc_value_range,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::SourceModelData;
@@ -127,7 +126,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         control_element_type: match &s {
-            Source::Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
+            Source::Virtual(s) => s.character.unwrap_or_default(),
             _ => Default::default(),
         },
         control_element_index: match &s {

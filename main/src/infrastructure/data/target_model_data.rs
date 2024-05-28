@@ -8,8 +8,7 @@ use crate::application::{
     FxSnapshot, MappingModificationKind, MappingRefModel, MappingSnapshotTypeForLoad,
     MappingSnapshotTypeForTake, RealearnAutomationMode, RealearnTrackArea, TargetCategory,
     TargetCommand, TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType,
+    TrackRouteSelectorType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -32,7 +31,7 @@ use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingSnapshotDescForLoad,
     MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterKind, SeekBehavior,
-    TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
+    TargetTouchCause, TargetValue, TrackScope, TrackToolAction, VirtualControlElementCharacter,
 };
 
 use base::hash_util::NonCryptoHashSet;
@@ -186,7 +185,7 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub control_element_type: VirtualControlElementType,
+    pub control_element_type: VirtualControlElementCharacter,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -564,7 +563,7 @@ impl TargetModelData {
             fx_tool_action: model.fx_tool_action(),
             transport_action: model.transport_action(),
             any_on_parameter: model.any_on_parameter(),
-            control_element_type: model.control_element_type(),
+            control_element_type: model.control_element_character(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
             ),
@@ -811,7 +810,7 @@ impl TargetModelData {
         model.change(C::SetSeekBehavior(seek_behavior));
         model.change(C::SetTransportAction(self.transport_action));
         model.change(C::SetAnyOnParameter(self.any_on_parameter));
-        model.change(C::SetControlElementType(self.control_element_type));
+        model.change(C::SetControlElementCharacter(self.control_element_type));
         model.change(C::SetControlElementId(
             self.control_element_index.to_model(),
         ));

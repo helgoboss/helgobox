@@ -15,8 +15,7 @@ use crate::application::{
     get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
     Affected, AutoLoadMode, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
     CompartmentProp, FxId, FxPresetLinkConfig, MappingCommand, MappingModel, PresetLinkMutator,
-    SessionCommand, SessionProp, SharedMapping, SharedUnitModel, VirtualControlElementType,
-    WeakUnitModel,
+    SessionCommand, SessionProp, SharedMapping, SharedUnitModel, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -64,7 +63,7 @@ use crate::infrastructure::ui::{
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use anyhow::{bail, Context};
 use itertools::Itertools;
-use realearn_api::persistence::Envelope;
+use realearn_api::persistence::{Envelope, VirtualControlElementCharacter};
 use reaper_medium::Hbrush;
 use semver::Version;
 use std::cell::{Cell, RefCell};
@@ -222,13 +221,13 @@ impl HeaderPanel {
         } else {
             let compartment = self.active_compartment();
             let control_element_type = match compartment {
-                CompartmentKind::Controller => match self.prompt_for_control_element_type() {
+                CompartmentKind::Controller => match self.prompt_for_control_element_character() {
                     None => return,
                     Some(t) => t,
                 },
                 CompartmentKind::Main => {
                     // Doesn't matter
-                    VirtualControlElementType::Multi
+                    VirtualControlElementCharacter::Multi
                 }
             };
             session.borrow_mut().start_learning_many_mappings(
@@ -241,15 +240,15 @@ impl HeaderPanel {
         }
     }
 
-    fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
+    fn prompt_for_control_element_character(&self) -> Option<VirtualControlElementCharacter> {
         let menu = {
             use swell_ui::menu_tree::*;
             anonymous_menu(vec![
                 item(
                     "Multis (faders, knobs, encoders, ...)",
-                    VirtualControlElementType::Multi,
+                    VirtualControlElementCharacter::Multi,
                 ),
-                item("Buttons", VirtualControlElementType::Button),
+                item("Buttons", VirtualControlElementCharacter::Button),
             ])
         };
         self.view
@@ -330,7 +329,7 @@ impl HeaderPanel {
         self.session().borrow_mut().add_default_mapping(
             self.active_compartment(),
             self.active_group_id().unwrap_or_default(),
-            VirtualControlElementType::Multi,
+            VirtualControlElementCharacter::Multi,
         );
     }
 

@@ -5,6 +5,7 @@ use base::SmallAsciiString;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
+use realearn_api::persistence::VirtualControlElementCharacter;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -24,10 +25,10 @@ impl VirtualTarget {
     }
 
     pub fn character(&self) -> TargetCharacter {
-        use VirtualControlElement::*;
-        match self.control_element {
-            Multi(_) => TargetCharacter::VirtualMulti,
-            Button(_) => TargetCharacter::VirtualButton,
+        use VirtualControlElementCharacter::*;
+        match self.control_element.character {
+            Multi => TargetCharacter::VirtualMulti,
+            Button => TargetCharacter::VirtualButton,
         }
     }
 }
@@ -40,10 +41,10 @@ impl<'a> Target<'a> for VirtualTarget {
     }
 
     fn control_type(&self, _: ()) -> ControlType {
-        use VirtualControlElement::*;
-        match self.control_element {
-            Multi(_) => ControlType::VirtualMulti,
-            Button(_) => ControlType::VirtualButton,
+        use VirtualControlElementCharacter::*;
+        match self.control_element.character {
+            Multi => ControlType::VirtualMulti,
+            Button => ControlType::VirtualButton,
         }
     }
 }
@@ -103,10 +104,10 @@ impl VirtualSource {
     }
 
     pub fn character(&self) -> ExtendedSourceCharacter {
-        use VirtualControlElement::*;
-        match self.control_element {
-            Button(_) => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
-            Multi(_) => ExtendedSourceCharacter::VirtualContinuous,
+        use VirtualControlElementCharacter::*;
+        match self.control_element.character {
+            Button => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
+            Multi => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
 }
@@ -183,10 +184,24 @@ impl VirtualFeedbackValue {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub enum VirtualControlElement {
-    Multi(VirtualControlElementId),
-    Button(VirtualControlElementId),
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct VirtualControlElement {
+    id: VirtualControlElementId,
+    character: VirtualControlElementCharacter,
+}
+
+impl VirtualControlElement {
+    pub fn new(id: VirtualControlElementId, character: VirtualControlElementCharacter) -> Self {
+        Self { id, character }
+    }
+
+    pub fn id(&self) -> VirtualControlElementId {
+        self.id
+    }
+
+    pub fn character(&self) -> VirtualControlElementCharacter {
+        self.character
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
@@ -231,11 +246,7 @@ impl Default for VirtualControlElementId {
 
 impl Display for VirtualControlElement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use VirtualControlElement::*;
-        match self {
-            Multi(id) => write!(f, "Multi {id}"),
-            Button(id) => write!(f, "Button {id}"),
-        }
+        write!(f, "{} {}", self.character, self.id)
     }
 }
 
@@ -245,15 +256,6 @@ impl Display for VirtualControlElementId {
         match self {
             Indexed(index) => write!(f, "{}", index + 1),
             Named(name) => name.fmt(f),
-        }
-    }
-}
-
-impl VirtualControlElement {
-    pub fn id(&self) -> VirtualControlElementId {
-        use VirtualControlElement::*;
-        match self {
-            Multi(i) | Button(i) => *i,
         }
     }
 }

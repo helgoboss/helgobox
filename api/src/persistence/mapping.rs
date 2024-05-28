@@ -1,4 +1,6 @@
 use super::*;
+use derive_more::Display;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Default, Serialize, Deserialize)]
@@ -124,16 +126,30 @@ pub enum VirtualControlElementId {
     Named(String),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    Display,
+    strum::EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+)]
+#[repr(usize)]
 pub enum VirtualControlElementCharacter {
+    #[default]
+    #[serde(alias = "multi")]
     Multi,
+    #[serde(alias = "button")]
     Button,
-}
-
-impl Default for VirtualControlElementCharacter {
-    fn default() -> Self {
-        Self::Multi
-    }
 }
 
 #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize)]

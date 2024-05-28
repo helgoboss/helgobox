@@ -1,4 +1,4 @@
-use crate::application::{UnitModel, VirtualControlElementType, WeakUnitModel};
+use crate::application::{UnitModel, WeakUnitModel};
 use crate::domain::{
     compartment_param_index_iter, CompartmentKind, CompartmentParamIndex, CompartmentParams,
     ControlInput, FeedbackOutput, MappingId, MidiControlInput, MidiDestination, OscDeviceId,
@@ -13,6 +13,7 @@ use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
 
 use base::hash_util::NonCryptoIndexMap;
 use derive_more::Display;
+use realearn_api::persistence::VirtualControlElementCharacter;
 use reaper_medium::ReaperString;
 use std::iter;
 use strum::IntoEnumIterator;
@@ -294,10 +295,10 @@ pub fn reaper_target_type_menu(current_value: ReaperTargetType) -> Menu<ReaperTa
     anonymous_menu(entries.collect())
 }
 
-pub fn virtual_control_element_type_menu(
-    current_value: VirtualControlElementType,
-) -> Menu<VirtualControlElementType> {
-    let entries = VirtualControlElementType::iter().map(|t| {
+pub fn virtual_control_element_character_menu(
+    current_value: VirtualControlElementCharacter,
+) -> Menu<VirtualControlElementCharacter> {
+    let entries = VirtualControlElementCharacter::iter().map(|t| {
         item_with_opts(
             t.to_string(),
             ItemOpts {

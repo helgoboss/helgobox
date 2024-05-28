@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::{
     Affected, Change, GetProcessingRelevance, ProcessingRelevance, UnitModel,
-    VirtualControlElementType,
 };
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
@@ -68,7 +67,7 @@ use realearn_api::persistence::{
     PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
-    TrackFxChain, TrackScope, TrackToolAction,
+    TrackFxChain, TrackScope, TrackToolAction, VirtualControlElementCharacter,
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
@@ -84,7 +83,7 @@ use wildmatch::WildMatch;
 pub enum TargetCommand {
     SetCategory(TargetCategory),
     SetUnit(TargetUnit),
-    SetControlElementType(VirtualControlElementType),
+    SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
     SetTargetType(ReaperTargetType),
     SetAction(Option<Action>),
@@ -296,8 +295,8 @@ impl<'a> Change<'a> for TargetModel {
                 self.unit = v;
                 One(P::Unit)
             }
-            C::SetControlElementType(v) => {
-                self.control_element_type = v;
+            C::SetControlElementCharacter(v) => {
+                self.control_element_character = v;
                 One(P::ControlElementType)
             }
             C::SetControlElementId(v) => {
@@ -660,7 +659,7 @@ pub struct TargetModel {
     category: TargetCategory,
     unit: TargetUnit,
     // # For virtual targets
-    control_element_type: VirtualControlElementType,
+    control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
     // # For REAPER targets
     // TODO-low Rename this to reaper_target_type
@@ -837,7 +836,7 @@ impl Default for TargetModel {
         Self {
             category: TargetCategory::default(),
             unit: Default::default(),
-            control_element_type: VirtualControlElementType::default(),
+            control_element_character: VirtualControlElementCharacter::default(),
             control_element_id: Default::default(),
             r#type: ReaperTargetType::Dummy,
             action: None,
@@ -943,8 +942,8 @@ impl TargetModel {
         self.unit
     }
 
-    pub fn control_element_type(&self) -> VirtualControlElementType {
-        self.control_element_type
+    pub fn control_element_character(&self) -> VirtualControlElementCharacter {
+        self.control_element_character
     }
 
     pub fn control_element_id(&self) -> VirtualControlElementId {
@@ -1775,12 +1774,12 @@ impl TargetModel {
     }
 
     pub fn virtual_default(
-        control_element_type: VirtualControlElementType,
+        control_element_character: VirtualControlElementCharacter,
         next_index: u32,
     ) -> Self {
         TargetModel {
             category: TargetCategory::Virtual,
-            control_element_type,
+            control_element_character,
             control_element_id: VirtualControlElementId::Indexed(next_index),
             ..Default::default()
         }
@@ -2936,8 +2935,7 @@ impl TargetModel {
     }
 
     pub fn create_control_element(&self) -> VirtualControlElement {
-        self.control_element_type
-            .create_control_element(self.control_element_id)
+        VirtualControlElement::new(self.control_element_id, self.control_element_character)
     }
 
     fn is_reaper(&self) -> bool {
@@ -3043,10 +3041,10 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
             }
             TargetCategory::Virtual => match self.0.control_element_id {
                 VirtualControlElementId::Indexed(i) => {
-                    write!(f, "{} {}", self.0.control_element_type, i + 1)
+                    write!(f, "{} {}", self.0.control_element_character, i + 1)
                 }
                 VirtualControlElementId::Named(n) => {
-                    write!(f, "{} ({})", n, self.0.control_element_type)
+                    write!(f, "{} ({})", n, self.0.control_element_character)
                 }
             },
         }

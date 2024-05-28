@@ -1,6 +1,6 @@
 use crate::application::{
     RealearnControlSurfaceMainTaskSender, SessionCommand, SharedMapping, SharedUnitModel,
-    UnitModel, VirtualControlElementType, WeakUnitModel,
+    UnitModel, WeakUnitModel,
 };
 use crate::base::notification;
 use crate::domain::{
@@ -63,7 +63,7 @@ use once_cell::sync::Lazy;
 use realearn_api::persistence::{
     CompartmentPresetId, Controller, ControllerConnection, Envelope, FxChainDescriptor,
     FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
-    TrackDescriptor, TrackFxChain,
+    TrackDescriptor, TrackFxChain, VirtualControlElementCharacter,
 };
 use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
 use reaper_high::{
@@ -1770,7 +1770,7 @@ impl BackboneShell {
                 let mapping = s.add_default_mapping(
                     compartment,
                     GroupId::default(),
-                    VirtualControlElementType::Multi,
+                    VirtualControlElementCharacter::Multi,
                 );
                 let mut m = mapping.borrow_mut();
                 let event = MessageCaptureEvent {

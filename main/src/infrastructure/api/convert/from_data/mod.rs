@@ -12,14 +12,14 @@ mod compartment;
 pub use compartment::*;
 mod target;
 
-use crate::application::{ActivationType, VirtualControlElementType};
+use crate::application::ActivationType;
 use crate::domain::{Keystroke, Tag};
 use crate::infrastructure::data::{
     ActivationConditionData, OscValueRange, VirtualControlElementIdData,
 };
 use helgoboss_learn::OscTypeTag;
 use realearn_api::persistence;
-use realearn_api::persistence::ParamRef;
+use realearn_api::persistence::{ParamRef, VirtualControlElementCharacter};
 pub use target::*;
 
 fn convert_control_element_id(
@@ -31,19 +31,6 @@ fn convert_control_element_id(
         Indexed(i) => T::Indexed(i),
         Named(n) => T::Named(n),
     }
-}
-
-fn convert_control_element_kind(
-    v: VirtualControlElementType,
-    style: ConversionStyle,
-) -> Option<persistence::VirtualControlElementCharacter> {
-    use persistence::VirtualControlElementCharacter as T;
-    use VirtualControlElementType::*;
-    let res = match v {
-        Multi => T::Multi,
-        Button => T::Button,
-    };
-    style.required_value(res)
 }
 
 fn convert_keystroke(v: Keystroke) -> persistence::Keystroke {

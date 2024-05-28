@@ -1,7 +1,6 @@
 use super::none_if_minus_one;
 use crate::application::{
     Change, MidiSourceType, ReaperSourceType, SourceCategory, SourceCommand, SourceModel,
-    VirtualControlElementType,
 };
 use crate::base::notification;
 use crate::domain::{CompartmentKind, CompartmentParamIndex, Keystroke};
@@ -10,7 +9,7 @@ use crate::infrastructure::data::VirtualControlElementIdData;
 use base::default_util::{deserialize_null_default, is_default};
 use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use realearn_api::persistence::MidiScriptKind;
+use realearn_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -156,7 +155,7 @@ pub struct SourceModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub control_element_type: VirtualControlElementType,
+    pub control_element_type: VirtualControlElementCharacter,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -212,7 +211,7 @@ impl SourceModelData {
             osc_arg_value_range: OscValueRange::from_interval(model.osc_arg_value_range()),
             osc_feedback_args: model.osc_feedback_args().to_vec(),
             keystroke: model.keystroke(),
-            control_element_type: model.control_element_type(),
+            control_element_type: model.control_element_character(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
             ),
@@ -292,7 +291,7 @@ impl SourceModelData {
             self.osc_arg_value_range.to_interval(),
         ));
         model.change(P::SetOscFeedbackArgs(self.osc_feedback_args.clone()));
-        model.change(P::SetControlElementType(self.control_element_type));
+        model.change(P::SetControlElementCharacter(self.control_element_type));
         model.change(P::SetControlElementId(
             self.control_element_index.to_model(),
         ));
@@ -335,7 +334,7 @@ mod tests {
                 is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
-                control_element_type: VirtualControlElementType::Multi,
+                control_element_type: VirtualControlElementCharacter::Multi,
                 ..Default::default()
             }
         );
@@ -366,7 +365,7 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
-                control_element_type: VirtualControlElementType::Multi,
+                control_element_type: VirtualControlElementCharacter::Multi,
                 ..Default::default()
             }
         );
@@ -383,7 +382,7 @@ mod tests {
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
-            control_element_type: VirtualControlElementType::Multi,
+            control_element_type: VirtualControlElementCharacter::Multi,
             ..Default::default()
         };
         let mut model = SourceModel::new();
@@ -416,7 +415,7 @@ mod tests {
             character: SourceCharacter::RangeElement,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
-            control_element_type: VirtualControlElementType::Multi,
+            control_element_type: VirtualControlElementCharacter::Multi,
             ..Default::default()
         };
         let mut model = SourceModel::new();
@@ -462,7 +461,7 @@ mod tests {
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
                 osc_arg_index: Some(0),
-                control_element_type: VirtualControlElementType::Multi,
+                control_element_type: VirtualControlElementCharacter::Multi,
                 ..Default::default()
             }
         );
@@ -500,7 +499,7 @@ mod tests {
                 message: MidiClockTransportMessage::Continue,
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),
-                control_element_type: VirtualControlElementType::Multi,
+                control_element_type: VirtualControlElementCharacter::Multi,
                 ..Default::default()
             }
         );

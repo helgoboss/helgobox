@@ -6,7 +6,7 @@ use crate::domain::{
     Backbone, CompartmentKind, CompartmentParamIndex, CompoundMappingSource, EelMidiSourceScript,
     ExtendedSourceCharacter, FlexibleMidiSourceScript, KeySource, Keystroke, LuaMidiSourceScript,
     MidiSource, RealearnParameterSource, ReaperSource, SpeechSource, TimerSource,
-    VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
+    VirtualControlElement, VirtualControlElementId, VirtualSource,
 };
 use derive_more::Display;
 use helgoboss_learn::{
@@ -17,7 +17,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use realearn_api::persistence::MidiScriptKind;
+use realearn_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -54,7 +54,7 @@ pub enum SourceCommand {
     SetTimerMillis(u64),
     SetParameterIndex(CompartmentParamIndex),
     SetKeystroke(Option<Keystroke>),
-    SetControlElementType(VirtualControlElementType),
+    SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
 }
 
@@ -193,8 +193,8 @@ impl<'a> Change<'a> for SourceModel {
                 self.reaper_source_type = v;
                 One(P::ReaperSourceType)
             }
-            C::SetControlElementType(v) => {
-                self.control_element_type = v;
+            C::SetControlElementCharacter(v) => {
+                self.control_element_character = v;
                 One(P::ControlElementType)
             }
             C::SetControlElementId(v) => {
@@ -251,7 +251,7 @@ pub struct SourceModel {
     // Key
     keystroke: Option<Keystroke>,
     // Virtual
-    control_element_type: VirtualControlElementType,
+    control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
 }
 
@@ -266,7 +266,7 @@ impl SourceModel {
         Self {
             category: SourceCategory::Never,
             midi_source_type: Default::default(),
-            control_element_type: Default::default(),
+            control_element_character: Default::default(),
             control_element_id: Default::default(),
             channel: None,
             midi_message_number: None,
@@ -394,8 +394,8 @@ impl SourceModel {
         self.timer_millis
     }
 
-    pub fn control_element_type(&self) -> VirtualControlElementType {
-        self.control_element_type
+    pub fn control_element_character(&self) -> VirtualControlElementCharacter {
+        self.control_element_character
     }
 
     pub fn control_element_id(&self) -> VirtualControlElementId {
@@ -488,7 +488,7 @@ impl SourceModel {
             }
             Virtual(s) => {
                 self.category = SourceCategory::Virtual;
-                self.control_element_type = VirtualControlElementType::from_source(s);
+                self.control_element_character = s.control_element().character();
                 self.control_element_id = s.control_element().id();
             }
             Osc(s) => {
@@ -540,15 +540,15 @@ impl SourceModel {
         match self.create_source() {
             CompoundMappingSource::Midi(s) => s.possible_detailed_characters(),
             CompoundMappingSource::Osc(s) => s.possible_detailed_characters(),
-            CompoundMappingSource::Virtual(s) => match s.control_element() {
-                VirtualControlElement::Multi(_) => vec![
+            CompoundMappingSource::Virtual(s) => match s.control_element().character() {
+                VirtualControlElementCharacter::Multi => vec![
                     DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
                     DetailedSourceCharacter::MomentaryOnOffButton,
                     DetailedSourceCharacter::Trigger,
                     DetailedSourceCharacter::RangeControl,
                     DetailedSourceCharacter::Relative,
                 ],
-                VirtualControlElement::Button(_) => vec![
+                VirtualControlElementCharacter::Button => vec![
                     DetailedSourceCharacter::MomentaryOnOffButton,
                     DetailedSourceCharacter::Trigger,
                 ],
@@ -840,8 +840,7 @@ impl SourceModel {
     }
 
     pub fn create_control_element(&self) -> VirtualControlElement {
-        self.control_element_type
-            .create_control_element(self.control_element_id)
+        VirtualControlElement::new(self.control_element_id, self.control_element_character)
     }
 }
 
@@ -1156,58 +1155,6 @@ impl MidiSourceType {
     pub fn supports_feedback(self) -> bool {
         use MidiSourceType::*;
         !matches!(self, ClockTempo | ClockTransport)
-    }
-}
-
-/// Type of a virtual source
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum VirtualControlElementType {
-    #[default]
-    #[serde(rename = "multi")]
-    #[display(fmt = "Multi")]
-    Multi,
-    #[serde(rename = "button")]
-    #[display(fmt = "Button")]
-    Button,
-}
-
-impl VirtualControlElementType {
-    pub fn from_source(source: &VirtualSource) -> VirtualControlElementType {
-        use VirtualControlElement::*;
-        match source.control_element() {
-            Multi(_) => VirtualControlElementType::Multi,
-            Button(_) => VirtualControlElementType::Button,
-        }
-    }
-
-    pub fn from_target(target: &VirtualTarget) -> VirtualControlElementType {
-        use VirtualControlElement::*;
-        match target.control_element() {
-            Multi(_) => VirtualControlElementType::Multi,
-            Button(_) => VirtualControlElementType::Button,
-        }
-    }
-
-    pub fn create_control_element(self, id: VirtualControlElementId) -> VirtualControlElement {
-        use VirtualControlElementType::*;
-        match self {
-            Multi => VirtualControlElement::Multi(id),
-            Button => VirtualControlElement::Button(id),
-        }
     }
 }
 

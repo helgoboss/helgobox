@@ -23,17 +23,6 @@ mod parameter;
 mod source;
 mod target;
 
-fn convert_control_element_type(
-    s: VirtualControlElementCharacter,
-) -> application::VirtualControlElementType {
-    use application::VirtualControlElementType as T;
-    use VirtualControlElementCharacter::*;
-    match s {
-        Multi => T::Multi,
-        Button => T::Button,
-    }
-}
-
 fn convert_keystroke(s: Keystroke) -> domain::Keystroke {
     domain::Keystroke::new(
         BitFlags::from_bits_truncate(s.modifiers),

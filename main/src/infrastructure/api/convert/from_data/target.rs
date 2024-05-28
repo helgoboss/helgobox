@@ -9,8 +9,7 @@ use crate::domain::{
     TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind, convert_osc_argument, convert_tags,
-    ConversionStyle,
+    convert_control_element_id, convert_osc_argument, convert_tags, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
@@ -861,7 +860,7 @@ fn convert_fx_display_kind(
 fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> persistence::Target {
     persistence::Target::Virtual(persistence::VirtualTarget {
         id: convert_control_element_id(data.control_element_index),
-        character: convert_control_element_kind(data.control_element_type, style),
+        character: style.required_value(data.control_element_type),
     })
 }
 

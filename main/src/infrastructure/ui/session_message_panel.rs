@@ -1,9 +1,8 @@
-use crate::application::{
-    LearnManySubState, SharedUnitModel, VirtualControlElementType, WeakUnitModel,
-};
+use crate::application::{LearnManySubState, SharedUnitModel, WeakUnitModel};
 use crate::base::when;
 use crate::domain::CompartmentKind;
 use crate::infrastructure::ui::bindings::root;
+use realearn_api::persistence::VirtualControlElementCharacter;
 use reaper_low::raw;
 use rxrust::prelude::*;
 use std::rc::Rc;
@@ -38,14 +37,14 @@ impl SessionMessagePanel {
                 let mapping_label = format!("mapping {}", mapping.effective_name());
                 match state.sub_state {
                     LearnManySubState::LearningSource {
-                        control_element_type,
+                        control_element_character,
                     } => {
                         let msg = match state.compartment {
-                            CompartmentKind::Controller => match control_element_type {
-                                VirtualControlElementType::Multi => {
+                            CompartmentKind::Controller => match control_element_character {
+                                VirtualControlElementCharacter::Multi => {
                                     "Move a multi-like control element!"
                                 }
-                                VirtualControlElementType::Button => {
+                                VirtualControlElementCharacter::Button => {
                                     "Press a button-like control element!"
                                 }
                             },
