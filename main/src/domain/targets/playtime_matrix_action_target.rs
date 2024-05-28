@@ -321,6 +321,9 @@ mod playtime_impl {
                         SlotChangeEvent::PlayState(_) => (true, None),
                         _ => (false, None),
                     },
+                    CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SequencerPlayStateChanged) => {
+                        (true, None)
+                    }
                     _ => (false, None),
                 },
                 PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode
@@ -400,7 +403,8 @@ mod playtime_impl {
                             matrix.midi_auto_quantize_enabled()
                         }
                         PlaytimeMatrixAction::SmartRecord => {
-                            matrix.num_really_recording_clips() > 0
+                            matrix.sequencer().status() == SequencerStatus::Recording
+                                || matrix.num_really_recording_clips() > 0
                         }
                         PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                             !matrix.is_in_silence_mode()
