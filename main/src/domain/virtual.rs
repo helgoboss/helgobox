@@ -2,6 +2,7 @@ use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use ascii::{AsciiString, ToAsciiChar};
 use base::SmallAsciiString;
+use derivative::Derivative;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
@@ -26,7 +27,7 @@ impl VirtualTarget {
 
     pub fn character(&self) -> TargetCharacter {
         use VirtualControlElementCharacter::*;
-        match self.control_element.character {
+        match self.control_element.character() {
             Multi => TargetCharacter::VirtualMulti,
             Button => TargetCharacter::VirtualButton,
         }
@@ -42,7 +43,7 @@ impl<'a> Target<'a> for VirtualTarget {
 
     fn control_type(&self, _: ()) -> ControlType {
         use VirtualControlElementCharacter::*;
-        match self.control_element.character {
+        match self.control_element.character() {
             Multi => ControlType::VirtualMulti,
             Button => ControlType::VirtualButton,
         }
@@ -105,7 +106,7 @@ impl VirtualSource {
 
     pub fn character(&self) -> ExtendedSourceCharacter {
         use VirtualControlElementCharacter::*;
-        match self.control_element.character {
+        match self.control_element.character() {
             Button => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
             Multi => ExtendedSourceCharacter::VirtualContinuous,
         }
@@ -184,23 +185,54 @@ impl VirtualFeedbackValue {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct VirtualControlElement {
-    id: VirtualControlElementId,
-    character: VirtualControlElementCharacter,
+/// The combination of virtual control element ID and character.
+///
+/// When matching indexed (numbered) control elements, it makes a difference whether the character is a multi or
+/// a button! The character is part of the identifier, so to say. The reason is that indexed control elements
+/// were designed to model typical "8 knob & 8 buttons" controllers. In this case it's important to
+/// consider knob 1 as a different control element than button 1.
+///
+/// For named control elements, the character doesn't act as an identifier, just as a hint for the UI optimizations.
+/// Two named control elements are considered the same even they have 2 different characters. The rationale is that
+/// named control elements have the freedom to use different names and should do so in order to avoid confusion.
+///
+/// Maybe it would be better to make indexed control elements behave like named ones (= ignore the character).
+/// But we have to maintain backwards compatibility. Named control elements were added much later, so in the beginning
+/// it was vital to distinguish between characters, and thus I suspect there are many presets still using this system.
+#[derive(Copy, Clone, Ord, PartialOrd, Debug, Derivative)]
+#[derivative(Eq, PartialEq, Hash)]
+pub enum VirtualControlElement {
+    Indexed {
+        id: u32,
+        character: VirtualControlElementCharacter,
+    },
+    Named {
+        id: SmallAsciiString,
+        #[derivative(PartialEq = "ignore", Hash = "ignore")]
+        character: VirtualControlElementCharacter,
+    },
 }
 
 impl VirtualControlElement {
     pub fn new(id: VirtualControlElementId, character: VirtualControlElementCharacter) -> Self {
-        Self { id, character }
+        match id {
+            VirtualControlElementId::Indexed(id) => Self::Indexed { id, character },
+            VirtualControlElementId::Named(id) => Self::Named { id, character },
+        }
     }
 
     pub fn id(&self) -> VirtualControlElementId {
-        self.id
+        match self {
+            VirtualControlElement::Indexed { id, .. } => VirtualControlElementId::Indexed(*id),
+            VirtualControlElement::Named { id, .. } => VirtualControlElementId::Named(*id),
+        }
     }
 
     pub fn character(&self) -> VirtualControlElementCharacter {
-        self.character
+        match self {
+            VirtualControlElement::Indexed { character, .. } => *character,
+            VirtualControlElement::Named { character, .. } => *character,
+        }
     }
 }
 
@@ -246,7 +278,7 @@ impl Default for VirtualControlElementId {
 
 impl Display for VirtualControlElement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.character, self.id)
+        write!(f, "{} {}", self.character(), self.id())
     }
 }
 

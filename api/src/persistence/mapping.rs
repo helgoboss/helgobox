@@ -145,9 +145,11 @@ pub enum VirtualControlElementId {
 )]
 #[repr(usize)]
 pub enum VirtualControlElementCharacter {
+    /// A control element that can represent more than 2 states.
     #[default]
     #[serde(alias = "multi")]
     Multi,
+    /// A control element that can represent at a maximum 2 states.
     #[serde(alias = "button")]
     Button,
 }

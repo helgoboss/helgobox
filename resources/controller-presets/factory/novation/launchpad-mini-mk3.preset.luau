@@ -101,7 +101,7 @@ for col = 0, 7 do
             },
             target = realearn.Target.Virtual {
                 id = id,
-                character = "Multi",
+                character = "Button",
             },
         }
         local feedback_mapping = realearn.Mapping {
@@ -113,7 +113,7 @@ for col = 0, 7 do
             },
             target = realearn.Target.Virtual {
                 id = id,
-                character = "Multi",
+                character = "Button",
             },
         }
         table.insert(mappings, control_mapping)
