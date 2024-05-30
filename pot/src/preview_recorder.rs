@@ -9,11 +9,11 @@ use crate::{
 use base::future_util::millis;
 use base::hash_util::PersistentHash;
 use base::{blocking_lock_arc, blocking_write_lock, file_util};
+use camino::{Utf8Path, Utf8PathBuf};
 use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{CommandId, OpenProjectBehavior, ProjectContext, ProjectInfoAttributeKey};
 use std::error::Error;
-use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 pub type SharedPreviewRecorderState = Arc<RwLock<PreviewRecorderState>>;
@@ -48,7 +48,7 @@ impl AsRef<PotPreset> for PreviewRecorderFailure {
 pub async fn record_previews(
     shared_pot_unit: SharedRuntimePotUnit,
     state: SharedPreviewRecorderState,
-    preview_rpp: &Path,
+    preview_rpp: &Utf8Path,
 ) -> Result<(), Box<dyn Error>> {
     let reaper = Reaper::get();
     let reaper_resource_dir = reaper.resource_path();
@@ -113,21 +113,17 @@ pub async fn record_previews(
     Ok(())
 }
 
-fn render_to_file(project: Project, full_path: &Path) -> Result<(), Box<dyn Error>> {
+fn render_to_file(project: Project, full_path: &Utf8Path) -> Result<(), Box<dyn Error>> {
     let reaper = Reaper::get();
     let medium_reaper = reaper.medium_reaper();
     let dir = full_path.parent().ok_or("render path has not parent")?;
-    let dir = dir.to_str().ok_or("render dir not valid UTF-8")?;
     let file_name = full_path
         .file_name()
         .ok_or("render path has no file name")?;
-    let file_name = file_name
-        .to_str()
-        .ok_or("render file name not valid UTF-8")?;
     medium_reaper.get_set_project_info_string_set(
         ProjectContext::Proj(project.raw()),
         ProjectInfoAttributeKey::RenderFile,
-        dir,
+        dir.as_str(),
     )?;
     medium_reaper.get_set_project_info_string_set(
         ProjectContext::Proj(project.raw()),
@@ -142,7 +138,7 @@ fn render_to_file(project: Project, full_path: &Path) -> Result<(), Box<dyn Erro
     Ok(())
 }
 
-fn open_preview_project_in_new_tab(preview_rpp: &Path) -> Project {
+fn open_preview_project_in_new_tab(preview_rpp: &Utf8Path) -> Project {
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
     let mut behavior = OpenProjectBehavior::default();
@@ -159,9 +155,9 @@ async fn moment() {
 }
 
 pub fn get_preview_file_path_from_hash(
-    reaper_resource_dir: &Path,
+    reaper_resource_dir: &Utf8Path,
     hash: PersistentHash,
-) -> PathBuf {
+) -> Utf8PathBuf {
     let file_name = file_util::convert_hash_to_dir_structure(hash, ".ogg");
     reaper_resource_dir
         .join("Helgoboss/Pot/previews")

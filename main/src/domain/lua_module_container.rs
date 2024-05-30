@@ -1,7 +1,7 @@
 use crate::domain::{compile_and_execute, create_fresh_environment};
 use anyhow::{bail, Context};
 use auto_impl::auto_impl;
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use include_dir::Dir;
 use mlua::{Function, Lua, Value};
 use std::borrow::Cow;
@@ -245,18 +245,18 @@ impl LuaModuleFinder for IncludedDirLuaModuleFinder {
 /// Files Lua modules within a specified file-system directory.
 #[derive(Clone)]
 pub struct FsDirLuaModuleFinder {
-    dir: PathBuf,
+    dir: Utf8PathBuf,
 }
 
 impl FsDirLuaModuleFinder {
-    pub fn new(dir: PathBuf) -> Self {
+    pub fn new(dir: Utf8PathBuf) -> Self {
         Self { dir }
     }
 }
 
 impl LuaModuleFinder for FsDirLuaModuleFinder {
     fn module_root_path(&self) -> String {
-        self.dir.to_string_lossy().to_string()
+        self.dir.to_string()
     }
 
     fn find_source_by_path(&self, path: &str) -> Option<Cow<'static, str>> {

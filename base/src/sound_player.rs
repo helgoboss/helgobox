@@ -1,4 +1,5 @@
 use anyhow::{ensure, Context};
+use camino::Utf8Path;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{
@@ -34,7 +35,7 @@ impl SoundPlayer {
         }
     }
 
-    pub fn load_file(&mut self, path_to_file: &Path) -> anyhow::Result<()> {
+    pub fn load_file(&mut self, path_to_file: &Utf8Path) -> anyhow::Result<()> {
         ensure!(path_to_file.exists(), "sound file doesn't exist");
         let source = Reaper::get()
             .medium_reaper()

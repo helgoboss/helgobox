@@ -1,4 +1,5 @@
 use crate::application::{FxId, FxPresetLinkConfig, PresetLinkManager, PresetLinkMutator};
+use camino::Utf8PathBuf;
 use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
@@ -8,12 +9,12 @@ pub type SharedPresetLinkManager = Rc<RefCell<FileBasedPresetLinkManager>>;
 
 #[derive(Debug)]
 pub struct FileBasedPresetLinkManager {
-    auto_load_configs_dir_path: PathBuf,
+    auto_load_configs_dir_path: Utf8PathBuf,
     config: FxPresetLinkConfig,
 }
 
 impl FileBasedPresetLinkManager {
-    pub fn new(auto_load_configs_dir_path: PathBuf) -> FileBasedPresetLinkManager {
+    pub fn new(auto_load_configs_dir_path: Utf8PathBuf) -> FileBasedPresetLinkManager {
         FileBasedPresetLinkManager {
             auto_load_configs_dir_path,
             config: Default::default(),
@@ -24,7 +25,7 @@ impl FileBasedPresetLinkManager {
         &self.config
     }
 
-    fn fx_config_file_path(&self) -> PathBuf {
+    fn fx_config_file_path(&self) -> Utf8PathBuf {
         self.auto_load_configs_dir_path.join("fx.json")
     }
 

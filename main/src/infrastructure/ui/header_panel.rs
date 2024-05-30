@@ -2183,7 +2183,7 @@ impl HeaderPanel {
                     "
                 );
                 self.view.require_window().alert("Success!", text);
-                let _ = open_in_file_manager(&descriptor.dir);
+                let _ = open_in_file_manager(descriptor.dir.as_std_path());
             }
             Err(e) => notify_user_about_anyhow_error(e),
         }
@@ -2257,7 +2257,7 @@ impl HeaderPanel {
 
     fn open_preset_folder(&self) {
         let path = BackboneShell::realearn_preset_dir_path();
-        let result = open_in_file_manager(&path).map_err(|e| e.into());
+        let result = open_in_file_manager(path.as_std_path()).map_err(|e| e.into());
         self.notify_user_on_error(result);
     }
 

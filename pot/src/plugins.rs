@@ -1,6 +1,7 @@
 use crate::{parse_vst2_magic_number, parse_vst3_uid, PluginId, ProductId};
 use base::file_util;
 use base::hash_util::NonCryptoHashMap;
+use camino::Utf8Path;
 use ini::Ini;
 use regex::Match;
 use std::fmt;
@@ -71,7 +72,7 @@ impl ProductAccumulator {
 }
 
 impl PluginDatabase {
-    pub fn crawl(reaper_resource_dir: &Path) -> Self {
+    pub fn crawl(reaper_resource_dir: &Utf8Path) -> Self {
         let mut product_accumulator = ProductAccumulator::default();
         let mut detected_legacy_vst3_scan = false;
         let shared_library_plugins = crawl_shared_library_plugins(
@@ -262,7 +263,7 @@ impl ProductKind {
 }
 fn crawl_js_plugins(
     product_accumulator: &mut ProductAccumulator,
-    js_root_dir: &Path,
+    js_root_dir: &Utf8Path,
 ) -> Vec<Plugin> {
     WalkDir::new(js_root_dir)
         .follow_links(true)
@@ -297,7 +298,7 @@ fn crawl_js_plugins(
 
 fn crawl_shared_library_plugins(
     product_accumulator: &mut ProductAccumulator,
-    reaper_resource_dir: &Path,
+    reaper_resource_dir: &Utf8Path,
     detected_legacy_vst3_scan: &mut bool,
 ) -> Vec<Plugin> {
     WalkDir::new(reaper_resource_dir)

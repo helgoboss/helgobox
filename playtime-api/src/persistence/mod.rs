@@ -1503,8 +1503,9 @@ pub enum Source {
 pub struct FileSource {
     /// Path to the media file.
     ///
-    /// If it's a relative path, it will be interpreted as relative to the REAPER project directory.
-    pub path: PathBuf,
+    /// - If it's a relative path, it will be interpreted as relative to the REAPER project directory.
+    /// - This should use slash as path segment separator, even on Windows.
+    pub path: String,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]

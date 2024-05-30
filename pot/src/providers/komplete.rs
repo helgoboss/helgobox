@@ -16,6 +16,7 @@ use enumset::{enum_set, EnumSet};
 use realearn_api::persistence::PotFilterKind;
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
+use camino::{Utf8Path, Utf8PathBuf};
 use chrono::NaiveDateTime;
 use riff_io::{ChunkMeta, Entry, RiffFile};
 use rusqlite::{Connection, OpenFlags, Row, ToSql};
@@ -796,7 +797,7 @@ impl PresetDb {
             .query_row(&sql, [id.0], |row| {
                 let name: String = row.get(0)?;
                 let path: String = row.get(1)?;
-                let path: PathBuf = path.into();
+                let path: Utf8PathBuf = path.into();
                 let file_ext: String = row.get(2)?;
                 let favorite_id: String = row.get(3)?;
                 let product_name: Option<String> = row.get(4)?;
@@ -1336,10 +1337,10 @@ const EXTENSION_TO_PRODUCT_NAME_MAPPING: &[(&str, &str)] = &[
     // ("ngrr", "Guitar Rig"),
 ];
 
-fn determine_preview_file(preset_file: &Path) -> Option<PathBuf> {
+fn determine_preview_file(preset_file: &Utf8Path) -> Option<Utf8PathBuf> {
     let preview_dir = preset_file.parent()?.join(".previews");
     let pure_file_name = preset_file.file_name()?;
-    let preview_file_name = format!("{}.ogg", pure_file_name.to_string_lossy());
+    let preview_file_name = format!("{pure_file_name}.ogg");
     Some(preview_dir.join(preview_file_name))
 }
 

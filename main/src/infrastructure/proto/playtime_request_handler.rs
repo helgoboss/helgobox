@@ -674,7 +674,7 @@ impl PlaytimeProtoRequestHandler {
             Ok(project_dir)
         })?;
         let reply = GetProjectDirReply {
-            project_dir: project_dir.to_string_lossy().to_string(),
+            project_dir: project_dir.into_string(),
         };
         Ok(Response::new(reply))
     }

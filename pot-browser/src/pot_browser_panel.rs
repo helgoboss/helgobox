@@ -3,6 +3,7 @@ use base::{
     blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
 };
 use base::{Mouse, MouseCursorPosition};
+use camino::{Utf8Path, Utf8PathBuf};
 use chrono::{DateTime, Local, Utc};
 use crossbeam_channel::Receiver;
 use egui::collapsing_header::CollapsingState;
@@ -50,7 +51,7 @@ use swell_ui::Window;
 
 pub trait PotBrowserIntegration {
     fn get_track_label(&self, track: &Track) -> String;
-    fn pot_preview_template_path(&self) -> Option<&'static Path>;
+    fn pot_preview_template_path(&self) -> Option<&'static Utf8Path>;
     fn pot_favorites(&self) -> &'static RwLock<PotFavorites>;
     fn with_current_fx_preset(&self, fx: &Fx, f: impl FnOnce(Option<&pot::CurrentPreset>));
     fn with_pot_filter_exclude_list(&self, f: impl FnOnce(&PotFilterExcludes));
@@ -297,7 +298,7 @@ enum PresetCacheEntry {
 #[derive(Debug)]
 struct PotPresetData {
     preset: PotPreset,
-    preview_file: Option<PathBuf>,
+    preview_file: Option<Utf8PathBuf>,
 }
 
 pub fn run_ui<I: PotBrowserIntegration>(ctx: &Context, state: &mut State, integration: &I) {
@@ -1370,7 +1371,7 @@ fn add_crawl_presets_stopped_dialog_contents(
                                 ui.label(preset.name());
                             });
                             row.col(|ui| {
-                                let dest = preset.destination().to_string_lossy();
+                                let dest = preset.destination().as_str();
                                 ui.label(&*dest).on_hover_text(&*dest);
                             });
                         }

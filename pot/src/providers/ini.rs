@@ -10,6 +10,7 @@ use std::borrow::Cow;
 
 use crate::plugins::{Plugin, PluginCore, SuperPluginKind};
 use base::hash_util::{PersistentHash, PersistentHasher};
+use camino::Utf8PathBuf;
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use ini::Ini;
@@ -24,14 +25,14 @@ use walkdir::WalkDir;
 
 pub struct IniDatabase {
     persistent_id: PersistentDatabaseId,
-    root_dir: PathBuf,
+    root_dir: Utf8PathBuf,
     entries: Vec<PresetEntry>,
 }
 
 impl IniDatabase {
     pub fn open(
         persistent_id: PersistentDatabaseId,
-        root_dir: PathBuf,
+        root_dir: Utf8PathBuf,
     ) -> Result<Self, Box<dyn Error>> {
         if !root_dir.try_exists()? {
             return Err("path to presets root directory doesn't exist".into());

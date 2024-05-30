@@ -25,6 +25,7 @@ crossbeam-channel.workspace = true
 strum.workspace = true
 swell-ui.workspace = true
 bytesize.workspace = true
+camino.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 rfd = "0.12.1"

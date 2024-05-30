@@ -1,5 +1,6 @@
 use crate::domain::{format_as_pretty_hex, RequestMidiDeviceIdentityReply};
 use anyhow::Context;
+use camino::Utf8PathBuf;
 use nanoid::nanoid;
 use realearn_api::persistence::{
     Controller, ControllerConfig, ControllerConnection, MidiControllerConnection, MidiInputPort,
@@ -7,7 +8,6 @@ use realearn_api::persistence::{
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use std::cell::RefCell;
 use std::fmt::Debug;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::{fs, mem};
 
@@ -15,7 +15,7 @@ pub type SharedControllerManager = Rc<RefCell<ControllerManager>>;
 
 #[derive(Debug)]
 pub struct ControllerManager {
-    controller_config_path: PathBuf,
+    controller_config_path: Utf8PathBuf,
     event_handler: Box<dyn ControllerManagerEventHandler>,
     controller_config: ControllerConfig,
 }
@@ -26,7 +26,7 @@ pub trait ControllerManagerEventHandler: Debug {
 
 impl ControllerManager {
     pub fn new(
-        controller_config_path: PathBuf,
+        controller_config_path: Utf8PathBuf,
         event_handler: Box<dyn ControllerManagerEventHandler>,
     ) -> Self {
         Self {

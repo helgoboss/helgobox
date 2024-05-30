@@ -599,6 +599,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ascii",
+ "camino",
  "crossbeam-channel",
  "derive_more",
  "device_query",
@@ -872,9 +873,9 @@ dependencies = [
 
 [[package]]
 name = "camino"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59e92b5a388f549b863a7bea62612c09f24c8393560709a54558a9abdfb3b9c"
+checksum = "e0ec6b951b160caa93cc0c7b209e5a3bff7aae9062213451ac99493cd844c239"
 
 [[package]]
 name = "cc"
@@ -4316,6 +4317,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
+name = "path-slash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e91099d4268b0e11973f036e885d652fb0b21fedcf69738c627f94db6a44f42"
+
+[[package]]
 name = "pathdiff"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4482,6 +4489,7 @@ dependencies = [
  "atomic",
  "base",
  "bytemuck",
+ "camino",
  "chrono",
  "crossbeam-channel",
  "derivative",
@@ -4508,6 +4516,7 @@ dependencies = [
  "num",
  "num_enum 0.7.2",
  "once_cell",
+ "path-slash",
  "playtime-api",
  "reaper-high",
  "reaper-low",
@@ -4580,6 +4589,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base",
+ "camino",
  "chrono",
  "derivative",
  "derive_more",
@@ -4622,6 +4632,7 @@ version = "0.1.0"
 dependencies = [
  "base",
  "bytesize",
+ "camino",
  "chrono",
  "crossbeam-channel",
  "dirs",
@@ -5103,6 +5114,7 @@ dependencies = [
  "backtrace",
  "base64 0.13.0",
  "c_str_macro",
+ "camino",
  "crossbeam-channel",
  "csv",
  "either",
@@ -5152,6 +5164,7 @@ name = "reaper-medium"
 version = "0.1.0"
 dependencies = [
  "c_str_macro",
+ "camino",
  "derive_more",
  "enumflags2",
  "helgoboss-midi",

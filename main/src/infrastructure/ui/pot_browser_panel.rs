@@ -3,6 +3,7 @@ use crate::domain::{AnyThreadBackboneState, Backbone};
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::egui_views;
+use camino::Utf8Path;
 use derivative::Derivative;
 use pot::{CurrentPreset, PotFavorites, PotFilterExcludes, SharedRuntimePotUnit};
 use pot_browser::{run_ui, PotBrowserIntegration, State};
@@ -70,7 +71,7 @@ impl PotBrowserIntegration for RealearnPotBrowserIntegration {
         get_track_label(track)
     }
 
-    fn pot_preview_template_path(&self) -> Option<&'static Path> {
+    fn pot_preview_template_path(&self) -> Option<&'static Utf8Path> {
         BackboneShell::realearn_pot_preview_template_path()
     }
 

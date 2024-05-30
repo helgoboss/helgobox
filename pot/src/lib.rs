@@ -23,6 +23,7 @@ use std::fs;
 use std::ops::Range;
 
 use anyhow::Context;
+use camino::{Utf8Path, Utf8PathBuf};
 use chrono::NaiveDateTime;
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
@@ -764,19 +765,19 @@ impl RuntimePotUnit {
 
     fn load_file_based_preset(
         &mut self,
-        preset_file: &Path,
+        preset_file: &Utf8Path,
         build_destination: impl Fn(&mut RuntimePotUnit) -> Result<Destination, &'static str>,
         window_behavior: LoadPresetWindowBehavior,
         audio_sample_behavior: LoadAudioSampleBehavior,
         is_shim_preset: bool,
         protected_fx: &Fx,
     ) -> Result<LoadPresetOutcome, LoadPresetError> {
-        let ext = preset_file.extension().and_then(|e| e.to_str()).ok_or(
-            LoadPresetError::UnsupportedPresetFormat {
+        let ext = preset_file
+            .extension()
+            .ok_or(LoadPresetError::UnsupportedPresetFormat {
                 file_extension: "".to_string(),
                 is_shim_preset,
-            },
-        )?;
+            })?;
         let outcome = match ext.to_lowercase().as_str() {
             _ if is_audio_file_extension(ext) => {
                 let dest = build_destination(self)?;
@@ -790,12 +791,17 @@ impl RuntimePotUnit {
             }
             "nksf" | "nksfx" => {
                 let dest = build_destination(self)?;
-                load_nks_preset(preset_file, &dest, window_behavior, protected_fx)?
+                load_nks_preset(
+                    preset_file.as_std_path(),
+                    &dest,
+                    window_behavior,
+                    protected_fx,
+                )?
             }
             "rfxchain" => {
                 let dest = build_destination(self)?;
                 load_rfx_chain_preset_using_chunks(
-                    preset_file,
+                    preset_file.as_std_path(),
                     &dest,
                     window_behavior,
                     protected_fx,
@@ -803,7 +809,12 @@ impl RuntimePotUnit {
             }
             "rtracktemplate" => {
                 let dest = build_destination(self)?;
-                load_track_template_preset(preset_file, &dest, window_behavior, protected_fx)?
+                load_track_template_preset(
+                    preset_file.as_std_path(),
+                    &dest,
+                    window_behavior,
+                    protected_fx,
+                )?
             }
             x => {
                 return Err(LoadPresetError::UnsupportedPresetFormat {
@@ -1318,7 +1329,7 @@ pub struct PotPresetCommon {
     /// If the database provides its own preview file, this field should contain its hypothetical
     /// path. It's not necessary or encouraged to already check for its existence of this file. This
     /// will be checked by the consumer.
-    pub db_specific_preview_file: Option<PathBuf>,
+    pub db_specific_preview_file: Option<Utf8PathBuf>,
     pub is_supported: bool,
     pub is_available: bool,
     pub metadata: PotPresetMetaData,
@@ -1358,7 +1369,7 @@ impl PotPresetKind {
 /// The kind of preset that's saved in a separate file.
 #[derive(Clone, Debug)]
 pub struct FiledBasedPotPresetKind {
-    pub path: PathBuf,
+    pub path: Utf8PathBuf,
     pub file_ext: String,
 }
 
@@ -1590,7 +1601,7 @@ fn load_default_factory_preset(
 }
 
 fn load_audio_preset(
-    path: &Path,
+    path: &Utf8Path,
     destination: &Destination,
     window_behavior: LoadPresetWindowBehavior,
     audio_sample_behavior: LoadAudioSampleBehavior,
@@ -1783,16 +1794,15 @@ fn insert_fx_by_plugin_id(
     Ok(fx)
 }
 
-fn load_media_in_specific_rs5k_modern(fx: &Fx, path: &Path) -> Result<(), Box<dyn Error>> {
-    let path_str = path.to_str().ok_or("path not UTF8-compatible")?;
-    let path_c_string = CString::new(path_str)?;
+fn load_media_in_specific_rs5k_modern(fx: &Fx, path: &Utf8Path) -> Result<(), Box<dyn Error>> {
+    let path_c_string = CString::new(path.as_str())?;
     unsafe {
         fx.set_named_config_param("FILE", path_c_string.as_bytes_with_nul().as_ptr() as _)?;
     }
     Ok(())
 }
 
-fn load_media_in_last_focused_rs5k(path: &Path) -> Result<(), &'static str> {
+fn load_media_in_last_focused_rs5k(path: &Utf8Path) -> Result<(), &'static str> {
     Reaper::get().medium_reaper().insert_media(
         path,
         InsertMediaMode::CurrentReasamplomatic,
@@ -1916,7 +1926,7 @@ fn is_audio_file_extension(ext: &str) -> bool {
     matches!(ext, "wav" | "aif" | "ogg" | "mp3")
 }
 
-pub fn preview_exists(preset: &PotPreset, reaper_resource_dir: &Path) -> bool {
+pub fn preview_exists(preset: &PotPreset, reaper_resource_dir: &Utf8Path) -> bool {
     find_preview_file(preset, reaper_resource_dir).is_some()
 }
 
@@ -1928,8 +1938,8 @@ pub fn preview_exists(preset: &PotPreset, reaper_resource_dir: &Path) -> bool {
 /// It prefers custom previews over database-specific previews.
 pub fn find_preview_file<'a>(
     preset: &'a PotPreset,
-    reaper_resource_dir: &Path,
-) -> Option<Cow<'a, Path>> {
+    reaper_resource_dir: &Utf8Path,
+) -> Option<Cow<'a, Utf8Path>> {
     // If the preset is an audio file and it exists, return that
     if let PotPresetKind::FileBased(kind) = &preset.kind {
         if is_audio_file_extension(&kind.file_ext) {
@@ -1949,7 +1959,7 @@ pub fn find_preview_file<'a>(
     // If a database-specific preview file exists, return that
     let db_specific_preview_file = preset.common.db_specific_preview_file.as_ref()?;
     if db_specific_preview_file.exists() {
-        Some(db_specific_preview_file.into())
+        Some(Cow::Borrowed(db_specific_preview_file))
     } else {
         None
     }

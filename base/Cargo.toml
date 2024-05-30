@@ -34,3 +34,4 @@ either.workspace = true
 logos.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
+camino.workspace = true

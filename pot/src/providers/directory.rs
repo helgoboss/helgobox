@@ -10,6 +10,7 @@ use std::borrow::Cow;
 
 use crate::plugins::{PluginCore, PluginDatabase};
 use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, PersistentHasher};
+use camino::Utf8PathBuf;
 use either::Either;
 use enumset::{enum_set, EnumSet};
 use itertools::Itertools;
@@ -20,12 +21,12 @@ use std::fs::File;
 use std::hash::Hasher;
 use std::io::{BufRead, BufReader};
 use std::iter;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use walkdir::WalkDir;
 
 pub struct DirectoryDatabase {
     persistent_id: PersistentDatabaseId,
-    root_dir: PathBuf,
+    root_dir: Utf8PathBuf,
     valid_extensions: NonCryptoHashSet<&'static OsStr>,
     name: &'static str,
     description: &'static str,
@@ -34,7 +35,7 @@ pub struct DirectoryDatabase {
 
 pub struct DirectoryDbConfig {
     pub persistent_id: PersistentDatabaseId,
-    pub root_dir: PathBuf,
+    pub root_dir: Utf8PathBuf,
     pub valid_extensions: &'static [&'static str],
     pub name: &'static str,
     pub description: &'static str,

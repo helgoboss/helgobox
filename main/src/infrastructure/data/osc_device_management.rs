@@ -2,6 +2,7 @@ use crate::base::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
 use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
+use camino::Utf8PathBuf;
 use derive_more::Display;
 use rx_util::Notifier;
 use rxrust::prelude::*;
@@ -20,11 +21,11 @@ pub type SharedOscDeviceManager = Rc<RefCell<OscDeviceManager>>;
 pub struct OscDeviceManager {
     config: OscDeviceConfig,
     changed_subject: LocalSubject<'static, (), ()>,
-    osc_device_config_file_path: PathBuf,
+    osc_device_config_file_path: Utf8PathBuf,
 }
 
 impl OscDeviceManager {
-    pub fn new(osc_device_config_file_path: PathBuf) -> OscDeviceManager {
+    pub fn new(osc_device_config_file_path: Utf8PathBuf) -> OscDeviceManager {
         OscDeviceManager {
             config: Default::default(),
             osc_device_config_file_path,

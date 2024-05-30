@@ -29,9 +29,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
 
+use camino::{Utf8Path, Utf8PathBuf};
 use nanoid::nanoid;
 use slug::slugify;
-use std::collections::{BTreeSet, HashSet};
 use std::{fmt, fs};
 use strum::EnumIs;
 use walkdir::WalkDir;
@@ -46,7 +46,7 @@ pub type FileBasedMainPresetManager = FileBasedCompartmentPresetManager<MainPres
 #[derive(Debug)]
 pub struct FileBasedCompartmentPresetManager<M> {
     compartment: CompartmentKind,
-    preset_dir_path: PathBuf,
+    preset_dir_path: Utf8PathBuf,
     preset_infos: Vec<PresetInfo<M>>,
     changed_subject: LocalSubject<'static, (), ()>,
     event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
@@ -169,7 +169,7 @@ pub trait CommonCompartmentPresetManager {
 
 pub struct PresetWorkspaceDescriptor {
     pub name: String,
-    pub dir: PathBuf,
+    pub dir: Utf8PathBuf,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -303,7 +303,7 @@ impl<S: SpecificPresetMetaData> CombinedPresetMetaData<S> {
 impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
     pub fn new(
         compartment: CompartmentKind,
-        preset_dir_path: PathBuf,
+        preset_dir_path: Utf8PathBuf,
         event_handler: Box<dyn CompartmentPresetManagerEventHandler<Source = Self>>,
     ) -> FileBasedCompartmentPresetManager<S> {
         FileBasedCompartmentPresetManager {
@@ -482,7 +482,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     PresetOrigin::User {
                         absolute_file_path: _,
                     } => {
-                        let relative_path = Path::new(&preset_info.common.id);
+                        let relative_path = Utf8Path::new(&preset_info.common.id);
                         let mut components = relative_path.components();
                         let first_component = components
                             .next()
@@ -595,8 +595,9 @@ impl<M: SpecificPresetMetaData> CommonCompartmentPresetManager
             {
                 return Ok(());
             }
-            let abs_path = workspace_dir.join(file.path());
-            fs::create_dir_all(abs_path.parent().context("impossible")?)?;
+            let utf8_path = Utf8Path::from_path(file.path()).context("non-UTF-8 impossible")?;
+            let abs_path = workspace_dir.join(utf8_path);
+            fs::create_dir_all(abs_path.parent().context("non-parent impossible")?)?;
             fs::write(abs_path, file.contents())?;
             Ok(())
         });

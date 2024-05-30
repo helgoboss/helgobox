@@ -6,6 +6,7 @@ use base::future_util::millis;
 use base::hash_util::NonCryptoIndexMap;
 use base::{blocking_lock_arc, file_util, hash_util};
 use base::{Mouse, MouseCursorPosition};
+use camino::{Utf8Path, Utf8PathBuf};
 use realearn_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;
@@ -197,7 +198,7 @@ pub struct CrawledPreset {
     name: String,
     offset: u64,
     size_in_bytes: usize,
-    destination: PathBuf,
+    destination: Utf8PathBuf,
 }
 
 impl CrawledPreset {
@@ -205,7 +206,7 @@ impl CrawledPreset {
         &self.name
     }
 
-    pub fn destination(&self) -> &Path {
+    pub fn destination(&self) -> &Utf8Path {
         &self.destination
     }
 }
@@ -296,10 +297,10 @@ where
 
 fn determine_preset_file_destination(
     fx_info: &FxInfo,
-    reaper_resource_dir: &Path,
+    reaper_resource_dir: &Utf8Path,
     preset_name: &str,
     plugin_id: Option<&PluginId>,
-) -> PathBuf {
+) -> Utf8PathBuf {
     if let Some(persistent_preset_id) = find_shimmable_preset(plugin_id, preset_name) {
         // Matched with existing unsupported preset. Create RfxChain file, a so called shim file,
         // but not in the FX chain directory because we don't want it to show up in the FX chain
@@ -369,7 +370,10 @@ async fn moment() {
 const MAX_SAME_PRESET_NAME_IN_A_ROW_ATTEMPTS: u32 = 10;
 const MAX_SAME_PRESET_NAME_LIKE_BEGINNING_ATTEMPTS: u32 = 10;
 
-pub fn get_shim_file_path(reaper_resource_dir: &Path, preset_id: &PersistentPresetId) -> PathBuf {
+pub fn get_shim_file_path(
+    reaper_resource_dir: &Utf8Path,
+    preset_id: &PersistentPresetId,
+) -> Utf8PathBuf {
     // We don't need to
     let hash =
         hash_util::calculate_persistent_non_crypto_hash_one_shot(preset_id.to_string().as_bytes());

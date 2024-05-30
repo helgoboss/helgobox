@@ -57,6 +57,7 @@ use crate::infrastructure::ui::welcome_panel::WelcomePanel;
 use anyhow::{bail, Context};
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
+use camino::{Utf8Path, Utf8PathBuf};
 use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -343,7 +344,9 @@ impl BackboneShell {
         );
         // License management
         let license_manager = LicenseManager::new(
-            BackboneShell::helgoboss_resource_dir_path().join("licensing.json"),
+            BackboneShell::helgoboss_resource_dir_path()
+                .join("licensing.json")
+                .into(),
             Box::new(BackboneLicenseManagerEventHandler),
         );
         // This just initializes the clip engine, it doesn't add any clip matrix yet, so resource consumption is low.
@@ -364,16 +367,17 @@ impl BackboneShell {
         // the actual presets are read from disk when waking up.
         let controller_preset_manager = FileBasedControllerPresetManager::new(
             CompartmentKind::Controller,
-            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Controller),
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Controller).into(),
             Box::new(BackboneControllerPresetManagerEventHandler),
         );
         let main_preset_manager = FileBasedMainPresetManager::new(
             CompartmentKind::Main,
-            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Main),
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Main).into(),
             Box::new(BackboneMainPresetManagerEventHandler),
         );
         let preset_link_manager =
-            FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
+            FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path())
+                .into();
         let controller_manager = ControllerManager::new(
             Self::realearn_controller_config_file_path(),
             Box::new(BackboneControllerManagerEventHandler),
@@ -386,7 +390,9 @@ impl BackboneShell {
             config.main.server_http_port,
             config.main.server_https_port,
             config.main.server_grpc_port,
-            BackboneShell::server_resource_dir_path().join("certificates"),
+            BackboneShell::server_resource_dir_path()
+                .join("certificates")
+                .into(),
             MetricsReporter::new(),
         );
         // OSC devices are reconnected only if device list changes (= while instance active)
@@ -1060,23 +1066,23 @@ impl BackboneShell {
         result
     }
 
-    fn helgoboss_resource_dir_path() -> PathBuf {
+    fn helgoboss_resource_dir_path() -> Utf8PathBuf {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
-    pub fn app_dir_path() -> PathBuf {
+    pub fn app_dir_path() -> Utf8PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("App")
     }
 
-    pub fn app_binary_base_dir_path() -> PathBuf {
+    pub fn app_binary_base_dir_path() -> Utf8PathBuf {
         BackboneShell::app_dir_path().join("bin")
     }
 
-    pub fn app_config_dir_path() -> PathBuf {
+    pub fn app_config_dir_path() -> Utf8PathBuf {
         BackboneShell::app_dir_path().join("etc")
     }
 
-    pub fn app_settings_file_path() -> PathBuf {
+    pub fn app_settings_file_path() -> Utf8PathBuf {
         BackboneShell::app_config_dir_path().join("settings.json")
     }
 
@@ -1095,24 +1101,24 @@ impl BackboneShell {
         Ok(())
     }
 
-    fn realearn_resource_dir_path() -> PathBuf {
+    fn realearn_resource_dir_path() -> Utf8PathBuf {
         BackboneShell::helgoboss_resource_dir_path().join("ReaLearn")
     }
 
-    pub fn realearn_data_dir_path() -> PathBuf {
+    pub fn realearn_data_dir_path() -> Utf8PathBuf {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/realearn")
     }
 
-    pub fn app_archive_file_path() -> PathBuf {
+    pub fn app_archive_file_path() -> Utf8PathBuf {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/archives/helgobox-app.tar.zst")
     }
 
-    pub fn realearn_high_click_sound_path() -> Option<&'static Path> {
-        static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
+    pub fn realearn_high_click_sound_path() -> Option<&'static Utf8Path> {
+        static PATH: Lazy<Option<Utf8PathBuf>> = Lazy::new(|| {
             // Before including the audio file in the binary, there was an actual file distributed
             // via ReaPack. However, we had to copy it to a temporary directory anyway, otherwise
             // we would risk an error on Windows when attempting to install a new ReaLearn version
@@ -1122,14 +1128,14 @@ impl BackboneShell {
             let bytes = include_bytes!("../../../../resources/sounds/click-high.mp3");
             let dest_path = BackboneShell::get_temp_dir()?.path().join("click-high.mp3");
             fs::write(&dest_path, bytes).ok()?;
-            Some(dest_path)
+            dest_path.try_into().ok()
         });
         PATH.as_ref().map(|p| p.as_path())
     }
 
     #[cfg(feature = "egui")]
-    pub fn realearn_pot_preview_template_path() -> Option<&'static Path> {
-        static PATH: Lazy<Option<PathBuf>> = Lazy::new(|| {
+    pub fn realearn_pot_preview_template_path() -> Option<&'static Utf8Path> {
+        static PATH: Lazy<Option<Utf8PathBuf>> = Lazy::new(|| {
             let bytes = include_bytes!(
                 "../../../../resources/template-projects/pot-preview/pot-preview.RPP"
             );
@@ -1137,16 +1143,16 @@ impl BackboneShell {
                 .path()
                 .join("pot-preview.RPP");
             fs::write(&dest_path, bytes).ok()?;
-            Some(dest_path)
+            Some(dest_path.try_into().ok()?)
         });
         PATH.as_ref().map(|p| p.as_path())
     }
 
-    pub fn realearn_preset_dir_path() -> PathBuf {
+    pub fn realearn_preset_dir_path() -> Utf8PathBuf {
         Self::realearn_data_dir_path().join("presets")
     }
 
-    pub fn realearn_compartment_preset_dir_path(compartment: CompartmentKind) -> PathBuf {
+    pub fn realearn_compartment_preset_dir_path(compartment: CompartmentKind) -> Utf8PathBuf {
         let sub_dir = match compartment {
             CompartmentKind::Controller => "controller",
             CompartmentKind::Main => "main",
@@ -1154,15 +1160,15 @@ impl BackboneShell {
         Self::realearn_preset_dir_path().join(sub_dir)
     }
 
-    pub fn realearn_auto_load_configs_dir_path() -> PathBuf {
+    pub fn realearn_auto_load_configs_dir_path() -> Utf8PathBuf {
         Self::realearn_data_dir_path().join("auto-load-configs")
     }
 
-    pub fn realearn_osc_device_config_file_path() -> PathBuf {
+    pub fn realearn_osc_device_config_file_path() -> Utf8PathBuf {
         BackboneShell::realearn_resource_dir_path().join("osc.json")
     }
 
-    pub fn realearn_controller_config_file_path() -> PathBuf {
+    pub fn realearn_controller_config_file_path() -> Utf8PathBuf {
         BackboneShell::realearn_resource_dir_path().join("controllers.json")
     }
 
@@ -2053,7 +2059,7 @@ impl BackboneShell {
         })
     }
 
-    fn server_resource_dir_path() -> PathBuf {
+    fn server_resource_dir_path() -> Utf8PathBuf {
         Self::helgoboss_resource_dir_path().join("Server")
     }
 
@@ -2148,7 +2154,7 @@ impl BackboneConfig {
         self.toolbar.get(command_name).is_some_and(|v| *v != 0)
     }
 
-    fn config_file_path() -> PathBuf {
+    fn config_file_path() -> Utf8PathBuf {
         BackboneShell::realearn_resource_dir_path().join("realearn.ini")
     }
 }
@@ -2581,7 +2587,7 @@ impl CompartmentPresetManagerEventHandler for BackboneControllerPresetManagerEve
 fn load_app_library() -> anyhow::Result<crate::infrastructure::ui::AppLibrary> {
     tracing::info!("Loading app library...");
     let app_base_dir = BackboneShell::app_binary_base_dir_path();
-    let lib = crate::infrastructure::ui::AppLibrary::load(app_base_dir);
+    let lib = crate::infrastructure::ui::AppLibrary::load(app_base_dir.into());
     match lib.as_ref() {
         Ok(_) => {
             tracing::info!("App library loaded successfully");
@@ -2785,13 +2791,12 @@ fn write_midi_devs_config_to_reaper_ini(
 ) -> anyhow::Result<()> {
     let reaper = Reaper::get();
     let reaper_ini = reaper.medium_reaper().get_ini_file(|p| p.to_path_buf());
-    let reaper_ini = reaper_ini.to_str().context("non-UTF8 path")?;
     // Replace existing entries
     for (key, val) in midi_in_devs
         .to_ini_entries()
         .chain(midi_out_devs.to_ini_entries())
     {
-        ini_util::write_ini_entry(reaper_ini, "REAPER", key, val.to_string())?;
+        ini_util::write_ini_entry(reaper_ini.as_str(), "REAPER", key, val.to_string())?;
     }
     Ok(())
 }
@@ -2832,6 +2837,7 @@ mod playtime_impl {
     use anyhow::Context;
     use base::metrics_util::{record_duration, record_occurrence};
     use base::Global;
+    use camino::Utf8PathBuf;
     use playtime_api::persistence::PlaytimeSettings;
     use playtime_clip_engine::PlaytimeEngine;
     use reaper_high::{GroupingBehavior, Reaper};
@@ -2845,11 +2851,11 @@ mod playtime_impl {
             serde_json::from_str(&json).ok()
         }
 
-        pub fn playtime_settings_file_path() -> PathBuf {
+        pub fn playtime_settings_file_path() -> Utf8PathBuf {
             Self::playtime_dir_path().join("settings.json")
         }
 
-        pub fn playtime_dir_path() -> PathBuf {
+        pub fn playtime_dir_path() -> Utf8PathBuf {
             Self::helgoboss_resource_dir_path().join("Playtime")
         }
     }
