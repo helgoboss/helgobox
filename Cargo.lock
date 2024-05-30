@@ -876,6 +876,9 @@ name = "camino"
 version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0ec6b951b160caa93cc0c7b209e5a3bff7aae9062213451ac99493cd844c239"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "cc"
@@ -4467,6 +4470,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.21.2",
+ "camino",
  "chrono",
  "derive_more",
  "nanoid",

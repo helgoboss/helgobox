@@ -26,6 +26,7 @@ mod serialization;
 use crate::runtime::CellAddress;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
+use camino::{Utf8Path, Utf8PathBuf};
 use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -1505,7 +1506,7 @@ pub struct FileSource {
     ///
     /// - If it's a relative path, it will be interpreted as relative to the REAPER project directory.
     /// - This should use slash as path segment separator, even on Windows.
-    pub path: String,
+    pub path: Utf8PathBuf,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
