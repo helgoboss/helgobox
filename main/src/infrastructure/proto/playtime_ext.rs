@@ -256,8 +256,9 @@ impl occasional_track_update::Update {
         Self::Color(RgbColor::from_engine(track.custom_color()))
     }
 
-    pub fn input(input: Option<RecordingInput>) -> Self {
-        Self::Input(TrackInput::from_engine(input))
+    pub fn input(track: &reaper_high::Track) -> Self {
+        let engine_track_input = base::TrackInput::from_track(track);
+        Self::Input(TrackInput::from_engine(engine_track_input))
     }
 
     pub fn armed(value: bool) -> Self {
@@ -408,17 +409,16 @@ impl SlotPlayState {
 }
 
 impl TrackInput {
-    pub fn from_engine(input: Option<RecordingInput>) -> Self {
+    pub fn from_engine(input: base::TrackInput) -> Self {
         use RecordingInput::*;
-        let input = match input {
+        let input = match input.rec_input {
             Some(Mono(ch)) => Some(Input::Mono(ch)),
             Some(Stereo(ch)) => Some(Input::Stereo(ch)),
             Some(Midi { device_id, channel }) => {
                 let midi_input = TrackMidiInput {
                     device: device_id.map(|id| id.get() as _),
                     channel: channel.map(|ch| ch.get() as _),
-                    // TODO-high-playtime-before-release Map track's mapped MIDI channel to here
-                    destination_channel: None,
+                    destination_channel: input.map_to_midi_channel.map(|ch| ch.get() as _),
                 };
                 Some(Input::Midi(midi_input))
             }
@@ -427,16 +427,26 @@ impl TrackInput {
         Self { input }
     }
 
-    pub fn to_engine(&self) -> Option<RecordingInput> {
-        let input = match self.input.as_ref()? {
-            Input::Mono(ch) => RecordingInput::Mono(*ch),
-            Input::Stereo(ch) => RecordingInput::Stereo(*ch),
-            Input::Midi(input) => RecordingInput::Midi {
-                device_id: input.device.map(|id| MidiInputDeviceId::new(id as _)),
-                channel: input.channel.map(|id| Channel::new(id as _)),
-            },
+    pub fn to_engine(&self) -> base::TrackInput {
+        let (rec_input, map_to_midi_channel) = match self.input.as_ref() {
+            None => (None, None),
+            Some(Input::Mono(ch)) => (Some(RecordingInput::Mono(*ch)), None),
+            Some(Input::Stereo(ch)) => (Some(RecordingInput::Stereo(*ch)), None),
+            Some(Input::Midi(input)) => {
+                let midi_input = RecordingInput::Midi {
+                    device_id: input.device.map(|id| MidiInputDeviceId::new(id as _)),
+                    channel: input.channel.map(|id| Channel::new(id as _)),
+                };
+                let map_to_midi_channel = input
+                    .destination_channel
+                    .and_then(|ch| Channel::try_from(ch).ok());
+                (Some(midi_input), map_to_midi_channel)
+            }
         };
-        Some(input)
+        base::TrackInput {
+            rec_input,
+            map_to_midi_channel,
+        }
     }
 }
 

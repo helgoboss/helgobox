@@ -631,8 +631,11 @@ impl PlaytimeProtoRequestHandler {
     }
 
     pub fn set_track_input(&self, req: SetTrackInputRequest) -> Result<Response<Empty>, Status> {
+        let input = req
+            .input
+            .ok_or_else(|| Status::invalid_argument("missing track input"))?;
         self.handle_track_command(&req.track_address, |matrix, track| {
-            matrix.set_track_input(track, req.input.and_then(|i| i.to_engine()));
+            matrix.set_track_input(track, input.to_engine());
             Ok(())
         })
     }

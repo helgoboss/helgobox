@@ -423,10 +423,8 @@ mod playtime_impl {
                             input_props.input_monitoring,
                         ),
                     );
-                    let input_update = track_update(
-                        track,
-                        occasional_track_update::Update::input(track.recording_input()),
-                    );
+                    let input_update =
+                        track_update(track, occasional_track_update::Update::input(track));
                     let color_update =
                         track_update(track, occasional_track_update::Update::color(track));
                     updates.push(arm_update);
@@ -692,7 +690,7 @@ mod playtime_impl {
                         Some(track_update(&e.track, || Update::name(&e.track)))
                     }
                     ChangeEvent::TrackInputChanged(e) => {
-                        column_track_update(matrix, &e.track, || Update::input(e.new_value))
+                        column_track_update(matrix, &e.track, || Update::input(&e.track))
                     }
                     ChangeEvent::TrackInputMonitoringChanged(e) => {
                         column_track_update(matrix, &e.track, || {

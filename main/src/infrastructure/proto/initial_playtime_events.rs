@@ -90,7 +90,7 @@ pub fn create_initial_track_updates(
                 track_updates: [
                     Update::name(&track),
                     Update::color(&track),
-                    Update::input(track.recording_input()),
+                    Update::input(&track),
                     Update::armed(input_props.armed),
                     Update::input_monitoring(input_props.input_monitoring),
                     Update::mute(track.is_muted()),
