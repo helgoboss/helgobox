@@ -438,9 +438,9 @@ function clip_quantize(col, row)
     }
 end
 
--- TODO-high-playtime-before-release Make short press toggle and long press be momentary.
+-- TODO-high-playtime-after-release Make short press toggle and long press be momentary.
 --  Problem 1: "Fire after timeout" somehow doesn't have an effect.
---  Problem 2: "Fire after timeout" doesn't switch off when button released.
+--  Problem 2: "Fire after timeout" doesn't switch off when button released (in new versions it does!)
 function mode_button(button_id, mode)
     local target_value = mode.index / (mode_count - 1)
     return {

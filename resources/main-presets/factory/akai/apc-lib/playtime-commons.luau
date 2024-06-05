@@ -26,8 +26,6 @@ export type ApcPlaytimePresetConfig = {
 }
 
 function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Compartment
-    -- TODO-high-playtime-before-release Make record and play buttons control Playtime's sequencer
-
     -- Aliases
 
     local partial_mapping = util.partial_mapping
@@ -590,10 +588,11 @@ function module.create_compartment(config: ApcPlaytimePresetConfig): realearn.Co
     -- Mappings
 
     local mappings = {
-        name("Play/stop") + no_mod + button("play") + toggle() + transport_action("PlayStop"),
+        name("Play/stop") + no_mod + button("play") + toggle() + clip_matrix_action("PlayIgnitedOrEnterSilenceMode"),
         name("Shift modifier") + button("shift") + set_param(params.shift.index),
         name("Sustain modifier") + button("sustain") + set_param(params.sustain.index),
         name("Undo") + shift + button("play") + clip_matrix_action("Undo"),
+        name("Record") + no_mod + button("record") + clip_matrix_action("SmartRecord"),
         name("Redo") + shift + button("record") + clip_matrix_action("Redo"),
         name("Build scene") + sustain + button("record") + clip_matrix_action("BuildScene"),
         name("Switch send")
