@@ -367,50 +367,6 @@ fn execute_lua_import_script<'a>(
     if limit_execution_time {
         lua.start_execution_time_limit_countdown();
     }
-    let env = lua.create_fresh_environment(true)?;
-    // Add some useful functions (hidden, undocumented, subject to change!)
-    // TODO-high-playtime-before-release This should either be removed or made official (by putting it into preset_runtime.luau)
-    let realearn_table = {
-        // Prepare
-        let lua: &Lua = lua.as_ref();
-        let table = lua.create_table()?;
-        // get_track_guid_by_index
-        let get_track_guid_by_index = lua.create_function(|_, index: u32| {
-            let guid = Reaper::get()
-                .current_project()
-                .track_by_index(index)
-                .map(|t| t.guid().to_string_without_braces());
-            Ok(guid)
-        })?;
-        table.set("get_track_guid_by_index", get_track_guid_by_index)?;
-        // get_track_guid_by_name_prefix
-        let get_track_guid_by_name_prefix = lua.create_function(|_, prefix: String| {
-            let guid = Reaper::get().current_project().tracks().find_map(|t| {
-                if !t.name()?.to_str().starts_with(&prefix) {
-                    return None;
-                }
-                Some(t.guid().to_string_without_braces())
-            });
-            Ok(guid)
-        })?;
-        table.set(
-            "get_track_guid_by_name_prefix",
-            get_track_guid_by_name_prefix,
-        )?;
-        // print
-        let print = lua.create_function(|_, arg: mlua::Value| {
-            let text: String = match arg {
-                Value::String(s) => format!("{}\n", s.to_string_lossy()),
-                arg => format!("{arg:?}\n"),
-            };
-            Reaper::get().show_console_msg(text);
-            Ok(())
-        })?;
-        table.set("print", print)?;
-        // Return
-        table
-    };
-    env.set("realearn", realearn_table)?;
     // Add support for require, but only for the logged-in user's presets. That means the module root will be the
     // subdirectory within the preset directory that has the name as the logged-in user's name.
     let preset_dir = BackboneShell::realearn_compartment_preset_dir_path(active_compartment);
