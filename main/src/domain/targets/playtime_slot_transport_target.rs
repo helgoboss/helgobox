@@ -171,8 +171,10 @@ mod playtime_impl {
                     }
                     PlayStop => {
                         if value.is_on() {
-                            matrix
-                                .play_slot(self.basics.slot_address, self.basics.play_options())?;
+                            matrix.play_slot(
+                                self.basics.slot_address,
+                                self.basics.play_options(value),
+                            )?;
                         } else {
                             matrix.stop_slot(self.basics.slot_address)?;
                         }
@@ -180,8 +182,10 @@ mod playtime_impl {
                     }
                     PlayPause => {
                         if value.is_on() {
-                            matrix
-                                .play_slot(self.basics.slot_address, self.basics.play_options())?;
+                            matrix.play_slot(
+                                self.basics.slot_address,
+                                self.basics.play_options(value),
+                            )?;
                         } else {
                             matrix.pause_clip(self.basics.slot_address)?;
                         }
@@ -238,7 +242,7 @@ mod playtime_impl {
                                 // Slot is filled.
                                 matrix.play_slot(
                                     self.basics.slot_address,
-                                    self.basics.play_options(),
+                                    self.basics.play_options(value),
                                 )?;
                             }
                         } else {
@@ -481,7 +485,8 @@ mod playtime_impl {
                 }
                 PlayStop => {
                     if value.is_on() {
-                        matrix.play_slot(self.basics.slot_address, self.basics.play_options())?;
+                        matrix
+                            .play_slot(self.basics.slot_address, self.basics.play_options(value))?;
                     } else {
                         matrix.stop_slot(self.basics.slot_address)?;
                     }
@@ -489,7 +494,8 @@ mod playtime_impl {
                 }
                 PlayPause => {
                     if value.is_on() {
-                        matrix.play_slot(self.basics.slot_address, self.basics.play_options())?;
+                        matrix
+                            .play_slot(self.basics.slot_address, self.basics.play_options(value))?;
                     } else {
                         matrix.pause_slot(self.basics.slot_address)?;
                     }
@@ -547,10 +553,9 @@ mod playtime_impl {
     }
 
     impl ClipTransportTargetBasics {
-        fn play_options(&self) -> ColumnPlaySlotOptions {
+        fn play_options(&self, control_value: ControlValue) -> ColumnPlaySlotOptions {
             ColumnPlaySlotOptions {
-                // TODO-high-playtime-before-release Should we respect velocity for non-trigger transport actions as well?
-                velocity: Some(UnitValue::MAX),
+                velocity: Some(control_value.to_unit_value().unwrap_or(UnitValue::MAX)),
                 stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
             }
         }
