@@ -13,6 +13,8 @@ pub type AudioF64 = ApproxF64<100000>;
 pub struct ApproxF64<const E: u32>(pub f64);
 
 impl<const E: u32> ApproxF64<E> {
+    const EPSILON: f64 = 1.0 / E as f64;
+
     pub fn new(raw: f64) -> Self {
         Self(raw)
     }
