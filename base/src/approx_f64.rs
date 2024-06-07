@@ -22,7 +22,7 @@ impl<const E: u32> ApproxF64<E> {
 
 impl<const E: u32> PartialEq for ApproxF64<E> {
     fn eq(&self, other: &Self) -> bool {
-        (self.0 - other.0).abs() < 1.0 / E as f64
+        (self.0 - other.0).abs() < Self::EPSILON
     }
 }
 

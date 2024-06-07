@@ -347,8 +347,8 @@ impl clip_content_info::Info {
             ClipSource::File(_) => Self::Audio(AudioClipContentInfo {
                 online: clip_employment.online_data.is_some(),
             }),
-            ClipSource::MidiSequence(s) => Self::Midi(MidiClipContentInfo {
-                quantized: s.is_quantized(),
+            ClipSource::Midi(s) => Self::Midi(MidiClipContentInfo {
+                quantized: s.sequence().is_quantized(),
             }),
         }
     }

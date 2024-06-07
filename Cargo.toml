@@ -117,6 +117,7 @@ bytemuck = "1.13.1"
 palette = "0.7.4"
 libc = "0.2.153"
 path-slash = "0.2.1"
+pathdiff = "0.2.1"
 
 [profile.release]
 # This is important for having line numbers in bug reports.

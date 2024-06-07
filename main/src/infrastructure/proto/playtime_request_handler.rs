@@ -646,8 +646,7 @@ impl PlaytimeProtoRequestHandler {
     ) -> Result<Response<GetClipDetailReply>, Status> {
         let peak_file_future =
             self.handle_clip_by_id_internal(req.clip_id, |matrix, clip_id| {
-                let clip = matrix.get_clip_by_id(&clip_id)?;
-                let peak_file_future = clip.peak_file_contents(matrix.project())?;
+                let peak_file_future = matrix.get_clip_peak_file_contents(&clip_id)?;
                 Ok(peak_file_future)
             })?;
         let reply = GetClipDetailReply {
