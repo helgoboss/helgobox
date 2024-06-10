@@ -153,6 +153,11 @@ impl playtime_clip_engine::base::ClipMatrixHandler for MatrixHandler {
             session.remove_mapping_by_target(CompartmentKind::Main, &mapping_desc.reaper_target);
         });
     }
+
+    fn warn_about_less_important_issue(&self, message: &str) {
+        // The "!SHOW:" prefix makes the console window not open since REAPER 7.
+        Reaper::get().show_console_msg(format!("!SHOW:Helgobox: {message}"));
+    }
 }
 
 struct SimpleMappingDesc {
