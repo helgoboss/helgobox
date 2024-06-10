@@ -62,7 +62,7 @@ strum = { version = "0.25.0", features = ["derive"] }
 regex = "1"
 walkdir = "2"
 either = "1.8.0"
-tracing = "0.1.31"
+tracing = "0.1.40"
 tracing-core = "0.1.32"
 futures = { version = "0.3", default-features = false }
 derivative = "2.2.0"

@@ -5179,6 +5179,7 @@ dependencies = [
  "reaper-macros",
  "ref-cast",
  "serde",
+ "tracing",
  "vst",
  "winapi",
 ]
