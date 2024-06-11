@@ -1450,6 +1450,14 @@ impl Section {
             },
         }
     }
+
+    pub fn effective_length(&self, source_length: DurationInSeconds) -> DurationInSeconds {
+        if let Some(length) = self.length {
+            length
+        } else {
+            source_length.saturating_sub(self.start_pos)
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
