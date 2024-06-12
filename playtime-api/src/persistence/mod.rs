@@ -1387,8 +1387,9 @@ pub struct MidiResetMessages {
     pub all_sound_off: bool,
     /// Sends MIDI CC121 (reset-all-controllers).
     pub reset_all_controllers: bool,
-    /// Sends CC64 value 0 (damper-pedal-off).
-    pub damper_pedal_off: bool,
+    /// Sends CC64 value 0 events (damper-pedal-off) for all damper pedals that are currently pressed in this clip.
+    #[serde(alias = "damper_pedal_off")]
+    pub on_damper_pedal_off: bool,
 }
 
 impl MidiResetMessages {
@@ -1397,7 +1398,7 @@ impl MidiResetMessages {
         all_notes_off: false,
         all_sound_off: false,
         reset_all_controllers: false,
-        damper_pedal_off: false,
+        on_damper_pedal_off: false,
     };
 
     pub const LIGHT: Self = Self {
@@ -1405,7 +1406,7 @@ impl MidiResetMessages {
         all_notes_off: false,
         all_sound_off: false,
         reset_all_controllers: false,
-        damper_pedal_off: true,
+        on_damper_pedal_off: true,
     };
 
     pub fn at_least_one_enabled(&self) -> bool {
@@ -1413,7 +1414,7 @@ impl MidiResetMessages {
             || self.all_notes_off
             || self.all_sound_off
             || self.reset_all_controllers
-            || self.damper_pedal_off
+            || self.on_damper_pedal_off
     }
 }
 
