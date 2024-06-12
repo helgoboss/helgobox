@@ -1299,27 +1299,29 @@ pub struct ClipMidiSettings {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ClipMidiResetSettings {
-    /// For fine-tuning instant start/stop of a MIDI clip when in the middle of the source or section.
+    /// For fine-tuning the start and the end of one particular "play" session of a clip.
     ///
-    /// - The left interaction reset messages are sent when the clip is triggered.
+    /// - The left interaction reset messages are sent when the clip is triggered if it already contains playable
+    ///   material at the time of triggering = immediate start or last-minute scheduled start (done in interaction handler)
     /// - The right interaction reset messages are sent when the clip ends:
-    ///     - For immediate stops/retriggers: Immediately at trigger time
-    ///     - For quantized stops/retriggers: At the time the quantized position is reached
-    ///     - For one-shots or "Until end of clip": At the time when the clip ends naturally
+    ///     - For immediate stops/retriggers: Immediately at trigger time (done in interaction handler)
+    ///     - For quantized stops/retriggers: At the time the quantized position is reached (done in interaction handler)
+    ///     - For one-shots or "Until end of clip": At the time when the clip ends naturally (done in looper)
     pub interaction_reset_settings: MidiResetMessageRange,
-    /// For fine-tuning the section.
+    /// For fine-tuning the section (done in section handler).
     ///
-    /// - The left section reset messages are sent when a section start position > 0 is defined and playback starts
-    ///   from the beginning.
-    /// - The right section reset messages are sent when a section length is defined and playback hits that end.
+    /// - The left section reset messages are sent when the effective section start position > 0 and playback hits the
+    ///   section start position.
+    /// - The right section reset messages are sent when a section length is defined and playback hits the section end
+    ///   position.
     /// - If the clip is looped, the messages will be sent at each loop cycle.
     pub section_reset_settings: MidiResetMessageRange,
-    /// For fixing the source itself.
+    /// For fixing the source itself (done in start-end handler).
     ///
-    /// - The left source reset messages are sent when section start position == 0 and playback starts
-    ///   from the beginning.
-    /// - The right source reset messages are sent when no section length is defined
-    ///   and playback hits that end.
+    /// - The left source reset messages are sent when the effective section start position == 0 and playback hits
+    ///   the start of the source.
+    /// - The right source reset messages are sent when no section length is defined and playback hits the end of the
+    ///   source.
     /// - If the clip is looped, the messages will be sent at *each* loop cycle.
     ///
     /// This exists separately from the section reset settings because one might prefer using the original MIDI
