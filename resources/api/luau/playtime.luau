@@ -1053,7 +1053,6 @@ end
 
 export type ClipMidiResetSettings = {
 	interaction_reset_settings: MidiResetMessageRange,
-	loop_reset_settings: MidiResetMessageRange,
 	section_reset_settings: MidiResetMessageRange,
 	source_reset_settings: MidiResetMessageRange,
 }
