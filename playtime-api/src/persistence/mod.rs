@@ -1301,12 +1301,17 @@ pub struct ClipMidiSettings {
 pub struct ClipMidiResetSettings {
     /// For fine-tuning the start and the end of one particular "play" session of a clip.
     ///
-    /// - The left interaction reset messages are sent when the clip is triggered if it already contains playable
-    ///   material at the time of triggering = immediate start or last-minute scheduled start (done in interaction handler)
-    /// - The right interaction reset messages are sent when the clip ends:
+    /// - The left interaction reset messages are sent when clip playback starts:
+    ///     - For immediate starts: Immediately at trigger time (done in looper)
+    ///     - For quantized starts that are triggered before the quantized position:
+    ///       At the time the quantized position is reached (done in looper)
+    ///     - For quantized starts that are triggered a tiny bit after the quantized position ("last minute triggering"):
+    ///       Immediately at trigger time (done in interaction handler)
+    /// - The right interaction reset messages are sent when clip playback ends:
     ///     - For immediate stops/retriggers: Immediately at trigger time (done in interaction handler)
     ///     - For quantized stops/retriggers: At the time the quantized position is reached (done in interaction handler)
-    ///     - For one-shots or "Until end of clip": At the time when the clip ends naturally (done in looper)
+    ///     - For naturally ending one-shots or stop-triggered loops with "Until end of clip":
+    ///       At the time when the clip ends naturally (done in looper)
     pub interaction_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the section (done in section handler).
     ///
