@@ -94,7 +94,7 @@ impl AppLibrary {
     fn verify_version_compatibility(&self) -> Result<()> {
         let version = self.get_app_api_version()?;
         if version < MIN_APP_API_VERSION || version.major > MIN_APP_API_VERSION.major {
-            bail!("App API version doesn't match. Minimum version: {MIN_APP_API_VERSION}. Current version: {version}.");
+            bail!("App API version doesn't match. Expected version: {MIN_APP_API_VERSION}. Actual version: {version}.");
         }
         Ok(())
     }
