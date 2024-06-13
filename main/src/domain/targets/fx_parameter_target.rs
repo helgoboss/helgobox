@@ -15,6 +15,7 @@ use reaper_medium::{
 };
 use std::borrow::Cow;
 use std::convert::TryInto;
+use tracing::warn;
 
 #[derive(Debug)]
 pub struct UnresolvedFxParameterTarget {
@@ -445,11 +446,9 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
         // know. In future, we might offer further customization possibilities here.
         // For now, we just report it as 0.0 or 1.0 and log a warning.
         // TODO-medium As soon as we migrate to tracing, build this into the real-time target, too.
-        slog::warn!(
-            reaper_high::Reaper::get().logger(),
+        warn!(
             "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
-            v,
-            param
+            v, param
         );
         return UnitValue::new_clamped(v);
     }

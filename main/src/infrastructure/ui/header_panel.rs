@@ -7,8 +7,6 @@ use std::iter;
 
 use reaper_high::Reaper;
 
-use slog::debug;
-
 use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, WeakView, Window};
 
 use crate::application::{
@@ -71,6 +69,7 @@ use std::error::Error;
 use std::net::Ipv4Addr;
 use std::ops::{DerefMut, RangeInclusive};
 use strum::IntoEnumIterator;
+use tracing::debug;
 
 const PARAM_BATCH_SIZE: u32 = 5;
 
@@ -2743,7 +2742,7 @@ impl View for HeaderPanel {
 
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping header panel...");
+        debug!("Dropping header panel...");
         self.close_open_child_panels();
     }
 }

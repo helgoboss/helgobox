@@ -11,8 +11,8 @@ use realearn_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;
-use slog::debug;
 use std::cmp;
+use tracing::debug;
 
 use crate::application::{
     Affected, SessionProp, SharedMapping, SharedUnitModel, UnitModel, WeakUnitModel,
@@ -684,7 +684,7 @@ impl View for MappingRowsPanel {
 
 impl Drop for MappingRowsPanel {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping mapping rows panel...");
+        debug!("Dropping mapping rows panel...");
     }
 }
 

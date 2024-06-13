@@ -1,6 +1,5 @@
 use crate::application::{Change, ModeCommand, ModeModel};
 use crate::infrastructure::data::MigrationDescriptor;
-use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
@@ -9,8 +8,8 @@ use helgoboss_learn::{
 };
 use realearn_api::persistence::FeedbackValueTable;
 use serde::{Deserialize, Serialize};
-use slog::debug;
 use std::time::Duration;
+use tracing::debug;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -293,7 +292,6 @@ impl ModeModelData {
                 && self.r#type == AbsoluteMode::Normal
             {
                 debug!(
-                    BackboneShell::logger(),
                     "Migration: Inverting target interval of mapping {} in order to not break existing behavior because of #117",
                     mapping_name
                 );

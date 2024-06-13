@@ -19,7 +19,6 @@ use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{
     Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, ProjectRef, SendMidiTime,
 };
-use slog::{debug, trace};
 
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use enum_map::{enum_map, EnumMap};
@@ -27,6 +26,7 @@ use helgoboss_allocator::permit_alloc;
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;
+use tracing::{debug, trace};
 use vst::api::{EventType, Events, SysExEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
@@ -37,7 +37,6 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 #[derive(Debug)]
 pub struct RealTimeProcessor {
     unit_id: UnitId,
-    logger: slog::Logger,
     // Synced processing settings
     settings: BasicSettings,
     control_mode: ControlMode,
@@ -67,7 +66,6 @@ impl RealTimeProcessor {
     pub fn new(
         unit_id: UnitId,
         instance: WeakRealTimeInstance,
-        parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
         feedback_task_sender: SenderToRealTimeThread<FeedbackRealTimeTask>,
@@ -78,7 +76,6 @@ impl RealTimeProcessor {
         RealTimeProcessor {
             unit_id,
             instance,
-            logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             settings: Default::default(),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
@@ -177,16 +174,13 @@ impl RealTimeProcessor {
             let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
             permit_alloc(|| {
                 debug!(
-                    self.logger,
                     "Successfully requested full sync. Discarded {} normal and {} feedback tasks.",
-                    discarded_normal_task_count,
-                    discarded_feedback_task_count
+                    discarded_normal_task_count, discarded_feedback_task_count
                 );
             });
         } else {
             permit_alloc(|| {
                 debug!(
-                    self.logger,
                     "Small audio device outage detected but probably related to project load so no action taken.",
                 );
             });
@@ -229,12 +223,7 @@ impl RealTimeProcessor {
                 }
                 UpdateAllMappings(compartment, mappings) => {
                     permit_alloc(|| {
-                        debug!(
-                            self.logger,
-                            "Updating {} mappings in {}...",
-                            mappings.len(),
-                            compartment
-                        );
+                        debug!("Updating {} mappings in {}...", mappings.len(), compartment);
                     });
                     // Handle deactivation MIDI
                     if self.processor_feedback_is_effectively_on() {
@@ -257,12 +246,7 @@ impl RealTimeProcessor {
                 }
                 UpdateSingleMapping(compartment, m) => {
                     permit_alloc(|| {
-                        debug!(
-                            self.logger,
-                            "Updating single mapping {:?} in {}...",
-                            m.id(),
-                            compartment,
-                        );
+                        debug!("Updating single mapping {:?} in {}...", m.id(), compartment,);
                     });
                     // Send lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
@@ -278,8 +262,8 @@ impl RealTimeProcessor {
                 UpdatePersistentMappingProcessingState { id, state } => {
                     permit_alloc(|| {
                         debug!(
-                            self.logger,
-                            "Updating persistent state of {:?} in {}...", id.id, id.compartment
+                            "Updating persistent state of {:?} in {}...",
+                            id.id, id.compartment
                         );
                     });
                     // Update
@@ -305,7 +289,6 @@ impl RealTimeProcessor {
                     //  automatically.
                     permit_alloc(|| {
                         debug!(
-                            self.logger,
                             "Update target activations in {} at {} samples...",
                             compartment,
                             self.midi_clock_calculator.current_sample_count()
@@ -335,7 +318,7 @@ impl RealTimeProcessor {
                 }
                 UpdateSettings(settings) => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Updating settings...");
+                        debug!("Updating settings...");
                     });
                     let prev_midi_destination = self.settings.midi_destination();
                     let next_midi_destination = settings.midi_destination();
@@ -352,7 +335,7 @@ impl RealTimeProcessor {
                 }
                 UpdateSampleRate(sample_rate) => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Updating sample rate");
+                        debug!("Updating sample rate");
                     });
                     self.sample_rate = sample_rate;
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
@@ -361,7 +344,7 @@ impl RealTimeProcessor {
                     allow_virtual_sources,
                 } => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Start learning source");
+                        debug!("Start learning source");
                     });
                     self.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
@@ -371,13 +354,13 @@ impl RealTimeProcessor {
                 }
                 DisableControl => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Disable control");
+                        debug!("Disable control");
                     });
                     self.control_mode = ControlMode::Disabled;
                 }
                 ReturnToControlMode => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Return to control mode");
+                        debug!("Return to control mode");
                     });
                     self.control_mode = ControlMode::Controlling;
                     self.nrpn_scanner.reset();
@@ -391,7 +374,7 @@ impl RealTimeProcessor {
                 }
                 UpdateMappingsPartially(compartment, mapping_updates) => {
                     permit_alloc(|| {
-                        debug!(self.logger, "Updating mapping activations...");
+                        debug!("Updating mapping activations...");
                     });
                     // Apply updates
                     for update in mapping_updates.iter() {
@@ -553,7 +536,6 @@ impl RealTimeProcessor {
                 .send_complaining(NormalRealTimeToMainThreadTask::LogToConsole(msg));
             // Detailled
             trace!(
-                self.logger,
                 "\n\
             # Real-time processor\n\
             \n\
@@ -1262,7 +1244,7 @@ pub enum FeedbackRealTimeTask {
 impl Drop for RealTimeProcessor {
     fn drop(&mut self) {
         permit_alloc(|| {
-            debug!(self.logger, "Dropping real-time processor...");
+            debug!("Dropping real-time processor...");
         });
     }
 }

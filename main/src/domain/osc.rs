@@ -3,8 +3,6 @@ use derive_more::Display;
 use rosc::{OscBundle, OscMessage, OscPacket};
 use serde::{Deserialize, Serialize};
 
-use slog::{trace, warn};
-
 use std::error::Error;
 use std::io;
 use std::net::{SocketAddrV4, UdpSocket};
@@ -16,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 const MAX_INCOMING_PACKET_SIZE: usize = 10_000;
@@ -141,20 +140,14 @@ impl OscFeedbackHandler {
 pub struct OscInputDevice {
     id: OscDeviceId,
     socket: UdpSocket,
-    logger: slog::Logger,
     osc_buffer: [u8; MAX_INCOMING_PACKET_SIZE],
 }
 
 impl OscInputDevice {
-    pub fn bind(
-        id: OscDeviceId,
-        socket: UdpSocket,
-        logger: slog::Logger,
-    ) -> Result<OscInputDevice, Box<dyn Error>> {
+    pub fn bind(id: OscDeviceId, socket: UdpSocket) -> Result<OscInputDevice, Box<dyn Error>> {
         let dev = OscInputDevice {
             id,
             socket,
-            logger,
             osc_buffer: [0; MAX_INCOMING_PACKET_SIZE],
         };
         Ok(dev)
@@ -168,21 +161,16 @@ impl OscInputDevice {
         match self.socket.recv(&mut self.osc_buffer) {
             Ok(num_bytes) => match rosc::decoder::decode_udp(&self.osc_buffer[..num_bytes]) {
                 Ok((_, packet)) => {
-                    trace!(
-                        self.logger,
-                        "Received packet with {} bytes: {:#?}",
-                        num_bytes,
-                        &packet
-                    );
+                    trace!("Received packet with {} bytes: {:#?}", num_bytes, &packet);
                     Ok(Some(packet))
                 }
                 Err(err) => {
-                    warn!(self.logger, "Error trying to decode OSC packet: {:?}", err);
+                    warn!("Error trying to decode OSC packet: {:?}", err);
                     Err("error trying to decode OSC messages")
                 }
             },
             Err(ref err) if err.kind() != io::ErrorKind::WouldBlock => {
-                warn!(self.logger, "Error trying to receive OSC packet: {}", err);
+                warn!("Error trying to receive OSC packet: {}", err);
                 Err("error trying to receive OSC message")
             }
             // We don't need to handle "would block" because we are running in a loop anyway.
@@ -200,7 +188,6 @@ pub struct OscOutputDevice {
     id: OscDeviceId,
     socket: UdpSocket,
     dest_address: SocketAddrV4,
-    logger: slog::Logger,
     can_deal_with_bundles: bool,
 }
 
@@ -209,7 +196,6 @@ impl OscOutputDevice {
         id: OscDeviceId,
         socket: UdpSocket,
         dest_address: SocketAddrV4,
-        logger: slog::Logger,
         can_deal_with_bundles: bool,
     ) -> Self {
         // Attention: It's important that we don't use `UdpSocket::connect` here as this breaks
@@ -221,7 +207,6 @@ impl OscOutputDevice {
             id,
             socket,
             dest_address,
-            logger,
             can_deal_with_bundles,
         }
     }
@@ -254,7 +239,6 @@ impl OscOutputDevice {
         let bytes = rosc::encoder::encode(&packet)
             .map_err(|_| "error trying to encode OSC bundle packet")?;
         trace!(
-            self.logger,
             "Sending bundle packet with {} bytes: {:#?}",
             bytes.len(),
             &packet
@@ -274,7 +258,6 @@ impl OscOutputDevice {
             let bytes = rosc::encoder::encode(&packet)
                 .map_err(|_| "error trying to encode OSC message packet")?;
             trace!(
-                self.logger,
                 "Sending message packet with {} bytes: {:#?}",
                 bytes.len(),
                 &packet

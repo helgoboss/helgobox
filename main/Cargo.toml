@@ -64,9 +64,6 @@ num_enum.workspace = true
 crossbeam-channel.workspace = true
 scopeguard.workspace = true
 uuid = { version = "1.6.1", features = ["v4", "serde"] }
-# Old logging
-slog.workspace = true
-slog-async = "2.5.2"
 # New logging (for clip matrix)
 tracing.workspace = true
 tracing-core.workspace = true
@@ -125,8 +122,6 @@ url = "2.1.1"
 itertools.workspace = true
 # For being able to configure logging via environment variable RUST_LOG
 env_logger = "0.10.1"
-# We want to forward slog logging to standard logging
-slog-stdlog = "4.1.1"
 # To open user guide in local PDF app
 open = "5.0.1"
 # In projection server, we must be able to handle controller IDs with special characters

@@ -1,6 +1,5 @@
 use crate::base::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
-use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
 use camino::Utf8PathBuf;
 use derive_more::Display;
@@ -47,7 +46,7 @@ impl OscDeviceManager {
         let json = serde_json::to_string_pretty(&self.config)
             .map_err(|_| "couldn't serialize OSC device config")?;
         fs::write(&self.osc_device_config_file_path, json)
-            .map_err(|_| "couldn't write OSC devie config file")?;
+            .map_err(|_| "couldn't write OSC device config file")?;
         Ok(())
     }
 
@@ -216,12 +215,7 @@ impl OscDevice {
 
     fn connect_input_internal(&self, socket: UdpSocket) -> Result<OscInputDevice, Box<dyn Error>> {
         socket.set_nonblocking(true)?;
-        OscInputDevice::bind(
-            self.id,
-            socket,
-            BackboneShell::logger()
-                .new(slog::o!("struct" => "OscInputDevice", "id" => self.id.to_string())),
-        )
+        OscInputDevice::bind(self.id, socket)
     }
 
     fn connect_output_internal(
@@ -232,14 +226,7 @@ impl OscDevice {
             self.device_host.ok_or("device host not specified")?,
             self.device_port.ok_or("local port not specified")?,
         );
-        let dev = OscOutputDevice::new(
-            self.id,
-            socket,
-            dest_addr,
-            BackboneShell::logger()
-                .new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
-            self.can_deal_with_bundles,
-        );
+        let dev = OscOutputDevice::new(self.id, socket, dest_addr, self.can_deal_with_bundles);
         Ok(dev)
     }
 

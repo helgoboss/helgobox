@@ -40,6 +40,7 @@ use std::ops::RangeInclusive;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use strum::{EnumIter, IntoEnumIterator};
+use tracing::debug;
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug)]
@@ -741,7 +742,6 @@ impl MainMapping {
     pub fn poll_mode(
         &mut self,
         context: ControlContext,
-        logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         timestamp: ControlEventTimestamp,
         log_mode_control_result: impl Fn(ControlLogEntry),
@@ -749,7 +749,6 @@ impl MainMapping {
         self.control_internal(
             ControlOptions::default(),
             context,
-            logger,
             processor_context,
             true,
             log_mode_control_result,
@@ -772,7 +771,6 @@ impl MainMapping {
         source_control_event: ControlEvent<ControlValue>,
         options: ControlOptions,
         context: ControlContext,
-        logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         last_non_performance_target_value: Option<AbsoluteValue>,
         log_mode_control_result: impl Fn(ControlLogEntry),
@@ -780,7 +778,6 @@ impl MainMapping {
         let result = self.control_internal(
             options,
             context,
-            logger,
             processor_context,
             false,
             log_mode_control_result,
@@ -817,7 +814,6 @@ impl MainMapping {
         value: AbsoluteValue,
         options: ControlOptions,
         context: ControlContext,
-        logger: &slog::Logger,
         inverse: bool,
         processor_context: ExtendedProcessorContext,
         log_mode_control_result: impl Fn(ControlLogEntry),
@@ -825,7 +821,6 @@ impl MainMapping {
         self.control_internal(
             options,
             context,
-            logger,
             processor_context,
             false,
             log_mode_control_result,
@@ -867,7 +862,6 @@ impl MainMapping {
     pub fn control_from_target_directly(
         &mut self,
         context: ControlContext,
-        logger: &slog::Logger,
         // TODO-low Strictly spoken, this is not necessary, because control_internal uses this only
         //  if target refresh is enforced, which is not the case here.
         processor_context: ExtendedProcessorContext,
@@ -877,7 +871,6 @@ impl MainMapping {
         self.control_internal(
             ControlOptions::default(),
             context,
-            logger,
             processor_context,
             false,
             log_mode_control_result,
@@ -891,7 +884,6 @@ impl MainMapping {
         &mut self,
         options: ControlOptions,
         context: ControlContext,
-        logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
         is_polling: bool,
         log_mode_control_result: impl Fn(ControlLogEntry),
@@ -986,7 +978,7 @@ impl MainMapping {
                                 (log_entry_kind, "")
                             }
                             Err(msg) => {
-                                slog::debug!(logger, "Control failed: {}", msg);
+                                debug!("Control failed: {}", msg);
                                 (ControlLogEntryKind::HitFailed, msg)
                             }
                         };

@@ -81,7 +81,6 @@ use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use slog::{debug, Drain};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -96,6 +95,7 @@ use strum::IntoEnumIterator;
 use swell_ui::{Menu, SharedView, View, ViewManager, Window};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
+use tracing::debug;
 use url::Url;
 
 /// Generates a REAPER-extension-like entry point. It also generates everything that
@@ -269,7 +269,6 @@ impl BackboneShell {
     ///
     /// The opposite function is [Self::dispose].
     pub fn init(context: PluginContext) -> Self {
-        let logger = BackboneShell::logger().clone();
         // We need Swell already without VST plug-in instance to populate the extension menu. As soon as an instance
         // exists, we also need it for all the native GUI stuff.
         Swell::make_available_globally(Swell::load(context));
@@ -278,7 +277,6 @@ impl BackboneShell {
         //  so not a big deal. Still, maybe could be improved?
         Reaper::setup_with_defaults(
             context,
-            logger,
             CrashInfo {
                 plugin_name: "Helgobox".to_string(),
                 plugin_version: BackboneShell::detailed_version_label().to_string(),
@@ -291,7 +289,7 @@ impl BackboneShell {
         // when asleep but most of them are unbounded and therefore consume a minimal amount of memory as long as
         // they are not used.
         let config = BackboneConfig::load().unwrap_or_else(|e| {
-            debug!(BackboneShell::logger(), "{}", e);
+            debug!("{}", e);
             Default::default()
         });
         let (control_surface_main_task_sender, control_surface_main_task_receiver) =
@@ -401,7 +399,6 @@ impl BackboneShell {
         let shared_main_processors = SharedMainProcessors::default();
         // This doesn't yet activate the control surface (will happen on wake up)
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            BackboneShell::logger(),
             control_surface_main_task_receiver,
             instance_event_receiver,
             #[cfg(feature = "playtime")]
@@ -569,7 +566,7 @@ impl BackboneShell {
             std::thread::sleep(Duration::from_millis(1));
             let elapsed_blocks = self.audio_block_count().saturating_sub(initial_block_count);
             if elapsed_blocks > 2 {
-                tracing::debug!("Waited a total of {elapsed_blocks} blocks after sending shutdown MIDI messages");
+                debug!("Waited a total of {elapsed_blocks} blocks after sending shutdown MIDI messages");
                 break;
             }
         }
@@ -667,10 +664,7 @@ impl BackboneShell {
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         let _ = session.plugin_register_add_hook_post_command_2::<Self>();
         // Audio hook
-        debug!(
-            BackboneShell::logger(),
-            "Registering ReaLearn audio hook and control surface..."
-        );
+        debug!("Registering ReaLearn audio hook and control surface...");
         let audio_hook_handle = session
             .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
             .expect("couldn't register ReaLearn audio hook");
@@ -717,10 +711,7 @@ impl BackboneShell {
             panic!("App was not awake when trying to go to sleep");
         };
         let mut session = Reaper::get().medium_session();
-        debug!(
-            BackboneShell::logger(),
-            "Unregistering ReaLearn control surface and audio hook..."
-        );
+        debug!("Unregistering ReaLearn control surface and audio hook...");
         let (accelerator, mut control_surface, audio_hook) = unsafe {
             let accelerator = session
                 .plugin_register_remove_accelerator(awake_state.accelerator_handle)
@@ -1170,19 +1161,6 @@ impl BackboneShell {
         BackboneShell::realearn_resource_dir_path().join("controllers.json")
     }
 
-    // We need this to be static because we need it at plugin construction time, so we don't have
-    // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
-    // know where's the resource directory that contains the app configuration).
-    // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
-    //  available. Then we can also do file logging to ReaLearn resource folder.
-    pub fn logger() -> &'static slog::Logger {
-        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
-            env_logger::init_from_env("REALEARN_LOG");
-            slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
-        });
-        &APP_LOGGER
-    }
-
     pub fn get_app_library() -> anyhow::Result<&'static crate::infrastructure::ui::AppLibrary> {
         let app_library = APP_LIBRARY
             .get()
@@ -1384,7 +1362,7 @@ impl BackboneShell {
     }
 
     pub fn register_instance(&self, instance_shell: &SharedInstanceShell) {
-        debug!(Reaper::get().logger(), "Registering new instance...");
+        debug!("Registering new instance...");
         let instance = Rc::downgrade(instance_shell.instance());
         let instance_id = instance_shell.instance_id();
         let rt_instance = instance_shell.rt_instance();
@@ -1408,7 +1386,7 @@ impl BackboneShell {
     }
 
     pub fn unregister_instance(&self, instance_id: InstanceId) {
-        debug!(Reaper::get().logger(), "Unregistering instance...");
+        debug!("Unregistering instance...");
         self.instance_shell_infos
             .borrow_mut()
             .retain(|i| i.instance_id != instance_id);
@@ -1429,17 +1407,13 @@ impl BackboneShell {
         main_processor: MainProcessor<WeakUnitModel>,
     ) {
         let unit_id = unit_info.unit_id;
-        debug!(Reaper::get().logger(), "Registering new unit {unit_id}...");
+        debug!("Registering new unit {unit_id}...");
         let mut units = self.unit_infos.borrow_mut();
         if !unit_info.is_auto_unit {
             update_auto_units_async();
         }
         units.push(unit_info);
-        debug!(
-            Reaper::get().logger(),
-            "Unit {unit_id} registered. Unit count: {}",
-            units.len()
-        );
+        debug!("Unit {unit_id} registered. Unit count: {}", units.len());
         self.audio_hook_task_sender
             .send_complaining(NormalAudioHookTask::AddRealTimeProcessor(
                 unit_id,
@@ -1453,7 +1427,7 @@ impl BackboneShell {
     pub fn unregister_unit(&self, unit_id: UnitId) {
         self.unregister_unit_main_processor(unit_id);
         self.unregister_unit_real_time_processor(unit_id);
-        debug!(Reaper::get().logger(), "Unregistering unit...");
+        debug!("Unregistering unit...");
         let mut units = self.unit_infos.borrow_mut();
         units.retain(|i| {
             if i.unit_id != unit_id {
@@ -1467,7 +1441,6 @@ impl BackboneShell {
             false
         });
         debug!(
-            Reaper::get().logger(),
             "Unit unregistered. Remaining count of units: {}",
             units.len()
         );

@@ -1,10 +1,9 @@
-use reaper_high::Reaper;
 use rxrust::prelude::*;
 
 use base::Global;
-use slog::debug;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
+use tracing::debug;
 
 pub fn when<Item, Trigger>(trigger: Trigger) -> ReactionBuilderStepOne<Item, Trigger>
 where
@@ -184,7 +183,7 @@ where
 fn upgrade<T>(weak_receiver: &Weak<T>) -> Option<Rc<T>> {
     let shared_receiver = weak_receiver.upgrade();
     if shared_receiver.is_none() {
-        debug!(Reaper::get().logger(), "Receiver gone");
+        debug!("Receiver gone");
     }
     shared_receiver
 }

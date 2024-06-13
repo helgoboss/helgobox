@@ -11,7 +11,6 @@ use crate::infrastructure::ui::UnitPanel;
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use reaper_medium::Hz;
 
-use slog::{debug, o};
 use std::cell::{Cell, RefCell};
 
 use std::rc::Rc;
@@ -19,6 +18,7 @@ use std::rc::Rc;
 use fragile::Fragile;
 use std::sync::{Arc, Mutex};
 use swell_ui::{SharedView, WeakView};
+use tracing::debug;
 
 use crate::application::{AutoUnitData, SharedUnitModel, UnitModel};
 use crate::infrastructure::plugin::backbone_shell::BackboneShell;
@@ -41,7 +41,6 @@ pub struct UnitShell {
     /// An ID which is randomly generated on each start and is most relevant for log correlation.
     /// It's also used in other ReaLearn singletons. Must be unique.
     id: UnitId,
-    logger: slog::Logger,
     /// Fragile because we can't access this from any other thread than the main thread.
     model: Fragile<SharedUnitModel>,
     panel: Fragile<SharedView<UnitPanel>>,
@@ -96,11 +95,9 @@ impl UnitShell {
                 "parameter main tasks",
                 PARAMETER_MAIN_TASK_QUEUE_SIZE,
             );
-        let logger = BackboneShell::logger().new(o!("instance" => unit_id.to_string()));
         let real_time_processor = RealTimeProcessor::new(
             unit_id,
             parent_rt_instance,
-            &logger,
             normal_real_time_task_receiver,
             feedback_real_time_task_receiver,
             feedback_real_time_task_sender.clone(),
@@ -131,7 +128,6 @@ impl UnitShell {
             instance_id,
             unit_id,
             initial_name,
-            &logger,
             processor_context.clone(),
             normal_main_task_sender.clone(),
             BackboneShell::get(),
@@ -161,7 +157,6 @@ impl UnitShell {
         let main_processor = MainProcessor::new(
             instance_id,
             unit_id,
-            &logger,
             normal_main_task_sender.clone(),
             normal_main_task_receiver,
             normal_rt_to_main_task_receiver,
@@ -202,7 +197,6 @@ impl UnitShell {
         // End create session
         Self {
             id: unit_id,
-            logger: logger.clone(),
             // InstanceShell is the main owner of the InstanceModel. Everywhere else the InstanceModel is
             // just temporarily upgraded, never stored as Rc, only as Weak.
             model: Fragile::new(shared_unit_model),
@@ -265,11 +259,10 @@ impl UnitShell {
 
 impl Drop for UnitShell {
     fn drop(&mut self) {
-        debug!(self.logger, "Dropping UnitShell {}...", self.id);
+        debug!("Dropping UnitShell {}...", self.id);
         let session = self.model.get();
         BackboneShell::get().unregister_unit(self.id);
         debug!(
-            self.logger,
             "{} pointers are still referring to this session",
             Rc::strong_count(session)
         );

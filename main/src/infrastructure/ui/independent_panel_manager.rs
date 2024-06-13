@@ -1,7 +1,7 @@
 use crate::infrastructure::ui::{MappingPanel, SessionMessagePanel, UnitPanel};
 use reaper_high::Reaper;
-use slog::debug;
 use std::cell::OnceCell;
+use tracing::debug;
 
 use crate::application::{Affected, SessionProp, SharedMapping, UnitModel, WeakUnitModel};
 use crate::domain::{
@@ -185,7 +185,7 @@ impl IndependentPanelManager {
 
 impl Drop for IndependentPanelManager {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
+        debug!("Dropping mapping panel manager...");
         // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
         // close them manually as soon as ReaLearn is unloaded.
         self.destroy();

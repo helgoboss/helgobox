@@ -90,14 +90,13 @@ impl Global {
     }
 
     /// Creates the middleware that drives the task support.
-    pub fn create_task_support_middleware(&self, logger: slog::Logger) -> MainTaskMiddleware {
-        MainTaskMiddleware::new(logger, self.task_sender.clone(), self.task_receiver.clone())
+    pub fn create_task_support_middleware(&self) -> MainTaskMiddleware {
+        MainTaskMiddleware::new(self.task_sender.clone(), self.task_receiver.clone())
     }
 
     /// Creates the middleware that drives the future support.
-    pub fn create_future_support_middleware(&self, logger: slog::Logger) -> FutureMiddleware {
+    pub fn create_future_support_middleware(&self) -> FutureMiddleware {
         FutureMiddleware::new(
-            logger,
             self.send_future_executor.clone(),
             self.non_send_future_executor.clone(),
         )

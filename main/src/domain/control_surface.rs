@@ -27,9 +27,9 @@ use reaper_medium::{
     ReaperNormalizedFxParamValue, SectionContext,
 };
 use rxrust::prelude::*;
-use slog::debug;
 use std::fmt::Debug;
 use std::mem;
+use tracing::debug;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 type TargetCaptureSender = async_channel::Sender<TargetTouchEvent>;
@@ -42,7 +42,6 @@ const OSC_INCOMING_BULK_SIZE: usize = 1000;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
-    logger: slog::Logger,
     change_detection_middleware: ChangeDetectionMiddleware,
     change_event_queue: RefCell<Vec<ChangeEvent>>,
     monitoring_fx_chain_change_detector: MonitoringFxChainChangeDetector,
@@ -202,7 +201,6 @@ pub struct ParameterAutomationTouchStateChangedEvent {
 impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         instance_event_receiver: Receiver<QualifiedInstanceEvent>,
         #[cfg(feature = "playtime")] clip_matrix_event_receiver: Receiver<
@@ -213,7 +211,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         main_processors: SharedMainProcessors<EH>,
         event_handler: Box<dyn ControlSurfaceEventHandler>,
     ) -> Self {
-        let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         let mut device_change_detector = MidiDeviceChangeDetector::new();
         // Prevent change messages to be sent on load by polling one time and ignoring result.
         device_change_detector.poll_for_midi_input_device_changes();
@@ -221,7 +218,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let (control_surface_event_sender, control_surface_event_receiver) =
             SenderToNormalThread::new_unbounded_channel("control surface events");
         Self {
-            logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
             change_event_queue: RefCell::new(Vec::with_capacity(100)),
             monitoring_fx_chain_change_detector: Default::default(),
@@ -236,8 +232,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             },
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            main_task_middleware: Global::get().create_task_support_middleware(logger.clone()),
-            future_middleware: Global::get().create_future_support_middleware(logger.clone()),
+            main_task_middleware: Global::get().create_task_support_middleware(),
+            future_middleware: Global::get().create_future_support_middleware(),
             counter: 0,
             full_beats: Default::default(),
             fx_focus_state: Default::default(),
@@ -538,7 +534,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use UnitOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
-                    debug!(self.logger, "Source of unit {} released", e.unit_id);
+                    debug!("Source of unit {} released", e.unit_id);
                     // We also allow the instance to take over which released the source in
                     // the first place! Simply because in the meanwhile, this instance
                     // could have found a new usage for it! E.g. likely to happen with
@@ -577,7 +573,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     );
                     if feedback_dev_usage_changed && backbone_state.is_superior(&e.unit_id) {
                         debug!(
-                            self.logger,
                             "Superior unit {} {} feedback output",
                             e.unit_id,
                             if e.feedback_output_used {

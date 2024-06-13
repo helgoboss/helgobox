@@ -127,7 +127,6 @@ impl RealearnTarget for BrowseGroupMappingsTarget {
                         .notify_mapping_matched(m.compartment(), m.id());
                     let res = m.control_from_target_directly(
                         context.control_context,
-                        context.logger,
                         context.processor_context,
                         ControlValue::AbsoluteContinuous(v),
                         context.basic_settings.target_control_logger(

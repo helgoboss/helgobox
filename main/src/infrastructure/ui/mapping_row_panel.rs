@@ -29,16 +29,15 @@ use crate::infrastructure::ui::{
 };
 use core::iter;
 use realearn_api::persistence::{ApiObject, Envelope};
-use reaper_high::Reaper;
 use reaper_medium::Hbrush;
 use rxrust::prelude::*;
-use slog::debug;
 use std::cell::{Ref, RefCell};
 use std::error::Error;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use swell_ui::{DeviceContext, DialogUnits, Pixels, Point, SharedView, View, ViewContext, Window};
+use tracing::debug;
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -957,7 +956,7 @@ impl View for MappingRowPanel {
 
 impl Drop for MappingRowPanel {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping mapping row panel...");
+        debug!("Dropping mapping row panel...");
     }
 }
 

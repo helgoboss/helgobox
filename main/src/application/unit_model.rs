@@ -29,7 +29,6 @@ use enum_map::EnumMap;
 use reaper_high::Reaper;
 use rx_util::Notifier;
 use rxrust::prelude::*;
-use slog::{debug, trace};
 use std::cell::{OnceCell, Ref, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 
@@ -47,6 +46,7 @@ use reaper_medium::{InputMonitoringMode, RecordingInput};
 use std::error::Error;
 use std::fmt;
 use std::rc::{Rc, Weak};
+use tracing::{debug, trace};
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: CompartmentKind, mapping_id: MappingId);
@@ -89,7 +89,6 @@ pub struct UnitModel {
     /// session will be picked. Most relevant for HTTP/WS API.
     pub unit_key: Prop<String>,
     pub name: Option<String>,
-    logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub stay_active_when_project_in_background: Prop<StayActiveWhenProjectInBackground>,
@@ -226,7 +225,6 @@ impl UnitModel {
         instance_id: InstanceId,
         unit_id: UnitId,
         initial_name: Option<String>,
-        parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_main_task_sender: SenderToNormalThread<NormalMainTask>,
         instance_container: &'static dyn UnitContainer,
@@ -260,7 +258,6 @@ impl UnitModel {
             unit_key: prop(initial_unit_key),
             instance_id,
             unit_id,
-            logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
             stay_active_when_project_in_background: prop(
@@ -548,7 +545,7 @@ impl UnitModel {
 
     /// Makes all autostart mappings hit the target.
     pub fn notify_realearn_unit_started(&self) {
-        tracing::debug!("Sending NotifyRealearnUnitStarted");
+        debug!("Sending NotifyRealearnUnitStarted");
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::NotifyRealearnUnitStarted);
     }
@@ -2387,11 +2384,10 @@ impl UnitModel {
             .find_mapping_by_id(compartment, mapping_id)
             .ok_or("mapping not found")?;
         debug!(
-            self.logger,
             "MappingModel struct size: {}",
             std::mem::size_of::<MappingModel>()
         );
-        debug!(self.logger, "{:?}", mapping);
+        debug!("{:?}", mapping);
         self.normal_main_task_sender
             .send_complaining(NormalMainTask::LogMapping(compartment, mapping_id));
         Ok(())
@@ -2428,7 +2424,6 @@ impl UnitModel {
         Reaper::get().show_console_msg(msg);
         // Detailled
         trace!(
-            self.logger,
             "\n\
             # Session\n\
             \n\
@@ -2696,19 +2691,15 @@ impl UnitModel {
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_compartment_dirty(&mut self, compartment: CompartmentKind) {
-        debug!(self.logger, "Marking compartment as dirty");
+        debug!("Marking compartment as dirty");
         self.compartment_is_dirty[compartment].set(true);
         self.mark_dirty();
     }
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_dirty(&self) {
-        debug!(self.logger, "Marking unit as dirty");
+        debug!("Marking unit as dirty");
         self.processor_context.notify_dirty();
-    }
-
-    pub fn logger(&self) -> &slog::Logger {
-        &self.logger
     }
 
     /// Does a full resync and notifies the UI async.
@@ -2727,7 +2718,7 @@ impl UnitModel {
 
 impl Drop for UnitModel {
     fn drop(&mut self) {
-        debug!(self.logger(), "Dropping UnitModel...");
+        debug!("Dropping UnitModel...");
         self.party_is_over_subject.next(());
     }
 }
@@ -2819,7 +2810,7 @@ impl DomainEventHandler for WeakUnitModel {
                 session.ui().parameters_changed(&session);
             }
             FullResyncRequested => {
-                tracing::debug!("FullResyncRequested received");
+                debug!("FullResyncRequested received");
                 session.borrow_mut().full_sync();
             }
             MidiDevicesChanged => {

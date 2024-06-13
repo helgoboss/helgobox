@@ -43,7 +43,6 @@ use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShort
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
-use slog::{debug, trace};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
@@ -52,6 +51,7 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use strum::EnumIter;
+use tracing::{debug, trace};
 
 /// This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -87,7 +87,6 @@ struct Basics<EH: DomainEventHandler> {
     unit_id: UnitId,
     common_lua: EnumMap<CompartmentKind, Option<mlua::Value<'static>>>,
     unit_container: &'static dyn UnitContainer,
-    logger: slog::Logger,
     settings: BasicSettings,
     control_is_globally_enabled: bool,
     // TODO-medium Now that we communicate the feedback output separately, we could limit the scope
@@ -265,7 +264,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn new(
         instance_id: InstanceId,
         unit_id: UnitId,
-        parent_logger: &slog::Logger,
         self_normal_sender: SenderToNormalThread<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         normal_real_time_to_main_thread_task_receiver: crossbeam_channel::Receiver<
@@ -291,13 +289,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 "feedback main tasks",
                 FEEDBACK_TASK_QUEUE_SIZE,
             );
-        let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             basics: Basics {
                 instance_id,
                 unit_id,
                 common_lua: Default::default(),
-                logger: logger.clone(),
                 settings: Default::default(),
                 control_is_globally_enabled: false,
                 feedback_is_globally_enabled: false,
@@ -363,11 +359,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
-                    debug!(
-                        self.basics.logger,
-                        "Taking over source {:?}...",
-                        mapping_with_source.source()
-                    );
+                    debug!("Taking over source {:?}...", mapping_with_source.source());
                     // TODO-low Shouldn't we update the single mapping-on state here?
                     let feedback = followed_mapping.feedback(
                         true,
@@ -377,7 +369,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     true
                 } else {
                     debug!(
-                        self.basics.logger,
                         "No source takeover of {:?} because feedback effectively disabled",
                         mapping_with_source.source()
                     );
@@ -399,10 +390,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         feedback_output: FeedbackOutput,
         feedback_value: FinalSourceFeedbackValue,
     ) {
-        debug!(
-            self.basics.logger,
-            "Finally switching off source with {:?}...", feedback_value
-        );
+        debug!("Finally switching off source with {:?}...", feedback_value);
         self.basics.send_direct_source_feedback(
             feedback_output,
             FeedbackReason::FinallySwitchOffSource,
@@ -507,7 +495,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let mode_poll_result = if m.mode().wants_to_be_polled() {
                         m.poll_mode(
                             control_context,
-                            &self.basics.logger,
                             processor_context,
                             timestamp,
                             self.basics.target_control_logger(
@@ -1006,10 +993,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     // https://github.com/rust-lang/rust-clippy/issues/6066
     #[allow(clippy::needless_collect)]
     fn update_single_param_value(&mut self, index: PluginParamIndex, value: RawParamValue) {
-        debug!(
-            self.basics.logger,
-            "Updating parameter {} to {}...", index, value
-        );
+        debug!("Updating parameter {} to {}...", index, value);
         // Work around REAPER's inability to notify about parameter changes in
         // monitoring FX by simulating the notification ourselves.
         // Then parameter learning and feedback works at least for
@@ -1168,7 +1152,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn update_all_params(&mut self, params: PluginParams) {
-        debug!(self.basics.logger, "Updating all parameters...");
+        debug!("Updating all parameters...");
         self.collections.parameters = params.clone();
         self.basics
             .event_handler
@@ -1239,7 +1223,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.update_all_mappings(compartment, mappings);
                 }
                 NotifyRealearnUnitStarted => {
-                    tracing::debug!("NotifyRealearnUnitStarted received");
+                    debug!("NotifyRealearnUnitStarted received");
                     let evt = ControlEvent::new(&ReaperMessage::RealearnUnitStarted, timestamp);
                     self.process_reaper_message(evt);
                 }
@@ -1268,7 +1252,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     allow_virtual_sources,
                     osc_arg_index_hint,
                 } => {
-                    debug!(self.basics.logger, "Start learning source");
+                    debug!("Start learning source");
                     self.basics
                         .channels
                         .normal_real_time_task_sender
@@ -1281,7 +1265,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     };
                 }
                 DisableControl => {
-                    debug!(self.basics.logger, "Disable control");
+                    debug!("Disable control");
                     self.basics
                         .channels
                         .normal_real_time_task_sender
@@ -1289,7 +1273,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.basics.control_mode = ControlMode::Disabled;
                 }
                 ReturnToControlMode => {
-                    debug!(self.basics.logger, "Return to control mode");
+                    debug!("Return to control mode");
                     self.basics
                         .channels
                         .normal_real_time_task_sender
@@ -1382,7 +1366,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// cycle. That's especially important for auto-load because REAPER first needs to digest info
     /// such as "Is the window open?" and "What FX is the focused FX?".
     fn process_changed_conditions(&mut self) {
-        debug!(self.basics.logger, "Conditions changed");
+        debug!("Conditions changed");
         // Invoke auto-load if necessary
         if self
             .basics
@@ -1395,7 +1379,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         // Refresh all targets
-        debug!(self.basics.logger, "Refreshing all targets...");
+        debug!("Refreshing all targets...");
         for compartment in CompartmentKind::enum_iter() {
             let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             let mut changed_mappings = vec![];
@@ -1619,8 +1603,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.any_main_mapping_is_effectively_on(),
             );
             debug!(
-                self.basics.logger,
-                "IO event. Feedback output used: {:?}", event.feedback_output_used
+                "IO event. Feedback output used: {:?}",
+                event.feedback_output_used
             );
             self.basics.send_io_update_complaining(event);
         }
@@ -2328,14 +2312,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             == Some(feedback_output)
         {
             if self.basics.instance_feedback_is_effectively_enabled() {
-                debug!(self.basics.logger, "Reactivating unit...");
+                debug!("Reactivating unit...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
                 // *audio hook*, not in the real-time processor. Because there's only one audio
                 // hook can guarantee a deterministic feedback send order.
                 self.send_all_feedback();
             } else {
-                debug!(self.basics.logger, "Cancelling unit...");
+                debug!("Cancelling unit...");
                 self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
             }
         }
@@ -2343,10 +2327,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// When feedback gets globally disabled.
     fn clear_all_feedback_allowing_source_takeover(&self) {
-        debug!(
-            self.basics.logger,
-            "Clearing all feedback allowing source takeover..."
-        );
+        debug!("Clearing all feedback allowing source takeover...");
         self.send_feedback(
             FeedbackReason::ClearAllAllowingSourceTakeover,
             self.feedback_all_zero(),
@@ -2363,10 +2344,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// When main processor goes away for good.
     fn clear_all_feedback_preventing_source_takeover(&self) {
-        debug!(
-            self.basics.logger,
-            "Clearing all feedback preventing source takeover..."
-        );
+        debug!("Clearing all feedback preventing source takeover...");
         self.send_feedback(
             FeedbackReason::ClearAllPreventingSourceTakeover,
             self.feedback_all_zero(),
@@ -2510,7 +2488,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         Reaper::get().show_console_msg(msg);
         // Detailed
         trace!(
-            self.basics.logger,
             "\n\
             # Main processor\n\
             \n\
@@ -2543,7 +2520,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn update_single_mapping(&mut self, mut mapping: Box<MainMapping>) {
         let compartment = mapping.compartment();
         debug!(
-            self.basics.logger,
             "Updating single mapping {:?} in {}...",
             mapping.id(),
             compartment,
@@ -2628,8 +2604,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         state: PersistentMappingProcessingState,
     ) {
         debug!(
-            self.basics.logger,
-            "Updating persistent processing state of mapping {:?} in {}", id.id, id.compartment
+            "Updating persistent processing state of mapping {:?} in {}",
+            id.id, id.compartment
         );
         // Sync to real-time processor
         self.basics
@@ -2794,7 +2770,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             let control_context = self.basics.control_context(id.compartment);
             let mut control_result = m.control_from_target_directly(
                 control_context,
-                &self.basics.logger,
                 ExtendedProcessorContext::new(
                     &self.basics.context,
                     &self.collections.parameters,
@@ -3076,7 +3051,7 @@ pub struct ControlOptions {
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
-        debug!(self.basics.logger, "Dropping main processor...");
+        debug!("Dropping main processor...");
         self.switch_lights_off();
         let released_event = self
             .basics
@@ -3237,8 +3212,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         );
         if let Some(new_control_is_enabled) = new_control_is_enabled {
             debug!(
-                self.logger,
-                "Updated control_is_globally_enabled to {}", new_control_is_enabled
+                "Updated control_is_globally_enabled to {}",
+                new_control_is_enabled
             );
             let event = IoUpdatedEvent {
                 ..self.create_basic_io_changed_event(
@@ -3265,8 +3240,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         );
         if let Some(new_feedback_is_enabled) = new_feedback_is_enabled {
             debug!(
-                self.logger,
-                "Updated feedback_is_globally_enabled to {}", new_feedback_is_enabled
+                "Updated feedback_is_globally_enabled to {}",
+                new_feedback_is_enabled
             );
             self.clear_last_feedback();
             let changed_event = self
@@ -3466,7 +3441,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         ..Default::default()
                                     },
                                     control_context,
-                                    &basics.logger,
                                     inverse,
                                     ExtendedProcessorContext::new(
                                         &self.context,
@@ -3525,7 +3499,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 mappings: &mut collections.mappings[compartment],
                 control_context: self.control_context(compartment),
                 domain_event_handler: &self.event_handler,
-                logger: &self.logger,
                 basic_settings: &self.settings,
                 processor_context: ExtendedProcessorContext::new(
                     &self.context,
@@ -3827,7 +3800,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 && Some(checksum) == previous_checksum
             {
                 trace!(
-                    self.logger,
                     "Block feedback because duplicate (reason: {:?}): {:?}",
                     feedback_reason,
                     source_feedback_value
@@ -3836,7 +3808,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
             }
         }
         trace!(
-            self.logger,
             "Schedule sending feedback because {:?}: {:?}",
             feedback_reason,
             source_feedback_value
@@ -4174,7 +4145,6 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         control_event,
         options,
         basics.control_context(m.compartment()),
-        &basics.logger,
         ExtendedProcessorContext::new(
             &basics.context,
             params,
@@ -4243,7 +4213,6 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
             mappings: &mut collections.mappings[compartment],
             control_context,
             domain_event_handler: &basics.event_handler,
-            logger: &basics.logger,
             processor_context,
             basic_settings: &basics.settings,
         });
@@ -4255,7 +4224,6 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
                         mappings: &mut collections.mappings[compartment],
                         control_context,
                         domain_event_handler: &basics.event_handler,
-                        logger: &basics.logger,
                         processor_context,
                         basic_settings: &basics.settings,
                     });

@@ -2,8 +2,6 @@
 // Askama template.
 #![allow(clippy::useless_let_if_seq)]
 use askama::Template;
-use reaper_high::Reaper;
-use slog::debug;
 
 use crate::application::{SharedUnitModel, WeakUnitModel};
 use crate::base::when;
@@ -17,6 +15,7 @@ use crate::infrastructure::ui::util::open_in_browser;
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use tracing::debug;
 
 #[derive(Debug)]
 pub struct CompanionAppPresenter {
@@ -137,7 +136,7 @@ impl CompanionAppPresenter {
 
 impl Drop for CompanionAppPresenter {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
+        debug!("Dropping mapping panel manager...");
         self.party_is_over_subject.next(());
     }
 }
