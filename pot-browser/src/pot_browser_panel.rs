@@ -327,7 +327,7 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                         (T::Button, FontId::new(20.0, F::Proportional)),
                         (T::Small, FontId::new(10.0, F::Proportional)),
                     ]
-                    .into()
+                        .into()
                 };
                 ui.vertical_centered(|ui| {
                     ui.label(
@@ -341,7 +341,7 @@ fn run_warning_ui(ctx: &Context, state: &mut State) {
                             "Therefore, better don't spend much time yet creating the perfect \
                             configuration! It will be gone after REAPER restarts.",
                         )
-                        .strong(),
+                            .strong(),
                     );
                     ui.add_space(20.0);
                     let button = Button::new("I understood. Really!");
@@ -572,11 +572,11 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 let text_edit = TextEdit::singleline(
                                     &mut pot_unit.runtime_state.search_expression,
                                 )
-                                // .min_size(vec2(0.0, TOOLBAR_SIZE))
-                                .desired_width(140.0)
-                                .clip_text(false)
-                                .hint_text("Enter search text!")
-                                .font(TextStyle::Monospace);
+                                    // .min_size(vec2(0.0, TOOLBAR_SIZE))
+                                    .desired_width(140.0)
+                                    .clip_text(false)
+                                    .hint_text("Enter search text!")
+                                    .font(TextStyle::Monospace);
                                 ui.add_enabled(false, text_edit).on_disabled_hover_text(
                                     "Type anywhere to search!\nUse backspace to clear \
                         the last character\nand (Ctrl+Alt)/(Cmd)+Backspace to clear all.",
@@ -645,9 +645,9 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                 // Right side of preset info
                                 |ui, pot_unit| {
                                     let Some((preset_id, preset_data)) = current_preset_id_and_data
-                                    else {
-                                        return;
-                                    };
+                                        else {
+                                            return;
+                                        };
                                     // Favorite button
                                     let favorites = integration.pot_favorites();
                                     let toggle = if let Ok(favorites) = favorites.try_read() {
@@ -1022,7 +1022,7 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                                         &crawling_state,
                                         "crawling finished state",
                                     )
-                                    .preset_count();
+                                        .preset_count();
                                     if crawled_preset_count == 0 {
                                         Dialog::preset_crawler_finished(
                                             crawled_preset_count,
@@ -1248,13 +1248,13 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                         .integration
                         .pot_preview_template_path()
                         .map(|p| p.to_path_buf())
-                    else {
-                        **change_dialog = Some(Some(Dialog::general_error(
-                            PREVIEW_RECORDER_TITLE,
-                            "Pot preview template doesn't exist",
-                        )));
-                        return;
-                    };
+                        else {
+                            **change_dialog = Some(Some(Dialog::general_error(
+                                PREVIEW_RECORDER_TITLE,
+                                "Pot preview template doesn't exist",
+                            )));
+                            return;
+                        };
                     let presets = mem::take(*presets);
                     let state = PreviewRecorderState::new(presets);
                     let state = Arc::new(RwLock::new(state));
@@ -1561,8 +1561,8 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                             });
                             // Reveal preset in file manager
                             #[cfg(any(
-                                all(target_os = "windows", target_arch = "x86_64"),
-                                target_os = "macos"
+                            all(target_os = "windows", target_arch = "x86_64"),
+                            target_os = "macos"
                             ))]
                             {
                                 if let pot::PotPresetKind::FileBased(k) = &data.preset.kind {
@@ -1880,7 +1880,7 @@ fn add_stats_panel(
                 .as_millis()
                 .to_string(),
         )
-        .on_hover_text("Checking previews");
+            .on_hover_text("Checking previews");
         ui.label(" + ");
         ui.label(pot_unit.stats.sort_duration.as_millis().to_string())
             .on_hover_text("Sorting filters and presets");
@@ -1916,8 +1916,8 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
                 );
             }
         })
-        .response
-        .on_hover_text("Under which conditions to show the FX window when loading a preset");
+            .response
+            .on_hover_text("Under which conditions to show the FX window when loading a preset");
         // Search fields
         ui.menu_button("Search fields", |ui| {
             let search_fields = &mut input.pot_unit.runtime_state.search_options.search_fields;
@@ -1931,18 +1931,18 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
                 }
             }
         })
-        .response
-        .on_hover_text("Which columns to search");
+            .response
+            .on_hover_text("Which columns to search");
         // Wildcards
         let old_wildcard_setting = input.pot_unit.runtime_state.search_options.use_wildcards;
         ui.checkbox(
             &mut input.pot_unit.runtime_state.search_options.use_wildcards,
             "Wildcards",
         )
-        .on_hover_text(
-            "Allows more accurate search by enabling wildcards: Use * to match any \
+            .on_hover_text(
+                "Allows more accurate search by enabling wildcards: Use * to match any \
         string and ? to match any letter!",
-        );
+            );
         if input.pot_unit.runtime_state.search_options.use_wildcards != old_wildcard_setting {
             input.pot_unit.rebuild_collections(
                 input.shared_pot_unit.clone(),
@@ -1981,10 +1981,10 @@ fn add_right_options_dropdown(input: RightOptionsDropdownInput, ui: &mut Ui) {
             &mut input.pot_unit.name_track_after_preset,
             "Name track after preset",
         )
-        .on_hover_text(
-            "When enabled, Pot Browser will rename the track to reflect the name of \
+            .on_hover_text(
+                "When enabled, Pot Browser will rename the track to reflect the name of \
             the preset.",
-        );
+            );
     });
 }
 
@@ -2019,7 +2019,7 @@ fn add_filter_panels<I: PotBrowserIntegration>(
                     // have an up-to-date glib but rfd uses glib-sys and this one needs a new glib.
                     #[cfg(any(target_os = "windows", target_os = "linux"))]
                     {
-                        Some(dirs::document_dir().unwrap_or_else(|| Reaper::get().resource_path()))
+                        Some(dirs::document_dir().unwrap_or_else(|| Reaper::get().resource_path().into()))
                     }
                 };
                 if let Some(folder) = folder {
@@ -2058,18 +2058,18 @@ fn add_filter_panels<I: PotBrowserIntegration>(
     let show_sub_banks = show_banks
         && pot_unit.supports_filter_kind(PotFilterKind::SubBank)
         && (!auto_hide_sub_filters
-            || (pot_unit
-                .filters()
-                .is_set_to_concrete_value(PotFilterKind::Bank)
-                || pot_unit.get_filter(PotFilterKind::SubBank).is_some()));
+        || (pot_unit
+        .filters()
+        .is_set_to_concrete_value(PotFilterKind::Bank)
+        || pot_unit.get_filter(PotFilterKind::SubBank).is_some()));
     let show_categories = pot_unit.supports_filter_kind(PotFilterKind::Category);
     let show_sub_categories = show_categories
         && pot_unit.supports_filter_kind(PotFilterKind::SubCategory)
         && (!auto_hide_sub_filters
-            || (pot_unit
-                .filters()
-                .is_set_to_concrete_value(PotFilterKind::Category)
-                || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()));
+        || (pot_unit
+        .filters()
+        .is_set_to_concrete_value(PotFilterKind::Category)
+        || pot_unit.get_filter(PotFilterKind::SubCategory).is_some()));
     let show_modes = pot_unit.supports_filter_kind(PotFilterKind::Mode);
     let mut remaining_kind_count = 6;
     if !show_projects {
