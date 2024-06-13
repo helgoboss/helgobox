@@ -2,9 +2,6 @@ use crate::domain::{
     CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{ControlValue, UnitValue};
-use playtime_api::persistence::RecordLengthMode;
-
 use realearn_api::persistence::PlaytimeMatrixAction;
 
 #[derive(Debug)]
@@ -72,10 +69,10 @@ mod no_playtime_impl {
 #[cfg(feature = "playtime")]
 mod playtime_impl {
     use crate::domain::{
-        convert_count_to_step_size, convert_unit_to_discrete_value, format_value_as_on_off,
-        Backbone, CompoundChangeEvent, ControlContext, HitResponse, MappingControlContext,
-        PlaytimeMatrixActionTarget, RealTimeControlContext, RealTimePlaytimeMatrixTarget,
-        RealTimeReaperTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
+        convert_count_to_step_size, format_value_as_on_off, Backbone, CompoundChangeEvent,
+        ControlContext, HitResponse, MappingControlContext, PlaytimeMatrixActionTarget,
+        RealTimeControlContext, RealTimePlaytimeMatrixTarget, RealTimeReaperTarget, RealearnTarget,
+        ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 
@@ -85,7 +82,6 @@ mod playtime_impl {
     use realearn_api::persistence::PlaytimeMatrixAction;
 
     use std::borrow::Cow;
-    use std::str::FromStr;
 
     impl PlaytimeMatrixActionTarget {
         fn invoke(&self, matrix: &mut Matrix, value: ControlValue) -> anyhow::Result<HitResponse> {
@@ -316,11 +312,11 @@ mod playtime_impl {
                 },
                 PlaytimeMatrixAction::SmartRecord => match evt {
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SlotChanged(
-                        QualifiedSlotChangeEvent { event, .. },
-                    )) => match event {
-                        SlotChangeEvent::PlayState(_) => (true, None),
-                        _ => (false, None),
-                    },
+                        QualifiedSlotChangeEvent {
+                            event: SlotChangeEvent::PlayState(_),
+                            ..
+                        },
+                    )) => (true, None),
                     CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::SequencerPlayStateChanged) => {
                         (true, None)
                     }

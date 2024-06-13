@@ -1,10 +1,10 @@
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::os::raw::c_void;
 
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::base::notification;
 use crate::domain::{CompartmentKind, FsDirLuaModuleFinder, LuaModuleContainer, SafeLua};
@@ -19,15 +19,13 @@ use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::lua_serializer;
 use crate::infrastructure::ui::util::open_in_browser;
 use base::hash_util::NonCryptoHashSet;
-use mlua::prelude::{LuaError, LuaResult};
-use mlua::serde::de;
-use mlua::{Lua, LuaSerdeExt, Value};
+use mlua::prelude::LuaError;
+use mlua::Value;
 use playtime_api::persistence::FlexibleMatrix;
 use realearn_api::persistence;
 use realearn_api::persistence::{ApiObject, CommonPresetMetaData, Envelope};
 use reaper_high::Reaper;
 use semver::Version;
-use serde::de::DeserializeOwned;
 
 pub enum UntaggedDataObject {
     Tagged(DataObject),
@@ -213,8 +211,7 @@ pub fn deserialize_data_object(
     let lua = SafeLua::new()?;
     let value = execute_lua_import_script(&lua, text, conversion_context.compartment(), true)?;
     // At first try deserializing as Lua API object
-    let lua_api_object_result = lua
-        .from_value::<ApiObject>(value.clone())
+    let lua_api_object_result = SafeLua::from_value::<ApiObject>(value.clone())
         .and_then(|api_object| {
             DataObject::try_from_api_object(api_object, conversion_context)
                 .context("converting API object to data object")
@@ -229,7 +226,7 @@ pub fn deserialize_data_object(
     // Actually only the version is important because it might influence import behavior.
     let lua_preset_result = parse_lua_frontmatter::<CommonPresetMetaData>(text)
         .and_then(|meta_data| {
-            let compartment = lua.from_value::<persistence::Compartment>(value)?;
+            let compartment = SafeLua::from_value::<persistence::Compartment>(value)?;
             warn_about_unknown_props("importing as Lua preset", &compartment.unknown_props);
             // When importing a Lua preset, we expect at least the "mappings" property. It's not strictly necessary
             // for a preset to have mappings, but when importing stuff it's important that we have good error reporting.
@@ -328,7 +325,7 @@ pub fn deserialize_api_object_from_lua(
 ) -> anyhow::Result<ApiObject> {
     let lua = SafeLua::new()?;
     let value = execute_lua_import_script(&lua, text, active_compartment, true)?;
-    lua.from_value(value)
+    SafeLua::from_value(value)
 }
 
 fn verify_no_recursive_tables(value: &Value) -> Result<(), LuaError> {

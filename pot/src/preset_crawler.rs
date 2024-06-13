@@ -13,7 +13,6 @@ use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 pub type SharedPresetCrawlingState = Arc<Mutex<PresetCrawlingState>>;

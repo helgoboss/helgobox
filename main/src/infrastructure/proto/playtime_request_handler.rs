@@ -1,7 +1,5 @@
 use reaper_high::{GroupingBehavior, Guid, Pan, Track};
-use reaper_medium::{
-    Bpm, Db, GangBehavior, NormalizedPlayRate, PlaybackSpeedFactor, ReaperPanValue, SoloMode,
-};
+use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
 use base::future_util;

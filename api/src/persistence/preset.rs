@@ -1,7 +1,9 @@
-use crate::util::deserialize_null_default;
+use std::collections::HashSet;
+
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashSet};
+
+use crate::util::deserialize_null_default;
 
 /// Meta data that is common to both main and controller presets.
 ///

@@ -38,7 +38,7 @@ use base::{
 };
 
 use crate::base::allocator::{RealearnAllocatorIntegration, RealearnDeallocator, GLOBAL_ALLOCATOR};
-use crate::base::notification::{notify_user_about_anyhow_error, notify_user_on_anyhow_error};
+use crate::base::notification::notify_user_about_anyhow_error;
 use crate::infrastructure::plugin::actions::ACTION_DEFS;
 use crate::infrastructure::plugin::api_impl::{register_api, unregister_api};
 use crate::infrastructure::plugin::debug_util::resolve_symbols_from_clipboard;
@@ -86,7 +86,6 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::future::Future;
-use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
@@ -367,17 +366,16 @@ impl BackboneShell {
         // the actual presets are read from disk when waking up.
         let controller_preset_manager = FileBasedControllerPresetManager::new(
             CompartmentKind::Controller,
-            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Controller).into(),
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Controller),
             Box::new(BackboneControllerPresetManagerEventHandler),
         );
         let main_preset_manager = FileBasedMainPresetManager::new(
             CompartmentKind::Main,
-            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Main).into(),
+            BackboneShell::realearn_compartment_preset_dir_path(CompartmentKind::Main),
             Box::new(BackboneMainPresetManagerEventHandler),
         );
         let preset_link_manager =
-            FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path())
-                .into();
+            FileBasedPresetLinkManager::new(BackboneShell::realearn_auto_load_configs_dir_path());
         let controller_manager = ControllerManager::new(
             Self::realearn_controller_config_file_path(),
             Box::new(BackboneControllerManagerEventHandler),
@@ -1143,7 +1141,7 @@ impl BackboneShell {
                 .path()
                 .join("pot-preview.RPP");
             fs::write(&dest_path, bytes).ok()?;
-            Some(dest_path.try_into().ok()?)
+            dest_path.try_into().ok()
         });
         PATH.as_ref().map(|p| p.as_path())
     }
@@ -1651,7 +1649,7 @@ impl BackboneShell {
         #[cfg(feature = "playtime")]
         {
             let result = playtime_impl::show_or_hide_playtime();
-            notify_user_on_anyhow_error(result);
+            crate::base::notification::notify_user_on_anyhow_error(result);
         }
     }
 
@@ -2843,7 +2841,6 @@ mod playtime_impl {
     use reaper_high::{GroupingBehavior, Reaper};
     use reaper_medium::{GangBehavior, InputMonitoringMode, RecordingInput};
     use std::fs;
-    use std::path::PathBuf;
 
     impl BackboneShell {
         pub(crate) fn read_playtime_settings() -> Option<PlaytimeSettings> {
@@ -2900,7 +2897,6 @@ mod playtime_impl {
     }
 
     pub fn init_clip_engine(license_manager: &LicenseManager) {
-        use playtime_clip_engine::PlaytimeMainEngine;
         #[derive(Debug)]
         struct RealearnMetricsRecorder;
         impl playtime_clip_engine::MetricsRecorder for RealearnMetricsRecorder {

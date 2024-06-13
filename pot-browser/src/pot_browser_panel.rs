@@ -43,7 +43,7 @@ use std::error::Error;
 use std::fs::File;
 use std::mem;
 use std::num::NonZeroUsize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
 use strum::IntoEnumIterator;
@@ -1372,7 +1372,7 @@ fn add_crawl_presets_stopped_dialog_contents(
                             });
                             row.col(|ui| {
                                 let dest = preset.destination().as_str();
-                                ui.label(&*dest).on_hover_text(&*dest);
+                                ui.label(dest).on_hover_text(dest);
                             });
                         }
                     });

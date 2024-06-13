@@ -19,7 +19,6 @@ use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::hash::Hasher;
 use std::iter;
-use std::path::PathBuf;
 use std::str::FromStr;
 use walkdir::WalkDir;
 

@@ -39,7 +39,7 @@ use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
 use itertools::Itertools;
 use realearn_api::persistence::{
-    CompartmentPresetId, FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
+    FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
     VirtualControlElementCharacter,
 };
 use realearn_api::runtime::InstanceInfoEvent;

@@ -10,7 +10,7 @@ use enumflags2::BitFlags;
 pub use mapping::*;
 use realearn_api::persistence::{
     ActivationCondition, Interval, Keystroke, ModifierState, OscArgKind, ParamRef,
-    VirtualControlElementCharacter, VirtualControlElementId,
+    VirtualControlElementId,
 };
 use reaper_medium::AcceleratorKeyCode;
 use source::*;

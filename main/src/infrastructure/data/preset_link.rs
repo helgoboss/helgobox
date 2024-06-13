@@ -2,7 +2,6 @@ use crate::application::{FxId, FxPresetLinkConfig, PresetLinkManager, PresetLink
 use camino::Utf8PathBuf;
 use std::cell::RefCell;
 use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 pub type SharedPresetLinkManager = Rc<RefCell<FileBasedPresetLinkManager>>;

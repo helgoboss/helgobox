@@ -19,7 +19,7 @@ use crate::infrastructure::data::{
 };
 use helgoboss_learn::OscTypeTag;
 use realearn_api::persistence;
-use realearn_api::persistence::{ParamRef, VirtualControlElementCharacter};
+use realearn_api::persistence::ParamRef;
 pub use target::*;
 
 fn convert_control_element_id(

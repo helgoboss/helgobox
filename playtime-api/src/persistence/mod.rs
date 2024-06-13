@@ -21,22 +21,23 @@
 //!   work well with ReaLearn Script (`lua_serializer.rs`) **and** our Rust-to-Dart converter.
 //!   For the latter, we need to avoid things like `#[serde(flatten)]` or type parameters!
 
-mod serialization;
+use std::cmp;
+use std::collections::BTreeMap;
+use std::fmt::{Display, Formatter};
 
-use crate::runtime::CellAddress;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as BASE64_ENGINE;
 use base64::Engine;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds};
 use serde::{Deserialize, Serialize};
-use std::cmp;
-use std::collections::BTreeMap;
-use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 use strum::EnumIter;
+
+use crate::runtime::CellAddress;
+
+mod serialization;
 
 /// Global settings that apply to all Playtime instances.
 ///

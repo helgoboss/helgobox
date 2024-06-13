@@ -7,7 +7,6 @@ use reaper_medium::{
     PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::cell::Cell;
-use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]

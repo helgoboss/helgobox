@@ -7,7 +7,6 @@ use mlua::{Function, Lua, Value};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 /// Allows executing Lua code as a module that may require other modules.

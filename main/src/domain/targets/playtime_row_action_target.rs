@@ -93,8 +93,7 @@ mod playtime_impl {
     use playtime_api::persistence::RowAddress;
     use playtime_api::runtime::CellAddress;
     use playtime_clip_engine::base::ClipMatrixEvent;
-    use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-    use realearn_api::persistence::{PlaytimeColumnAction, PlaytimeRowAction};
+    use realearn_api::persistence::PlaytimeRowAction;
 
     impl PlaytimeRowActionTarget {
         fn hit_internal(

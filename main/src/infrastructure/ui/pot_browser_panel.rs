@@ -9,7 +9,6 @@ use pot::{CurrentPreset, PotFavorites, PotFilterExcludes, SharedRuntimePotUnit};
 use pot_browser::{run_ui, PotBrowserIntegration, State};
 use reaper_high::{Fx, Track};
 use reaper_low::raw;
-use std::path::Path;
 use std::sync::RwLock;
 use swell_ui::{SharedView, View, ViewContext, Window};
 

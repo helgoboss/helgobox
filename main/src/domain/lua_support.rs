@@ -35,6 +35,14 @@ impl SafeLua {
         Ok(Self(lua))
     }
 
+    pub fn from_value<T>(value: Value) -> anyhow::Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let result = T::deserialize(de::Deserializer::new(value))?;
+        Ok(result)
+    }
+
     /// Compiles as a function with return value (for later execution).
     pub fn compile_as_function<'a>(
         &'a self,
@@ -83,14 +91,6 @@ impl SafeLua {
                 Ok(VmState::Continue)
             }
         });
-    }
-
-    pub fn from_value<T>(&self, value: Value) -> anyhow::Result<T>
-    where
-        T: DeserializeOwned,
-    {
-        let result = T::deserialize(de::Deserializer::new(value))?;
-        Ok(result)
     }
 }
 

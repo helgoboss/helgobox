@@ -1075,7 +1075,7 @@ export type MidiResetMessages = {
 	all_notes_off: boolean,
 	all_sound_off: boolean,
 	reset_all_controllers: boolean,
-	damper_pedal_off: boolean,
+	on_damper_pedal_off: boolean,
 }
 --- Creates a MidiResetMessages value.
 function module.MidiResetMessages(value: MidiResetMessages): MidiResetMessages
