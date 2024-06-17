@@ -4,6 +4,7 @@ use reaper_high::{OrCurrentProject, Reaper};
 use tonic::{Response, Status};
 
 use base::spawn_in_main_thread;
+use swell_ui::Window;
 
 use crate::domain::{CompartmentKind, UnitId};
 use crate::infrastructure::api::convert::from_data;
@@ -286,7 +287,9 @@ impl ProtoRequestHandler {
         let action = TriggerGlobalAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger global action"))?;
         match action {
-            TriggerGlobalAction::Placeholder => {}
+            TriggerGlobalAction::FocusHost => {
+                Window::from_hwnd(Reaper::get().main_window()).focus();
+            }
         }
         Ok(Response::new(Empty {}))
     }
@@ -314,6 +317,9 @@ impl ProtoRequestHandler {
                         .processor_context()
                         .containing_fx()
                         .show_in_floating_window();
+                }
+                TriggerInstanceAction::CloseApp => {
+                    instance.panel().stop_app_instance();
                 }
                 TriggerInstanceAction::ArrangementTogglePlayStop => {
                     if project.is_playing() {

@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::BackboneShell;
+use crate::infrastructure::plugin::{reaper_main_window, BackboneShell};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
@@ -174,7 +174,7 @@ impl AppLibrary {
                 .main_library
                 .get(b"hide_app_instance\0")
                 .map_err(|_| anyhow!("failed to load hide_app_instance function"))?;
-            hide_app_instance(app_handle);
+            hide_app_instance(app_handle, reaper_main_window().raw());
         };
         Ok(())
     }
@@ -309,7 +309,7 @@ type StartAppInstance = unsafe extern "C" fn(
 type ShowAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
 
 /// Signature of the function that we use to hide an app instance.
-type HideAppInstance = unsafe extern "C" fn(app_handle: AppHandle);
+type HideAppInstance = unsafe extern "C" fn(app_handle: AppHandle, host_window: HWND);
 
 /// Signature of the function that we use to check whether an app instance has focus.
 type AppInstanceHasFocus = unsafe extern "C" fn(app_handle: AppHandle) -> bool;

@@ -447,7 +447,7 @@ impl BackboneShell {
         }
         // Detect shutdown via hidden child window as suggested by Justin
         let shutdown_detection_panel = SharedView::new(HiddenHelperPanel::new());
-        shutdown_detection_panel.clone().open(reaper_window());
+        shutdown_detection_panel.clone().open(reaper_main_window());
         BackboneShell {
             _tracing_hook: tracing_hook,
             _metrics_hook: metrics_hook,
@@ -1503,7 +1503,11 @@ impl BackboneShell {
 
     pub fn show_welcome_screen() {
         let shell = Self::get();
-        open_child_panel(&shell.welcome_panel, WelcomePanel::new(), reaper_window());
+        open_child_panel(
+            &shell.welcome_panel,
+            WelcomePanel::new(),
+            reaper_main_window(),
+        );
     }
 
     pub fn resolve_symbols_from_clipboard() {
@@ -2796,7 +2800,7 @@ impl ToolbarIconMap for BackboneShell {
     }
 }
 
-fn reaper_window() -> Window {
+pub fn reaper_main_window() -> Window {
     Window::from_hwnd(Reaper::get().main_window())
 }
 

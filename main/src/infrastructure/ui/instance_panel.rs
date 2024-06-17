@@ -8,7 +8,7 @@ use std::sync;
 use std::sync::Arc;
 
 use crate::domain::{InstanceId, SharedInstance, UnitId};
-use crate::infrastructure::plugin::{InstanceShell, SharedInstanceShell};
+use crate::infrastructure::plugin::{reaper_main_window, InstanceShell, SharedInstanceShell};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::colors;
 use swell_ui::{DeviceContext, Dimensions, Pixels, SharedView, View, ViewContext, Window};
@@ -309,8 +309,4 @@ impl View for InstancePanel {
     ) -> Option<Hbrush> {
         util::view::get_brush_for_color_pair(colors::instance_panel_background())
     }
-}
-
-fn reaper_main_window() -> Window {
-    Window::from_hwnd(Reaper::get().main_window())
 }

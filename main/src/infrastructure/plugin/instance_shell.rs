@@ -207,6 +207,10 @@ impl InstanceShell {
         self.find_unit_prop_by_id_simple(id, |i, unit_shell| (i, unit_shell.model().clone()))
     }
 
+    pub fn panel(&self) -> &SharedView<InstancePanel> {
+        self.panel.get()
+    }
+
     pub fn find_unit_panel_by_id(&self, id: Option<UnitId>) -> Option<SharedView<UnitPanel>> {
         self.find_unit_prop_by_id_simple(id, |_, unit_shell| unit_shell.panel().clone())
     }

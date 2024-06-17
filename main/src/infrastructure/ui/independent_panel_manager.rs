@@ -8,6 +8,7 @@ use crate::domain::{
     CompartmentKind, MappingId, MappingMatchedEvent, SourceFeedbackEvent, TargetControlEvent,
     TargetValueChangedEvent,
 };
+use crate::infrastructure::plugin::reaper_main_window;
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -190,8 +191,4 @@ impl Drop for IndependentPanelManager {
         // close them manually as soon as ReaLearn is unloaded.
         self.destroy();
     }
-}
-
-fn reaper_main_window() -> Window {
-    Window::from_hwnd(Reaper::get().main_window())
 }
