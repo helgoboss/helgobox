@@ -321,6 +321,9 @@ impl ProtoRequestHandler {
                 TriggerInstanceAction::CloseApp => {
                     instance.panel().stop_app_instance();
                 }
+                TriggerInstanceAction::HideApp => {
+                    instance.panel().hide_app_instance();
+                }
                 TriggerInstanceAction::ArrangementTogglePlayStop => {
                     if project.is_playing() {
                         project.stop();

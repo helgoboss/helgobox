@@ -1709,6 +1709,7 @@ pub enum TriggerInstanceAction {
     ArrangementStartRecording = 5,
     ArrangementStopRecording = 6,
     CloseApp = 7,
+    HideApp = 8,
 }
 impl TriggerInstanceAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1739,6 +1740,7 @@ impl TriggerInstanceAction {
                 "TRIGGER_INSTANCE_ACTION_ARRANGEMENT_STOP_RECORDING"
             }
             TriggerInstanceAction::CloseApp => "TRIGGER_INSTANCE_ACTION_CLOSE_APP",
+            TriggerInstanceAction::HideApp => "TRIGGER_INSTANCE_ACTION_HIDE_APP",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1760,6 +1762,7 @@ impl TriggerInstanceAction {
                 Some(Self::ArrangementStopRecording)
             }
             "TRIGGER_INSTANCE_ACTION_CLOSE_APP" => Some(Self::CloseApp),
+            "TRIGGER_INSTANCE_ACTION_HIDE_APP" => Some(Self::HideApp),
             _ => None,
         }
     }
