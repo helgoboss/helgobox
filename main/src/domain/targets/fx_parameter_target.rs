@@ -11,7 +11,7 @@ use pot::{MacroParam, MacroParamBank};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Reaper, Track};
 use reaper_medium::{
     GetParamExResult, GetParameterStepSizesResult, MediaTrack, ReaperNormalizedFxParamValue,
-    ReaperVersion, TrackFxLocation,
+    TrackFxLocation,
 };
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -456,7 +456,7 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
 }
 
 fn reaper_is_ready_for_real_time_fx_param_control() -> bool {
-    Reaper::get().version() >= ReaperVersion::new("6.52+dev0323")
+    Reaper::get().version().revision() >= "6.52+dev0323"
 }
 
 /// If ReaLearn is not on the same track as the FX whose parameters it should control,

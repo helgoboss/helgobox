@@ -2993,9 +2993,7 @@ fn mapping_has_project_references(mapping: &SharedMapping) -> bool {
 }
 
 pub fn reaper_supports_global_midi_filter() -> bool {
-    let v = Reaper::get().version().to_string();
-    let v_without_arch = v.split('/').next().unwrap();
-    v_without_arch >= "6.35+dev0831"
+    Reaper::get().version().revision() >= "6.35+dev0831"
 }
 
 #[allow(dead_code)]
