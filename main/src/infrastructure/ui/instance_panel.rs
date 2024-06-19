@@ -1,6 +1,5 @@
 use crate::infrastructure::ui::{build_unit_label, util, UnitPanel};
 use anyhow::Context;
-use reaper_high::Reaper;
 use reaper_medium::Hbrush;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Debug;

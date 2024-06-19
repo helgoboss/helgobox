@@ -1,5 +1,4 @@
 use crate::infrastructure::ui::{MappingPanel, SessionMessagePanel, UnitPanel};
-use reaper_high::Reaper;
 use std::cell::OnceCell;
 use tracing::debug;
 
@@ -9,7 +8,7 @@ use crate::domain::{
     TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::reaper_main_window;
-use swell_ui::{SharedView, View, WeakView, Window};
+use swell_ui::{SharedView, View, WeakView};
 
 const MAX_PANEL_COUNT: u32 = 4;
 
