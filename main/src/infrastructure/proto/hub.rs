@@ -582,6 +582,7 @@ mod playtime_impl {
                         let update = match event {
                             Everything | Volume(_) | Looped(_) => {
                                 qualified_occasional_clip_update::Update::complete_persistent_data(
+                                    matrix,
                                     &employment.clip,
                                 )
                                 .ok()?

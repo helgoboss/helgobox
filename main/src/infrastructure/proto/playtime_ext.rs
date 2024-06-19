@@ -296,15 +296,16 @@ impl qualified_occasional_slot_update::Update {
         Self::PlayState(SlotPlayState::from_engine(play_state).into())
     }
 
-    pub fn complete_persistent_data(_matrix: &Matrix, slot: &Slot) -> Self {
-        let api_slot =
-            slot.save(SaveOptions::without_contents())
-                .unwrap_or(playtime_api::persistence::Slot {
-                    id: slot.id().clone(),
-                    row: slot.index(),
-                    clip_old: None,
-                    clips: None,
-                });
+    pub fn complete_persistent_data(matrix: &Matrix, slot: &Slot) -> Self {
+        let base_dir = matrix.base_dir();
+        let api_slot = slot
+            .save(base_dir.as_deref(), SaveOptions::without_contents())
+            .unwrap_or(playtime_api::persistence::Slot {
+                id: slot.id().clone(),
+                row: slot.index(),
+                clip_old: None,
+                clips: None,
+            });
         let json = serde_json::to_string(&api_slot).expect("couldn't represent slot as JSON");
         Self::CompletePersistentData(json)
     }
@@ -328,8 +329,9 @@ impl qualified_occasional_row_update::Update {
 }
 
 impl qualified_occasional_clip_update::Update {
-    pub fn complete_persistent_data(clip: &Clip) -> anyhow::Result<Self> {
-        let api_clip = clip.save(SaveOptions::without_contents())?;
+    pub fn complete_persistent_data(matrix: &Matrix, clip: &Clip) -> anyhow::Result<Self> {
+        let base_dir = matrix.base_dir();
+        let api_clip = clip.save(base_dir.as_deref(), SaveOptions::without_contents())?;
         let json = serde_json::to_string(&api_clip).expect("couldn't represent clip as JSON");
         Ok(Self::CompletePersistentData(json))
     }
