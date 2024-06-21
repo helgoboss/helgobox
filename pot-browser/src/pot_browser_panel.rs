@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use base::enigo::EnigoMouse;
 use base::{
     blocking_lock, blocking_lock_arc, blocking_read_lock, NamedChannelSender, SenderToNormalThread,
@@ -21,8 +22,8 @@ use pot::preset_crawler::{
     PresetCrawlingState, SharedPresetCrawlingState,
 };
 use pot::preview_recorder::{
-    prepare_preview_recording, record_previews, PreviewRecorderFailure, PreviewRecorderState,
-    SharedPreviewRecorderState,
+    prepare_preview_recording, record_previews, ExportPreviewOutputConfig, PreviewOutputConfig,
+    PreviewRecorderFailure, PreviewRecorderState, RecordPreviewsArgs, SharedPreviewRecorderState,
 };
 use pot::providers::projects::{ProjectDatabase, ProjectDbConfig};
 use pot::{
@@ -41,13 +42,14 @@ use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
 use std::error::Error;
 use std::fs::File;
-use std::mem;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, MutexGuard, RwLock};
 use std::time::{Duration, Instant};
+use std::{fs, mem};
 use strum::IntoEnumIterator;
 use swell_ui::Window;
+use url::Url;
 
 pub trait PotBrowserIntegration {
     fn get_track_label(&self, track: &Track) -> String;
@@ -160,6 +162,7 @@ enum Dialog {
     PreviewRecorderPreparing,
     PreviewRecorderReadyToRecord {
         presets: Vec<PresetWithId>,
+        output_config: PreviewOutputConfig,
     },
     PreviewRecorderRecording {
         state: SharedPreviewRecorderState,
@@ -167,6 +170,7 @@ enum Dialog {
     PreviewRecorderDone {
         state: SharedPreviewRecorderState,
         page: PreviewRecorderDonePage,
+        output_config: PreviewOutputConfig,
     },
 }
 
@@ -266,18 +270,28 @@ impl Dialog {
         Self::PreviewRecorderPreparing
     }
 
-    fn preview_recorder_ready_to_record(presets: Vec<PresetWithId>) -> Self {
-        Self::PreviewRecorderReadyToRecord { presets }
+    fn preview_recorder_ready_to_record(
+        presets: Vec<PresetWithId>,
+        output_config: PreviewOutputConfig,
+    ) -> Self {
+        Self::PreviewRecorderReadyToRecord {
+            presets,
+            output_config,
+        }
     }
 
     fn preview_recorder_recording(state: SharedPreviewRecorderState) -> Self {
         Self::PreviewRecorderRecording { state }
     }
 
-    fn preview_recorder_done(state: SharedPreviewRecorderState) -> Self {
+    fn preview_recorder_done(
+        state: SharedPreviewRecorderState,
+        output_config: PreviewOutputConfig,
+    ) -> Self {
         Self::PreviewRecorderDone {
             state,
             page: PreviewRecorderDonePage::Todos,
+            output_config,
         }
     }
 }
@@ -1196,19 +1210,39 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                 if ui.button("Cancel").clicked() {
                     **change_dialog = Some(None);
                 };
-                if ui.button("Continue").clicked() {
-                    let build_input = input.pot_unit.create_build_input();
-                    pot_worker_dispatcher.do_in_background_and_then(
-                        async move { prepare_preview_recording(build_input) },
-                        |context, output| {
-                            if matches!(context.dialog, Some(Dialog::PreviewRecorderPreparing)) {
-                                context.dialog =
-                                    Some(Dialog::preview_recorder_ready_to_record(output));
-                            }
-                        },
-                    );
-                    **change_dialog = Some(Some(Dialog::preview_recorder_preparing()));
-                }
+                // Determine output config
+                let record_and_export_button = ui.button("Record and export");
+                let record_for_pot_browser_button =
+                    ui.button("Record for playback within Pot Browser");
+                let output_config = if record_for_pot_browser_button.clicked() {
+                    PreviewOutputConfig::ForPotBrowserPlayback
+                } else if record_and_export_button.clicked() {
+                    let parent_dir = os_document_or_reaper_resource_dir();
+                    let dir_name = Local::now().format("%Y-%m-%d %H-%M-%S").to_string();
+                    let base_dir = parent_dir
+                        .join("Helgobox/SoundPot/Preview Exports")
+                        .join(dir_name);
+                    let config = ExportPreviewOutputConfig { base_dir };
+                    PreviewOutputConfig::Export(config)
+                } else {
+                    // No button clicked yet
+                    return;
+                };
+                // One of the continue buttons has been clicked
+                let build_input = input.pot_unit.create_build_input();
+                let output_config_clone = output_config.clone();
+                pot_worker_dispatcher.do_in_background_and_then(
+                    async move { prepare_preview_recording(build_input, &output_config_clone) },
+                    |context, output| {
+                        if matches!(context.dialog, Some(Dialog::PreviewRecorderPreparing)) {
+                            context.dialog = Some(Dialog::preview_recorder_ready_to_record(
+                                output,
+                                output_config,
+                            ));
+                        }
+                    },
+                );
+                **change_dialog = Some(Some(Dialog::preview_recorder_preparing()));
             },
         ),
         Dialog::PreviewRecorderPreparing => show_dialog(
@@ -1225,7 +1259,10 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                 };
             },
         ),
-        Dialog::PreviewRecorderReadyToRecord { presets } => show_dialog(
+        Dialog::PreviewRecorderReadyToRecord {
+            presets,
+            output_config,
+        } => show_dialog(
             ctx,
             PREVIEW_RECORDER_TITLE,
             &mut (input.change_dialog, presets, input.main_thread_dispatcher),
@@ -1243,42 +1280,55 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                 if ui.button("Cancel").clicked() {
                     **change_dialog = Some(None);
                 };
-                if ui.button("Continue").clicked() {
-                    let Some(preview_rpp) = input
-                        .integration
-                        .pot_preview_template_path()
-                        .map(|p| p.to_path_buf())
-                    else {
+                if !ui.button("Continue").clicked() {
+                    return;
+                }
+                let preview_rpp = get_preview_rpp_path(
+                    input.integration.pot_preview_template_path(),
+                    output_config,
+                );
+                let preview_rpp = match preview_rpp {
+                    Ok(f) => f,
+                    Err(e) => {
                         **change_dialog = Some(Some(Dialog::general_error(
                             PREVIEW_RECORDER_TITLE,
-                            "Pot preview template doesn't exist",
+                            e.to_string(),
                         )));
                         return;
-                    };
-                    let presets = mem::take(*presets);
-                    let state = PreviewRecorderState::new(presets);
-                    let state = Arc::new(RwLock::new(state));
-                    **change_dialog = Some(Some(Dialog::preview_recorder_recording(state.clone())));
-                    let cloned_state = state.clone();
-                    let shared_pot_unit = input.shared_pot_unit.clone();
-                    main_thread_dispatcher.do_in_background_and_then(
-                        async move {
-                            record_previews(shared_pot_unit, state, &preview_rpp)
-                                .await
-                                .map_err(|e| e.to_string())?;
-                            Ok(())
-                        },
-                        |context, _: Result<(), String>| {
-                            let cloned_pot_unit = context.pot_unit.clone();
-                            let mut pot_unit = blocking_lock(
-                                &*context.pot_unit,
-                                "PotUnit from preview background result handler",
-                            );
-                            pot_unit.refresh_pot(cloned_pot_unit);
-                            context.dialog = Some(Dialog::preview_recorder_done(cloned_state));
-                        },
-                    );
-                }
+                    }
+                };
+                let presets = mem::take(*presets);
+                let state = PreviewRecorderState::new(presets);
+                let state = Arc::new(RwLock::new(state));
+                **change_dialog = Some(Some(Dialog::preview_recorder_recording(state.clone())));
+                let cloned_state = state.clone();
+                let shared_pot_unit = input.shared_pot_unit.clone();
+                let output_config_clone_1 = output_config.clone();
+                let output_config_clone_2 = output_config.clone();
+                main_thread_dispatcher.do_in_background_and_then(
+                    async move {
+                        let args = RecordPreviewsArgs {
+                            shared_pot_unit,
+                            state,
+                            preview_rpp: &preview_rpp,
+                            config: output_config_clone_1,
+                        };
+                        record_previews(args).await.map_err(|e| e.to_string())?;
+                        Ok(())
+                    },
+                    |context, _: Result<(), String>| {
+                        let cloned_pot_unit = context.pot_unit.clone();
+                        let mut pot_unit = blocking_lock(
+                            &*context.pot_unit,
+                            "PotUnit from preview background result handler",
+                        );
+                        pot_unit.refresh_pot(cloned_pot_unit);
+                        context.dialog = Some(Dialog::preview_recorder_done(
+                            cloned_state,
+                            output_config_clone_2,
+                        ));
+                    },
+                );
             },
         ),
         Dialog::PreviewRecorderRecording { state } => show_dialog(
@@ -1300,20 +1350,30 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
             },
             |_, _| {},
         ),
-        Dialog::PreviewRecorderDone { state, page } => show_dialog(
-            ctx,
-            PREVIEW_RECORDER_TITLE,
-            input.change_dialog,
-            |ui, _| {
-                let state = blocking_read_lock(state, "preview recorder UI");
-                add_preview_recorder_done_dialog_contents(&state, page, ui);
-            },
-            |ui, change_dialog| {
-                if ui.button("Close").clicked() {
-                    *change_dialog = Some(None);
-                };
-            },
-        ),
+        Dialog::PreviewRecorderDone {
+            state,
+            page,
+            output_config,
+        } => {
+            let output_config_clone = output_config.clone();
+            show_dialog(
+                ctx,
+                PREVIEW_RECORDER_TITLE,
+                input.change_dialog,
+                |ui, _| {
+                    let state = blocking_read_lock(state, "preview recorder UI");
+                    add_preview_recorder_done_dialog_contents(&state, page, output_config, ui);
+                },
+                |ui, change_dialog| {
+                    if ui.button("Close").clicked() {
+                        if let PreviewOutputConfig::Export(c) = output_config_clone {
+                            reveal(c.base_dir.as_std_path());
+                        }
+                        *change_dialog = Some(None);
+                    };
+                },
+            )
+        }
     }
 }
 
@@ -1405,12 +1465,18 @@ fn get_preset_crawler_stopped_markdown(
 fn add_preview_recorder_done_dialog_contents(
     state: &PreviewRecorderState,
     page: &mut PreviewRecorderDonePage,
+    output_config: &PreviewOutputConfig,
     ui: &mut Ui,
 ) {
-    let markdown = if state.todos.is_empty() {
-        PREVIEW_RECORDER_DONE_COMPLETE_TEXT
-    } else {
-        PREVIEW_RECORDER_DONE_INCOMPLETE_TEXT
+    let markdown = match (output_config, state.todos.is_empty()) {
+        (PreviewOutputConfig::ForPotBrowserPlayback, false) => {
+            PREVIEW_RECORDER_DONE_INTERNAL_INCOMPLETE_TEXT
+        }
+        (PreviewOutputConfig::ForPotBrowserPlayback, true) => {
+            PREVIEW_RECORDER_DONE_INTERNAL_COMPLETE_TEXT
+        }
+        (PreviewOutputConfig::Export(_), false) => PREVIEW_RECORDER_DONE_EXPORT_INCOMPLETE_TEXT,
+        (PreviewOutputConfig::Export(_), true) => PREVIEW_RECORDER_DONE_EXPORT_COMPLETE_TEXT,
     };
     add_markdown(ui, markdown, DIALOG_CONTENT_MAX_HEIGHT / 2.0 - 80.0);
     if !state.failures.is_empty() {
@@ -2009,7 +2075,9 @@ fn add_filter_panels<I: PotBrowserIntegration>(
                     // On macOS, the blocking file dialog works nicely.
                     #[cfg(target_os = "macos")]
                     {
-                        rfd::FileDialog::new().pick_folder()
+                        rfd::FileDialog::new()
+                            .pick_folder()
+                            .and_then(|dir| Utf8PathBuf::from_path_buf(dir).ok())
                     }
                     // On Windows, we run into the borrow_mut error because of RefCells combined
                     // with reentrancy in baseview. Tried async dialog as well with main thread
@@ -2019,16 +2087,11 @@ fn add_filter_panels<I: PotBrowserIntegration>(
                     // have an up-to-date glib but rfd uses glib-sys and this one needs a new glib.
                     #[cfg(any(target_os = "windows", target_os = "linux"))]
                     {
-                        Some(
-                            dirs::document_dir()
-                                .unwrap_or_else(|| Reaper::get().resource_path().into()),
-                        )
+                        Some(os_document_or_reaper_resource_dir())
                     }
                 };
                 if let Some(folder) = folder {
-                    if let Some(folder_str) = folder.to_str() {
-                        *dialog = Some(Dialog::add_project_database(folder_str.to_string()));
-                    }
+                    *dialog = Some(Dialog::add_project_database(folder.to_string()));
                 }
             }
         });
@@ -3017,6 +3080,7 @@ fn add_markdown(ui: &mut Ui, markdown: &str, max_height: f32) {
     let mut heading_level: Option<HeadingLevel> = None;
     let mut list_item_index: Option<u64> = None;
     let mut spans: Vec<RichText> = vec![];
+    let mut href: Option<String> = None;
     let insert_paragraph = |ui: &mut Ui, spans: &mut Vec<RichText>| {
         ui.horizontal_wrapped(|ui| {
             for span in spans.drain(..) {
@@ -3036,6 +3100,12 @@ fn add_markdown(ui: &mut Ui, markdown: &str, max_height: f32) {
                     }
                     Event::End(Tag::Strong) => {
                         strong = false;
+                    }
+                    Event::Start(Tag::Link(_, url, _)) => {
+                        href = Some(url.to_string());
+                    }
+                    Event::End(Tag::Link(_, _, _)) => {
+                        href = None;
                     }
                     Event::Start(Tag::Heading(level, ..)) => {
                         heading_level = Some(level);
@@ -3066,17 +3136,23 @@ fn add_markdown(ui: &mut Ui, markdown: &str, max_height: f32) {
                         insert_paragraph(ui, &mut spans);
                     }
                     Event::Text(text) => {
-                        use HeadingLevel::*;
-                        let (size, always_strong) = match heading_level {
-                            Some(H1) => (20.0, true),
-                            Some(H2) => (16.0, true),
-                            _ => (14.0, false),
-                        };
-                        let mut span = RichText::new(text.as_ref()).size(size);
-                        if strong || always_strong {
-                            span = span.strong();
+                        if let Some(href) = href.take() {
+                            if ui.button(text.as_ref()).clicked() {
+                                open_link(&href);
+                            }
+                        } else {
+                            use HeadingLevel::*;
+                            let (size, always_strong) = match heading_level {
+                                Some(H1) => (20.0, true),
+                                Some(H2) => (16.0, true),
+                                _ => (14.0, false),
+                            };
+                            let mut span = RichText::new(text.as_ref()).size(size);
+                            if strong || always_strong {
+                                span = span.strong();
+                            }
+                            spans.push(span);
                         }
-                        spans.push(span);
                     }
                     _ => {}
                 }
@@ -3143,6 +3219,8 @@ Preview Recorder to the rescue! It can batch-record previews of your instrument 
 
 **Step 5:** All newly recorded previews are automatically available!
 
+As an alternative, you can export the recorded previews to a directory of your choice.
+
 ## Want to try it?
 
 Then press "Continue" and follow the instructions!
@@ -3155,7 +3233,7 @@ Have you used Pot Browser's filter and search features already to narrow down th
 
 Creating previews for hundreds of presets can take long. But no worries, you can stop anytime without losing your already recorded previews. Next time, Preview Recorder will automatically continue where you left off.
 
-When you press "Continue", Preview Browser will narrow down your set of presets further and only include those that ...
+As soon as you press one of the record buttons, Preview Browser will narrow down your set of presets further and only include those that ...
 
 - ... don't have previews yet
 - ... are instrument presets
@@ -3164,7 +3242,7 @@ When you press "Continue", Preview Browser will narrow down your set of presets 
 
 ## Ready?
 
-Then press "Continue"! 
+Then press one of the record buttons, depending on what you want to do!
 "#;
 
 const PRESET_CRAWLER_BASICS_TEXT: &str = r#"
@@ -3184,7 +3262,7 @@ After pressing "Continue", you will have to place the mouse cursor on top of the
 Then press "Continue"! 
 "#;
 
-const PREVIEW_RECORDER_DONE_COMPLETE_TEXT: &str = r#"
+const PREVIEW_RECORDER_DONE_INTERNAL_COMPLETE_TEXT: &str = r#"
 ## Preview recording done!
 
 Preview Recorder has recorded all previews. They will be automatically available in Preset Browser.
@@ -3192,7 +3270,24 @@ Preview Recorder has recorded all previews. They will be automatically available
 You may close the preview recording project tab (no need to save).
 "#;
 
-const PREVIEW_RECORDER_DONE_INCOMPLETE_TEXT: &str = r#"
+const PREVIEW_RECORDER_DONE_EXPORT_INCOMPLETE_TEXT: &str = r#"
+## Preview recording stopped!
+
+Preview Recorder has stopped recording previews. All the previews generated so far can be found in the
+export directory (which will be opened in the next step).
+
+You may close the preview recording project tab (no need to save).
+"#;
+
+const PREVIEW_RECORDER_DONE_EXPORT_COMPLETE_TEXT: &str = r#"
+## Preview recording done!
+
+Preview Recorder has recorded all previews. They can be found in the export directory (which will be opened in the next step).
+
+You may close the preview recording project tab (no need to save).
+"#;
+
+const PREVIEW_RECORDER_DONE_INTERNAL_INCOMPLETE_TEXT: &str = r#"
 ## Preview recording stopped!
 
 Preview Recorder has stopped recording previews. All the previews generated so far will be
@@ -3343,4 +3438,79 @@ fn optional_string(text: Option<&str>) -> &str {
     } else {
         "-"
     }
+}
+
+fn os_document_or_reaper_resource_dir() -> Utf8PathBuf {
+    dirs::document_dir()
+        .and_then(|dir| Utf8PathBuf::from_path_buf(dir).ok())
+        .unwrap_or_else(|| Reaper::get().resource_path())
+}
+
+fn get_preview_rpp_path(
+    built_in_path: Option<&Utf8Path>,
+    output_config: &PreviewOutputConfig,
+) -> anyhow::Result<Utf8PathBuf> {
+    use anyhow::Context;
+    let built_in_template_path =
+        built_in_path.context("Built-in pot preview template not available")?;
+    match output_config {
+        PreviewOutputConfig::ForPotBrowserPlayback => Ok(built_in_template_path.to_path_buf()),
+        PreviewOutputConfig::Export(c) => {
+            let base_dir_parent = c.base_dir.parent().expect("base dir should have parent");
+            let custom_template_path = base_dir_parent.join("pot-preview.RPP");
+            if custom_template_path.exists() {
+                Ok(custom_template_path)
+            } else {
+                let custom_template_path_url = Url::from_file_path(&custom_template_path)
+                    .map_err(|_| anyhow!("Couldn't turn base dir parent into URL"))?;
+                let _ = fs::create_dir_all(base_dir_parent);
+                fs::copy(built_in_template_path, &custom_template_path)?;
+                let msg = format!(
+                    "You have chosen to render preset previews for export purposes. In order to give you full control about the audio format and other aspects of the preview rendering process, Pot Browser uses a user-customizable template RPP file to render the previews.\n\
+                    \n\
+                    Pot Browser copied the default template (export in OGG format) to the following location:\n\
+                    \n\
+                    [{custom_template_path}]({custom_template_path_url})\n\
+                    \n\
+                    Please review it and adjust it to your needs. Simply open it in REAPER, modify the render settings as desired, press \"Save Settings\" in the render panel and don't forget to save the project file itself after having made the adjustments. Then come back here again. You need to do this only once!\n\
+                    \n\
+                    Oh, and if you have messed things up, simply delete that file and Pot Browser will restore its default template ;)"
+                );
+                Err(anyhow!(msg))
+            }
+        }
+    }
+}
+
+fn open_link(thing: &str) {
+    if thing.starts_with("file://") {
+        reveal(Path::new(thing));
+    } else {
+        let _ = opener::open_browser(thing);
+    }
+}
+
+fn reveal(path: &Path) {
+    #[cfg(any(
+        all(target_os = "windows", target_arch = "x86_64"),
+        target_os = "macos"
+    ))]
+    {
+        if opener::reveal(path).is_err() {
+            reveal_fallback(path);
+        }
+    }
+    #[cfg(not(any(
+        all(target_os = "windows", target_arch = "x86_64"),
+        target_os = "macos"
+    )))]
+    {
+        reveal_fallback(path);
+    }
+}
+
+fn reveal_fallback(path: &Path) {
+    Reaper::get().show_console_msg(
+        format!("Failed to open the following path in your file manager. Please open it manually:\n\n{path:?}\n\n")
+    );
 }

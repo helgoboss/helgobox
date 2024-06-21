@@ -26,9 +26,11 @@ strum.workspace = true
 swell-ui.workspace = true
 bytesize.workspace = true
 camino.workspace = true
+anyhow.workspace = true
+url.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 rfd = "0.12.1"
 
 [target.'cfg(any(all(target_os = "windows", target_arch = "x86_64"), target_os = "macos"))'.dependencies]
-opener = { version = "0.6.1", features = ["reveal"] }
+opener = { version = "0.7.1", features = ["reveal"] }
