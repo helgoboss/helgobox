@@ -626,6 +626,9 @@ mod playtime_impl {
             {
                 return;
             }
+            fn track_normal_fx_chain_update(track: &Track) -> R {
+                track_update(track, || Update::normal_fx_chain(track))
+            }
             fn track_update(track: &Track, create_update: impl FnOnce() -> Update) -> R {
                 R::Track(QualifiedOccasionalTrackUpdate {
                     track_id: track.guid().to_string_without_braces(),
@@ -687,6 +690,9 @@ mod playtime_impl {
                             column_track_update(matrix, &e.track, || Update::pan(val))
                         }
                     }
+                    ChangeEvent::FxAdded(e) => e.fx.track().map(track_normal_fx_chain_update),
+                    ChangeEvent::FxRemoved(e) => e.fx.track().map(track_normal_fx_chain_update),
+                    ChangeEvent::FxReordered(e) => Some(track_normal_fx_chain_update(&e.track)),
                     ChangeEvent::TrackNameChanged(e) => {
                         Some(track_update(&e.track, || Update::name(&e.track)))
                     }

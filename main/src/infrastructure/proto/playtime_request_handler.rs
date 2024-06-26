@@ -1,3 +1,4 @@
+use anyhow::Context;
 use reaper_high::{GroupingBehavior, Guid, Pan, Track};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
@@ -24,16 +25,17 @@ use crate::infrastructure::proto::{
     FullClipId, FullColumnAddress, FullRowAddress, FullSequenceId, FullSlotAddress,
     FullTrackAddress, GetArrangementInfoReply, GetArrangementInfoRequest, GetClipDetailReply,
     GetClipDetailRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, MatrixVolumeKind, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
-    SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
-    SetRowDataRequest, SetSequenceInfoRequest, SetTrackColorRequest,
-    SetTrackInputMonitoringRequest, SetTrackInputRequest, SetTrackNameRequest, SetTrackPanRequest,
-    SetTrackVolumeRequest, TriggerClipAction, TriggerClipRequest, TriggerColumnAction,
-    TriggerColumnRequest, TriggerMatrixAction, TriggerMatrixRequest, TriggerRowAction,
-    TriggerRowRequest, TriggerSequenceAction, TriggerSequenceRequest, TriggerSlotAction,
-    TriggerSlotRequest, TriggerTrackAction, TriggerTrackRequest,
+    InsertColumnsRequest, MatrixVolumeKind, OpenTrackFxRequest, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest,
+    SetMatrixTempoRequest, SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest,
+    SetPlaytimeEngineSettingsRequest, SetRowDataRequest, SetSequenceInfoRequest,
+    SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
+    SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipAction,
+    TriggerClipRequest, TriggerColumnAction, TriggerColumnRequest, TriggerMatrixAction,
+    TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSequenceAction,
+    TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest, TriggerTrackAction,
+    TriggerTrackRequest,
 };
 
 #[derive(Debug)]
@@ -596,6 +598,17 @@ impl PlaytimeProtoRequestHandler {
                 GangBehavior::DenyGang,
                 GroupingBehavior::PreventGrouping,
             );
+            Ok(())
+        })
+    }
+
+    pub fn open_track_fx(&self, req: OpenTrackFxRequest) -> Result<Response<Empty>, Status> {
+        self.handle_track_command(&req.track_address, |_matrix, track| {
+            let fx = track
+                .normal_fx_chain()
+                .fx_by_index(req.fx_index)
+                .context("no FX at that index")?;
+            fx.show_in_floating_window();
             Ok(())
         })
     }

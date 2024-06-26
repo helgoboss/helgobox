@@ -20,7 +20,7 @@ use crate::infrastructure::proto::{
     GetClipDetailRequest, GetCompartmentDataReply, GetCompartmentDataRequest,
     GetCustomInstanceDataReply, GetCustomInstanceDataRequest, GetHostInfoReply, GetHostInfoRequest,
     GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest, InsertColumnsRequest,
-    ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
+    OpenTrackFxRequest, ProveAuthenticityReply, ProveAuthenticityRequest, SaveControllerRequest,
     SaveCustomCompartmentDataRequest, SetAppSettingsRequest, SetClipDataRequest,
     SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
     SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
@@ -521,6 +521,18 @@ impl ProtoRequestHandler {
         #[cfg(feature = "playtime")]
         {
             PlaytimeProtoRequestHandler.set_track_pan(req)
+        }
+    }
+
+    pub fn open_track_fx(&self, req: OpenTrackFxRequest) -> Result<Response<Empty>, Status> {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = req;
+            playtime_not_available()
+        }
+        #[cfg(feature = "playtime")]
+        {
+            PlaytimeProtoRequestHandler.open_track_fx(req)
         }
     }
 

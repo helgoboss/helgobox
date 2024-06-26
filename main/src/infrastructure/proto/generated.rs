@@ -47,7 +47,7 @@ pub mod reply {
 pub struct CommandRequest {
     #[prost(
         oneof = "command_request::Value",
-        tags = "1, 3, 4, 5, 52, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 50, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
+        tags = "1, 3, 4, 5, 52, 6, 7, 8, 9, 10, 11, 50, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 37, 53, 40, 25, 26, 27, 34, 28, 29, 31, 32, 33, 35, 36, 38, 39, 41, 42, 43, 44, 51, 45, 46, 47, 48, 49"
     )]
     pub value: ::core::option::Option<command_request::Value>,
 }
@@ -80,6 +80,8 @@ pub mod command_request {
         SetTrackVolume(super::SetTrackVolumeRequest),
         #[prost(message, tag = "11")]
         SetTrackPan(super::SetTrackPanRequest),
+        #[prost(message, tag = "50")]
+        OpenTrackFx(super::OpenTrackFxRequest),
         #[prost(message, tag = "12")]
         SetColumnTrack(super::SetColumnTrackRequest),
         #[prost(message, tag = "13")]
@@ -109,7 +111,7 @@ pub mod command_request {
         /// Event re-subscription commands (only for occasional aggregate events, the rest will be sent anyway)
         #[prost(message, tag = "37")]
         GetOccasionalGlobalUpdates(super::GetOccasionalGlobalUpdatesRequest),
-        #[prost(message, tag = "50")]
+        #[prost(message, tag = "53")]
         GetOccasionalPlaytimeEngineUpdates(
             super::GetOccasionalPlaytimeEngineUpdatesRequest,
         ),
@@ -465,6 +467,14 @@ pub struct SetTrackPanRequest {
     pub track_address: ::core::option::Option<FullTrackAddress>,
     #[prost(double, tag = "2")]
     pub pan: f64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpenTrackFxRequest {
+    #[prost(message, optional, tag = "1")]
+    pub track_address: ::core::option::Option<FullTrackAddress>,
+    #[prost(uint32, tag = "2")]
+    pub fx_index: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1396,7 +1406,7 @@ pub struct TimeSignature {
 pub struct OccasionalTrackUpdate {
     #[prost(
         oneof = "occasional_track_update::Update",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub update: ::core::option::Option<occasional_track_update::Update>,
 }
@@ -1435,7 +1445,24 @@ pub mod occasional_track_update {
         /// Track pan
         #[prost(double, tag = "10")]
         Pan(f64),
+        /// Normal FX chain
+        #[prost(message, tag = "11")]
+        NormalFxChain(super::FxChain),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FxChain {
+    #[prost(message, repeated, tag = "1")]
+    pub fxs: ::prost::alloc::vec::Vec<Fx>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Fx {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub instrument: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2850,6 +2877,10 @@ pub mod helgobox_service_server {
         async fn set_track_pan(
             &self,
             request: tonic::Request<super::SetTrackPanRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn open_track_fx(
+            &self,
+            request: tonic::Request<super::OpenTrackFxRequest>,
         ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
         /// Playtime row commands
         async fn trigger_row(
@@ -4909,6 +4940,52 @@ pub mod helgobox_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SetTrackPanSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/generated.HelgoboxService/OpenTrackFx" => {
+                    #[allow(non_camel_case_types)]
+                    struct OpenTrackFxSvc<T: HelgoboxService>(pub Arc<T>);
+                    impl<
+                        T: HelgoboxService,
+                    > tonic::server::UnaryService<super::OpenTrackFxRequest>
+                    for OpenTrackFxSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::OpenTrackFxRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as HelgoboxService>::open_track_fx(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = OpenTrackFxSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

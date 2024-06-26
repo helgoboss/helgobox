@@ -24,7 +24,7 @@ use crate::infrastructure::proto::{
     occasional_track_update, qualified_occasional_clip_update, qualified_occasional_column_update,
     qualified_occasional_row_update, qualified_occasional_slot_update, AudioClipContentInfo,
     CellAddress, ClipAddress, ClipContentInfo, ColumnKind, ContinuousClipUpdate,
-    ContinuousSlotUpdate, HistoryState, LearnState, LicenseState, MidiClipContentInfo,
+    ContinuousSlotUpdate, Fx, FxChain, HistoryState, LearnState, LicenseState, MidiClipContentInfo,
     PlaytimeEngineStats, RgbColor, SequencerPlayState, SlotAddress, SlotPlayState, TimeSignature,
     TrackInput, TrackInputMonitoring, TrackList, TrackMidiInput,
 };
@@ -288,6 +288,33 @@ impl occasional_track_update::Update {
 
     pub fn pan(pan: ReaperPanValue) -> Self {
         Self::Pan(pan.get())
+    }
+
+    pub fn normal_fx_chain(track: &reaper_high::Track) -> Self {
+        Self::NormalFxChain(FxChain::from_engine(&track.normal_fx_chain()))
+    }
+}
+
+impl FxChain {
+    pub fn from_engine(fx_chain: &reaper_high::FxChain) -> Self {
+        Self {
+            fxs: fx_chain
+                .index_based_fxs()
+                .map(|fx| Fx::from_engine(&fx))
+                .collect(),
+        }
+    }
+}
+
+impl Fx {
+    pub fn from_engine(fx: &reaper_high::Fx) -> Self {
+        Self {
+            name: fx.name().to_string(),
+            instrument: fx
+                .info()
+                .map(|info| info.sub_type_expression.ends_with("i"))
+                .unwrap_or(false),
+        }
     }
 }
 

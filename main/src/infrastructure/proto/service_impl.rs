@@ -21,11 +21,11 @@ use crate::infrastructure::proto::{
     GetOccasionalSlotUpdatesRequest, GetOccasionalTrackUpdatesReply,
     GetOccasionalTrackUpdatesRequest, GetOccasionalUnitUpdatesReply,
     GetOccasionalUnitUpdatesRequest, GetProjectDirReply, GetProjectDirRequest, ImportFilesRequest,
-    InsertColumnsRequest, ProtoRequestHandler, ProveAuthenticityReply, ProveAuthenticityRequest,
-    SaveControllerRequest, SaveCustomCompartmentDataRequest, SetAppSettingsRequest,
-    SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest, SetColumnTrackRequest,
-    SetCustomInstanceDataRequest, SetInstanceSettingsRequest, SetMatrixPanRequest,
-    SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
+    InsertColumnsRequest, OpenTrackFxRequest, ProtoRequestHandler, ProveAuthenticityReply,
+    ProveAuthenticityRequest, SaveControllerRequest, SaveCustomCompartmentDataRequest,
+    SetAppSettingsRequest, SetClipDataRequest, SetClipNameRequest, SetColumnSettingsRequest,
+    SetColumnTrackRequest, SetCustomInstanceDataRequest, SetInstanceSettingsRequest,
+    SetMatrixPanRequest, SetMatrixPlayRateRequest, SetMatrixSettingsRequest, SetMatrixTempoRequest,
     SetMatrixTimeSignatureRequest, SetMatrixVolumeRequest, SetPlaytimeEngineSettingsRequest,
     SetRowDataRequest, SetTrackColorRequest, SetTrackInputMonitoringRequest, SetTrackInputRequest,
     SetTrackNameRequest, SetTrackPanRequest, SetTrackVolumeRequest, TriggerClipRequest,
@@ -591,6 +591,13 @@ impl helgobox_service_server::HelgoboxService for HelgoboxServiceImpl {
         request: Request<SetTrackPanRequest>,
     ) -> Result<Response<Empty>, Status> {
         self.command_handler.set_track_pan(request.into_inner())
+    }
+
+    async fn open_track_fx(
+        &self,
+        request: Request<OpenTrackFxRequest>,
+    ) -> Result<Response<Empty>, Status> {
+        self.command_handler.open_track_fx(request.into_inner())
     }
 
     async fn set_column_track(

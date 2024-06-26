@@ -98,6 +98,7 @@ pub fn create_initial_track_updates(
                     Update::selected(track.is_selected()),
                     Update::volume(track.volume().to_db_ex(Db::MINUS_INF)),
                     Update::pan(track.pan().reaper_value()),
+                    Update::normal_fx_chain(&track),
                 ]
                 .into_iter()
                 .map(|update| OccasionalTrackUpdate {
