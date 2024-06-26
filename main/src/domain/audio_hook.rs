@@ -237,9 +237,8 @@ impl RealearnAudioHook {
             }
         };
         self.call_real_time_processors(block_props, might_be_rebirth);
-        // Do some ReaLearn things. The order probably matters here!
+        // Process ReaLearn feedback commands
         self.process_feedback_commands();
-        self.call_real_time_instances(block_props);
         // Process incoming commands, including Playtime commands
         self.process_normal_commands(block_props);
         // Pre-poll Playtime
@@ -248,6 +247,13 @@ impl RealearnAudioHook {
             self.clip_engine_audio_hook
                 .on_pre_poll(block_props.to_playtime(), args.reg);
         }
+        // Poll real-time instances. If an instance has Playtime enabled, this also polls the real-time matrix.
+        // Important to do after pre-polling the Playtime audio hook, especially for one scenario:
+        // Leaving silence mode immediately with playing ignited clips: In this case, we do a timeline reset to zero.
+        // The ignited clips should start immediately, exactly from zero as soon as the timeline has been reset.
+        // If we called this before pre-polling Playtime audio hook, the real-time matrix would be called in the
+        // next audio cycle, after the timeline has already advanced on block from zero.
+        self.call_real_time_instances(block_props);
         // Process some tasks
         self.check_for_midi_device_inquiry_response();
     }
