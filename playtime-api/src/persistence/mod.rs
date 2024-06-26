@@ -82,6 +82,8 @@ pub struct Matrix {
     pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
+    #[serde(default)]
+    pub transport_sync_mode: TransportSyncMode,
     pub common_tempo_range: TempoRange,
     /// Whether to automatically activate a slot when it's triggered.
     ///
@@ -103,6 +105,26 @@ pub struct Matrix {
     pub unknown_props: Option<BTreeMap<String, serde_json::Value>>,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[repr(usize)]
+pub enum TransportSyncMode {
+    /// Partial sync.
+    ///
+    /// - REAPER start => Playtime start
+    /// - REAPER stop => Playtime stop
+    /// - Playtime start => -
+    /// - Playtime stop => REAPER stop (feels weird otherwise)
+    #[default]
+    Partial,
+    /// Full sync.
+    ///
+    /// - REAPER start => Playtime start
+    /// - REAPER stop => Playtime stop
+    /// - Playtime start => REAPER start
+    /// - Playtime stop => REAPER stop (feels weird otherwise)
+    Full,
+}
+
 // This default is only used to create the initial undo point.
 impl Default for Matrix {
     fn default() -> Self {
@@ -111,6 +133,7 @@ impl Default for Matrix {
             rows: None,
             clip_play_settings: Default::default(),
             clip_record_settings: Default::default(),
+            transport_sync_mode: Default::default(),
             common_tempo_range: Default::default(),
             activate_slot_on_trigger: ACTIVATE_SLOT_ON_TRIGGER_DEFAULT,
             click_volume: None,
@@ -250,6 +273,7 @@ pub struct MatrixSettings {
     pub color_palette: ColorPalette,
     pub content_quantization_settings: ContentQuantizationSettings,
     pub activate_slot_on_trigger: bool,
+    pub transport_sync_mode: TransportSyncMode,
 }
 
 impl Matrix {

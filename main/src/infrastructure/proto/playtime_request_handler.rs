@@ -270,6 +270,10 @@ impl PlaytimeProtoRequestHandler {
                 matrix.toggle_silence_mode();
                 Ok(())
             }
+            TriggerMatrixAction::EnterSilenceMode => {
+                matrix.enter_silence_mode();
+                Ok(())
+            }
             TriggerMatrixAction::PlayAllIgnitedClips => {
                 matrix.play_all_ignited();
                 Ok(())
