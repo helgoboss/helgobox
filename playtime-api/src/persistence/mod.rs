@@ -1557,6 +1557,12 @@ pub struct ColorPalette {
     pub entries: Vec<ColorPaletteEntry>,
 }
 
+const TAILWIND_SLATE_500: RgbColor = RgbColor(0x64, 0x74, 0x8B);
+const TAILWIND_GRAY_500: RgbColor = RgbColor(0x6b, 0x72, 0x80);
+const TAILWIND_ZINC_500: RgbColor = RgbColor(0x71, 0x71, 0x7A);
+const TAILWIND_NEUTRAL_500: RgbColor = RgbColor(0x73, 0x73, 0x73);
+const TAILWIND_STONE_500: RgbColor = RgbColor(0x78, 0x71, 0x6c);
+const TAILWIND_RED_500: RgbColor = RgbColor(0xef, 0x44, 0x44);
 const TAILWIND_ORANGE_500: RgbColor = RgbColor(0xf9, 0x73, 0x16);
 const TAILWIND_AMBER_500: RgbColor = RgbColor(0xf5, 0x9e, 0x0b);
 const TAILWIND_YELLOW_500: RgbColor = RgbColor(0xea, 0xb3, 0x08);
@@ -1578,6 +1584,12 @@ impl Default for ColorPalette {
     fn default() -> Self {
         Self {
             entries: [
+                TAILWIND_SLATE_500,
+                TAILWIND_GRAY_500,
+                TAILWIND_ZINC_500,
+                TAILWIND_NEUTRAL_500,
+                TAILWIND_STONE_500,
+                TAILWIND_RED_500,
                 TAILWIND_ORANGE_500,
                 TAILWIND_AMBER_500,
                 TAILWIND_YELLOW_500,
