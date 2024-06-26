@@ -358,7 +358,7 @@ impl PlaytimeProtoRequestHandler {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TapTempo);
                 Ok(())
             }
-            TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(),
+            TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(false),
             TriggerMatrixAction::Activate => matrix.activate_cell(CellAddress::matrix()),
         })
     }

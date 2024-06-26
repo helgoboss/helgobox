@@ -131,7 +131,7 @@ mod playtime_impl {
                     if !value.is_on() {
                         return Ok(HitResponse::ignored());
                     }
-                    matrix.trigger_smart_record()?;
+                    matrix.trigger_smart_record(true)?;
                 }
                 PlaytimeMatrixAction::PlayIgnitedOrEnterSilenceMode => {
                     if value.is_on() {
