@@ -25,7 +25,8 @@ use crate::infrastructure::proto::{
     PitchShiftMode, PitchShiftModes, PitchShiftSubMode, QualifiedContinuousSlotUpdate,
     QualifiedOccasionalClipUpdate, QualifiedOccasionalColumnUpdate, QualifiedOccasionalRowUpdate,
     QualifiedOccasionalSlotUpdate, QualifiedOccasionalTrackUpdate, QualifiedOccasionalUnitUpdate,
-    ResampleMode, ResampleModes, RgbColor, SlotAddress, Unit, Units,
+    ResampleMode, ResampleModes, RgbColor, Scope, Severity, SlotAddress, Unit, Units, Warning,
+    Warnings,
 };
 use crate::infrastructure::server::data::get_controller_routing;
 
@@ -55,6 +56,18 @@ impl occasional_instance_update::Update {
         Self::Units(Units {
             units: units.collect(),
         })
+    }
+
+    pub fn warning(severity: Severity, scope: Option<Scope>, message: String) -> Warning {
+        Warning {
+            severity: severity.into(),
+            scope: scope.map(|s| s.into()),
+            message,
+        }
+    }
+
+    pub fn warnings(warnings: Vec<Warning>) -> Self {
+        Self::Warnings(Warnings { warnings })
     }
 }
 

@@ -975,7 +975,7 @@ pub struct GetOccasionalInstanceUpdatesReply {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OccasionalInstanceUpdate {
-    #[prost(oneof = "occasional_instance_update::Update", tags = "1, 2, 3, 4")]
+    #[prost(oneof = "occasional_instance_update::Update", tags = "1, 2, 3, 4, 5")]
     pub update: ::core::option::Option<occasional_instance_update::Update>,
 }
 /// Nested message and enum types in `OccasionalInstanceUpdate`.
@@ -992,10 +992,29 @@ pub mod occasional_instance_update {
         /// Everything within the instance has changed (e.g. instance data load).
         #[prost(bool, tag = "3")]
         EverythingHasChanged(bool),
-        /// Info event as JSON.
+        /// Info event as JSON. Usually shortly displayed as toast or snack bar.
         #[prost(string, tag = "4")]
         InfoEvent(::prost::alloc::string::String),
+        /// Warnings to be displayed permanently.
+        #[prost(message, tag = "5")]
+        Warnings(super::Warnings),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Warnings {
+    #[prost(message, repeated, tag = "1")]
+    pub warnings: ::prost::alloc::vec::Vec<Warning>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Warning {
+    #[prost(enumeration = "Severity", tag = "1")]
+    pub severity: i32,
+    #[prost(string, tag = "2")]
+    pub message: ::prost::alloc::string::String,
+    #[prost(enumeration = "Scope", optional, tag = "3")]
+    pub scope: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2478,6 +2497,61 @@ impl DragClipAction {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "DRAG_CLIP_ACTION_MOVE" => Some(Self::Move),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Scope {
+    Realearn = 0,
+    Playtime = 1,
+}
+impl Scope {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Scope::Realearn => "SCOPE_REALEARN",
+            Scope::Playtime => "SCOPE_PLAYTIME",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SCOPE_REALEARN" => Some(Self::Realearn),
+            "SCOPE_PLAYTIME" => Some(Self::Playtime),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Severity {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+impl Severity {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Severity::Low => "SEVERITY_LOW",
+            Severity::Medium => "SEVERITY_MEDIUM",
+            Severity::High => "SEVERITY_HIGH",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SEVERITY_LOW" => Some(Self::Low),
+            "SEVERITY_MEDIUM" => Some(Self::Medium),
+            "SEVERITY_HIGH" => Some(Self::High),
             _ => None,
         }
     }

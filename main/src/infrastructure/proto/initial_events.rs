@@ -1,9 +1,11 @@
 use crate::infrastructure::plugin::{BackboneShell, InstanceShell};
 use crate::infrastructure::proto::{
     occasional_global_update, occasional_instance_update, qualified_occasional_unit_update,
-    OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate,
+    OccasionalGlobalUpdate, OccasionalInstanceUpdate, QualifiedOccasionalUnitUpdate, Scope,
+    Severity,
 };
 use reaper_high::Reaper;
+use std::iter;
 
 pub fn create_initial_global_updates() -> Vec<OccasionalGlobalUpdate> {
     use occasional_global_update::Update;
@@ -40,12 +42,25 @@ pub fn create_initial_instance_updates(
             .map(|u| OccasionalInstanceUpdate { update: Some(u) })
             .collect()
     }
-    let instance_updates = [
+    let fixed_instance_updates = [
         Update::settings(instance_shell),
         Update::units(instance_shell),
     ];
-    create(instance_updates.into_iter())
+    let reaper_version = Reaper::get().version();
+    let reaper_revision = reaper_version.revision();
+    let mut warnings = vec![];
+    if cfg!(feature = "playtime") && reaper_revision < MIN_REAPER_VERSION_FOR_PLAYTIME {
+        let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
+        warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg))
+    }
+    create(
+        fixed_instance_updates
+            .into_iter()
+            .chain(iter::once(Update::warnings(warnings))),
+    )
 }
+
+const MIN_REAPER_VERSION_FOR_PLAYTIME: &str = "7.17";
 
 pub fn create_initial_unit_updates(
     instance_shell: &InstanceShell,
