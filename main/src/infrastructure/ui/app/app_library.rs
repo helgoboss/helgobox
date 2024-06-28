@@ -2,8 +2,8 @@ use crate::infrastructure::plugin::{reaper_main_window, BackboneShell};
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
     create_initial_global_updates, create_initial_instance_updates, create_initial_unit_updates,
-    event_reply, query_result, reply, request, EventReply, OpenTrackFxRequest, ProtoRequestHandler,
-    QueryReply, QueryResult, Reply, Request,
+    event_reply, query_result, reply, request, EventReply, ProtoRequestHandler, QueryReply,
+    QueryResult, Reply, Request,
 };
 use crate::infrastructure::ui::{AppCallback, SharedAppInstance};
 use anyhow::{anyhow, bail, Context, Result};

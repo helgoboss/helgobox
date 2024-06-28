@@ -66,6 +66,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     reaper_config_change_detector: ReaperConfigChangeDetector,
     control_surface_event_sender: SenderToNormalThread<ControlSurfaceEvent<'static>>,
     control_surface_event_receiver: crossbeam_channel::Receiver<ControlSurfaceEvent<'static>>,
+    #[cfg(debug_assertions)]
     last_undesired_allocation_count: u32,
     event_handler: Box<dyn ControlSurfaceEventHandler>,
     osc_buffer: Vec<OscPacket>,
@@ -244,6 +245,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             reaper_config_change_detector: Default::default(),
             control_surface_event_sender,
             control_surface_event_receiver,
+            #[cfg(debug_assertions)]
             last_undesired_allocation_count: 0,
             event_handler,
             osc_buffer: Default::default(),

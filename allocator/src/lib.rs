@@ -7,7 +7,6 @@
 //! - When assertion violated, it always panics instead of aborting or printing an error (mainly for
 //!   good testability but also nice otherwise as long as set_alloc_error_hook() is still unstable)
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{Receiver, SyncSender, TrySendError};
@@ -17,8 +16,8 @@ use std::thread::JoinHandle;
 
 #[cfg(debug_assertions)]
 thread_local! {
-    static ALLOC_FORBID_COUNT: Cell<u32> = const { Cell::new(0) };
-    static ALLOC_PERMIT_COUNT: Cell<u32> = const { Cell::new(0) };
+    static ALLOC_FORBID_COUNT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    static ALLOC_PERMIT_COUNT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
 static UNDESIRED_ALLOCATION_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -224,6 +223,8 @@ where
         dealloc_sync: impl FnOnce(),
         create_async_command: impl FnOnce() -> AsyncDeallocatorCommand,
     ) {
+        #[cfg(not(debug_assertions))]
+        let _ = check;
         let Some(deallocation_machine) = self.async_deallocation_machine.get() else {
             // We are not initialized yet. Attempt normal synchronous deallocation.
             #[cfg(debug_assertions)]
