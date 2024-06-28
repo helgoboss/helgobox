@@ -102,7 +102,7 @@ impl occasional_matrix_update::Update {
     }
 
     pub fn tempo(matrix: &Matrix) -> Self {
-        Self::Tempo(matrix.tempo().get())
+        Self::Tempo(matrix.project_tempo().get())
     }
 
     pub fn play_rate(matrix: &Matrix) -> Self {

@@ -1756,6 +1756,7 @@ pub enum TriggerInstanceAction {
     ArrangementStopRecording = 6,
     CloseApp = 7,
     HideApp = 8,
+    SaveProject = 9,
 }
 impl TriggerInstanceAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1787,6 +1788,7 @@ impl TriggerInstanceAction {
             }
             TriggerInstanceAction::CloseApp => "TRIGGER_INSTANCE_ACTION_CLOSE_APP",
             TriggerInstanceAction::HideApp => "TRIGGER_INSTANCE_ACTION_HIDE_APP",
+            TriggerInstanceAction::SaveProject => "TRIGGER_INSTANCE_ACTION_SAVE_PROJECT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1809,6 +1811,7 @@ impl TriggerInstanceAction {
             }
             "TRIGGER_INSTANCE_ACTION_CLOSE_APP" => Some(Self::CloseApp),
             "TRIGGER_INSTANCE_ACTION_HIDE_APP" => Some(Self::HideApp),
+            "TRIGGER_INSTANCE_ACTION_SAVE_PROJECT" => Some(Self::SaveProject),
             _ => None,
         }
     }
@@ -1850,6 +1853,8 @@ pub enum TriggerMatrixAction {
     Activate = 34,
     /// Brings all clips online again.
     ReloadAllClips = 37,
+    ExportToClipboard = 39,
+    ExportToArrangement = 40,
 }
 impl TriggerMatrixAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1933,6 +1938,12 @@ impl TriggerMatrixAction {
             TriggerMatrixAction::ReloadAllClips => {
                 "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS"
             }
+            TriggerMatrixAction::ExportToClipboard => {
+                "TRIGGER_MATRIX_ACTION_EXPORT_TO_CLIPBOARD"
+            }
+            TriggerMatrixAction::ExportToArrangement => {
+                "TRIGGER_MATRIX_ACTION_EXPORT_TO_ARRANGEMENT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2003,6 +2014,10 @@ impl TriggerMatrixAction {
             }
             "TRIGGER_MATRIX_ACTION_ACTIVATE" => Some(Self::Activate),
             "TRIGGER_MATRIX_ACTION_RELOAD_ALL_CLIPS" => Some(Self::ReloadAllClips),
+            "TRIGGER_MATRIX_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
+            "TRIGGER_MATRIX_ACTION_EXPORT_TO_ARRANGEMENT" => {
+                Some(Self::ExportToArrangement)
+            }
             _ => None,
         }
     }
@@ -2133,6 +2148,8 @@ pub enum TriggerColumnAction {
     ToggleLearnSimpleMapping = 5,
     RemoveSimpleMapping = 6,
     Activate = 7,
+    ExportToClipboard = 8,
+    ExportToArrangement = 9,
 }
 impl TriggerColumnAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2153,6 +2170,12 @@ impl TriggerColumnAction {
                 "TRIGGER_COLUMN_ACTION_REMOVE_SIMPLE_MAPPING"
             }
             TriggerColumnAction::Activate => "TRIGGER_COLUMN_ACTION_ACTIVATE",
+            TriggerColumnAction::ExportToClipboard => {
+                "TRIGGER_COLUMN_ACTION_EXPORT_TO_CLIPBOARD"
+            }
+            TriggerColumnAction::ExportToArrangement => {
+                "TRIGGER_COLUMN_ACTION_EXPORT_TO_ARRANGEMENT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2170,6 +2193,10 @@ impl TriggerColumnAction {
                 Some(Self::RemoveSimpleMapping)
             }
             "TRIGGER_COLUMN_ACTION_ACTIVATE" => Some(Self::Activate),
+            "TRIGGER_COLUMN_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
+            "TRIGGER_COLUMN_ACTION_EXPORT_TO_ARRANGEMENT" => {
+                Some(Self::ExportToArrangement)
+            }
             _ => None,
         }
     }
@@ -2190,6 +2217,7 @@ pub enum TriggerRowAction {
     RemoveSimpleMapping = 10,
     BuildSceneFromPlayingSlots = 11,
     Activate = 12,
+    ExportToArrangement = 13,
 }
 impl TriggerRowAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2217,6 +2245,9 @@ impl TriggerRowAction {
                 "TRIGGER_ROW_ACTION_BUILD_SCENE_FROM_PLAYING_SLOTS"
             }
             TriggerRowAction::Activate => "TRIGGER_ROW_ACTION_ACTIVATE",
+            TriggerRowAction::ExportToArrangement => {
+                "TRIGGER_ROW_ACTION_EXPORT_TO_ARRANGEMENT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2239,6 +2270,7 @@ impl TriggerRowAction {
                 Some(Self::BuildSceneFromPlayingSlots)
             }
             "TRIGGER_ROW_ACTION_ACTIVATE" => Some(Self::Activate),
+            "TRIGGER_ROW_ACTION_EXPORT_TO_ARRANGEMENT" => Some(Self::ExportToArrangement),
             _ => None,
         }
     }
@@ -2313,6 +2345,8 @@ pub enum TriggerSlotAction {
     TriggerOn = 13,
     TriggerOff = 14,
     Activate = 15,
+    ExportToClipboard = 16,
+    ExportToArrangement = 17,
 }
 impl TriggerSlotAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2344,6 +2378,12 @@ impl TriggerSlotAction {
             TriggerSlotAction::TriggerOn => "TRIGGER_SLOT_ACTION_TRIGGER_ON",
             TriggerSlotAction::TriggerOff => "TRIGGER_SLOT_ACTION_TRIGGER_OFF",
             TriggerSlotAction::Activate => "TRIGGER_SLOT_ACTION_ACTIVATE",
+            TriggerSlotAction::ExportToClipboard => {
+                "TRIGGER_SLOT_ACTION_EXPORT_TO_CLIPBOARD"
+            }
+            TriggerSlotAction::ExportToArrangement => {
+                "TRIGGER_SLOT_ACTION_EXPORT_TO_ARRANGEMENT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2372,6 +2412,10 @@ impl TriggerSlotAction {
             "TRIGGER_SLOT_ACTION_TRIGGER_ON" => Some(Self::TriggerOn),
             "TRIGGER_SLOT_ACTION_TRIGGER_OFF" => Some(Self::TriggerOff),
             "TRIGGER_SLOT_ACTION_ACTIVATE" => Some(Self::Activate),
+            "TRIGGER_SLOT_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
+            "TRIGGER_SLOT_ACTION_EXPORT_TO_ARRANGEMENT" => {
+                Some(Self::ExportToArrangement)
+            }
             _ => None,
         }
     }
@@ -2387,6 +2431,7 @@ pub enum TriggerClipAction {
     Quantize = 5,
     Unquantize = 6,
     ExportToClipboard = 7,
+    ExportToArrangement = 8,
 }
 impl TriggerClipAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2407,6 +2452,9 @@ impl TriggerClipAction {
             TriggerClipAction::ExportToClipboard => {
                 "TRIGGER_CLIP_ACTION_EXPORT_TO_CLIPBOARD"
             }
+            TriggerClipAction::ExportToArrangement => {
+                "TRIGGER_CLIP_ACTION_EXPORT_TO_ARRANGEMENT"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2422,6 +2470,9 @@ impl TriggerClipAction {
             "TRIGGER_CLIP_ACTION_QUANTIZE" => Some(Self::Quantize),
             "TRIGGER_CLIP_ACTION_UNQUANTIZE" => Some(Self::Unquantize),
             "TRIGGER_CLIP_ACTION_EXPORT_TO_CLIPBOARD" => Some(Self::ExportToClipboard),
+            "TRIGGER_CLIP_ACTION_EXPORT_TO_ARRANGEMENT" => {
+                Some(Self::ExportToArrangement)
+            }
             _ => None,
         }
     }

@@ -94,6 +94,10 @@ impl PlaytimeProtoRequestHandler {
                 },
             ),
             TriggerSlotAction::Activate => matrix.activate_cell(slot_address.to_cell_address()),
+            TriggerSlotAction::ExportToClipboard => matrix.export_slot_to_clipboard(slot_address),
+            TriggerSlotAction::ExportToArrangement => {
+                todo!()
+            }
         })
     }
 
@@ -117,6 +121,9 @@ impl PlaytimeProtoRequestHandler {
                 matrix.open_clip_source_in_media_explorer(clip_address)
             }
             TriggerClipAction::ExportToClipboard => matrix.export_clip_to_clipboard(clip_address),
+            TriggerClipAction::ExportToArrangement => {
+                matrix.export_clip_to_arrangement(clip_address)
+            }
         })
     }
 
@@ -366,6 +373,10 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(false),
             TriggerMatrixAction::Activate => matrix.activate_cell(CellAddress::matrix()),
+            TriggerMatrixAction::ExportToClipboard => matrix.export_to_clipboard(),
+            TriggerMatrixAction::ExportToArrangement => {
+                todo!()
+            }
         })
     }
 
@@ -405,6 +416,12 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerColumnAction::Activate => {
                 matrix.activate_cell(CellAddress::column(column_index))
+            }
+            TriggerColumnAction::ExportToClipboard => {
+                matrix.export_column_to_clipboard(column_index)
+            }
+            TriggerColumnAction::ExportToArrangement => {
+                todo!()
             }
         })
     }
@@ -490,6 +507,9 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerRowAction::BuildSceneFromPlayingSlots => matrix.build_scene(row_index),
             TriggerRowAction::Activate => matrix.activate_cell(CellAddress::row(row_index)),
+            TriggerRowAction::ExportToArrangement => {
+                todo!()
+            }
         })
     }
 

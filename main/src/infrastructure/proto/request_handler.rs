@@ -1,6 +1,7 @@
 use anyhow::Context;
 use helgoboss_license_api::persistence::LicenseKey;
 use reaper_high::{OrCurrentProject, Reaper};
+use reaper_medium::CommandId;
 use tonic::{Response, Status};
 
 use base::spawn_in_main_thread;
@@ -347,6 +348,13 @@ impl ProtoRequestHandler {
                 TriggerInstanceAction::ArrangementStopRecording => {
                     // Recording not supported per project
                     Reaper::get().disable_record_in_current_project();
+                }
+                TriggerInstanceAction::SaveProject => {
+                    let save_project_command_id = CommandId::new(40026);
+                    Reaper::get()
+                        .main_section()
+                        .action_by_command_id(save_project_command_id)
+                        .invoke_as_trigger(Some(project))?;
                 }
             }
             Ok(())
