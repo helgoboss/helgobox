@@ -2432,6 +2432,7 @@ pub enum TriggerClipAction {
     Unquantize = 6,
     ExportToClipboard = 7,
     ExportToArrangement = 8,
+    ToggleMidiOverdub = 9,
 }
 impl TriggerClipAction {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2455,6 +2456,9 @@ impl TriggerClipAction {
             TriggerClipAction::ExportToArrangement => {
                 "TRIGGER_CLIP_ACTION_EXPORT_TO_ARRANGEMENT"
             }
+            TriggerClipAction::ToggleMidiOverdub => {
+                "TRIGGER_CLIP_ACTION_TOGGLE_MIDI_OVERDUB"
+            }
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2473,6 +2477,7 @@ impl TriggerClipAction {
             "TRIGGER_CLIP_ACTION_EXPORT_TO_ARRANGEMENT" => {
                 Some(Self::ExportToArrangement)
             }
+            "TRIGGER_CLIP_ACTION_TOGGLE_MIDI_OVERDUB" => Some(Self::ToggleMidiOverdub),
             _ => None,
         }
     }

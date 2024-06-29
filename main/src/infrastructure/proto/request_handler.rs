@@ -5,6 +5,7 @@ use reaper_medium::CommandId;
 use tonic::{Response, Status};
 
 use base::spawn_in_main_thread;
+use realearn_api::runtime::InstanceInfoEvent;
 use swell_ui::Window;
 
 use crate::domain::{CompartmentKind, UnitId};
@@ -355,6 +356,12 @@ impl ProtoRequestHandler {
                         .main_section()
                         .action_by_command_id(save_project_command_id)
                         .invoke_as_trigger(Some(project))?;
+                    BackboneShell::get()
+                        .proto_hub()
+                        .notify_about_instance_info_event(
+                            instance.instance_id(),
+                            InstanceInfoEvent::generic("Saved REAPER project"),
+                        );
                 }
             }
             Ok(())

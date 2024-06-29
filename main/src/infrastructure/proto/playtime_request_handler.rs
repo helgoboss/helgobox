@@ -112,6 +112,7 @@ impl PlaytimeProtoRequestHandler {
             .map_err(|_| Status::invalid_argument("unknown trigger clip action"))?;
         self.handle_clip_command(&req.clip_address, |matrix, clip_address| match action {
             TriggerClipAction::MidiOverdub => matrix.midi_overdub_clip(clip_address),
+            TriggerClipAction::ToggleMidiOverdub => matrix.toggle_midi_overdub_clip(clip_address),
             TriggerClipAction::Edit => matrix.start_editing_clip(clip_address),
             TriggerClipAction::Remove => matrix.remove_clip_from_slot(clip_address),
             TriggerClipAction::Promote => matrix.promote_clip_within_slot(clip_address),
@@ -374,9 +375,7 @@ impl PlaytimeProtoRequestHandler {
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(false),
             TriggerMatrixAction::Activate => matrix.activate_cell(CellAddress::matrix()),
             TriggerMatrixAction::ExportToClipboard => matrix.export_to_clipboard(),
-            TriggerMatrixAction::ExportToArrangement => {
-                todo!()
-            }
+            TriggerMatrixAction::ExportToArrangement => matrix.export_to_arrangement(),
         })
     }
 
@@ -421,7 +420,7 @@ impl PlaytimeProtoRequestHandler {
                 matrix.export_column_to_clipboard(column_index)
             }
             TriggerColumnAction::ExportToArrangement => {
-                todo!()
+                matrix.export_column_to_arrangement(column_index)
             }
         })
     }
@@ -507,9 +506,7 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerRowAction::BuildSceneFromPlayingSlots => matrix.build_scene(row_index),
             TriggerRowAction::Activate => matrix.activate_cell(CellAddress::row(row_index)),
-            TriggerRowAction::ExportToArrangement => {
-                todo!()
-            }
+            TriggerRowAction::ExportToArrangement => matrix.export_row_to_arrangement(row_index),
         })
     }
 

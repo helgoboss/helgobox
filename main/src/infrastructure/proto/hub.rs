@@ -367,7 +367,7 @@ mod playtime_impl {
                         )),
                     }),
                     ClipMatrixEvent::Info(evt) => Some(OccasionalMatrixUpdate {
-                        update: Some(occasional_matrix_update::Update::info_event(*evt)),
+                        update: Some(occasional_matrix_update::Update::info_event(evt.clone())),
                     }),
                     ClipMatrixEvent::SimpleMappingsChanged => Some(OccasionalMatrixUpdate {
                         update: Some(occasional_matrix_update::Update::simple_mappings(matrix)),

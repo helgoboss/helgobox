@@ -5,14 +5,28 @@ use serde::{Deserialize, Serialize};
 
 // We don't really need a tagged enum here but it's an easy way to transmit the event as a
 // JSON object (vs. just a string) ... which is better for some clients. Plus, we might want
-// to deliver some additional payloads in future.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+// to deliver some additional payloads in the future.
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum InfoEvent {
+    Generic(GenericInfoEvent),
     RecordedMatrixSequence,
     DiscardedMatrixSequenceBecauseEmpty,
     RemovedMatrixSequence,
     WroteMatrixSequenceToArrangement,
+}
+
+impl InfoEvent {
+    pub fn generic(message: impl Into<String>) -> Self {
+        Self::Generic(GenericInfoEvent {
+            message: message.into(),
+        })
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct GenericInfoEvent {
+    pub message: String,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
