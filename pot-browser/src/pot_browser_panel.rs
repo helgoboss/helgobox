@@ -1634,9 +1634,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 if let pot::PotPresetKind::FileBased(k) = &data.preset.kind {
                                     if ui.button("Show preset in file manager").clicked() {
                                         if k.path.exists() {
-                                            if let Err(e) = opener::reveal(&k.path) {
-                                                process_error(&e, input.toasts);
-                                            }
+                                            reveal(&k.path);
                                         } else {
                                             show_error_toast(
                                                 "Preset file doesn't exist",
@@ -1648,9 +1646,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 }
                                 if let Some(preview_file) = &data.preview_file {
                                     if ui.button("Show preview in file manager").clicked() {
-                                        if let Err(e) = opener::reveal(preview_file) {
-                                            process_error(&e, input.toasts);
-                                        }
+                                        reveal(preview_file);
                                         ui.close_menu();
                                     }
                                 }
@@ -3490,21 +3486,9 @@ fn open_link(thing: &str) {
     }
 }
 
-fn reveal(path: &Path) {
-    #[cfg(any(
-        all(target_os = "windows", target_arch = "x86_64"),
-        target_os = "macos"
-    ))]
-    {
-        if opener::reveal(path).is_err() {
-            reveal_fallback(path);
-        }
-    }
-    #[cfg(not(any(
-        all(target_os = "windows", target_arch = "x86_64"),
-        target_os = "macos"
-    )))]
-    {
+fn reveal(path: impl AsRef<Path>) {
+    let path = path.as_ref();
+    if opener::reveal(path).is_err() {
         reveal_fallback(path);
     }
 }
