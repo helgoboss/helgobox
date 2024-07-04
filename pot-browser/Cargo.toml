@@ -28,7 +28,10 @@ bytesize.workspace = true
 camino.workspace = true
 anyhow.workspace = true
 url.workspace = true
-opener = { version = "0.7.1", features = ["reveal"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 rfd = "0.12.1"
+
+[target.'cfg(not(all(target_os = "windows", target_arch = "x86")))'.dependencies]
+# This doesn't work on win32
+opener = { version = "0.7.1", features = ["reveal"] }

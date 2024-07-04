@@ -1367,7 +1367,7 @@ fn process_dialogs<I: PotBrowserIntegration>(input: ProcessDialogsInput<I>, ctx:
                 |ui, change_dialog| {
                     if ui.button("Close").clicked() {
                         if let PreviewOutputConfig::Export(c) = output_config_clone {
-                            reveal(c.base_dir.as_std_path());
+                            reveal_path(c.base_dir.as_std_path());
                         }
                         *change_dialog = Some(None);
                     };
@@ -1634,7 +1634,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 if let pot::PotPresetKind::FileBased(k) = &data.preset.kind {
                                     if ui.button("Show preset in file manager").clicked() {
                                         if k.path.exists() {
-                                            reveal(&k.path);
+                                            reveal_path(&k.path);
                                         } else {
                                             show_error_toast(
                                                 "Preset file doesn't exist",
@@ -1646,7 +1646,7 @@ fn add_preset_table(mut input: PresetTableInput, ui: &mut Ui, preset_cache: &mut
                                 }
                                 if let Some(preview_file) = &data.preview_file {
                                     if ui.button("Show preview in file manager").clicked() {
-                                        reveal(preview_file);
+                                        reveal_path(preview_file);
                                         ui.close_menu();
                                     }
                                 }
@@ -3480,20 +3480,42 @@ fn get_preview_rpp_path(
 
 fn open_link(thing: &str) {
     if thing.starts_with("file://") {
-        reveal(Path::new(thing));
+        reveal_path(Path::new(thing));
     } else {
-        let _ = opener::open_browser(thing);
+        #[cfg(not(all(target_os = "windows", target_arch = "x86")))]
+        {
+            if opener::open_browser(thing).is_err() {
+                open_link_fallback(thing);
+            }
+        }
+        #[cfg(all(target_os = "windows", target_arch = "x86"))]
+        {
+            open_link_fallback(thing);
+        }
     }
 }
 
-fn reveal(path: impl AsRef<Path>) {
+fn open_link_fallback(link: &str) {
+    Reaper::get().show_console_msg(format!(
+        "Failed to open the following link in your browser. Please open it manually:\n\n{link}\n\n"
+    ));
+}
+
+fn reveal_path(path: impl AsRef<Path>) {
     let path = path.as_ref();
-    if opener::reveal(path).is_err() {
-        reveal_fallback(path);
+    #[cfg(not(all(target_os = "windows", target_arch = "x86")))]
+    {
+        if opener::reveal(path).is_err() {
+            reveal_path_fallback(path);
+        }
+    }
+    #[cfg(all(target_os = "windows", target_arch = "x86"))]
+    {
+        reveal_path_fallback(path);
     }
 }
 
-fn reveal_fallback(path: &Path) {
+fn reveal_path_fallback(path: &Path) {
     Reaper::get().show_console_msg(
         format!("Failed to open the following path in your file manager. Please open it manually:\n\n{path:?}\n\n")
     );
