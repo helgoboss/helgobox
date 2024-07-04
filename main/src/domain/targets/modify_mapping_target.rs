@@ -8,7 +8,7 @@ use crate::domain::{
     UnitId, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use realearn_api::persistence::MappingModification;
+use helgobox_api::persistence::MappingModification;
 use std::borrow::Cow;
 use std::rc::Rc;
 

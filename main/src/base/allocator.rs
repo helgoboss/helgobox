@@ -1,5 +1,5 @@
 use base::metrics_util::record_occurrence;
-use helgoboss_allocator::{AsyncDeallocationIntegration, Deallocate, HelgobossAllocator};
+use helgobox_allocator::{AsyncDeallocationIntegration, Deallocate, HelgobossAllocator};
 use std::alloc::{GlobalAlloc, Layout, System};
 
 #[global_allocator]

@@ -3,7 +3,7 @@ use crate::domain::{
     TrackResolveError, VirtualPlaytimeColumn,
 };
 use helgoboss_learn::UnitValue;
-use realearn_api::persistence::ClipColumnTrackContext;
+use helgobox_api::persistence::ClipColumnTrackContext;
 use reaper_high::Track;
 
 /// In clip slot targets, the resolve phase makes sure that the targeted slot actually exists.
@@ -46,11 +46,11 @@ pub fn resolve_virtual_track_by_playtime_column(
 // Panics if called with repeat or record.
 #[cfg(feature = "playtime")]
 pub(crate) fn clip_play_state_unit_value(
-    action: realearn_api::persistence::PlaytimeSlotTransportAction,
+    action: helgobox_api::persistence::PlaytimeSlotTransportAction,
     play_state: playtime_clip_engine::rt::ClipPlayState,
 ) -> UnitValue {
+    use helgobox_api::persistence::PlaytimeSlotTransportAction::*;
     use playtime_clip_engine::rt::ClipPlayState;
-    use realearn_api::persistence::PlaytimeSlotTransportAction::*;
     match action {
         Trigger | PlayStop | PlayPause | RecordPlayStop => play_state.feedback_value(),
         Stop => transport_is_enabled_unit_value(matches!(

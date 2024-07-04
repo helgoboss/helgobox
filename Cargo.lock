@@ -606,12 +606,12 @@ dependencies = [
  "either",
  "enigo",
  "futures-timer",
- "helgoboss-allocator",
+ "helgobox-allocator",
+ "helgobox-api",
  "indexmap 2.1.0",
  "logos 0.13.0",
  "metrics",
  "once_cell",
- "realearn-api",
  "reaper-high",
  "reaper-low",
  "reaper-medium",
@@ -2734,14 +2734,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
-name = "helgoboss-allocator"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "once_cell",
-]
-
-[[package]]
 name = "helgoboss-learn"
 version = "0.1.0"
 dependencies = [
@@ -2811,11 +2803,176 @@ dependencies = [
 ]
 
 [[package]]
+name = "helgobox"
+version = "2.16.0-pre.18"
+dependencies = [
+ "anyhow",
+ "approx",
+ "arboard",
+ "ascii",
+ "askama",
+ "async-channel 2.1.1",
+ "auto_impl",
+ "axum",
+ "axum-server",
+ "backtrace",
+ "base",
+ "baseview",
+ "bindgen",
+ "built",
+ "bytesize",
+ "c_str_macro",
+ "camino",
+ "cc 1.0.73",
+ "chrono",
+ "crossbeam-channel",
+ "derivative",
+ "derive_more",
+ "dns-lookup",
+ "edit",
+ "egui",
+ "egui-baseview",
+ "egui_extras",
+ "either",
+ "embed-resource",
+ "enum-map",
+ "enum_dispatch",
+ "enumflags2",
+ "enumset",
+ "env_logger",
+ "fasteval",
+ "fragile",
+ "futures",
+ "helgoboss-learn",
+ "helgoboss-license-api",
+ "helgoboss-midi",
+ "helgobox-allocator",
+ "helgobox-api",
+ "helgobox-dialogs",
+ "hex",
+ "hostname",
+ "image",
+ "include_dir",
+ "indexmap 2.1.0",
+ "itertools 0.12.0",
+ "lazycell",
+ "libloading 0.8.0",
+ "maplit",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "mlua",
+ "nanoid",
+ "nom",
+ "num_enum 0.7.2",
+ "once_cell",
+ "open",
+ "palette",
+ "percent-encoding",
+ "playtime-api",
+ "playtime-clip-engine",
+ "pot",
+ "pot-browser",
+ "prost",
+ "qrcode",
+ "raw-window-handle 0.4.3",
+ "rcgen",
+ "reaper-common-types",
+ "reaper-high",
+ "reaper-low",
+ "reaper-macros",
+ "reaper-medium",
+ "reaper-rx",
+ "regex",
+ "rosc",
+ "runas",
+ "rust-ini",
+ "rx-util",
+ "rxrust",
+ "scopeguard",
+ "semver 1.0.17",
+ "serde",
+ "serde_ini",
+ "serde_json",
+ "serde_plain",
+ "serde_repr",
+ "serde_with",
+ "serde_yaml",
+ "slug",
+ "smallvec",
+ "strum",
+ "swell-ui",
+ "sys-info",
+ "sysinfo",
+ "tar",
+ "tempfile",
+ "tinyvec",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
+ "tts",
+ "url",
+ "uuid 1.7.0",
+ "vst",
+ "walkdir",
+ "webbrowser",
+ "whoami",
+ "wildmatch",
+ "winapi",
+ "xxhash-rust",
+ "zstd",
+]
+
+[[package]]
+name = "helgobox-allocator"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "once_cell",
+]
+
+[[package]]
+name = "helgobox-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "darling 0.20.3",
+ "derive_more",
+ "enum-map",
+ "enumset",
+ "heck",
+ "helgoboss-license-api",
+ "helgobox-macros",
+ "mlua",
+ "num_enum 0.7.2",
+ "playtime-api",
+ "reaper-low",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "strum",
+ "stylua",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "helgobox-artwork-processor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "resvg",
+]
+
+[[package]]
+name = "helgobox-dialogs"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "indexmap 2.1.0",
 ]
 
 [[package]]
@@ -2830,6 +2987,10 @@ dependencies = [
  "reaper-macros",
  "reaper-medium",
 ]
+
+[[package]]
+name = "helgobox-macros"
+version = "0.1.0"
 
 [[package]]
 name = "hermit-abi"
@@ -4443,9 +4604,9 @@ dependencies = [
  "camino",
  "chrono",
  "derive_more",
+ "helgobox-macros",
  "nanoid",
  "num_enum 0.7.2",
- "realearn-macros",
  "reaper-common-types",
  "reaper-low",
  "rmp-serde",
@@ -4477,11 +4638,11 @@ dependencies = [
  "fragile",
  "function_name",
  "glidesort",
- "helgoboss-allocator",
  "helgoboss-learn",
  "helgoboss-license-api",
  "helgoboss-license-processor",
  "helgoboss-midi",
+ "helgobox-allocator",
  "indexmap 2.1.0",
  "itertools 0.12.0",
  "libc",
@@ -4574,13 +4735,13 @@ dependencies = [
  "enumset",
  "fallible-iterator",
  "futures",
- "helgoboss-allocator",
+ "helgobox-allocator",
+ "helgobox-api",
  "indexmap 2.1.0",
  "itertools 0.12.0",
  "lexical-sort",
  "nanoid",
  "once_cell",
- "realearn-api",
  "reaper-high",
  "reaper-medium",
  "regex",
@@ -4615,11 +4776,11 @@ dependencies = [
  "egui",
  "egui-toast",
  "egui_extras",
+ "helgobox-api",
  "lru",
  "opener",
  "pot",
  "pulldown-cmark",
- "realearn-api",
  "reaper-high",
  "reaper-medium",
  "rfd",
@@ -4890,176 +5051,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be105c72a1e6a5a1198acee3d5b506a15676b74a02ecd78060042a447f408d94"
 
 [[package]]
-name = "realearn"
-version = "2.16.0-pre.18"
-dependencies = [
- "anyhow",
- "approx",
- "arboard",
- "ascii",
- "askama",
- "async-channel 2.1.1",
- "auto_impl",
- "axum",
- "axum-server",
- "backtrace",
- "base",
- "baseview",
- "bindgen",
- "built",
- "bytesize",
- "c_str_macro",
- "camino",
- "cc 1.0.73",
- "chrono",
- "crossbeam-channel",
- "derivative",
- "derive_more",
- "dns-lookup",
- "edit",
- "egui",
- "egui-baseview",
- "egui_extras",
- "either",
- "embed-resource",
- "enum-map",
- "enum_dispatch",
- "enumflags2",
- "enumset",
- "env_logger",
- "fasteval",
- "fragile",
- "futures",
- "helgoboss-allocator",
- "helgoboss-learn",
- "helgoboss-license-api",
- "helgoboss-midi",
- "hex",
- "hostname",
- "image",
- "include_dir",
- "indexmap 2.1.0",
- "itertools 0.12.0",
- "lazycell",
- "libloading 0.8.0",
- "maplit",
- "metrics",
- "metrics-exporter-prometheus",
- "mlua",
- "nanoid",
- "nom",
- "num_enum 0.7.2",
- "once_cell",
- "open",
- "palette",
- "percent-encoding",
- "playtime-api",
- "playtime-clip-engine",
- "pot",
- "pot-browser",
- "prost",
- "qrcode",
- "raw-window-handle 0.4.3",
- "rcgen",
- "realearn-api",
- "realearn-dialogs",
- "reaper-common-types",
- "reaper-high",
- "reaper-low",
- "reaper-macros",
- "reaper-medium",
- "reaper-rx",
- "regex",
- "rosc",
- "runas",
- "rust-ini",
- "rx-util",
- "rxrust",
- "scopeguard",
- "semver 1.0.17",
- "serde",
- "serde_ini",
- "serde_json",
- "serde_plain",
- "serde_repr",
- "serde_with",
- "serde_yaml",
- "slug",
- "smallvec",
- "strum",
- "swell-ui",
- "sys-info",
- "sysinfo",
- "tar",
- "tempfile",
- "tinyvec",
- "tokio",
- "tokio-stream",
- "tonic",
- "tower",
- "tower-http",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
- "tts",
- "url",
- "uuid 1.7.0",
- "vst",
- "walkdir",
- "webbrowser",
- "whoami",
- "wildmatch",
- "winapi",
- "xxhash-rust",
- "zstd",
-]
-
-[[package]]
-name = "realearn-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "darling 0.20.3",
- "derive_more",
- "enum-map",
- "enumset",
- "heck",
- "helgoboss-license-api",
- "mlua",
- "num_enum 0.7.2",
- "playtime-api",
- "realearn-macros",
- "reaper-low",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "strum",
- "stylua",
- "syn 2.0.48",
-]
-
-[[package]]
 name = "realearn-csi"
 version = "0.1.0"
 dependencies = [
  "base",
  "derive_more",
  "helgoboss-midi",
+ "helgobox-api",
  "nom",
- "realearn-api",
 ]
-
-[[package]]
-name = "realearn-dialogs"
-version = "0.1.0"
-dependencies = [
- "derive_more",
- "indexmap 2.1.0",
-]
-
-[[package]]
-name = "realearn-macros"
-version = "0.1.0"
 
 [[package]]
 name = "reaper-common-types"

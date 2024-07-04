@@ -11,7 +11,7 @@ use helgoboss_learn::{
 use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
 use crate::base::CloneAsDefault;
 use base::hash_util::clone_to_other_hash_map;
-use realearn_api::persistence::FeedbackValueTable;
+use helgobox_api::persistence::FeedbackValueTable;
 use std::time::Duration;
 
 pub enum ModeCommand {

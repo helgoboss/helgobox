@@ -6,7 +6,7 @@ use helgoboss_learn::{
     GroupInteraction, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,
     UnitValue, ValueSequence, VirtualColor,
 };
-use realearn_api::persistence::FeedbackValueTable;
+use helgobox_api::persistence::FeedbackValueTable;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::debug;

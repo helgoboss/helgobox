@@ -34,8 +34,8 @@ use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
     TransformationInputProvider, UnitValue,
 };
+use helgobox_api::persistence::{LearnableTargetKind, TrackScope};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use realearn_api::persistence::{LearnableTargetKind, TrackScope};
 use reaper_high::{ChangeEvent, Fx, Guid, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use serde_repr::*;

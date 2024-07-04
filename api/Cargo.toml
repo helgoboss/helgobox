@@ -1,5 +1,5 @@
 [package]
-name = "realearn-api"
+name = "helgobox-api"
 version = "0.1.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
@@ -10,7 +10,7 @@ default = []
 
 [dependencies]
 # For being able to use the API macro
-realearn-macros.workspace = true
+helgobox-macros.workspace = true
 reaper-low.workspace = true
 serde.workspace = true
 semver.workspace = true

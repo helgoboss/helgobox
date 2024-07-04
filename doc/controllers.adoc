@@ -514,7 +514,7 @@ All presets assume "Live" mode.
 
 === Novation SL MkIII
 
-The screens of this device are extremely flexible. That's why I decided to not add built-in support but provide a link:https://gist.github.com/helgoboss/902d78137248da1683791e19d435be06[Lua script] for ReaLearn's link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#midi-script[MIDI script source].
+The screens of this device are extremely flexible. That's why I decided to not add built-in support but provide a link:https://gist.github.com/helgoboss/902d78137248da1683791e19d435be06[Lua script] for ReaLearn's link:https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#midi-script[MIDI script source].
 
 You can adjust this script to your needs. It allows you to leverage all of the possibilities this keyboard gives you in terms of screen and LED control. Watch link:https://youtu.be/aTCuN_iysKo[this video] to get an idea of what you can do with it.
 

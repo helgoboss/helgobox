@@ -18,8 +18,8 @@ use crate::infrastructure::data::{
     ActivationConditionData, OscValueRange, VirtualControlElementIdData,
 };
 use helgoboss_learn::OscTypeTag;
-use realearn_api::persistence;
-use realearn_api::persistence::ParamRef;
+use helgobox_api::persistence;
+use helgobox_api::persistence::ParamRef;
 pub use target::*;
 
 fn convert_control_element_id(

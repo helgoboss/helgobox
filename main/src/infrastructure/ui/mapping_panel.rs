@@ -27,7 +27,7 @@ use helgoboss_learn::{
     ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, RgbColor, SourceCharacter,
     TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
-use realearn_api::persistence::{
+use helgobox_api::persistence::{
     Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
     MonitoringMode, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor,
     PlaytimeColumnDescriptorKind, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor,
@@ -819,7 +819,7 @@ impl MappingPanel {
                             let session = self.session.clone();
                             let engine = Box::new(RawMidiScriptEngine);
                             let help_url =
-                                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#midi-send-message";
+                                "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#midi-send-message";
                             self.edit_script_in_simple_editor(
                                 engine,
                                 help_url,
@@ -1089,7 +1089,7 @@ impl MappingPanel {
                         let session = self.session.clone();
                         let engine = Box::new(RawMidiScriptEngine);
                         let help_url =
-                            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#raw-midi-source";
+                            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#raw-midi-source";
                         self.edit_script_in_simple_editor(
                             engine,
                             help_url,
@@ -1145,7 +1145,7 @@ impl MappingPanel {
     fn edit_control_transformation(&self) {
         let session = self.session.clone();
         let engine = Box::new(EelControlTransformationEngine);
-        let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#control-transformation";
+        let help_url = "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#control-transformation";
         let get_value = |m: &MappingModel| m.mode_model.eel_control_transformation().to_owned();
         let set_value = move |m: &mut MappingModel, eel: String| {
             UnitModel::change_mapping_from_ui_simple(
@@ -1175,7 +1175,7 @@ impl MappingPanel {
         let session = self.session.clone();
         self.edit_script_in_simple_editor(
             Box::new(EelFeedbackTransformationEngine),
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#feedback-type",
             |m| m.mode_model.eel_feedback_transformation().to_owned(),
             move |m, eel| {
                 UnitModel::change_mapping_from_ui_simple(
@@ -1192,7 +1192,7 @@ impl MappingPanel {
         let session = self.session.clone();
         self.edit_script_in_simple_editor(
             Box::new(TextualFeedbackExpressionEngine),
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
                 UnitModel::change_mapping_from_ui_simple(
@@ -1209,7 +1209,7 @@ impl MappingPanel {
         let session = self.session.clone();
         self.edit_script_in_simple_editor(
             Box::new(LuaFeedbackScriptEngine::new()),
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-type",
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#feedback-type",
             |m| m.mode_model.textual_feedback_expression().to_owned(),
             move |m, eel| {
                 UnitModel::change_mapping_from_ui_simple(
@@ -1229,7 +1229,7 @@ impl MappingPanel {
     ) {
         let engine = Box::new(OscFeedbackArgumentsEngine);
         let help_url =
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#feedback-arguments";
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#feedback-arguments";
         self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
     }
 
@@ -1244,7 +1244,7 @@ impl MappingPanel {
             MidiScriptKind::Lua => Box::new(LuaMidiScriptEngine::new()),
         };
         let help_url =
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source";
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#script-source";
         self.edit_script_in_simple_editor(engine, help_url, get_initial_value, apply);
     }
 
@@ -3428,7 +3428,7 @@ impl<'a> MutableMappingPanel<'a> {
                             self.panel.set_simple_help_text(
                                 Side::Right,
                                 "Target warning",
-                                r#"ATTENTION: You just picked a parameter for the last focused FX. This is okay but you should know that as soon as you focus another type of FX, the parameter list will change and your mapping will control a completely different parameter! You probably want to use this in combination with the "Auto-load" feature, which lets you link FX types to mapping presets. See https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#using-auto-load-to-control-whatever-plug-in-is-currently-in-focus."#
+                                r#"ATTENTION: You just picked a parameter for the last focused FX. This is okay but you should know that as soon as you focus another type of FX, the parameter list will change and your mapping will control a completely different parameter! You probably want to use this in combination with the "Auto-load" feature, which lets you link FX types to mapping presets. See https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#using-auto-load-to-control-whatever-plug-in-is-currently-in-focus."#
                             );
                         }
                     }

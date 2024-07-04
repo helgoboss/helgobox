@@ -28,7 +28,7 @@ The Clip Engine is built into the REAPER plug-in ReaLearn, so you first need to 
 
 IMPORTANT: Make absolutely sure to install the latest *pre-release* (>= v2.13.0-pre.4), otherwise it will not work! Pre-releases can be installed by right-clicking the package in ReaPack.
 
-TIP: First things first: If you are new to ReaLearn, it's helpful to get a basic feel for it and make sure that your controller generally works, so I strongly suggest walking through the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project! It doesn't take long.
+TIP: First things first: If you are new to ReaLearn, it's helpful to get a basic feel for it and make sure that your controller generally works, so I strongly suggest walking through the link:https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#quick-start[Quick start] section of its user guide before diving into the template project! It doesn't take long.
 
 === Step 2: Optimize the REAPER preferences
 
@@ -140,7 +140,7 @@ In order to see which knob/button has which effect, you can use ReaLearn's _Proj
 
 This is not the typical grid controller, so my main preset is quite opinionated. Nevertheless, due to its grid-like alignment of the push encoders and rich visual feedback options, it's quite suitable for recording and launching clips. It can even show the current position within the clip.
 
-. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
+. Set up the Twister exactly as described in the link:https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#dj-techtools-midi-fighter-twister[corresponding section] in ReaLearn's user guide, subsection "Preparation".
 +
 IMPORTANT: Existing ReaLearn users, watch out. I've added new instructions!
 +
@@ -174,7 +174,7 @@ The Mackie Control controller preset doesn't define any Projection layout, so yo
 
 There are plenty of OSC apps out there and even more layouts. Unless you are satisfied with my super simplistic TouchOSC Mk2 preset, you'll need to adjust the main preset Lua code. Recording is not implemented at the moment because it would need some tweaking of the OSC layout to get proper visual feedback for it (red color). Feel free to adjust it to your needs.
 
-. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
+. Set up your TouchOSC device globally in ReaLearn (not in REAPER!) by following link:https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#hexler-touchosc-the-recent-version[these instructions].
 . Select the device as both _Control input_ and _Feedback output_.
 . In TouchOSC: Choose the built-in "Simple Mk2" layout and open the tab "Matrix".
 . Import the main preset

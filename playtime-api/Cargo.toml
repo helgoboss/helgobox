@@ -12,7 +12,7 @@ reaper-common-types.workspace = true
 # For exposing a runtime API within REAPER
 reaper-low.workspace = true
 # For being able to use the API macro
-realearn-macros.workspace = true
+helgobox-macros.workspace = true
 # For generating random IDs
 nanoid.workspace = true
 # For easier Display impl

@@ -8,7 +8,7 @@ use crate::infrastructure::data::{
     ModeModelData, ModelToDataConversionContext, SourceModelData, TargetModelData,
 };
 use base::default_util::{bool_true, deserialize_null_default, is_bool_true, is_default};
-use realearn_api::persistence::SuccessAudioFeedback;
+use helgobox_api::persistence::SuccessAudioFeedback;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 

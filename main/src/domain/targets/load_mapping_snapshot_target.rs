@@ -6,7 +6,7 @@ use crate::domain::{
     TargetTypeDef, Unit, UnitEvent, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use realearn_api::persistence::MappingSnapshotDescForLoad;
+use helgobox_api::persistence::MappingSnapshotDescForLoad;
 
 #[derive(Debug)]
 pub struct UnresolvedLoadMappingSnapshotTarget {

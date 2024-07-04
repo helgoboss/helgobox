@@ -60,8 +60,8 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use anyhow::{bail, Context};
+use helgobox_api::persistence::{Envelope, VirtualControlElementCharacter};
 use itertools::Itertools;
-use realearn_api::persistence::{Envelope, VirtualControlElementCharacter};
 use reaper_medium::Hbrush;
 use semver::Version;
 use std::cell::{Cell, RefCell};
@@ -260,10 +260,7 @@ impl HeaderPanel {
             use swell_ui::menu_tree::*;
             anonymous_menu(vec![
                 item("Open in browser (old)", false),
-                item(
-                    "Open in app (new, but temporarily only works for Playtime testers)",
-                    true,
-                ),
+                item("Open in app (new)", true),
             ])
         };
         self.view
@@ -652,9 +649,9 @@ impl HeaderPanel {
                     )],
                 ),
                 item("Open Pot Browser", MainMenuAction::OpenPotBrowser),
-                item("Show App (not usable yet)", MainMenuAction::ShowApp),
+                item("Show App", MainMenuAction::ShowApp),
                 item_with_opts(
-                    "Close App (not usable yet)",
+                    "Close App",
                     ItemOpts {
                         enabled: app_is_open,
                         checked: false,
@@ -847,18 +844,26 @@ impl HeaderPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let entries = vec![
-                item(
-                    "User guide for this version (PDF, offline)",
-                    HelpMenuAction::OpenOfflineUserGuide,
+                menu(
+                    "ReaLearn",
+                    vec![
+                        item(
+                            "User guide for this version (PDF, offline)",
+                            HelpMenuAction::OpenRealearnOfflineUserGuide,
+                        ),
+                        item(
+                            "User guide for latest version (HTML, online)",
+                            HelpMenuAction::OpenRealearnOnlineUserGuide,
+                        ),
+                        item(
+                            "List of controllers",
+                            HelpMenuAction::OpenRealearnControllerList,
+                        ),
+                        item("Forum", HelpMenuAction::OpenRealearnForum),
+                        item("Website", HelpMenuAction::OpenRealearnWebsite),
+                    ],
                 ),
-                item(
-                    "User guide for latest version (HTML, online)",
-                    HelpMenuAction::OpenOnlineUserGuide,
-                ),
-                item("List of controllers", HelpMenuAction::OpenControllerList),
-                item("Forum", HelpMenuAction::OpenForum),
                 item("Contact developer", HelpMenuAction::ContactDeveloper),
-                item("Website", HelpMenuAction::OpenWebsite),
                 item("Donate", HelpMenuAction::Donate),
             ];
             anonymous_menu(entries)
@@ -869,12 +874,12 @@ impl HeaderPanel {
             .open_popup_menu(pure_menu, location)
             .ok_or("no entry selected")?;
         match result {
-            HelpMenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
-            HelpMenuAction::OpenOnlineUserGuide => self.open_user_guide_online(),
-            HelpMenuAction::OpenControllerList => self.open_controller_list(),
-            HelpMenuAction::OpenForum => self.open_forum(),
+            HelpMenuAction::OpenRealearnOfflineUserGuide => self.open_realearn_user_guide_offline(),
+            HelpMenuAction::OpenRealearnOnlineUserGuide => self.open_realearn_user_guide_online(),
+            HelpMenuAction::OpenRealearnControllerList => self.open_realearn_controller_list(),
+            HelpMenuAction::OpenRealearnForum => self.open_realearn_forum(),
             HelpMenuAction::ContactDeveloper => self.contact_developer(),
-            HelpMenuAction::OpenWebsite => self.open_website(),
+            HelpMenuAction::OpenRealearnWebsite => self.open_realearn_website(),
             HelpMenuAction::Donate => self.donate(),
         };
         Ok(())
@@ -2413,7 +2418,7 @@ impl HeaderPanel {
         BackboneShell::get().log_debug_info(session.unit_key());
     }
 
-    fn open_user_guide_offline(&self) {
+    fn open_realearn_user_guide_offline(&self) {
         let user_guide_pdf =
             BackboneShell::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
         if open::that(user_guide_pdf).is_err() {
@@ -2424,11 +2429,13 @@ impl HeaderPanel {
         }
     }
 
-    fn open_user_guide_online(&self) {
-        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc");
+    fn open_realearn_user_guide_online(&self) {
+        open_in_browser(
+            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc",
+        );
     }
 
-    fn open_controller_list(&self) {
+    fn open_realearn_controller_list(&self) {
         open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc");
     }
 
@@ -2436,7 +2443,7 @@ impl HeaderPanel {
         open_in_browser("https://paypal.me/helgoboss");
     }
 
-    fn open_forum(&self) {
+    fn open_realearn_forum(&self) {
         open_in_browser("https://forum.cockos.com/showthread.php?t=178015");
     }
 
@@ -2444,7 +2451,7 @@ impl HeaderPanel {
         open_in_browser("mailto:info@helgoboss.org");
     }
 
-    fn open_website(&self) {
+    fn open_realearn_website(&self) {
         open_in_browser("https://www.helgoboss.org/projects/realearn/");
     }
 
@@ -3007,12 +3014,12 @@ enum MainMenuAction {
 }
 
 enum HelpMenuAction {
-    OpenOfflineUserGuide,
-    OpenOnlineUserGuide,
-    OpenControllerList,
-    OpenForum,
+    OpenRealearnOfflineUserGuide,
+    OpenRealearnOnlineUserGuide,
+    OpenRealearnControllerList,
+    OpenRealearnForum,
+    OpenRealearnWebsite,
     ContactDeveloper,
-    OpenWebsite,
     Donate,
 }
 

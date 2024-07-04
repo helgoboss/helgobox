@@ -7,8 +7,8 @@ use crate::infrastructure::api::convert::from_data::{
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::MappingModelData;
-use realearn_api::persistence;
-use realearn_api::persistence::LifecycleHook;
+use helgobox_api::persistence;
+use helgobox_api::persistence::LifecycleHook;
 
 pub fn convert_mapping(
     data: MappingModelData,

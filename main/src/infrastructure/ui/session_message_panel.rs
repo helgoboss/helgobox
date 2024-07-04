@@ -2,7 +2,7 @@ use crate::application::{LearnManySubState, SharedUnitModel, WeakUnitModel};
 use crate::base::when;
 use crate::domain::CompartmentKind;
 use crate::infrastructure::ui::bindings::root;
-use realearn_api::persistence::VirtualControlElementCharacter;
+use helgobox_api::persistence::VirtualControlElementCharacter;
 use reaper_low::raw;
 use rxrust::prelude::*;
 use std::rc::Rc;

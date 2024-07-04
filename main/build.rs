@@ -34,7 +34,7 @@ fn generate_gui_dialogs(
 ) -> Result<(), Box<dyn Error>> {
     let bindings_file = "src/infrastructure/ui/bindings.rs";
     fs::create_dir_all(generated_dir.as_ref())?;
-    realearn_dialogs::generate_dialog_files(generated_dir.as_ref(), bindings_file);
+    helgobox_dialogs::generate_dialog_files(generated_dir.as_ref(), bindings_file);
     // On macOS and Linux, try to generate SWELL dialogs (needs PHP)
     #[cfg(target_family = "unix")]
     if let Err(e) = generate_dialogs(dialog_rc_file.as_ref()) {

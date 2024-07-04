@@ -4,7 +4,7 @@ use crate::domain::{
     ReaperTargetType, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::hash_util::NonCryptoHashSet;
-use realearn_api::persistence::TargetTouchCause;
+use helgobox_api::persistence::TargetTouchCause;
 
 #[derive(Debug)]
 pub struct UnresolvedLastTouchedTarget {

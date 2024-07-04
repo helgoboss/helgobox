@@ -1,4 +1,4 @@
-use realearn_api::persistence::{Axis, MouseButton};
+use helgobox_api::persistence::{Axis, MouseButton};
 
 pub trait Mouse {
     fn axis_size(&self, axis: Axis) -> u32;

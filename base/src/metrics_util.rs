@@ -26,7 +26,7 @@ impl Drop for MetricsHook {
 }
 
 impl MetricsHook {
-    /// Initializes metrics recording if the env variable `REALEARN_METRICS` is set.
+    /// Initializes metrics recording if the env variable `HELGOBOX_METRICS` is set.
     ///
     /// This starts a dedicated metrics recording thread, which is responsible for actually
     /// recording certain metrics (e.g. durations), which is especially important when measuring
@@ -41,14 +41,14 @@ impl MetricsHook {
     /// The returned metrics hook must be dropped before the library is unloaded, otherwise the
     /// metrics thread sticks around and that can't be good.
     pub fn init() -> Option<Self> {
-        std::env::var("REALEARN_METRICS").ok()?;
+        std::env::var("HELGOBOX_METRICS").ok()?;
         let (sender, receiver) = std::sync::mpsc::sync_channel(5000);
         thread::Builder::new()
-            .name(String::from("ReaLearn metrics"))
+            .name(String::from("Helgobox metrics"))
             .spawn(move || {
                 keep_recording_metrics(receiver);
             })
-            .expect("ReaLearn metrics thread couldn't be created");
+            .expect("Helgobox metrics thread couldn't be created");
         METRICS_SENDER
             .set(sender.clone())
             .expect("attempting to initializing metrics hook more than once");

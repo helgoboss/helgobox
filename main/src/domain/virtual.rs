@@ -6,7 +6,7 @@ use derivative::Derivative;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
-use realearn_api::persistence::VirtualControlElementCharacter;
+use helgobox_api::persistence::VirtualControlElementCharacter;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;

@@ -4,7 +4,7 @@ use crate::{
     InnerPresetId, PersistentDatabaseId, PotPreset, ProductId,
 };
 use enumset::{enum_set, EnumSet};
-use realearn_api::persistence::PotFilterKind;
+use helgobox_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 use std::error::Error;
 

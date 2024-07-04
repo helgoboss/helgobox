@@ -5,8 +5,8 @@ use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
-use realearn_api::persistence;
-use realearn_api::persistence::{DynamicFeedback, NumericFeedback, PropColor, TextFeedback};
+use helgobox_api::persistence;
+use helgobox_api::persistence::{DynamicFeedback, NumericFeedback, PropColor, TextFeedback};
 
 pub fn convert_glue(
     data: ModeModelData,

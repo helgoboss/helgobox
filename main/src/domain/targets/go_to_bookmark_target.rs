@@ -9,7 +9,7 @@ use crate::domain::{
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RgbColor, Target, UnitValue,
 };
-use realearn_api::persistence::SeekBehavior;
+use helgobox_api::persistence::SeekBehavior;
 use reaper_high::{BookmarkType, ChangeEvent, FindBookmarkResult, Project, Reaper};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef, SetEditCurPosOptions};
 use std::borrow::Cow;

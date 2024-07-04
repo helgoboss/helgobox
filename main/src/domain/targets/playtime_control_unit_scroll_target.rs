@@ -3,7 +3,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::Axis;
+use helgobox_api::persistence::Axis;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeControlUnitScrollTarget {
@@ -53,10 +53,10 @@ mod playtime_impl {
         RealearnTarget, ReaperTargetType, TargetCharacter, UnitEvent,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
+    use helgobox_api::persistence::Axis;
     use playtime_api::persistence::SlotAddress;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::base::ClipMatrixEvent;
-    use realearn_api::persistence::Axis;
 
     impl PlaytimeControlUnitScrollTarget {
         fn value_count(&self, context: ControlContext) -> u32 {

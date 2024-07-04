@@ -12,7 +12,7 @@ use crate::domain::{
 use crate::infrastructure::plugin::instance_parameter_container::InstanceParameterContainer;
 use crate::infrastructure::plugin::{init_backbone_shell, SET_STATE_PARAM_NAME};
 use base::Global;
-use helgoboss_allocator::*;
+use helgobox_allocator::*;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{static_plugin_context, PluginContext};
 use reaper_medium::{Hz, ReaperStr};

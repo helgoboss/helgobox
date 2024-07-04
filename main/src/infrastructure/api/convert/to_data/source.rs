@@ -7,7 +7,7 @@ use crate::infrastructure::data::SourceModelData;
 use anyhow::bail;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
-use realearn_api::persistence::*;
+use helgobox_api::persistence::*;
 use std::convert::TryInto;
 
 pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {

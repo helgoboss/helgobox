@@ -11,7 +11,7 @@ pot.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
 base.workspace = true
-realearn-api.workspace = true
+helgobox-api.workspace = true
 
 # 3rd-party
 egui.workspace = true

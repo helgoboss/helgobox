@@ -3,7 +3,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualPlaytimeColumn, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::PlaytimeColumnAction;
+use helgobox_api::persistence::PlaytimeColumnAction;
 
 pub const PLAYTIME_COLUMN_TARGET: TargetTypeDef = TargetTypeDef {
     section: TargetSection::Playtime,
@@ -84,11 +84,11 @@ mod playtime_impl {
         TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+    use helgobox_api::persistence::PlaytimeColumnAction;
     use playtime_api::persistence::ColumnAddress;
     use playtime_api::runtime::CellAddress;
     use playtime_clip_engine::base::ClipMatrixEvent;
     use playtime_clip_engine::rt::{QualifiedSlotChangeEvent, SlotChangeEvent};
-    use realearn_api::persistence::PlaytimeColumnAction;
     use std::borrow::Cow;
 
     impl<'a> Target<'a> for PlaytimeColumnActionTarget {

@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use realearn_macros::reaper_api;
+use helgobox_macros::reaper_api;
 
 reaper_api![
     HelgoboxApi, HelgoboxApiPointers, HelgoboxApiSession, register_helgobox_api

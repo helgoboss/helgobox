@@ -67,7 +67,7 @@ fn eagerly_load_plugin_lib(context: &PluginContext) -> Result<Library> {
             } else {
                 ".so"
             };
-            let matches = file_name.starts_with("realearn") && file_name.ends_with(extension);
+            let matches = file_name.starts_with("helgobox") && file_name.ends_with(extension);
             if !matches {
                 return None;
             }

@@ -1,6 +1,6 @@
 use crate::infrastructure::plugin::BackboneShell;
 use anyhow::Context;
-use realearn_api::runtime::{register_helgobox_api, HelgoboxApi};
+use helgobox_api::runtime::{register_helgobox_api, HelgoboxApi};
 use reaper_high::{OrCurrentProject, Project, Reaper};
 use reaper_low::raw::ReaProject;
 use reaper_medium::{ReaperStr, RegistrationObject};

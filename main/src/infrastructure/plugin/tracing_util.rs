@@ -16,7 +16,7 @@ pub struct TracingHook {
 }
 
 impl TracingHook {
-    /// Initializes tracing/logging if the env variable `REALEARN_LOG` is set.
+    /// Initializes tracing/logging if the env variable `HELGOBOX_LOG` is set.
     ///
     /// This doesn't just set the global tracing subscriber, it also starts an async logger
     /// thread, which is responsible for logging messages that come from real-time threads (reducing
@@ -30,13 +30,13 @@ impl TracingHook {
     /// The returned tracing hook must be dropped before the library is unloaded, otherwise the
     /// async logger thread sticks around and that can't be good.
     pub fn init() -> Option<Self> {
-        let env_var = std::env::var("REALEARN_LOG").ok()?;
+        let env_var = std::env::var("HELGOBOX_LOG").ok()?;
         let env_filter = EnvFilter::new(env_var);
         let (sender, receiver) = std::sync::mpsc::channel();
         thread::Builder::new()
-            .name(String::from("ReaLearn async logger"))
+            .name(String::from("Helgobox async logger"))
             .spawn(move || keep_logging(receiver, std::io::stdout()))
-            .expect("ReaLearn async logger thread couldn't be created");
+            .expect("Helgobox async logger thread couldn't be created");
         // In the beginning, I wrapped the subscriber in one that calls permit_alloc() in on_event()
         // in order to prevent assert_no_alloc() from aborting because of logging. However, this was
         // not enough. Some tracing-core stuff also did allocations and it was not possible to wrap it.

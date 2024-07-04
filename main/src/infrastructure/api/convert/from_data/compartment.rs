@@ -3,7 +3,7 @@ use crate::infrastructure::api::convert::from_data::{
 };
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
 use crate::infrastructure::data::CompartmentModelData;
-use realearn_api::persistence;
+use helgobox_api::persistence;
 
 pub fn convert_compartment(
     data: CompartmentModelData,

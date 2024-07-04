@@ -6,8 +6,8 @@ use crate::provider_database::{
 use crate::{FilterItem, PotPreset};
 use enum_map::EnumMap;
 use enumset::EnumSet;
+use helgobox_api::persistence::PotFilterKind;
 use once_cell::sync::Lazy;
-use realearn_api::persistence::PotFilterKind;
 use std::collections::HashSet;
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};

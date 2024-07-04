@@ -58,15 +58,15 @@ use anyhow::{bail, Context};
 use base::hash_util::NonCryptoHashSet;
 use base::metrics_util::MetricsHook;
 use camino::{Utf8Path, Utf8PathBuf};
-use helgoboss_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
-use itertools::Itertools;
-use once_cell::sync::Lazy;
-use realearn_api::persistence::{
+use helgobox_allocator::{start_async_deallocation_thread, AsyncDeallocatorCommandReceiver};
+use helgobox_api::persistence::{
     CompartmentPresetId, Controller, ControllerConnection, Envelope, FxChainDescriptor,
     FxDescriptor, MidiControllerConnection, MidiInputPort, MidiOutputPort, TargetTouchCause,
     TrackDescriptor, TrackFxChain, VirtualControlElementCharacter,
 };
-use realearn_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
+use helgobox_api::runtime::{AutoAddedControllerEvent, GlobalInfoEvent};
+use itertools::Itertools;
+use once_cell::sync::Lazy;
 use reaper_high::{
     ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
@@ -318,7 +318,7 @@ impl BackboneShell {
             );
         // We initialize tracing here already instead of activating/deactivating it when waking up
         // or go to sleep. Reason: It doesn't matter that the async logger thread is lurking around
-        // even when no ReaLearn instance exists anymore, because the REALEARN_LOG env variable is
+        // even when no Helgobox instance exists anymore, because the HELGOBOX_LOG env variable is
         // opt-in and should only be used for debugging purposes anyway. Also,
         // activating/deactivating would be more difficult because the global tracing subscriber can
         // be set only once. There's no way to unset it.
@@ -2920,7 +2920,7 @@ mod playtime_impl {
         // example so far where we actually use our exposed API! If we don't "eat our own dogfood", we would have
         // to add integration tests in order to quickly realize if this works or not.
         // TODO-low Add integration tests instead of using API here.
-        let helgobox_api = realearn_api::runtime::HelgoboxApiSession::load(plugin_context)
+        let helgobox_api = helgobox_api::runtime::HelgoboxApiSession::load(plugin_context)
             .context("Couldn't load Helgobox API even after adding Helgobox. Old version?")?;
         let playtime_api = playtime_api::runtime::PlaytimeApiSession::load(plugin_context)
             .context("Couldn't load Playtime API even after adding Helgobox. Old version? Or Helgobox built without Playtime?")?;

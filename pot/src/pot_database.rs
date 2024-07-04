@@ -19,7 +19,7 @@ use crate::providers::defaults::DefaultsDatabase;
 use crate::providers::ini::IniDatabase;
 
 use enumset::{enum_set, EnumSet};
-use realearn_api::persistence::PotFilterKind;
+use helgobox_api::persistence::PotFilterKind;
 use reaper_high::Reaper;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Error;

@@ -13,12 +13,12 @@ use anyhow::{anyhow, bail, Context};
 use base::byte_pattern::BytePattern;
 use base::file_util;
 use base::file_util::is_hidden;
+use helgobox_api::persistence::{
+    CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData, VirtualControlSchemeId,
+};
 use include_dir::{include_dir, Dir};
 use itertools::Itertools;
 use mlua::LuaSerdeExt;
-use realearn_api::persistence::{
-    CommonPresetMetaData, ControllerPresetMetaData, MainPresetMetaData, VirtualControlSchemeId,
-};
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use serde::Deserialize;
@@ -514,7 +514,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                     script_name,
                     &file_content,
                 )?;
-                let compartment_content: realearn_api::persistence::Compartment =
+                let compartment_content: helgobox_api::persistence::Compartment =
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(self.compartment, compartment_content)?;
                 let compartment_model = compartment_data.to_model(

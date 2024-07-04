@@ -7,11 +7,11 @@ use crate::{application, domain};
 use anyhow::anyhow;
 pub use compartment::*;
 use enumflags2::BitFlags;
-pub use mapping::*;
-use realearn_api::persistence::{
+use helgobox_api::persistence::{
     ActivationCondition, Interval, Keystroke, ModifierState, OscArgKind, ParamRef,
     VirtualControlElementId,
 };
+pub use mapping::*;
 use reaper_medium::AcceleratorKeyCode;
 use source::*;
 

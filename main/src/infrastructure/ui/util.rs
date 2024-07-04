@@ -1,7 +1,7 @@
 use crate::application::UnitModel;
 use crate::domain::{compartment_param_index_iter, CompartmentKind, Tag};
 use crate::infrastructure::ui::bindings::root;
-use realearn_dialogs::constants;
+use helgobox_dialogs::constants;
 use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::path::Path;

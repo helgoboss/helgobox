@@ -1,7 +1,7 @@
 use crate::infrastructure::data::{ClipMatrixRefData, UnitData};
 use base::default_util::{deserialize_null_default, is_default};
 use base::hash_util::NonCryptoHashMap;
-use realearn_api::persistence::InstanceSettings;
+use helgobox_api::persistence::InstanceSettings;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

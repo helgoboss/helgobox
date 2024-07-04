@@ -16,7 +16,7 @@ jobs:
           - artifact: windows-x86_64
             os: windows-latest
             toolchain-suffix: x86_64-pc-windows-msvc
-            lib-file-name: realearn.dll
+            lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: x86_64-pc-windows-msvc
             use-cross: false
@@ -25,7 +25,7 @@ jobs:
           - artifact: windows-i686
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
-            lib-file-name: realearn.dll
+            lib-file-name: helgobox.dll
             extension-file-name: reaper_helgobox.dll
             target: i686-pc-windows-msvc
             use-cross: false
@@ -34,7 +34,7 @@ jobs:
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
-            lib-file-name: librealearn.dylib
+            lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: x86_64-apple-darwin
             use-cross: false
@@ -43,7 +43,7 @@ jobs:
           - artifact: macos-aarch64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
-            lib-file-name: librealearn.dylib
+            lib-file-name: libhelgobox.dylib
             extension-file-name: libreaper_helgobox.dylib
             target: aarch64-apple-darwin
             use-cross: false
@@ -52,7 +52,7 @@ jobs:
           - artifact: linux-x86_64
             os: ubuntu-20.04
             toolchain-suffix: x86_64-unknown-linux-gnu
-            lib-file-name: librealearn.so
+            lib-file-name: libhelgobox.so
             extension-file-name: ""
             target: x86_64-unknown-linux-gnu
             use-cross: false
@@ -62,7 +62,7 @@ jobs:
     #          - artifact: linux-aarch64
     #            os: ubuntu-22.04
     #            toolchain-suffix: x86_64-unknown-linux-gnu
-    #            lib-file-name: librealearn.so
+    #            lib-file-name: libhelgobox.so
     #            extension-file-name: ""
     #            target: aarch64-unknown-linux-gnu
     #            use-cross: true
@@ -72,7 +72,7 @@ jobs:
     #          - artifact: linux-armv7
     #            os: ubuntu-22.04
     #            toolchain-suffix: x86_64-unknown-linux-gnu
-    #            lib-file-name: librealearn.so
+    #            lib-file-name: libhelgobox.so
     #            extension-file-name: ""
     #            target: armv7-unknown-linux-gnueabihf
     #            use-cross: true
@@ -143,7 +143,7 @@ jobs:
       - name: Strip debug symbols from Linux binary
         if: startsWith(matrix.os, 'ubuntu-')
         run: |
-          cp target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }} target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
+          cp target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }} target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
           ${{ matrix.strip-cmd }} target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
       - name: Strip debug symbols from macOS binary
         if: matrix.os == 'macos-latest'
@@ -168,19 +168,19 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/realearn.pdb
+          path: target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb
       - name: Upload macOS debug symbols to artifact
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/deps/librealearn.dylib.dSYM/
+          path: target/${{ matrix.target }}/${{ matrix.profile }}/deps/libhelgobox.dylib.dSYM/
       - name: Upload Linux debug symbols to artifact
         if: startsWith(matrix.os, 'ubuntu-')
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/librealearn-debug.so
+          path: target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
 
   create-release:
     name: Publish release
@@ -209,8 +209,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-x86_64/realearn.dll
-          asset_name: realearn-windows-x86_64.dll
+          asset_path: ./windows-x86_64/helgobox.dll
+          asset_name: helgobox-windows-x86_64.dll
           asset_content_type: application/octet-stream
       - name: Upload windows-x86_64 release artifact 2
         uses: actions/upload-release-asset@v1
@@ -228,8 +228,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-i686/realearn.dll
-          asset_name: realearn-windows-i686.dll
+          asset_path: ./windows-i686/helgobox.dll
+          asset_name: helgobox-windows-i686.dll
           asset_content_type: application/octet-stream
       - name: Upload windows-i686 release artifact 2
         uses: actions/upload-release-asset@v1
@@ -247,8 +247,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-x86_64/librealearn.dylib
-          asset_name: realearn-macos-x86_64.vst.dylib
+          asset_path: ./macos-x86_64/libhelgobox.dylib
+          asset_name: helgobox-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
       - name: Upload macos-x86_64 release artifact 2
         uses: actions/upload-release-asset@v1
@@ -266,8 +266,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-aarch64/librealearn.dylib
-          asset_name: realearn-macos-aarch64.vst.dylib
+          asset_path: ./macos-aarch64/libhelgobox.dylib
+          asset_name: helgobox-macos-aarch64.vst.dylib
           asset_content_type: application/octet-stream
       - name: Upload macos-aarch64 release artifact 2
         uses: actions/upload-release-asset@v1
@@ -285,8 +285,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux-x86_64/librealearn.so
-          asset_name: realearn-linux-x86_64.so
+          asset_path: ./linux-x86_64/libhelgobox.so
+          asset_name: helgobox-linux-x86_64.so
           asset_content_type: application/octet-stream
       # Upload Linux aarch64 artifacts
       #      - name: Upload linux-aarch64 release artifact
@@ -295,8 +295,8 @@ jobs:
       #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #        with:
       #          upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #          asset_path: ./linux-aarch64/librealearn.so
-      #          asset_name: realearn-linux-aarch64.so
+      #          asset_path: ./linux-aarch64/libhelgobox.so
+      #          asset_name: helgobox-linux-aarch64.so
       #          asset_content_type: application/octet-stream
       # Upload Linux armv7 artifacts
 #      - name: Upload linux-armv7 release artifact
@@ -305,6 +305,6 @@ jobs:
 #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 #        with:
 #          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-armv7/librealearn.so
-#          asset_name: realearn-linux-armv7.so
+#          asset_path: ./linux-armv7/libhelgobox.so
+#          asset_name: helgobox-linux-armv7.so
 #          asset_content_type: application/octet-stream

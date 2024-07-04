@@ -2,8 +2,8 @@ use crate::domain::{
     CompartmentKind, ExtendedProcessorContext, ReaperTarget, TargetSection, TargetTypeDef,
     UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
+use helgobox_api::persistence::PlaytimeSlotTransportAction;
 use playtime_api::persistence::SlotAddress;
-use realearn_api::persistence::PlaytimeSlotTransportAction;
 use reaper_high::Project;
 
 #[derive(Debug)]
@@ -114,6 +114,7 @@ mod playtime_impl {
     use crate::domain::playtime_util::{
         clip_play_state_unit_value, interpret_current_clip_slot_value,
     };
+    use helgobox_api::persistence::PlaytimeSlotTransportAction;
     use playtime_clip_engine::base::ClipAddress;
     use playtime_clip_engine::rt::{ClipPlayState, TriggerSlotMainOptions};
     #[cfg(feature = "playtime")]
@@ -124,7 +125,6 @@ mod playtime_impl {
             QualifiedSlotChangeEvent, SlotChangeEvent,
         },
     };
-    use realearn_api::persistence::PlaytimeSlotTransportAction;
     use reaper_high::{ChangeEvent, Project};
     use std::borrow::Cow;
 

@@ -7,9 +7,9 @@ use crate::domain::{
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::{measure_time, record_duration};
 use base::non_blocking_lock;
-use helgoboss_allocator::*;
 use helgoboss_learn::{AbstractTimestamp, MidiSourceValue, RawMidiEvent, RawMidiEvents};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage, ShortMessageType};
+use helgobox_allocator::*;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs, SendMidiTime,

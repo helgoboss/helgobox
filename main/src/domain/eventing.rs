@@ -5,7 +5,7 @@ use crate::domain::{
 };
 use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{AbsoluteValue, ControlValue};
-use realearn_api::persistence::MappingModification;
+use helgobox_api::persistence::MappingModification;
 use std::error::Error;
 use std::fmt::Debug;
 

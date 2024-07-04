@@ -10,7 +10,7 @@ publish = false
 base.workspace = true
 reaper-high.workspace = true
 reaper-medium.workspace = true
-realearn-api.workspace = true
+helgobox-api.workspace = true
 rppxml-parser.workspace = true
 
 # 3rd-party
@@ -41,7 +41,7 @@ tempfile.workspace = true
 sanitize-filename = "0.5.0"
 tracing.workspace = true
 regex.workspace = true
-helgoboss-allocator.workspace = true
+helgobox-allocator.workspace = true
 nanoid.workspace = true
 chrono.workspace = true
 anyhow.workspace = true

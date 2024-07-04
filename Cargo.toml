@@ -36,9 +36,9 @@ rppxml-parser = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 playtime-clip-engine = { path = "playtime-clip-engine" }
-realearn-api = { path = "api" }
-realearn-macros = { path = "macros" }
-helgoboss-allocator = { path = "allocator" }
+helgobox-api = { path = "api" }
+helgobox-macros = { path = "macros" }
+helgobox-allocator = { path = "allocator" }
 playtime-api = { path = "playtime-api" }
 realearn-csi = { path = "csi" }
 helgoboss-learn = { path = "main/lib/helgoboss-learn", features = ["reaper-low"] }

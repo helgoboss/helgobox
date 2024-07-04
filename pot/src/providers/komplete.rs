@@ -13,7 +13,7 @@ use crate::{
 use crate::{FilterItem, FilterItemId, Filters, MacroParam, ParamAssignment, PluginId};
 use base::blocking_lock;
 use enumset::{enum_set, EnumSet};
-use realearn_api::persistence::PotFilterKind;
+use helgobox_api::persistence::PotFilterKind;
 
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use camino::{Utf8Path, Utf8PathBuf};

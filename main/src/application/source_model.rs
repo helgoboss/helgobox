@@ -16,8 +16,8 @@ use helgoboss_learn::{
     DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use helgoboss_midi::{Channel, U14, U7};
+use helgobox_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use realearn_api::persistence::{MidiScriptKind, VirtualControlElementCharacter};
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;

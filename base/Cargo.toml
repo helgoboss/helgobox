@@ -11,8 +11,8 @@ reaper-high.workspace = true
 reaper-medium.workspace = true
 reaper-low.workspace = true
 reaper-rx.workspace = true
-realearn-api.workspace = true
-helgoboss-allocator.workspace = true
+helgobox-api.workspace = true
+helgobox-allocator.workspace = true
 
 # 3rd-party
 serde.workspace = true

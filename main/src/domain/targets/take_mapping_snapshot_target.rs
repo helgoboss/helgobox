@@ -5,7 +5,7 @@ use crate::domain::{
     TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
-use realearn_api::persistence::MappingSnapshotDescForTake;
+use helgobox_api::persistence::MappingSnapshotDescForTake;
 
 #[derive(Debug)]
 pub struct UnresolvedTakeMappingSnapshotTarget {

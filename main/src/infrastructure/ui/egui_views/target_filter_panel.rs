@@ -4,7 +4,7 @@ use base::{NamedChannelSender, SenderToNormalThread};
 use derivative::Derivative;
 use egui::CentralPanel;
 use egui::Context;
-use realearn_api::persistence::{LearnableTargetKind, TargetTouchCause};
+use helgobox_api::persistence::{LearnableTargetKind, TargetTouchCause};
 use strum::IntoEnumIterator;
 
 pub fn run_ui(ctx: &Context, state: &mut State) {

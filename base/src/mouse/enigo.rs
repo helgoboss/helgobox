@@ -1,7 +1,7 @@
 use crate::{Mouse, MouseCursorPosition};
 use device_query::DeviceState;
 use enigo::{Enigo, MouseControllable};
-use realearn_api::persistence::{Axis, MouseButton};
+use helgobox_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
 
 #[derive(Debug, Default)]

@@ -21,7 +21,7 @@ use strum::EnumIter;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use realearn_api::persistence::{SeekBehavior, TrackScope};
+use helgobox_api::persistence::{SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{

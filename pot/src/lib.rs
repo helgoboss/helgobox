@@ -9,7 +9,7 @@
 use base::{blocking_lock, blocking_lock_arc, blocking_write_lock, hash_util, SoundPlayer};
 
 use enumset::EnumSet;
-use realearn_api::persistence::PotFilterKind;
+use helgobox_api::persistence::PotFilterKind;
 use reaper_high::{Chunk, Fx, FxChain, GroupingBehavior, Project, Reaper, Track};
 use reaper_medium::{
     reaper_str, FxPresetRef, GangBehavior, InputMonitoringMode, InsertMediaMode,

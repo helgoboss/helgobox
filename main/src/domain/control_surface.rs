@@ -260,7 +260,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             //  should use the global control surface event handler for this! Or ShutdownDetectionPanel? After all,
             //  this is not needed in the domain!
             let current_undesired_allocation_count =
-                helgoboss_allocator::undesired_allocation_count();
+                helgobox_allocator::undesired_allocation_count();
             if current_undesired_allocation_count != self.last_undesired_allocation_count {
                 self.last_undesired_allocation_count = current_undesired_allocation_count;
                 let event = &crate::domain::InternalInfoEvent::UndesiredAllocationCountChanged;

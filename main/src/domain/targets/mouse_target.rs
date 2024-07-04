@@ -7,7 +7,7 @@ use crate::domain::{
 use base::enigo::EnigoMouse;
 use base::{Mouse, MouseCursorPosition};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target};
-use realearn_api::persistence::{Axis, MouseButton};
+use helgobox_api::persistence::{Axis, MouseButton};
 use std::fmt::Debug;
 use strum::EnumIter;
 

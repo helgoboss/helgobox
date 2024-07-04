@@ -9,9 +9,9 @@ use base::blocking_lock_arc;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, PropValue, Target, UnitValue,
 };
+use helgobox_api::persistence::PotFilterKind;
 use pot::{Debounce, FilterItemId};
 use pot::{FilterItem, RuntimePotUnit};
-use realearn_api::persistence::PotFilterKind;
 use std::borrow::Cow;
 
 #[derive(Debug)]

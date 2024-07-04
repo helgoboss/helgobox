@@ -7,7 +7,7 @@ use base::hash_util::NonCryptoIndexMap;
 use base::{blocking_lock_arc, file_util, hash_util};
 use base::{Mouse, MouseCursorPosition};
 use camino::{Utf8Path, Utf8PathBuf};
-use realearn_api::persistence::MouseButton;
+use helgobox_api::persistence::MouseButton;
 use reaper_high::{Fx, FxInfo, Reaper};
 use std::error::Error;
 use std::fs;

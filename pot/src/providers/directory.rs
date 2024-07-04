@@ -13,8 +13,8 @@ use base::hash_util::{NonCryptoHashSet, NonCryptoIndexMap, PersistentHash, Persi
 use camino::Utf8PathBuf;
 use either::Either;
 use enumset::{enum_set, EnumSet};
+use helgobox_api::persistence::PotFilterKind;
 use itertools::Itertools;
-use realearn_api::persistence::PotFilterKind;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;

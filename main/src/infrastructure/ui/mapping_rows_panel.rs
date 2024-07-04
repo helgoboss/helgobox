@@ -7,7 +7,7 @@ use crate::infrastructure::ui::{
     DataObject, IndependentPanelManager, MainState, MappingRowPanel, ScrollStatus,
     SharedIndependentPanelManager, SharedMainState,
 };
-use realearn_api::persistence::Envelope;
+use helgobox_api::persistence::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -39,7 +39,7 @@ impl MappingRowsPanel {
         main_state: SharedMainState,
         position: Point<DialogUnits>,
     ) -> MappingRowsPanel {
-        let row_count = realearn_dialogs::constants::MAPPING_ROW_COUNT;
+        let row_count = helgobox_dialogs::constants::MAPPING_ROW_COUNT;
         MappingRowsPanel {
             view: Default::default(),
             rows: (0..row_count)

@@ -3,8 +3,8 @@ use crate::domain::{
     UnresolvedReaperTargetDef, VirtualPlaytimeSlot, DEFAULT_TARGET,
 };
 
+use helgobox_api::persistence::PlaytimeSlotManagementAction;
 use playtime_api::persistence::SlotAddress;
-use realearn_api::persistence::PlaytimeSlotManagementAction;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeSlotManagementActionTarget {
@@ -63,10 +63,10 @@ mod playtime_impl {
         PlaytimeSlotManagementActionTarget, RealearnTarget, ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target};
+    use helgobox_api::persistence::PlaytimeSlotManagementAction;
     use playtime_api::persistence::SlotAddress;
     use playtime_clip_engine::base::{ClipAddress, ClipMatrixEvent};
     use playtime_clip_engine::rt::{ClipChangeEvent, QualifiedClipChangeEvent};
-    use realearn_api::persistence::PlaytimeSlotManagementAction;
 
     impl PlaytimeSlotManagementActionTarget {
         fn hit_internal(

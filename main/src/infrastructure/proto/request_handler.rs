@@ -5,7 +5,7 @@ use reaper_medium::CommandId;
 use tonic::{Response, Status};
 
 use base::spawn_in_main_thread;
-use realearn_api::runtime::InstanceInfoEvent;
+use helgobox_api::runtime::InstanceInfoEvent;
 use swell_ui::Window;
 
 use crate::domain::{CompartmentKind, UnitId};

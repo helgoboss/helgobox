@@ -14,8 +14,8 @@ use base::hash_util::{
 };
 use either::Either;
 use enumset::{enum_set, EnumSet};
+use helgobox_api::persistence::PotFilterKind;
 use itertools::Itertools;
-use realearn_api::persistence::PotFilterKind;
 
 use std::error::Error;
 use std::ffi::OsStr;

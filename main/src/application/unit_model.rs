@@ -36,12 +36,12 @@ use crate::domain;
 use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use core::iter;
 use helgoboss_learn::{AbsoluteMode, ControlResult, ControlValue, UnitValue};
-use itertools::Itertools;
-use realearn_api::persistence::{
+use helgobox_api::persistence::{
     FxDescriptor, MappingModification, TargetTouchCause, TrackDescriptor,
     VirtualControlElementCharacter,
 };
-use realearn_api::runtime::InstanceInfoEvent;
+use helgobox_api::runtime::InstanceInfoEvent;
+use itertools::Itertools;
 use reaper_medium::{InputMonitoringMode, RecordingInput};
 use std::error::Error;
 use std::fmt;
@@ -202,7 +202,7 @@ impl LearnManyState {
 pub mod session_defaults {
     use crate::application::AutoLoadMode;
     use crate::domain::StayActiveWhenProjectInBackground;
-    use realearn_api::persistence::FxDescriptor;
+    use helgobox_api::persistence::FxDescriptor;
 
     pub const LET_MATCHED_EVENTS_THROUGH: bool = false;
     pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;

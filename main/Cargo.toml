@@ -1,5 +1,5 @@
 [package]
-name = "realearn"
+name = "helgobox"
 version = "2.16.0-pre.18"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2021"
@@ -36,7 +36,7 @@ reaper-macros.workspace = true
 swell-ui.workspace = true
 rx-util.workspace = true
 pot.workspace = true
-realearn-api.workspace = true
+helgobox-api.workspace = true
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn.workspace = true
 helgoboss-midi.workspace = true
@@ -151,7 +151,7 @@ ascii.workspace = true
 # For using bit flags in the reaper-rs API.
 enumflags2.workspace = true
 # For detecting undesired (de)allocation in real-time threads.
-helgoboss-allocator.workspace = true
+helgobox-allocator.workspace = true
 # For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
 enum_dispatch.workspace = true
 # For processing mappings in user-defined order
@@ -169,7 +169,7 @@ metrics-exporter-prometheus = { version = "0.13.0", default-features = false }
 # For parsing OSC argument value ranges
 nom.workspace = true
 # For obtaining dialog constants from dialog crate
-realearn-dialogs = { path = "../dialogs" }
+helgobox-dialogs = { path = "../dialogs" }
 # For being able to return iterators of different types
 either.workspace = true
 # For reading preset directories recursively
@@ -229,12 +229,12 @@ cc = { git = "https://github.com/petrochenkov/cc-rs.git", rev = "4d52bd211aeb2b4
 # For embedding dialog resource files on Windows
 embed-resource = "2.4.1"
 # For RC dialog file generation
-realearn-dialogs = { path = "../dialogs" }
+helgobox-dialogs = { path = "../dialogs" }
 
 [dev-dependencies]
 # For the EEL memory consumption test
 sysinfo = "0.30.5"
 
 [lib]
-name = "realearn"
+name = "helgobox"
 crate-type = ["cdylib"]

@@ -3,7 +3,7 @@ use crate::domain::{
     UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 
-use realearn_api::persistence::Axis;
+use helgobox_api::persistence::Axis;
 
 #[derive(Debug)]
 pub struct UnresolvedPlaytimeBrowseCellsTarget {
@@ -53,10 +53,10 @@ mod playtime_impl {
         RealearnTarget, ReaperTargetType, TargetCharacter,
     };
     use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
+    use helgobox_api::persistence::Axis;
     use playtime_api::runtime::CellAddress;
     #[cfg(feature = "playtime")]
     use playtime_clip_engine::base::ClipMatrixEvent;
-    use realearn_api::persistence::Axis;
 
     impl PlaytimeBrowseCellsTarget {
         fn column_or_row_count(&self, context: ControlContext) -> u32 {

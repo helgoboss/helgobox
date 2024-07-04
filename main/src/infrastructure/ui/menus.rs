@@ -13,7 +13,7 @@ use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
 
 use base::hash_util::NonCryptoIndexMap;
 use derive_more::Display;
-use realearn_api::persistence::VirtualControlElementCharacter;
+use helgobox_api::persistence::VirtualControlElementCharacter;
 use reaper_medium::ReaperString;
 use std::iter;
 use strum::IntoEnumIterator;

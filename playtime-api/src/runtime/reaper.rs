@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use realearn_macros::reaper_api;
+use helgobox_macros::reaper_api;
 
 reaper_api![
     PlaytimeApi, PlaytimeApiPointers, PlaytimeApiSession, register_playtime_api

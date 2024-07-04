@@ -100,7 +100,7 @@ impression and stay tuned if you are interested in the details.
 
 ReaLearn features a large and complete user guide.
 
-- https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc[Read it right here on GitHub] (preferred, best readability)
+- https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc[Read it right here on GitHub] (preferred, best readability)
 - https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf[Download user guide as PDF file]
 
 TIP: The main focus of ReaLearn's user guide is being comprehensive, so it's more like a reference manual and can get quite detailed and technical. If you prefer a simple hands-on approach, the <<videos,tutorial videos>> are a better choice.

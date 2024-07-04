@@ -16,6 +16,7 @@ use egui::{
 use egui::{Context, SidePanel};
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use egui_toast::Toasts;
+use helgobox_api::persistence::PotFilterKind;
 use lru::LruCache;
 use pot::preset_crawler::{
     crawl_presets, import_crawled_presets, CrawlPresetArgs, PresetCrawlerStopReason,
@@ -36,7 +37,6 @@ use pot::{
     WorkerDispatcher,
 };
 use pot::{FilterItemId, PresetId};
-use realearn_api::persistence::PotFilterKind;
 use reaper_high::{Fx, FxParameter, Reaper, SliderVolume, Track};
 use reaper_medium::{ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use std::borrow::Cow;
