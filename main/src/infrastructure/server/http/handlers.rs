@@ -100,7 +100,6 @@ pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients
     static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
     let client_id = NEXT_CLIENT_ID.fetch_add(1, Ordering::Relaxed);
     let client = WebSocketClient {
-        id: client_id,
         topics,
         sender: client_sender,
     };

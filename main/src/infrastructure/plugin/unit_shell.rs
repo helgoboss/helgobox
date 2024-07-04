@@ -181,7 +181,6 @@ impl UnitShell {
         //  by passing the UnitShell (the root for everything unit-related).
         let unit_info = UnitInfo {
             unit_id,
-            processor_context,
             instance_id,
             instance: Rc::downgrade(&parent_instance),
             unit_model: weak_session.clone(),

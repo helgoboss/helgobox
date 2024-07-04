@@ -21,6 +21,7 @@ pub struct ScriptTemplateGroup {
 
 #[derive(Debug)]
 pub struct ScriptTemplate {
+    #[allow(dead_code)]
     pub min_realearn_version: Option<Version>,
     pub name: &'static str,
     pub description: &'static str,

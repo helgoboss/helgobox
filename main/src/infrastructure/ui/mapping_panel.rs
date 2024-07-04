@@ -24,9 +24,8 @@ use helgoboss_learn::{
     ButtonUsage, ControlValue, DetailedSourceCharacter, DiscreteIncrement, DisplayType,
     EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, ModeApplicabilityCheckInput,
-    ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, RgbColor, SoftSymmetricUnitValue,
-    SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor,
-    DEFAULT_OSC_ARG_VALUE_RANGE,
+    ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, RgbColor, SourceCharacter,
+    TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use realearn_api::persistence::{
     Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
@@ -7388,11 +7387,9 @@ const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;
     fn slider_discrete_increment(&self) -> DiscreteIncrement;
-    fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue;
     fn slider_duration(&self) -> Duration;
     fn set_slider_unit_value(&self, value: UnitValue);
     fn set_slider_discrete_increment(&self, increment: DiscreteIncrement);
-    fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue);
     fn set_slider_duration(&self, value: Duration);
 }
 
@@ -7407,10 +7404,6 @@ impl WindowExt for Window {
         discrete_value
             .try_into()
             .unwrap_or(DiscreteIncrement::POSITIVE_MIN)
-    }
-
-    fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue {
-        self.slider_unit_value().map_to_symmetric_unit_interval()
     }
 
     fn slider_duration(&self) -> Duration {
@@ -7428,10 +7421,6 @@ impl WindowExt for Window {
     fn set_slider_discrete_increment(&self, increment: DiscreteIncrement) {
         let val = cmp::max(0, (increment.get() + 100) / 2) as u32;
         self.set_slider_value(val);
-    }
-
-    fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue) {
-        self.set_slider_unit_value(value.map_to_positive_unit_interval());
     }
 
     fn set_slider_duration(&self, value: Duration) {

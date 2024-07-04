@@ -493,7 +493,8 @@ impl SourceModel {
             }
             Osc(s) => {
                 self.category = SourceCategory::Osc;
-                self.osc_address_pattern = s.address_pattern().to_owned();
+                s.address_pattern()
+                    .clone_into(&mut self.osc_address_pattern);
                 self.osc_arg_index = s.arg_descriptor().map(|d| d.index());
                 self.osc_arg_type_tag =
                     s.arg_descriptor().map(|d| d.type_tag()).unwrap_or_default();

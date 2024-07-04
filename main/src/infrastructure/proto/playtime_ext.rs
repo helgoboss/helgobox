@@ -312,7 +312,7 @@ impl Fx {
             name: fx.name().to_string(),
             instrument: fx
                 .info()
-                .map(|info| info.sub_type_expression.ends_with("i"))
+                .map(|info| info.sub_type_expression.ends_with('i'))
                 .unwrap_or(false),
         }
     }

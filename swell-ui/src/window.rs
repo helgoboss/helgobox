@@ -350,7 +350,7 @@ impl Window {
     //  difference because moving is not a problem in all known cases.
     pub fn fill_combo_box_with_data<I: Display>(
         self,
-        items: impl Iterator<Item = (isize, I)> + ExactSizeIterator,
+        items: impl ExactSizeIterator<Item = (isize, I)>,
     ) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
@@ -368,10 +368,7 @@ impl Window {
         self.fill_combo_box_with_data_internal(items);
     }
 
-    pub fn fill_combo_box_indexed<I: Display>(
-        self,
-        items: impl Iterator<Item = I> + ExactSizeIterator,
-    ) {
+    pub fn fill_combo_box_indexed<I: Display>(self, items: impl ExactSizeIterator<Item = I>) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
         for item in items {

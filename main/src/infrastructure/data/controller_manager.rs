@@ -80,7 +80,7 @@ impl ControllerManager {
         let new_midi_output_device_id = get_controller_midi_output_device_id(&controller);
         let outcome = if controller.id.is_empty() {
             let new_id = nanoid!();
-            controller.id = new_id.clone();
+            controller.id.clone_from(&new_id);
             self.controller_config.controllers.push(controller);
             SaveControllerOutcome {
                 id: new_id,

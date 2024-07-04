@@ -551,12 +551,6 @@ impl Display for Font {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct Point(pub u32, pub u32);
-
-#[derive(Copy, Clone)]
-pub struct Dimensions(pub u32, pub u32);
-
 #[derive(Copy, Clone, Default)]
 pub struct Rect {
     pub x: u32,

@@ -1,13 +1,11 @@
 use crate::application::{CompartmentInSession, CompartmentModel, GroupModel, UnitModel};
 use crate::domain::{
     CompartmentKind, CompartmentParamIndex, GroupId, GroupKey, MappingId, MappingKey, ParamSetting,
-    UnitId,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ModelToDataConversionContext,
     SimpleDataToModelConversionContext,
 };
-use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{deserialize_null_default, is_default};
 use base::hash_util::NonCryptoHashMap;
 use base::validation_util::{ensure_no_duplicate, ValidationError};
@@ -72,10 +70,6 @@ impl ModelToDataConversionContext for CompartmentModel {
     fn mapping_key_by_id(&self, mapping_id: MappingId) -> Option<MappingKey> {
         let mapping = self.mappings.iter().find(|m| m.id() == mapping_id)?;
         Some(mapping.key().clone())
-    }
-
-    fn session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
-        BackboneShell::get().find_session_id_by_instance_id(instance_id)
     }
 }
 

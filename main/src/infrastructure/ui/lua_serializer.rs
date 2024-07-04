@@ -288,9 +288,9 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, value: &T) -> std::result::Result<(), Self::Error>
     where
-        T: Serialize,
+        T: Serialize + ?Sized,
     {
         if !self.output.ends_with('{') {
             self.output += ", ";

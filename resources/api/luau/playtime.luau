@@ -61,6 +61,7 @@ export type Matrix = {
 	rows: { Row }?,
 	clip_play_settings: MatrixClipPlaySettings,
 	clip_record_settings: MatrixClipRecordSettings,
+	transport_sync_mode: TransportSyncMode?,
 	common_tempo_range: TempoRange,
 	activate_slot_on_trigger: boolean?,
 	click_volume: number?,
@@ -73,6 +74,8 @@ export type Matrix = {
 function module.Matrix(value: Matrix): Matrix
 	return value
 end
+
+export type TransportSyncMode = "Partial" | "Full"
 
 export type MatrixSequencer = {
 	sequences: { MatrixSequence }?,
@@ -191,6 +194,7 @@ export type MatrixSettings = {
 	color_palette: ColorPalette,
 	content_quantization_settings: ContentQuantizationSettings,
 	activate_slot_on_trigger: boolean,
+	transport_sync_mode: TransportSyncMode,
 }
 --- Creates a MatrixSettings value.
 --- This is redundant (already contained in [`Matrix`]) but used to transfer settings only.

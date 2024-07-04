@@ -11,7 +11,6 @@ pub type ServerClients = Arc<std::sync::RwLock<NonCryptoHashMap<usize, WebSocket
 
 #[derive(Debug, Clone)]
 pub struct WebSocketClient {
-    pub id: usize,
     pub topics: Topics,
     pub sender: mpsc::UnboundedSender<String>,
 }

@@ -214,7 +214,6 @@ pub struct UnitInfo {
     pub is_main_unit: bool,
     /// Whether this is an automatically loaded unit (according to controller configuration).
     pub is_auto_unit: bool,
-    pub processor_context: ProcessorContext,
     /// Representation of the unit's parent instance in the domain layer.
     pub instance: WeakInstance,
     /// User interface of the unit's parent instance in the infrastructure layer.
@@ -1270,18 +1269,6 @@ impl BackboneShell {
                 false
             }
         })
-    }
-
-    pub fn find_session_id_by_instance_id(&self, instance_id: UnitId) -> Option<String> {
-        let session = self.find_unit_model_by_unit_id_ignoring_borrowed_ones(instance_id)?;
-        let session = session.borrow();
-        Some(session.unit_key().to_string())
-    }
-
-    pub fn find_unit_id_by_unit_key(&self, session_id: &str) -> Option<UnitId> {
-        let session = self.find_unit_model_by_key(session_id)?;
-        let session = session.borrow();
-        Some(session.unit_id())
     }
 
     pub fn find_unit_model_by_unit_id_ignoring_borrowed_ones(
