@@ -2,7 +2,7 @@
   "name": "Helgobox (ReaLearn & Playtime)",
   "sub_title": "by Helgoboss Projects",
   "required_packages": [
-    "https://github.com/helgoboss/reaper-packages/raw/master/index.xml#p=Extensions/ReaLearn-x64&v=latest"
+    "https://github.com/helgoboss/reaper-packages/raw/master/index.xml#p=Extensions/ReaLearn-x64&v=latest-pre"
   ],
   "website": "https://www.helgoboss.org/projects/helgobox",
   "skip_additional_packages": true
