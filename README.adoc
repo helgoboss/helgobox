@@ -20,15 +20,13 @@ link:https://www.helgoboss.org/projects/playtime[Playtime] (a modern session vie
 
 Helgobox is provided as https://reapack.com/[ReaPack] package, which is great because it allows you to keep your installation up-to-date very easily.
 
-=== Install for the first time
+There are multiple ways to carry out the initial installation.
 
-There are two ways to carry out the initial installation.
-
-==== Install automatically via ReaBoot
+=== Install automatically via ReaBoot
 
 The easiest way to install Helgobox is via the following ReaBoot link: link:https://reaboot.com/install/https%3A%2F%2Fraw.githubusercontent.com%2Fhelgoboss%2Fhelgobox%2Fmaster%2Freaboot.json[Install Helgobox]
 
-==== Install manually via ReaPack
+=== Install manually via ReaPack
 
 As an alternative, you can install Helgobox via ReaPack directly:
 
@@ -44,7 +42,7 @@ As an alternative, you can install Helgobox via ReaPack directly:
 . OK or Apply
 . Restart REAPER
 
-==== Install manually without ReaPack
+=== Install manually without ReaPack
 
 If you are more the download type of person, you can find the latest `dll`, `dylib` and `so` files here at GitHub on the https://github.com/helgoboss/helgobox/releases[releases page] for manual installation.
 
