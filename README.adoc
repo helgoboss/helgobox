@@ -12,9 +12,9 @@ image:https://github.com/helgoboss/helgobox/actions/workflows/linux-armv7.yml/ba
 image:https://img.shields.io/badge/license-GPL-blue.svg[GitHub license,link=https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE]
 image:https://img.shields.io/badge/Donate-PayPal-orange.svg[Donate,link=https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url]
 
-Helgobox is a suite that unites multiple creative link:https://www.reaper.fm[REAPER] tools under one roof.
-It currently contains link:https://www.helgoboss.org/projects/realearn[ReaLearn] (a versatile controller integration tool) and
-link:https://www.helgoboss.org/projects/playtime[Playtime] (a modern session view).
+Helgobox is a suite that unites multiple creative link:https://www.reaper.fm[REAPER] tools by Helgoboss.
+It currently contains link:https://www.helgoboss.org/projects/realearn[ReaLearn] (a versatile controller integration tool, free) and
+link:https://www.helgoboss.org/projects/playtime[Playtime] (a modern session view, paid).
 
 == Installation
 
