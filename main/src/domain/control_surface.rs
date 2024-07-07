@@ -120,7 +120,7 @@ pub enum AdditionalFeedbackEvent {
     /// Beat-changed events are emitted only when the project is playing.
     ///
     /// We shouldn't change that because targets such as "Marker/region: Go to" or "Project: Seek"
-    /// depend on this (see https://github.com/helgoboss/realearn/issues/663).
+    /// depend on this (see https://github.com/helgoboss/helgobox/issues/663).
     BeatChanged(BeatChangedEvent),
     MappedFxParametersChanged,
     /// This event is raised whenever an FX window loses focus and a non-FX window gains focus,
@@ -372,7 +372,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // Our goal is to always keep using the same change event queue vector so that we don't
         // have to reallocate on each main loop cycle. That's also why we use `drain` further down.
         // Previously, we just directly used the `change_event_queue` variable. However, an
-        // issue occurred: https://github.com/helgoboss/realearn/issues/672#issuecomment-1246997201.
+        // issue occurred: https://github.com/helgoboss/helgobox/issues/672#issuecomment-1246997201.
         // A user got a panic while the main processors processed the change events ... which is not
         // optimal but can happen in certain cases that are a topic for another day, see the
         // comment. The issue we need to deal with here is another one: The same panic occurred
@@ -386,7 +386,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // to avoid an infinite loop in case of a panic.
         let mut normal_events = self.change_event_queue.replace(vec![]);
         // Important because we deferred the change event handling, so it could be invalid now!
-        // See https://github.com/helgoboss/realearn/issues/672.
+        // See https://github.com/helgoboss/helgobox/issues/672.
         normal_events.retain(|e| e.is_still_valid());
         let monitoring_fx_events = metrics_util::measure_time(
             "helgobox.control_surface.detect_monitoring_fx_changes",
@@ -748,7 +748,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             // We don't process change events immediately in order to be able to process
             // multiple events occurring in one main loop cycle as a natural batch. This
             // is important for performance reasons
-            // (see https://github.com/helgoboss/realearn/issues/553).
+            // (see https://github.com/helgoboss/helgobox/issues/553).
             change_event_queue.push(e);
         })
     }

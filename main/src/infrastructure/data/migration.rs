@@ -5,18 +5,18 @@ use semver::Version;
 pub struct MigrationDescriptor {
     /// Invert target interval of mapping when migrating from old version.
     ///
-    /// https://github.com/helgoboss/realearn/issues/117
+    /// https://github.com/helgoboss/helgobox/issues/117
     pub target_interval_transformation_117: bool,
     /// If the FX selector was <Focused> before the "Unit FX" concept was introduced, we
     /// transform it to <Instance> (and set the instance FX by default to <Focused>).
     ///  
-    /// https://github.com/helgoboss/realearn/issues/188
+    /// https://github.com/helgoboss/helgobox/issues/188
     pub fx_selector_transformation_188: bool,
-    /// https://github.com/helgoboss/realearn/issues/485
+    /// https://github.com/helgoboss/helgobox/issues/485
     pub jump_overhaul_485: bool,
-    /// https://github.com/helgoboss/realearn/issues/761
+    /// https://github.com/helgoboss/helgobox/issues/761
     pub action_invocation_swap_761: bool,
-    /// https://github.com/helgoboss/realearn/issues/928
+    /// https://github.com/helgoboss/helgobox/issues/928
     pub fire_mode_after_timeout_release_928: bool,
 }
 

@@ -30,7 +30,7 @@ impl Default for Global {
         // thread (which we use quite often in order to schedule/spawn something on the main
         // thread) and the channel is full, we will get a deadlock! It's okay that they allocate
         // on sending because `Global` can't be used from a real-time thread.
-        // See https://github.com/helgoboss/realearn/issues/875.
+        // See https://github.com/helgoboss/helgobox/issues/875.
         let (task_sender, task_receiver) = crossbeam_channel::unbounded();
         let (send_future_spawner, send_future_executor) =
             reaper_high::run_loop_executor::new_spawner_and_executor(
@@ -74,7 +74,7 @@ impl Global {
     /// Allows you to schedule tasks for execution on the main thread from anywhere.
     ///
     /// Important: Don't use this to schedule tasks from a real-time thread! This is backed by an
-    /// unbounded channel now because of https://github.com/helgoboss/realearn/issues/875, so
+    /// unbounded channel now because of https://github.com/helgoboss/helgobox/issues/875, so
     /// sending can allocate!
     pub fn task_support() -> &'static TaskSupport {
         &Global::get().task_support
@@ -83,7 +83,7 @@ impl Global {
     /// Allows you to spawn futures from anywhere.
     ///
     /// Important: Don't use this to spawn futures from a real-time thread! This is backed by an
-    /// unbounded channel now because of https://github.com/helgoboss/realearn/issues/875, so
+    /// unbounded channel now because of https://github.com/helgoboss/helgobox/issues/875, so
     /// sending can allocate!
     pub fn future_support() -> &'static FutureSupport {
         &Global::get().future_support

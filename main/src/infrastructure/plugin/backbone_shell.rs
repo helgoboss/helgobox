@@ -1111,7 +1111,7 @@ impl BackboneShell {
             // via ReaPack. However, we had to copy it to a temporary directory anyway, otherwise
             // we would risk an error on Windows when attempting to install a new ReaLearn version
             // via ReaPack while still having ReaLearn open.
-            // https://github.com/helgoboss/realearn/issues/780
+            // https://github.com/helgoboss/helgobox/issues/780
             // Encoding the file in the binary frees us from having to distribute it.
             let bytes = include_bytes!("../../../../resources/sounds/click-high.mp3");
             let dest_path = BackboneShell::get_temp_dir()?.path().join("click-high.mp3");

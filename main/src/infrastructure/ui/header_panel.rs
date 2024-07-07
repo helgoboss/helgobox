@@ -2431,12 +2431,12 @@ impl HeaderPanel {
 
     fn open_realearn_user_guide_online(&self) {
         open_in_browser(
-            "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc",
+            "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc",
         );
     }
 
     fn open_realearn_controller_list(&self) {
-        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc");
+        open_in_browser("https://github.com/helgoboss/helgobox/blob/master/doc/controllers.adoc");
     }
 
     fn donate(&self) {

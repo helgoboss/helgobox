@@ -230,7 +230,7 @@ impl Plugin for HelgoboxPlugin {
                     let our_event = match MidiEvent::from_vst(e) {
                         Err(_) => {
                             // Just ignore if not a valid MIDI message. Invalid MIDI message was
-                            // observed in the wild: https://github.com/helgoboss/realearn/issues/82.
+                            // observed in the wild: https://github.com/helgoboss/helgobox/issues/82.
                             continue;
                         }
                         Ok(e) => e,

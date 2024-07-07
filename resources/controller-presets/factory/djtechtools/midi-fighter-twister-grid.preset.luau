@@ -7,7 +7,7 @@
 ---     built for generic grid controllers.
 --- setup_instructions: |
 ---     The Midi Fighter Twister is a very customizable controller. Please follow the instructions at
----     https://github.com/helgoboss/realearn/blob/master/doc/controllers.adoc#dj-techtools-midi-fighter-twister
+---     https://github.com/helgoboss/helgobox/blob/master/doc/controllers.adoc#dj-techtools-midi-fighter-twister
 ---     to make it ready for ReaLearn.
 --- device_manufacturer: DJ TechTools
 --- device_name: Midi Fighter Twister

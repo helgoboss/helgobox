@@ -305,7 +305,7 @@ That makes the debugged REAPER process itself do the scanning.
 Debug symbols are stripped from release builds but stored as build artifact of the GitHub Actions "Create release" workflow.
 If you want the symbols for a specific build, proceed as follows:
 
-. Open the https://github.com/helgoboss/realearn/actions?query=workflow%3A%22Create+release%22[list of ReaLearn "Create release" workflows].
+. Open the https://github.com/helgoboss/helgobox/actions?query=workflow%3A%22Create+release%22[list of ReaLearn "Create release" workflows].
 . Use the branch filter to show all releases builds made for a specific version, e.g. "v1.11.0".
 . Click the desired workflow.
 ** GitHub seems to do a fuzzy search, so if there are pre-releases (e.g. "v1.11.0-pre2"), you will see them, too.

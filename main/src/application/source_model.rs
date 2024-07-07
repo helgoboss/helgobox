@@ -596,7 +596,7 @@ impl SourceModel {
                                 channel,
                                 msb_controller_number: self.midi_message_number.map(|n| {
                                     // We accept even non-MSB numbers and convert them into them.
-                                    // https://github.com/helgoboss/realearn/issues/30
+                                    // https://github.com/helgoboss/helgobox/issues/30
                                     let msb_controller_number = U7::new(n.get() % 32);
                                     msb_controller_number.into()
                                 }),

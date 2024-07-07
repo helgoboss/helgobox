@@ -1679,7 +1679,7 @@ impl<'a> MidiEvent<IncomingMidiMessage<'a>> {
             vst::event::Event::Deprecated(e) => e.delta_frames,
         };
         // Negative offset was observed in the wild, see
-        // https://github.com/helgoboss/realearn/issues/54. Don't know what that's
+        // https://github.com/helgoboss/helgobox/issues/54. Don't know what that's
         // supposed to mean but falling back to zero should be okay in our case.
         let offset = SampleOffset::new(std::cmp::max(0, delta_frames) as u64);
         Ok(MidiEvent::new(offset, msg))

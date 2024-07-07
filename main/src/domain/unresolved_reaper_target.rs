@@ -1937,7 +1937,7 @@ pub fn get_fx_name(fx: &Fx) -> String {
 ///
 /// Replaces invalid UTF-8 sequences with replacement characters.
 ///
-/// https://github.com/helgoboss/realearn/issues/595
+/// https://github.com/helgoboss/helgobox/issues/595
 pub fn with_fx_name<R>(fx: &Fx, f: impl FnOnce(Cow<str>) -> R) -> R {
     f(fx.name().into_inner().to_string_lossy())
 }

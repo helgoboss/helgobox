@@ -2795,7 +2795,7 @@ impl DomainEventHandler for WeakUnitModel {
             TargetValueChanged(e) => {
                 // If the session is borrowed already, just let it be. It happens only in a very
                 // particular case of reentrancy (because of a quirk in REAPER related to master
-                // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
+                // tempo notification, https://github.com/helgoboss/helgobox/issues/199). If the
                 // target value slider is not updated then ... so what.
                 session.try_borrow()?.ui().target_value_changed(e);
             }

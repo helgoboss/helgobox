@@ -362,7 +362,7 @@ impl RealearnAudioHook {
         let mut midi_devs_used_at_all = false;
         for (_, p) in self.real_time_processors.iter() {
             // Since 1.12.0, we "drive" each plug-in instance's real-time processor
-            // primarily by the global audio hook. See https://github.com/helgoboss/realearn/issues/84 why this is
+            // primarily by the global audio hook. See https://github.com/helgoboss/helgobox/issues/84 why this is
             // better. We also call it by the plug-in `process()` method though in order
             // to be able to send MIDI to <FX output> and to
             // stop doing so synchronously if the plug-in is

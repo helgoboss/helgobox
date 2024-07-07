@@ -201,8 +201,8 @@ impl OscOutputDevice {
         // Attention: It's important that we don't use `UdpSocket::connect` here as this breaks
         // control. No idea why exactly, but it must have something to do with the fact that we
         // clone the control socket (in order to support "respond to sending port" scenario).
-        // See https://github.com/helgoboss/realearn/issues/706 and
-        // https://github.com/helgoboss/realearn/issues/551.
+        // See https://github.com/helgoboss/helgobox/issues/706 and
+        // https://github.com/helgoboss/helgobox/issues/551.
         OscOutputDevice {
             id,
             socket,

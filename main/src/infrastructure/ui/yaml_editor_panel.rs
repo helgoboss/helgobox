@@ -150,6 +150,6 @@ impl View for YamlEditorPanel {
 
 fn help() {
     open_in_browser(
-        "https://github.com/helgoboss/realearn/blob/master/doc/realearn-user-guide.adoc#advanced-settings",
+        "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc#advanced-settings",
     );
 }

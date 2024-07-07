@@ -249,7 +249,7 @@ fn get_midi_device_list_label(name: ReaperString, raw_id: u8, status: MidiDevice
         raw_id,
         // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
         // how MIDI devices encode their name. Indeed a user reported an error related to that:
-        // https://github.com/helgoboss/realearn/issues/78
+        // https://github.com/helgoboss/helgobox/issues/78
         name.into_inner().to_string_lossy(),
         status
     )

@@ -67,7 +67,7 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 /// having a few cycles that take longer.
 const CONTROL_TASK_BULK_SIZE: usize = 1000;
 // I raised this from 32 to the max channel size because of
-// https://github.com/helgoboss/realearn/issues/847 (otherwise it can easily happen with lots of
+// https://github.com/helgoboss/helgobox/issues/847 (otherwise it can easily happen with lots of
 // parameter modulation that the channel runs full)
 const PARAMETER_TASK_BULK_SIZE: usize = 500;
 
@@ -969,7 +969,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // In theory, this could be optimized by reducing the number of changes. E.g. if we
         // find that we have multiple changes of one parameter, we could choose to just process
         // the last one. I wanted to do that as part of
-        // https://github.com/helgoboss/realearn/issues/847 but chose to not do it ... because
+        // https://github.com/helgoboss/helgobox/issues/847 but chose to not do it ... because
         // this optimization could potentially change control behavior if that parameter is used
         // for control. Imagine a toggle mode ... then the number of invocations is relevant.
         let mut count = 0;
@@ -1123,7 +1123,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 // A mapping with virtual target is only considered as active if there's a
                 // corresponding active main mapping.
-                // (https://github.com/helgoboss/realearn/issues/563)
+                // (https://github.com/helgoboss/helgobox/issues/563)
                 let has_active_main_mapping =
                     find_active_main_mapping_connected_to_virtual_control_element(
                         &self.collections.mappings[CompartmentKind::Main],
@@ -2100,7 +2100,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             changed_mappings,
         );
         // Updating the "on" mappings is not exactly cheap as it turned out in
-        // https://github.com/helgoboss/realearn/issues/913. And it also turns out we can skip it in many cases
+        // https://github.com/helgoboss/helgobox/issues/913. And it also turns out we can skip it in many cases
         // by checking if all updates are empty.
         if mapping_updates.is_empty() && target_updates.is_empty() {
             return;
@@ -3794,7 +3794,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             // Block duplicates in certain cases. If it's feedback-after-control, we always need to
             // send because that's sort of the point of this feature. If it's a source-takeover, we
             // also need to send because we don't know what the other instance sent before that
-            // (https://github.com/helgoboss/realearn/issues/727).
+            // (https://github.com/helgoboss/helgobox/issues/727).
             if !is_feedback_after_control
                 && feedback_reason != FeedbackReason::TakeOverSource
                 && Some(checksum) == previous_checksum

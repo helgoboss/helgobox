@@ -192,7 +192,7 @@ impl MidiScanner {
                 } else {
                     // Looks like in the meantime, the composite scanners ((N)RPN or
                     // 14-bit CC) have figured out that the combination is a composite
-                    // message. This fixes https://github.com/helgoboss/realearn/issues/95.
+                    // message. This fixes https://github.com/helgoboss/helgobox/issues/95.
                     let res =
                         MidiScanResult::new(source_value.try_into_owned().ok()?, dev_id, None);
                     self.reset();

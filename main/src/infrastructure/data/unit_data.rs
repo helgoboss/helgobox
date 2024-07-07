@@ -1023,7 +1023,7 @@ impl SimpleDataToModelConversionContext {
     /// not part of the compartment but the session, which is not going to replaced but refers to
     /// existing technical mapping IDs, for example mapping snapshots. If we would always come up
     /// with random technical IDs, these snapshots would immediately get orphans. See
-    /// https://github.com/helgoboss/realearn/issues/652.
+    /// https://github.com/helgoboss/helgobox/issues/652.
     pub fn from_session_or_random(
         groups: &[GroupModelData],
         mappings: &[MappingModelData],

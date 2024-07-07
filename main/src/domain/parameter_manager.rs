@@ -45,7 +45,7 @@ impl ParameterManager {
         let compartment_params = plugin_params.compartment_params_mut(compartment);
         *compartment_params = params;
         // Propagate
-        // send_if_space because https://github.com/helgoboss/realearn/issues/847
+        // send_if_space because https://github.com/helgoboss/helgobox/issues/847
         self.parameter_main_task_sender
             .send_if_space(ParameterMainTask::UpdateAllParams(plugin_params.clone()));
     }
@@ -54,7 +54,7 @@ impl ParameterManager {
         let mut plugin_params = self.params_mut();
         *plugin_params = params;
         // Propagate
-        // send_if_space because https://github.com/helgoboss/realearn/issues/847
+        // send_if_space because https://github.com/helgoboss/helgobox/issues/847
         self.parameter_main_task_sender
             .send_if_space(ParameterMainTask::UpdateAllParams(plugin_params.clone()));
     }
@@ -75,7 +75,7 @@ impl ParameterManager {
         // will be called in a processing thread, not in the main thread. Not even a mutex would
         // help here because the session is conceived for main-thread usage only! I was not
         // aware of this being called in another thread and it led to subtle errors of course
-        // (https://github.com/helgoboss/realearn/issues/59).
+        // (https://github.com/helgoboss/helgobox/issues/59).
         // When rendering, we don't do it because that will accumulate until the rendering is
         // finished, which is pointless.
         if !is_rendering() {
