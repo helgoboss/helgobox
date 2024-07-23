@@ -16,6 +16,6 @@ Please submit your idea in the "Discussions" section!
 3. Check if your idea is already in the list (maybe another user had the same or a similar idea). If yes, please don't submit a new idea, just vote for the existing one by pressing the ↑ button left to it. You can also comment on it.
 3. If your idea is really new, press the button "New discussion".
 
-If you submit your new idea right here in the "Issues" section, no problem. Just be aware that we will move it to the "Discussions" section later!
+If you accidentally submit your new idea right here in the "Issues" section, we will convert it into a discussion later!
 
 Thank you!

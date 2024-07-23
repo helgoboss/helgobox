@@ -1,7 +1,7 @@
 ---
 name: Question
 about: Ask a question
-title: ''
+title: "[QUESTION]"
 labels: ''
 assignees: ''
 
@@ -14,6 +14,6 @@ Please use the "Discussions" section to ask your question!
 3. Check if your question has already been answered.
 3. If your question is really new, press the button "New discussion".
 
-If you submit your question right here in the "Issues" section, no problem. We will move it to the "Discussions" section later.
+If you accidentally submit your question right here in the "Issues" section, we will convert it into a discussion later.
 
 Thank you!
