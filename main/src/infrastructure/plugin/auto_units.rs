@@ -239,7 +239,7 @@ fn get_suitability_of_controller_preset_for_controller(
                 // If the controller doesn't have a name / is not available, it can't match an output port pattern.
                 return ControllerSuitability::NotSuitable;
             };
-            let out_dev_name = out_dev_name.into_string();
+            let out_dev_name = out_dev_name.to_string_lossy();
             if midi_output_port_patterns_match(patterns, &out_dev_name) {
                 identity_pattern_suitability
             } else {

@@ -242,7 +242,11 @@ impl MidiInputDevice {
     pub fn from_engine(dev: reaper_high::MidiInputDevice) -> Self {
         MidiInputDevice {
             id: dev.id().get() as _,
-            name: dev.name().unwrap_or_default().into_string(),
+            name: dev
+                .name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
             status: MidiDeviceStatus::from_engine(dev.is_open(), dev.is_connected()).into(),
         }
     }
@@ -260,7 +264,11 @@ impl MidiOutputDevice {
     pub fn from_engine(dev: reaper_high::MidiOutputDevice) -> Self {
         MidiOutputDevice {
             id: dev.id().get() as _,
-            name: dev.name().unwrap_or_default().into_string(),
+            name: dev
+                .name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
             status: MidiDeviceStatus::from_engine(dev.is_open(), dev.is_connected()).into(),
         }
     }

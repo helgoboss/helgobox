@@ -10,11 +10,11 @@ use crate::infrastructure::ui::Item;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use reaper_high::{FxChainContext, MidiInputDevice, MidiOutputDevice, Reaper};
+use std::ffi::CString;
 
 use base::hash_util::NonCryptoIndexMap;
 use derive_more::Display;
 use helgobox_api::persistence::VirtualControlElementCharacter;
-use reaper_medium::ReaperString;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{
@@ -243,16 +243,8 @@ pub fn get_midi_output_device_list_label(dev: MidiOutputDevice) -> String {
     )
 }
 
-fn get_midi_device_list_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
-    format!(
-        "MIDI: [{}] {}{}",
-        raw_id,
-        // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
-        // how MIDI devices encode their name. Indeed a user reported an error related to that:
-        // https://github.com/helgoboss/helgobox/issues/78
-        name.into_inner().to_string_lossy(),
-        status
-    )
+fn get_midi_device_list_label(name: CString, raw_id: u8, status: MidiDeviceStatus) -> String {
+    format!("MIDI: [{}] {}{}", raw_id, name.to_string_lossy(), status)
 }
 
 pub fn extension_menu() -> Menu<&'static str> {
