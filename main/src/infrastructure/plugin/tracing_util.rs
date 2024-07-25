@@ -47,7 +47,9 @@ impl TracingHook {
         let cloned_sender = sender.clone();
         let fmt_layer = tracing_subscriber::fmt::layer()
             .pretty()
-            .with_ansi(cfg!(not(windows)))
+            // We don't want ANSI color codes at release time because I might instruct people to enable
+            // logging into a file.
+            .with_ansi(cfg!(all(debug_assertions, not(windows))))
             // .with_thread_ids(true)
             // .with_thread_names(true)
             // .compact()
