@@ -134,14 +134,15 @@ rustup default 1.79.0-x86_64-pc-windows-msvc
 ----
 git clone https://github.com/helgoboss/helgobox.git`
 cd helgobox
+git checkout v2.16.0 # or any other release tag
 
-# ONLY For users who DON'T HAVE access to the private submodules
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
 rmdir playtime-clip-engine
 rename playtime-clip-engine-placeholder playtime-clip-engine
-
-# ONLY For users who HAVE access to the private submodules
-git submodule update --init
 ----
 . Build ReaLearn (after that you should have a `helgobox.dll` in `target\debug`)
 +
@@ -171,14 +172,15 @@ rustup default 1.79.0-x86_64-unknown-linux-gnu
 # Clone ReaLearn repository
 git clone https://github.com/helgoboss/helgobox.git
 cd helgobox
+git checkout v2.16.0 # or any other release tag
 
-# ONLY For users who DON'T HAVE access to the private submodules
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
 rmdir playtime-clip-engine
 mv playtime-clip-engine-placeholder playtime-clip-engine
-
-# ONLY For users who HAVE access to the private submodules
-git submodule update --init
 
 # Build (after that you should have a "libhelgobox.so" in "target/debug")
 cargo build --features egui
@@ -213,16 +215,17 @@ rustup default 1.79.0-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads
-git clone https://github.com/helgoboss/realearn.git
-cd realearn
+git clone https://github.com/helgoboss/helgobox.git
+cd helgobox
+git checkout v2.16.0 # or any other release tag
 
-# ONLY For users who DON'T HAVE access to the private submodules
+# ONLY IF YOU ARE HELGOBOSS
+git submodule update --init
+
+# OTHERWISE
 git submodule update --init main/lib/WDL main/lib/helgoboss-learn
 rmdir playtime-clip-engine
 mv playtime-clip-engine-placeholder playtime-clip-engine
-
-# ONLY For users who HAVE access to the private submodules
-git submodule update --init
 
 # Install build dependencies
 brew install php
