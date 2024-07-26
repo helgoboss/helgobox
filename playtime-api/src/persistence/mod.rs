@@ -644,12 +644,8 @@ pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
     Normal,
     /// Records more material onto an existing clip, leaving existing material in place.
-    ///
-    /// Falls back to Normal when used on an empty slot.
     Overdub,
     /// Records more material onto an existing clip, overwriting existing material.
-    ///
-    /// Falls back to Normal when used on an empty slot.
     // TODO-high-playtime-after-release
     Replace,
 }
