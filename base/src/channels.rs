@@ -1,4 +1,4 @@
-use crossbeam_channel::{Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender, TryRecvError, TrySendError};
 use reaper_high::Reaper;
 use std::error::Error;
 use std::fmt;
@@ -18,7 +18,123 @@ pub trait NamedChannelSender {
     fn send_complaining(&self, msg: Self::Msg);
 }
 
+/// A channel intended to send important messages from a real-time thread to a normal (non-real-time) thread.
+///
+/// The way this currently works is that it uses 2 senders: One that has an initial capacity and is normally used.
+/// And another one that is unbounded (and can therefore allocate) that is only used if the initial one is full.
+///
+/// TODO-medium Find a channel library that allows pre-allocated unbounded channels (with a high initial capacity).
+pub struct ImportantSenderFromRtToNormalThread<T> {
+    channel_name: &'static str,
+    bounded_normal_sender: Sender<T>,
+    unbounded_emergency_sender: Sender<T>,
+}
+
+impl<T> ImportantSenderFromRtToNormalThread<T> {
+    pub fn new(
+        channel_name: &'static str,
+        capacity: usize,
+    ) -> (Self, ImportantReceiverFromRtToNormalThread<T>) {
+        // Main sender should belong to a bounded channel pre-allocated for normal usage.
+        //
+        // Emergency sender should belong to an unbounded channel and is only used if sending to the main channel would
+        // block because it's full. Better allocate than block or discard the event.
+        let (bounded_normal_sender, bounded_normal_receiver) = crossbeam_channel::bounded(capacity);
+        let (unbounded_emergency_sender, unbounded_emergency_receiver) =
+            crossbeam_channel::unbounded();
+        (
+            ImportantSenderFromRtToNormalThread {
+                channel_name,
+                bounded_normal_sender,
+                unbounded_emergency_sender,
+            },
+            ImportantReceiverFromRtToNormalThread {
+                channel_name,
+                bounded_normal_receiver,
+                unbounded_emergency_receiver,
+            },
+        )
+    }
+}
+
+impl<T: Copy> ImportantSenderFromRtToNormalThread<T> {
+    /// Returns `false` if receiver gone.
+    pub fn send(&self, msg: T) -> bool {
+        if let Err(e) = self.bounded_normal_sender.try_send(msg) {
+            match e {
+                TrySendError::Full(_) => {
+                    tracing::error!(
+                        msg = "Main sequence channel was full, using emergency channel (may allocate)!",
+                        %self.channel_name,
+                    );
+                    let _ = self.unbounded_emergency_sender.send(msg);
+                    true
+                }
+                TrySendError::Disconnected(_) => false,
+            }
+        } else {
+            true
+        }
+    }
+}
+
+impl<T> Clone for ImportantSenderFromRtToNormalThread<T> {
+    fn clone(&self) -> Self {
+        Self {
+            channel_name: self.channel_name,
+            bounded_normal_sender: self.bounded_normal_sender.clone(),
+            unbounded_emergency_sender: self.unbounded_emergency_sender.clone(),
+        }
+    }
+}
+
+pub struct ImportantReceiverFromRtToNormalThread<T> {
+    channel_name: &'static str,
+    bounded_normal_receiver: Receiver<T>,
+    unbounded_emergency_receiver: Receiver<T>,
+}
+
+impl<T> ImportantReceiverFromRtToNormalThread<T> {
+    pub fn try_recv(&self) -> Result<T, TryRecvError> {
+        self.bounded_normal_receiver
+            .try_recv()
+            .or_else(|_| self.unbounded_emergency_receiver.try_recv())
+    }
+}
+
+impl<T> Debug for ImportantReceiverFromRtToNormalThread<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ImportantReceiverFromRtToNormalThread")
+            .field("channel_name", &self.channel_name)
+            .field("bounded_normal_receiver", &self.bounded_normal_receiver)
+            .field(
+                "unbounded_emergency_receiver",
+                &self.unbounded_emergency_receiver,
+            )
+            .finish()
+    }
+}
+
+impl<T> Debug for ImportantSenderFromRtToNormalThread<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ImportantSenderFromRtToNormalThread")
+            .field("channel_name", &self.channel_name)
+            .field("bounded_normal_sender", &self.bounded_normal_sender)
+            .field(
+                "unbounded_emergency_sender",
+                &self.unbounded_emergency_sender,
+            )
+            .finish()
+    }
+}
+
 /// A channel intended to send messages to a normal (non-real-time) thread.
+///
+/// - Either unbounded (should only be used if the sender is also a normal thread).
+/// - Or bounded (can also be used if the sender is a real-time thread).
+///
+/// If you need an unbounded one that is okay to use from a real-time thread, look into
+/// [`ImportantSenderFromRtToNormalThread`].
 pub struct SenderToNormalThread<T> {
     channel_name: &'static str,
     sender: Sender<T>,
