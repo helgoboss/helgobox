@@ -797,7 +797,7 @@ mod playtime_impl {
                 return;
             }
             let timeline = clip_timeline(project, false);
-            let pos = timeline.cursor_pos();
+            let pos = timeline.cursor_pos().get();
             let bar_quantization = EvenQuantization::ONE_BAR;
             let next_bar =
                 timeline.next_quantized_pos_at(pos, bar_quantization, Laziness::EagerForNextPos);
