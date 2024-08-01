@@ -799,8 +799,11 @@ mod playtime_impl {
             let timeline = clip_timeline(project, false);
             let pos = timeline.cursor_pos().get();
             let bar_quantization = EvenQuantization::ONE_BAR;
-            let next_bar =
-                timeline.next_quantized_pos_at(pos, bar_quantization, Laziness::EagerForNextPos);
+            let next_bar = timeline.next_quantized_pos_at(
+                pos,
+                bar_quantization,
+                Laziness::SuperEagerForNextPos,
+            );
             // TODO-high-playtime-refactoring We are mainly interested in beats relative to the bar in order to get a
             //  typical position display and a useful visual metronome. It's not super urgent because
             //  at least with the steady timeline, the app can derive a good metronome view because
