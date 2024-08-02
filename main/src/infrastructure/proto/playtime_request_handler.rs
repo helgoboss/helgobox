@@ -3,20 +3,6 @@ use reaper_high::{GroupingBehavior, Guid, Pan, Track};
 use reaper_medium::{Bpm, Db, GangBehavior, PlaybackSpeedFactor, ReaperPanValue, SoloMode};
 use tonic::{Response, Status};
 
-use base::future_util;
-use base::tracing_util::ok_or_log_as_warn;
-use helgoboss_learn::UnitValue;
-use playtime_api::persistence::{
-    ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
-};
-use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
-use playtime_clip_engine::rt::TriggerSlotMainOptions;
-use playtime_clip_engine::PlaytimeEngine;
-#[cfg(feature = "playtime")]
-use playtime_clip_engine::{
-    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, PlaytimeMainEngine,
-};
-
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::proto;
 use crate::infrastructure::proto::{
@@ -36,6 +22,20 @@ use crate::infrastructure::proto::{
     TriggerMatrixRequest, TriggerRowAction, TriggerRowRequest, TriggerSequenceAction,
     TriggerSequenceRequest, TriggerSlotAction, TriggerSlotRequest, TriggerTrackAction,
     TriggerTrackRequest,
+};
+use base::future_util;
+use base::tracing_util::ok_or_log_as_warn;
+use helgoboss_learn::UnitValue;
+use playtime_api::persistence::{
+    ClipId, ColumnAddress, MatrixSequenceId, PlaytimeSettings, RowAddress, SlotAddress, TrackId,
+};
+use playtime_api::runtime::{CellAddress, SimpleMappingTarget};
+use playtime_clip_engine::base::WriteArrangementPosition;
+use playtime_clip_engine::rt::TriggerSlotMainOptions;
+use playtime_clip_engine::PlaytimeEngine;
+#[cfg(feature = "playtime")]
+use playtime_clip_engine::{
+    base::ClipAddress, base::Matrix, rt::ColumnPlaySlotOptions, PlaytimeMainEngine,
 };
 
 #[derive(Debug)]
@@ -261,8 +261,14 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerMatrixAction::SequencerCleanArrangement => matrix.clean_arrangement(),
-            TriggerMatrixAction::SequencerWriteToArrangement => {
-                matrix.write_active_sequence_to_arrangement()
+            TriggerMatrixAction::SequencerWriteToArrangementAtStart => {
+                matrix.write_active_sequence_to_arrangement(WriteArrangementPosition::Start)
+            }
+            TriggerMatrixAction::SequencerWriteToArrangementAtEnd => {
+                matrix.write_active_sequence_to_arrangement(WriteArrangementPosition::End)
+            }
+            TriggerMatrixAction::SequencerWriteToArrangementAtCursor => {
+                matrix.write_active_sequence_to_arrangement(WriteArrangementPosition::Cursor)
             }
             TriggerMatrixAction::SequencerPlay => {
                 matrix.play_active_sequence()?;
@@ -421,6 +427,9 @@ impl PlaytimeProtoRequestHandler {
             }
             TriggerColumnAction::ExportToArrangement => {
                 matrix.export_column_to_arrangement(column_index)
+            }
+            TriggerColumnAction::InsertForEachSelectedTrack => {
+                matrix.insert_column_for_each_selected_track(column_index)
             }
         })
     }

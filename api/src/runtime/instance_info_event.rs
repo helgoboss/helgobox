@@ -9,6 +9,7 @@ pub enum InstanceInfoEvent {
     MidiLearnFromFxInputButTrackNotArmed,
     MidiLearnFromFxInputButTrackHasAudioInput,
 }
+
 impl InstanceInfoEvent {
     pub fn generic(message: impl Into<String>) -> Self {
         Self::Generic(GenericInstanceInfoEvent {

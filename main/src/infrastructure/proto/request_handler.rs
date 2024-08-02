@@ -5,7 +5,7 @@ use reaper_medium::CommandId;
 use tonic::{Response, Status};
 
 use base::spawn_in_main_thread;
-use helgobox_api::runtime::InstanceInfoEvent;
+use helgobox_api::runtime::{GlobalInfoEvent, InstanceInfoEvent};
 use swell_ui::Window;
 
 use crate::domain::{CompartmentKind, UnitId};
@@ -291,6 +291,17 @@ impl ProtoRequestHandler {
         match action {
             TriggerGlobalAction::FocusHost => {
                 Window::from_hwnd(Reaper::get().main_window()).focus();
+            }
+            TriggerGlobalAction::MidiPanic => {
+                let _ = Reaper::get()
+                    .main_section()
+                    .action_by_command_id(CommandId::new(40345))
+                    .invoke_as_trigger(None);
+                BackboneShell::get()
+                    .proto_hub()
+                    .notify_about_global_info_event(GlobalInfoEvent::generic(
+                        "All MIDI outputs and plug-ins have been instructed to shut up.",
+                    ));
             }
         }
         Ok(Response::new(Empty {}))
