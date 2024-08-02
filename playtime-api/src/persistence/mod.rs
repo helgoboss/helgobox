@@ -1162,16 +1162,8 @@ pub struct Slot {
     pub clip_old: Option<Clip>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clips: Option<Vec<Clip>>,
-}
-
-impl Slot {
-    pub fn into_clips(self) -> Vec<Clip> {
-        // Backward compatibility: In the past, only a single clip was possible.
-        if let Some(clip) = self.clip_old {
-            return vec![clip];
-        }
-        self.clips.unwrap_or_default()
-    }
+    #[serde(default)]
+    pub ignited: bool,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

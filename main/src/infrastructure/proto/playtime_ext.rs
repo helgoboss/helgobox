@@ -332,6 +332,7 @@ impl qualified_occasional_slot_update::Update {
                 row: slot.index(),
                 clip_old: None,
                 clips: None,
+                ignited: false,
             });
         let json = serde_json::to_string(&api_slot).expect("couldn't represent slot as JSON");
         Self::CompletePersistentData(json)
