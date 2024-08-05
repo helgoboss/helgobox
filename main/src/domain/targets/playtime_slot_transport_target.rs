@@ -174,7 +174,7 @@ mod playtime_impl {
                             matrix.play_slot(
                                 self.basics.slot_address,
                                 self.basics.play_options(value),
-                            )?;
+                            );
                         } else {
                             matrix.stop_slot(self.basics.slot_address)?;
                         }
@@ -185,7 +185,7 @@ mod playtime_impl {
                             matrix.play_slot(
                                 self.basics.slot_address,
                                 self.basics.play_options(value),
-                            )?;
+                            );
                         } else {
                             matrix.pause_clip(self.basics.slot_address)?;
                         }
@@ -243,7 +243,7 @@ mod playtime_impl {
                                 matrix.play_slot(
                                     self.basics.slot_address,
                                     self.basics.play_options(value),
-                                )?;
+                                );
                             }
                         } else {
                             matrix.stop_slot(self.basics.slot_address)?;
@@ -454,7 +454,7 @@ mod playtime_impl {
         ) -> Result<bool, &'static str> {
             use PlaytimeSlotTransportAction::*;
             let matrix = context.clip_matrix()?;
-            let matrix = matrix.lock();
+            let mut matrix = matrix.lock();
             match self.basics.action {
                 Trigger => {
                     // Whenever the value is on, we want to also forward control to the main (non-real-time) target.

@@ -269,7 +269,7 @@ mod playtime_impl {
                         return Ok(());
                     }
                     let matrix = context.clip_matrix()?;
-                    let matrix = matrix.lock();
+                    let mut matrix = matrix.lock();
                     matrix.play_scene(self.basics.row_index);
                     Ok(())
                 }

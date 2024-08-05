@@ -46,13 +46,16 @@ impl PlaytimeProtoRequestHandler {
         let action = TriggerSlotAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger slot action"))?;
         self.handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
-            TriggerSlotAction::Play => matrix.play_slot(
-                slot_address,
-                ColumnPlaySlotOptions {
-                    velocity: Some(UnitValue::MAX),
-                    stop_column_if_slot_empty: false,
-                },
-            ),
+            TriggerSlotAction::Play => {
+                matrix.play_slot(
+                    slot_address,
+                    ColumnPlaySlotOptions {
+                        velocity: Some(UnitValue::MAX),
+                        stop_column_if_slot_empty: false,
+                    },
+                );
+                Ok(())
+            }
             TriggerSlotAction::Stop => matrix.stop_slot(slot_address),
             TriggerSlotAction::Record => matrix.record_slot(slot_address),
             TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
