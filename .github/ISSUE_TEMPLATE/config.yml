@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: GitHub Community Support
+  - name: Question
     url: https://github.com/helgoboss/helgobox/discussions/categories/q-a
-    about: Please ask and answer questions here.
-  - name: GitHub Idea Tracker
+    about: "GitHub Discussions: Ask or answer a question"
+  - name: Idea
     url: https://github.com/helgoboss/helgobox/discussions/categories/ideas?discussions_q=category%3AIdeas+is%3Aopen+sort%3Adate_created+
-    about: Request a new feature or suggest an improvement here.
+    about: "GitHub Discussions: Request a new feature or suggest an improvement (please watch out for existing issues first and vote for them)"
+  - name: General feedback
+    url: https://github.com/helgoboss/helgobox/discussions/categories/general
+    about: "GitHub Discussions: Give general feedback"
