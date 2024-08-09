@@ -453,13 +453,9 @@ end
 export type MidiClipRecordMode_Normal = { kind: "Normal" }
 
 --- Records more material onto an existing clip, leaving existing material in place.
----
---- Falls back to Normal when used on an empty slot.
 export type MidiClipRecordMode_Overdub = { kind: "Overdub" }
 
 --- Records more material onto an existing clip, overwriting existing material.
----
---- Falls back to Normal when used on an empty slot.
 export type MidiClipRecordMode_Replace = { kind: "Replace" }
 export type MidiClipRecordMode = MidiClipRecordMode_Normal | MidiClipRecordMode_Overdub | MidiClipRecordMode_Replace
 
@@ -479,8 +475,6 @@ end
 
 --- Creates a MidiClipRecordMode of kind Overdub.
 --- Records more material onto an existing clip, leaving existing material in place.
----
---- Falls back to Normal when used on an empty slot.
 function module.MidiClipRecordMode.Overdub(): MidiClipRecordMode_Overdub
 	return {
 		kind = "Overdub",
@@ -489,8 +483,6 @@ end
 
 --- Creates a MidiClipRecordMode of kind Replace.
 --- Records more material onto an existing clip, overwriting existing material.
----
---- Falls back to Normal when used on an empty slot.
 function module.MidiClipRecordMode.Replace(): MidiClipRecordMode_Replace
 	return {
 		kind = "Replace",
@@ -1005,6 +997,7 @@ export type Slot = {
 	row: number,
 	clip_old: Clip?,
 	clips: { Clip }?,
+	ignited: boolean?,
 }
 --- Creates a Slot value.
 function module.Slot(value: Slot): Slot
