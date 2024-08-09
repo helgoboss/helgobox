@@ -74,8 +74,9 @@ use reaper_low::{PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
     reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
-    HookPostCommand, HookPostCommand2, MenuHookFlag, MidiInputDeviceId, MidiOutputDeviceId,
-    ReaProject, ReaperStr, RegistrationHandle, SectionContext, ToolbarIconMap, WindowContext,
+    HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
+    MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
+    SectionContext, ToolbarIconMap, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rxrust::prelude::*;
@@ -658,6 +659,8 @@ impl BackboneShell {
         session
             .plugin_register_add_hook_post_command::<Self>()
             .unwrap();
+        // Window hooks (fails before REAPER 6.29)
+        let _ = session.plugin_register_add_hwnd_info::<Self>();
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
@@ -727,6 +730,8 @@ impl BackboneShell {
         let middleware = control_surface.middleware_mut();
         middleware.clear_osc_input_devices();
         self.osc_feedback_processor.borrow_mut().stop();
+        // Window hooks
+        session.plugin_register_remove_hwnd_info::<Self>();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<Self>();
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
@@ -2238,6 +2243,13 @@ impl HookPostCommand for BackboneShell {
                 section_context: SectionContext::MainSection,
                 command_id,
             }));
+    }
+}
+
+impl HwndInfo for BackboneShell {
+    fn call(window: Hwnd, info_type: HwndInfoType) -> i32 {
+        println!("hwnd_info {window:?}, {info_type:?}");
+        0
     }
 }
 
