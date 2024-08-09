@@ -496,6 +496,7 @@ impl MappingModel {
             // Any is okay, will be overwritten.
             source_character: DetailedSourceCharacter::RangeControl,
             absolute_mode: self.mode_model.absolute_mode(),
+            fire_mode: self.mode_model.fire_mode(),
             target_value_sequence_is_set: !self.mode_model.target_value_sequence().is_empty(),
         }
     }

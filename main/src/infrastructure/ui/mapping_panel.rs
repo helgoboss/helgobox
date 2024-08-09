@@ -371,7 +371,10 @@ impl MappingPanel {
                                             P::Reverse => {
                                                 view.invalidate_mode_reverse_check_box();
                                             }
-                                            P::PressDurationInterval | P::FireMode | P::TurboRate => {
+                                            P::FireMode => {
+                                                view.invalidate_mode_controls_internal(initiator);
+                                            }
+                                            P::PressDurationInterval | P::TurboRate => {
                                                 view.invalidate_mode_fire_controls(initiator);
                                             }
                                             P::OutOfRangeBehavior => {
