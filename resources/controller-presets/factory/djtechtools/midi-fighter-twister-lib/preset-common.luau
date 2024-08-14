@@ -35,6 +35,7 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
         return realearn.Mapping {
             id = `col{col + 1}/row{row + 1}/pad/feedback`,
             control_enabled = false,
+            visible_in_projection = false,
             source = realearn.Source.MidiScript {
                 script_kind = "Lua",
                 script = build_pad_script(cc_number),
