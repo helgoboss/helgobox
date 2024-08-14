@@ -2337,7 +2337,7 @@ impl HeaderPanel {
             // Safe!
             return true;
         }
-        let msg = "Some of the mappings have references to this particular project. This doesn't make sense for a preset that's supposed to be reusable among different projects. Please consider using \"Menu => Modify multiple mappings => Make listed mappings non-sticky\" before saving the preset. Do you still want to save the preset now?";
+        let msg = "Some of the mappings have references to this particular project. This doesn't make sense for a preset that's supposed to be reusable among different projects. Please consider using \"Menu => Modify multiple mappings => Make targets of listed mappings non-sticky\" before saving the preset. Do you still want to save the preset now?";
         self.view.require_window().confirm("ReaLearn", msg)
     }
 
