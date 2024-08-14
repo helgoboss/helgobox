@@ -646,7 +646,7 @@ impl ProtoRequestHandler {
                 let compartment_model_data = CompartmentModelData::from_model(&compartment_model);
                 let compartment_mode_api = from_data::convert_compartment(
                     compartment_model_data,
-                    ConversionStyle::Minimal,
+                    ConversionStyle::IncludeDefaultValues,
                 )?;
                 let reply = GetCompartmentDataReply {
                     data: serde_json::to_string(&compartment_mode_api)?,
