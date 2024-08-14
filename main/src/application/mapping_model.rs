@@ -1,9 +1,9 @@
 use crate::application::{
     merge_affected, ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp,
-    Affected, Change, ChangeResult, GetProcessingRelevance, MappingExtensionModel, ModeCommand,
-    ModeModel, ModeProp, ProcessingRelevance, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
-    TargetProp,
+    Affected, Change, ChangeResult, GetProcessingRelevance, MakeFxNonStickyMode,
+    MakeTrackNonStickyMode, MappingExtensionModel, ModeCommand, ModeModel, ModeProp,
+    ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
+    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
 };
 use crate::domain::{
     ActivationCondition, CompartmentKind, CompoundMappingSource, CompoundMappingTarget,
@@ -17,7 +17,7 @@ use helgoboss_learn::{
     ModeApplicabilityCheckInput, ModeParameter, SourceCharacter, Target, UnitValue,
 };
 
-use helgobox_api::persistence::TrackScope;
+use reaper_high::{Fx, Track};
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
@@ -292,50 +292,56 @@ impl MappingModel {
         }
     }
 
-    #[must_use]
-    pub fn make_project_independent(
+    pub fn make_target_non_sticky(
         &mut self,
         context: ExtendedProcessorContext,
+        track_mode: MakeTrackNonStickyMode,
+        fx_mode: MakeFxNonStickyMode,
+    ) -> Option<Affected<MappingProp>> {
+        self.make_target_non_sticky_internal(
+            context,
+            |t| track_mode.build_virtual_track(t.as_ref()),
+            |fx| fx_mode.build_virtual_fx(fx.as_ref()),
+        )
+    }
+
+    #[must_use]
+    fn make_target_non_sticky_internal(
+        &mut self,
+        context: ExtendedProcessorContext,
+        create_virtual_track: impl FnOnce(Option<Track>) -> Option<VirtualTrack>,
+        create_virtual_fx: impl FnOnce(Option<Fx>) -> Option<VirtualFx>,
     ) -> Option<Affected<MappingProp>> {
         let compartment = self.compartment();
         let target = &mut self.target_model;
         match target.category() {
             TargetCategory::Reaper => {
-                let changed_to_track_ignore_fx = if target.supports_fx() {
-                    let refers_to_project = target.fx_type().refers_to_project();
-                    if refers_to_project {
-                        let target_with_context = target.with_context(context, compartment);
-                        let virtual_fx = if target_with_context.first_fx().ok().as_ref()
-                            == Some(context.context().containing_fx())
-                        {
-                            // This is ourselves!
-                            VirtualFx::This
-                        } else {
-                            VirtualFx::Unit
-                        };
-                        let _ = target.set_virtual_fx(virtual_fx, context, compartment);
-                        true
+                // Change FX
+                if target.supports_fx() {
+                    let target_with_context = target.with_context(context, compartment);
+                    let containing_fx = context.context().containing_fx();
+                    let resolved_fx = target_with_context.first_fx().ok();
+                    let new_virtual_fx = if resolved_fx.as_ref() == Some(containing_fx) {
+                        // This is ourselves!
+                        Some(VirtualFx::This)
                     } else {
-                        false
+                        create_virtual_fx(resolved_fx)
+                    };
+                    if let Some(fx) = new_virtual_fx {
+                        let _ = target.set_virtual_fx(fx, context, compartment);
                     }
-                } else {
-                    false
-                };
-                if target.target_type().supports_track() && target.track_type().refers_to_project()
-                {
-                    let new_virtual_track = if changed_to_track_ignore_fx {
+                }
+                // Change track
+                if target.target_type().supports_track() {
+                    let new_virtual_track = if target.fx_type().requires_fx_chain() {
+                        let resolved_track = target
+                            .with_context(context, compartment)
+                            .first_effective_track()
+                            .ok();
+                        create_virtual_track(resolved_track)
+                    } else {
                         // Track doesn't matter at all. We change it to <This>. Looks nice.
                         Some(VirtualTrack::This)
-                    } else if let Ok(t) = target
-                        .with_context(context, compartment)
-                        .first_effective_track()
-                    {
-                        t.index().map(|index| VirtualTrack::ByIndex {
-                            index,
-                            scope: TrackScope::AllTracks,
-                        })
-                    } else {
-                        None
                     };
                     if let Some(t) = new_virtual_track {
                         let _ = target.set_virtual_track(t, Some(context.context()));
@@ -345,26 +351,6 @@ impl MappingModel {
             }
             TargetCategory::Virtual => None,
         }
-    }
-
-    pub fn make_target_use_unit_track_and_fx(
-        &mut self,
-        context: ExtendedProcessorContext,
-    ) -> Option<Affected<MappingProp>> {
-        let compartment = self.compartment();
-        let target = &mut self.target_model;
-        match target.category() {
-            TargetCategory::Reaper => {
-                if target.supports_track() {
-                    let _ = target.set_virtual_track(VirtualTrack::Unit, Some(context.context()));
-                }
-                if target.supports_fx() {
-                    let _ = target.set_virtual_fx(VirtualFx::Unit, context, compartment);
-                }
-            }
-            TargetCategory::Virtual => {}
-        }
-        Some(Affected::Multiple)
     }
 
     pub fn make_target_sticky(

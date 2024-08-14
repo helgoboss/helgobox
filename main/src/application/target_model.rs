@@ -4673,3 +4673,106 @@ impl MappingModificationKind {
         }
     }
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display, EnumIter)]
+pub enum MakeFxNonStickyMode {
+    #[display(fmt = "<Focused>")]
+    Focused,
+    #[display(fmt = "<Unit>")]
+    Unit,
+    #[display(fmt = "Named")]
+    Named,
+    #[display(fmt = "All named")]
+    AllNamed,
+    #[display(fmt = "At position")]
+    AtPosition,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, derive_more::Display, EnumIter)]
+pub enum MakeTrackNonStickyMode {
+    #[display(fmt = "<Selected>")]
+    Selected,
+    #[display(fmt = "<All selected>")]
+    AllSelected,
+    #[display(fmt = "<Unit>")]
+    Unit,
+    #[display(fmt = "Named")]
+    Named,
+    #[display(fmt = "All named")]
+    AllNamed,
+    #[display(fmt = "At position")]
+    AtPosition,
+    #[display(fmt = "At TCP position")]
+    AtTcpPosition,
+    #[display(fmt = "At MCP position")]
+    AtMcpPosition,
+}
+
+impl MakeFxNonStickyMode {
+    pub fn build_virtual_fx(&self, fx: Option<&Fx>) -> Option<VirtualFx> {
+        let virtual_fx = match self {
+            MakeFxNonStickyMode::Focused => VirtualFx::Focused,
+            MakeFxNonStickyMode::Unit => VirtualFx::Unit,
+            MakeFxNonStickyMode::Named | MakeFxNonStickyMode::AllNamed => {
+                let fx = fx?;
+                VirtualFx::ChainFx {
+                    is_input_fx: fx.is_input_fx(),
+                    chain_fx: VirtualChainFx::ByName {
+                        wild_match: WildMatch::new(fx.name().to_str()),
+                        allow_multiple: *self == MakeFxNonStickyMode::AllNamed,
+                    },
+                }
+            }
+            MakeFxNonStickyMode::AtPosition => {
+                let fx = fx?;
+                VirtualFx::ChainFx {
+                    is_input_fx: fx.is_input_fx(),
+                    chain_fx: VirtualChainFx::ByIndex(fx.index()),
+                }
+            }
+        };
+        Some(virtual_fx)
+    }
+}
+
+impl MakeTrackNonStickyMode {
+    pub fn build_virtual_track(&self, track: Option<&Track>) -> Option<VirtualTrack> {
+        let virtual_track = match self {
+            MakeTrackNonStickyMode::Selected => VirtualTrack::Selected {
+                allow_multiple: false,
+            },
+            MakeTrackNonStickyMode::AllSelected => VirtualTrack::Selected {
+                allow_multiple: true,
+            },
+            MakeTrackNonStickyMode::Unit => VirtualTrack::Unit,
+            MakeTrackNonStickyMode::Named | MakeTrackNonStickyMode::AllNamed => {
+                if let Some(name) = track?.name() {
+                    VirtualTrack::ByName {
+                        wild_match: WildMatch::new(name.to_str()),
+                        allow_multiple: *self == MakeTrackNonStickyMode::AllNamed,
+                    }
+                } else {
+                    VirtualTrack::Master
+                }
+            }
+            MakeTrackNonStickyMode::AtPosition
+            | MakeTrackNonStickyMode::AtTcpPosition
+            | MakeTrackNonStickyMode::AtMcpPosition => {
+                if let Some(index) = track?.index() {
+                    VirtualTrack::ByIndex {
+                        index,
+                        scope: match *self {
+                            MakeTrackNonStickyMode::AtPosition => TrackScope::AllTracks,
+                            MakeTrackNonStickyMode::AtTcpPosition => TrackScope::TracksVisibleInTcp,
+                            MakeTrackNonStickyMode::AtMcpPosition => TrackScope::TracksVisibleInMcp,
+                            _ => unreachable!(),
+                        },
+                    }
+                } else {
+                    VirtualTrack::Master
+                }
+            }
+        };
+        Some(virtual_track)
+    }
+}

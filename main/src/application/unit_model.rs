@@ -499,14 +499,6 @@ impl UnitModel {
         mappings_have_project_references(self.mappings[compartment].iter())
     }
 
-    pub fn make_mappings_project_independent(&mut self, compartment: CompartmentKind) {
-        let context = self.extended_context();
-        for m in &self.mappings[compartment] {
-            let _ = m.borrow_mut().make_project_independent(context);
-        }
-        self.notify_everything_has_changed();
-    }
-
     pub fn virtualize_main_mappings(&mut self) -> Result<(), String> {
         let count = self.mappings[CompartmentKind::Main]
             .iter()

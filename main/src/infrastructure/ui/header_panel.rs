@@ -12,8 +12,9 @@ use swell_ui::{DeviceContext, Pixels, Point, SharedView, View, ViewContext, Weak
 use crate::application::{
     get_appropriate_send_feedback_only_if_armed_default, reaper_supports_global_midi_filter,
     Affected, AutoLoadMode, CompartmentCommand, CompartmentPresetManager, CompartmentPresetModel,
-    CompartmentProp, FxId, FxPresetLinkConfig, MappingCommand, MappingModel, PresetLinkMutator,
-    SessionCommand, SessionProp, SharedMapping, SharedUnitModel, WeakUnitModel,
+    CompartmentProp, FxId, FxPresetLinkConfig, MakeFxNonStickyMode, MakeTrackNonStickyMode,
+    MappingCommand, MappingModel, PresetLinkMutator, SessionCommand, SessionProp, SharedMapping,
+    SharedUnitModel, WeakUnitModel,
 };
 use crate::base::when;
 use crate::domain::{
@@ -414,9 +415,20 @@ impl HeaderPanel {
                             "Make targets of listed mappings sticky",
                             MainMenuAction::MakeTargetsOfListedMappingsSticky,
                         ),
-                        item(
-                            "Make targets of listed mappings use the unit track and unit FX",
-                            MainMenuAction::MakeTargetsOfListedMappingsUseUnitTrackAndFx,
+                        menu(
+                            "Make targets of listed mappings non-sticky",
+                            MakeTrackNonStickyMode::iter()
+                                .map(|track_mode| {
+                                    menu(
+                                        format!("With track \"{track_mode}\" ..."),
+                                        MakeFxNonStickyMode::iter()
+                                            .map(|fx_mode| item(
+                                                format!("... and FX \"{fx_mode}\""),
+                                                MainMenuAction::MakeTargetsOfListedMappingsNonSticky(track_mode, fx_mode)
+                                            )).collect(),
+                                    )
+                                })
+                                .collect(),
                         ),
                     ],
                 ),
@@ -736,8 +748,8 @@ impl HeaderPanel {
             MainMenuAction::MakeTargetsOfListedMappingsSticky => {
                 self.make_targets_of_listed_mappings_sticky()
             }
-            MainMenuAction::MakeTargetsOfListedMappingsUseUnitTrackAndFx => {
-                self.make_targets_of_listed_mappings_use_unit_track_and_fx();
+            MainMenuAction::MakeTargetsOfListedMappingsNonSticky(track_mode, fx_mode) => {
+                self.make_targets_of_listed_mappings_non_sticky(track_mode, fx_mode);
             }
             MainMenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
@@ -1037,7 +1049,11 @@ impl HeaderPanel {
         }
     }
 
-    fn make_targets_of_listed_mappings_use_unit_track_and_fx(&self) {
+    fn make_targets_of_listed_mappings_non_sticky(
+        &self,
+        track_mode: MakeTrackNonStickyMode,
+        fx_mode: MakeFxNonStickyMode,
+    ) {
         let compartment = self.active_compartment();
         let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
@@ -1046,7 +1062,7 @@ impl HeaderPanel {
         if !self.view.require_window().confirm(
             "ReaLearn",
             format!(
-                "This will change the targets of {} mappings refer to the unit track / unit FX, wherever applicable. Do you really want to continue?",
+                "This will modify the targets of {} mappings, wherever applicable. Do you really want to continue?",
                 listed_mappings.len()
             ),
         ) {
@@ -1057,7 +1073,7 @@ impl HeaderPanel {
         let context = session.extended_context();
         for m in &listed_mappings {
             let mut m = m.borrow_mut();
-            m.make_target_use_unit_track_and_fx(context);
+            m.make_target_non_sticky(context, track_mode, fx_mode);
         }
         session.notify_compartment_has_changed(compartment, self.session.clone());
     }
@@ -2310,22 +2326,25 @@ impl HeaderPanel {
         self.notify_user_on_error(result);
     }
 
-    fn make_mappings_project_independent_if_desired(&self) {
-        let session = self.session();
-        let compartment = self.active_compartment();
-        if session
-            .borrow()
-            .mappings_have_project_references(compartment)
-            && self.ask_user_if_project_independence_desired()
-        {
-            session
-                .borrow_mut()
-                .make_mappings_project_independent(compartment);
+    fn continue_after_project_independence_check(&self) -> bool {
+        let mappings_have_project_references = {
+            let compartment = self.active_compartment();
+            let session = self.session();
+            let session = session.borrow();
+            session.mappings_have_project_references(compartment)
+        };
+        if !mappings_have_project_references {
+            // Safe!
+            return true;
         }
+        let msg = "Some of the mappings have references to this particular project. This doesn't make sense for a preset that's supposed to be reusable among different projects. Please consider using \"Menu => Modify multiple mappings => Make listed mappings non-sticky\" before saving the preset. Do you still want to save the preset now?";
+        self.view.require_window().confirm("ReaLearn", msg)
     }
 
     fn save_active_preset(&self) -> anyhow::Result<()> {
-        self.make_mappings_project_independent_if_desired();
+        if !self.continue_after_project_independence_check() {
+            return Ok(());
+        }
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
@@ -2364,12 +2383,6 @@ impl HeaderPanel {
             "Helgobox",
             "Please change the unit ID using the \"Unit data...\" button on the bottom right!",
         );
-    }
-
-    /// Don't borrow the session while calling this!
-    fn ask_user_if_project_independence_desired(&self) -> bool {
-        let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
-        self.view.require_window().confirm("ReaLearn", msg)
     }
 
     fn get_active_preset_info(&self, compartment: CompartmentKind) -> Option<CommonPresetInfo> {
@@ -2412,7 +2425,9 @@ impl HeaderPanel {
         if preset_name.trim().is_empty() {
             return Ok(());
         }
-        self.make_mappings_project_independent_if_desired();
+        if !self.continue_after_project_independence_check() {
+            return Ok(());
+        }
         let session = self.session();
         let mut session = session.borrow_mut();
         let preset_id = format!("{}/{}", whoami::username(), slug::slugify(&preset_name));
@@ -3022,7 +3037,7 @@ enum MainMenuAction {
     AutoNameListedMappings,
     NameListedMappingsAfterSource,
     MakeTargetsOfListedMappingsSticky,
-    MakeTargetsOfListedMappingsUseUnitTrackAndFx,
+    MakeTargetsOfListedMappingsNonSticky(MakeTrackNonStickyMode, MakeFxNonStickyMode),
     MakeSourcesOfMainMappingsVirtual,
     MoveListedMappingsToGroup(Option<GroupId>),
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
