@@ -347,6 +347,26 @@ impl MappingModel {
         }
     }
 
+    pub fn make_target_use_unit_track_and_fx(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
+        let compartment = self.compartment();
+        let target = &mut self.target_model;
+        match target.category() {
+            TargetCategory::Reaper => {
+                if target.supports_track() {
+                    let _ = target.set_virtual_track(VirtualTrack::Unit, Some(context.context()));
+                }
+                if target.supports_fx() {
+                    let _ = target.set_virtual_fx(VirtualFx::Unit, context, compartment);
+                }
+            }
+            TargetCategory::Virtual => {}
+        }
+        Some(Affected::Multiple)
+    }
+
     pub fn make_target_sticky(
         &mut self,
         context: ExtendedProcessorContext,

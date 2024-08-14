@@ -395,21 +395,30 @@ impl HeaderPanel {
                         disabled_item("Paste mappings (replace all in group)")
                     }
                 },
-                item(
-                    "Auto-name listed mappings",
-                    MainMenuAction::AutoNameListedMappings,
-                ),
-                item(
-                    "Name listed mappings after source",
-                    MainMenuAction::NameListedMappingsAfterSource,
-                ),
-                item(
-                    "Make sources of all main mappings virtual",
-                    MainMenuAction::MakeSourcesOfMainMappingsVirtual,
-                ),
-                item(
-                    "Make targets of listed mappings sticky",
-                    MainMenuAction::MakeTargetsOfListedMappingsSticky,
+                menu(
+                    "Modify multiple mappings",
+                    vec![
+                        item(
+                            "Auto-name listed mappings",
+                            MainMenuAction::AutoNameListedMappings,
+                        ),
+                        item(
+                            "Name listed mappings after source",
+                            MainMenuAction::NameListedMappingsAfterSource,
+                        ),
+                        item(
+                            "Make sources of all main mappings virtual",
+                            MainMenuAction::MakeSourcesOfMainMappingsVirtual,
+                        ),
+                        item(
+                            "Make targets of listed mappings sticky",
+                            MainMenuAction::MakeTargetsOfListedMappingsSticky,
+                        ),
+                        item(
+                            "Make targets of listed mappings use the unit track and unit FX",
+                            MainMenuAction::MakeTargetsOfListedMappingsUseUnitTrackAndFx,
+                        ),
+                    ],
                 ),
                 menu(
                     "Move listed mappings to group",
@@ -727,6 +736,9 @@ impl HeaderPanel {
             MainMenuAction::MakeTargetsOfListedMappingsSticky => {
                 self.make_targets_of_listed_mappings_sticky()
             }
+            MainMenuAction::MakeTargetsOfListedMappingsUseUnitTrackAndFx => {
+                self.make_targets_of_listed_mappings_use_unit_track_and_fx();
+            }
             MainMenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
             }
@@ -1023,6 +1035,31 @@ impl HeaderPanel {
         if !errors.is_empty() {
             notify_processing_result("Errors occurred when making targets sticky", errors);
         }
+    }
+
+    fn make_targets_of_listed_mappings_use_unit_track_and_fx(&self) {
+        let compartment = self.active_compartment();
+        let listed_mappings = self.get_listened_mappings(compartment);
+        if listed_mappings.is_empty() {
+            return;
+        }
+        if !self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "This will change the targets of {} mappings refer to the unit track / unit FX, wherever applicable. Do you really want to continue?",
+                listed_mappings.len()
+            ),
+        ) {
+            return;
+        }
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let context = session.extended_context();
+        for m in &listed_mappings {
+            let mut m = m.borrow_mut();
+            m.make_target_use_unit_track_and_fx(context);
+        }
+        session.notify_compartment_has_changed(compartment, self.session.clone());
     }
 
     fn move_listed_mappings_to_group(&self, group_id: Option<GroupId>) -> Result<(), &'static str> {
@@ -2985,6 +3022,7 @@ enum MainMenuAction {
     AutoNameListedMappings,
     NameListedMappingsAfterSource,
     MakeTargetsOfListedMappingsSticky,
+    MakeTargetsOfListedMappingsUseUnitTrackAndFx,
     MakeSourcesOfMainMappingsVirtual,
     MoveListedMappingsToGroup(Option<GroupId>),
     PasteReplaceAllInGroup(Envelope<Vec<MappingModelData>>),
