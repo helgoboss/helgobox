@@ -1301,6 +1301,8 @@ pub struct VirtualTarget {
     pub id: VirtualControlElementId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub character: Option<VirtualControlElementCharacter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub learnable: Option<bool>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]

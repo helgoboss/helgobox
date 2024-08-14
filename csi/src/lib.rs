@@ -453,6 +453,7 @@ fn virtual_target(id: String, character: VirtualControlElementCharacter) -> Opti
     let t = VirtualTarget {
         id: VirtualControlElementId::Named(id),
         character: Some(character),
+        learnable: None,
     };
     Some(Target::Virtual(t))
 }

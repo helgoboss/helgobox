@@ -1616,7 +1616,12 @@ export type Target_PreviewPotPreset = { kind: "PreviewPotPreset", unit: TargetUn
 
 export type Target_LoadPotPreset = { kind: "LoadPotPreset", unit: TargetUnit?, fx: FxDescriptor? }
 
-export type Target_Virtual = { kind: "Virtual", id: VirtualControlElementId, character: VirtualControlElementCharacter? }
+export type Target_Virtual = {
+	kind: "Virtual",
+	id: VirtualControlElementId,
+	character: VirtualControlElementCharacter?,
+	learnable: boolean?,
+}
 export type Target =
 	Target_Mouse
 	| Target_LastTouched
@@ -3219,6 +3224,7 @@ export type PotFilterKind =
 export type VirtualTarget = {
 	id: VirtualControlElementId,
 	character: VirtualControlElementCharacter?,
+	learnable: boolean?,
 }
 --- Creates a VirtualTarget value.
 function module.VirtualTarget(value: VirtualTarget): VirtualTarget

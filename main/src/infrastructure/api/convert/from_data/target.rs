@@ -861,6 +861,7 @@ fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> pers
     persistence::Target::Virtual(persistence::VirtualTarget {
         id: convert_control_element_id(data.control_element_index),
         character: style.required_value(data.control_element_type),
+        learnable: style.required_value_with_default(data.learnable, defaults::TARGET_LEARNABLE),
     })
 }
 

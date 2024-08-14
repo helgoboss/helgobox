@@ -192,6 +192,8 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     pub control_element_index: VirtualControlElementIdData,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    pub learnable: bool,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -567,6 +569,7 @@ impl TargetModelData {
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
             ),
+            learnable: model.learnable(),
             fx_snapshot: model.fx_snapshot().cloned(),
             touched_parameter_type: model.touched_track_parameter_type(),
             touched_route_parameter_type: model.touched_route_parameter_type(),
@@ -814,6 +817,7 @@ impl TargetModelData {
         model.change(C::SetControlElementId(
             self.control_element_index.to_model(),
         ));
+        model.change(C::SetLearnable(self.learnable));
         model.change(C::SetFxSnapshot(self.fx_snapshot.clone()));
         model.change(C::SetTouchedTrackParameterType(self.touched_parameter_type));
         model.change(C::SetTouchedRouteParameterType(

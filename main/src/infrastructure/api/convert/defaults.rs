@@ -48,3 +48,4 @@ pub const TARGET_SAVE_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY: bool = false;
 pub const TARGET_STOP_COLUMN_IF_SLOT_EMPTY: bool = false;
 pub const TARGET_USE_SELECTION_GANGING: bool = false;
 pub const TARGET_USE_TRACK_GROUPING: bool = false;
+pub const TARGET_LEARNABLE: bool = true;

@@ -108,6 +108,7 @@ function module.create_compartment(config: McuPresetConfig): realearn.Compartmen
             target = realearn.Target.Virtual {
                 id = "main/fader/touch",
                 character = "Button",
+                learnable = false,
             },
         },
         {
@@ -504,6 +505,7 @@ function module.create_compartment(config: McuPresetConfig): realearn.Compartmen
             target = realearn.Target.Virtual {
                 id = prefix.."fader/touch",
                 character = "Button",
+                learnable = false,
             },
         }
         local select = realearn.Mapping {

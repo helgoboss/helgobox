@@ -468,12 +468,15 @@ impl UnitModel {
         }
     }
 
-    pub fn find_mapping_with_source(
+    pub fn find_mapping_with_learnable_source(
         &self,
         compartment: CompartmentKind,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let virtual_source_value = self.virtualize_source_value(source_value);
+        let virtualization = self.virtualize_source_value(source_value);
+        if virtualization.is_none() {
+            return None;
+        }
         let instance_state = self.unit.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -482,8 +485,8 @@ impl UnitModel {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
-            if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtual_source_value) {
-                virtual_source.control(v).is_some()
+            if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtualization) {
+                virtual_source.control(&v.virtual_source_value).is_some()
             } else {
                 mapping_source
                     .reacts_to_source_value_with(source_value)
@@ -694,18 +697,22 @@ impl UnitModel {
         self.incoming_msg_captured_subject.next(event);
     }
 
-    pub fn create_compound_source(
+    pub fn create_compound_source_for_learning(
         &self,
         event: MessageCaptureEvent,
     ) -> Option<CompoundMappingSource> {
+        // At first, try virtualized
         if event.allow_virtual_sources {
-            if let Some(virt_source) = self
-                .virtualize_source_value(event.result.message())
-                .map(VirtualSource::from_source_value)
-            {
-                return Some(CompoundMappingSource::Virtual(virt_source));
+            if let Some(virtualization) = self.virtualize_source_value(event.result.message()) {
+                if !virtualization.learnable {
+                    return None;
+                }
+                let virtual_source =
+                    VirtualSource::from_source_value(virtualization.virtual_source_value);
+                return Some(CompoundMappingSource::Virtual(virtual_source));
             }
         }
+        // Then direct
         CompoundMappingSource::from_message_capture_event(event)
     }
 
@@ -715,7 +722,7 @@ impl UnitModel {
     pub fn virtualize_source_value(
         &self,
         source_value: IncomingCompoundSourceValue,
-    ) -> Option<VirtualSourceValue> {
+    ) -> Option<SourceValueVirtualization> {
         let instance_state = self.unit.borrow();
         let res = self
             .active_virtual_controller_mappings(&instance_state)
@@ -729,9 +736,14 @@ impl UnitModel {
                     ControlResult::Consumed => ControlValue::AbsoluteContinuous(UnitValue::MIN),
                     ControlResult::Processed(v) => v,
                 };
-                let virtual_source_value =
-                    VirtualSourceValue::new(m.target_model.create_control_element(), control_value);
-                Some(virtual_source_value)
+                let virtualization = SourceValueVirtualization {
+                    virtual_source_value: VirtualSourceValue::new(
+                        m.target_model.create_control_element(),
+                        control_value,
+                    ),
+                    learnable: m.target_model.learnable(),
+                };
+                Some(virtualization)
             });
         res
     }
@@ -1812,7 +1824,7 @@ impl UnitModel {
             let mut session = shared_session.borrow_mut();
             let qualified_id = session.unit.borrow().mapping_which_learns_source().get();
             if let Some(qualified_id) = qualified_id {
-                if let Some(source) = session.create_compound_source(event) {
+                if let Some(source) = session.create_compound_source_for_learning(event) {
                     // The learn process should stop when removing a mapping but just in case,
                     // let's react gracefully if the mapping doesn't exist anymore (do nothing).
                     let _ = session.change_mapping_by_id_with_closure(
@@ -3094,4 +3106,9 @@ impl PresetLoadInstruction {
             compartment_model,
         }
     }
+}
+
+pub struct SourceValueVirtualization {
+    pub virtual_source_value: VirtualSourceValue,
+    pub learnable: bool,
 }

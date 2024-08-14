@@ -1525,19 +1525,19 @@ impl BackboneShell {
         session.borrow().ui().show_pot_browser();
     }
 
-    pub fn find_first_mapping_by_source() {
+    pub fn find_first_mapping_by_learnable_source() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .find_first_mapping_by_source_async(CompartmentKind::Main)
+                .find_first_mapping_by_learnable_source_async(CompartmentKind::Main)
                 .await;
             Ok(())
         });
     }
 
-    pub fn learn_mapping_reassigning_source_open() {
+    pub fn learn_mapping_reassigning_learnable_source_open() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .learn_mapping_reassigning_source_async(CompartmentKind::Main, true)
+                .learn_mapping_reassigning_learnable_source_async(CompartmentKind::Main, true)
                 .await;
             Ok(())
         });
@@ -1550,10 +1550,10 @@ impl BackboneShell {
             .send_complaining(RealearnControlSurfaceMainTask::SendAllFeedback);
     }
 
-    pub fn learn_mapping_reassigning_source() {
+    pub fn learn_mapping_reassigning_learnable_source() {
         Global::future_support().spawn_in_main_thread_from_main_thread(async {
             let _ = BackboneShell::get()
-                .learn_mapping_reassigning_source_async(CompartmentKind::Main, false)
+                .learn_mapping_reassigning_learnable_source_async(CompartmentKind::Main, false)
                 .await;
             Ok(())
         });
@@ -1622,7 +1622,7 @@ impl BackboneShell {
         }
     }
 
-    async fn find_first_mapping_by_source_async(
+    async fn find_first_mapping_by_learnable_source_async(
         &self,
         compartment: CompartmentKind,
     ) -> Result<(), &'static str> {
@@ -1644,7 +1644,7 @@ impl BackboneShell {
             };
             if let Some(r) = next_capture_result {
                 if let Some((session, mapping)) =
-                    self.find_first_relevant_session_with_source_matching(compartment, &r)
+                    self.find_first_relevant_session_with_learnable_source_matching(compartment, &r)
                 {
                     self.close_message_panel();
                     session
@@ -1685,7 +1685,7 @@ impl BackboneShell {
         Ok(())
     }
 
-    async fn learn_mapping_reassigning_source_async(
+    async fn learn_mapping_reassigning_learnable_source_async(
         &self,
         compartment: CompartmentKind,
         open_mapping: bool,
@@ -1715,9 +1715,11 @@ impl BackboneShell {
             .prompt_for_next_reaper_target("Now touch the desired target!")
             .await?;
         self.close_message_panel();
-        let (session, mapping) = if let Some((session, mapping)) =
-            self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
-        {
+        let (session, mapping) = if let Some((session, mapping)) = self
+            .find_first_relevant_session_with_learnable_source_matching(
+                compartment,
+                &capture_result,
+            ) {
             // There's already a mapping with that source. Change target of that mapping.
             {
                 let mut m = mapping.borrow_mut();
@@ -1752,7 +1754,7 @@ impl BackboneShell {
                     osc_arg_index_hint: None,
                 };
                 let compound_source = s
-                    .create_compound_source(event)
+                    .create_compound_source_for_learning(event)
                     .ok_or("couldn't create compound source")?;
                 let _ = m.source_model.apply_from_source(&compound_source);
                 let _ = m.target_model.apply_from_target(
@@ -1989,20 +1991,26 @@ impl BackboneShell {
         })
     }
 
-    fn find_first_relevant_session_with_source_matching(
+    fn find_first_relevant_session_with_learnable_source_matching(
         &self,
         compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
-        self.find_first_session_with_source_matching(
+        self.find_first_session_with_learnable_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
             capture_result,
         )
-        .or_else(|| self.find_first_session_with_source_matching(None, compartment, capture_result))
+        .or_else(|| {
+            self.find_first_session_with_learnable_source_matching(
+                None,
+                compartment,
+                capture_result,
+            )
+        })
     }
 
-    fn find_first_session_with_source_matching(
+    fn find_first_session_with_learnable_source_matching(
         &self,
         project: Option<Project>,
         compartment: CompartmentKind,
@@ -2019,7 +2027,7 @@ impl BackboneShell {
                 if !s.receives_input_from(&input_descriptor) {
                     return None;
                 }
-                s.find_mapping_with_source(compartment, capture_result.message())?
+                s.find_mapping_with_learnable_source(compartment, capture_result.message())?
                     .clone()
             };
             Some((session, mapping))

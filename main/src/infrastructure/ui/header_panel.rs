@@ -1168,9 +1168,17 @@ impl HeaderPanel {
             })
             .do_async(move |session, capture_event: MessageCaptureEvent| {
                 let virtual_source_value = if capture_event.allow_virtual_sources {
-                    session
+                    if let Some(virtualization) = session
                         .borrow()
                         .virtualize_source_value(capture_event.result.message())
+                    {
+                        if !virtualization.learnable {
+                            return;
+                        }
+                        Some(virtualization.virtual_source_value)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };

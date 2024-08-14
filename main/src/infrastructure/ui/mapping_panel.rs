@@ -467,6 +467,9 @@ impl MappingPanel {
                                                 view.invalidate_window_title();
                                                 view.invalidate_target_line_2(initiator);
                                             }
+                                            P::Learnable => {
+                                                view.invalidate_target_check_boxes();
+                                            }
                                             P::Unit => {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
@@ -2781,7 +2784,11 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 _ => {}
             },
-            TargetCategory::Virtual => {}
+            TargetCategory::Virtual => {
+                self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetLearnable(
+                    is_checked,
+                )));
+            }
         }
     }
 
@@ -5910,7 +5917,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ => None,
             },
-            TargetCategory::Virtual => None,
+            TargetCategory::Virtual => Some(("Learnable", self.target.learnable())),
         };
         self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_1, state);
     }

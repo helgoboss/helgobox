@@ -13,14 +13,11 @@ use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct VirtualTarget {
-    control_element: VirtualControlElement,
+    pub control_element: VirtualControlElement,
+    pub learnable: bool,
 }
 
 impl VirtualTarget {
-    pub fn new(control_element: VirtualControlElement) -> VirtualTarget {
-        VirtualTarget { control_element }
-    }
-
     pub fn control_element(&self) -> VirtualControlElement {
         self.control_element
     }

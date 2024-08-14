@@ -976,6 +976,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             category: TargetCategory::Virtual,
             control_element_type: d.character.unwrap_or_default(),
             control_element_index: convert_control_element_id(d.id),
+            learnable: d.learnable.unwrap_or(defaults::TARGET_LEARNABLE),
             ..Default::default()
         },
     };

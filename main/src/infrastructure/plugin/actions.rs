@@ -48,7 +48,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         section: ActionSection::ReaLearn,
         command_name: "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE",
         action_name: "Learn single mapping (reassigning source)",
-        op: BackboneShell::learn_mapping_reassigning_source,
+        op: BackboneShell::learn_mapping_reassigning_learnable_source,
         requires_instance: true,
         ..DEFAULT_DEF
     },
@@ -56,7 +56,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         section: ActionSection::ReaLearn,
         command_name: "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE_OPEN",
         action_name: "Learn single mapping (reassigning source) and open it",
-        op: BackboneShell::learn_mapping_reassigning_source_open,
+        op: BackboneShell::learn_mapping_reassigning_learnable_source_open,
         requires_instance: true,
         ..DEFAULT_DEF
     },
@@ -64,7 +64,7 @@ pub const ACTION_DEFS: &[ActionDef] = &[
         section: ActionSection::ReaLearn,
         command_name: "REALEARN_FIND_FIRST_MAPPING_BY_SOURCE",
         action_name: "Find first mapping by source",
-        op: BackboneShell::find_first_mapping_by_source,
+        op: BackboneShell::find_first_mapping_by_learnable_source,
         requires_instance: true,
         ..DEFAULT_DEF
     },

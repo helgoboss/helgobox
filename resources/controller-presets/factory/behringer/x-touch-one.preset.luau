@@ -1,4 +1,4 @@
---- name: Behringer X-Touch One
+--- name: X-Touch One
 --- realearn_version: 2.16.0
 --- author: helgoboss
 --- description: |

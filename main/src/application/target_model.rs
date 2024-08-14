@@ -85,6 +85,7 @@ pub enum TargetCommand {
     SetUnit(TargetUnit),
     SetControlElementCharacter(VirtualControlElementCharacter),
     SetControlElementId(VirtualControlElementId),
+    SetLearnable(bool),
     SetTargetType(ReaperTargetType),
     SetAction(Option<Action>),
     SetActionInvocationType(ActionInvocationType),
@@ -179,6 +180,7 @@ pub enum TargetProp {
     Unit,
     ControlElementType,
     ControlElementId,
+    Learnable,
     TargetType,
     Action,
     ActionInvocationType,
@@ -302,6 +304,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetControlElementId(v) => {
                 self.control_element_id = v;
                 One(P::ControlElementId)
+            }
+            C::SetLearnable(v) => {
+                self.learnable = v;
+                One(P::Learnable)
             }
             C::SetTargetType(v) => {
                 self.r#type = v;
@@ -661,6 +667,7 @@ pub struct TargetModel {
     // # For virtual targets
     control_element_character: VirtualControlElementCharacter,
     control_element_id: VirtualControlElementId,
+    learnable: bool,
     // # For REAPER targets
     // TODO-low Rename this to reaper_target_type
     r#type: ReaperTargetType,
@@ -838,6 +845,7 @@ impl Default for TargetModel {
             unit: Default::default(),
             control_element_character: VirtualControlElementCharacter::default(),
             control_element_id: Default::default(),
+            learnable: true,
             r#type: ReaperTargetType::Dummy,
             action: None,
             action_invocation_type: ActionInvocationType::default(),
@@ -948,6 +956,10 @@ impl TargetModel {
 
     pub fn control_element_id(&self) -> VirtualControlElementId {
         self.control_element_id
+    }
+
+    pub fn learnable(&self) -> bool {
+        self.learnable
     }
 
     pub fn target_type(&self) -> ReaperTargetType {
@@ -2622,7 +2634,10 @@ impl TargetModel {
                 Ok(UnresolvedCompoundMappingTarget::Reaper(Box::new(target)))
             }
             Virtual => {
-                let virtual_target = VirtualTarget::new(self.create_control_element());
+                let virtual_target = VirtualTarget {
+                    control_element: self.create_control_element(),
+                    learnable: self.learnable,
+                };
                 Ok(UnresolvedCompoundMappingTarget::Virtual(virtual_target))
             }
         }
