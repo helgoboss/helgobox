@@ -517,11 +517,25 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                 let compartment_content: helgobox_api::persistence::Compartment =
                     lua.as_ref().from_value(value)?;
                 let compartment_data = convert_compartment(self.compartment, compartment_content)?;
-                let compartment_model = compartment_data.to_model(
+                let mut compartment_model = compartment_data.to_model(
                     preset_info.common.meta_data.realearn_version.as_ref(),
                     self.compartment,
                     None,
                 )?;
+                // Write some descriptive preset meta data into the compartment notes, if the compartment
+                // model doesn't contain any notes itself already.
+                if compartment_model.notes.is_empty() {
+                    let meta_data = &preset_info.common.meta_data;
+                    let mut notes = &mut compartment_model.notes;
+                    if let Some(text) = &meta_data.description {
+                        notes.push_str("## Preset description\n\n");
+                        notes.push_str(text);
+                    }
+                    if let Some(text) = &meta_data.setup_instructions {
+                        notes.push_str("\n\n## Preset setup instructions\n\n");
+                        notes.push_str(text);
+                    }
+                }
                 let preset_model = CompartmentPresetModel::new(
                     preset_info.common.id.to_string(),
                     preset_info.common.meta_data.name.to_string(),
