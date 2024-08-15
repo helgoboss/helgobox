@@ -1418,7 +1418,7 @@ impl HeaderPanel {
             new_state
         };
         if enabled {
-            let msg = "This ReaLearn unit is now superior. When this unit is active (contains active main mappings), it will disable other ReaLearn unit with the same control input and/or feedback output that don't have this setting turned on.";
+            let msg = "This ReaLearn unit is now superior. When this unit is active (contains active main mappings), it will disable other ReaLearn units with the same control input and/or feedback output that don't have this setting turned on.";
             self.view.require_window().alert("ReaLearn", msg);
         };
     }
