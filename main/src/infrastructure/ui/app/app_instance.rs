@@ -31,6 +31,8 @@ pub trait AppInstance: Debug {
     fn send(&self, reply: &Reply) -> Result<()>;
 
     fn notify_app_is_ready(&mut self, callback: AppCallback);
+
+    fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool);
 }
 
 #[allow(clippy::if_same_then_else)]
@@ -120,6 +122,8 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn notify_app_is_ready(&mut self, _callback: AppCallback) {}
+
+    fn notify_app_is_in_text_entry_mode(&mut self, _is_in_text_entry_mode: bool) {}
 }
 
 /// App will run in its own window.
@@ -243,6 +247,10 @@ impl AppInstance for StandaloneAppInstance {
                 .await;
         });
         running_state.event_subscription_join_handle = Some(join_handle);
+    }
+
+    fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool) {
+        println!("APP IS IN TEXT ENTRY MODE: {is_in_text_entry_mode:?}");
     }
 }
 

@@ -471,6 +471,12 @@ fn process_command(
                 .borrow_mut()
                 .notify_app_is_ready(app_callback);
         }
+        SetAppIsInTextEntryMode(req) => {
+            find_app_instance(req.matrix_id.into())
+                .map_err(to_status)?
+                .borrow_mut()
+                .notify_app_is_in_text_entry_mode(req.is_in_text_entry_mode);
+        }
         // Event subscription commands
         GetOccasionalGlobalUpdates(_) => {
             send_initial_events_to_app(instance_id, create_initial_global_updates)
