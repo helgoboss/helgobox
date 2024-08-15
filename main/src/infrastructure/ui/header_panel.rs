@@ -1043,7 +1043,8 @@ impl HeaderPanel {
                 })
             })
             .collect();
-        session.notify_compartment_has_changed(compartment, self.session.clone());
+        session.mark_dirty();
+        session.notify_everything_has_changed();
         if !errors.is_empty() {
             notify_processing_result("Errors occurred when making targets sticky", errors);
         }
@@ -1075,7 +1076,8 @@ impl HeaderPanel {
             let mut m = m.borrow_mut();
             m.make_target_non_sticky(context, track_mode, fx_mode);
         }
-        session.notify_compartment_has_changed(compartment, self.session.clone());
+        session.mark_dirty();
+        session.notify_everything_has_changed();
     }
 
     fn move_listed_mappings_to_group(&self, group_id: Option<GroupId>) -> Result<(), &'static str> {
