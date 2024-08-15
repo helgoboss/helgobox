@@ -1366,7 +1366,7 @@ impl TargetModel {
                             _ => None,
                         },
                         // No update necessary
-                        VirtualFx::Unit | VirtualFx::Focused | VirtualFx::This => None,
+                        VirtualFx::Unit | VirtualFx::LastFocused | VirtualFx::This => None,
                     }
                 }
                 // Shouldn't happen
@@ -1866,7 +1866,7 @@ impl TargetModel {
     pub fn virtual_fx(&self) -> Option<VirtualFx> {
         use VirtualFxType::*;
         let fx = match self.fx_type {
-            Focused => VirtualFx::Focused,
+            Focused => VirtualFx::LastFocused,
             This => VirtualFx::This,
             Unit => VirtualFx::Unit,
             _ => VirtualFx::ChainFx {
@@ -3985,7 +3985,7 @@ impl VirtualFxType {
         use VirtualFx::*;
         match virtual_fx {
             This => VirtualFxType::This,
-            Focused => VirtualFxType::Focused,
+            LastFocused => VirtualFxType::Focused,
             Unit => VirtualFxType::Unit,
             ChainFx { chain_fx, .. } => {
                 use VirtualChainFx::*;
@@ -4711,7 +4711,7 @@ pub enum MakeTrackNonStickyMode {
 impl MakeFxNonStickyMode {
     pub fn build_virtual_fx(&self, fx: Option<&Fx>) -> Option<VirtualFx> {
         let virtual_fx = match self {
-            MakeFxNonStickyMode::Focused => VirtualFx::Focused,
+            MakeFxNonStickyMode::Focused => VirtualFx::LastFocused,
             MakeFxNonStickyMode::Unit => VirtualFx::Unit,
             MakeFxNonStickyMode::Named | MakeFxNonStickyMode::AllNamed => {
                 let fx = fx?;

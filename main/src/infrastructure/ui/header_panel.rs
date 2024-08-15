@@ -372,7 +372,7 @@ impl HeaderPanel {
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_relevant_focused_fx_id = Backbone::get()
-                .last_relevant_focused_fx_id(session.processor_context().containing_fx())
+                .last_relevant_available_focused_fx(session.processor_context().containing_fx())
                 .and_then(|fx| {
                     if fx.is_available() {
                         FxId::from_fx(&fx, true).ok()

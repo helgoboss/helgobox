@@ -123,11 +123,12 @@ pub enum AdditionalFeedbackEvent {
     /// depend on this (see https://github.com/helgoboss/helgobox/issues/663).
     BeatChanged(BeatChangedEvent),
     MappedFxParametersChanged,
-    /// This event is raised whenever an FX window loses focus and a non-FX window gains focus,
-    /// and vice versa.
+    /// This event is raised whenever switching between FX windows (something that REAPER's own FxFocused change
+    /// event detects as well), but also when an FX window loses focus and a non-FX window gains focus,
+    /// and vice versa (not notified FxFocused change event).
     ///
-    /// REAPER itself doesn't fire any change event in this case.
-    FocusSwitchedBetweenMainAndFx,
+    /// Attention: This will only be fired for REAPER 7+!
+    FocusSwitched,
     /// Forwarded unit state event
     ///
     /// Not all unit events are forwarded, only those that might matter for other
@@ -294,7 +295,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.process_instance_orchestration_events();
         // Inform ReaLearn about various changes that are not relevant for target learning
         self.detect_reaper_config_changes();
-        self.emit_focus_switch_between_main_and_fx_as_feedback_event();
+        self.emit_focus_switch_as_feedback_event();
         self.emit_instance_events();
         self.emit_beats_as_feedback_events();
         self.detect_device_changes(timestamp);
@@ -606,24 +607,34 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn emit_focus_switch_between_main_and_fx_as_feedback_event(&mut self) {
+    fn emit_focus_switch_as_feedback_event(&mut self) {
         let reaper = Reaper::get().medium_reaper();
         if reaper.low().pointers().GetFocusedFX2.is_none() {
-            // Detection of unfocusing FX (without focusing a new one) not supported in old REAPER
-            // versions.
+            // Detection of unfocusing FX (without focusing a new one) not supported in REAPER versions < 7.
             return;
         }
         let new = reaper.get_focused_fx_2();
         let last = mem::replace(&mut self.fx_focus_state, new);
-        let (Some(last), Some(new)) = (last, new) else {
-            // Changes from non-open FX to open FX and vice versa are already handled
-            // nicely by REAPER's built-in FxFocused change event.
-            return;
+        let fire = match (last, new) {
+            (None, None) => {
+                // This happens continuously before any FX is focused
+                false
+            }
+            (None, Some(_)) => {
+                // The first time an FX is focused
+                true
+            }
+            (Some(_), None) => {
+                // Shouldn't happen because REAPER usually doesn't clear the last-focused FX. But if it happens,
+                // we should fire.
+                true
+            }
+            (Some(last), Some(new)) => {
+                last.is_still_focused != new.is_still_focused || last.fx != new.fx
+            }
         };
-        if (last.is_still_focused && !new.is_still_focused)
-            || (!last.is_still_focused && new.is_still_focused && last.fx == new.fx)
-        {
-            let event = AdditionalFeedbackEvent::FocusSwitchedBetweenMainAndFx;
+        if fire {
+            let event = AdditionalFeedbackEvent::FocusSwitched;
             for p in &mut *self.main_processors.borrow_mut() {
                 p.process_additional_feedback_event(&event);
             }

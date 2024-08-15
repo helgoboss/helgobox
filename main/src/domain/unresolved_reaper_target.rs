@@ -371,9 +371,11 @@ impl FxDescriptor {
         let (track_descriptor, fx, commons): (TrackDescriptor, VirtualFx, FxDescriptorCommons) =
             match api_desc {
                 FxDescriptor::This { commons } => (Default::default(), VirtualFx::This, commons),
-                FxDescriptor::Focused => {
-                    (Default::default(), VirtualFx::Focused, Default::default())
-                }
+                FxDescriptor::Focused => (
+                    Default::default(),
+                    VirtualFx::LastFocused,
+                    Default::default(),
+                ),
                 FxDescriptor::Instance { commons } => {
                     (Default::default(), VirtualFx::Unit, commons)
                 }
@@ -471,14 +473,14 @@ impl FxDescriptor {
                     Err("this FX not available anymore")
                 }
             }
-            VirtualFx::Focused => {
-                let single = Reaper::get()
-                    .focused_fx()
-                    .ok_or("couldn't get focused FX")?;
-                if single.is_still_focused.unwrap_or(true) {
-                    Ok(vec![single.fx])
+            VirtualFx::LastFocused => {
+                let this_realearn_fx = context.control_context.processor_context.containing_fx();
+                if let Some(fx) =
+                    Backbone::get().last_relevant_available_focused_fx(this_realearn_fx)
+                {
+                    Ok(vec![fx])
                 } else {
-                    Err("FX unfocused")
+                    Err("No relevant FX focused yet")
                 }
             }
             VirtualFx::Unit => {
@@ -1267,8 +1269,10 @@ impl fmt::Display for VirtualTrack {
 pub enum VirtualFx {
     /// This ReaLearn FX (nice for controlling conditional activation parameters).
     This,
-    /// Focused or last focused FX.
-    Focused,
+    /// Last relevant focused FX, even if FX focus lost or if FX window is closed.
+    ///
+    /// Doesn't include current ReaLearn instance.
+    LastFocused,
     /// Unit FX.
     Unit,
     /// Particular FX.
@@ -1282,7 +1286,7 @@ impl Default for VirtualFx {
     fn default() -> Self {
         // Important to keep it "Focused" for compatibility with
         // "Auto-load depending on focused FX".
-        Self::Focused
+        Self::LastFocused
     }
 }
 
@@ -1291,7 +1295,7 @@ impl fmt::Display for VirtualFx {
         use VirtualFx::*;
         match self {
             This => f.write_str("<This>"),
-            Focused => f.write_str("<Focused>"),
+            LastFocused => f.write_str("<Focused>"),
             Unit => f.write_str("<Unit>"),
             ChainFx {
                 chain_fx,
@@ -1311,7 +1315,7 @@ impl VirtualFx {
     pub fn id(&self) -> Option<Guid> {
         match self {
             VirtualFx::This => None,
-            VirtualFx::Focused => None,
+            VirtualFx::LastFocused => None,
             VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.id(),
         }
@@ -1321,7 +1325,7 @@ impl VirtualFx {
         match self {
             // In case of <This>, it doesn't matter.
             VirtualFx::This => false,
-            VirtualFx::Focused => false,
+            VirtualFx::LastFocused => false,
             VirtualFx::Unit => false,
             VirtualFx::ChainFx { is_input_fx, .. } => *is_input_fx,
         }
@@ -1330,7 +1334,7 @@ impl VirtualFx {
     pub fn index(&self) -> Option<u32> {
         match self {
             VirtualFx::This => None,
-            VirtualFx::Focused => None,
+            VirtualFx::LastFocused => None,
             VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.index(),
         }
@@ -1339,7 +1343,7 @@ impl VirtualFx {
     pub fn name(&self) -> Option<String> {
         match self {
             VirtualFx::This => None,
-            VirtualFx::Focused => None,
+            VirtualFx::LastFocused => None,
             VirtualFx::Unit => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }

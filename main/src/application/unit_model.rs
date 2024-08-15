@@ -2900,26 +2900,45 @@ impl DomainEventHandler for WeakUnitModel {
             return Ok(false);
         }
         let fx_id = {
-            let instance_state = session.unit.borrow();
-            let instance_fx_descriptor = instance_state.instance_fx_descriptor();
-            let instance_fx = instance_fx_descriptor
+            let unit = session.unit.borrow();
+            let unit_fx_descriptor = unit.instance_fx_descriptor();
+            let unit_fx = unit_fx_descriptor
                 .resolve(session.extended_context(), CompartmentKind::Main)
                 .unwrap_or_default()
                 .into_iter()
                 .next();
-            let instance_fx = instance_fx.filter(|fx| {
-                if matches!(&instance_fx_descriptor.fx, VirtualFx::Focused) {
-                    // The instance FX points to the currently focused FX. The currently focused FX
-                    // is still available/resolvable even its window gets closed. So we need to make
-                    // sure the window is actually open.If not, we want to unload the preset.
-                    fx.window_is_open()
+            let unit_fx = unit_fx.filter(|unit_fx| {
+                if matches!(&unit_fx_descriptor.fx, VirtualFx::LastFocused) {
+                    // Unit FX refers to the last-focused FX. We need to make a few more checks.
+                    if unit_fx.window_is_open() {
+                        // Window of unit FX (= last focused relevant FX) still open
+                        match Backbone::get().last_available_focused_fx() {
+                            Some(last_focused) if &last_focused != unit_fx => {
+                                // This means that the FX resolver has skipped the actually last-focused, because it
+                                // was not relevant (= because it was our own ReaLearn instance). So we can assume
+                                // that focus changed from `unit_fx` (e.g. ReaEq) to ReaLearn. In that case,
+                                // we don't want to keep the preset intact, not unload!
+                                // last_focused.window_has_focus()
+                                unit_fx.window_has_focus()
+                            }
+                            _ => {
+                                // This means that the FX resolver has returned the actually last-focused instance.
+                                // It was relevant. So we can assume that it was not a focus change from `unit_fx`
+                                // to ReaLearn. In that case, we only want to keep the preset intact if `unit_fx`
+                                // is still focused. If not, we want to unload the preset!
+                                unit_fx.window_has_focus()
+                            }
+                        }
+                    } else {
+                        // Window of last focused FX closed. Unload preset!
+                        false
+                    }
                 } else {
+                    // Unit FX is something else than the last-focused FX. Load linked preset!
                     true
                 }
             });
-            instance_fx
-                .as_ref()
-                .and_then(|f| FxId::from_fx(f, false).ok())
+            unit_fx.as_ref().and_then(|f| FxId::from_fx(f, false).ok())
         };
         let loaded = session.auto_load_preset_linked_to_fx(fx_id);
         Ok(loaded)

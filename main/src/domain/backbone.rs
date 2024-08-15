@@ -322,15 +322,27 @@ impl Backbone {
         self.recently_focused_fx_container.borrow_mut().feed(new_fx);
     }
 
-    /// The special thing about this is that this doesn't necessarily return the currently focused
-    /// FX. It could also be the previously focused one.
+    /// Returns the last relevant focused FX even if it's not focused anymore and even if it's closed.
     ///
-    /// That's important because when queried from ReaLearn UI, the current one
-    /// is mostly ReaLearn itself - which is in most cases not what we want.
-    pub fn last_relevant_focused_fx_id(&self, this_realearn_fx: &Fx) -> Option<Fx> {
+    /// Returns `None` only if no FX has been focused yet or if the last focused FX doesn't exist anymore.
+    ///
+    /// One special thing about this is that this doesn't necessarily return the currently focused
+    /// FX. It could also be the previously focused one. That's important because when queried from ReaLearn UI, the
+    /// current one is mostly ReaLearn itself - which is in most cases not what we want.
+    pub fn last_relevant_available_focused_fx(&self, this_realearn_fx: &Fx) -> Option<Fx> {
         self.recently_focused_fx_container
             .borrow()
-            .last_relevant_fx(this_realearn_fx)
+            .last_relevant_available_fx(this_realearn_fx)
+            .cloned()
+    }
+
+    /// Returns the last focused FX even if it's not focused anymore and even if it's closed.
+    ///
+    /// This can be even the ReaLearn instance itself!
+    pub fn last_available_focused_fx(&self) -> Option<Fx> {
+        self.recently_focused_fx_container
+            .borrow()
+            .last_available_fx()
             .cloned()
     }
 
@@ -441,11 +453,15 @@ struct RecentlyFocusedFxContainer {
 }
 
 impl RecentlyFocusedFxContainer {
-    pub fn last_relevant_fx(&self, this_realearn_fx: &Fx) -> Option<&Fx> {
+    pub fn last_relevant_available_fx(&self, this_realearn_fx: &Fx) -> Option<&Fx> {
         [self.current.as_ref(), self.previous.as_ref()]
             .into_iter()
             .flatten()
             .find(|fx| fx.is_available() && *fx != this_realearn_fx)
+    }
+
+    pub fn last_available_fx(&self) -> Option<&Fx> {
+        self.current.as_ref().filter(|fx| fx.is_available())
     }
 
     pub fn feed(&mut self, new_fx: Option<Fx>) {

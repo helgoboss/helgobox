@@ -8192,13 +8192,10 @@ fn get_relevant_target_fx(mapping: &MappingModel, session: &UnitModel) -> Option
         }
     };
     if is_focused_fx_type {
-        // This is a special case. Since ReaLearn 2.14.0-pre.10, an FX is not
-        // considered as focused anymore when clicking somewhere else. So we would
-        // never obtain an FX instance here because user clicks into the mapping
-        // panel, which is not an FX, not even ReaLearn FX as far as REAPER is
-        // concerned! So we need to choose the last focused FX.
-        // See https://github.com/helgoboss/helgobox/issues/778.
-        Reaper::get().focused_fx().map(|res| res.fx)
+        // We need to choose the last focused FX, even if it's not focused anymore. See
+        // https://github.com/helgoboss/helgobox/issues/778.
+        let containing_fx = session.control_context().processor_context.containing_fx();
+        Backbone::get().last_relevant_available_focused_fx(containing_fx)
     } else {
         // Choose whatever FX the selector currently resolves to
         mapping
