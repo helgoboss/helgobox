@@ -2910,29 +2910,7 @@ impl DomainEventHandler for WeakUnitModel {
             let unit_fx = unit_fx.filter(|unit_fx| {
                 if matches!(&unit_fx_descriptor.fx, VirtualFx::LastFocused) {
                     // Unit FX refers to the last-focused FX. We need to make a few more checks.
-                    if unit_fx.window_is_open() {
-                        // Window of unit FX (= last focused relevant FX) still open
-                        match Backbone::get().last_available_focused_fx() {
-                            Some(last_focused) if &last_focused != unit_fx => {
-                                // This means that the FX resolver has skipped the actually last-focused, because it
-                                // was not relevant (= because it was our own ReaLearn instance). So we can assume
-                                // that focus changed from `unit_fx` (e.g. ReaEq) to ReaLearn. In that case,
-                                // we don't want to keep the preset intact, not unload!
-                                // last_focused.window_has_focus()
-                                unit_fx.window_has_focus()
-                            }
-                            _ => {
-                                // This means that the FX resolver has returned the actually last-focused instance.
-                                // It was relevant. So we can assume that it was not a focus change from `unit_fx`
-                                // to ReaLearn. In that case, we only want to keep the preset intact if `unit_fx`
-                                // is still focused. If not, we want to unload the preset!
-                                unit_fx.window_has_focus()
-                            }
-                        }
-                    } else {
-                        // Window of last focused FX closed. Unload preset!
-                        false
-                    }
+                    unit_fx.window_is_open() && unit_fx.window_has_focus()
                 } else {
                     // Unit FX is something else than the last-focused FX. Load linked preset!
                     true
