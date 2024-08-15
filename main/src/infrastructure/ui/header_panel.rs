@@ -3108,19 +3108,17 @@ fn generate_fx_to_preset_links_menu_entries(
     use swell_ui::menu_tree::*;
     let add_link_entry = if let Some(fx_id) = last_focused_fx_id {
         menu(
-            format!("<Add link from FX \"{fx_id}\" to ...>"),
-            main_preset_manager
-                .preset_infos()
-                .iter()
-                .map(move |p| {
+            format!("<Add link from FX \"{}\" to ...>", &fx_id.name),
+            build_compartment_preset_menu_entries(
+                main_preset_manager.common_preset_infos(),
+                move |info| {
                     let fx_id = fx_id.clone();
-                    let preset_id = p.common.id.clone();
-                    item(
-                        &p.common.meta_data.name,
-                        MainMenuAction::LinkToPreset(scope, fx_id, preset_id),
-                    )
-                })
-                .collect(),
+                    let preset_id = info.id.clone();
+                    MainMenuAction::LinkToPreset(scope, fx_id, preset_id)
+                },
+                None,
+            )
+            .collect(),
         )
     } else {
         disabled_item("<Add link from last focused FX to preset>")
