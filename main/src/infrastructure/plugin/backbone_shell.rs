@@ -30,7 +30,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{menus, MessagePanel};
+use crate::infrastructure::ui::{app_window_is_in_text_entry_mode, menus, MessagePanel};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
@@ -2256,8 +2256,17 @@ impl HookPostCommand for BackboneShell {
 
 impl HwndInfo for BackboneShell {
     fn call(window: Hwnd, info_type: HwndInfoType) -> i32 {
-        println!("hwnd_info {window:?}, {info_type:?}");
-        0
+        if info_type == HwndInfoType::IsTextField {
+            if app_window_is_in_text_entry_mode(window) {
+                println!("IN TEXT ENTRY MODE");
+                1
+            } else {
+                println!("NOT IN TEXT ENTRY MODE");
+                -1
+            }
+        } else {
+            0
+        }
     }
 }
 

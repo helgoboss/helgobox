@@ -6,7 +6,11 @@ use crate::infrastructure::proto::{
 };
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
+use base::hash_util::NonCryptoHashSet;
+use fragile::Fragile;
+use once_cell::sync::Lazy;
 use prost::Message;
+use reaper_medium::Hwnd;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -250,8 +254,22 @@ impl AppInstance for StandaloneAppInstance {
     }
 
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool) {
-        println!("APP IS IN TEXT ENTRY MODE: {is_in_text_entry_mode:?}");
+        let mut set = APP_WINDOWS_IN_TEXT_ENTRY.get();
+        return;
+        let hwnd = todo!();
+        if is_in_text_entry_mode {
+            set.insert(hwnd);
+        } else {
+            set.remove(&hwnd);
+        }
     }
+}
+
+static APP_WINDOWS_IN_TEXT_ENTRY: Lazy<Fragile<NonCryptoHashSet<Hwnd>>> =
+    Lazy::new(|| Default::default());
+
+pub fn app_window_is_in_text_entry_mode(window: Hwnd) -> bool {
+    APP_WINDOWS_IN_TEXT_ENTRY.get().contains(&window)
 }
 
 #[derive(Debug)]

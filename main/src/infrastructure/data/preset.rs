@@ -526,7 +526,7 @@ impl<S: SpecificPresetMetaData> FileBasedCompartmentPresetManager<S> {
                 // model doesn't contain any notes itself already.
                 if compartment_model.notes.is_empty() {
                     let meta_data = &preset_info.common.meta_data;
-                    let mut notes = &mut compartment_model.notes;
+                    let notes = &mut compartment_model.notes;
                     if let Some(text) = &meta_data.description {
                         notes.push_str("## Preset description\n\n");
                         notes.push_str(text);
