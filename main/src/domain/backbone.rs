@@ -336,16 +336,6 @@ impl Backbone {
             .cloned()
     }
 
-    /// Returns the last focused FX even if it's not focused anymore and even if it's closed.
-    ///
-    /// This can be even the ReaLearn instance itself!
-    pub fn last_available_focused_fx(&self) -> Option<Fx> {
-        self.recently_focused_fx_container
-            .borrow()
-            .last_available_fx()
-            .cloned()
-    }
-
     pub fn feedback_is_allowed(
         &self,
         instance_id: &UnitId,
@@ -458,10 +448,6 @@ impl RecentlyFocusedFxContainer {
             .into_iter()
             .flatten()
             .find(|fx| fx.is_available() && *fx != this_realearn_fx)
-    }
-
-    pub fn last_available_fx(&self) -> Option<&Fx> {
-        self.current.as_ref().filter(|fx| fx.is_available())
     }
 
     pub fn feed(&mut self, new_fx: Option<Fx>) {
