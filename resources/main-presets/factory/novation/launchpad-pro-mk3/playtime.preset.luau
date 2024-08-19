@@ -4,8 +4,8 @@
 --- description: |
 ---     This main preset turns the Launchpad Pro mk3 into a capable device for controlling Playtime.
 ---     
----     The following features are not yet supported: Note, Chord, Custom, Sequencer, Projects, Volume, Pan, Sends, Device, Record,
----     Record Quantise, Swing, Tempo, Tap, Capture MIDI, Fixed Length, Play, Patterns, Steps, Pattern Settings, Velocity, Probability,
+---     The following features are not yet supported: Note, Chord, Custom, Sequencer, Projects, Volume, Pan, Sends, Device, 
+---     Swing, Tempo, Capture MIDI, Patterns, Steps, Pattern Settings, Velocity, Probability,
 ---     Mutation, Micro Step, Print to Clip.
 --- used_schemes: [novation/launchpad-pro-mk3/live]
 --- required_features: [playtime]
