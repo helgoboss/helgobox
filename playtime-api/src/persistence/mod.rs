@@ -31,7 +31,7 @@ use camino::Utf8PathBuf;
 use chrono::NaiveDateTime;
 use derive_more::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds};
+use reaper_common_types::{Bpm, Db, DurationInBeats, DurationInSeconds, Semitones};
 use serde::{Deserialize, Serialize};
 use strum::EnumIter;
 
@@ -1217,6 +1217,8 @@ pub struct Clip {
     /// rarely changes.
     #[serde(alias = "section")]
     pub fixed_section: Section,
+    #[serde(default)]
+    pub pitch_shift: Semitones,
     pub audio_settings: ClipAudioSettings,
     pub midi_settings: ClipMidiSettings,
     // /// Defines the total amount of time this clip should consume and where within that range the
