@@ -1776,6 +1776,7 @@ impl UnitModel {
         self.unit
             .borrow_mut()
             .set_mapping_which_learns_source(Some(mapping_id));
+        let cloned_session = session.clone();
         when(
             self.incoming_msg_captured(
                 reenable_control_after_touched,
@@ -1797,9 +1798,7 @@ impl UnitModel {
                     .borrow()
                     .mapping_which_learns_source()
                     .changed_to(None),
-            )
-            // We listen to just one message!
-            .take(1),
+            ),
         )
         .with(session)
         .finally(|session| {
@@ -1822,6 +1821,10 @@ impl UnitModel {
                         Rc::downgrade(&shared_session),
                         |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
                     );
+                    session
+                        .unit
+                        .borrow_mut()
+                        .set_mapping_which_learns_source(None);
                 }
             }
         });
