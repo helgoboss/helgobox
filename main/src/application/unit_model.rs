@@ -1776,7 +1776,6 @@ impl UnitModel {
         self.unit
             .borrow_mut()
             .set_mapping_which_learns_source(Some(mapping_id));
-        let cloned_session = session.clone();
         when(
             self.incoming_msg_captured(
                 reenable_control_after_touched,
