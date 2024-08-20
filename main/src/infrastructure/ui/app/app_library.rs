@@ -16,13 +16,13 @@ use playtime_clip_engine::base::Matrix;
 use prost::Message;
 use reaper_high::Reaper;
 use reaper_low::raw::HWND;
+use reaper_medium::Hwnd;
 use semver::Version;
 use std::env;
 use std::ffi::{c_char, c_uint, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
-use reaper_medium::Hwnd;
 use swell_ui::Window;
 use tonic::Status;
 
@@ -50,7 +50,7 @@ impl AppLibrary {
                     "window_manager_plugin.dll",
                     "pointer_lock_plugin.dll",
                 ]
-                    .as_slice(),
+                .as_slice(),
             )
         } else if cfg!(target_os = "macos") {
             (
@@ -504,7 +504,7 @@ fn process_command(
                     .unwrap();
                 create_initial_instance_updates(&instance_shell)
             })
-                .map_err(to_status)?;
+            .map_err(to_status)?;
         }
         GetOccasionalUnitUpdates(req) => {
             send_initial_events_to_app(instance_id, || {
@@ -513,7 +513,7 @@ fn process_command(
                     .unwrap();
                 create_initial_unit_updates(&instance_shell)
             })
-                .map_err(to_status)?;
+            .map_err(to_status)?;
         }
         GetOccasionalPlaytimeEngineUpdates(_) => {
             #[cfg(not(feature = "playtime"))]
@@ -526,7 +526,7 @@ fn process_command(
                     instance_id,
                     crate::infrastructure::proto::create_initial_engine_updates,
                 )
-                    .map_err(to_status)?;
+                .map_err(to_status)?;
             }
         }
         GetOccasionalMatrixUpdates(req) => {
@@ -542,7 +542,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_matrix_updates,
                 )
-                    .map_err(to_status)?;
+                .map_err(to_status)?;
             }
         }
         GetOccasionalTrackUpdates(req) => {
@@ -558,7 +558,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_track_updates,
                 )
-                    .map_err(to_status)?;
+                .map_err(to_status)?;
             }
         }
         GetOccasionalSlotUpdates(req) => {
@@ -574,7 +574,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_slot_updates,
                 )
-                    .map_err(to_status)?;
+                .map_err(to_status)?;
             }
         }
         GetOccasionalClipUpdates(req) => {
@@ -590,7 +590,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_clip_updates,
                 )
-                    .map_err(to_status)?;
+                .map_err(to_status)?;
             }
         }
         // Normal commands
@@ -761,7 +761,7 @@ fn send_event_reply_to_app(instance_id: InstanceId, value: event_reply::Value) -
 fn send_query_reply_to_app(
     instance_id: InstanceId,
     req_id: u32,
-    future: impl Future<Output=Result<query_result::Value, Status>> + Send + 'static,
+    future: impl Future<Output = Result<query_result::Value, Status>> + Send + 'static,
 ) {
     Global::future_support().spawn_in_main_thread(async move {
         let query_result_value = match future.await {

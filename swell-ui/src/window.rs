@@ -350,7 +350,7 @@ impl Window {
     //  difference because moving is not a problem in all known cases.
     pub fn fill_combo_box_with_data<I: Display>(
         self,
-        items: impl ExactSizeIterator<Item=(isize, I)>,
+        items: impl ExactSizeIterator<Item = (isize, I)>,
     ) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
@@ -362,13 +362,13 @@ impl Window {
     /// Okay to use if approximately less than 100 items, otherwise might become slow.
     pub fn fill_combo_box_with_data_small<I: Display>(
         self,
-        items: impl Iterator<Item=(isize, I)>,
+        items: impl Iterator<Item = (isize, I)>,
     ) {
         self.clear_combo_box();
         self.fill_combo_box_with_data_internal(items);
     }
 
-    pub fn fill_combo_box_indexed<I: Display>(self, items: impl ExactSizeIterator<Item=I>) {
+    pub fn fill_combo_box_indexed<I: Display>(self, items: impl ExactSizeIterator<Item = I>) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
         for item in items {
@@ -380,7 +380,7 @@ impl Window {
         self.fill_combo_box_indexed(items.into_iter());
     }
 
-    pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item=I>) {
+    pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item = I>) {
         self.clear_combo_box();
         for item in items {
             self.add_combo_box_item(item.to_string());
@@ -399,7 +399,7 @@ impl Window {
 
     fn fill_combo_box_with_data_internal<I: Display>(
         self,
-        items: impl Iterator<Item=(isize, I)>,
+        items: impl Iterator<Item = (isize, I)>,
     ) {
         for (i, (data, item)) in items.enumerate() {
             self.insert_combo_box_item_with_data(i, data, item.to_string());
@@ -865,7 +865,7 @@ impl Window {
                 x: Pixels(rect.right as u32),
                 y: Pixels(rect.bottom as u32),
             }
-                .into()
+            .into()
         }
         #[cfg(target_family = "unix")]
         point.in_pixels().into()
@@ -884,7 +884,7 @@ impl Window {
             DialogUnits((point.x.get() as f64 / x_factor).round() as u32),
             DialogUnits((point.y.get() as f64 / y_factor).round() as u32),
         )
-            .into()
+        .into()
     }
 
     /// Calculates the dialog-unit to pixel scaling factors for each axis.
