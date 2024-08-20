@@ -1019,6 +1019,7 @@ export type Clip = {
 	color: ClipColor,
 	dynamic_section: Section?,
 	fixed_section: Section,
+	pitch_shift: Semitones?,
 	audio_settings: ClipAudioSettings,
 	midi_settings: ClipMidiSettings,
 }

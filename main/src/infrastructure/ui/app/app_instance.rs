@@ -6,7 +6,7 @@ use crate::infrastructure::proto::{
 };
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
-use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
+use base::hash_util::NonCryptoHashMap;
 use fragile::Fragile;
 use once_cell::sync::Lazy;
 use prost::Message;
@@ -237,7 +237,6 @@ impl AppInstance for StandaloneAppInstance {
             .send(reply)
     }
 
-
     fn notify_app_is_ready(&mut self, callback: AppCallback) {
         let Some(running_state) = &mut self.running_state else {
             return;
@@ -275,10 +274,14 @@ impl AppInstance for StandaloneAppInstance {
 }
 
 static APP_WINDOWS_IN_TEXT_ENTRY: Lazy<Fragile<RefCell<NonCryptoHashMap<Hwnd, bool>>>> =
-    Lazy::new(|| Default::default());
+    Lazy::new(Default::default);
 
 pub fn app_window_is_in_text_entry_mode(window: Hwnd) -> Option<bool> {
-    APP_WINDOWS_IN_TEXT_ENTRY.get().borrow().get(&window).copied()
+    APP_WINDOWS_IN_TEXT_ENTRY
+        .get()
+        .borrow()
+        .get(&window)
+        .copied()
 }
 
 #[derive(Debug)]
@@ -297,7 +300,9 @@ impl CommonAppRunningState {
     pub fn window(&self) -> Option<Hwnd> {
         let app_library = BackboneShell::get_app_library().ok()?;
         app_library
-            .app_instance_get_window(self.app_handle).ok().flatten()
+            .app_instance_get_window(self.app_handle)
+            .ok()
+            .flatten()
     }
 
     pub fn is_visible(&self) -> bool {

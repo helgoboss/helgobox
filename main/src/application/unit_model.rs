@@ -473,10 +473,7 @@ impl UnitModel {
         compartment: CompartmentKind,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let virtualization = self.virtualize_source_value(source_value);
-        if virtualization.is_none() {
-            return None;
-        }
+        let virtualization = self.virtualize_source_value(source_value)?;
         let instance_state = self.unit.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -485,7 +482,7 @@ impl UnitModel {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
-            if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtualization) {
+            if let (Virtual(virtual_source), v) = (&mapping_source, &virtualization) {
                 virtual_source.control(&v.virtual_source_value).is_some()
             } else {
                 mapping_source
