@@ -150,10 +150,10 @@ static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui
     std::sync::OnceLock::new();
 
 pub type RealearnSessionAccelerator =
-    RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
+RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
 
 pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
+MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
 
 /// Just the old term as alias for easier class search.
 type _App = BackboneShell;
@@ -659,7 +659,8 @@ impl BackboneShell {
         session
             .plugin_register_add_hook_post_command::<Self>()
             .unwrap();
-        // Window hooks (fails before REAPER 6.29)
+        // Window hooks (fails before REAPER 6.29). Only necessary on Windows, see https://github.com/helgoboss/helgobox/issues/1083.
+        #[cfg(windows)]
         let _ = session.plugin_register_add_hwnd_info::<Self>();
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
@@ -920,7 +921,7 @@ impl BackboneShell {
     #[allow(dead_code)]
     pub fn spawn_in_async_runtime<R>(
         &self,
-        f: impl Future<Output = R> + Send + 'static,
+        f: impl Future<Output=R> + Send + 'static,
     ) -> tokio::task::JoinHandle<R>
     where
         R: Send + 'static,
@@ -1047,7 +1048,7 @@ impl BackboneShell {
         self.controller_preset_manager.borrow().log_debug_info();
     }
 
-    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
         self.sessions_changed_subject.borrow().clone()
     }
 
@@ -1227,7 +1228,7 @@ impl BackboneShell {
                 .iter()
                 .find(|i| i.is_main_unit && i.instance_id == instance_id)
         })
-        .ok()
+            .ok()
     }
 
     #[cfg(feature = "playtime")]
@@ -1921,7 +1922,7 @@ impl BackboneShell {
             compartment,
             target,
         )
-        .or_else(|| self.find_first_session_with_target(None, compartment, target))
+            .or_else(|| self.find_first_session_with_target(None, compartment, target))
     }
 
     fn find_first_session_with_target(
@@ -1976,7 +1977,7 @@ impl BackboneShell {
             Some(Reaper::get().current_project()),
             input_descriptor,
         )
-        .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
+            .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
     }
 
     fn find_first_session_with_input_from(
@@ -2001,13 +2002,13 @@ impl BackboneShell {
             compartment,
             capture_result,
         )
-        .or_else(|| {
-            self.find_first_session_with_learnable_source_matching(
-                None,
-                compartment,
-                capture_result,
-            )
-        })
+            .or_else(|| {
+                self.find_first_session_with_learnable_source_matching(
+                    None,
+                    compartment,
+                    capture_result,
+                )
+            })
     }
 
     fn find_first_session_with_learnable_source_matching(
@@ -2256,17 +2257,69 @@ impl HookPostCommand for BackboneShell {
 
 impl HwndInfo for BackboneShell {
     fn call(window: Hwnd, info_type: HwndInfoType) -> i32 {
-        if info_type == HwndInfoType::IsTextField {
-            if app_window_is_in_text_entry_mode(window) {
-                println!("IN TEXT ENTRY MODE");
-                1
-            } else {
-                println!("NOT IN TEXT ENTRY MODE");
-                -1
+        match info_type {
+            HwndInfoType::IsTextField => {
+                // REAPER detected a global hotkey press while having a child window focused. It wants to know whether
+                // this child window is currently in text-entry mode, in which case it would NOT execute the action
+                // associated with the global hotkey but direct the key to the window. We must check here whether
+                // the Helgobox App is currently in text entry mode. This is only necessary on Windows, because
+                // Flutter essentially just uses one big HWND on windows ... text fields are not different HWNDs and
+                // therefore not identifiable as text field (via Window classes "Edit", "RichEdit" etc.).
+                // When we end up here, we are on Windows (for macOS, the hook is not registered). On Windows, the
+                // window associated with the app instance is always the parent window of the window for which REAPER
+                // queries the HwndInfo. So we need to check the parent window.
+                if let Some(parent_window) = Window::from_hwnd(window).parent() {
+                    // The queried window has a parent
+                    match app_window_is_in_text_entry_mode(parent_window.raw_hwnd()) {
+                        None => {
+                            // Probably not a Helgobox App window
+                            0
+                        }
+                        Some(false) => {
+                            // It's a Helgobox App window, but we are not in text entry mode
+                            -1
+                        }
+                        Some(true) => {
+                            // It's a Helgobox App, and we are in text entry mode
+                            1
+                        }
+                    }
+                } else {
+                    // The queried window doesn't have any parent. Then it can't be the app window.
+                    0
+                }
             }
-        } else {
-            0
+            HwndInfoType::ShouldProcessGlobalHotkeys | HwndInfoType::Unknown(_) => {
+                // This is called when the hotkey is defined with scope "Global + text fields". In this case,
+                // we don't need to do anything because we want the global hotkey to fire.
+                0
+            }
         }
+        // let window = Window::from_hwnd(window);
+        // // TODO-high CONTINUE Better cache HWNDs in a set
+        // BackboneShell::get().with_instance_shell_infos(|infos| {
+        //     for i in infos {
+        //         if let Some(i) = i.instance_shell.upgrade() {
+        //             let app_instance = i.panel().app_instance();
+        //             let app_instance_window = app_instance.borrow().window();
+        //             println!("queried {window:?} vs. actual {app_instance_window:?}");
+        //             if let Some(w) = app_instance_window {
+        //                 if w == window.raw_hwnd() {
+        //                     println!("Matched window directly!");
+        //                     return 1;
+        //                 }
+        //                 if let Some(parent_window) = window.parent() {
+        //                     if w == parent_window.raw_hwnd() {
+        //                         println!("Matched parent window!");
+        //                         return 1;
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     // No app window matches
+        //     0
+        // })
     }
 }
 
@@ -2615,7 +2668,7 @@ fn decompress_app() -> anyhow::Result<()> {
     let mut archive = tar::Archive::new(tar);
     if destination_dir.exists() {
         #[cfg(target_family = "windows")]
-            let context = "Couldn't clean up existing app directory. This can happen if you have \"Allow complete unload of VST plug-ins\" enabled in REAPER preferences => Plug-ins => VST. Turn this option off and restart REAPER before using the app.";
+        let context = "Couldn't clean up existing app directory. This can happen if you have \"Allow complete unload of VST plug-ins\" enabled in REAPER preferences => Plug-ins => VST. Turn this option off and restart REAPER before using the app.";
         #[cfg(target_family = "unix")]
         let context = "Couldn't remove existing app directory";
         fs::remove_dir_all(destination_dir).context(context)?;

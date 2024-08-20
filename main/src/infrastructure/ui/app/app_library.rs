@@ -22,6 +22,7 @@ use std::ffi::{c_char, c_uint, c_void, CStr, CString};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
+use reaper_medium::Hwnd;
 use swell_ui::Window;
 use tonic::Status;
 
@@ -49,7 +50,7 @@ impl AppLibrary {
                     "window_manager_plugin.dll",
                     "pointer_lock_plugin.dll",
                 ]
-                .as_slice(),
+                    .as_slice(),
             )
         } else if cfg!(target_os = "macos") {
             (
@@ -190,6 +191,17 @@ impl AppLibrary {
         Ok(visible)
     }
 
+    pub fn app_instance_get_window(&self, app_handle: AppHandle) -> Result<Option<Hwnd>> {
+        let hwnd = unsafe {
+            let get_app_instance_window: Symbol<GetAppInstanceWindow> = self
+                .main_library
+                .get(b"get_app_instance_window\0")
+                .map_err(|_| anyhow!("failed to load get_app_instance_window function"))?;
+            get_app_instance_window(app_handle)
+        };
+        Ok(Hwnd::new(hwnd))
+    }
+
     pub fn app_instance_has_focus(&self, app_handle: AppHandle) -> Result<bool> {
         let visible = unsafe {
             let app_instance_has_focus: Symbol<AppInstanceHasFocus> = self
@@ -316,6 +328,9 @@ type AppInstanceHasFocus = unsafe extern "C" fn(app_handle: AppHandle) -> bool;
 
 /// Signature of the function that we use to check whether an app instance is visible.
 type AppInstanceIsVisible = unsafe extern "C" fn(app_handle: AppHandle) -> bool;
+
+/// Signature of the function that we use to acquire the app window.
+type GetAppInstanceWindow = unsafe extern "C" fn(app_handle: AppHandle) -> HWND;
 
 /// Signature of the function that we use to stop an app instance.
 type StopAppInstance = unsafe extern "C" fn(parent_window: HWND, app_handle: AppHandle);
@@ -489,7 +504,7 @@ fn process_command(
                     .unwrap();
                 create_initial_instance_updates(&instance_shell)
             })
-            .map_err(to_status)?;
+                .map_err(to_status)?;
         }
         GetOccasionalUnitUpdates(req) => {
             send_initial_events_to_app(instance_id, || {
@@ -498,7 +513,7 @@ fn process_command(
                     .unwrap();
                 create_initial_unit_updates(&instance_shell)
             })
-            .map_err(to_status)?;
+                .map_err(to_status)?;
         }
         GetOccasionalPlaytimeEngineUpdates(_) => {
             #[cfg(not(feature = "playtime"))]
@@ -511,7 +526,7 @@ fn process_command(
                     instance_id,
                     crate::infrastructure::proto::create_initial_engine_updates,
                 )
-                .map_err(to_status)?;
+                    .map_err(to_status)?;
             }
         }
         GetOccasionalMatrixUpdates(req) => {
@@ -527,7 +542,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_matrix_updates,
                 )
-                .map_err(to_status)?;
+                    .map_err(to_status)?;
             }
         }
         GetOccasionalTrackUpdates(req) => {
@@ -543,7 +558,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_track_updates,
                 )
-                .map_err(to_status)?;
+                    .map_err(to_status)?;
             }
         }
         GetOccasionalSlotUpdates(req) => {
@@ -559,7 +574,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_slot_updates,
                 )
-                .map_err(to_status)?;
+                    .map_err(to_status)?;
             }
         }
         GetOccasionalClipUpdates(req) => {
@@ -575,7 +590,7 @@ fn process_command(
                     req.matrix_id.into(),
                     proto::create_initial_clip_updates,
                 )
-                .map_err(to_status)?;
+                    .map_err(to_status)?;
             }
         }
         // Normal commands
@@ -746,7 +761,7 @@ fn send_event_reply_to_app(instance_id: InstanceId, value: event_reply::Value) -
 fn send_query_reply_to_app(
     instance_id: InstanceId,
     req_id: u32,
-    future: impl Future<Output = Result<query_result::Value, Status>> + Send + 'static,
+    future: impl Future<Output=Result<query_result::Value, Status>> + Send + 'static,
 ) {
     Global::future_support().spawn_in_main_thread(async move {
         let query_result_value = match future.await {

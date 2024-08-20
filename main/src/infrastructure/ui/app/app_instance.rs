@@ -6,7 +6,7 @@ use crate::infrastructure::proto::{
 };
 use crate::infrastructure::ui::AppHandle;
 use anyhow::{anyhow, bail, Context, Result};
-use base::hash_util::NonCryptoHashSet;
+use base::hash_util::{NonCryptoHashMap, NonCryptoHashSet};
 use fragile::Fragile;
 use once_cell::sync::Lazy;
 use prost::Message;
@@ -35,6 +35,8 @@ pub trait AppInstance: Debug {
     fn send(&self, reply: &Reply) -> Result<()>;
 
     fn notify_app_is_ready(&mut self, callback: AppCallback);
+
+    fn window(&self) -> Option<Hwnd>;
 
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool);
 }
@@ -126,6 +128,10 @@ impl AppInstance for DummyAppInstance {
     }
 
     fn notify_app_is_ready(&mut self, _callback: AppCallback) {}
+
+    fn window(&self) -> Option<Hwnd> {
+        None
+    }
 
     fn notify_app_is_in_text_entry_mode(&mut self, _is_in_text_entry_mode: bool) {}
 }
@@ -231,6 +237,7 @@ impl AppInstance for StandaloneAppInstance {
             .send(reply)
     }
 
+
     fn notify_app_is_ready(&mut self, callback: AppCallback) {
         let Some(running_state) = &mut self.running_state else {
             return;
@@ -253,23 +260,25 @@ impl AppInstance for StandaloneAppInstance {
         running_state.event_subscription_join_handle = Some(join_handle);
     }
 
+    fn window(&self) -> Option<Hwnd> {
+        let running_state = self.running_state.as_ref()?;
+        running_state.common_state.window()
+    }
+
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool) {
-        let mut set = APP_WINDOWS_IN_TEXT_ENTRY.get();
-        return;
-        let hwnd = todo!();
-        if is_in_text_entry_mode {
-            set.insert(hwnd);
-        } else {
-            set.remove(&hwnd);
-        }
+        let mut map = APP_WINDOWS_IN_TEXT_ENTRY.get().borrow_mut();
+        let Some(hwnd) = self.window() else {
+            return;
+        };
+        map.insert(hwnd, is_in_text_entry_mode);
     }
 }
 
-static APP_WINDOWS_IN_TEXT_ENTRY: Lazy<Fragile<NonCryptoHashSet<Hwnd>>> =
+static APP_WINDOWS_IN_TEXT_ENTRY: Lazy<Fragile<RefCell<NonCryptoHashMap<Hwnd, bool>>>> =
     Lazy::new(|| Default::default());
 
-pub fn app_window_is_in_text_entry_mode(window: Hwnd) -> bool {
-    APP_WINDOWS_IN_TEXT_ENTRY.get().contains(&window)
+pub fn app_window_is_in_text_entry_mode(window: Hwnd) -> Option<bool> {
+    APP_WINDOWS_IN_TEXT_ENTRY.get().borrow().get(&window).copied()
 }
 
 #[derive(Debug)]
@@ -283,6 +292,12 @@ impl CommonAppRunningState {
         let app_callback = self.app_callback.context("app callback not known yet")?;
         send_to_app(app_callback, reply);
         Ok(())
+    }
+
+    pub fn window(&self) -> Option<Hwnd> {
+        let app_library = BackboneShell::get_app_library().ok()?;
+        app_library
+            .app_instance_get_window(self.app_handle).ok().flatten()
     }
 
     pub fn is_visible(&self) -> bool {
