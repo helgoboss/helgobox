@@ -286,6 +286,7 @@ impl ReaperTarget {
                     evt {
                     | FxClosed(_)
                     | FxOpened(_)
+                    | FxFocused(_)
                     // For FX-to-preset links that also have preset name as criteria
                     | FxPresetChanged(_)
                     | ProjectSwitched(_)
@@ -302,11 +303,6 @@ impl ReaperTarget {
                     | HardwareOutputSendCountChanged(_)
                     | TrackSelectedChanged(_)
                     | TrackVisibilityChanged(_) => true,
-                    FxFocused(_) => {
-                        // This is only relevant if GetFocusedFX2 doesn't exist (REAPER < v7). For REAPER 7+,
-                        // our own FocusSwitched event is the best. See below.
-                        Reaper::get().medium_reaper().low().pointers().GetFocusedFX2.is_none()
-                    },
                     _ => false,
                 }
             }
@@ -316,7 +312,7 @@ impl ReaperTarget {
                 matches!(
                     evt,
                     // Auto-load should load other preset (REAPER 7+ only!)
-                    FocusSwitched
+                    FocusSwitchedBetweenMainAndFx
                     // Dynamic FX parameter expression should be re-resolved
                     | MappedFxParametersChanged
                 )
