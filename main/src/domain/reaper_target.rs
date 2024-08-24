@@ -21,7 +21,7 @@ use strum::EnumIter;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
-use helgobox_api::persistence::{SeekBehavior, TrackScope};
+use helgobox_api::persistence::{ActionScope, SeekBehavior, TrackScope};
 
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
@@ -1056,12 +1056,16 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
             project,
             action: TransportAction::Repeat,
         }),
-        _ => ReaperTarget::Action(ActionTarget {
-            action,
-            invocation_type: ActionInvocationType::Trigger,
-            project,
-            track: None,
-        }),
+        _ => {
+            let section_id = action.section().map(|s| s.id()).unwrap_or_default();
+            ReaperTarget::Action(ActionTarget {
+                action,
+                scope: ActionScope::guess_from_section_id(section_id.get()),
+                invocation_type: ActionInvocationType::Trigger,
+                project,
+                track: None,
+            })
+        }
     }
 }
 

@@ -5,16 +5,21 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetSection, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
+use camino::Utf8Path;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::{U14, U7};
+use helgobox_api::persistence::ActionScope;
 use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
-use reaper_medium::{ActionValueChange, CommandId, MasterTrackBehavior, WindowContext};
+use reaper_medium::{
+    ActionValueChange, CommandId, Hwnd, MasterTrackBehavior, OpenMediaExplorerMode,
+};
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
 #[derive(Debug)]
 pub struct UnresolvedActionTarget {
     pub action: Action,
+    pub scope: ActionScope,
     pub invocation_type: ActionInvocationType,
     pub track_descriptor: Option<TrackDescriptor>,
 }
@@ -32,6 +37,7 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
                 .map(|track| {
                     ReaperTarget::Action(ActionTarget {
                         action: self.action.clone(),
+                        scope: self.scope,
                         invocation_type: self.invocation_type,
                         project,
                         track: Some(track),
@@ -41,6 +47,7 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
         } else {
             vec![ReaperTarget::Action(ActionTarget {
                 action: self.action.clone(),
+                scope: self.scope,
                 invocation_type: self.invocation_type,
                 project,
                 track: None,
@@ -57,6 +64,7 @@ impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActionTarget {
     pub action: Action,
+    pub scope: ActionScope,
     pub invocation_type: ActionInvocationType,
     pub project: Project,
     pub track: Option<Track>,
@@ -89,7 +97,7 @@ impl RealearnTarget for ActionTarget {
         Reaper::get()
             .main_section()
             .action_by_command_id(CommandId::new(40605))
-            .invoke_as_trigger(Some(self.project))
+            .invoke_as_trigger(Some(self.project), None)
             .expect("built-in action should exist");
     }
 
@@ -157,7 +165,11 @@ impl RealearnTarget for ActionTarget {
             },
             ControlValue::RelativeDiscrete(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
-                    self.action.invoke_relative(i.get(), Some(self.project))?;
+                    self.action.invoke_relative(
+                        i.get(),
+                        Some(self.project),
+                        self.get_context_window(),
+                    )?;
                     HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
@@ -166,7 +178,11 @@ impl RealearnTarget for ActionTarget {
             ControlValue::RelativeContinuous(i) => {
                 if let ActionInvocationType::Relative = self.invocation_type {
                     let i = i.to_discrete_increment();
-                    self.action.invoke_relative(i.get(), Some(self.project))?;
+                    self.action.invoke_relative(
+                        i.get(),
+                        Some(self.project),
+                        self.get_context_window(),
+                    )?;
                     HitResponse::processed_with_effect()
                 } else {
                     return Err("relative values need relative invocation type");
@@ -249,7 +265,7 @@ impl ActionTarget {
         };
         self.action.invoke_directly(
             value_change,
-            WindowContext::Win(Reaper::get().main_window()),
+            self.get_context_window(),
             self.project.context(),
         )?;
         Ok(())
@@ -260,9 +276,25 @@ impl ActionTarget {
         v: UnitValue,
         enforce_7_bit: bool,
     ) -> Result<(), &'static str> {
-        self.action
-            .invoke_absolute(v.get(), Some(self.project), enforce_7_bit)?;
+        self.action.invoke_absolute(
+            v.get(),
+            Some(self.project),
+            enforce_7_bit,
+            self.get_context_window(),
+        )?;
         Ok(())
+    }
+
+    fn get_context_window(&self) -> Option<Hwnd> {
+        match self.scope {
+            ActionScope::Main => None,
+            ActionScope::ActiveMidiEditor | ActionScope::ActiveMidiEventListEditor => {
+                Reaper::get().medium_reaper().midi_editor_get_active()
+            }
+            ActionScope::MediaExplorer => Reaper::get()
+                .medium_reaper()
+                .open_media_explorer(Utf8Path::new(""), OpenMediaExplorerMode::Select),
+        }
     }
 }
 

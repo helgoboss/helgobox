@@ -79,6 +79,7 @@ fn convert_real_target(
         }
         Action => T::ReaperAction(ReaperActionTarget {
             commons,
+            scope: style.required_value(data.action_scope),
             command: {
                 if let Some(n) = data.command_name {
                     let v = match n.parse::<u32>() {

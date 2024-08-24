@@ -28,8 +28,8 @@ use helgoboss_learn::{
     TakeoverMode, Target, UnitValue, ValueSequence, VirtualColor, DEFAULT_OSC_ARG_VALUE_RANGE,
 };
 use helgobox_api::persistence::{
-    Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind, MidiScriptKind,
-    MonitoringMode, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor,
+    ActionScope, Axis, BrowseTracksMode, FxDescriptor, FxToolAction, LearnableTargetKind,
+    MidiScriptKind, MonitoringMode, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor,
     PlaytimeColumnDescriptorKind, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor,
     PlaytimeRowDescriptorKind, PlaytimeSlotDescriptor, PlaytimeSlotDescriptorKind,
     PlaytimeSlotManagementAction, PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
@@ -449,7 +449,7 @@ impl MappingPanel {
                                             P::TrackType | P::TrackIndex | P::TrackId | P::TrackName
                                             | P::TrackExpression | P::BookmarkType | P::BookmarkAnchorType
                                             | P::BookmarkRef | P::TransportAction | P::AnyOnParameter
-                                            | P::Action => {
+                                            | P::SmartCommandName | P::ActionScope => {
                                                 view.invalidate_window_title();
                                                 view.invalidate_target_controls(initiator);
                                                 view.invalidate_mode_controls();
@@ -926,10 +926,12 @@ impl MappingPanel {
             ReaperTargetType::Action => {
                 let reaper = Reaper::get().medium_reaper();
                 use InitialAction::*;
-                let initial_action = match mapping.borrow().target_model.action() {
+                let initial_action = match mapping.borrow().target_model.resolve_action() {
                     None => NoneSelected,
                     Some(a) => Selected(a.command_id()?),
                 };
+                let action_scope = mapping.borrow().target_model.action_scope();
+                let section_id = SectionId::new(action_scope.section_id());
                 // TODO-low Add this to reaper-high with rxRust
                 if reaper.low().pointers().PromptForAction.is_none() {
                     self.view.require_window().alert(
@@ -938,16 +940,16 @@ impl MappingPanel {
                     );
                     return Ok(());
                 }
-                reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+                reaper.prompt_for_action_create(initial_action, section_id);
                 let shared_mapping = self.mapping();
                 let weak_session = self.session.clone();
                 Global::control_surface_rx()
                     .main_thread_idle()
                     .take_until(self.party_is_over())
-                    .map(|_| {
+                    .map(move |_| {
                         Reaper::get()
                             .medium_reaper()
-                            .prompt_for_action_poll(SectionId::new(0))
+                            .prompt_for_action_poll(section_id)
                     })
                     .filter(|r| *r != PromptForActionResult::NoneSelected)
                     .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
@@ -955,13 +957,12 @@ impl MappingPanel {
                         move |r| {
                             if let PromptForActionResult::Selected(command_id) = r {
                                 let session = weak_session.upgrade().expect("session gone");
-                                let action = Reaper::get()
-                                    .main_section()
-                                    .action_by_command_id(command_id);
                                 let mut mapping = shared_mapping.borrow_mut();
-                                let cmd = MappingCommand::ChangeTarget(TargetCommand::SetAction(
-                                    Some(action),
-                                ));
+                                let cmd = MappingCommand::ChangeTarget(
+                                    TargetCommand::SetSmartCommandName(Some(
+                                        command_id.get().to_string(),
+                                    )),
+                                );
                                 session.borrow_mut().change_mapping_from_ui_expert(
                                     &mut mapping,
                                     cmd,
@@ -970,10 +971,10 @@ impl MappingPanel {
                                 );
                             }
                         },
-                        || {
+                        move || {
                             Reaper::get()
                                 .medium_reaper()
-                                .prompt_for_action_finish(SectionId::new(0));
+                                .prompt_for_action_finish(section_id);
                         },
                     );
             }
@@ -3022,6 +3023,15 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => {
+                    let scope: ActionScope = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.change_mapping(MappingCommand::ChangeTarget(
+                        TargetCommand::SetActionScope(scope),
+                    ));
+                }
                 ReaperTargetType::PlaytimeColumnAction => {
                     let kind = combo
                         .selected_combo_box_item_index()
@@ -5584,6 +5594,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::Action => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(ActionScope::iter());
+                    combo.select_combo_box_item_by_index(self.target.action_scope().into());
+                }
                 ReaperTargetType::PlaytimeColumnAction => {
                     combo.show();
                     combo.fill_combo_box_indexed(PlaytimeColumnDescriptorKind::iter());

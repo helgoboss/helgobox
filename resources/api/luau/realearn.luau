@@ -1234,6 +1234,7 @@ export type Target_AutomationModeOverride = {
 export type Target_ReaperAction = {
 	kind: "ReaperAction",
 	unit: TargetUnit?,
+	scope: ActionScope?,
 	command: ReaperCommand?,
 	invocation: ActionInvocationKind?,
 	track: TrackDescriptor?,
@@ -2285,6 +2286,7 @@ end
 
 export type ReaperActionTarget = {
 	unit: TargetUnit?,
+	scope: ActionScope?,
 	command: ReaperCommand?,
 	invocation: ActionInvocationKind?,
 	track: TrackDescriptor?,
@@ -2293,6 +2295,8 @@ export type ReaperActionTarget = {
 function module.ReaperActionTarget(value: ReaperActionTarget): ReaperActionTarget
 	return value
 end
+
+export type ActionScope = "Main" | "ActiveMidiEditor" | "ActiveMidiEventListEditor" | "MediaExplorer"
 
 export type TransportActionTarget = {
 	unit: TargetUnit?,

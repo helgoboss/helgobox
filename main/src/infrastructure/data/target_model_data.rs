@@ -1,8 +1,5 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use reaper_high::{BookmarkType, Fx, Guid, Reaper};
-use std::collections::HashSet;
-
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
     FxSnapshot, MappingModificationKind, MappingRefModel, MappingSnapshotTypeForLoad,
@@ -10,7 +7,6 @@ use crate::application::{
     TargetCommand, TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues,
     TrackRouteSelectorType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
-use crate::base::notification;
 use crate::domain::{
     get_fx_chains, ActionInvocationType, AnyOnParameter, CompartmentKind, Exclusivity,
     ExtendedProcessorContext, FxDisplayType, GroupKey, MappingKey, OscDeviceId, ReaperTargetType,
@@ -29,10 +25,13 @@ use base::default_util::{
 };
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use helgobox_api::persistence::{
-    Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind, MappingSnapshotDescForLoad,
-    MappingSnapshotDescForTake, MonitoringMode, MouseAction, PotFilterKind, SeekBehavior,
-    TargetTouchCause, TargetValue, TrackScope, TrackToolAction, VirtualControlElementCharacter,
+    ActionScope, Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind,
+    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
+    PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
+    VirtualControlElementCharacter,
 };
+use reaper_high::{BookmarkType, Fx, Guid};
+use std::collections::HashSet;
 
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::{
@@ -42,7 +41,6 @@ use helgobox_api::persistence::{
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +65,12 @@ pub struct TargetModelData {
     )]
     pub r#type: ReaperTargetType,
     // Action target
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub action_scope: ActionScope,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -538,13 +542,8 @@ impl TargetModelData {
             category: model.category(),
             unit: model.unit(),
             r#type: model.target_type(),
-            command_name: model.action().and_then(|a| match a.command_name() {
-                // Built-in actions don't have a command name but a persistent command ID.
-                // Use command ID as string.
-                None => a.command_id().ok().map(|id| id.to_string()),
-                // ReaScripts and custom actions have a command name as persistent identifier.
-                Some(name) => Some(name.into_string()),
-            }),
+            action_scope: model.action_scope(),
+            command_name: model.smart_command_name().map(|n| n.to_string()),
             invocation_type: model.action_invocation_type(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
@@ -685,25 +684,8 @@ impl TargetModelData {
         model.change(C::SetUnit(self.unit));
         model.change(C::SetTargetType(self.r#type));
         if self.category == TargetCategory::Reaper && self.r#type == ReaperTargetType::Action {
-            let reaper = Reaper::get();
-            let action = match self.command_name.as_ref() {
-                None => None,
-                Some(command_name) => match command_name.parse::<u32>() {
-                    // Could parse this as command ID integer. This is a built-in action.
-                    Ok(command_id_int) => match command_id_int.try_into() {
-                        Ok(command_id) => {
-                            Some(reaper.main_section().action_by_command_id(command_id))
-                        }
-                        Err(_) => {
-                            notification::warn(format!("Invalid command ID {command_id_int}"));
-                            None
-                        }
-                    },
-                    // Couldn't parse this as integer. This is a ReaScript or custom action.
-                    Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
-                },
-            };
-            model.change(C::SetAction(action));
+            model.change(C::SetActionScope(self.action_scope));
+            model.change(C::SetSmartCommandName(self.command_name.clone()));
         }
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version

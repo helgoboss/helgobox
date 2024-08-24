@@ -68,6 +68,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::Action,
+                action_scope: d.scope.unwrap_or_default(),
                 command_name: d.command.map(|cmd| match cmd {
                     ReaperCommand::Id(id) => id.to_string(),
                     ReaperCommand::Name(n) => n,

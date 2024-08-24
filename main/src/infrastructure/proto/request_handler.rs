@@ -296,7 +296,7 @@ impl ProtoRequestHandler {
                 let _ = Reaper::get()
                     .main_section()
                     .action_by_command_id(CommandId::new(40345))
-                    .invoke_as_trigger(None);
+                    .invoke_as_trigger(None, None);
                 BackboneShell::get()
                     .proto_hub()
                     .notify_about_global_info_event(GlobalInfoEvent::generic(
@@ -366,7 +366,7 @@ impl ProtoRequestHandler {
                     Reaper::get()
                         .main_section()
                         .action_by_command_id(save_project_command_id)
-                        .invoke_as_trigger(Some(project))?;
+                        .invoke_as_trigger(Some(project), None)?;
                     BackboneShell::get()
                         .proto_hub()
                         .notify_about_instance_info_event(

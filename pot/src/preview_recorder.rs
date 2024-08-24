@@ -164,7 +164,7 @@ fn render_to_file(project: Project, full_path: &Utf8Path) -> Result<(), Box<dyn 
     reaper
         .main_section()
         .action_by_command_id(CommandId::new(42230))
-        .invoke_as_trigger(Some(project))?;
+        .invoke_as_trigger(Some(project), None)?;
     Ok(())
 }
 

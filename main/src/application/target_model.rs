@@ -13,7 +13,8 @@ use reaper_high::{
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
-    Affected, Change, GetProcessingRelevance, ProcessingRelevance, UnitModel,
+    build_action_from_smart_command_name, build_smart_command_name_from_action, Affected, Change,
+    GetProcessingRelevance, ProcessingRelevance, UnitModel,
 };
 use crate::domain::{
     find_bookmark, get_fx_name, get_fx_params, get_non_present_virtual_route_label,
@@ -59,10 +60,10 @@ use std::error::Error;
 use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::{
-    Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor, FxDescriptorCommons,
-    FxToolAction, LearnTargetMappingModification, LearnableTargetKind, MappingModification,
-    MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode, MouseAction,
-    MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
+    ActionScope, Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor,
+    FxDescriptorCommons, FxToolAction, LearnTargetMappingModification, LearnableTargetKind,
+    MappingModification, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
+    MouseAction, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
     PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
     SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
@@ -70,8 +71,8 @@ use helgobox_api::persistence::{
 };
 use playtime_api::persistence::ColumnAddress;
 use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, TrackArea,
-    TrackLocation, TrackSendDirection,
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, SectionId,
+    TrackArea, TrackLocation, TrackSendDirection,
 };
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -87,7 +88,8 @@ pub enum TargetCommand {
     SetControlElementId(VirtualControlElementId),
     SetLearnable(bool),
     SetTargetType(ReaperTargetType),
-    SetAction(Option<Action>),
+    SetActionScope(ActionScope),
+    SetSmartCommandName(Option<String>),
     SetActionInvocationType(ActionInvocationType),
     SetWithTrack(bool),
     SetTrackName(String),
@@ -182,7 +184,8 @@ pub enum TargetProp {
     ControlElementId,
     Learnable,
     TargetType,
-    Action,
+    ActionScope,
+    SmartCommandName,
     ActionInvocationType,
     WithTrack,
     TrackType,
@@ -313,9 +316,13 @@ impl<'a> Change<'a> for TargetModel {
                 self.r#type = v;
                 One(P::TargetType)
             }
-            C::SetAction(v) => {
-                self.action = v;
-                One(P::Action)
+            C::SetActionScope(v) => {
+                self.action_scope = v;
+                One(P::ActionScope)
+            }
+            C::SetSmartCommandName(v) => {
+                self.smart_command_name = v;
+                One(P::SmartCommandName)
             }
             C::SetActionInvocationType(v) => {
                 self.action_invocation_type = v;
@@ -672,8 +679,8 @@ pub struct TargetModel {
     // TODO-low Rename this to reaper_target_type
     r#type: ReaperTargetType,
     // # For action targets only
-    // TODO-low Maybe replace Action with just command ID and/or command name
-    action: Option<Action>,
+    action_scope: ActionScope,
+    smart_command_name: Option<String>,
     action_invocation_type: ActionInvocationType,
     with_track: bool,
     // # For track targets
@@ -847,7 +854,8 @@ impl Default for TargetModel {
             control_element_id: Default::default(),
             learnable: true,
             r#type: ReaperTargetType::Dummy,
-            action: None,
+            action_scope: Default::default(),
+            smart_command_name: None,
             action_invocation_type: ActionInvocationType::default(),
             track_type: Default::default(),
             track_id: None,
@@ -966,8 +974,12 @@ impl TargetModel {
         self.r#type
     }
 
-    pub fn action(&self) -> Option<&Action> {
-        self.action.as_ref()
+    pub fn action_scope(&self) -> ActionScope {
+        self.action_scope
+    }
+
+    pub fn smart_command_name(&self) -> Option<&str> {
+        self.smart_command_name.as_deref()
     }
 
     pub fn action_invocation_type(&self) -> ActionInvocationType {
@@ -1730,7 +1742,9 @@ impl TargetModel {
 
         match target {
             Action(t) => {
-                self.action = Some(t.action.clone());
+                let section_id = t.action.section().map(|s| s.id()).unwrap_or_default();
+                self.action_scope = ActionScope::guess_from_section_id(section_id.get());
+                self.smart_command_name = build_smart_command_name_from_action(&t.action);
                 self.action_invocation_type = t.invocation_type;
             }
             FxParameter(t) => {
@@ -2243,7 +2257,8 @@ impl TargetModel {
                         },
                     ),
                     Action => UnresolvedReaperTarget::Action(UnresolvedActionTarget {
-                        action: self.resolved_action()?,
+                        action: self.resolved_available_action()?,
+                        scope: self.action_scope,
                         invocation_type: self.action_invocation_type,
                         track_descriptor: if self.with_track {
                             Some(self.track_descriptor()?)
@@ -2962,7 +2977,7 @@ impl TargetModel {
     }
 
     fn command_id_label(&self) -> Cow<str> {
-        match self.action.as_ref() {
+        match self.resolve_action() {
             None => "-".into(),
             Some(action) => {
                 if action.is_available() {
@@ -2980,8 +2995,16 @@ impl TargetModel {
         }
     }
 
-    pub fn resolved_action(&self) -> Result<Action, &'static str> {
-        let action = self.action.as_ref().ok_or("action not set")?;
+    pub fn resolve_action(&self) -> Option<Action> {
+        let command_name = self.smart_command_name.as_deref()?;
+        build_action_from_smart_command_name(
+            SectionId::new(self.action_scope.section_id()),
+            command_name,
+        )
+    }
+
+    pub fn resolved_available_action(&self) -> Result<Action, &'static str> {
+        let action = self.resolve_action().ok_or("action not set")?;
         if !action.is_available() {
             return Err("action not available");
         }
@@ -2989,7 +3012,7 @@ impl TargetModel {
     }
 
     pub fn action_name_label(&self) -> Cow<str> {
-        match self.resolved_action().ok() {
+        match self.resolved_available_action().ok() {
             None => "-".into(),
             Some(a) => a.name().expect("should be available").into_string().into(),
         }
@@ -3006,7 +3029,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                 use ReaperTargetType::*;
                 let tt = self.0.r#type;
                 match tt {
-                    Action => match self.0.resolved_action().ok() {
+                    Action => match self.0.resolved_available_action().ok() {
                         None => write!(f, "Action {}", self.0.command_id_label()),
                         Some(a) => f.write_str(a.name().expect("should be available").to_str()),
                     },

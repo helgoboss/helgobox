@@ -5,7 +5,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use strum::IntoEnumIterator;
+use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(
     Copy,
@@ -229,11 +229,61 @@ pub struct ReaperActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<ActionScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub command: Option<ReaperCommand>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocationKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackDescriptor>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Default,
+    EnumIter,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize,
+    Deserialize,
+)]
+#[repr(usize)]
+pub enum ActionScope {
+    #[display(fmt = "Main")]
+    #[default]
+    Main,
+    #[display(fmt = "Active MIDI editor")]
+    ActiveMidiEditor,
+    #[display(fmt = "Active MIDI event list editor")]
+    ActiveMidiEventListEditor,
+    #[display(fmt = "Media explorer")]
+    MediaExplorer,
+}
+
+impl ActionScope {
+    pub fn guess_from_section_id(section_id: u32) -> Self {
+        match section_id {
+            32060 => ActionScope::ActiveMidiEditor,
+            32061 => ActionScope::ActiveMidiEventListEditor,
+            32063 => ActionScope::MediaExplorer,
+            _ => ActionScope::Main,
+        }
+    }
+
+    pub fn section_id(&self) -> u32 {
+        match self {
+            ActionScope::Main => 0,
+            ActionScope::ActiveMidiEditor => 32060,
+            ActionScope::ActiveMidiEventListEditor => 32061,
+            ActionScope::MediaExplorer => 32063,
+        }
+    }
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
