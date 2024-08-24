@@ -1800,13 +1800,6 @@ impl UnitModel {
             ),
         )
         .with(session)
-        .finally(|session| {
-            session
-                .borrow()
-                .unit
-                .borrow_mut()
-                .set_mapping_which_learns_source(None);
-        })
         .do_async(|shared_session, event: MessageCaptureEvent| {
             let mut session = shared_session.borrow_mut();
             let qualified_id = session.unit.borrow().mapping_which_learns_source().get();
