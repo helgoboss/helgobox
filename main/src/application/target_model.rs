@@ -3682,6 +3682,10 @@ fn virtualize_track(
     context: &ProcessorContext,
     special_monitoring_fx_handling: bool,
 ) -> VirtualTrack {
+    if !track.is_available() {
+        // Fixes https://github.com/helgoboss/helgobox/issues/1126
+        return VirtualTrack::ById(*track.guid());
+    }
     let own_track = context.track().cloned().unwrap_or_else(|| {
         context
             .project_or_current_project()
@@ -3693,7 +3697,7 @@ fn virtualize_track(
     } else if track.is_master_track() {
         VirtualTrack::Master
     } else if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
-        // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
+        // It doesn't make sense to refer to tracks via ID if we are on the monitoring FX chain.
         VirtualTrack::ByIndex {
             index: track.index().expect("impossible"),
             scope: TrackScope::AllTracks,
