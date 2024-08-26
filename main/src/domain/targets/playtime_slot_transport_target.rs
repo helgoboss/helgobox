@@ -557,6 +557,7 @@ mod playtime_impl {
             ColumnPlaySlotOptions {
                 velocity: Some(control_value.to_unit_value().unwrap_or(UnitValue::MAX)),
                 stop_column_if_slot_empty: self.options.stop_column_if_slot_empty,
+                handle_ignited_clips: false,
             }
         }
     }
