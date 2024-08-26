@@ -24,7 +24,7 @@ use crate::domain::{
     FxParameterDescriptor, GroupId, MappingId, MappingKey, MappingRef, MappingSnapshotId,
     MouseActionType, OscDeviceId, PotFilterItemsTargetSettings, ProcessorContext,
     QualifiedMappingId, RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions,
-    SendMidiDestination, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
+    SendMidiDestinationType, SoloBehavior, Tag, TagScope, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackDescriptor, TrackExclusivity, TrackGangBehavior,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
@@ -61,18 +61,19 @@ use crate::domain::ui_util::format_tags_as_csv;
 use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, ClipColumnTrackContext, FxChainDescriptor,
-    FxDescriptorCommons, FxToolAction, LearnTargetMappingModification, LearnableTargetKind,
-    MappingModification, MappingSnapshotDescForLoad, MappingSnapshotDescForTake, MonitoringMode,
-    MouseAction, MouseButton, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
-    PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
-    PlaytimeSlotTransportAction, PotFilterKind, SeekBehavior,
-    SetTargetToLastTouchedMappingModification, TargetTouchCause, TrackDescriptorCommons,
-    TrackFxChain, TrackScope, TrackToolAction, VirtualControlElementCharacter,
+    FxDescriptorCommons, FxToolAction, InputDeviceMidiDestination, LearnTargetMappingModification,
+    LearnableTargetKind, MappingModification, MappingSnapshotDescForLoad,
+    MappingSnapshotDescForTake, MonitoringMode, MouseAction, MouseButton, PlaytimeColumnAction,
+    PlaytimeColumnDescriptor, PlaytimeMatrixAction, PlaytimeRowAction, PlaytimeRowDescriptor,
+    PlaytimeSlotDescriptor, PlaytimeSlotManagementAction, PlaytimeSlotTransportAction,
+    PotFilterKind, SeekBehavior, SendMidiDestination, SetTargetToLastTouchedMappingModification,
+    TargetTouchCause, TrackDescriptorCommons, TrackFxChain, TrackScope, TrackToolAction,
+    VirtualControlElementCharacter,
 };
 use playtime_api::persistence::ColumnAddress;
 use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode, SectionId,
-    TrackArea, TrackLocation, TrackSendDirection,
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, InputMonitoringMode,
+    MidiInputDeviceId, SectionId, TrackArea, TrackLocation, TrackSendDirection,
 };
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -142,7 +143,8 @@ pub enum TargetCommand {
     SetScrollArrangeView(bool),
     SetScrollMixer(bool),
     SetRawMidiPattern(String),
-    SetSendMidiDestination(SendMidiDestination),
+    SetSendMidiDestinationType(SendMidiDestinationType),
+    SetMidiInputDevice(Option<MidiInputDeviceId>),
     SetOscAddressPattern(String),
     SetOscArgIndex(Option<u32>),
     SetOscArgTypeTag(OscTypeTag),
@@ -243,6 +245,7 @@ pub enum TargetProp {
     ScrollMixer,
     RawMidiPattern,
     SendMidiDestination,
+    MidiInputDevice,
     OscAddressPattern,
     OscArgIndex,
     OscArgTypeTag,
@@ -532,9 +535,13 @@ impl<'a> Change<'a> for TargetModel {
                 self.raw_midi_pattern = v;
                 One(P::RawMidiPattern)
             }
-            C::SetSendMidiDestination(v) => {
-                self.send_midi_destination = v;
+            C::SetSendMidiDestinationType(v) => {
+                self.send_midi_destination_type = v;
                 One(P::SendMidiDestination)
+            }
+            C::SetMidiInputDevice(v) => {
+                self.midi_input_device = v;
+                One(P::MidiInputDevice)
             }
             C::SetOscAddressPattern(v) => {
                 self.osc_address_pattern = v;
@@ -760,7 +767,8 @@ pub struct TargetModel {
     scroll_mixer: bool,
     // # For Send MIDI target
     raw_midi_pattern: String,
-    send_midi_destination: SendMidiDestination,
+    send_midi_destination_type: SendMidiDestinationType,
+    midi_input_device: Option<MidiInputDeviceId>,
     // # For Send OSC target
     osc_address_pattern: String,
     osc_arg_index: Option<u32>,
@@ -908,7 +916,8 @@ impl Default for TargetModel {
             scroll_arrange_view: false,
             scroll_mixer: false,
             raw_midi_pattern: Default::default(),
-            send_midi_destination: Default::default(),
+            send_midi_destination_type: Default::default(),
+            midi_input_device: None,
             osc_address_pattern: "".to_owned(),
             osc_arg_index: Some(0),
             osc_arg_type_tag: Default::default(),
@@ -1218,8 +1227,12 @@ impl TargetModel {
         &self.raw_midi_pattern
     }
 
-    pub fn send_midi_destination(&self) -> SendMidiDestination {
-        self.send_midi_destination
+    pub fn send_midi_destination_type(&self) -> SendMidiDestinationType {
+        self.send_midi_destination_type
+    }
+
+    pub fn midi_input_device(&self) -> Option<MidiInputDeviceId> {
+        self.midi_input_device
     }
 
     pub fn osc_address_pattern(&self) -> &str {
@@ -2494,7 +2507,17 @@ impl TargetModel {
                     }),
                     SendMidi => UnresolvedReaperTarget::SendMidi(UnresolvedMidiSendTarget {
                         pattern: self.raw_midi_pattern.parse().unwrap_or_default(),
-                        destination: self.send_midi_destination,
+                        destination: match self.send_midi_destination_type {
+                            SendMidiDestinationType::FxOutput => SendMidiDestination::FxOutput,
+                            SendMidiDestinationType::FeedbackOutput => {
+                                SendMidiDestination::FeedbackOutput
+                            }
+                            SendMidiDestinationType::InputDevice => {
+                                SendMidiDestination::InputDevice(InputDeviceMidiDestination {
+                                    device_id: self.midi_input_device.map(|d| d.get()),
+                                })
+                            }
+                        },
                     }),
                     SendOsc => UnresolvedReaperTarget::SendOsc(UnresolvedOscSendTarget {
                         address_pattern: self.osc_address_pattern.clone(),

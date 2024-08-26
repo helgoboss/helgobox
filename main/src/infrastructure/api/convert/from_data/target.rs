@@ -5,7 +5,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
-    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedRouteParameterType,
+    ReaperTargetType, SendMidiDestinationType, SoloBehavior, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
@@ -26,13 +26,14 @@ use helgobox_api::persistence::{
     CompartmentParameterDescriptor, CompartmentParameterValueTarget, DummyTarget,
     EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget, FxOnlineOfflineStateTarget,
     FxParameterAutomationTouchStateTarget, FxParameterValueTarget, FxToolTarget,
-    FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget, LearnTargetMappingModification,
-    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, LoadPotPresetTarget, MappingModification,
-    ModifyMappingTarget, MouseTarget, PlayRateTarget, PreviewPotPresetTarget, ReaperActionTarget,
-    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
-    RoutePhaseTarget, RouteTouchStateTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget,
-    SendOscTarget, SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget,
-    TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    FxVisibilityTarget, GoToBookmarkTarget, InputDeviceMidiDestination, LastTouchedTarget,
+    LearnTargetMappingModification, LoadFxSnapshotTarget, LoadMappingSnapshotTarget,
+    LoadPotPresetTarget, MappingModification, ModifyMappingTarget, MouseTarget, PlayRateTarget,
+    PreviewPotPresetTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
+    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteTouchStateTarget,
+    RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget,
+    SetTargetToLastTouchedMappingModification, TakeMappingSnapshotTarget, TempoTarget,
+    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
     TrackMonitoringModeTarget, TrackMuteStateTarget, TrackPanTarget, TrackParentSendStateTarget,
     TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
     TrackToolTarget, TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget,
@@ -359,12 +360,14 @@ fn convert_real_target(
             commons,
             message: style.required_value(data.raw_midi_pattern),
             destination: {
-                use persistence::MidiDestination as T;
-                use SendMidiDestination::*;
+                use persistence::SendMidiDestination as T;
+                use SendMidiDestinationType::*;
                 let dest = match data.send_midi_destination {
                     FxOutput => T::FxOutput,
                     FeedbackOutput => T::FeedbackOutput,
-                    DeviceInput => T::DeviceInput,
+                    InputDevice => T::InputDevice(InputDeviceMidiDestination {
+                        device_id: data.midi_input_device_id.map(|id| id.get()),
+                    }),
                 };
                 style.required_value(dest)
             },

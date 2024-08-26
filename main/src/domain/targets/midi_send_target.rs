@@ -3,8 +3,8 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
     HitResponse, LogOptions, MappingControlContext, MidiDestination, MidiEvent,
     MidiTransformationContainer, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SendMidiDestination, TargetCharacter, TargetSection, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_learn::{
@@ -12,8 +12,9 @@ use helgoboss_learn::{
     MidiSourceValue, RawMidiPattern, Target, UnitValue,
 };
 use helgobox_allocator::permit_alloc;
+use helgobox_api::persistence::SendMidiDestination;
 use reaper_high::MidiOutputDevice;
-use reaper_medium::SendMidiTime;
+use reaper_medium::{MidiInputDeviceId, SendMidiTime};
 use std::convert::TryInto;
 
 #[derive(Debug)]
@@ -66,6 +67,7 @@ impl MidiSendTarget {
         self.destination
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn midi_send_target_send_midi_in_rt_thread(
         &mut self,
         caller: Caller,
@@ -82,7 +84,7 @@ impl MidiSendTarget {
         // send a MIDI message and this needs to happen in the audio thread.
         // Going to the main thread and back would be such a waste!
         let raw_midi_event = self.pattern().to_concrete_midi_event(v);
-        match self.destination() {
+        match self.destination {
             SendMidiDestination::FxOutput | SendMidiDestination::FeedbackOutput => {
                 let midi_destination = match caller {
                     Caller::Vst(_) => match self.destination() {
@@ -132,10 +134,12 @@ impl MidiSendTarget {
                     }
                 };
             }
-            SendMidiDestination::DeviceInput => {
-                if let Some(container) = transformation_container {
-                    container.push(raw_midi_event);
-                }
+            SendMidiDestination::InputDevice(d) => {
+                let container = transformation_container.as_mut().ok_or(
+                    "can't send to device input when MIDI doesn't come from device directly",
+                )?;
+                let dev_id = d.device_id.map(MidiInputDeviceId::new);
+                container.push(dev_id, raw_midi_event);
             }
         }
         // We end up here only if the message was successfully sent
@@ -247,9 +251,6 @@ impl RealearnTarget for MidiSendTarget {
         let resolved_destination =
             match self.destination {
                 SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-                SendMidiDestination::DeviceInput => return Err(
-                    "sending to device input is only possible in response to a MIDI source event coming from a MIDI device",
-                ),
                 SendMidiDestination::FeedbackOutput => {
                     let feedback_output = context
                         .control_context
@@ -261,6 +262,9 @@ impl RealearnTarget for MidiSendTarget {
                         return Err("feedback output is not MIDI");
                     }
                 }
+                SendMidiDestination::InputDevice(_) => return Err(
+                    "sending to device input is only possible in response to a MIDI source event coming from a MIDI device",
+                ),
             };
         self.artificial_value = value;
         let raw_midi_events =

@@ -10,7 +10,7 @@ use crate::application::{
 use crate::domain::{
     get_fx_chains, ActionInvocationType, AnyOnParameter, CompartmentKind, Exclusivity,
     ExtendedProcessorContext, FxDisplayType, GroupKey, MappingKey, OscDeviceId, ReaperTargetType,
-    SeekOptions, SendMidiDestination, SoloBehavior, Tag, TouchedRouteParameterType,
+    SeekOptions, SendMidiDestinationType, SoloBehavior, Tag, TouchedRouteParameterType,
     TouchedTrackParameterType, TrackExclusivity, TrackGangBehavior, TrackRouteType,
     TransportAction, VirtualTrack,
 };
@@ -23,6 +23,7 @@ use crate::infrastructure::plugin::BackboneShell;
 use base::default_util::{
     bool_true, deserialize_null_default, is_bool_true, is_default, is_none_or_some_default,
 };
+use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{AbsoluteValue, Fraction, OscTypeTag, UnitValue};
 use helgobox_api::persistence::{
     ActionScope, Axis, BrowseTracksMode, FxToolAction, LearnableTargetKind,
@@ -30,17 +31,16 @@ use helgobox_api::persistence::{
     PotFilterKind, SeekBehavior, TargetTouchCause, TargetValue, TrackScope, TrackToolAction,
     VirtualControlElementCharacter,
 };
-use reaper_high::{BookmarkType, Fx, Guid};
-use std::collections::HashSet;
-
-use base::hash_util::NonCryptoHashSet;
 use helgobox_api::persistence::{
     ClipColumnTrackContext, PlaytimeColumnAction, PlaytimeColumnDescriptor, PlaytimeMatrixAction,
     PlaytimeRowAction, PlaytimeRowDescriptor, PlaytimeSlotDescriptor, PlaytimeSlotManagementAction,
     PlaytimeSlotTransportAction,
 };
+use reaper_high::{BookmarkType, Fx, Guid};
+use reaper_medium::MidiInputDeviceId;
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -283,7 +283,13 @@ pub struct TargetModelData {
         deserialize_with = "deserialize_null_default",
         skip_serializing_if = "is_default"
     )]
-    pub send_midi_destination: SendMidiDestination,
+    pub send_midi_destination: SendMidiDestinationType,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    pub midi_input_device_id: Option<MidiInputDeviceId>,
     #[serde(
         default,
         deserialize_with = "deserialize_null_default",
@@ -586,7 +592,8 @@ impl TargetModelData {
             fx_display_type: model.fx_display_type(),
             scroll_arrange_view: model.scroll_arrange_view(),
             scroll_mixer: model.scroll_mixer(),
-            send_midi_destination: model.send_midi_destination(),
+            send_midi_destination: model.send_midi_destination_type(),
+            midi_input_device_id: model.midi_input_device(),
             raw_midi_pattern: model.raw_midi_pattern().to_owned(),
             osc_address_pattern: model.osc_address_pattern().to_owned(),
             osc_arg_index: model.osc_arg_index(),
@@ -837,7 +844,8 @@ impl TargetModelData {
             self.scroll_mixer
         };
         model.change(C::SetScrollMixer(scroll_mixer));
-        model.change(C::SetSendMidiDestination(self.send_midi_destination));
+        model.change(C::SetSendMidiDestinationType(self.send_midi_destination));
+        model.change(C::SetMidiInputDevice(self.midi_input_device_id));
         model.change(C::SetRawMidiPattern(self.raw_midi_pattern.clone()));
         model.change(C::SetOscAddressPattern(self.osc_address_pattern.clone()));
         model.change(C::SetOscArgIndex(self.osc_arg_index));

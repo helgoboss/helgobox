@@ -167,7 +167,7 @@ impl RealearnAudioHook {
             time_of_last_run: None,
             initialized: false,
             counter,
-            midi_transformation_container: MidiTransformationContainer::with_capacity(1000),
+            midi_transformation_container: MidiTransformationContainer::new(),
             #[cfg(feature = "playtime")]
             clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook::new(),
         }
@@ -433,10 +433,26 @@ impl RealearnAudioHook {
                         }
                     }
                     // Add transformed events *after* iterating
-                    for event in self.midi_transformation_container.drain() {
+                    for event in self
+                        .midi_transformation_container
+                        .drain_same_device_events()
+                    {
                         let reaper_event = reaper_medium::MidiEvent::from_raw_ref(event.as_ref());
                         event_list.add_item(reaper_event);
                     }
+                }
+            });
+        }
+        // Process MIDI "MIDI: Send message" to "Device input" across multiple devices
+        for evt in self
+            .midi_transformation_container
+            .drain_other_device_events()
+        {
+            MidiInputDevice::new(evt.input_device_id).with_midi_input(|mi| {
+                if let Some(mi) = mi {
+                    let event_list = mi.get_read_buf();
+                    let reaper_event = reaper_medium::MidiEvent::from_raw_ref(evt.event.as_ref());
+                    event_list.add_item(reaper_event);
                 }
             });
         }

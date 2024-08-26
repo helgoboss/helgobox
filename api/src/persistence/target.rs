@@ -1014,7 +1014,7 @@ pub struct SendMidiTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination: Option<MidiDestination>,
+    pub destination: Option<SendMidiDestination>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
@@ -2265,15 +2265,21 @@ impl Default for PlaytimeRowDescriptor {
     }
 }
 
-#[derive(Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
-pub enum MidiDestination {
+pub enum SendMidiDestination {
     FxOutput,
     FeedbackOutput,
-    DeviceInput,
+    InputDevice(InputDeviceMidiDestination),
 }
 
-impl Default for MidiDestination {
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub struct InputDeviceMidiDestination {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<u8>,
+}
+
+impl Default for SendMidiDestination {
     fn default() -> Self {
         Self::FeedbackOutput
     }

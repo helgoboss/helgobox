@@ -176,19 +176,19 @@ pub enum ReaperTarget {
     Display,
 )]
 #[repr(usize)]
-pub enum SendMidiDestination {
+pub enum SendMidiDestinationType {
     #[serde(rename = "fx-output")]
     #[display(fmt = "FX output")]
     FxOutput,
     #[serde(rename = "feedback-output")]
     #[display(fmt = "Feedback output")]
     FeedbackOutput,
-    #[serde(rename = "device-input")]
-    #[display(fmt = "Device input")]
-    DeviceInput,
+    #[serde(rename = "input-device")]
+    #[display(fmt = "Input device")]
+    InputDevice,
 }
 
-impl Default for SendMidiDestination {
+impl Default for SendMidiDestinationType {
     fn default() -> Self {
         Self::FxOutput
     }

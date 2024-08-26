@@ -15,6 +15,7 @@ use std::ffi::CString;
 use base::hash_util::NonCryptoIndexMap;
 use derive_more::Display;
 use helgobox_api::persistence::VirtualControlElementCharacter;
+use reaper_medium::MidiInputDeviceId;
 use std::iter;
 use strum::IntoEnumIterator;
 use swell_ui::menu_tree::{
@@ -26,12 +27,44 @@ pub enum ControlInputMenuAction {
     ManageOsc(OscDeviceManagementAction),
 }
 
-pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuAction> {
-    let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
-    let (open_midi_devs, closed_midi_devs): (Vec<_>, Vec<_>) = Reaper::get()
+pub fn midi_device_input_menu(
+    current_value: Option<MidiInputDeviceId>,
+    none_label: &str,
+) -> Menu<Option<MidiInputDeviceId>> {
+    let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
+    let entries = iter::once(item_with_opts(
+        none_label,
+        ItemOpts {
+            enabled: true,
+            checked: current_value.is_none(),
+        },
+        None,
+    ))
+    .chain(
+        open_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_input_dev_menu_item(dev, current_value)),
+    )
+    .chain(iter::once(menu(
+        "Unavailable MIDI input devices",
+        closed_midi_devs
+            .into_iter()
+            .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
+            .collect(),
+    )));
+    anonymous_menu(entries.collect())
+}
+
+fn get_open_and_closed_midi_input_devs() -> (Vec<MidiInputDevice>, Vec<MidiInputDevice>) {
+    Reaper::get()
         .midi_input_devices()
         .filter(|d| d.is_available())
-        .partition(|dev| dev.is_open());
+        .partition(|dev| dev.is_open())
+}
+
+pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuAction> {
+    let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
+    let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
     let osc_device_manager = BackboneShell::get().osc_device_manager();
     let osc_device_manager = osc_device_manager.borrow();
     let (open_osc_devs, closed_osc_devs): (Vec<_>, Vec<_>) = {
@@ -50,13 +83,13 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
     .chain(
         open_midi_devs
             .into_iter()
-            .map(|dev| build_midi_input_dev_menu_item(dev, current_value)),
+            .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value)),
     )
     .chain(iter::once(menu(
         "Unavailable MIDI input devices",
         closed_midi_devs
             .into_iter()
-            .map(|dev| build_midi_input_dev_menu_item(dev, current_value))
+            .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value))
             .collect(),
     )))
     .chain(iter::once(separator()))
@@ -163,7 +196,7 @@ pub const CONTROL_INPUT_KEYBOARD_LABEL: &str = "Computer keyboard";
 pub const FEEDBACK_OUTPUT_MIDI_FX_OUTPUT: &str = "MIDI: <FX output>";
 pub const FEEDBACK_OUTPUT_NONE_LABEL: &str = "<None>";
 
-fn build_midi_input_dev_menu_item(
+fn build_control_input_midi_input_dev_menu_item(
     dev: MidiInputDevice,
     current_value: ControlInput,
 ) -> Entry<ControlInputMenuAction> {
@@ -175,6 +208,20 @@ fn build_midi_input_dev_menu_item(
             checked: current_value == control_input,
         },
         ControlInputMenuAction::SelectControlInput(control_input),
+    )
+}
+
+fn build_midi_input_dev_menu_item(
+    dev: MidiInputDevice,
+    current_value: Option<MidiInputDeviceId>,
+) -> Entry<Option<MidiInputDeviceId>> {
+    item_with_opts(
+        get_midi_input_device_list_label(dev),
+        ItemOpts {
+            enabled: true,
+            checked: current_value == Some(dev.id()),
+        },
+        Some(dev.id()),
     )
 }
 

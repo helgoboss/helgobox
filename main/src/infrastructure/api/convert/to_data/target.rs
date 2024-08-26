@@ -6,7 +6,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, Exclusivity, FxDisplayType, ReaperTargetType, SeekOptions,
-    SendMidiDestination, TouchedRouteParameterType, TrackRouteType,
+    SendMidiDestinationType, TouchedRouteParameterType, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_osc_arg_type, convert_osc_value_range, convert_tags,
@@ -20,6 +20,7 @@ use crate::{application, domain};
 use base::hash_util::convert_into_other_hash_set;
 use helgobox_api::persistence::*;
 use reaper_high::Guid;
+use reaper_medium::MidiInputDeviceId;
 use std::rc::Rc;
 
 pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
@@ -811,17 +812,26 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             axis: d.axis,
             ..init(d.commons)
         },
-        Target::SendMidi(d) => TargetModelData {
-            category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::SendMidi,
-            raw_midi_pattern: d.message.unwrap_or_default(),
-            send_midi_destination: match d.destination.unwrap_or_default() {
-                MidiDestination::FxOutput => SendMidiDestination::FxOutput,
-                MidiDestination::FeedbackOutput => SendMidiDestination::FeedbackOutput,
-                MidiDestination::DeviceInput => SendMidiDestination::DeviceInput,
-            },
-            ..init(d.commons)
-        },
+        Target::SendMidi(d) => {
+            let (dest_type, midi_input_device_id) = match d.destination.unwrap_or_default() {
+                SendMidiDestination::FxOutput => (SendMidiDestinationType::FxOutput, None),
+                SendMidiDestination::FeedbackOutput => {
+                    (SendMidiDestinationType::FeedbackOutput, None)
+                }
+                SendMidiDestination::InputDevice(d) => (
+                    SendMidiDestinationType::InputDevice,
+                    d.device_id.map(MidiInputDeviceId::new),
+                ),
+            };
+            TargetModelData {
+                category: TargetCategory::Reaper,
+                r#type: ReaperTargetType::SendMidi,
+                raw_midi_pattern: d.message.unwrap_or_default(),
+                send_midi_destination: dest_type,
+                midi_input_device_id,
+                ..init(d.commons)
+            }
+        }
         Target::SendOsc(d) => {
             let (osc_arg_index, osc_arg_type, osc_arg_value_range) = if let Some(a) = d.argument {
                 (

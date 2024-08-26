@@ -60,7 +60,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     control_element_domains, AnyOnParameter, Backbone, ControlContext, Exclusivity,
     FeedbackSendBehavior, KeyStrokePortability, MouseActionType, PortabilityIssue, ReaperTarget,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, SourceFeedbackEvent,
+    ReaperTargetType, SendMidiDestinationType, SimpleExclusivity, SourceFeedbackEvent,
     TargetControlEvent, TouchedRouteParameterType, TrackGangBehavior, WithControlContext,
 };
 use crate::domain::{
@@ -73,7 +73,7 @@ use crate::domain::{
 use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::color_panel::{ColorPanel, ColorPanelDesc};
-use crate::infrastructure::ui::menus::get_param_name;
+use crate::infrastructure::ui::menus::{get_midi_input_device_list_label, get_param_name};
 use crate::infrastructure::ui::util::colors::ColorPair;
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, compartment_parameter_dropdown_contents,
@@ -139,6 +139,8 @@ struct WindowCache {
     mode_fire_line_3: Window,
     target_value: Window,
 }
+
+const SAME_AS_INPUT_DEV: &str = "<Same as input device>";
 
 impl MappingPanel {
     pub fn new(session: WeakUnitModel, main_panel: WeakView<UnitPanel>) -> MappingPanel {
@@ -580,12 +582,23 @@ impl MappingPanel {
                                             P::FeedbackResolution => {
                                                 view.invalidate_target_line_2_combo_box_1();
                                             }
-                                            P::RawMidiPattern | P::OscAddressPattern => {
+                                            P::OscAddressPattern => {
                                                 view.invalidate_target_line_3(initiator);
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SendMidiDestination | P::OscDevId => {
+                                            P::RawMidiPattern => {
+                                                view.invalidate_target_line_4(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::OscDevId => {
                                                 view.invalidate_target_line_2(None);
+                                            }
+                                            P::SendMidiDestination => {
+                                                view.invalidate_target_line_2(None);
+                                                view.invalidate_target_line_3(None);
+                                            }
+                                            P::MidiInputDevice => {
+                                                view.invalidate_target_line_3(None);
                                             }
                                             P::Tags => {
                                                 view.invalidate_target_line_4_edit_control(initiator);
@@ -750,10 +763,30 @@ impl MappingPanel {
         }
     }
 
+    fn pick_target_midi_input_device(&self, mapping: SharedMapping) {
+        let menu = {
+            let mapping = mapping.borrow();
+            let current_value = mapping.target_model.midi_input_device();
+            menus::midi_device_input_menu(current_value, SAME_AS_INPUT_DEV)
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_popup_menu(menu, Window::cursor_pos());
+        if let Some(midi_input_device) = result {
+            self.change_mapping(MappingCommand::ChangeTarget(
+                TargetCommand::SetMidiInputDevice(midi_input_device),
+            ));
+        }
+    }
+
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.target_type();
         match target_type {
+            ReaperTargetType::SendMidi => {
+                self.pick_target_midi_input_device(mapping);
+            }
             ReaperTargetType::ModifyMapping => {
                 let menu = {
                     let mapping = mapping.borrow();
@@ -781,68 +814,6 @@ impl MappingPanel {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetMappingRef(new_mapping_ref),
                     ));
-                }
-            }
-            ReaperTargetType::SendMidi => {
-                if let Some(action) = open_send_midi_menu(self.view.require_window()) {
-                    match action {
-                        SendMidiMenuAction::PitchBendChangePreset { channel } => {
-                            let status_byte: u8 = ShortMessageType::PitchBendChange.into();
-                            let msg =
-                                format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + channel);
-                            self.change_mapping(MappingCommand::ChangeTarget(
-                                TargetCommand::SetRawMidiPattern(msg),
-                            ));
-                        }
-                        SendMidiMenuAction::DoubleDataBytePreset {
-                            channel,
-                            msg_type,
-                            i,
-                        } => {
-                            let status_byte: u8 = msg_type.into();
-                            let msg =
-                                format!("{:02X} {:02X} [0gfe dcba]", status_byte + channel, i);
-                            self.change_mapping(MappingCommand::ChangeTarget(
-                                TargetCommand::SetRawMidiPattern(msg),
-                            ));
-                        }
-                        SendMidiMenuAction::SingleDataBytePreset {
-                            channel,
-                            msg_type,
-                            last_byte,
-                        } => {
-                            let status_byte: u8 = msg_type.into();
-                            let msg = format!(
-                                "{:02X} [0gfe dcba] {:02X}",
-                                status_byte + channel,
-                                last_byte
-                            );
-                            self.change_mapping(MappingCommand::ChangeTarget(
-                                TargetCommand::SetRawMidiPattern(msg),
-                            ));
-                        }
-                        SendMidiMenuAction::EditMultiLine => {
-                            let session = self.session.clone();
-                            let engine = Box::new(RawMidiScriptEngine);
-                            let help_url =
-                                "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc#midi-send-message";
-                            self.edit_script_in_simple_editor(
-                                engine,
-                                help_url,
-                                |m| m.target_model.raw_midi_pattern().to_owned(),
-                                move |m, text| {
-                                    UnitModel::change_mapping_from_ui_simple(
-                                        session.clone(),
-                                        m,
-                                        MappingCommand::ChangeTarget(
-                                            TargetCommand::SetRawMidiPattern(text),
-                                        ),
-                                        None,
-                                    );
-                                },
-                            );
-                        }
-                    }
                 }
             }
             _ => {}
@@ -1050,6 +1021,68 @@ impl MappingPanel {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetMappingRef(new_mapping_ref),
                     ));
+                }
+            }
+            ReaperTargetType::SendMidi => {
+                if let Some(action) = open_send_midi_menu(self.view.require_window()) {
+                    match action {
+                        SendMidiMenuAction::PitchBendChangePreset { channel } => {
+                            let status_byte: u8 = ShortMessageType::PitchBendChange.into();
+                            let msg =
+                                format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + channel);
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::DoubleDataBytePreset {
+                            channel,
+                            msg_type,
+                            i,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg =
+                                format!("{:02X} {:02X} [0gfe dcba]", status_byte + channel, i);
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::SingleDataBytePreset {
+                            channel,
+                            msg_type,
+                            last_byte,
+                        } => {
+                            let status_byte: u8 = msg_type.into();
+                            let msg = format!(
+                                "{:02X} [0gfe dcba] {:02X}",
+                                status_byte + channel,
+                                last_byte
+                            );
+                            self.change_mapping(MappingCommand::ChangeTarget(
+                                TargetCommand::SetRawMidiPattern(msg),
+                            ));
+                        }
+                        SendMidiMenuAction::EditMultiLine => {
+                            let session = self.session.clone();
+                            let engine = Box::new(RawMidiScriptEngine);
+                            let help_url =
+                                "https://github.com/helgoboss/helgobox/blob/master/doc/realearn-user-guide.adoc#midi-send-message";
+                            self.edit_script_in_simple_editor(
+                                engine,
+                                help_url,
+                                |m| m.target_model.raw_midi_pattern().to_owned(),
+                                move |m, text| {
+                                    UnitModel::change_mapping_from_ui_simple(
+                                        session.clone(),
+                                        m,
+                                        MappingCommand::ChangeTarget(
+                                            TargetCommand::SetRawMidiPattern(text),
+                                        ),
+                                        None,
+                                    );
+                                },
+                            );
+                        }
+                    }
                 }
             }
             _ => {}
@@ -3218,7 +3251,7 @@ impl<'a> MutableMappingPanel<'a> {
                     let i = combo.selected_combo_box_item_index();
                     let v = i.try_into().expect("invalid send MIDI destination");
                     self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetSendMidiDestination(v),
+                        TargetCommand::SetSendMidiDestinationType(v),
                     ));
                 }
                 ReaperTargetType::SendOsc => {
@@ -3581,13 +3614,6 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendMidi => {
-                    let text = control.text().unwrap_or_default();
-                    self.change_mapping_with_initiator(
-                        MappingCommand::ChangeTarget(TargetCommand::SetRawMidiPattern(text)),
-                        Some(edit_control_id),
-                    );
-                }
                 ReaperTargetType::SendOsc => {
                     let pattern = control.text().unwrap_or_default();
                     self.change_mapping_with_initiator(
@@ -3752,6 +3778,13 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     VirtualFxParameterType::ById => {}
                 },
+                ReaperTargetType::SendMidi => {
+                    let text = control.text().unwrap_or_default();
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeTarget(TargetCommand::SetRawMidiPattern(text)),
+                        Some(edit_control_id),
+                    );
+                }
                 ReaperTargetType::PlaytimeSlotManagementAction
                 | ReaperTargetType::PlaytimeSlotTransportAction
                 | ReaperTargetType::PlaytimeSlotVolume
@@ -4979,9 +5012,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::SendMidi => {
                     combo.show();
-                    combo.fill_combo_box_indexed(SendMidiDestination::iter());
+                    combo.fill_combo_box_indexed(SendMidiDestinationType::iter());
                     combo.select_combo_box_item_by_index(
-                        self.mapping.target_model.send_midi_destination().into(),
+                        self.mapping
+                            .target_model
+                            .send_midi_destination_type()
+                            .into(),
                     );
                 }
                 ReaperTargetType::SendOsc => {
@@ -5229,8 +5265,13 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendMidi => Some("..."),
                 ReaperTargetType::ModifyMapping => Some("Pick!"),
+                ReaperTargetType::SendMidi
+                    if self.mapping.target_model.send_midi_destination_type()
+                        == SendMidiDestinationType::InputDevice =>
+                {
+                    Some("Pick!")
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5246,6 +5287,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Pick!"),
                 ReaperTargetType::LoadFxSnapshot => Some("Take!"),
                 ReaperTargetType::ModifyMapping => Some("Pick!"),
+                ReaperTargetType::SendMidi => Some("..."),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5302,49 +5344,64 @@ impl<'a> ImmutableMappingPanel<'a> {
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
-        let text = match self.target_category() {
+        let (text, read_only) = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendMidi => {
+                    let text = self.target.raw_midi_pattern().to_owned();
+                    let read_only = text.chars().count() > 30;
+                    (Some(text), read_only)
+                }
                 ReaperTargetType::PlaytimeSlotManagementAction
                 | ReaperTargetType::PlaytimeSlotTransportAction
                 | ReaperTargetType::PlaytimeSlotSeek
-                | ReaperTargetType::PlaytimeSlotVolume => match self.target.playtime_slot() {
-                    PlaytimeSlotDescriptor::Active => None,
-                    PlaytimeSlotDescriptor::ByIndex(a) => Some((a.row_index + 1).to_string()),
-                    PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
-                        Some(row_expression.clone())
-                    }
-                },
-                t if t.supports_fx_parameter() => match self.target.param_type() {
-                    VirtualFxParameterType::Dynamic => {
-                        Some(self.target.param_expression().to_owned())
-                    }
-                    VirtualFxParameterType::ByName => Some(self.target.param_name().to_owned()),
-                    VirtualFxParameterType::ByIndex => {
-                        let index = self.target.param_index();
-                        Some((index + 1).to_string())
-                    }
-                    VirtualFxParameterType::ById => None,
-                },
-                t if t.supports_send() => match self.target.route_selector_type() {
-                    TrackRouteSelectorType::Dynamic => {
-                        Some(self.target.route_expression().to_owned())
-                    }
-                    TrackRouteSelectorType::ByName => Some(self.target.route_name().to_owned()),
-                    TrackRouteSelectorType::ByIndex => {
-                        let index = self.target.route_index();
-                        Some((index + 1).to_string())
-                    }
-                    _ => None,
-                },
+                | ReaperTargetType::PlaytimeSlotVolume => {
+                    let text = match self.target.playtime_slot() {
+                        PlaytimeSlotDescriptor::Active => None,
+                        PlaytimeSlotDescriptor::ByIndex(a) => Some((a.row_index + 1).to_string()),
+                        PlaytimeSlotDescriptor::Dynamic { row_expression, .. } => {
+                            Some(row_expression.clone())
+                        }
+                    };
+                    (text, false)
+                }
+                t if t.supports_fx_parameter() => {
+                    let text = match self.target.param_type() {
+                        VirtualFxParameterType::Dynamic => {
+                            Some(self.target.param_expression().to_owned())
+                        }
+                        VirtualFxParameterType::ByName => Some(self.target.param_name().to_owned()),
+                        VirtualFxParameterType::ByIndex => {
+                            let index = self.target.param_index();
+                            Some((index + 1).to_string())
+                        }
+                        VirtualFxParameterType::ById => None,
+                    };
+                    (text, false)
+                }
+                t if t.supports_send() => {
+                    let text = match self.target.route_selector_type() {
+                        TrackRouteSelectorType::Dynamic => {
+                            Some(self.target.route_expression().to_owned())
+                        }
+                        TrackRouteSelectorType::ByName => Some(self.target.route_name().to_owned()),
+                        TrackRouteSelectorType::ByIndex => {
+                            let index = self.target.route_index();
+                            Some((index + 1).to_string())
+                        }
+                        _ => None,
+                    };
+                    (text, false)
+                }
                 t if t.supports_tags() => {
                     let text = format_tags_as_csv(self.target.tags());
-                    Some(text)
+                    (Some(text), false)
                 }
-                _ => None,
+                _ => (None, false),
             },
-            TargetCategory::Virtual => None,
+            TargetCategory::Virtual => (None, false),
         };
         control.set_text_or_hide(text);
+        control.set_enabled(!read_only);
     }
 
     fn invalidate_target_line_3_edit_control(&self, initiator: Option<u32>) {
@@ -5356,11 +5413,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL);
         let (value_text, read_only) = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendMidi => {
-                    let text = self.target.raw_midi_pattern().to_owned();
-                    let read_only = text.chars().count() > 30;
-                    (Some(text), read_only)
-                }
                 ReaperTargetType::SendOsc => {
                     let text = self.target.osc_address_pattern().to_owned();
                     (Some(text), false)
@@ -5437,11 +5489,16 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
                 ReaperTargetType::TrackTouchState => Some("Type"),
-                ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 ReaperTargetType::TrackMonitoringMode => Some("Mode"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Default"),
                 ReaperTargetType::ModifyMapping => Some("Unit"),
+                ReaperTargetType::SendMidi
+                    if self.mapping.target_model.send_midi_destination_type()
+                        == SendMidiDestinationType::InputDevice =>
+                {
+                    Some("Device")
+                }
                 ReaperTargetType::PlaytimeColumnAction => Some("Column"),
                 ReaperTargetType::PlaytimeRowAction => Some("Row"),
                 ReaperTargetType::PlaytimeSlotManagementAction
@@ -5488,6 +5545,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendOsc => Some("Argument"),
                 ReaperTargetType::TrackTool | ReaperTargetType::FxTool => Some("Act/Tags"),
                 ReaperTargetType::ModifyMapping => Some("Mapping"),
+                ReaperTargetType::SendMidi => Some("Pattern"),
                 t if t.supports_fx_parameter() => Some("Parameter"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
@@ -5510,6 +5568,18 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendMidi
+                    if self.mapping.target_model.send_midi_destination_type()
+                        == SendMidiDestinationType::InputDevice =>
+                {
+                    let text = if let Some(dev_id) = self.target.midi_input_device() {
+                        let dev = Reaper::get().midi_input_device_by_id(dev_id);
+                        get_midi_input_device_list_label(dev)
+                    } else {
+                        SAME_AS_INPUT_DEV.to_string()
+                    };
+                    Some(text)
+                }
                 ReaperTargetType::ModifyMapping => match self.target.mapping_ref() {
                     MappingRefModel::OwnMapping { .. } => Some("<This>".to_string()),
                     MappingRefModel::ForeignMapping { session_id, .. } => {
