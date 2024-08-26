@@ -6,7 +6,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, Exclusivity, FxDisplayType, ReaperTargetType, SeekOptions,
-    TouchedRouteParameterType, TrackRouteType,
+    SendMidiDestination, TouchedRouteParameterType, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_osc_arg_type, convert_osc_value_range, convert_tags,
@@ -816,9 +816,9 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             r#type: ReaperTargetType::SendMidi,
             raw_midi_pattern: d.message.unwrap_or_default(),
             send_midi_destination: match d.destination.unwrap_or_default() {
-                SendMidiDestination::FxOutput => SendMidiDestination::FxOutput,
-                SendMidiDestination::FeedbackOutput => SendMidiDestination::FeedbackOutput,
-                SendMidiDestination::SameDeviceInput => SendMidiDestination::SameDeviceInput,
+                MidiDestination::FxOutput => SendMidiDestination::FxOutput,
+                MidiDestination::FeedbackOutput => SendMidiDestination::FeedbackOutput,
+                MidiDestination::DeviceInput => SendMidiDestination::DeviceInput,
             },
             ..init(d.commons)
         },

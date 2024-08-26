@@ -5,8 +5,8 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
-    ReaperTargetType, SoloBehavior, TouchedRouteParameterType, TouchedTrackParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction,
+    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedRouteParameterType,
+    TouchedTrackParameterType, TrackExclusivity, TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_osc_argument, convert_tags, ConversionStyle,
@@ -358,7 +358,16 @@ fn convert_real_target(
         SendMidi => T::SendMidi(SendMidiTarget {
             commons,
             message: style.required_value(data.raw_midi_pattern),
-            destination: style.required_value(data.send_midi_destination),
+            destination: {
+                use persistence::MidiDestination as T;
+                use SendMidiDestination::*;
+                let dest = match data.send_midi_destination {
+                    FxOutput => T::FxOutput,
+                    FeedbackOutput => T::FeedbackOutput,
+                    DeviceInput => T::DeviceInput,
+                };
+                style.required_value(dest)
+            },
         }),
         Dummy => T::Dummy(DummyTarget { commons }),
         BrowseTracks => T::BrowseTracks(BrowseTracksTarget {

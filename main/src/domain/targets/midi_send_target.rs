@@ -3,8 +3,8 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
     HitResponse, LogOptions, MappingControlContext, MidiDestination, MidiEvent,
     MidiTransformationContainer, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-    ReaperTargetType, TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    ReaperTargetType, SendMidiDestination, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_learn::{
@@ -12,7 +12,6 @@ use helgoboss_learn::{
     MidiSourceValue, RawMidiPattern, Target, UnitValue,
 };
 use helgobox_allocator::permit_alloc;
-use helgobox_api::persistence::SendMidiDestination;
 use reaper_high::MidiOutputDevice;
 use reaper_medium::SendMidiTime;
 use std::convert::TryInto;
@@ -133,7 +132,7 @@ impl MidiSendTarget {
                     }
                 };
             }
-            SendMidiDestination::SameDeviceInput => {
+            SendMidiDestination::DeviceInput => {
                 if let Some(container) = transformation_container {
                     container.push(raw_midi_event);
                 }
@@ -248,7 +247,7 @@ impl RealearnTarget for MidiSendTarget {
         let resolved_destination =
             match self.destination {
                 SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-                SendMidiDestination::SameDeviceInput => return Err(
+                SendMidiDestination::DeviceInput => return Err(
                     "sending to device input is only possible in response to a MIDI source event coming from a MIDI device",
                 ),
                 SendMidiDestination::FeedbackOutput => {

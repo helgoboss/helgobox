@@ -1014,7 +1014,7 @@ pub struct SendMidiTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destination: Option<SendMidiDestination>,
+    pub destination: Option<MidiDestination>,
 }
 
 #[derive(Eq, PartialEq, Default, Serialize, Deserialize)]
@@ -2265,41 +2265,19 @@ impl Default for PlaytimeRowDescriptor {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Default,
-    Serialize,
-    Deserialize,
-    EnumIter,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
+#[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
-pub enum SendMidiDestination {
-    #[serde(alias = "fx-output")]
-    #[display(fmt = "FX output")]
-    #[default]
+pub enum MidiDestination {
     FxOutput,
-    #[serde(alias = "feedback-output")]
-    #[display(fmt = "Feedback output")]
     FeedbackOutput,
-    #[serde(alias = "device-input")]
-    #[display(fmt = "Same device input")]
-    SameDeviceInput,
-    // #[display(fmt = "Explicit device input")]
-    // ExplicitDeviceInput(ExplicitDeviceInputMidiDestination),
+    DeviceInput,
 }
 
-// #[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-// pub struct ExplicitDeviceInputMidiDestination {
-//     pub input_device_id: u32,
-// }
+impl Default for MidiDestination {
+    fn default() -> Self {
+        Self::FeedbackOutput
+    }
+}
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
