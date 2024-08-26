@@ -364,6 +364,7 @@ fn convert_real_target(
                 let dest = match data.send_midi_destination {
                     FxOutput => T::FxOutput,
                     FeedbackOutput => T::FeedbackOutput,
+                    DeviceInput => T::DeviceInput,
                 };
                 style.required_value(dest)
             },

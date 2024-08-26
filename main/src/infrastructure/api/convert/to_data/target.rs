@@ -818,6 +818,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             send_midi_destination: match d.destination.unwrap_or_default() {
                 MidiDestination::FxOutput => SendMidiDestination::FxOutput,
                 MidiDestination::FeedbackOutput => SendMidiDestination::FeedbackOutput,
+                MidiDestination::DeviceInput => SendMidiDestination::DeviceInput,
             },
             ..init(d.commons)
         },

@@ -183,6 +183,9 @@ pub enum SendMidiDestination {
     #[serde(rename = "feedback-output")]
     #[display(fmt = "Feedback output")]
     FeedbackOutput,
+    #[serde(rename = "device-input")]
+    #[display(fmt = "Device input")]
+    DeviceInput,
 }
 
 impl Default for SendMidiDestination {

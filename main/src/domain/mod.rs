@@ -64,6 +64,9 @@ pub use midi_util::*;
 mod midi_source_scanner;
 pub use midi_source_scanner::*;
 
+mod midi_transformation_container;
+pub use midi_transformation_container::*;
+
 mod midi_clock_calculator;
 pub use midi_clock_calculator::*;
 

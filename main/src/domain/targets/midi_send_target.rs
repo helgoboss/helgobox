@@ -159,20 +159,24 @@ impl RealearnTarget for MidiSendTarget {
         // We arrive here only if controlled via OSC, group interaction (as follower), mapping
         // snapshot or autoload. Sending MIDI in response to incoming MIDI messages is handled
         // directly in the real-time processor.
-        let resolved_destination = match self.destination {
-            SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-            SendMidiDestination::FeedbackOutput => {
-                let feedback_output = context
-                    .control_context
-                    .feedback_output
-                    .ok_or("no feedback output set")?;
-                if let FeedbackOutput::Midi(dest) = feedback_output {
-                    dest
-                } else {
-                    return Err("feedback output is not MIDI");
+        let resolved_destination =
+            match self.destination {
+                SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+                SendMidiDestination::DeviceInput => return Err(
+                    "sending to device input is only possible in response to a MIDI source event coming from a MIDI device",
+                ),
+                SendMidiDestination::FeedbackOutput => {
+                    let feedback_output = context
+                        .control_context
+                        .feedback_output
+                        .ok_or("no feedback output set")?;
+                    if let FeedbackOutput::Midi(dest) = feedback_output {
+                        dest
+                    } else {
+                        return Err("feedback output is not MIDI");
+                    }
                 }
-            }
-        };
+            };
         self.artificial_value = value;
         let raw_midi_events =
             create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(value));

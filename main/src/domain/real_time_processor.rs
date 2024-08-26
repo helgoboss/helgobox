@@ -3,11 +3,11 @@ use crate::domain::{
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
     ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingCore,
     MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap,
-    OwnedIncomingMidiMessage, PartialControlMatch, PersistentMappingProcessingState,
-    QualifiedMappingId, RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping,
-    RealTimeReaperTarget, SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue,
-    WeakRealTimeInstance,
+    MidiScanResult, MidiScanner, MidiSendTarget, MidiTransformationContainer,
+    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
+    PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
+    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
+    SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue, WeakRealTimeInstance,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -118,7 +118,7 @@ impl RealTimeProcessor {
                 self.process_unmatched(event.payload(), Caller::Vst(host));
                 return;
             }
-            self.process_incoming_midi(event, Caller::Vst(host));
+            self.process_incoming_midi(event, Caller::Vst(host), None);
         } else {
             // #33, #290 If MIDI input device is not set to <FX input>, we want to pass through all
             // messages that arrive on FX input.
@@ -156,8 +156,10 @@ impl RealTimeProcessor {
     pub fn process_incoming_midi_from_audio_hook(
         &mut self,
         event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
+        transformation_container: &mut MidiTransformationContainer,
     ) -> bool {
-        let match_outcome = self.process_incoming_midi(event, Caller::AudioHook);
+        let match_outcome =
+            self.process_incoming_midi(event, Caller::AudioHook, Some(transformation_container));
         let let_through = (match_outcome.matched_or_consumed()
             && self.settings.let_matched_events_through)
             || (!match_outcome.matched_or_consumed() && self.settings.let_unmatched_events_through);
@@ -456,6 +458,7 @@ impl RealTimeProcessor {
                             self.process_incoming_midi_normal_nrpn(
                                 control_event,
                                 Caller::AudioHook,
+                                &mut None,
                             );
                         }
                     }
@@ -566,10 +569,11 @@ impl RealTimeProcessor {
         &mut self,
         event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         caller: Caller,
+        mut transformation_container: Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         use MidiMessageClassification::*;
         match classify_midi_message(event.payload().payload()) {
-            Normal => self.process_incoming_midi_normal(event, caller),
+            Normal => self.process_incoming_midi_normal(event, caller, transformation_container),
             Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
                 self.process_unmatched(event.payload(), caller);
@@ -587,6 +591,7 @@ impl RealTimeProcessor {
                                 &source_value,
                             )),
                             caller,
+                            &mut transformation_container,
                         )
                     } else {
                         MatchOutcome::Unmatched
@@ -607,11 +612,12 @@ impl RealTimeProcessor {
         &mut self,
         event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         caller: Caller,
+        mut transformation_container: Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
-                    // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still
+                    // Even if a composite message ((N)RPN or CC 14-bit) was scanned, we still
                     // process the plain short MIDI message. This is desired.
                     // Rationale: If there's no mapping with a composite source
                     // of this kind, then all the CCs potentially involved in
@@ -622,8 +628,11 @@ impl RealTimeProcessor {
                     // single messages can't be used anymore! Otherwise it would be
                     // confusing. They are consumed. That's the reason why
                     // we do the consumption check at a later state.
-                    let plain_match_outcome =
-                        self.process_incoming_midi_normal_plain(event, caller);
+                    let plain_match_outcome = self.process_incoming_midi_normal_plain(
+                        event,
+                        caller,
+                        &mut transformation_container,
+                    );
                     let midi_event = event.payload();
                     let (nrpn_match_outcome, cc14_match_outcome) = match midi_event.payload() {
                         IncomingMidiMessage::Short(short_msg) => {
@@ -631,8 +640,11 @@ impl RealTimeProcessor {
                             for nrpn_msg in self.nrpn_scanner.feed(&short_msg).iter().flatten() {
                                 let nrpn_event = event
                                     .with_payload(MidiEvent::new(midi_event.offset(), *nrpn_msg));
-                                let child_match_outcome =
-                                    self.process_incoming_midi_normal_nrpn(nrpn_event, caller);
+                                let child_match_outcome = self.process_incoming_midi_normal_nrpn(
+                                    nrpn_event,
+                                    caller,
+                                    &mut transformation_container,
+                                );
                                 nrpn_match_outcome.upgrade_from(child_match_outcome);
                             }
                             let cc14_match_outcome = if let Some(cc14_msg) =
@@ -640,7 +652,11 @@ impl RealTimeProcessor {
                             {
                                 let cc14_event = event
                                     .with_payload(MidiEvent::new(midi_event.offset(), cc14_msg));
-                                self.process_incoming_midi_normal_cc14(cc14_event, caller)
+                                self.process_incoming_midi_normal_cc14(
+                                    cc14_event,
+                                    caller,
+                                    &mut transformation_container,
+                                )
                             } else {
                                 MatchOutcome::Unmatched
                             };
@@ -693,6 +709,7 @@ impl RealTimeProcessor {
         &mut self,
         event: ControlEvent<MidiEvent<ParameterNumberMessage>>,
         caller: Caller,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         let midi_event = event.payload();
         let source_value =
@@ -700,6 +717,7 @@ impl RealTimeProcessor {
         let match_outcome = self.control_midi(
             event.with_payload(MidiEvent::new(midi_event.offset(), &source_value)),
             caller,
+            transformation_container,
         );
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(event.with_payload(source_value), match_outcome);
@@ -793,6 +811,7 @@ impl RealTimeProcessor {
         &mut self,
         event: ControlEvent<MidiEvent<ControlChange14BitMessage>>,
         caller: Caller,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         let midi_event = event.payload();
         let source_value =
@@ -800,6 +819,7 @@ impl RealTimeProcessor {
         let match_outcome = self.control_midi(
             event.with_payload(MidiEvent::new(midi_event.offset(), &source_value)),
             caller,
+            transformation_container,
         );
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(event.with_payload(source_value), match_outcome);
@@ -825,6 +845,7 @@ impl RealTimeProcessor {
         &mut self,
         event: ControlEvent<MidiEvent<IncomingMidiMessage>>,
         caller: Caller,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         let midi_event = event.payload();
         let source_value = midi_event.payload().to_source_value();
@@ -841,6 +862,7 @@ impl RealTimeProcessor {
         let match_outcome = self.control_midi(
             event.with_payload(MidiEvent::new(midi_event.offset(), &source_value)),
             caller,
+            transformation_container,
         );
         if self.settings.real_input_logging_enabled {
             self.log_real_control_input_internal(event.with_payload(source_value), match_outcome);
@@ -864,6 +886,7 @@ impl RealTimeProcessor {
         &mut self,
         value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         let is_rendering = is_rendering();
         // We do pattern matching in order to use Rust's borrow splitting.
@@ -881,11 +904,17 @@ impl RealTimeProcessor {
                 LogOptions::from_basic_settings(&self.settings),
                 &self.instance,
                 is_rendering,
+                transformation_container,
             )
         } else {
             unreachable!()
         };
-        let main_outcome = self.control_main_mappings_midi(value_event, caller, is_rendering);
+        let main_outcome = self.control_main_mappings_midi(
+            value_event,
+            caller,
+            is_rendering,
+            transformation_container,
+        );
         controller_outcome.merge_with(main_outcome)
     }
 
@@ -894,6 +923,7 @@ impl RealTimeProcessor {
         source_value_event: ControlEvent<MidiEvent<&MidiSourceValue<RawShortMessage>>>,
         caller: Caller,
         is_rendering: bool,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
     ) -> MatchOutcome {
         let compartment = CompartmentKind::Main;
         let mut match_outcome = MatchOutcome::Unmatched;
@@ -923,6 +953,7 @@ impl RealTimeProcessor {
                         log_options: LogOptions::from_basic_settings(&self.settings),
                         instance: &self.instance,
                         is_rendering,
+                        transformation_container,
                     };
                     process_real_mapping(m, args);
                     // It can't be consumed because we checked this before for all mappings.
@@ -1281,6 +1312,7 @@ fn control_controller_mappings_midi(
     log_options: LogOptions,
     instance: &WeakRealTimeInstance,
     is_rendering: bool,
+    transformation_container: &mut Option<&mut MidiTransformationContainer>,
 ) -> MatchOutcome {
     let mut match_outcome = MatchOutcome::Unmatched;
     let mut enforce_target_refresh = false;
@@ -1322,6 +1354,7 @@ fn control_controller_mappings_midi(
                         log_options,
                         instance,
                         is_rendering,
+                        transformation_container,
                     );
                     if log_options.virtual_input_logging_enabled {
                         log_virtual_control_input(
@@ -1352,6 +1385,7 @@ fn control_controller_mappings_midi(
                         log_options,
                         instance,
                         is_rendering,
+                        transformation_container,
                     };
                     process_real_mapping(m, args);
                     // We do this only for transactions of *real* target matches.
@@ -1365,7 +1399,7 @@ fn control_controller_mappings_midi(
     match_outcome
 }
 
-struct ProcessRtMappingArgs<'a> {
+struct ProcessRtMappingArgs<'a, 'b> {
     main_task_sender: &'a SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &'a SenderToRealTimeThread<FeedbackRealTimeTask>,
     compartment: CompartmentKind,
@@ -1376,10 +1410,11 @@ struct ProcessRtMappingArgs<'a> {
     log_options: LogOptions,
     instance: &'a WeakRealTimeInstance,
     is_rendering: bool,
+    transformation_container: &'a mut Option<&'b mut MidiTransformationContainer>,
 }
 
 #[allow(clippy::too_many_arguments)]
-fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArgs) {
+fn process_real_mapping(mapping: &mut RealTimeMapping, mut args: ProcessRtMappingArgs) {
     let pure_control_event = flatten_control_midi_event(args.value_event);
     // At first check if this target is capable of real-time control (= not taking a detour into the main thread).
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
@@ -1389,7 +1424,7 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
         if reaper_target.wants_real_time_control(args.caller, args.is_rendering) {
             let forward_to_main_thread = process_real_mapping_in_real_time(
                 &mut mapping.core,
-                &args,
+                &mut args,
                 pure_control_event,
                 reaper_target,
             );
@@ -1418,7 +1453,7 @@ fn process_real_mapping(mapping: &mut RealTimeMapping, args: ProcessRtMappingArg
 /// Playtime's trigger-slot action in order to possibly record when slot empty and/or activate the triggered slot).
 fn process_real_mapping_in_real_time(
     mapping_core: &mut MappingCore,
-    args: &ProcessRtMappingArgs,
+    args: &mut ProcessRtMappingArgs,
     pure_control_event: ControlEvent<ControlValue>,
     reaper_target: &mut RealTimeReaperTarget,
 ) -> bool {
@@ -1453,6 +1488,7 @@ fn process_real_mapping_in_real_time(
                     args.main_task_sender,
                     args.rt_feedback_sender,
                     args.value_event.payload(),
+                    args.transformation_container,
                 ),
                 RealTimeReaperTarget::PlaytimeSlotTransport(t) => {
                     let result = t.hit(control_value, control_context);
@@ -1503,7 +1539,7 @@ fn process_real_mapping_in_real_time(
     false
 }
 
-// TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
+// TODO-high CONTINUE Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
 #[allow(clippy::too_many_arguments)]
 fn real_time_target_send_midi(
     t: &mut MidiSendTarget,
@@ -1514,67 +1550,75 @@ fn real_time_target_send_midi(
     main_task_sender: &SenderToNormalThread<ControlMainTask>,
     rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
     value_event: MidiEvent<ControlValue>,
+    transformation_container: &mut Option<&mut MidiTransformationContainer>,
 ) -> Result<(), &'static str> {
     let v = control_value.to_absolute_value()?;
     // This is a type of mapping that we should process right here because we want to
     // send a MIDI message and this needs to happen in the audio thread.
     // Going to the main thread and back would be such a waste!
     let raw_midi_event = t.pattern().to_concrete_midi_event(v);
-    let midi_destination = match caller {
-        Caller::Vst(_) => match t.destination() {
-            SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
-            SendMidiDestination::FeedbackOutput => {
-                Some(midi_feedback_output.ok_or("no feedback output set")?)
+    match t.destination() {
+        SendMidiDestination::FxOutput | SendMidiDestination::FeedbackOutput => {
+            let midi_destination = match caller {
+                Caller::Vst(_) => match t.destination() {
+                    SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+                    SendMidiDestination::FeedbackOutput => {
+                        midi_feedback_output.ok_or("no feedback output set")?
+                    }
+                    _ => unreachable!(),
+                },
+                Caller::AudioHook => match t.destination() {
+                    SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+                    SendMidiDestination::FeedbackOutput => {
+                        midi_feedback_output.ok_or("no feedback output set")?
+                    }
+                    _ => unreachable!(),
+                },
+            };
+            match midi_destination {
+                MidiDestination::FxOutput => {
+                    match caller {
+                        Caller::Vst(_) => {
+                            send_raw_midi_to_fx_output(
+                                raw_midi_event.bytes(),
+                                value_event.offset(),
+                                caller,
+                            );
+                        }
+                        Caller::AudioHook => {
+                            // We can't send to FX output here directly. Need to wait until VST processing
+                            // starts (same processing cycle).
+                            rt_feedback_sender.send_complaining(
+                                FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(raw_midi_event),
+                            );
+                        }
+                    }
+                }
+                MidiDestination::Device(dev_id) => {
+                    MidiOutputDevice::new(dev_id).with_midi_output(
+                        |mo| -> Result<(), &'static str> {
+                            let mo = mo.ok_or("couldn't open MIDI output device")?;
+                            mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
+                            Ok(())
+                        },
+                    )?;
+                }
+            };
+        }
+        SendMidiDestination::DeviceInput => {
+            if let Some(container) = transformation_container {
+                container.push(raw_midi_event);
             }
-        },
-        Caller::AudioHook => match t.destination() {
-            SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
-            SendMidiDestination::FeedbackOutput => {
-                Some(midi_feedback_output.ok_or("no feedback output set")?)
-            }
-        },
-    };
-    if log_options.output_logging_enabled && midi_destination.is_some() {
+        }
+    }
+    // We end up here only if the message was successfully sent
+    t.set_artificial_value(v);
+    if log_options.output_logging_enabled {
         permit_alloc(|| {
             main_task_sender.send_complaining(ControlMainTask::LogTargetOutput {
                 event: Box::new(raw_midi_event),
             });
         });
-    }
-    let successful = match midi_destination {
-        Some(MidiDestination::FxOutput) => {
-            match caller {
-                Caller::Vst(_) => {
-                    send_raw_midi_to_fx_output(
-                        raw_midi_event.bytes(),
-                        value_event.offset(),
-                        caller,
-                    );
-                }
-                Caller::AudioHook => {
-                    // We can't send to FX output here directly. Need to wait until VST processing
-                    // starts (same processing cycle).
-                    rt_feedback_sender.send_complaining(
-                        FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(raw_midi_event),
-                    );
-                }
-            }
-            true
-        }
-        Some(MidiDestination::Device(dev_id)) => {
-            MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
-                if let Some(mo) = mo {
-                    mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
-                    true
-                } else {
-                    false
-                }
-            })
-        }
-        _ => false,
-    };
-    if successful {
-        t.set_artificial_value(v);
     }
     Ok(())
 }
@@ -1609,6 +1653,7 @@ fn control_main_mappings_virtual(
     log_options: LogOptions,
     instance: &WeakRealTimeInstance,
     is_rendering: bool,
+    transformation_container: &mut Option<&mut MidiTransformationContainer>,
 ) -> MatchOutcome {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1635,6 +1680,7 @@ fn control_main_mappings_virtual(
                     log_options,
                     instance,
                     is_rendering,
+                    transformation_container,
                 };
                 process_real_mapping(m, args);
                 // If we find an associated main mapping, this is not just consumed, it's matched.

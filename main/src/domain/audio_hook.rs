@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, AudioBlockProps, ControlEvent, ControlEventTimestamp,
     DisplayAsPrettyHex, IncomingMidiMessage, InstanceId, MidiControlInput, MidiEvent,
-    MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
-    SharedRealTimeInstance, UnitId,
+    MidiMessageClassification, MidiScanResult, MidiScanner, MidiTransformationContainer,
+    RealTimeProcessor, SharedRealTimeInstance, UnitId,
 };
 use base::byte_pattern::{BytePattern, PatternByte};
 use base::metrics_util::{measure_time, record_duration};
@@ -135,6 +135,7 @@ pub struct RealearnAudioHook {
     time_of_last_run: Option<Instant>,
     initialized: bool,
     counter: Arc<AtomicU32>,
+    midi_transformation_container: MidiTransformationContainer,
     #[cfg(feature = "playtime")]
     clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook,
 }
@@ -166,6 +167,7 @@ impl RealearnAudioHook {
             time_of_last_run: None,
             initialized: false,
             counter,
+            midi_transformation_container: MidiTransformationContainer::with_capacity(1000),
             #[cfg(feature = "playtime")]
             clip_engine_audio_hook: playtime_clip_engine::rt::audio_hook::PlaytimeAudioHook::new(),
         }
@@ -399,6 +401,7 @@ impl RealearnAudioHook {
                     let event_list = mi.get_read_buf();
                     let mut bpos = 0;
                     while let Some(res) = event_list.enum_items(bpos) {
+                        let next_bpos = res.next_bpos;
                         // Current control mode is checked further down the callstack. No need to
                         // check it here.
                         let our_event =
@@ -412,16 +415,27 @@ impl RealearnAudioHook {
                             let mut guard = p.lock_recover();
                             if guard.control_is_globally_enabled()
                                 && guard.midi_control_input() == MidiControlInput::Device(dev_id)
-                                && guard.process_incoming_midi_from_audio_hook(our_event)
+                                && guard.process_incoming_midi_from_audio_hook(
+                                    our_event,
+                                    &mut self.midi_transformation_container,
+                                )
                             {
                                 filter_out_event = true;
                             }
                         }
                         if filter_out_event {
+                            // Take event out of input buffer. In this case, we must not adjust bpos
+                            // because just deleting the item has the same effect.
                             event_list.delete_item(bpos);
                         } else {
-                            bpos = res.next_bpos;
+                            // Move cursor to next position
+                            bpos = next_bpos;
                         }
+                    }
+                    // Add transformed events *after* iterating
+                    for event in self.midi_transformation_container.drain() {
+                        let reaper_event = reaper_medium::MidiEvent::from_raw_ref(event.as_ref());
+                        event_list.add_item(reaper_event);
                     }
                 }
             });

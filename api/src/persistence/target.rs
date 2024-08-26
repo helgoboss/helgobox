@@ -2270,6 +2270,7 @@ impl Default for PlaytimeRowDescriptor {
 pub enum MidiDestination {
     FxOutput,
     FeedbackOutput,
+    DeviceInput,
 }
 
 impl Default for MidiDestination {
