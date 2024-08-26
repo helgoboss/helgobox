@@ -2295,31 +2295,6 @@ impl HwndInfo for BackboneShell {
                 0
             }
         }
-        // let window = Window::from_hwnd(window);
-        // // TODO-high CONTINUE Better cache HWNDs in a set
-        // BackboneShell::get().with_instance_shell_infos(|infos| {
-        //     for i in infos {
-        //         if let Some(i) = i.instance_shell.upgrade() {
-        //             let app_instance = i.panel().app_instance();
-        //             let app_instance_window = app_instance.borrow().window();
-        //             println!("queried {window:?} vs. actual {app_instance_window:?}");
-        //             if let Some(w) = app_instance_window {
-        //                 if w == window.raw_hwnd() {
-        //                     println!("Matched window directly!");
-        //                     return 1;
-        //                 }
-        //                 if let Some(parent_window) = window.parent() {
-        //                     if w == parent_window.raw_hwnd() {
-        //                         println!("Matched parent window!");
-        //                         return 1;
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     // No app window matches
-        //     0
-        // })
     }
 }
 
