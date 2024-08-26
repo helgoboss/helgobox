@@ -1,14 +1,19 @@
 use crate::domain::{
-    CompartmentKind, ControlContext, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, HitResponse, MappingControlContext, MidiDestination,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination,
-    TargetCharacter, TargetSection, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    real_time_processor, Caller, CompartmentKind, ControlContext, ControlMainTask,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask,
+    HitResponse, LogOptions, MappingControlContext, MidiDestination, MidiEvent,
+    MidiTransformationContainer, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
+    ReaperTargetType, SendMidiDestination, TargetCharacter, TargetSection, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use base::NamedChannelSender;
+use base::{NamedChannelSender, SenderToNormalThread, SenderToRealTimeThread};
 use helgoboss_learn::{
     create_raw_midi_events_singleton, AbsoluteValue, ControlType, ControlValue, Fraction,
     MidiSourceValue, RawMidiPattern, Target, UnitValue,
 };
+use helgobox_allocator::permit_alloc;
+use reaper_high::MidiOutputDevice;
+use reaper_medium::SendMidiTime;
 use std::convert::TryInto;
 
 #[derive(Debug)]
@@ -61,8 +66,88 @@ impl MidiSendTarget {
         self.destination
     }
 
-    pub fn set_artificial_value(&mut self, value: AbsoluteValue) {
-        self.artificial_value = value;
+    pub fn midi_send_target_send_midi_in_rt_thread(
+        &mut self,
+        caller: Caller,
+        control_value: ControlValue,
+        midi_feedback_output: Option<MidiDestination>,
+        log_options: LogOptions,
+        main_task_sender: &SenderToNormalThread<ControlMainTask>,
+        rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
+        value_event: MidiEvent<ControlValue>,
+        transformation_container: &mut Option<&mut MidiTransformationContainer>,
+    ) -> Result<(), &'static str> {
+        let v = control_value.to_absolute_value()?;
+        // This is a type of mapping that we should process right here because we want to
+        // send a MIDI message and this needs to happen in the audio thread.
+        // Going to the main thread and back would be such a waste!
+        let raw_midi_event = self.pattern().to_concrete_midi_event(v);
+        match self.destination() {
+            SendMidiDestination::FxOutput | SendMidiDestination::FeedbackOutput => {
+                let midi_destination = match caller {
+                    Caller::Vst(_) => match self.destination() {
+                        SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+                        SendMidiDestination::FeedbackOutput => {
+                            midi_feedback_output.ok_or("no feedback output set")?
+                        }
+                        _ => unreachable!(),
+                    },
+                    Caller::AudioHook => match self.destination() {
+                        SendMidiDestination::FxOutput => MidiDestination::FxOutput,
+                        SendMidiDestination::FeedbackOutput => {
+                            midi_feedback_output.ok_or("no feedback output set")?
+                        }
+                        _ => unreachable!(),
+                    },
+                };
+                match midi_destination {
+                    MidiDestination::FxOutput => {
+                        match caller {
+                            Caller::Vst(_) => {
+                                real_time_processor::send_raw_midi_to_fx_output(
+                                    raw_midi_event.bytes(),
+                                    value_event.offset(),
+                                    caller,
+                                );
+                            }
+                            Caller::AudioHook => {
+                                // We can't send to FX output here directly. Need to wait until VST processing
+                                // starts (same processing cycle).
+                                rt_feedback_sender.send_complaining(
+                                    FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(
+                                        raw_midi_event,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    MidiDestination::Device(dev_id) => {
+                        MidiOutputDevice::new(dev_id).with_midi_output(
+                            |mo| -> Result<(), &'static str> {
+                                let mo = mo.ok_or("couldn't open MIDI output device")?;
+                                mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
+                                Ok(())
+                            },
+                        )?;
+                    }
+                };
+            }
+            SendMidiDestination::DeviceInput => {
+                if let Some(container) = transformation_container {
+                    container.push(raw_midi_event);
+                }
+            }
+        }
+        // We end up here only if the message was successfully sent
+        self.artificial_value = v;
+        if log_options.output_logging_enabled {
+            permit_alloc(|| {
+                main_task_sender.send_complaining(ControlMainTask::LogTargetOutput {
+                    event: Box::new(raw_midi_event),
+                });
+            });
+        }
+        Ok(())
     }
 
     fn control_type_and_character_simple(&self) -> (ControlType, TargetCharacter) {

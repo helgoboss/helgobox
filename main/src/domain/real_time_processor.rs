@@ -3,11 +3,11 @@ use crate::domain::{
     ControlEventTimestamp, ControlLogEntry, ControlLogEntryKind, ControlMainTask, ControlMode,
     ControlOptions, FeedbackSendBehavior, LifecycleMidiMessage, LifecyclePhase, MappingCore,
     MappingId, MatchOutcome, MidiClockCalculator, MidiEvent, MidiMessageClassification,
-    MidiScanResult, MidiScanner, MidiSendTarget, MidiTransformationContainer,
-    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
-    PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
-    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
-    SampleOffset, SendMidiDestination, UnitId, VirtualSourceValue, WeakRealTimeInstance,
+    MidiScanResult, MidiScanner, MidiTransformationContainer, NormalRealTimeToMainThreadTask,
+    OrderedMappingMap, OwnedIncomingMidiMessage, PartialControlMatch,
+    PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
+    RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget, SampleOffset, UnitId,
+    VirtualSourceValue, WeakRealTimeInstance,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, ModeControlResult, RawMidiEvent};
 use helgoboss_midi::{
@@ -1479,8 +1479,7 @@ fn process_real_mapping_in_real_time(
             value: control_value,
         }) => {
             let hit_result = match reaper_target {
-                RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
-                    t,
+                RealTimeReaperTarget::SendMidi(t) => t.midi_send_target_send_midi_in_rt_thread(
                     args.caller,
                     control_value,
                     args.midi_feedback_output,
@@ -1537,90 +1536,6 @@ fn process_real_mapping_in_real_time(
     }
     // This means: Everything done. Don't forward event to main thread.
     false
-}
-
-// TODO-high CONTINUE Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
-#[allow(clippy::too_many_arguments)]
-fn real_time_target_send_midi(
-    t: &mut MidiSendTarget,
-    caller: Caller,
-    control_value: ControlValue,
-    midi_feedback_output: Option<MidiDestination>,
-    log_options: LogOptions,
-    main_task_sender: &SenderToNormalThread<ControlMainTask>,
-    rt_feedback_sender: &SenderToRealTimeThread<FeedbackRealTimeTask>,
-    value_event: MidiEvent<ControlValue>,
-    transformation_container: &mut Option<&mut MidiTransformationContainer>,
-) -> Result<(), &'static str> {
-    let v = control_value.to_absolute_value()?;
-    // This is a type of mapping that we should process right here because we want to
-    // send a MIDI message and this needs to happen in the audio thread.
-    // Going to the main thread and back would be such a waste!
-    let raw_midi_event = t.pattern().to_concrete_midi_event(v);
-    match t.destination() {
-        SendMidiDestination::FxOutput | SendMidiDestination::FeedbackOutput => {
-            let midi_destination = match caller {
-                Caller::Vst(_) => match t.destination() {
-                    SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-                    SendMidiDestination::FeedbackOutput => {
-                        midi_feedback_output.ok_or("no feedback output set")?
-                    }
-                    _ => unreachable!(),
-                },
-                Caller::AudioHook => match t.destination() {
-                    SendMidiDestination::FxOutput => MidiDestination::FxOutput,
-                    SendMidiDestination::FeedbackOutput => {
-                        midi_feedback_output.ok_or("no feedback output set")?
-                    }
-                    _ => unreachable!(),
-                },
-            };
-            match midi_destination {
-                MidiDestination::FxOutput => {
-                    match caller {
-                        Caller::Vst(_) => {
-                            send_raw_midi_to_fx_output(
-                                raw_midi_event.bytes(),
-                                value_event.offset(),
-                                caller,
-                            );
-                        }
-                        Caller::AudioHook => {
-                            // We can't send to FX output here directly. Need to wait until VST processing
-                            // starts (same processing cycle).
-                            rt_feedback_sender.send_complaining(
-                                FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(raw_midi_event),
-                            );
-                        }
-                    }
-                }
-                MidiDestination::Device(dev_id) => {
-                    MidiOutputDevice::new(dev_id).with_midi_output(
-                        |mo| -> Result<(), &'static str> {
-                            let mo = mo.ok_or("couldn't open MIDI output device")?;
-                            mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
-                            Ok(())
-                        },
-                    )?;
-                }
-            };
-        }
-        SendMidiDestination::DeviceInput => {
-            if let Some(container) = transformation_container {
-                container.push(raw_midi_event);
-            }
-        }
-    }
-    // We end up here only if the message was successfully sent
-    t.set_artificial_value(v);
-    if log_options.output_logging_enabled {
-        permit_alloc(|| {
-            main_task_sender.send_complaining(ControlMainTask::LogTargetOutput {
-                event: Box::new(raw_midi_event),
-            });
-        });
-    }
-    Ok(())
 }
 
 fn forward_control_to_main_processor(
@@ -1691,7 +1606,7 @@ fn control_main_mappings_virtual(
     match_outcome
 }
 
-fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller) {
+pub fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller) {
     let host = match caller {
         Caller::Vst(h) => h,
         _ => return,
@@ -1848,10 +1763,10 @@ fn flatten_control_midi_event<T: Copy>(evt: ControlEvent<MidiEvent<T>>) -> Contr
 }
 
 #[derive(Copy, Clone)]
-struct LogOptions {
-    virtual_input_logging_enabled: bool,
-    output_logging_enabled: bool,
-    target_control_logging_enabled: bool,
+pub struct LogOptions {
+    pub virtual_input_logging_enabled: bool,
+    pub output_logging_enabled: bool,
+    pub target_control_logging_enabled: bool,
 }
 
 impl LogOptions {
