@@ -162,38 +162,6 @@ pub enum ReaperTarget {
     CompartmentParameterValue(CompartmentParameterValueTarget),
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    EnumIter,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum SendMidiDestination {
-    #[serde(rename = "fx-output")]
-    #[display(fmt = "FX output")]
-    FxOutput,
-    #[serde(rename = "feedback-output")]
-    #[display(fmt = "Feedback output")]
-    FeedbackOutput,
-    #[serde(rename = "device-input")]
-    #[display(fmt = "Device input")]
-    DeviceInput,
-}
-
-impl Default for SendMidiDestination {
-    fn default() -> Self {
-        Self::FxOutput
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeekOptions {
