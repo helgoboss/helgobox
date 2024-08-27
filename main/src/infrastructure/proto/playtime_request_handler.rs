@@ -45,63 +45,72 @@ impl PlaytimeProtoRequestHandler {
     pub fn trigger_slot(&self, req: TriggerSlotRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerSlotAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger slot action"))?;
-        self.handle_slot_command(&req.slot_address, |matrix, slot_address| match action {
-            TriggerSlotAction::Play => {
-                matrix.play_slot(
+        self.handle_slot_command(&req.slot_address, |matrix, slot_address| {
+            match action {
+                TriggerSlotAction::Play => {
+                    matrix.play_slot(
+                        slot_address,
+                        ColumnPlaySlotOptions {
+                            velocity: Some(UnitValue::MAX),
+                            stop_column_if_slot_empty: false,
+                            handle_ignited_clips: false,
+                        },
+                    );
+                }
+                TriggerSlotAction::Stop => {
+                    matrix.stop_slot(slot_address);
+                }
+                TriggerSlotAction::Record => matrix.record_slot(slot_address)?,
+                TriggerSlotAction::Clear => matrix.clear_slot(slot_address)?,
+                TriggerSlotAction::Copy => matrix.copy_slot(slot_address)?,
+                TriggerSlotAction::Cut => matrix.cut_slot(slot_address)?,
+                TriggerSlotAction::Paste => matrix.paste_slot(slot_address)?,
+                TriggerSlotAction::ImportSelectedItems => {
+                    matrix.import_selected_items(slot_address)?
+                }
+                TriggerSlotAction::Panic => matrix.panic_slot(slot_address),
+                TriggerSlotAction::CreateEmptyMidiClip => {
+                    matrix.create_empty_midi_clip_in_slot(slot_address)?
+                }
+                TriggerSlotAction::ToggleLearnSimpleMapping => {
+                    matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerSlot(
+                        slot_address,
+                    ));
+                }
+                TriggerSlotAction::RemoveSimpleMapping => {
+                    matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
+                }
+                TriggerSlotAction::TriggerOn => matrix.trigger_slot(
                     slot_address,
-                    ColumnPlaySlotOptions {
-                        velocity: Some(UnitValue::MAX),
+                    UnitValue::MAX,
+                    TriggerSlotMainOptions {
                         stop_column_if_slot_empty: false,
-                        handle_ignited_clips: false,
+                        allow_start_stop: true,
+                        // Activating from GUI side ... no.
+                        allow_activate: false,
                     },
-                );
-                Ok(())
+                )?,
+                TriggerSlotAction::TriggerOff => matrix.trigger_slot(
+                    slot_address,
+                    UnitValue::MIN,
+                    TriggerSlotMainOptions {
+                        stop_column_if_slot_empty: false,
+                        allow_start_stop: true,
+                        // Activating from GUI side ... no.
+                        allow_activate: false,
+                    },
+                )?,
+                TriggerSlotAction::Activate => {
+                    matrix.activate_cell(slot_address.to_cell_address())?
+                }
+                TriggerSlotAction::ExportToClipboard => {
+                    matrix.export_slot_to_clipboard(slot_address)?
+                }
+                TriggerSlotAction::ExportToArrangement => {
+                    todo!()
+                }
             }
-            TriggerSlotAction::Stop => matrix.stop_slot(slot_address),
-            TriggerSlotAction::Record => matrix.record_slot(slot_address),
-            TriggerSlotAction::Clear => matrix.clear_slot(slot_address),
-            TriggerSlotAction::Copy => matrix.copy_slot(slot_address),
-            TriggerSlotAction::Cut => matrix.cut_slot(slot_address),
-            TriggerSlotAction::Paste => matrix.paste_slot(slot_address),
-            TriggerSlotAction::ImportSelectedItems => matrix.import_selected_items(slot_address),
-            TriggerSlotAction::Panic => matrix.panic_slot(slot_address),
-            TriggerSlotAction::CreateEmptyMidiClip => {
-                matrix.create_empty_midi_clip_in_slot(slot_address)
-            }
-            TriggerSlotAction::ToggleLearnSimpleMapping => {
-                matrix
-                    .toggle_learn_source_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
-                Ok(())
-            }
-            TriggerSlotAction::RemoveSimpleMapping => {
-                matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerSlot(slot_address));
-                Ok(())
-            }
-            TriggerSlotAction::TriggerOn => matrix.trigger_slot(
-                slot_address,
-                UnitValue::MAX,
-                TriggerSlotMainOptions {
-                    stop_column_if_slot_empty: false,
-                    allow_start_stop: true,
-                    // Activating from GUI side ... no.
-                    allow_activate: false,
-                },
-            ),
-            TriggerSlotAction::TriggerOff => matrix.trigger_slot(
-                slot_address,
-                UnitValue::MIN,
-                TriggerSlotMainOptions {
-                    stop_column_if_slot_empty: false,
-                    allow_start_stop: true,
-                    // Activating from GUI side ... no.
-                    allow_activate: false,
-                },
-            ),
-            TriggerSlotAction::Activate => matrix.activate_cell(slot_address.to_cell_address()),
-            TriggerSlotAction::ExportToClipboard => matrix.export_slot_to_clipboard(slot_address),
-            TriggerSlotAction::ExportToArrangement => {
-                todo!()
-            }
+            Ok(())
         })
     }
 
@@ -401,40 +410,41 @@ impl PlaytimeProtoRequestHandler {
     pub fn trigger_column(&self, req: TriggerColumnRequest) -> Result<Response<Empty>, Status> {
         let action = TriggerColumnAction::try_from(req.action)
             .map_err(|_| Status::invalid_argument("unknown trigger column action"))?;
-        self.handle_column_command(&req.column_address, |matrix, column_index| match action {
-            TriggerColumnAction::Stop => matrix.stop_column(column_index),
-            TriggerColumnAction::Remove => matrix.remove_column(column_index),
-            TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index),
-            TriggerColumnAction::Insert => matrix.insert_column(column_index),
-            TriggerColumnAction::Panic => matrix.panic_column(column_index),
-            TriggerColumnAction::ToggleLearnSimpleMapping => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerColumn(
-                    ColumnAddress {
-                        index: column_index,
-                    },
-                ));
-                Ok(())
+        self.handle_column_command(&req.column_address, |matrix, column_index| {
+            match action {
+                TriggerColumnAction::Stop => matrix.stop_column(column_index),
+                TriggerColumnAction::Remove => matrix.remove_column(column_index)?,
+                TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index)?,
+                TriggerColumnAction::Insert => matrix.insert_column(column_index)?,
+                TriggerColumnAction::Panic => matrix.panic_column(column_index),
+                TriggerColumnAction::ToggleLearnSimpleMapping => {
+                    matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerColumn(
+                        ColumnAddress {
+                            index: column_index,
+                        },
+                    ));
+                }
+                TriggerColumnAction::RemoveSimpleMapping => {
+                    matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerColumn(
+                        ColumnAddress {
+                            index: column_index,
+                        },
+                    ));
+                }
+                TriggerColumnAction::Activate => {
+                    matrix.activate_cell(CellAddress::column(column_index))?
+                }
+                TriggerColumnAction::ExportToClipboard => {
+                    matrix.export_column_to_clipboard(column_index)?
+                }
+                TriggerColumnAction::ExportToArrangement => {
+                    matrix.export_column_to_arrangement(column_index)?
+                }
+                TriggerColumnAction::InsertForEachSelectedTrack => {
+                    matrix.insert_column_for_each_selected_track(column_index)?
+                }
             }
-            TriggerColumnAction::RemoveSimpleMapping => {
-                matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerColumn(
-                    ColumnAddress {
-                        index: column_index,
-                    },
-                ));
-                Ok(())
-            }
-            TriggerColumnAction::Activate => {
-                matrix.activate_cell(CellAddress::column(column_index))
-            }
-            TriggerColumnAction::ExportToClipboard => {
-                matrix.export_column_to_clipboard(column_index)
-            }
-            TriggerColumnAction::ExportToArrangement => {
-                matrix.export_column_to_arrangement(column_index)
-            }
-            TriggerColumnAction::InsertForEachSelectedTrack => {
-                matrix.insert_column_for_each_selected_track(column_index)
-            }
+            Ok(())
         })
     }
 
@@ -504,7 +514,6 @@ impl PlaytimeProtoRequestHandler {
             TriggerRowAction::Remove => matrix.remove_row(row_index),
             TriggerRowAction::Duplicate => matrix.duplicate_row(row_index),
             TriggerRowAction::Insert => matrix.insert_row(row_index),
-            TriggerRowAction::Panic => matrix.panic_row(row_index),
             TriggerRowAction::ToggleLearnSimpleMapping => {
                 matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerRow(RowAddress {
                     index: row_index,

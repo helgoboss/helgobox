@@ -177,7 +177,7 @@ mod playtime_impl {
                                 self.basics.play_options(value),
                             );
                         } else {
-                            matrix.stop_slot(self.basics.slot_address)?;
+                            matrix.stop_slot(self.basics.slot_address);
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -194,7 +194,7 @@ mod playtime_impl {
                     }
                     Stop => {
                         if value.is_on() {
-                            matrix.stop_slot(self.basics.slot_address)?;
+                            matrix.stop_slot(self.basics.slot_address);
                             HitResponse::processed_with_effect()
                         } else {
                             HitResponse::ignored()
@@ -217,7 +217,7 @@ mod playtime_impl {
                             }
                             matrix.record_or_overdub_slot(self.basics.slot_address)?;
                         } else {
-                            matrix.stop_slot(self.basics.slot_address)?;
+                            matrix.stop_slot(self.basics.slot_address);
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -235,7 +235,7 @@ mod playtime_impl {
                                     // Not armed but column stopping on empty slots enabled.
                                     // Since we already know that the slot is empty, we do
                                     // it explicitly without invoking play passing that option.
-                                    matrix.stop_column(self.basics.slot_address.column())?;
+                                    matrix.stop_column(self.basics.slot_address.column());
                                 } else {
                                     bail!(NOT_RECORDING_BECAUSE_NOT_ARMED);
                                 }
@@ -247,7 +247,7 @@ mod playtime_impl {
                                 );
                             }
                         } else {
-                            matrix.stop_slot(self.basics.slot_address)?;
+                            matrix.stop_slot(self.basics.slot_address);
                         }
                         HitResponse::processed_with_effect()
                     }
@@ -260,7 +260,7 @@ mod playtime_impl {
                             matrix
                                 .midi_overdub_clip(ClipAddress::new(self.basics.slot_address, 0))?;
                         } else {
-                            matrix.stop_slot(self.basics.slot_address)?;
+                            matrix.stop_slot(self.basics.slot_address);
                         }
                         HitResponse::processed_with_effect()
                     }

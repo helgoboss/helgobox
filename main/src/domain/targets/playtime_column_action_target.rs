@@ -163,7 +163,7 @@ mod playtime_impl {
                                 if !value.is_on() {
                                     return Ok(HitResponse::ignored());
                                 }
-                                matrix.stop_column(self.column_index)?;
+                                matrix.stop_column(self.column_index);
                             }
                             PlaytimeColumnAction::ArmState => {
                                 matrix.set_column_armed(self.column_index, value.is_on())?;
