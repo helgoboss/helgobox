@@ -152,7 +152,7 @@ mod playtime_impl {
                         // This action is special in that it some of it can be carried out directly in the real-time
                         // thread **but not everything**! Other parts can only be done from main thread, such as
                         // starting to record into an empty slot and/or auto-activating the triggered slot. The
-                        // stuff done in the main thread (play/stop) must NOT be repeated here.
+                        // stuff done in the real-time thread (play/stop) must NOT be repeated here.
                         let velocity = value.to_unit_value().map_err(anyhow::Error::msg)?;
                         matrix.trigger_slot(
                             self.basics.slot_address,
@@ -163,7 +163,8 @@ mod playtime_impl {
                                     .options
                                     .stop_column_if_slot_empty,
                                 allow_activate: true,
-                                // If control was initiated from real-time target, don't take care of starting/stopping.
+                                // If control was initiated from real-time context (MIDI), don't take care of
+                                // starting/stopping. Because it's done in the real-time matrix already.
                                 allow_start_stop: !context.coming_from_real_time,
                             },
                         )?;
