@@ -95,6 +95,8 @@ pub struct Matrix {
     pub activate_slot_on_trigger: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub click_volume: Option<Db>,
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // pub pre_roll_bars: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
     #[serde(default)]
