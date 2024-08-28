@@ -95,8 +95,8 @@ pub struct Matrix {
     pub activate_slot_on_trigger: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub click_volume: Option<Db>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub pre_roll_bars: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pre_roll_bars: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color_palette: Option<ColorPalette>,
     #[serde(default)]
@@ -139,6 +139,7 @@ impl Default for Matrix {
             common_tempo_range: Default::default(),
             activate_slot_on_trigger: ACTIVATE_SLOT_ON_TRIGGER_DEFAULT,
             click_volume: None,
+            pre_roll_bars: None,
             color_palette: None,
             content_quantization_settings: Default::default(),
             sequencer: Default::default(),
@@ -148,6 +149,7 @@ impl Default for Matrix {
 }
 
 pub const ACTIVATE_SLOT_ON_TRIGGER_DEFAULT: bool = true;
+pub const PRE_ROLL_BARS_DEFAULT: u32 = 2;
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct MatrixSequencer {
@@ -266,7 +268,8 @@ impl SignedMatrix {
     }
 }
 
-/// This is redundant (already contained in [`Matrix`]) but used to transfer settings only.
+/// This is redundant (already contained in [`Matrix`]) but used to transfer settings only, without all the content
+/// (columns, rows, slots).
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MatrixSettings {
     pub clip_play_settings: MatrixClipPlaySettings,
@@ -276,6 +279,7 @@ pub struct MatrixSettings {
     pub content_quantization_settings: ContentQuantizationSettings,
     pub activate_slot_on_trigger: bool,
     pub transport_sync_mode: TransportSyncMode,
+    pub pre_roll_bars: u32,
 }
 
 impl Matrix {
