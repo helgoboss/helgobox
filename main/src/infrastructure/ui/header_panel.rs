@@ -682,6 +682,19 @@ impl HeaderPanel {
                 separator(),
                 // Global scope
                 menu(
+                    "User interface",
+                    vec![
+                        item_with_opts(
+                            "Background colors",
+                            ItemOpts {
+                                enabled: true,
+                                checked: BackboneShell::get().config().background_colors_enabled(),
+                            },
+                            MainMenuAction::ToggleBackgroundColors,
+                        ),
+                    ],
+                ),
+                menu(
                     "Server",
                     vec![
                         item(
@@ -788,6 +801,13 @@ impl HeaderPanel {
             MainMenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
             MainMenuAction::SetStayActiveWhenProjectInBackground(option) => {
                 self.set_stay_active_when_project_in_background(option)
+            }
+            MainMenuAction::ToggleBackgroundColors => {
+                BackboneShell::get().toggle_background_colors();
+                self.view.require_window().alert(
+                    "Helgobox",
+                    "You might need to restart REAPER for this to take effect.",
+                );
             }
             MainMenuAction::ToggleServer => {
                 if app.server_is_running() {
@@ -2705,6 +2725,9 @@ impl View for HeaderPanel {
             // On macOS/Linux we use color panels as real child windows.
             return false;
         }
+        if !BackboneShell::get().config().background_colors_enabled() {
+            return false;
+        }
         let window = self.view.require_window();
         self.show_color_panel.paint_manually(device_context, window);
         true
@@ -2718,6 +2741,9 @@ impl View for HeaderPanel {
         if cfg!(target_os = "macos") {
             // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
             // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        if !BackboneShell::get().config().background_colors_enabled() {
             return None;
         }
         device_context.set_bk_mode_to_transparent();
@@ -3072,6 +3098,7 @@ enum MainMenuAction {
     ToggleUpperFloorMembership,
     SetStayActiveWhenProjectInBackground(StayActiveWhenProjectInBackground),
     ToggleServer,
+    ToggleBackgroundColors,
     ToggleUseUnitPresetLinksOnly,
     AddFirewallRule,
     ChangeSessionId,

@@ -3,6 +3,7 @@ use reaper_medium::Hbrush;
 use std::fmt::Debug;
 use std::ptr::null_mut;
 
+use crate::infrastructure::plugin::BackboneShell;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util;
 use crate::infrastructure::ui::util::colors::ColorPair;
@@ -72,6 +73,9 @@ impl View for ColorPanel {
         _device_context: DeviceContext,
         _window: Window,
     ) -> Option<Hbrush> {
+        if !BackboneShell::get().config().background_colors_enabled() {
+            return None;
+        }
         util::view::get_brush_for_color_pair(self.desc.color_pair)
     }
 }

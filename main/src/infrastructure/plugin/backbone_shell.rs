@@ -1016,6 +1016,10 @@ impl BackboneShell {
         self.server.borrow_mut().stop();
     }
 
+    pub fn toggle_background_colors(&self) {
+        self.change_config(BackboneConfig::toggle_background_colors);
+    }
+
     /// Requires REAPER version >= 711+dev0305.
     pub fn toggle_toolbar_button_dynamically(&self, command_name: &str) -> anyhow::Result<()> {
         self.change_config(|config| {
@@ -2126,6 +2130,18 @@ impl BackboneConfig {
         Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
     }
 
+    pub fn background_colors_enabled(&self) -> bool {
+        self.main.background_colors_enabled > 0
+    }
+
+    pub fn toggle_background_colors(&mut self) {
+        self.main.background_colors_enabled = if self.background_colors_enabled() {
+            0
+        } else {
+            1
+        };
+    }
+
     pub fn toolbar_button_is_enabled(&self, command_name: &str) -> bool {
         self.toolbar.get(command_name).is_some_and(|v| *v != 0)
     }
@@ -2160,11 +2176,25 @@ struct MainConfig {
     )]
     companion_web_app_url: String,
     showed_welcome_screen: u8,
+    #[serde(
+        default = "default_background_colors_enabled",
+        skip_serializing_if = "is_default_background_colors_enabled"
+    )]
+    background_colors_enabled: u8,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
 const DEFAULT_SERVER_HTTPS_PORT: u16 = 39443;
 const DEFAULT_SERVER_GRPC_PORT: u16 = 39051;
+const DEFAULT_BACKGROUND_COLORS_ENABLED: u8 = 1;
+
+fn default_background_colors_enabled() -> u8 {
+    DEFAULT_BACKGROUND_COLORS_ENABLED
+}
+
+fn is_default_background_colors_enabled(v: &u8) -> bool {
+    *v == DEFAULT_BACKGROUND_COLORS_ENABLED
+}
 
 fn default_server_http_port() -> u16 {
     DEFAULT_SERVER_HTTP_PORT
@@ -2207,6 +2237,7 @@ impl Default for MainConfig {
             server_grpc_port: default_server_grpc_port(),
             companion_web_app_url: default_companion_web_app_url(),
             showed_welcome_screen: 0,
+            background_colors_enabled: default_background_colors_enabled(),
         }
     }
 }

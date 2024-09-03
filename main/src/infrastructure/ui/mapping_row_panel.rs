@@ -883,6 +883,9 @@ impl View for MappingRowPanel {
             // On macOS/Linux we use color panels as real child windows.
             return false;
         }
+        if !BackboneShell::get().config().background_colors_enabled() {
+            return false;
+        }
         let window = self.view.require_window();
         // Must be the first because we want it below the others
         self.mapping_color_panel
@@ -902,6 +905,9 @@ impl View for MappingRowPanel {
         if cfg!(target_os = "macos") {
             // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
             // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        if !BackboneShell::get().config().background_colors_enabled() {
             return None;
         }
         device_context.set_bk_mode_to_transparent();

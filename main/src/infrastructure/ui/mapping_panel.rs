@@ -7143,6 +7143,9 @@ impl View for MappingPanel {
             // On macOS/Linux we use color panels as real child windows.
             return false;
         }
+        if !BackboneShell::get().config().background_colors_enabled() {
+            return false;
+        }
         let window = self.view.require_window();
         self.mapping_color_panel
             .paint_manually(device_context, window);
@@ -7163,6 +7166,9 @@ impl View for MappingPanel {
         if cfg!(target_os = "macos") {
             // On macOS, we fortunately don't need to do this nonsense. And it wouldn't be possible
             // anyway because SWELL macOS can't distinguish between different child controls.
+            return None;
+        }
+        if !BackboneShell::get().config().background_colors_enabled() {
             return None;
         }
         device_context.set_bk_mode_to_transparent();

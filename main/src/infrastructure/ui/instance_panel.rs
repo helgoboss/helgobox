@@ -7,7 +7,9 @@ use std::sync;
 use std::sync::Arc;
 
 use crate::domain::{InstanceId, SharedInstance, UnitId};
-use crate::infrastructure::plugin::{reaper_main_window, InstanceShell, SharedInstanceShell};
+use crate::infrastructure::plugin::{
+    reaper_main_window, BackboneShell, InstanceShell, SharedInstanceShell,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::colors;
 use swell_ui::{DeviceContext, Dimensions, Pixels, SharedView, View, ViewContext, Window};
@@ -306,6 +308,9 @@ impl View for InstancePanel {
         _device_context: DeviceContext,
         _window: Window,
     ) -> Option<Hbrush> {
+        if !BackboneShell::get().config().background_colors_enabled() {
+            return None;
+        }
         util::view::get_brush_for_color_pair(colors::instance_panel_background())
     }
 }
