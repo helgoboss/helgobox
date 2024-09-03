@@ -127,7 +127,11 @@ impl MidiSendTarget {
                         MidiOutputDevice::new(dev_id).with_midi_output(
                             |mo| -> Result<(), &'static str> {
                                 let mo = mo.ok_or("couldn't open MIDI output device")?;
-                                mo.send_msg(raw_midi_event, SendMidiTime::Instantly);
+                                let sample_offset = value_event.offset().get() as u32;
+                                mo.send_msg(
+                                    raw_midi_event,
+                                    SendMidiTime::AtFrameOffset(sample_offset),
+                                );
                                 Ok(())
                             },
                         )?;
