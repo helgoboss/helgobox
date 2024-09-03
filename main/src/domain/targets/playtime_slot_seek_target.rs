@@ -187,11 +187,13 @@ mod playtime_impl {
         fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
             Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| {
-                    let slot = matrix.find_slot(self.slot_coordinates)?;
+                    let column = matrix.find_column(self.slot_coordinates.column_index)?;
+                    let slot = column.find_slot(self.slot_coordinates.row_index)?;
+                    let play_lookahead = column.play_lookahead().get();
                     let timeline = matrix.timeline();
                     let tempo = timeline.next_block().tempo_entry.props.tempo;
                     slot.relevant_clip_employments()
-                        .primary_position_in_seconds(tempo)
+                        .primary_logical_pos_latency_corrected_timeline_secs(tempo, play_lookahead)
                         .ok()
                 })
                 .ok()?
@@ -204,11 +206,14 @@ mod playtime_impl {
         fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
             let val = Backbone::get()
                 .with_clip_matrix(context.instance(), |matrix| {
-                    let relevant_content = matrix
-                        .find_slot(self.slot_coordinates)?
-                        .relevant_clip_employments();
+                    let column = matrix.find_column(self.slot_coordinates.column_index)?;
+                    let slot = column.find_slot(self.slot_coordinates.row_index)?;
+                    let relevant_content = slot.relevant_clip_employments();
+                    let play_lookahead = column.play_lookahead().get();
+                    let timeline = matrix.timeline();
+                    let tempo = timeline.next_block().tempo_entry.props.tempo;
                     let val = relevant_content
-                        .primary_logical_proportional_position()
+                        .primary_logical_pos_latency_corrected_proportional(tempo, play_lookahead)
                         .ok()?;
                     Some(AbsoluteValue::Continuous(val))
                 })
