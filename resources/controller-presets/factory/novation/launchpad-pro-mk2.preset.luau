@@ -8,7 +8,7 @@
 --- device_name: Launchpad Pro mk2
 --- # I leave part of the family code dynamic. It's not always 00: https://github.com/helgoboss/helgobox/issues/939
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 51 00 ? 00 * F7
---- midi_output_port_patterns: ["*Live*", "Launchpad Pro"]
+--- midi_output_port_patterns: ["macos:*Live*", "windows:*Launchpad Pro"]
 --- provided_schemes: [novation/launchpad-pro-mk2/live, grid]
 
 --!strict

@@ -2954,6 +2954,7 @@ dependencies = [
  "semver 1.0.17",
  "serde",
  "serde_json",
+ "serde_with",
  "strum",
  "stylua",
  "syn 2.0.48",

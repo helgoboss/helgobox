@@ -7,7 +7,7 @@
 --- device_manufacturer: Novation
 --- device_name: Launchpad Mini mk3
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 13 01 00 00 * F7
---- midi_output_port_patterns: ["*DAW*", "LPMiniMK3 MIDI"]
+--- midi_output_port_patterns: ["macos:*DAW*", "windows:LPMiniMK3 MIDI"]
 --- provided_schemes: [novation/launchpad-mini-mk3/live, grid]
 
 --!strict

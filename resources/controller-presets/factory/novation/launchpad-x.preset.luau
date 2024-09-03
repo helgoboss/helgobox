@@ -7,7 +7,7 @@
 --- device_manufacturer: Novation
 --- device_name: Launchpad X
 --- midi_identity_pattern: F0 7E ?  06 02 00 20 29 03 01 00 00 * F7
---- midi_output_port_patterns: ["*DAW*", "LPX MIDI"]
+--- midi_output_port_patterns: [macos:"*DAW*", "windows:LPX MIDI"]
 --- provided_schemes: [novation/launchpad-x/live, grid]
 
 --!strict

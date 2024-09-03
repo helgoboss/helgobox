@@ -11,7 +11,7 @@ use base::hash_util::NonCryptoHashMap;
 use base::Global;
 use helgobox_api::persistence::{
     Controller, ControllerConnection, ControllerPresetMetaData, MainPresetMetaData,
-    MidiControllerConnection,
+    MidiControllerConnection, MidiPortPattern,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
@@ -412,13 +412,17 @@ fn instance_comparator(a: &InstanceShellInfo, b: &InstanceShellInfo) -> Ordering
     }
 }
 
-pub fn midi_output_port_patterns_match(patterns: &[String], out_port_name: &str) -> bool {
+pub fn midi_output_port_patterns_match(patterns: &[MidiPortPattern], out_port_name: &str) -> bool {
     if patterns.is_empty() {
+        // If no patterns are defined, all device names are okay
         return true;
     }
     let lower_case_out_port_name = out_port_name.to_lowercase();
     patterns.iter().any(|pattern| {
-        let wild_match = WildMatch::new(&pattern.to_lowercase());
+        if !pattern.scope_matches() {
+            return false;
+        }
+        let wild_match = WildMatch::new(&pattern.name_pattern.to_lowercase());
         wild_match.matches(&lower_case_out_port_name)
     })
 }

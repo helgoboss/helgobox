@@ -1,9 +1,11 @@
-use std::collections::HashSet;
-
+use crate::util::deserialize_null_default;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-
-use crate::util::deserialize_null_default;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
+use strum::{Display, EnumString};
 
 /// Meta data that is common to both main and controller presets.
 ///
@@ -89,7 +91,7 @@ pub struct ControllerPresetMetaData {
     ///
     /// It's a list because names often differ between operating systems. ReaLearn will match any in the list.
     #[serde(default)]
-    pub midi_output_port_patterns: Vec<String>,
+    pub midi_output_port_patterns: Vec<MidiPortPattern>,
     /// Provided virtual control schemes.
     ///
     /// Will be used for finding the correct controller preset when calculating auto units.
@@ -100,6 +102,66 @@ pub struct ControllerPresetMetaData {
     /// schemes will be favored over less specific ones.
     #[serde(default)]
     pub provided_schemes: Vec<VirtualControlSchemeId>,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, SerializeDisplay, DeserializeFromStr)]
+pub struct MidiPortPattern {
+    pub scope: Option<MidiPortPatternScope>,
+    pub name_pattern: String,
+}
+
+impl MidiPortPattern {
+    pub fn scope_matches(&self) -> bool {
+        let Some(scope) = self.scope else {
+            return true;
+        };
+        match scope {
+            MidiPortPatternScope::Windows => cfg!(windows),
+            MidiPortPatternScope::MacOs => cfg!(target_os = "macos"),
+            MidiPortPatternScope::Linux => cfg!(target_os = "linux"),
+        }
+    }
+}
+
+impl FromStr for MidiPortPattern {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some((scope_string, name_pattern)) = s.split_once(":") {
+            if let Some(scope) = MidiPortPatternScope::from_str(scope_string).ok() {
+                // MIDI port pattern with scope restriction
+                let pattern = Self {
+                    scope: Some(scope),
+                    name_pattern: name_pattern.to_string(),
+                };
+                return Ok(pattern);
+            }
+        }
+        // MIDI port pattern without scope restriction
+        let pattern = Self {
+            scope: None,
+            name_pattern: s.to_string(),
+        };
+        Ok(pattern)
+    }
+}
+
+impl Display for MidiPortPattern {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(s) = self.scope {
+            write!(f, "{s}:")?;
+        }
+        self.name_pattern.fmt(f)?;
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Display, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum MidiPortPatternScope {
+    Windows,
+    MacOs,
+    Linux,
 }
 
 /// Metadata that is specific to main presets.

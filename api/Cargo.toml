@@ -22,6 +22,7 @@ num_enum.workspace = true
 enum-map.workspace = true
 enumset = { workspace = true, features = ["serde", "alloc"] }
 helgoboss-license-api.workspace = true
+serde_with.workspace = true
 
 [dev-dependencies]
 # For testing Lua compatibility

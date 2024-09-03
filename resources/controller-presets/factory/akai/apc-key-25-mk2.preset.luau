@@ -12,7 +12,7 @@
 --- # don't provide a MIDI output device pattern, it's possible that ReaLearn's automatic 
 --- # controller detection feature takes the "Keys" port ... and things wouldn't work!
 --- # On Windows, the naming is different, that's why there's also "MIDIOUT2".
---- midi_output_port_patterns: ["*Control*", "*MIDIOUT2*"]
+--- midi_output_port_patterns: ["macos:*Control*", "windows:*MIDIOUT2*"]
 --- provided_schemes: [akai/apc-key-25-mk2, grid]
 
 --!strict
