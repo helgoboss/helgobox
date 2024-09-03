@@ -2906,7 +2906,7 @@ mod playtime_impl {
                     "It was not possible to add Helgobox VST plug-in, probably because you have VST scanning disabled in the REAPER preferences!\n\nPlease open REAPER's FX browser and press F5 to rescan. After that, try again!\n\nAs an alternative, re-enable VST scanning in Preferences/Plug-ins/VST and restart REAPER."
                 }
             })?;
-        fx.hide_floating_window();
+        fx.hide_floating_window()?;
         // The rest needs to be done async because the instance initializes itself async
         // (because FX not yet available when plug-in instantiated).
         Global::task_support()

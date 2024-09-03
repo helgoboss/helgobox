@@ -131,7 +131,7 @@ impl RealearnTarget for BrowseFxsTarget {
                         if i == fx_index as usize {
                             fx.show_in_floating_window();
                         } else {
-                            fx.hide_floating_window();
+                            fx.hide_floating_window()?;
                         }
                     }
                 }
@@ -140,7 +140,7 @@ impl RealearnTarget for BrowseFxsTarget {
                         .fx_chain
                         .index_based_fx_by_index(fx_index)
                         .ok_or("FX not available")?;
-                    fx.show_in_chain();
+                    fx.show_in_chain()?;
                 }
             },
         }

@@ -1624,7 +1624,7 @@ fn load_audio_preset(
                 let window_is_open_now = fx.window_is_open();
                 if window_is_open_now {
                     if !fx.window_has_focus() {
-                        fx.hide_floating_window();
+                        fx.hide_floating_window()?;
                         fx.show_in_floating_window();
                     }
                 } else {
@@ -1860,12 +1860,12 @@ impl LoadPresetWindowBehavior {
         match self {
             LoadPresetWindowBehavior::NeverShow => {
                 if now_is_open {
-                    fx.hide_floating_window();
+                    fx.hide_floating_window().unwrap();
                 }
             }
             LoadPresetWindowBehavior::ShowOnlyIfPreviouslyShown => {
                 if !was_open_before && now_is_open {
-                    fx.hide_floating_window();
+                    fx.hide_floating_window().unwrap();
                 } else if was_open_before && !now_is_open {
                     fx.show_in_floating_window();
                 }
@@ -1881,7 +1881,7 @@ impl LoadPresetWindowBehavior {
                         fx.show_in_floating_window()
                     }
                 } else if !was_open_before && now_is_open {
-                    fx.hide_floating_window();
+                    fx.hide_floating_window().unwrap();
                 } else if was_open_before && !now_is_open {
                     fx.show_in_floating_window();
                 }

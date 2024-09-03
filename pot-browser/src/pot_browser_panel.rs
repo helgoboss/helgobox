@@ -753,7 +753,7 @@ fn run_main_ui<I: PotBrowserIntegration>(
                                         .on_hover_text("Shows the FX chain")
                                         .clicked()
                                     {
-                                        fx.show_in_chain();
+                                        fx.show_in_chain().unwrap();
                                     }
                                     if ui
                                         .small_button("FX")

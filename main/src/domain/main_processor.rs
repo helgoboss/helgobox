@@ -1919,7 +1919,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // This only filters out "matched" outcomes, not "consumed" ones. This is important because it lets
         // combination shortcuts through that are not matched. E.g. Cmd+B is let through if there is an active
         // mapping listening to a "Cmd" (a modifier!) but there is no active mapping with source 'B'.
-        // TODO-high CONTINUE Check If this works on Windows as well.
         let filter_out_event = match_outcome.matched();
         KeyProcessingResult {
             match_outcome,
