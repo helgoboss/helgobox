@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use crate::application::{
     reaper_supports_global_midi_filter, AutoLoadMode, CompartmentCommand, CompartmentInSession,
     CompartmentModel, FxPresetLinkConfig, GroupModel, SessionCommand, SharedUnitModel, UnitModel,
@@ -100,6 +101,12 @@ pub struct UnitData {
         skip_serializing_if = "is_default"
     )]
     control_device_id: Option<ControlDeviceId>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_null_default",
+        skip_serializing_if = "is_default"
+    )]
+    wants_keyboard_input: bool,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
@@ -367,12 +374,20 @@ impl CompartmentState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ControlDeviceId {
+    #[deprecated(
+        since = "2.16.4",
+        note = "Keyboard input can now be enabled in addition to the input device"
+    )]
     Keyboard(KeyboardDevice),
     Osc(OscDeviceId),
     Midi(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[deprecated(
+    since = "2.16.4",
+    note = "Keyboard input can now be enabled in addition to the input device"
+)]
 enum KeyboardDevice {
     #[serde(rename = "keyboard")]
     TheKeyboard,
@@ -404,6 +419,7 @@ impl Default for UnitData {
             reset_feedback_when_releasing_source:
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             control_device_id: None,
+            wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
             feedback_device_id: None,
             default_group: None,
             default_controller_group: None,
@@ -492,11 +508,9 @@ impl UnitData {
                         Some(ControlDeviceId::Midi(dev_id.to_string()))
                     }
                     ControlInput::Osc(dev_id) => Some(ControlDeviceId::Osc(dev_id)),
-                    ControlInput::Keyboard => {
-                        Some(ControlDeviceId::Keyboard(KeyboardDevice::TheKeyboard))
-                    }
                 }
             },
+            wants_keyboard_input: session.wants_keyboard_input(),
             feedback_device_id: {
                 session.feedback_output().map(|output| match output {
                     FeedbackOutput::Midi(MidiDestination::FxOutput) => {
@@ -622,20 +636,23 @@ impl UnitData {
             &self.controller_groups,
             self.controller_parameters.values().map(|p| &p.setting),
         )?;
-        let control_input = match self.control_device_id.as_ref() {
-            None => ControlInput::Midi(MidiControlInput::FxInput),
+        let (control_input, wants_keyboard_input_legacy) = match self.control_device_id.as_ref() {
+            None => (ControlInput::Midi(MidiControlInput::FxInput), false),
             Some(dev_id) => {
                 use ControlDeviceId::*;
                 match dev_id {
-                    Keyboard(_) => ControlInput::Keyboard,
+                    Keyboard(_) => (ControlInput::Midi(MidiControlInput::FxInput), true),
                     Midi(midi_dev_id_string) => {
                         let raw_midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map_err(|_| "invalid MIDI input device ID")?;
                         let midi_dev_id = MidiInputDeviceId::new(raw_midi_dev_id);
-                        ControlInput::Midi(MidiControlInput::Device(midi_dev_id))
+                        (
+                            ControlInput::Midi(MidiControlInput::Device(midi_dev_id)),
+                            false,
+                        )
                     }
-                    Osc(osc_dev_id) => ControlInput::Osc(*osc_dev_id),
+                    Osc(osc_dev_id) => (ControlInput::Osc(*osc_dev_id), false),
                 }
             }
         };
@@ -690,6 +707,9 @@ impl UnitData {
         session
             .feedback_output
             .set_without_notification(feedback_output);
+        let _ = session.change(SessionCommand::SetWantsKeyboardInput(
+            self.wants_keyboard_input || wants_keyboard_input_legacy,
+        ));
         // Let events through or not
         {
             let is_old_preset = self

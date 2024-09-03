@@ -47,7 +47,7 @@ where
         let mut filter_out_event = false;
         let mut notified_backbone = false;
         for proc in &mut *self.main_processors.borrow_mut() {
-            if !proc.wants_keys() {
+            if !proc.wants_keyboard_input() {
                 continue;
             }
             let result = proc.process_incoming_key_msg(evt);

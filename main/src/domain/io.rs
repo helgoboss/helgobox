@@ -5,7 +5,6 @@ use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 pub enum ControlInput {
     Midi(MidiControlInput),
     Osc(OscDeviceId),
-    Keyboard,
 }
 
 impl ControlInput {

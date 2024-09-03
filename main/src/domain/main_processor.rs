@@ -1824,9 +1824,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn wants_keys(&self) -> bool {
-        self.wants_messages_in_general()
-            && self.basics.settings.control_input == ControlInput::Keyboard
+    pub fn wants_keyboard_input(&self) -> bool {
+        self.wants_messages_in_general() && self.basics.settings.wants_keyboard_input
     }
 
     pub fn wants_osc_from(&self, device_id: &OscDeviceId) -> bool {
@@ -1917,13 +1916,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         let match_outcome =
             self.process_incoming_message_internal(evt.map_payload(MainSourceMessage::Key));
-        let let_through = (match_outcome.matched_or_consumed()
-            && self.basics.settings.let_matched_events_through)
-            || (!match_outcome.matched_or_consumed()
-                && self.basics.settings.let_unmatched_events_through);
+        // This only filters out "matched" outcomes, not "consumed" ones. This is important because it lets
+        // combination shortcuts through that are not matched. E.g. Cmd+B is let through if there is an active
+        // mapping listening to a "Cmd" (a modifier!) but there is no active mapping with source 'B'.
+        // TODO-high CONTINUE Check If this works on Windows as well.
+        let filter_out_event = match_outcome.matched();
         KeyProcessingResult {
             match_outcome,
-            filter_out_event: !let_through,
+            filter_out_event,
         }
     }
 
@@ -2864,6 +2864,7 @@ pub enum NormalMainTask {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BasicSettings {
     pub control_input: ControlInput,
+    pub wants_keyboard_input: bool,
     pub feedback_output: Option<FeedbackOutput>,
     pub real_input_logging_enabled: bool,
     pub real_output_logging_enabled: bool,

@@ -43,8 +43,8 @@ use crate::infrastructure::ui::menus::{
     build_compartment_preset_menu_entries, get_midi_input_device_list_label,
     get_midi_output_device_list_label, get_osc_device_list_label,
     menu_containing_compartment_presets, ControlInputMenuAction, FeedbackOutputMenuAction,
-    OscDeviceManagementAction, CONTROL_INPUT_KEYBOARD_LABEL, CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
-    FEEDBACK_OUTPUT_MIDI_FX_OUTPUT, FEEDBACK_OUTPUT_NONE_LABEL,
+    OscDeviceManagementAction, CONTROL_INPUT_MIDI_FX_INPUT_LABEL, FEEDBACK_OUTPUT_MIDI_FX_OUTPUT,
+    FEEDBACK_OUTPUT_NONE_LABEL,
 };
 use crate::infrastructure::ui::util::{
     close_child_panel_if_open, colors, open_child_panel, open_child_panel_dyn, open_in_browser,
@@ -1460,7 +1460,6 @@ impl HeaderPanel {
                 input == MidiControlInput::FxInput || reaper_supports_global_midi_filter(),
             ),
             ControlInput::Osc(_) => (false, false),
-            ControlInput::Keyboard => (true, true),
         };
         for c in controls {
             c.set_visible(visible);
@@ -1670,7 +1669,6 @@ impl HeaderPanel {
                 }
             },
             ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
-            ControlInput::Keyboard => CONTROL_INPUT_KEYBOARD_LABEL.to_string(),
         };
         self.view
             .require_control(root::ID_CONTROL_INPUT_BUTTON)
@@ -1724,9 +1722,13 @@ impl HeaderPanel {
     }
 
     fn pick_control_input(&self) {
-        let current_value = self.session().borrow().control_input();
+        let (current_control_input, current_wants_keyboard_input) = {
+            let session = self.session();
+            let session = session.borrow();
+            (session.control_input(), session.wants_keyboard_input())
+        };
         let result = self.view.require_window().open_popup_menu(
-            menus::control_input_menu(current_value),
+            menus::control_input_menu(current_control_input, current_wants_keyboard_input),
             Window::cursor_pos(),
         );
         if let Some(action) = result {
@@ -1737,6 +1739,18 @@ impl HeaderPanel {
                 }
                 ControlInputMenuAction::ManageOsc(action) => {
                     self.execute_osc_dev_management_action(action);
+                }
+                ControlInputMenuAction::ToggleWantsKeyboardInput => {
+                    let weak_session = self.session.clone();
+                    if let Some(session) = weak_session.upgrade() {
+                        let mut session = session.borrow_mut();
+                        let current_value = session.wants_keyboard_input();
+                        session.change_with_notification(
+                            SessionCommand::SetWantsKeyboardInput(!current_value),
+                            None,
+                            weak_session,
+                        )
+                    }
                 }
             }
         }

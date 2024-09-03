@@ -101,6 +101,7 @@ pub struct UnitModel {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub reset_feedback_when_releasing_source: Prop<bool>,
     pub control_input: Prop<ControlInput>,
+    wants_keyboard_input: bool,
     pub feedback_output: Prop<Option<FeedbackOutput>>,
     pub auto_load_mode: Prop<AutoLoadMode>,
     pub auto_load_fallback_compartment: Option<CompartmentModel>,
@@ -209,6 +210,7 @@ pub mod session_defaults {
     pub const STAY_ACTIVE_WHEN_PROJECT_IN_BACKGROUND: StayActiveWhenProjectInBackground =
         StayActiveWhenProjectInBackground::OnlyIfBackgroundProjectIsRunning;
     pub const AUTO_CORRECT_SETTINGS: bool = true;
+    pub const WANTS_KEYBOARD_INPUT: bool = false;
     pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
     pub const RESET_FEEDBACK_WHEN_RELEASING_SOURCE: bool = true;
@@ -274,6 +276,7 @@ impl UnitModel {
                 session_defaults::RESET_FEEDBACK_WHEN_RELEASING_SOURCE,
             ),
             control_input: prop(initial_input),
+            wants_keyboard_input: session_defaults::WANTS_KEYBOARD_INPUT,
             feedback_output: prop(initial_output),
             auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             auto_load_fallback_compartment: None,
@@ -464,7 +467,7 @@ impl UnitModel {
                 ControlInput::Osc(dev_id) => dev_id == *device_id,
                 _ => false,
             },
-            InputDescriptor::Keyboard => matches!(self.control_input(), ControlInput::Keyboard),
+            InputDescriptor::Keyboard => self.wants_keyboard_input,
         }
     }
 
@@ -755,6 +758,10 @@ impl UnitModel {
                 }
             });
         res
+    }
+
+    pub fn wants_keyboard_input(&self) -> bool {
+        self.wants_keyboard_input
     }
 
     fn active_virtual_controller_mappings<'a>(
@@ -1121,6 +1128,10 @@ impl UnitModel {
                     .send_complaining(NormalMainTask::NotifyConditionsChanged);
                 Some(One(P::InstanceFx))
             }
+            C::SetWantsKeyboardInput(value) => {
+                self.wants_keyboard_input = value;
+                Some(One(P::WantsKeyboardInput))
+            }
             C::ChangeCompartment(compartment, cmd) => self
                 .change_compartment_internal(compartment, cmd)?
                 .map(|affected| One(P::InCompartment(compartment, affected))),
@@ -1253,6 +1264,9 @@ impl UnitModel {
                     match &affected {
                         One(UnitName) => {
                             session.ui().handle_unit_name_changed();
+                        }
+                        One(WantsKeyboardInput) => {
+                            session.sync_settings();
                         }
                         One(InCompartment(compartment, One(Notes))) => {
                             session.mark_compartment_dirty(*compartment);
@@ -2579,6 +2593,7 @@ impl UnitModel {
     fn sync_settings(&self) {
         let settings = BasicSettings {
             control_input: self.control_input(),
+            wants_keyboard_input: self.wants_keyboard_input,
             feedback_output: self.feedback_output(),
             real_input_logging_enabled: self.real_input_logging_enabled.get(),
             real_output_logging_enabled: self.real_output_logging_enabled.get(),
@@ -2994,6 +3009,7 @@ pub enum SessionCommand {
     SetUnitName(Option<String>),
     SetInstanceTrack(TrackDescriptor),
     SetInstanceFx(FxDescriptor),
+    SetWantsKeyboardInput(bool),
     ChangeCompartment(CompartmentKind, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
 }
@@ -3002,6 +3018,7 @@ pub enum SessionProp {
     UnitName,
     InstanceTrack,
     InstanceFx,
+    WantsKeyboardInput,
     InCompartment(CompartmentKind, Affected<CompartmentProp>),
 }
 

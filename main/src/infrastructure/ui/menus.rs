@@ -25,6 +25,7 @@ use swell_ui::menu_tree::{
 pub enum ControlInputMenuAction {
     SelectControlInput(ControlInput),
     ManageOsc(OscDeviceManagementAction),
+    ToggleWantsKeyboardInput,
 }
 
 pub fn midi_device_input_menu(
@@ -62,7 +63,10 @@ fn get_open_and_closed_midi_input_devs() -> (Vec<MidiInputDevice>, Vec<MidiInput
         .partition(|dev| dev.is_open())
 }
 
-pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuAction> {
+pub fn control_input_menu(
+    current_value: ControlInput,
+    wants_keyboard_input: bool,
+) -> Menu<ControlInputMenuAction> {
     let fx_input = ControlInput::Midi(MidiControlInput::FxInput);
     let (open_midi_devs, closed_midi_devs) = get_open_and_closed_midi_input_devs();
     let osc_device_manager = BackboneShell::get().osc_device_manager();
@@ -114,9 +118,9 @@ pub fn control_input_menu(current_value: ControlInput) -> Menu<ControlInputMenuA
         CONTROL_INPUT_KEYBOARD_LABEL,
         ItemOpts {
             enabled: true,
-            checked: current_value == ControlInput::Keyboard,
+            checked: wants_keyboard_input,
         },
-        ControlInputMenuAction::SelectControlInput(ControlInput::Keyboard),
+        ControlInputMenuAction::ToggleWantsKeyboardInput,
     )));
     anonymous_menu(entries.collect())
 }

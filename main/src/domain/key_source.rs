@@ -289,6 +289,14 @@ impl Keystroke {
         AcceleratorKey::from_behavior_and_key_code(self.modifiers, self.key)
     }
 
+    pub fn is_modifier_key(&self) -> bool {
+        use virt_keys::{CONTROL, MENU, SHIFT};
+        match self.accelerator_key() {
+            AcceleratorKey::VirtKey(k) if matches!(k, CONTROL | MENU | SHIFT) => true,
+            _ => false,
+        }
+    }
+
     fn format_key_via_reaper(&self) -> ReaperString {
         let accel = Accel {
             f_virt: self.modifiers,
