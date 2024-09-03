@@ -844,10 +844,14 @@ mod playtime_impl {
                             // We haven't yet collected the update for this column's playback track.
                             ContinuousColumnUpdate {
                                 peaks: get_track_peaks(track),
+                                play_lookahead: column.play_lookahead().get().get(),
                             }
                         }
                     } else {
-                        ContinuousColumnUpdate { peaks: vec![] }
+                        ContinuousColumnUpdate {
+                            peaks: vec![],
+                            play_lookahead: 0.0,
+                        }
                     }
                 })
                 .collect();

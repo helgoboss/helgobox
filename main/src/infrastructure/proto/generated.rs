@@ -1179,14 +1179,19 @@ pub struct ContinuousMatrixUpdate {
     pub bar: i32,
     #[prost(double, tag = "3")]
     pub beat: f64,
+    /// Numbers between 0 and 1.
     #[prost(double, repeated, tag = "4")]
     pub peaks: ::prost::alloc::vec::Vec<f64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinuousColumnUpdate {
+    /// Numbers between 0 and 1.
     #[prost(double, repeated, tag = "1")]
     pub peaks: ::prost::alloc::vec::Vec<f64>,
+    /// / Current play lookahead in seconds (due to PDC primarily).
+    #[prost(double, tag = "2")]
+    pub play_lookahead: f64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
