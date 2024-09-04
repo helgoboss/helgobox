@@ -1753,6 +1753,7 @@ impl HeaderPanel {
         );
         if let Some(action) = result {
             match action {
+                ControlInputMenuAction::Nothing => {}
                 ControlInputMenuAction::SelectControlInput(input) => {
                     self.session().borrow_mut().control_input.set(input);
                     update_auto_units_async();

@@ -23,6 +23,7 @@ use swell_ui::menu_tree::{
 };
 
 pub enum ControlInputMenuAction {
+    Nothing,
     SelectControlInput(ControlInput),
     ManageOsc(OscDeviceManagementAction),
     ToggleWantsKeyboardInput,
@@ -76,53 +77,76 @@ pub fn control_input_menu(
             .devices()
             .partition(|dev| dev.input_status().is_connected())
     };
-    let entries = iter::once(item_with_opts(
+    let entries = [item_with_opts(
         CONTROL_INPUT_MIDI_FX_INPUT_LABEL,
         ItemOpts {
             enabled: true,
             checked: current_value == fx_input,
         },
         ControlInputMenuAction::SelectControlInput(fx_input),
-    ))
+    )]
+    .into_iter()
     .chain(
         open_midi_devs
             .into_iter()
             .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value)),
     )
-    .chain(iter::once(menu(
-        "Unavailable MIDI input devices",
-        closed_midi_devs
-            .into_iter()
-            .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value))
-            .collect(),
-    )))
-    .chain(iter::once(separator()))
+    .chain([
+        menu(
+            "Unavailable MIDI input devices",
+            closed_midi_devs
+                .into_iter()
+                .map(|dev| build_control_input_midi_input_dev_menu_item(dev, current_value))
+                .collect(),
+        ),
+        separator(),
+    ])
     .chain(
         open_osc_devs
             .into_iter()
             .map(|dev| build_osc_input_dev_menu_item(dev, current_value)),
     )
-    .chain(iter::once(menu(
-        "Unavailable OSC devices",
-        closed_osc_devs
-            .into_iter()
-            .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
-            .collect(),
-    )))
-    .chain(iter::once(menu(
-        "Manage OSC devices",
-        osc_device_management_menu_entries(ControlInputMenuAction::ManageOsc),
-    )))
-    .chain(iter::once(separator()))
-    .chain(iter::once(item_with_opts(
-        CONTROL_INPUT_KEYBOARD_LABEL,
-        ItemOpts {
-            enabled: true,
-            checked: wants_keyboard_input,
-        },
-        ControlInputMenuAction::ToggleWantsKeyboardInput,
-    )));
-    anonymous_menu(entries.collect())
+    .chain([
+        menu(
+            "Unavailable OSC devices",
+            closed_osc_devs
+                .into_iter()
+                .map(|dev| build_osc_input_dev_menu_item(dev, current_value))
+                .collect(),
+        ),
+        menu(
+            "Manage OSC devices",
+            osc_device_management_menu_entries(ControlInputMenuAction::ManageOsc),
+        ),
+        separator(),
+        item_with_opts(
+            CONTROL_INPUT_KEYBOARD_LABEL,
+            ItemOpts {
+                enabled: true,
+                checked: wants_keyboard_input,
+            },
+            ControlInputMenuAction::ToggleWantsKeyboardInput,
+        ),
+    ]);
+    let mut entries: Vec<_> = entries.collect();
+    if Reaper::get()
+        .medium_reaper()
+        .low()
+        .pointers()
+        .IsWindowTextField
+        .is_none()
+    {
+        let tip_item = item_with_opts(
+            "Please update to at least REAPER 7.23 to temporarily disable keyboard control while entering text!",
+            ItemOpts {
+                enabled: false,
+                checked: false,
+            },
+            ControlInputMenuAction::Nothing,
+        );
+        entries.push(tip_item);
+    }
+    anonymous_menu(entries)
 }
 
 pub enum FeedbackOutputMenuAction {
