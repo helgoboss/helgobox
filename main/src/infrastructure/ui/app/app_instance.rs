@@ -36,6 +36,13 @@ pub trait AppInstance: Debug {
 
     fn notify_app_is_ready(&mut self, callback: AppCallback);
 
+    /// Returns the app window.
+    ///
+    /// That should be the thing that REAPER passes in the `HwndInfo` hook.
+    ///
+    /// On Windows, that currently is the parent window of the app handle window.
+    ///
+    /// On macOS, that's currently the content view (NSView) of the app handle window.
     fn window(&self) -> Option<Hwnd>;
 
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool);
@@ -143,6 +150,19 @@ impl AppInstance for DummyAppInstance {
 struct StandaloneAppInstance {
     instance_id: InstanceId,
     running_state: Option<StandaloneAppRunningState>,
+}
+
+impl StandaloneAppInstance {
+    fn register_app_window(&mut self, is_in_text_entry_mode: bool) {
+        let mut map = REGISTERED_APP_WINDOWS.get().borrow_mut();
+        let Some(hwnd) = self.window() else {
+            return;
+        };
+        let window_state = AppWindowState {
+            is_in_text_entry_mode,
+        };
+        map.insert(hwnd, window_state);
+    }
 }
 
 #[derive(Debug)]
@@ -257,6 +277,8 @@ impl AppInstance for StandaloneAppInstance {
                 .await;
         });
         running_state.event_subscription_join_handle = Some(join_handle);
+        // Register app window
+        self.register_app_window(false);
     }
 
     fn window(&self) -> Option<Hwnd> {
@@ -265,23 +287,36 @@ impl AppInstance for StandaloneAppInstance {
     }
 
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool) {
-        let mut map = APP_WINDOWS_IN_TEXT_ENTRY.get().borrow_mut();
-        let Some(hwnd) = self.window() else {
-            return;
-        };
-        map.insert(hwnd, is_in_text_entry_mode);
+        self.register_app_window(is_in_text_entry_mode);
     }
 }
 
-static APP_WINDOWS_IN_TEXT_ENTRY: Lazy<Fragile<RefCell<NonCryptoHashMap<Hwnd, bool>>>> =
+static REGISTERED_APP_WINDOWS: Lazy<Fragile<RefCell<NonCryptoHashMap<Hwnd, AppWindowState>>>> =
     Lazy::new(Default::default);
 
-pub fn app_window_is_in_text_entry_mode(window: Hwnd) -> Option<bool> {
-    APP_WINDOWS_IN_TEXT_ENTRY
-        .get()
-        .borrow()
-        .get(&window)
-        .copied()
+#[derive(Default)]
+struct AppWindowState {
+    is_in_text_entry_mode: bool,
+}
+
+/// Relevant for all OS.
+pub fn is_app_window(hwnd: Hwnd) -> bool {
+    let yes = REGISTERED_APP_WINDOWS.get().borrow().contains_key(&hwnd);
+    if yes {
+        return true;
+    }
+    if let Some(parent) = Window::from_hwnd(hwnd).parent() {
+        is_app_window(parent.raw_hwnd())
+    } else {
+        false
+    }
+}
+
+/// Relevant on Windows only.
+pub fn app_window_is_in_text_entry_mode(hwnd: Hwnd) -> Option<bool> {
+    let map = REGISTERED_APP_WINDOWS.get().borrow();
+    let state = map.get(&hwnd)?;
+    Some(state.is_in_text_entry_mode)
 }
 
 #[derive(Debug)]

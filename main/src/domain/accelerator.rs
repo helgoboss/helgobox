@@ -3,6 +3,7 @@ use crate::domain::{
     SharedMainProcessors,
 };
 use helgoboss_learn::AbstractTimestamp;
+use reaper_high::Reaper;
 use reaper_low::raw;
 use reaper_medium::{
     AccelMsg, AccelMsgKind, AcceleratorBehavior, TranslateAccel, TranslateAccelArgs,
@@ -121,19 +122,31 @@ where
     S: HelgoboxWindowSnitch,
 {
     fn call(&mut self, args: TranslateAccelArgs) -> TranslateAccelResult {
-        if args.msg.message() != AccelMsgKind::Char {
-            // If it's not a char message, it could be interesting for main processors.
-            // (Char messages are only sent on Windows and for all relevant control purposes,
-            // they are preceded by a KeyDown event, so we must ignore them).
-            let stroke = Keystroke::new(args.msg.behavior(), args.msg.key());
-            let normalized_stroke = stroke.normalized();
-            let normalized_msg = KeyMessage::new(args.msg.message(), normalized_stroke);
-            let matched = self.process_control(normalized_msg);
-            if matched {
-                return TranslateAccelResult::Eat;
+        // Ignore char messages
+        if args.msg.message() == AccelMsgKind::Char {
+            // Char messages are only sent on Windows and for all relevant control purposes,
+            // they are preceded by a KeyDown event, so we must ignore them.
+            return self.process_unmatched(args.msg);
+        }
+        // If REAPER 7.23+, check if window is text field
+        let reaper = Reaper::get().medium_reaper();
+        if reaper.low().pointers().IsWindowTextField.is_some() {
+            if let Some(window) = Window::focused() {
+                let is_text_field = unsafe { reaper.is_window_text_field(window.raw_hwnd()) };
+                if is_text_field {
+                    return self.process_unmatched(args.msg);
+                }
             }
         }
-        // If we end up here, no main processor was interested in that key.
-        self.process_unmatched(args.msg)
+        // If we end up here, it could be interesting for the main processors
+        let stroke = Keystroke::new(args.msg.behavior(), args.msg.key());
+        let normalized_stroke = stroke.normalized();
+        let normalized_msg = KeyMessage::new(args.msg.message(), normalized_stroke);
+        let filter_out = self.process_control(normalized_msg);
+        if filter_out {
+            TranslateAccelResult::Eat
+        } else {
+            self.process_unmatched(args.msg)
+        }
     }
 }

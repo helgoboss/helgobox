@@ -30,7 +30,9 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{
     MetricsReporter, RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
-use crate::infrastructure::ui::{app_window_is_in_text_entry_mode, menus, MessagePanel};
+use crate::infrastructure::ui::{
+    app_window_is_in_text_entry_mode, is_app_window, menus, MessagePanel,
+};
 use base::default_util::is_default;
 use base::{
     make_available_globally_in_main_thread_on_demand, panic_util, spawn_in_main_thread, Global,
@@ -70,10 +72,10 @@ use once_cell::sync::Lazy;
 use reaper_high::{
     ChangeEvent, CrashInfo, Fx, Guid, MiddlewareControlSurface, Project, Reaper, Track,
 };
-use reaper_low::{PluginContext, Swell};
+use reaper_low::{raw, PluginContext, Swell};
 use reaper_macros::reaper_extension_plugin;
 use reaper_medium::{
-    reaper_str, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
+    reaper_str, AccelMsg, AcceleratorPosition, ActionValueChange, CommandId, Hmenu, HookCustomMenu,
     HookPostCommand, HookPostCommand2, Hwnd, HwndInfo, HwndInfoType, MenuHookFlag,
     MidiInputDeviceId, MidiOutputDeviceId, ReaProject, ReaperStr, RegistrationHandle,
     SectionContext, ToolbarIconMap, WindowContext,
@@ -659,8 +661,7 @@ impl BackboneShell {
         session
             .plugin_register_add_hook_post_command::<Self>()
             .unwrap();
-        // Window hooks (fails before REAPER 6.29). Only necessary on Windows, see https://github.com/helgoboss/helgobox/issues/1083.
-        #[cfg(windows)]
+        // Window hooks (fails before REAPER 6.29)
         let _ = session.plugin_register_add_hwnd_info::<Self>();
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
@@ -2287,37 +2288,49 @@ impl HookPostCommand for BackboneShell {
 }
 
 impl HwndInfo for BackboneShell {
-    fn call(window: Hwnd, info_type: HwndInfoType) -> i32 {
+    fn call(hwnd: Hwnd, info_type: HwndInfoType, msg: Option<AccelMsg>) -> i32 {
+        const IGNORE: i32 = 0;
+        const PASS_TO_WINDOW: i32 = 1;
+        const PROCESS_GLOBALLY: i32 = -1;
+        // Special handling for SPACE key: Always let it process by Helgobox App even if defined as Global.
+        // Without that, users who defined SPACE as global hotkey wouldn't be able to enjoy the special SPACE key
+        // behavior in Playtime (playing Playtime only without REAPER when App window is focused).
+        if let Some(msg) = msg {
+            if msg.key().get() as u32 == raw::VK_SPACE {
+                if is_app_window(hwnd) {
+                    debug!("Pressed global space in app window");
+                    return PASS_TO_WINDOW;
+                }
+            }
+        }
+        // Continue if no special SPACE handling invoked
         match info_type {
             HwndInfoType::IsTextField => {
+                if !cfg!(windows) {
+                    return IGNORE;
+                }
+                // This one is only necessary on Windows, see https://github.com/helgoboss/helgobox/issues/1083.
                 // REAPER detected a global hotkey press while having a child window focused. It wants to know whether
                 // this child window is currently in text-entry mode, in which case it would NOT execute the action
                 // associated with the global hotkey but direct the key to the window. We must check here whether
                 // the Helgobox App is currently in text entry mode. This is only necessary on Windows, because
                 // Flutter essentially just uses one big HWND on windows ... text fields are not different HWNDs and
                 // therefore not identifiable as text field (via Window classes "Edit", "RichEdit" etc.).
-                // When we end up here, we are on Windows (for macOS, the hook is not registered). On Windows, the
-                // window associated with the app instance is always the parent window of the window for which REAPER
-                // queries the HwndInfo. So we need to check the parent window.
-                if let Some(parent_window) = Window::from_hwnd(window).parent() {
-                    // The queried window has a parent
-                    match app_window_is_in_text_entry_mode(parent_window.raw_hwnd()) {
-                        None => {
-                            // Probably not a Helgobox App window
-                            0
-                        }
-                        Some(false) => {
-                            // It's a Helgobox App window, but we are not in text entry mode
-                            -1
-                        }
-                        Some(true) => {
-                            // It's a Helgobox App, and we are in text entry mode
-                            1
-                        }
+                // When we end up here, we are on Windows (for macOS, the hook is not registered).
+                // The queried window has a parent
+                match app_window_is_in_text_entry_mode(hwnd) {
+                    None => {
+                        // Probably not a Helgobox App window
+                        IGNORE
                     }
-                } else {
-                    // The queried window doesn't have any parent. Then it can't be the app window.
-                    0
+                    Some(false) => {
+                        // It's a Helgobox App window, but we are not in text entry mode
+                        PROCESS_GLOBALLY
+                    }
+                    Some(true) => {
+                        // It's a Helgobox App, and we are in text entry mode
+                        PASS_TO_WINDOW
+                    }
                 }
             }
             HwndInfoType::ShouldProcessGlobalHotkeys | HwndInfoType::Unknown(_) => {
