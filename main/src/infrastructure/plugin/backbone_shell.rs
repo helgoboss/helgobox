@@ -283,6 +283,7 @@ impl BackboneShell {
                 plugin_name: "Helgobox".to_string(),
                 plugin_version: BackboneShell::detailed_version_label().to_string(),
                 support_email_address: "info@helgoboss.org".to_string(),
+                update_url: "https://www.helgoboss.org/projects/helgobox".to_string(),
             },
         );
         // The API contains functions that must be around without any VST plug-in instance being active
