@@ -50,7 +50,7 @@ pub fn create_initial_instance_updates(
     let reaper_revision = reaper_version.revision();
     let mut warnings = vec![];
     if cfg!(feature = "playtime") && reaper_revision < MIN_REAPER_VERSION_FOR_PLAYTIME {
-        let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
+        let msg = format!("You are using REAPER version {reaper_revision}, which is not optimal for running Playtime. You may experience issues of all kinds (timing, keyboard control, ...)! For an optimal experience, please upgrade to at least REAPER version {MIN_REAPER_VERSION_FOR_PLAYTIME}!");
         warnings.push(Update::warning(Severity::High, Some(Scope::Playtime), msg))
     }
     create(
@@ -60,7 +60,7 @@ pub fn create_initial_instance_updates(
     )
 }
 
-const MIN_REAPER_VERSION_FOR_PLAYTIME: &str = "7.17";
+const MIN_REAPER_VERSION_FOR_PLAYTIME: &str = "7.23";
 
 pub fn create_initial_unit_updates(
     instance_shell: &InstanceShell,
