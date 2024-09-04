@@ -38,11 +38,11 @@ pub trait AppInstance: Debug {
 
     /// Returns the app window.
     ///
-    /// That should be the thing that REAPER passes in the `HwndInfo` hook.
+    /// On Windows, that is the app handle (HWND), which is the **parent** window of whatever REAPER passes into
+    /// the `HwndInfo` hook.
     ///
-    /// On Windows, that currently is the parent window of the app handle window.
-    ///
-    /// On macOS, that's currently the content view (NSView) of the app handle window.
+    /// On macOS, this is the content view (NSView) of the app handle (NSWindow), which is exactly what
+    /// REAPER passes into the `HwndInfo` hook.
     fn window(&self) -> Option<Hwnd>;
 
     fn notify_app_is_in_text_entry_mode(&mut self, is_in_text_entry_mode: bool);

@@ -152,10 +152,10 @@ static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui
     std::sync::OnceLock::new();
 
 pub type RealearnSessionAccelerator =
-    RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
+RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
 
 pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
+MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
 
 /// Just the old term as alias for easier class search.
 type _App = BackboneShell;
@@ -923,7 +923,7 @@ impl BackboneShell {
     #[allow(dead_code)]
     pub fn spawn_in_async_runtime<R>(
         &self,
-        f: impl Future<Output = R> + Send + 'static,
+        f: impl Future<Output=R> + Send + 'static,
     ) -> tokio::task::JoinHandle<R>
     where
         R: Send + 'static,
@@ -1054,7 +1054,7 @@ impl BackboneShell {
         self.controller_preset_manager.borrow().log_debug_info();
     }
 
-    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
         self.sessions_changed_subject.borrow().clone()
     }
 
@@ -1234,7 +1234,7 @@ impl BackboneShell {
                 .iter()
                 .find(|i| i.is_main_unit && i.instance_id == instance_id)
         })
-        .ok()
+            .ok()
     }
 
     #[cfg(feature = "playtime")]
@@ -1928,7 +1928,7 @@ impl BackboneShell {
             compartment,
             target,
         )
-        .or_else(|| self.find_first_session_with_target(None, compartment, target))
+            .or_else(|| self.find_first_session_with_target(None, compartment, target))
     }
 
     fn find_first_session_with_target(
@@ -1983,7 +1983,7 @@ impl BackboneShell {
             Some(Reaper::get().current_project()),
             input_descriptor,
         )
-        .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
+            .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
     }
 
     fn find_first_session_with_input_from(
@@ -2008,13 +2008,13 @@ impl BackboneShell {
             compartment,
             capture_result,
         )
-        .or_else(|| {
-            self.find_first_session_with_learnable_source_matching(
-                None,
-                compartment,
-                capture_result,
-            )
-        })
+            .or_else(|| {
+                self.find_first_session_with_learnable_source_matching(
+                    None,
+                    compartment,
+                    capture_result,
+                )
+            })
     }
 
     fn find_first_session_with_learnable_source_matching(
@@ -2318,8 +2318,11 @@ impl HwndInfo for BackboneShell {
                 // Flutter essentially just uses one big HWND on windows ... text fields are not different HWNDs and
                 // therefore not identifiable as text field (via Window classes "Edit", "RichEdit" etc.).
                 // When we end up here, we are on Windows (for macOS, the hook is not registered).
+                let Some(parent_window) = Window::from_hwnd(hwnd).parent() else {
+                    return IGNORE;
+                };
                 // The queried window has a parent
-                match app_window_is_in_text_entry_mode(hwnd) {
+                match app_window_is_in_text_entry_mode(parent_window.raw_hwnd()) {
                     None => {
                         // Probably not a Helgobox App window
                         IGNORE
