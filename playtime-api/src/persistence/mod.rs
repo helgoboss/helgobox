@@ -1248,10 +1248,11 @@ pub struct ClipAudioSettings {
     ///
     /// Doesn't apply automatic fades for fixing non-optimized source material.
     ///
-    /// This only prevents source-fix fades. Fades that are not about fixing the source will still
-    /// be applied if necessary in order to ensure a smooth playback, such as:
+    /// This only prevents fix fades at source level, that is fades fixing the source file itself or the source cut
+    /// (= static/fixed section). Fades that are not about fixing the source will still be applied if necessary in order
+    /// to ensure a smooth playback, such as:
     ///
-    /// - Section fades (start fade-in, end fade-out)
+    /// - Dynamic section fades (start fade-in, end fade-out)
     /// - Interaction fades (resume-after-pause fade-in, immediate stop fade-out)
     ///
     /// Fades don't overlap. Here's the order of priority (for fade-in and fade-out separately):
