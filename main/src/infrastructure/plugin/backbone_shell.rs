@@ -152,10 +152,10 @@ static APP_LIBRARY: std::sync::OnceLock<anyhow::Result<crate::infrastructure::ui
     std::sync::OnceLock::new();
 
 pub type RealearnSessionAccelerator =
-RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
+    RealearnAccelerator<WeakUnitModel, BackboneHelgoboxWindowSnitch>;
 
 pub type RealearnControlSurface =
-MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
+    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakUnitModel>>;
 
 /// Just the old term as alias for easier class search.
 type _App = BackboneShell;
@@ -923,7 +923,7 @@ impl BackboneShell {
     #[allow(dead_code)]
     pub fn spawn_in_async_runtime<R>(
         &self,
-        f: impl Future<Output=R> + Send + 'static,
+        f: impl Future<Output = R> + Send + 'static,
     ) -> tokio::task::JoinHandle<R>
     where
         R: Send + 'static,
@@ -1054,7 +1054,7 @@ impl BackboneShell {
         self.controller_preset_manager.borrow().log_debug_info();
     }
 
-    pub fn changed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.sessions_changed_subject.borrow().clone()
     }
 
@@ -1234,7 +1234,7 @@ impl BackboneShell {
                 .iter()
                 .find(|i| i.is_main_unit && i.instance_id == instance_id)
         })
-            .ok()
+        .ok()
     }
 
     #[cfg(feature = "playtime")]
@@ -1923,11 +1923,12 @@ impl BackboneShell {
         compartment: CompartmentKind,
         target: &ReaperTarget,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
-        self.find_first_session_with_target(
+        let in_current_project = self.find_first_session_with_target(
             Some(Reaper::get().current_project()),
             compartment,
             target,
-        )
+        );
+        in_current_project
             .or_else(|| self.find_first_session_with_target(None, compartment, target))
     }
 
@@ -1979,10 +1980,11 @@ impl BackboneShell {
         &self,
         input_descriptor: &InputDescriptor,
     ) -> Option<SharedUnitModel> {
-        self.find_first_session_with_input_from(
+        let in_current_project = self.find_first_session_with_input_from(
             Some(Reaper::get().current_project()),
             input_descriptor,
-        )
+        );
+        in_current_project
             .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
     }
 
@@ -2003,18 +2005,18 @@ impl BackboneShell {
         compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
     ) -> Option<(SharedUnitModel, SharedMapping)> {
-        self.find_first_session_with_learnable_source_matching(
+        let in_current_project = self.find_first_session_with_learnable_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
             capture_result,
-        )
-            .or_else(|| {
-                self.find_first_session_with_learnable_source_matching(
-                    None,
-                    compartment,
-                    capture_result,
-                )
-            })
+        );
+        in_current_project.or_else(|| {
+            self.find_first_session_with_learnable_source_matching(
+                None,
+                compartment,
+                capture_result,
+            )
+        })
     }
 
     fn find_first_session_with_learnable_source_matching(
