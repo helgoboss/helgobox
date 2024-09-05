@@ -65,6 +65,7 @@ export type Matrix = {
 	common_tempo_range: TempoRange,
 	activate_slot_on_trigger: boolean?,
 	click_volume: number?,
+	pre_roll_bars: number?,
 	color_palette: ColorPalette?,
 	content_quantization_settings: ContentQuantizationSettings?,
 	sequencer: MatrixSequencer?,
@@ -186,7 +187,8 @@ function module.SignedMatrix(value: SignedMatrix): SignedMatrix
 	return value
 end
 
---- This is redundant (already contained in [`Matrix`]) but used to transfer settings only.
+--- This is redundant (already contained in [`Matrix`]) but used to transfer settings only, without all the content
+--- (columns, rows, slots).
 export type MatrixSettings = {
 	clip_play_settings: MatrixClipPlaySettings,
 	clip_record_settings: MatrixClipRecordSettings,
@@ -195,9 +197,11 @@ export type MatrixSettings = {
 	content_quantization_settings: ContentQuantizationSettings,
 	activate_slot_on_trigger: boolean,
 	transport_sync_mode: TransportSyncMode,
+	pre_roll_bars: number,
 }
 --- Creates a MatrixSettings value.
---- This is redundant (already contained in [`Matrix`]) but used to transfer settings only.
+--- This is redundant (already contained in [`Matrix`]) but used to transfer settings only, without all the content
+--- (columns, rows, slots).
 function module.MatrixSettings(value: MatrixSettings): MatrixSettings
 	return value
 end

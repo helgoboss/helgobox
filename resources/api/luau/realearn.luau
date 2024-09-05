@@ -1545,7 +1545,7 @@ export type Target_PlaytimeSlotManagementAction = {
 	action: PlaytimeSlotManagementAction,
 }
 
-export type Target_SendMidi = { kind: "SendMidi", unit: TargetUnit?, message: string?, destination: MidiDestination? }
+export type Target_SendMidi = { kind: "SendMidi", unit: TargetUnit?, message: string?, destination: SendMidiDestination? }
 
 export type Target_SendOsc = {
 	kind: "SendOsc",
@@ -2967,7 +2967,7 @@ end
 export type SendMidiTarget = {
 	unit: TargetUnit?,
 	message: string?,
-	destination: MidiDestination?,
+	destination: SendMidiDestination?,
 }
 --- Creates a SendMidiTarget value.
 function module.SendMidiTarget(value: SendMidiTarget): SendMidiTarget
@@ -3947,29 +3947,49 @@ end
 
 export type PlaytimeRowDescriptorKind = "Active" | "ByIndex" | "Dynamic"
 
-export type MidiDestination_FxOutput = { kind: "FxOutput" }
+export type SendMidiDestination_FxOutput = { kind: "FxOutput" }
 
-export type MidiDestination_FeedbackOutput = { kind: "FeedbackOutput" }
-export type MidiDestination = MidiDestination_FxOutput | MidiDestination_FeedbackOutput
+export type SendMidiDestination_FeedbackOutput = { kind: "FeedbackOutput" }
 
---- A type that represents all possible kinds of MidiDestination.
-export type MidiDestinationKind = "FxOutput" | "FeedbackOutput"
+export type SendMidiDestination_InputDevice = { kind: "InputDevice", device_id: number? }
+export type SendMidiDestination =
+	SendMidiDestination_FxOutput
+	| SendMidiDestination_FeedbackOutput
+	| SendMidiDestination_InputDevice
 
---- Helper table to create MidiDestination values of different kinds.
-module.MidiDestination = {}
+--- A type that represents all possible kinds of SendMidiDestination.
+export type SendMidiDestinationKind = "FxOutput" | "FeedbackOutput" | "InputDevice"
 
---- Creates a MidiDestination of kind FxOutput.
-function module.MidiDestination.FxOutput(): MidiDestination_FxOutput
+--- Helper table to create SendMidiDestination values of different kinds.
+module.SendMidiDestination = {}
+
+--- Creates a SendMidiDestination of kind FxOutput.
+function module.SendMidiDestination.FxOutput(): SendMidiDestination_FxOutput
 	return {
 		kind = "FxOutput",
 	}
 end
 
---- Creates a MidiDestination of kind FeedbackOutput.
-function module.MidiDestination.FeedbackOutput(): MidiDestination_FeedbackOutput
+--- Creates a SendMidiDestination of kind FeedbackOutput.
+function module.SendMidiDestination.FeedbackOutput(): SendMidiDestination_FeedbackOutput
 	return {
 		kind = "FeedbackOutput",
 	}
+end
+
+--- Creates a SendMidiDestination of kind InputDevice.
+function module.SendMidiDestination.InputDevice(value: InputDeviceMidiDestination): SendMidiDestination_InputDevice
+	local t: any = table.clone(value)
+	t.kind = "InputDevice"
+	return t
+end
+
+export type InputDeviceMidiDestination = {
+	device_id: number?,
+}
+--- Creates a InputDeviceMidiDestination value.
+function module.InputDeviceMidiDestination(value: InputDeviceMidiDestination): InputDeviceMidiDestination
+	return value
 end
 
 export type OscDestination_FeedbackOutput = { kind: "FeedbackOutput" }
