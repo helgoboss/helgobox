@@ -189,11 +189,10 @@ mod playtime_impl {
                 .with_clip_matrix(context.instance(), |matrix| {
                     let column = matrix.find_column(self.slot_coordinates.column_index)?;
                     let slot = column.find_slot(self.slot_coordinates.row_index)?;
-                    let play_lookahead = column.play_lookahead().get();
                     let timeline = matrix.timeline();
                     let tempo = timeline.next_block().tempo_entry.props.tempo;
                     slot.relevant_clip_employments()
-                        .primary_logical_pos_latency_corrected_timeline_secs(tempo, play_lookahead)
+                        .primary_logical_pos_latency_corrected_timeline_secs(tempo)
                         .ok()
                 })
                 .ok()?
@@ -209,11 +208,10 @@ mod playtime_impl {
                     let column = matrix.find_column(self.slot_coordinates.column_index)?;
                     let slot = column.find_slot(self.slot_coordinates.row_index)?;
                     let relevant_content = slot.relevant_clip_employments();
-                    let play_lookahead = column.play_lookahead().get();
                     let timeline = matrix.timeline();
                     let tempo = timeline.next_block().tempo_entry.props.tempo;
                     let val = relevant_content
-                        .primary_logical_pos_latency_corrected_proportional(tempo, play_lookahead)
+                        .primary_logical_pos_latency_corrected_proportional(tempo)
                         .ok()?;
                     Some(AbsoluteValue::Continuous(val))
                 })

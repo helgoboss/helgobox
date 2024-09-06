@@ -1371,7 +1371,7 @@ pub mod occasional_matrix_update {
         /// Whether matrix exists at all
         #[prost(bool, tag = "14")]
         MatrixExists(bool),
-        /// Whether silence mode is active
+        /// Whether silence mode is active (= Playtime is stopped)
         #[prost(bool, tag = "15")]
         SilenceMode(bool),
         /// Sequencer play state (= transport state of matrix sequencer)
@@ -1728,8 +1728,14 @@ pub struct ContinuousClipUpdate {
     /// Suitable for indicating the position in a waveform editor.
     #[prost(int64, tag = "3")]
     pub source_position_in_frames: i64,
+    /// Like `source_position_in_frames` but driven by calculations instead of the actual position.
+    ///
+    /// Primarily a tool for debugging, to check whether actual position doesn't deviate too
+    /// much from the hypothetical one.
+    #[prost(int64, tag = "4")]
+    pub hypothetical_source_position_in_frames: i64,
     /// Number between 0 and 1.
-    #[prost(double, tag = "4")]
+    #[prost(double, tag = "5")]
     pub peak: f64,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
