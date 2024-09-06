@@ -1640,7 +1640,7 @@ impl BackboneShell {
         let midi_receiver = self.request_next_midi_messages();
         let osc_receiver = self.request_next_osc_messages();
         loop {
-            let next_capture_result = tokio::select! {
+            let capture_result = tokio::select! {
                 Ok(r) = midi_receiver.recv() => {
                     Some(MessageCaptureResult::Midi(r))
                 }
@@ -1649,17 +1649,19 @@ impl BackboneShell {
                 }
                 else => None
             };
-            if let Some(r) = next_capture_result {
-                if let Some((session, mapping)) =
-                    self.find_first_relevant_session_with_learnable_source_matching(compartment, &r)
-                {
-                    self.close_message_panel();
-                    session
-                        .borrow()
-                        .show_mapping(compartment, mapping.borrow().id());
-                }
-            } else {
+            let Some(r) = capture_result else {
                 break;
+            };
+            if let Some(outcome) =
+                self.find_first_relevant_session_with_source_matching(compartment, &r)
+            {
+                if outcome.source_is_learnable {
+                    self.close_message_panel();
+                    outcome
+                        .unit_model
+                        .borrow()
+                        .show_mapping(compartment, outcome.mapping.borrow().id());
+                }
             }
         }
         Ok(())
@@ -1704,36 +1706,80 @@ impl BackboneShell {
             );
             return Err("no ReaLearn unit");
         }
-        let capture_result = self
-            .prompt_for_next_message("Touch a control element!")
-            .await?;
-        let session = if let Some(s) = capture_result
-            .to_input_descriptor(false)
-            .and_then(|id| self.find_first_relevant_session_with_input_from(&id))
-        {
-            s
-        } else {
-            self.close_message_panel_with_alert(
-                "No ReaLearn unit found which has this MIDI control input! First please add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
-            );
-            return Err("no ReaLearn unit with that MIDI input");
+        self.show_message_panel("ReaLearn", "Touch a control element!", || {
+            BackboneShell::stop_learning_sources();
+        });
+        let midi_receiver = self.request_next_midi_messages();
+        let osc_receiver = self.request_next_osc_messages();
+        // Try until we found the first learnable message
+        let (unit_model, existing_mapping, capture_result) = loop {
+            // Capture next result
+            let capture_result = tokio::select! {
+                Ok(r) = midi_receiver.recv() => {
+                    Some(MessageCaptureResult::Midi(r))
+                }
+                Ok(r) = osc_receiver.recv() => {
+                    Some(MessageCaptureResult::Osc(r))
+                }
+                else => None
+            };
+            let Some(capture_result) = capture_result else {
+                return Ok(());
+            };
+            // Make sure that there's at least one unit which has that control input
+            let unit_model = if let Some(s) = capture_result
+                .to_input_descriptor(false)
+                .and_then(|id| self.find_first_relevant_session_with_input_from(&id))
+            {
+                s
+            } else {
+                self.close_message_panel_with_alert(
+                    "No ReaLearn unit found which has this control input! First please add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
+                );
+                return Err("no ReaLearn unit with that input");
+            };
+            // Find mapping that matches the source
+            if let Some(outcome) =
+                self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
+            {
+                // We found a mapping!
+                if outcome.source_is_learnable {
+                    // Yo, we found a matching mapping. Use that one for the rest of the procedure.
+                    break (outcome.unit_model, Some(outcome.mapping), capture_result);
+                } else {
+                    // Wait for next message because this source is not learnable
+                    continue;
+                }
+            } else {
+                // Couldn't find that one. Check if mapping is learnable in the unit that we found.
+                let virtualization = unit_model
+                    .borrow()
+                    .virtualize_source_value(capture_result.message());
+                if let Some(v) = virtualization {
+                    if !v.learnable {
+                        // Ignore because this source is not learnable in that unit model.
+                        continue;
+                    }
+                }
+                // We will have to create a new mapping.
+                break (unit_model, None, capture_result);
+            };
         };
+        // Now learn target
         let reaper_target = self
             .prompt_for_next_reaper_target("Now touch the desired target!")
             .await?;
+        // Close panel
         self.close_message_panel();
-        let (session, mapping) = if let Some((session, mapping)) = self
-            .find_first_relevant_session_with_learnable_source_matching(
-                compartment,
-                &capture_result,
-            ) {
+        // Modify existing mapping or add new mapping
+        let mapping = if let Some(mapping) = existing_mapping {
             // There's already a mapping with that source. Change target of that mapping.
             {
                 let mut m = mapping.borrow_mut();
-                session.borrow_mut().change_target_with_closure(
+                unit_model.borrow_mut().change_target_with_closure(
                     &mut m,
                     None,
-                    Rc::downgrade(&session),
+                    Rc::downgrade(&unit_model),
                     |ctx| {
                         ctx.mapping.target_model.apply_from_target(
                             &reaper_target,
@@ -1743,12 +1789,12 @@ impl BackboneShell {
                     },
                 );
             }
-            (session, mapping)
+            mapping
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
             // session.
             let mapping = {
-                let mut s = session.borrow_mut();
+                let mut s = unit_model.borrow_mut();
                 let mapping = s.add_default_mapping(
                     compartment,
                     GroupId::default(),
@@ -1772,10 +1818,10 @@ impl BackboneShell {
                 drop(m);
                 mapping
             };
-            (session, mapping)
+            mapping
         };
         if open_mapping {
-            session
+            unit_model
                 .borrow()
                 .show_mapping(compartment, mapping.borrow().id());
         }
@@ -1794,26 +1840,6 @@ impl BackboneShell {
         }
         // Continue
         Ok(())
-    }
-
-    async fn prompt_for_next_message(
-        &self,
-        msg: &str,
-    ) -> Result<MessageCaptureResult, &'static str> {
-        self.show_message_panel("ReaLearn", msg, || {
-            BackboneShell::stop_learning_sources();
-        });
-        let midi_receiver = self.request_next_midi_messages();
-        let osc_receiver = self.request_next_osc_messages();
-        tokio::select! {
-            Ok(r) = midi_receiver.recv() => {
-                Ok(MessageCaptureResult::Midi(r))
-            }
-            Ok(r) = osc_receiver.recv() => {
-                Ok(MessageCaptureResult::Osc(r))
-            }
-            else => Err("stopped learning")
-        }
     }
 
     fn stop_learning_sources() {
@@ -2000,35 +2026,31 @@ impl BackboneShell {
         })
     }
 
-    fn find_first_relevant_session_with_learnable_source_matching(
+    fn find_first_relevant_session_with_source_matching(
         &self,
         compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
-    ) -> Option<(SharedUnitModel, SharedMapping)> {
-        let in_current_project = self.find_first_session_with_learnable_source_matching(
+    ) -> Option<MatchingSourceOutcome> {
+        let in_current_project = self.find_first_session_with_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
             capture_result,
         );
         in_current_project.or_else(|| {
-            self.find_first_session_with_learnable_source_matching(
-                None,
-                compartment,
-                capture_result,
-            )
+            self.find_first_session_with_source_matching(None, compartment, capture_result)
         })
     }
 
-    fn find_first_session_with_learnable_source_matching(
+    fn find_first_session_with_source_matching(
         &self,
         project: Option<Project>,
         compartment: CompartmentKind,
         capture_result: &MessageCaptureResult,
-    ) -> Option<(SharedUnitModel, SharedMapping)> {
+    ) -> Option<MatchingSourceOutcome> {
         self.unit_infos.borrow().iter().find_map(|session| {
-            let session = session.unit_model.upgrade()?;
-            let mapping = {
-                let s = session.borrow();
+            let unit_model = session.unit_model.upgrade()?;
+            let outcome = {
+                let s = unit_model.borrow();
                 if s.processor_context().project() != project {
                     return None;
                 }
@@ -2036,10 +2058,14 @@ impl BackboneShell {
                 if !s.receives_input_from(&input_descriptor) {
                     return None;
                 }
-                s.find_mapping_with_learnable_source(compartment, capture_result.message())?
-                    .clone()
+                s.find_mapping_with_source(compartment, capture_result.message())?
             };
-            Some((session, mapping))
+            let outcome = MatchingSourceOutcome {
+                unit_model,
+                mapping: outcome.mapping,
+                source_is_learnable: outcome.source_is_learnable,
+            };
+            Some(outcome)
         })
     }
 
@@ -3087,4 +3113,10 @@ fn maybe_create_controller_for_each_added_device(diff: &DeviceDiff<MidiOutputDev
         IS_RUNNING.store(false, Ordering::Relaxed);
         Ok(())
     });
+}
+
+struct MatchingSourceOutcome {
+    unit_model: SharedUnitModel,
+    mapping: SharedMapping,
+    source_is_learnable: bool,
 }

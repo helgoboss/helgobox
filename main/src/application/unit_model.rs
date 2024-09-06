@@ -471,20 +471,15 @@ impl UnitModel {
         }
     }
 
-    pub fn find_mapping_with_learnable_source(
+    pub fn find_mapping_with_source(
         &self,
         compartment: CompartmentKind,
         source_value: IncomingCompoundSourceValue,
-    ) -> Option<&SharedMapping> {
-        let virtualization = self.virtualize_source_value(source_value);
-        if let Some(v) = &virtualization {
-            if !v.learnable {
-                return None;
-            }
-        }
-        let instance_state = self.unit.borrow();
+    ) -> Option<FindMappingOutcome> {
         use CompoundMappingSource::*;
-        self.mappings(compartment).find(|m| {
+        let virtualization = self.virtualize_source_value(source_value);
+        let instance_state = self.unit.borrow();
+        let mapping = self.mappings(compartment).find(|m| {
             let m = m.borrow();
             if !instance_state.mapping_is_on(m.qualified_id()) {
                 return false;
@@ -497,7 +492,12 @@ impl UnitModel {
                     .reacts_to_source_value_with(source_value)
                     .is_some()
             }
-        })
+        });
+        let outcome = FindMappingOutcome {
+            mapping: mapping.cloned()?,
+            source_is_learnable: virtualization.map(|v| v.learnable).unwrap_or(true),
+        };
+        Some(outcome)
     }
 
     pub fn mappings_have_project_references(&self, compartment: CompartmentKind) -> bool {
@@ -3114,4 +3114,9 @@ impl PresetLoadInstruction {
 pub struct SourceValueVirtualization {
     pub virtual_source_value: VirtualSourceValue,
     pub learnable: bool,
+}
+
+pub struct FindMappingOutcome {
+    pub mapping: SharedMapping,
+    pub source_is_learnable: bool,
 }
