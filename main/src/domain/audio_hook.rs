@@ -255,21 +255,21 @@ impl RealearnAudioHook {
         // The ignited clips should start immediately, exactly from zero as soon as the timeline has been reset.
         // If we called this before pre-polling Playtime audio hook, the real-time matrix would be called in the
         // next audio cycle, after the timeline has already advanced on block from zero.
-        self.call_real_time_instances(block_props);
+        self.pre_poll_real_time_instances(block_props);
         // Process some tasks
         self.check_for_midi_device_inquiry_response();
     }
 
     fn on_post(&mut self, args: OnAudioBufferArgs) {
+        let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+        self.post_poll_real_time_instances(block_props);
         // Let Playtime do its processing
         #[cfg(feature = "playtime")]
         {
-            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             self.clip_engine_audio_hook
                 .on_post(block_props.to_playtime(), args.reg);
         }
         // Record some metrics
-        let _ = args;
         if let Some(time_of_last_run) = self.time_of_last_run {
             record_duration("helgobox.rt.audio_hook.total", time_of_last_run.elapsed());
         }
@@ -302,9 +302,15 @@ impl RealearnAudioHook {
         }
     }
 
-    fn call_real_time_instances(&self, block_props: AudioBlockProps) {
+    fn pre_poll_real_time_instances(&self, block_props: AudioBlockProps) {
         for (_, i) in self.real_time_instances.iter() {
-            non_blocking_lock(i, "RealTimeInstance").poll(block_props);
+            non_blocking_lock(i, "RealTimeInstance pre_poll").pre_poll(block_props);
+        }
+    }
+
+    fn post_poll_real_time_instances(&self, block_props: AudioBlockProps) {
+        for (_, i) in self.real_time_instances.iter() {
+            non_blocking_lock(i, "RealTimeInstance post_poll").post_poll(block_props);
         }
     }
 

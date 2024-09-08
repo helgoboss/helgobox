@@ -47,7 +47,8 @@ impl RealTimeInstance {
         self.playtime.clip_matrix.as_ref()
     }
 
-    pub fn poll(&mut self, block_props: AudioBlockProps) {
+    /// To be called from audio hook when `post == false`.
+    pub fn pre_poll(&mut self, block_props: AudioBlockProps) {
         #[cfg(not(feature = "playtime"))]
         {
             let _ = block_props;
@@ -56,7 +57,7 @@ impl RealTimeInstance {
         {
             if let Some(clip_matrix) = self.playtime.clip_matrix.as_ref().and_then(|m| m.upgrade())
             {
-                clip_matrix.lock().poll(block_props.to_playtime());
+                clip_matrix.lock().pre_poll(block_props.to_playtime());
             }
         }
         #[allow(clippy::never_loop)]
@@ -76,6 +77,22 @@ impl RealTimeInstance {
             }
         }
     }
+
+    /// To be called from audio hook when `post == true`.
+    pub fn post_poll(&mut self, block_props: AudioBlockProps) {
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = block_props;
+        }
+        #[cfg(feature = "playtime")]
+        {
+            if let Some(clip_matrix) = self.playtime.clip_matrix.as_ref().and_then(|m| m.upgrade())
+            {
+                clip_matrix.lock().post_poll(block_props.to_playtime());
+            }
+        }
+    }
+
     #[cfg(feature = "playtime")]
     pub fn run_from_vst(
         &mut self,
