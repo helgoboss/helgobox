@@ -79,16 +79,12 @@ impl RealTimeInstance {
     }
 
     /// To be called from audio hook when `post == true`.
-    pub fn post_poll(&mut self, block_props: AudioBlockProps) {
-        #[cfg(not(feature = "playtime"))]
-        {
-            let _ = block_props;
-        }
+    pub fn post_poll(&mut self) {
         #[cfg(feature = "playtime")]
         {
             if let Some(clip_matrix) = self.playtime.clip_matrix.as_ref().and_then(|m| m.upgrade())
             {
-                clip_matrix.lock().post_poll(block_props.to_playtime());
+                clip_matrix.lock().post_poll();
             }
         }
     }

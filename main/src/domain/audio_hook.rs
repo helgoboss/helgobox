@@ -261,11 +261,11 @@ impl RealearnAudioHook {
     }
 
     fn on_post(&mut self, args: OnAudioBufferArgs) {
-        let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
-        self.post_poll_real_time_instances(block_props);
+        self.post_poll_real_time_instances();
         // Let Playtime do its processing
         #[cfg(feature = "playtime")]
         {
+            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
             self.clip_engine_audio_hook
                 .on_post(block_props.to_playtime(), args.reg);
         }
@@ -308,9 +308,9 @@ impl RealearnAudioHook {
         }
     }
 
-    fn post_poll_real_time_instances(&self, block_props: AudioBlockProps) {
+    fn post_poll_real_time_instances(&self) {
         for (_, i) in self.real_time_instances.iter() {
-            non_blocking_lock(i, "RealTimeInstance post_poll").post_poll(block_props);
+            non_blocking_lock(i, "RealTimeInstance post_poll").post_poll();
         }
     }
 
