@@ -262,7 +262,10 @@ impl RealearnAudioHook {
 
     fn on_post(&mut self, args: OnAudioBufferArgs) {
         self.post_poll_real_time_instances();
-        // Let Playtime do its processing
+        #[cfg(not(feature = "playtime"))]
+        {
+            let _ = args;
+        }
         #[cfg(feature = "playtime")]
         {
             let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
