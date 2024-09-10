@@ -2325,11 +2325,9 @@ impl HwndInfo for BackboneShell {
         // Without that, users who defined SPACE as global hotkey wouldn't be able to enjoy the special SPACE key
         // behavior in Playtime (playing Playtime only without REAPER when App window is focused).
         if let Some(msg) = msg {
-            if msg.key().get() as u32 == raw::VK_SPACE {
-                if is_app_window(hwnd) {
-                    debug!("Pressed global space in app window");
-                    return PASS_TO_WINDOW;
-                }
+            if msg.key().get() as u32 == raw::VK_SPACE && is_app_window(hwnd) {
+                debug!("Pressed global space in app window");
+                return PASS_TO_WINDOW;
             }
         }
         // Continue if no special SPACE handling invoked

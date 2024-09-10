@@ -291,10 +291,10 @@ impl Keystroke {
 
     pub fn is_modifier_key(&self) -> bool {
         use virt_keys::{CONTROL, MENU, SHIFT};
-        match self.accelerator_key() {
-            AcceleratorKey::VirtKey(k) if matches!(k, CONTROL | MENU | SHIFT) => true,
-            _ => false,
-        }
+        matches!(
+            self.accelerator_key(),
+            AcceleratorKey::VirtKey(CONTROL | MENU | SHIFT)
+        )
     }
 
     fn format_key_via_reaper(&self) -> ReaperString {

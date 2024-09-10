@@ -127,8 +127,8 @@ impl FromStr for MidiPortPattern {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some((scope_string, name_pattern)) = s.split_once(":") {
-            if let Some(scope) = MidiPortPatternScope::from_str(scope_string).ok() {
+        if let Some((scope_string, name_pattern)) = s.split_once(':') {
+            if let Ok(scope) = MidiPortPatternScope::from_str(scope_string) {
                 // MIDI port pattern with scope restriction
                 let pattern = Self {
                     scope: Some(scope),
