@@ -1,4 +1,5 @@
 use helgoboss_learn::RawMidiEvent;
+use reaper_common_types::Hz;
 use reaper_medium::MidiInputDeviceId;
 
 #[derive(Debug)]
@@ -7,6 +8,8 @@ pub struct MidiTransformationContainer {
     same_device_events: Vec<RawMidiEvent>,
     /// Emptied later, after reading the input buffers of **all** devices (should have a larger capacity).
     other_device_events: Vec<DevQualifiedRawMidiEvent>,
+    /// Always updated with the current device sample rate.
+    current_device_sample_rate: Hz,
 }
 
 #[derive(Debug)]
@@ -35,7 +38,16 @@ impl MidiTransformationContainer {
         Self {
             same_device_events: Vec::with_capacity(100),
             other_device_events: Vec::with_capacity(900),
+            current_device_sample_rate: Hz::default(),
         }
+    }
+
+    pub fn prepare(&mut self, device_sample_rate: Hz) {
+        self.current_device_sample_rate = device_sample_rate;
+    }
+
+    pub fn current_device_sample_rate(&self) -> Hz {
+        self.current_device_sample_rate
     }
 
     pub fn push(&mut self, device: Option<MidiInputDeviceId>, event: RawMidiEvent) {

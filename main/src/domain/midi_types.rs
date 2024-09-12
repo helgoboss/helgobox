@@ -36,6 +36,11 @@ impl SampleOffset {
         SampleOffset(offset_in_samples)
     }
 
+    pub fn to_midi_input_frame_offset(self, sample_rate: Hz) -> u32 {
+        let offset_in_secs = self.0 as f64 / sample_rate.get();
+        (offset_in_secs * MIDI_INPUT_FRAME_RATE.get()).round() as u32
+    }
+
     pub fn new(value: u64) -> Self {
         SampleOffset(value)
     }

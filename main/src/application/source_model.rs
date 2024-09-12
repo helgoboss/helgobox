@@ -1094,8 +1094,8 @@ impl MidiSourceType {
     pub fn number_label(self) -> &'static str {
         use MidiSourceType::*;
         match self {
-            ControlChangeValue => "CC number",
-            NoteVelocity | PolyphonicKeyPressureAmount => "Note number",
+            ControlChangeValue => "CC",
+            NoteVelocity | PolyphonicKeyPressureAmount => "Note",
             ParameterNumberValue => "Number",
             SpecificProgramChange => "Program",
             _ => "",

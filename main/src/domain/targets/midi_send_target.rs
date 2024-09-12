@@ -83,9 +83,10 @@ impl MidiSendTarget {
         // This is a type of mapping that we should process right here because we want to
         // send a MIDI message and this needs to happen in the audio thread.
         // Going to the main thread and back would be such a waste!
-        let raw_midi_event = self.pattern().to_concrete_midi_event(v);
-        match self.destination {
+        let raw_midi_event = match self.destination {
             SendMidiDestination::FxOutput | SendMidiDestination::FeedbackOutput => {
+                // The frame offset of the RawMidiEvent is irrelevant in this case. We pass it in other ways.
+                let raw_midi_event = self.pattern().to_concrete_midi_event(0, v);
                 let midi_destination = match caller {
                     Caller::Vst(_) => match self.destination() {
                         SendMidiDestination::FxOutput => MidiDestination::FxOutput,
@@ -118,6 +119,7 @@ impl MidiSendTarget {
                                 rt_feedback_sender.send_complaining(
                                     FeedbackRealTimeTask::NonAllocatingFxOutputFeedback(
                                         raw_midi_event,
+                                        value_event.offset(),
                                     ),
                                 );
                             }
@@ -137,15 +139,26 @@ impl MidiSendTarget {
                         )?;
                     }
                 };
+                raw_midi_event
             }
             SendMidiDestination::InputDevice(d) => {
+                // The frame offset of the RawMidiEvent is relevant here. It is supposed to be provided in
+                // MIDI input device frames (1/1024000s of a second), *not* in sample frames! At the very beginning of
+                // the signal flow we normalized the MIDI input device frames to sample frames according to the
+                // current device sample rate. Simply because in most cases that's what we need. But now we need
+                // MIDI input device frames again, so we need to convert it back LOL.
                 let container = transformation_container.as_mut().ok_or(
                     "can't send to device input when MIDI doesn't come from device directly",
                 )?;
+                let midi_frame = value_event
+                    .offset()
+                    .to_midi_input_frame_offset(container.current_device_sample_rate());
+                let raw_midi_event = self.pattern().to_concrete_midi_event(midi_frame, v);
                 let dev_id = d.device_id.map(MidiInputDeviceId::new);
                 container.push(dev_id, raw_midi_event);
+                raw_midi_event
             }
-        }
+        };
         // We end up here only if the message was successfully sent
         self.artificial_value = v;
         if log_options.output_logging_enabled {
@@ -272,7 +285,7 @@ impl RealearnTarget for MidiSendTarget {
             };
         self.artificial_value = value;
         let raw_midi_events =
-            create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(value));
+            create_raw_midi_events_singleton(self.pattern.to_concrete_midi_event(0, value));
         context
             .control_context
             .log_outgoing_target_midi(&raw_midi_events);

@@ -497,8 +497,8 @@ impl RealTimeProcessor {
                         );
                     }
                 }
-                NonAllocatingFxOutputFeedback(evt) => {
-                    send_raw_midi_to_fx_output(evt.bytes(), SampleOffset::ZERO, caller);
+                NonAllocatingFxOutputFeedback(evt, sample_offset) => {
+                    send_raw_midi_to_fx_output(evt.bytes(), sample_offset, caller);
                 }
             }
         }
@@ -1267,7 +1267,7 @@ pub enum FeedbackRealTimeTask {
     /// from the audio hook, we must wait until the VST process method is invoked. In order to let
     /// the MIDI event survive, we need to copy it. But we are not allowed to allocate, so the
     /// usual MidiSourceValue Raw variant is not suited.
-    NonAllocatingFxOutputFeedback(RawMidiEvent),
+    NonAllocatingFxOutputFeedback(RawMidiEvent, SampleOffset),
     /// Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(CompartmentKind, MappingId, LifecyclePhase),
 }

@@ -400,6 +400,8 @@ impl RealearnAudioHook {
         midi_dev_id_is_used: &[bool; MidiInputDeviceId::MAX_DEVICE_COUNT as usize],
         timestamp: ControlEventTimestamp,
     ) {
+        self.midi_transformation_container
+            .prepare(block_props.frame_rate);
         for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
             if !midi_dev_id_is_used[dev_id as usize] {
                 continue;
