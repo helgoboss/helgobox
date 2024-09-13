@@ -151,33 +151,33 @@ jobs:
           strip -u -r target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
       # Upload plug-in (all)
       - name: Upload plug-in to artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.lib-file-name }}
       # Upload extension (macOS and Windows only for now)
       - name: Upload extension to artifact
         if: matrix.extension-file-name != ''
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/${{ matrix.extension-file-name }}
       # Upload debug symbols (all)
       - name: Upload Windows debug symbols to artifact
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/helgobox.pdb
       - name: Upload macOS debug symbols to artifact
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/deps/libhelgobox.dylib.dSYM/
       - name: Upload Linux debug symbols to artifact
         if: startsWith(matrix.os, 'ubuntu-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/${{ matrix.profile }}/libhelgobox-debug.so
@@ -201,7 +201,7 @@ jobs:
           draft: true
           prerelease: ${{ contains(github.ref, 'pre') }}
       - name: Download artifacts from build job
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
       # Upload Windows x86_64 artifacts
       - name: Upload windows-x86_64 release artifact 1
         uses: actions/upload-release-asset@v1
