@@ -788,7 +788,7 @@ pub fn format_step_size_as_bpm_without_unit(value: UnitValue) -> String {
 
 // Should be 959.0
 pub fn bpm_span() -> f64 {
-    Bpm::MAX.get() - Bpm::MIN.get()
+    Bpm::NINE_HUNDRED_SIXTY_BPM.get() - Bpm::ONE_BPM.get()
 }
 
 fn format_bpm(bpm: f64) -> String {
