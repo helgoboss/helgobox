@@ -54,6 +54,7 @@ impl PlaytimeProtoRequestHandler {
                             velocity: Some(UnitValue::MAX),
                             stop_column_if_slot_empty: false,
                             handle_ignited_clips: false,
+                            play_at_timeline_zero: false,
                         },
                     );
                 }
