@@ -52,6 +52,9 @@ function module.create_compartment(config: MidiFighterTwisterPresetConfig): real
                 controller_number = cc_number,
                 character = "Relative2",
             },
+            glue = {
+                step_factor_interval = { 1, 100 }
+            },
             target = config.create_turn_target(col, row),
         }
     end
