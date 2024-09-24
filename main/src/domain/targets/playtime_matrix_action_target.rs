@@ -342,10 +342,16 @@ mod playtime_impl {
         }
 
         fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-            if !matches!(
+            use PlaytimeMatrixAction::*;
+            let supports_rt_control = matches!(
                 self.action,
-                PlaytimeMatrixAction::Stop | PlaytimeMatrixAction::SmartRecord
-            ) {
+                Stop | SmartRecord
+                    | PlayIgnitedOrEnterSilenceMode
+                    | SilenceModeOnOffState
+                    | Panic
+                    | TapTempo
+            );
+            if !supports_rt_control {
                 return None;
             }
             let t = RealTimePlaytimeMatrixTarget {
@@ -435,27 +441,57 @@ mod playtime_impl {
             value: ControlValue,
             context: RealTimeControlContext,
         ) -> Result<bool, &'static str> {
+            use PlaytimeMatrixAction::*;
+            let matrix = context.clip_matrix()?;
+            let mut matrix = matrix.lock();
             match self.action {
-                // TODO-medium Making tempo tap rt-capable might also make sense!
-                PlaytimeMatrixAction::Stop => {
+                Stop => {
                     if !value.is_on() {
                         return Ok(false);
                     }
-                    let matrix = context.clip_matrix()?;
-                    let matrix = matrix.lock();
                     matrix.stop();
                     Ok(false)
                 }
-                PlaytimeMatrixAction::SmartRecord => {
+                SmartRecord => {
+                    // We only have a real-time shortcut here for the "tempo detection stop" case.
+                    // And this one is quite useful because it results in a low latency recording stop.
                     if !value.is_on() {
                         return Ok(false);
                     }
-                    let matrix = context.clip_matrix()?;
-                    let matrix = matrix.lock();
                     let forward_to_main_thread = !matrix.maybe_stop_tempo_detection_recording();
                     Ok(forward_to_main_thread)
                 }
-                _ => Err("only matrix stop has real-time target support"),
+                PlayIgnitedOrEnterSilenceMode => {
+                    if value.is_on() {
+                        matrix.play_all_ignited();
+                    } else {
+                        matrix.enter_silence_mode();
+                    }
+                    Ok(false)
+                }
+                SilenceModeOnOffState => {
+                    if value.is_on() {
+                        matrix.enter_silence_mode();
+                    } else {
+                        matrix.leave_silence_mode();
+                    }
+                    Ok(false)
+                }
+                Panic => {
+                    if value.is_on() {
+                        return Ok(false);
+                    }
+                    matrix.panic(false);
+                    Ok(false)
+                }
+                TapTempo => {
+                    if !value.is_on() {
+                        return Ok(false);
+                    }
+                    matrix.tap_tempo();
+                    Ok(false)
+                }
+                _ => Err("this action doesn't have real-time target support"),
             }
         }
     }
@@ -463,15 +499,25 @@ mod playtime_impl {
         type Context = RealTimeControlContext<'a>;
 
         fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
-            match self.action {
-                PlaytimeMatrixAction::Stop => {
-                    let matrix = context.clip_matrix().ok()?;
-                    let matrix = matrix.lock();
-                    let is_stoppable = matrix.is_stoppable();
-                    Some(AbsoluteValue::from_bool(is_stoppable))
+            // The following is NOT necessary for feedback (ReaLearn always uses the non-rt-target for feedback)
+            use PlaytimeMatrixAction::*;
+            let matrix = context.clip_matrix().ok()?;
+            let matrix = matrix.lock();
+            let bool_value = match self.action {
+                Stop => matrix.is_stoppable(),
+                PlayIgnitedOrEnterSilenceMode => !matrix.is_in_silence_mode(),
+                SilenceModeOnOffState => matrix.is_in_silence_mode(),
+                SmartRecord => {
+                    // Only relevant for feedback
+                    return None;
                 }
-                _ => None,
-            }
+                Panic | TapTempo => {
+                    // Not relevant in general
+                    return None;
+                }
+                _ => return None,
+            };
+            Some(AbsoluteValue::from_bool(bool_value))
         }
 
         fn control_type(&self, _: RealTimeControlContext<'a>) -> ControlType {
