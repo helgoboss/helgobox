@@ -366,30 +366,27 @@ impl PlaytimeProtoRequestHandler {
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingTrigger => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TriggerMatrix);
+                matrix.remove_mapping_by_target(SimpleMappingTarget::TriggerMatrix);
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingEnterSilenceModeOrPlayIgnited => {
-                matrix.toggle_learn_source_by_target(
-                    SimpleMappingTarget::EnterSilenceModeOrPlayIgnited,
-                );
+                matrix.remove_mapping_by_target(SimpleMappingTarget::EnterSilenceModeOrPlayIgnited);
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingSmartRecord => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SmartRecord);
+                matrix.remove_mapping_by_target(SimpleMappingTarget::SmartRecord);
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingSequencerPlayOnOffState => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::SequencerPlayOnOffState);
+                matrix.remove_mapping_by_target(SimpleMappingTarget::SequencerPlayOnOffState);
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingSequencerRecordOnOffState => {
-                matrix
-                    .toggle_learn_source_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
+                matrix.remove_mapping_by_target(SimpleMappingTarget::SequencerRecordOnOffState);
                 Ok(())
             }
             TriggerMatrixAction::RemoveSimpleMappingTapTempo => {
-                matrix.toggle_learn_source_by_target(SimpleMappingTarget::TapTempo);
+                matrix.remove_mapping_by_target(SimpleMappingTarget::TapTempo);
                 Ok(())
             }
             TriggerMatrixAction::TriggerSmartRecord => matrix.trigger_smart_record(false),
