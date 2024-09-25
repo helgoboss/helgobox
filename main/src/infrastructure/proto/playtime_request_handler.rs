@@ -411,7 +411,10 @@ impl PlaytimeProtoRequestHandler {
         self.handle_column_command(&req.column_address, |matrix, column_index| {
             match action {
                 TriggerColumnAction::Stop => matrix.stop_column(column_index),
-                TriggerColumnAction::Remove => matrix.remove_column(column_index)?,
+                TriggerColumnAction::Remove => matrix.remove_column_with_track(column_index)?,
+                TriggerColumnAction::RemoveWithoutTrack => {
+                    matrix.remove_column_without_track(column_index)?
+                }
                 TriggerColumnAction::Duplicate => matrix.duplicate_column(column_index)?,
                 TriggerColumnAction::Insert => matrix.insert_column(column_index)?,
                 TriggerColumnAction::Panic => matrix.panic_column(column_index),
