@@ -37,6 +37,10 @@ impl View for PotBrowserPanel {
         &self.view
     }
 
+    fn wants_raw_keyboard_input(&self) -> bool {
+        true
+    }
+
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.size_and_center_on_screen(0.75, 0.75);
         egui_views::open(

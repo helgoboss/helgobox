@@ -261,6 +261,15 @@ pub trait View: Debug {
         Some(focused_window)
     }
 
+    /// If `true`, `RealearnAccelerator` will forward raw keyboard events to this window.
+    ///
+    /// - Absolutely necessary for egui containers (so that egui receives keyboard events)
+    /// - For normal dialogs this can be bad (at least on Windows) because tabbing through text fields is not possible
+    ///   anymore (https://github.com/helgoboss/helgobox/issues/1213)
+    fn wants_raw_keyboard_input(&self) -> bool {
+        false
+    }
+
     // Public methods (intended to be used by consumers)
     // =================================================
 
@@ -329,7 +338,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn closed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
         self.closed_subject.borrow().clone()
     }
 }

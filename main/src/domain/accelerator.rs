@@ -85,13 +85,19 @@ where
             // Not our window which is focused. Act normally.
             return TranslateAccelResult::NotOurWindow;
         };
+        if !view.wants_raw_keyboard_input() {
+            return TranslateAccelResult::NotOurWindow;
+        }
         let Some(w) = view.get_keyboard_event_receiver(focused_window) else {
             // No window is interested.
             return TranslateAccelResult::Eat;
         };
-        // A ReaLearn window is focused. We want to get almost all keyboard input! We don't want
-        // REAPER to execute actions or the system to execute menu commands. This is achieved
-        // in different ways depending on the OS.
+        // A ReaLearn window is focused.
+        // - We want to get almost all keyboard input (without having to enable "Send all keyboard input to plug-in")
+        // - We don't want REAPER to execute actions or the system to execute menu commands
+        // - We want the egui window to receive raw keys
+        //
+        // All of this is achieved in different ways depending on the OS.
         #[cfg(target_os = "macos")]
         {
             // On macOS, we must explicitly send the message to the focused view. If we
@@ -110,6 +116,7 @@ where
         }
         #[cfg(not(target_os = "macos"))]
         {
+            // This is necessary for Pot Browser to receive keys
             w.process_raw_message(msg.raw());
             TranslateAccelResult::Eat
         }

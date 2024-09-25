@@ -50,6 +50,10 @@ impl View for TargetFilterPanel {
         true
     }
 
+    fn wants_raw_keyboard_input(&self) -> bool {
+        true
+    }
+
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key
