@@ -729,8 +729,11 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             "<=",
             ids.named_id("ID_MAPPING_PANEL_PREVIOUS_BUTTON"),
             context.rect(160, 514, 30, 14),
-        ) + NOT_WS_TABSTOP,
-        ok_button(
+        ),
+        // We make this a normal push button instead of an OK button so that
+        // pressing enter in a text field doesn't automatically trigger it.
+        pushbutton(
+            "OK",
             ids.named_id("ID_MAPPING_PANEL_OK"),
             context.rect(200, 514, 50, 14),
         ),
@@ -738,7 +741,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             "=>",
             ids.named_id("ID_MAPPING_PANEL_NEXT_BUTTON"),
             context.rect(260, 514, 30, 14),
-        ) + NOT_WS_TABSTOP,
+        ),
         context.checkbox(
             "Enabled",
             ids.named_id("IDC_MAPPING_ENABLED_CHECK_BOX"),
