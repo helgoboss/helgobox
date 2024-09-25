@@ -12,8 +12,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         edittext(
             ids.named_id("ID_MAPPING_NAME_EDIT_CONTROL"),
             context.rect(col_1_x + 28, line_1_y, 131, 14),
-        ) + ES_MULTILINE
-            + ES_AUTOHSCROLL,
+        ) + ES_AUTOHSCROLL,
         // Tags
         ltext(
             "Tags",
@@ -23,8 +22,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         edittext(
             ids.named_id("ID_MAPPING_TAGS_EDIT_CONTROL"),
             context.rect(col_1_x + 189, line_1_y, 131, 14),
-        ) + ES_MULTILINE
-            + ES_AUTOHSCROLL,
+        ) + ES_AUTOHSCROLL,
         // Control/feedback checkboxes
         context.checkbox(
             "=> Control",
@@ -81,8 +79,7 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
         edittext(
             ids.named_id("ID_MAPPING_ACTIVATION_EDIT_CONTROL"),
             context.rect(col_1_x + 325, line_2_y, 90, 14),
-        ) + ES_MULTILINE
-            + ES_AUTOHSCROLL,
+        ) + ES_AUTOHSCROLL,
     ];
     Dialog {
         id: ids.named_id("ID_SHARED_GROUP_MAPPING_PANEL"),
