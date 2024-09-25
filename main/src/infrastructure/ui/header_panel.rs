@@ -1696,7 +1696,7 @@ impl HeaderPanel {
             ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
         };
         if session.wants_keyboard_input() {
-            text.insert_str(0, "KEYBOARD + ");
+            text.insert_str(0, "[Keyboard] + ");
         }
         self.view
             .require_control(root::ID_CONTROL_INPUT_BUTTON)

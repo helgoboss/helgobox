@@ -1916,10 +1916,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         let match_outcome =
             self.process_incoming_message_internal(evt.map_payload(MainSourceMessage::Key));
-        // This only filters out "matched" outcomes, not "consumed" ones. This is important because it lets
-        // combination shortcuts through that are not matched. E.g. Cmd+B is let through if there is an active
-        // mapping listening to a "Cmd" (a modifier!) but there is no active mapping with source 'B'.
-        let filter_out_event = match_outcome.matched();
+        // Because modifiers are processed as separate key events, not as compound shortcuts, the
+        // following example works nicely: Cmd+B is let through to REAPER (= not filtered out) if there is an active
+        // mapping listening to "Cmd" (a modifier!) but there is no active mapping with source 'B'. The 'B' will
+        // not be consumed in this case and will be forwarded to REAPER as a compound shortcut.
+        let filter_out_event = match_outcome.matched_or_consumed();
         KeyProcessingResult {
             match_outcome,
             filter_out_event,
