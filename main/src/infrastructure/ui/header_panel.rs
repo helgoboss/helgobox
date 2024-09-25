@@ -165,6 +165,9 @@ impl HeaderPanel {
         use CompartmentProp::*;
         use SessionProp::*;
         match affected {
+            One(WantsKeyboardInput) => {
+                self.invalidate_control_input_button();
+            }
             One(InCompartment(compartment, One(InGroup(_, _))))
                 if *compartment == self.active_compartment() =>
             {
@@ -1680,7 +1683,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_control_input_button(&self) {
-        let text = match self.session().borrow().control_input() {
+        let session = self.session();
+        let session = session.borrow();
+        let mut text = match session.control_input() {
             ControlInput::Midi(midi_control_input) => match midi_control_input {
                 MidiControlInput::FxInput => CONTROL_INPUT_MIDI_FX_INPUT_LABEL.to_string(),
                 MidiControlInput::Device(dev_id) => {
@@ -1690,6 +1695,9 @@ impl HeaderPanel {
             },
             ControlInput::Osc(osc_device_id) => get_osc_dev_list_label(&osc_device_id, false),
         };
+        if session.wants_keyboard_input() {
+            text.insert_str(0, "[Keyboard] + ");
+        }
         self.view
             .require_control(root::ID_CONTROL_INPUT_BUTTON)
             .set_text(text);

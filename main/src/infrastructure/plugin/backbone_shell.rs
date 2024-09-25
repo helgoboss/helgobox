@@ -2317,7 +2317,10 @@ impl HookPostCommand for BackboneShell {
 }
 
 impl HwndInfo for BackboneShell {
-    fn call(hwnd: Hwnd, info_type: HwndInfoType, msg: Option<AccelMsg>) -> i32 {
+    fn call(hwnd: Option<Hwnd>, info_type: HwndInfoType, msg: Option<AccelMsg>) -> i32 {
+        let Some(hwnd) = hwnd else {
+            return 0;
+        };
         const IGNORE: i32 = 0;
         const PASS_TO_WINDOW: i32 = 1;
         const PROCESS_GLOBALLY: i32 = -1;

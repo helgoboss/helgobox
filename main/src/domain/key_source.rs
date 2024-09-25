@@ -27,7 +27,11 @@ impl KeySource {
     }
 
     pub fn control(&mut self, msg: KeyMessage) -> Option<ControlOutcome<ControlValue>> {
-        if !msg.interaction_kind().is_press_or_release() && msg.stroke() == self.stroke {
+        if !(msg.stroke() == self.stroke) {
+            // If strokes don't match, we can return early. All tests below assume that the stroke matches.
+            return None;
+        }
+        if !msg.interaction_kind().is_press_or_release() {
             // On Windows, there's not just press and release but also something like "key is being
             // hold", which fires continuously. We neither want to react to it (because we have our
             // own fire modes) nor simply forward it to REAPER (because it would dig a hole
