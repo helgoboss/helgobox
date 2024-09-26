@@ -1,12 +1,9 @@
 use crate::base::CloneAsDefault;
 use crate::domain::{
-    AdditionalLuaFeedbackScriptInput, AdditionalLuaMidiSourceScriptInput, ControlEventTimestamp,
-    EelTransformation, LuaFeedbackScript,
+    AdditionalLuaFeedbackScriptInput, ControlEventTimestamp, EelTransformation, LuaFeedbackScript,
 };
 use base::hash_util::NonCryptoHashSet;
-use helgoboss_learn::{
-    FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, ModeContext, SourceContext,
-};
+use helgoboss_learn::{FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, ModeContext};
 use std::borrow::Cow;
 use std::error::Error;
 

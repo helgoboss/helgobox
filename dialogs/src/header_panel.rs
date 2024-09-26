@@ -93,14 +93,14 @@ pub fn create(context: ScopedContext, ids: &mut IdGenerator) -> Dialog {
             context.rect(7, 47, 24, 9),
         ),
         radio_button(
-            "Controller compartment (for picking a controller preset)",
+            "Controller compartment (for describing your device, optional)",
             ids.named_id("ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON"),
-            context.rect(60, 47, 185, 8),
+            context.rect(50, 47, 200, 8),
         ) + WS_TABSTOP,
         radio_button(
-            "Main compartment (for the real mappings)",
+            "Main compartment (for defining what it should do)",
             ids.named_id("ID_MAIN_COMPARTMENT_RADIO_BUTTON"),
-            context.rect(289, 47, 145, 8),
+            context.rect(269, 47, 200, 8),
         ) + WS_TABSTOP,
     ];
     let lower_part_controls = [
