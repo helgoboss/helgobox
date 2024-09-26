@@ -1,9 +1,16 @@
 use crate::base::CloneAsDefault;
-use crate::domain::{ControlEventTimestamp, EelTransformation, LuaFeedbackScript};
+use crate::domain::{
+    AdditionalLuaFeedbackScriptInput, AdditionalLuaMidiSourceScriptInput, ControlEventTimestamp,
+    EelTransformation, LuaFeedbackScript,
+};
 use base::hash_util::NonCryptoHashSet;
-use helgoboss_learn::{FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput};
+use helgoboss_learn::{
+    FeedbackScript, FeedbackScriptInput, FeedbackScriptOutput, ModeContext, SourceContext,
+};
 use std::borrow::Cow;
 use std::error::Error;
+
+pub type RealearnModeContext<'a> = ModeContext<AdditionalLuaFeedbackScriptInput<'a, 'static>>;
 
 /// See [`crate::domain::MidiSource`] for an explanation of the feedback script wrapping.
 type FeedbackScriptType = CloneAsDefault<Option<LuaFeedbackScript<'static>>>;
@@ -18,12 +25,15 @@ impl FeedbackScriptType {
     }
 }
 
-impl FeedbackScript for FeedbackScriptType {
+impl<'a> FeedbackScript<'a> for FeedbackScriptType {
+    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a, 'static>;
+
     fn feedback(
         &self,
         input: FeedbackScriptInput,
+        additional_input: Self::AdditionalInput,
     ) -> Result<FeedbackScriptOutput, Cow<'static, str>> {
-        self.get_script()?.feedback(input)
+        self.get_script()?.feedback(input, additional_input)
     }
 
     fn used_props(&self) -> Result<NonCryptoHashSet<String>, Box<dyn Error>> {

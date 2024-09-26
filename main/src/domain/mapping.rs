@@ -1119,7 +1119,9 @@ impl MainMapping {
         //   whether it wants numerical or textual feedback.
         let prop_provider = MappingPropProvider::new(self, control_context);
         let feedback_value = if self.core.mode.wants_advanced_feedback() {
-            self.core.mode.build_feedback(&prop_provider)
+            self.core
+                .mode
+                .build_feedback(&prop_provider, control_context.mode_context)
         } else {
             let style = self.core.mode.feedback_style(&prop_provider);
             FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value?))

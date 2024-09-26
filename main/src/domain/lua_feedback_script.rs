@@ -1,4 +1,4 @@
-use crate::domain::{SafeLua, ScriptColor, ScriptFeedbackEvent};
+use crate::domain::{lua_module_path_without_ext, SafeLua, ScriptColor, ScriptFeedbackEvent};
 use anyhow::ensure;
 use base::hash_util::NonCryptoHashSet;
 use helgoboss_learn::{
@@ -9,6 +9,11 @@ use mlua::{Function, IntoLua, Lua, LuaSerdeExt, Table, Value};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::error::Error;
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AdditionalLuaFeedbackScriptInput<'a, 'lua> {
+    pub compartment_lua: Option<&'a mlua::Value<'lua>>,
+}
 
 #[derive(Debug)]
 pub struct LuaFeedbackScript<'lua> {
@@ -37,9 +42,24 @@ impl<'lua> LuaFeedbackScript<'lua> {
     fn feedback_internal(
         &self,
         input: FeedbackScriptInput,
+        additional_input: <LuaFeedbackScript<'lua> as FeedbackScript>::AdditionalInput,
     ) -> anyhow::Result<FeedbackScriptOutput> {
         let lua = self.lua.as_ref();
         let value = lua.scope(|scope| {
+            // Set require function
+            let require = scope.create_function(move |lua, path: String| {
+                let val = match lua_module_path_without_ext(&path) {
+                    LUA_FEEDBACK_SCRIPT_RUNTIME_NAME => create_lua_feedback_script_runtime(lua),
+                    "compartment" => {
+                        additional_input.compartment_lua.cloned().unwrap_or(Value::Nil)
+                    },
+                    _ => return Err(mlua::Error::runtime(format!("Feedback scripts don't support the usage of 'require' for anything else than '{LUA_FEEDBACK_SCRIPT_RUNTIME_NAME}' and 'compartment'!")))
+                };
+                Ok(val)
+            })
+                .map_err(mlua::Error::runtime)?;
+            self.env.raw_set("require", require)
+                .map_err(mlua::Error::runtime)?;
             // Build input data
             let context_table = {
                 let table = lua.create_table()?;
@@ -67,6 +87,14 @@ impl<'lua> LuaFeedbackScript<'lua> {
     }
 }
 
+pub const LUA_FEEDBACK_SCRIPT_RUNTIME_NAME: &str = "feedback_script_runtime";
+
+pub fn create_lua_feedback_script_runtime(_lua: &Lua) -> mlua::Value {
+    // At the moment, the feedback script runtime doesn't contain any functions, just types.
+    // That means it's only relevant for autocompletion in the IDE. We can return nil.
+    Value::Nil
+}
+
 struct LuaPropValue(PropValue);
 
 impl<'lua> IntoLua<'lua> for LuaPropValue {
@@ -87,12 +115,15 @@ impl<'lua> IntoLua<'lua> for LuaPropValue {
     }
 }
 
-impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
+impl<'a, 'lua: 'a> FeedbackScript<'a> for LuaFeedbackScript<'lua> {
+    type AdditionalInput = AdditionalLuaFeedbackScriptInput<'a, 'lua>;
+
     fn feedback(
         &self,
         input: FeedbackScriptInput,
+        additional_input: Self::AdditionalInput,
     ) -> Result<FeedbackScriptOutput, Cow<'static, str>> {
-        self.feedback_internal(input)
+        self.feedback_internal(input, additional_input)
             .map_err(|e| e.to_string().into())
     }
 
@@ -101,7 +132,7 @@ impl<'a> FeedbackScript for LuaFeedbackScript<'a> {
         let input = FeedbackScriptInput {
             prop_provider: &prop_provider,
         };
-        self.feedback_internal(input)?;
+        self.feedback_internal(input, Default::default())?;
         Ok(prop_provider.used_props.take())
     }
 }
@@ -166,7 +197,7 @@ mod tests {
         let input = FeedbackScriptInput {
             prop_provider: &|_: &str| None,
         };
-        let output = script.feedback(input).unwrap();
+        let output = script.feedback(input, Default::default()).unwrap();
         // Then
         assert_eq!(output.feedback_value, FeedbackValue::Off);
     }
@@ -188,7 +219,7 @@ mod tests {
         let input = FeedbackScriptInput {
             prop_provider: &|_: &str| None,
         };
-        let output = script.feedback(input).unwrap();
+        let output = script.feedback(input, Default::default()).unwrap();
         // Then
         assert_eq!(
             output.feedback_value,
@@ -218,7 +249,7 @@ mod tests {
         let input = FeedbackScriptInput {
             prop_provider: &|_: &str| None,
         };
-        let output = script.feedback(input).unwrap();
+        let output = script.feedback(input, Default::default()).unwrap();
         // Then
         assert_eq!(
             output.feedback_value,
@@ -248,7 +279,7 @@ mod tests {
                 _ => None,
             },
         };
-        let output = script.feedback(input).unwrap();
+        let output = script.feedback(input, Default::default()).unwrap();
         // Then
         assert_eq!(
             output.feedback_value,

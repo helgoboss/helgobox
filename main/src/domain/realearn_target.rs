@@ -8,10 +8,10 @@ use crate::domain::{
     DomainEventHandler, Exclusivity, ExtendedProcessorContext, FeedbackAudioHookTask,
     FeedbackOutput, FeedbackRealTimeTask, GroupId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, PluginParamIndex,
-    ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, RealearnSourceContext,
-    ReaperTarget, SharedInstance, SharedUnit, Tag, TagScope, TargetCharacter, TrackExclusivity,
-    UnitEvent, UnitId, WeakRealTimeInstance, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET,
-    ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
+    ProcessorContext, QualifiedMappingId, RealTimeReaperTarget, RealearnModeContext,
+    RealearnSourceContext, ReaperTarget, SharedInstance, SharedUnit, Tag, TagScope,
+    TargetCharacter, TrackExclusivity, UnitEvent, UnitId, WeakRealTimeInstance, ACTION_TARGET,
+    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET, BROWSE_FXS_TARGET,
     BROWSE_GROUP_MAPPINGS_TARGET, BROWSE_POT_FILTER_ITEMS_TARGET, BROWSE_POT_PRESETS_TARGET,
     COMPARTMENT_PARAMETER_VALUE_TARGET, DUMMY_TARGET, ENABLE_INSTANCES_TARGET,
     ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_ONLINE_TARGET, FX_OPEN_TARGET,
@@ -438,6 +438,7 @@ pub struct ControlContext<'a> {
     pub unit_id: UnitId,
     pub output_logging_enabled: bool,
     pub source_context: RealearnSourceContext<'a>,
+    pub mode_context: RealearnModeContext<'a>,
     pub processor_context: &'a ProcessorContext,
 }
 

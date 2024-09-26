@@ -1,7 +1,7 @@
 use crate::domain::{
     aggregate_target_values, format_as_pretty_hex, get_project_options, say,
-    AdditionalFeedbackEvent, AdditionalLuaMidiSourceScriptInput, Backbone, CompartmentKind,
-    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    AdditionalFeedbackEvent, AdditionalLuaFeedbackScriptInput, AdditionalLuaMidiSourceScriptInput,
+    Backbone, CompartmentKind, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlEvent,
     ControlEventTimestamp, ControlInput, ControlLogContext, ControlLogEntry, ControlLogEntryKind,
     ControlMode, ControlOutcome, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
@@ -15,7 +15,7 @@ use crate::domain::{
     NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
     PluginParamIndex, PluginParams, ProcessorContext, ProjectOptions, ProjectionFeedbackValue,
     QualifiedInstanceEvent, QualifiedMappingId, RawParamValue, RealTimeMappingUpdate,
-    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent,
+    RealTimeTargetUpdate, RealearnModeContext, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnParameterChangePayload, RealearnSourceContext, ReaperConfigChange, ReaperMessage,
     ReaperSourceFeedbackValue, ReaperTarget, SharedInstance, SharedUnit, SourceFeedbackEvent,
     SourceFeedbackLogger, SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetControlEvent,
@@ -3176,6 +3176,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    pub fn mode_context(&self, compartment: CompartmentKind) -> RealearnModeContext {
+        RealearnModeContext {
+            additional_script_input: AdditionalLuaFeedbackScriptInput {
+                compartment_lua: self.common_lua[compartment].as_ref(),
+            },
+        }
+    }
+
     pub fn source_feedback_logger(
         &self,
         mapping_id: QualifiedMappingId,
@@ -3354,6 +3362,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             unit_id: self.unit_id,
             output_logging_enabled: self.settings.real_output_logging_enabled,
             source_context: self.source_context(compartment),
+            mode_context: self.mode_context(compartment),
             processor_context: &self.context,
         }
     }

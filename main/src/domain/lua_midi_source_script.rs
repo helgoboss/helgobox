@@ -107,7 +107,7 @@ impl<'a, 'lua: 'a> MidiSourceScript<'a> for LuaMidiSourceScript<'lua> {
                         "compartment" => {
                             additional_input.compartment_lua.cloned().unwrap_or(Value::Nil)
                         },
-                        _ => return Err(mlua::Error::runtime(format!("MIDI scripts don't support the usage of 'require' for anything else than '{LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME}'!")))
+                        _ => return Err(mlua::Error::runtime(format!("MIDI scripts don't support the usage of 'require' for anything else than '{LUA_MIDI_SCRIPT_SOURCE_RUNTIME_NAME}' and 'compartment'!")))
                     };
                     Ok(val)
                 })
