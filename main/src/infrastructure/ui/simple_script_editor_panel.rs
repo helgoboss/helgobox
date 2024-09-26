@@ -74,6 +74,31 @@ impl ScriptEngine for LuaFeedbackScriptEngine {
     }
 }
 
+pub struct LuaCompartmentCommonScriptEngine {
+    lua: SafeLua,
+}
+
+impl LuaCompartmentCommonScriptEngine {
+    pub fn new() -> Self {
+        Self {
+            lua: SafeLua::new().unwrap(),
+        }
+    }
+}
+
+impl ScriptEngine for LuaCompartmentCommonScriptEngine {
+    fn compile(&self, code: &str) -> Result<Box<dyn Script>, Box<dyn Error>> {
+        let env = self.lua.create_fresh_environment(false)?;
+        self.lua
+            .compile_as_function("Feedback script", code, env.clone())?;
+        Ok(Box::new(()))
+    }
+
+    fn file_extension(&self) -> &'static str {
+        ".lua"
+    }
+}
+
 pub struct PlainTextEngine;
 
 impl ScriptEngine for PlainTextEngine {

@@ -55,9 +55,9 @@ use crate::infrastructure::ui::{
     deserialize_data_object, deserialize_data_object_from_json, dry_run_lua_script,
     get_text_from_clipboard, menus, serialize_data_object, serialize_data_object_to_json,
     serialize_data_object_to_lua, DataObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, PlainTextEngine, ScriptEditorInput, SearchExpression, SerializationFormat,
-    SharedIndependentPanelManager, SharedMainState, SimpleScriptEditorPanel, SourceFilter,
-    UntaggedDataObject,
+    LuaCompartmentCommonScriptEngine, MappingRowsPanel, PlainTextEngine, ScriptEditorInput,
+    SearchExpression, SerializationFormat, SharedIndependentPanelManager, SharedMainState,
+    SimpleScriptEditorPanel, SourceFilter, UntaggedDataObject,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use anyhow::{bail, Context};
@@ -128,6 +128,36 @@ impl HeaderPanel {
                         SessionCommand::ChangeCompartment(
                             compartment,
                             CompartmentCommand::SetNotes(edited_notes),
+                        ),
+                        None,
+                        weak_session,
+                    )
+                }
+            },
+        };
+        let editor = SimpleScriptEditorPanel::new(input);
+        self.open_extra_panel(editor);
+    }
+
+    fn edit_compartment_common_lua(&self) {
+        let compartment = self.active_compartment();
+        let session = self.session();
+        let initial_notes = session
+            .borrow()
+            .compartment_common_lua(compartment)
+            .to_owned();
+        let weak_session = self.session.clone();
+        let input = ScriptEditorInput {
+            initial_value: initial_notes,
+            engine: Box::new(LuaCompartmentCommonScriptEngine::new()),
+            help_url: "",
+            set_value: move |edited_notes| {
+                let weak_session = weak_session.clone();
+                if let Some(session) = weak_session.upgrade() {
+                    session.borrow_mut().change_with_notification(
+                        SessionCommand::ChangeCompartment(
+                            compartment,
+                            CompartmentCommand::SetCommonLua(edited_notes),
                         ),
                         None,
                         weak_session,
@@ -548,6 +578,10 @@ impl HeaderPanel {
                         ),
                     ],
                 ),
+                item(
+                    "Edit compartment-wide Lua code",
+                    MainMenuAction::EditCompartmentWideLuaCode,
+                ),
                 labeled_separator("Unit-related"),
                 // Unit scope
                 menu(
@@ -855,6 +889,7 @@ impl HeaderPanel {
                 self.create_compartment_preset_workspace(true)
             }
             MainMenuAction::ReloadAllCompartmentPresets => self.reload_all_compartment_presets(),
+            MainMenuAction::EditCompartmentWideLuaCode => self.edit_compartment_common_lua(),
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
@@ -3115,6 +3150,7 @@ enum MainMenuAction {
     EditCompartmentParameter(CompartmentKind, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,
+    EditCompartmentWideLuaCode,
     CreateCompartmentPresetWorkspace,
     CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
 }
