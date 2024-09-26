@@ -33,8 +33,13 @@ fn fill_menu_recursively<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
                 swell_menu.set_item_enabled(i.id, false);
             }
         }
-        Entry::Separator => {
+        Entry::Separator(s) => {
             swell_menu.add_separator();
+            if let Some(text) = &s.text {
+                swell_menu.add_item(s.id, format!("{text}"));
+                swell_menu.set_item_enabled(s.id, false);
+                swell_menu.add_separator();
+            }
         }
         Entry::Nothing => {}
     }

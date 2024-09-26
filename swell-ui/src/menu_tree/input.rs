@@ -4,7 +4,7 @@ use std::fmt::Debug;
 pub enum Entry<R> {
     Menu(Menu<R>),
     Item(Item<R>),
-    Separator,
+    Separator(Separator),
     Nothing,
 }
 
@@ -18,6 +18,9 @@ impl<R> Entry<R> {
                 }
             }
             Entry::Item(i) => {
+                i.id = counter.next_value();
+            }
+            Entry::Separator(i) => {
                 i.id = counter.next_value();
             }
             _ => {}
@@ -83,6 +86,12 @@ pub struct Item<R> {
     pub opts: ItemOpts,
 }
 
+#[derive(Debug)]
+pub struct Separator {
+    pub id: u32,
+    pub text: Option<String>,
+}
+
 /// Unlabeled menu.
 ///
 /// This is useful for aggregating a set of entries that can then be added in one go.
@@ -112,7 +121,14 @@ pub fn item<R>(text: impl Into<String>, result: R) -> Entry<R> {
 }
 
 pub fn separator<R>() -> Entry<R> {
-    Entry::Separator
+    Entry::Separator(Separator { id: 0, text: None })
+}
+
+pub fn labeled_separator<R>(name: impl Into<String>) -> Entry<R> {
+    Entry::Separator(Separator {
+        id: 0,
+        text: Some(name.into()),
+    })
 }
 
 pub fn item_with_opts<R>(text: impl Into<String>, opts: ItemOpts, result: R) -> Entry<R> {

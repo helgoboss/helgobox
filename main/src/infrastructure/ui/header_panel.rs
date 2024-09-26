@@ -494,7 +494,61 @@ impl HeaderPanel {
                         ),
                     ],
                 ),
-                separator(),
+                labeled_separator(format!("Compartment-related ({compartment})")),
+                menu(
+                    "Compartment parameters",
+                    (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
+                        .map(|batch_index| {
+                            let offset =
+                                CompartmentParamIndex::try_from(batch_index * PARAM_BATCH_SIZE)
+                                    .unwrap();
+                            let inclusive_end = (offset + (PARAM_BATCH_SIZE - 1)).unwrap();
+                            let range = offset..=inclusive_end;
+                            menu(
+                                format!(
+                                    "Parameters {} - {}",
+                                    range.start().get() + 1,
+                                    range.end().get() + 1
+                                ),
+                                convert_compartment_param_index_range_to_iter(&range)
+                                    .map(|i| {
+                                        let param_name = session
+                                            .params()
+                                            .compartment_params(compartment)
+                                            .get_parameter_name(i);
+                                        let range = range.clone();
+                                        item(
+                                            format!("{param_name}..."),
+                                            MainMenuAction::EditCompartmentParameter(
+                                                compartment,
+                                                range,
+                                            ),
+                                        )
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                ),
+                menu(
+                    PRESET_RELATED_MENU_LABEL,
+                    vec![
+                        item(
+                            build_create_compartment_preset_workspace_label(false),
+                            MainMenuAction::CreateCompartmentPresetWorkspace,
+                        ),
+                        item(
+                            build_create_compartment_preset_workspace_label(true),
+                            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
+                        ),
+                        item("Open compartment preset folder", MainMenuAction::OpenCompartmentPresetFolder),
+                        item(
+                            "Reload all compartment presets from disk",
+                            MainMenuAction::ReloadAllCompartmentPresets,
+                        ),
+                    ],
+                ),
+                labeled_separator("Unit-related"),
                 // Unit scope
                 menu(
                     "Unit options",
@@ -578,41 +632,6 @@ impl HeaderPanel {
                     ),
                 ),
                 menu(
-                    "Compartment parameters",
-                    (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
-                        .map(|batch_index| {
-                            let offset =
-                                CompartmentParamIndex::try_from(batch_index * PARAM_BATCH_SIZE)
-                                    .unwrap();
-                            let inclusive_end = (offset + (PARAM_BATCH_SIZE - 1)).unwrap();
-                            let range = offset..=inclusive_end;
-                            menu(
-                                format!(
-                                    "Parameters {} - {}",
-                                    range.start().get() + 1,
-                                    range.end().get() + 1
-                                ),
-                                convert_compartment_param_index_range_to_iter(&range)
-                                    .map(|i| {
-                                        let param_name = session
-                                            .params()
-                                            .compartment_params(compartment)
-                                            .get_parameter_name(i);
-                                        let range = range.clone();
-                                        item(
-                                            format!("{param_name}..."),
-                                            MainMenuAction::EditCompartmentParameter(
-                                                compartment,
-                                                range,
-                                            ),
-                                        )
-                                    })
-                                    .collect(),
-                            )
-                        })
-                        .collect(),
-                ),
-                menu(
                     "Logging",
                     vec![
                         item("Log debug info (now)", MainMenuAction::LogDebugInfo),
@@ -659,7 +678,7 @@ impl HeaderPanel {
                     ],
                 ),
                 item("Send feedback now", MainMenuAction::SendFeedbackNow),
-                separator(),
+                labeled_separator("Instance-related"),
                 // Instance scope
                 menu(
                     "Instance options",
@@ -682,7 +701,7 @@ impl HeaderPanel {
                     },
                     MainMenuAction::CloseApp,
                 ),
-                separator(),
+                labeled_separator("Global"),
                 // Global scope
                 menu(
                     "User interface",
@@ -711,25 +730,6 @@ impl HeaderPanel {
                             MainMenuAction::ToggleServer,
                         ),
                         item("Add firewall rule", MainMenuAction::AddFirewallRule),
-                        item("Change unit ID...", MainMenuAction::ChangeSessionId),
-                    ],
-                ),
-                menu(
-                    PRESET_RELATED_MENU_LABEL,
-                    vec![
-                        item(
-                            build_create_compartment_preset_workspace_label(compartment, false),
-                            MainMenuAction::CreateCompartmentPresetWorkspace,
-                        ),
-                        item(
-                            build_create_compartment_preset_workspace_label(compartment, true),
-                            MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets,
-                        ),
-                        item("Open preset folder", MainMenuAction::OpenPresetFolder),
-                        item(
-                            "Reload all presets from disk",
-                            MainMenuAction::ReloadAllPresets,
-                        ),
                     ],
                 ),
                 menu(
@@ -848,14 +848,13 @@ impl HeaderPanel {
                 };
                 self.view.require_window().alert("Helgobox", msg);
             }
-            MainMenuAction::ChangeSessionId => self.change_unit_id(),
             MainMenuAction::CreateCompartmentPresetWorkspace => {
                 self.create_compartment_preset_workspace(false)
             }
             MainMenuAction::CreateCompartmentPresetWorkspaceIncludingFactoryPresets => {
                 self.create_compartment_preset_workspace(true)
             }
-            MainMenuAction::ReloadAllPresets => self.reload_all_presets(),
+            MainMenuAction::ReloadAllCompartmentPresets => self.reload_all_compartment_presets(),
             MainMenuAction::OpenPotBrowser => {
                 self.show_pot_browser();
             }
@@ -865,7 +864,7 @@ impl HeaderPanel {
             MainMenuAction::CloseApp => {
                 self.close_app();
             }
-            MainMenuAction::OpenPresetFolder => self.open_preset_folder(),
+            MainMenuAction::OpenCompartmentPresetFolder => self.open_compartment_preset_folder(),
             MainMenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
             MainMenuAction::LogDebugInfo => self.log_debug_info(),
             MainMenuAction::EditPresetLinkFxId(scope, fx_id) => {
@@ -2299,15 +2298,21 @@ impl HeaderPanel {
         }
     }
 
-    fn reload_all_presets(&self) {
-        let _ = BackboneShell::get()
-            .controller_preset_manager()
-            .borrow_mut()
-            .load_presets_from_disk();
-        let _ = BackboneShell::get()
-            .main_preset_manager()
-            .borrow_mut()
-            .load_presets_from_disk();
+    fn reload_all_compartment_presets(&self) {
+        match self.active_compartment() {
+            CompartmentKind::Controller => {
+                let _ = BackboneShell::get()
+                    .controller_preset_manager()
+                    .borrow_mut()
+                    .load_presets_from_disk();
+            }
+            CompartmentKind::Main => {
+                let _ = BackboneShell::get()
+                    .main_preset_manager()
+                    .borrow_mut()
+                    .load_presets_from_disk();
+            }
+        }
     }
 
     pub fn show_pot_browser(&self) {
@@ -2365,8 +2370,8 @@ impl HeaderPanel {
         self.instance_panel().stop_app_instance();
     }
 
-    fn open_preset_folder(&self) {
-        let path = BackboneShell::realearn_preset_dir_path();
+    fn open_compartment_preset_folder(&self) {
+        let path = BackboneShell::realearn_compartment_preset_dir_path(self.active_compartment());
         let result = open_in_file_manager(path.as_std_path()).map_err(|e| e.into());
         self.notify_user_on_error(result);
     }
@@ -2423,13 +2428,6 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn change_unit_id(&self) {
-        self.view.require_window().alert(
-            "Helgobox",
-            "Please change the unit ID using the \"Unit data...\" button on the bottom right!",
-        );
-    }
-
     fn get_active_preset_info(&self, compartment: CompartmentKind) -> Option<CommonPresetInfo> {
         let session = self.session();
         let session = session.borrow();
@@ -2445,10 +2443,9 @@ impl HeaderPanel {
         let compartment = self.active_compartment();
         let active_preset_info = self.get_active_preset_info(compartment);
         if let Some(info) = &active_preset_info {
-            if let PresetOrigin::Factory { compartment, .. } = &info.origin {
+            if let PresetOrigin::Factory { .. } = &info.origin {
                 if info.file_type == PresetFileType::Lua {
-                    let menu_entry_label =
-                        build_create_compartment_preset_workspace_label(*compartment, true);
+                    let menu_entry_label = build_create_compartment_preset_workspace_label(true);
                     let text = format!(
                         "This factory preset was written in the scripting language Lua. If you continue, ReaLearn will save it as user preset which contains a simple flat list of mappings (no code). Do you want to continue?\n\
                         \n\
@@ -2696,16 +2693,13 @@ impl HeaderPanel {
     }
 }
 
-fn build_create_compartment_preset_workspace_label(
-    compartment: CompartmentKind,
-    include_factory_presets: bool,
-) -> String {
+fn build_create_compartment_preset_workspace_label(include_factory_presets: bool) -> String {
     let suffix = if include_factory_presets {
         " (including factory presets)"
     } else {
         ""
     };
-    format!("Create {compartment} preset workspace{suffix}")
+    format!("Create compartment preset workspace{suffix}")
 }
 
 impl View for HeaderPanel {
@@ -3110,15 +3104,14 @@ enum MainMenuAction {
     ToggleBackgroundColors,
     ToggleUseUnitPresetLinksOnly,
     AddFirewallRule,
-    ChangeSessionId,
     EditPresetLinkFxId(PresetLinkScope, FxId),
     RemovePresetLink(PresetLinkScope, FxId),
     LinkToPreset(PresetLinkScope, FxId, String),
-    ReloadAllPresets,
+    ReloadAllCompartmentPresets,
     OpenPotBrowser,
     ShowApp,
     CloseApp,
-    OpenPresetFolder,
+    OpenCompartmentPresetFolder,
     EditCompartmentParameter(CompartmentKind, RangeInclusive<CompartmentParamIndex>),
     SendFeedbackNow,
     LogDebugInfo,
@@ -3240,7 +3233,7 @@ fn get_osc_dev_list_label(osc_device_id: &OscDeviceId, is_output: bool) -> Strin
     }
 }
 
-const PRESET_RELATED_MENU_LABEL: &str = "Preset-related";
+const PRESET_RELATED_MENU_LABEL: &str = "Compartment presets";
 
 fn build_show_color_panel_desc() -> ColorPanelDesc {
     ColorPanelDesc {
