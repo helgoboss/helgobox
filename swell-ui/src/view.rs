@@ -338,7 +338,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl LocalObservable<'static, Item=(), Err=()> + 'static {
+    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.closed_subject.borrow().clone()
     }
 }
