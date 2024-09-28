@@ -605,7 +605,7 @@ pub enum MouseAction {
     /// Future extension possibilities:
     ///
     /// - Click or double-click a mouse button (press and immediate release, this could be a generic
-    /// "Glue" option because it could be useful for other on/off targets as well).
+    ///   "Glue" option because it could be useful for other on/off targets as well).
     PressOrRelease {
         #[serde(skip_serializing_if = "Option::is_none")]
         button: Option<MouseButton>,

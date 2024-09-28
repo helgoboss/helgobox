@@ -2567,7 +2567,7 @@ export type MouseAction_MoveBy = { kind: "MoveBy", axis: Axis? }
 --- Future extension possibilities:
 ---
 --- - Click or double-click a mouse button (press and immediate release, this could be a generic
---- "Glue" option because it could be useful for other on/off targets as well).
+---   "Glue" option because it could be useful for other on/off targets as well).
 export type MouseAction_PressOrRelease = { kind: "PressOrRelease", button: MouseButton? }
 
 --- Scroll wheel.
@@ -2634,7 +2634,7 @@ end
 --- Future extension possibilities:
 ---
 --- - Click or double-click a mouse button (press and immediate release, this could be a generic
---- "Glue" option because it could be useful for other on/off targets as well).
+---   "Glue" option because it could be useful for other on/off targets as well).
 function module.MouseAction.PressOrRelease(value: { button: MouseButton? }): MouseAction_PressOrRelease
 	local t: any = table.clone(value)
 	t.kind = "PressOrRelease"

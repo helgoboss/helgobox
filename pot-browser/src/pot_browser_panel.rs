@@ -1804,7 +1804,7 @@ fn create_product_plugin_menu(input: &mut PresetTableInput, data: &PotPresetData
                     .plugins()
                     .filter(|p| p.common.core.product_id == *product_id);
                 for plugin in product_plugins {
-                    if ui.button(&plugin.common.to_string()).clicked() {
+                    if ui.button(plugin.common.to_string()).clicked() {
                         let factory_preset = create_plugin_factory_preset(
                             &plugin.common,
                             data.preset.common.persistent_id.clone(),
@@ -2913,7 +2913,7 @@ fn load_preset_and_regain_focus(
 }
 
 fn process_error(error: &dyn Error, toasts: &mut Toasts) {
-    show_error_toast(&error.to_string(), toasts);
+    show_error_toast(error.to_string(), toasts);
 }
 
 fn show_error_toast(text: impl Into<WidgetText>, toasts: &mut Toasts) {
@@ -3429,11 +3429,7 @@ const PRESET_CRAWLER_IMPORT_OR_DISCARD: &str =
     r#"You can now choose to import the crawled presets or discard them!"#;
 
 fn optional_string(text: Option<&str>) -> &str {
-    if let Some(t) = text {
-        t
-    } else {
-        "-"
-    }
+    text.unwrap_or("-")
 }
 
 fn os_document_or_reaper_resource_dir() -> Utf8PathBuf {

@@ -199,8 +199,8 @@ impl<T> SenderToNormalThread<T> {
     ///
     /// - **Pro:** We don't get "channel full" errors on load spikes.
     /// - **Con:** This can allocate when sending, so don't use this if the sender is used in
-    /// real-time threads! If you still do so, it will complain in debug mode because we forbid
-    /// allocation in real-time threads.
+    ///   real-time threads! If you still do so, it will complain in debug mode because we forbid
+    ///   allocation in real-time threads.
     ///
     /// We set a (very high) upper limit even for unbounded channels just to avoid memory exhaustion
     /// if the channel grows endlessly because of another error. This limit is not ensured by
