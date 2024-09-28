@@ -522,15 +522,37 @@ Press the *X* button to remove the filter and show all mappings again.
 [#bottom-panel]
 === Bottom panel
 
-At the bottom you can see:
+==== Center text
 
-- The current scroll position.
-- The instance ID of this ReaLearn instance.
-- The unit key of the currently visible ReaLearn unit.
-- Tags assigned to this ReaLearn unit.
-- Information about the current unit track and unit FX.
-- Information whether control and/or feedback is currently inactive unit-wide.
-- Information about what version of ReaLearn you have.
+At bottom center you can see:
+
+* Row 1
+** The current scroll position.
+** The instance ID of this ReaLearn instance.
+** The unit key of the currently visible ReaLearn unit.
+** Tags assigned to this ReaLearn unit.
+* Row 2
+** Information about the current unit track and unit FX.
+** Information whether control and/or feedback is currently inactive unit-wide.
+* Row 3
+** Information about what version of Helgobox you is running.
+
+==== Unit
+
+Units are like "mini instances" within one "big" ReaLearn instance.
+Each unit has its own input, output, controller compartment, main compartment, controller preset, main preset etc.
+
+Each ReaLearn instance may contain multiple ReaLearn units.
+It has at least one unit, the so-called "main unit".
+
+Press the button will reveal a menu with the following actions:
+
+* *Remove current unit:* Removes the current unit.
+This can't be undone!
+* _List of units_: Switch to an arbitrary unit by clicking on it.
+* *Add unit:* Adds a new unit within this instance.
+The new unit will automatically be named after the randomly-generated unit key.
+You can change the name by pressing the *Unit data...* button.
 
 ==== Unit data...
 
@@ -554,6 +576,7 @@ Make sure to not have more than one ReaLearn unit with the same unit key active 
 ====
 ** *At the moment, the unit key is part of the ReaLearn preset!* That means, opening a preset, copying/cutting a ReaLearn FX, importing from clipboard - all of that will overwrite the unit key.
 This might change in future in favor of a more nuanced approach!
+* *Unit name:* The display name of this unit.
 * *Tags:* Lets you assign tags to this unit (a comma-separated list).
 They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
