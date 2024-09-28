@@ -423,15 +423,18 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 This can be interesting for live scenarios in which you temporarily want to lower the risk of pressing the wrong key and messing up the performance.
 Just unlock the keys you absolutely need.
 
-==== Show
+==== Controller compartment / Main compartment
 
-This lets you choose which mapping compartment is displayed.
-A compartment is basically a list of mappings that can be saved as independent preset.
+A compartment is a list of mappings that can be saved as independent preset.
 Initially, ReaLearn shows the so-called "Main compartment" which contains the so-called "Main mappings" - the bread and butter of ReaLearn.
 However, there's another interesting compartment, the "Controller compartment".
 In a nutshell, this compartment lets you define which hardware controllers you have at your disposal and which control elements they have.
 Learn more about that feature in section
 <<controller-compartment,Controller compartment>>.
+
+===== Show
+
+This lets you choose which mapping compartment is displayed.
 
 ==== Controller preset / Main preset
 
@@ -441,11 +444,13 @@ If you select a preset in this list, its corresponding mappings will be loaded a
 In the _controller_ compartment, this list will essentially represent the list of available hardware controller presets.
 A few are shipped with ReaLearn itself (separately downloadable via ReaPack) but you can also define your own ones and add them to this list!
 
-* *Save:* If you made changes to a preset, you can save them by pressing this button.
+===== Save
+
+If you made changes to a preset, you can save them by pressing this button.
 This works for built-in presets as well but I would strongly recommend against changing them directly.
 Better use _Save as…_ and choose a custom name.
 
-==== Save as…
+===== Save as…
 
 This allows you to save all currently visible mappings as a new preset.
 Please choose a descriptive name.
@@ -469,11 +474,232 @@ Their track is set to *&lt;This&gt;* because it doesn't matter anyway.
 *** Track targets are changed to refer to a track via its position instead of its ID.
 ** If this is not what you want, you can choose to say no and make modifications yourself.
 
-==== Delete
+===== Delete
 
 This permanently deletes the currently chosen preset.
 You can also delete built-in presets.
 However, if you use ReaPack for installation, it should restore them on next sync.
+
+===== Writing presets with Luau
+
+It is possible to write compartment presets with the link:https://luau.org/[Luau language] instead of building them via the user interface.
+Many of the more complex ReaLearn factory presets are written in Lua, e.g. the "DAW control" preset.
+
+A good way to get started writing Luau presets is to create your personal compartment preset user workspace.
+
+A preset workspace is a subdirectory within the compartment preset parent directory that may contain a bunch of presets.
+
+Important facts about preset workspaces:
+
+* It may contain both Luau presets (`.preset.luau`) and conventional JSON presets (`.json`)!
+* The name of the workspace (subdirectory) is at the same time the first part of the preset ID.
+For example, if the subdirectory name is `helgoboss` and it contains a preset file `my-preset.json`, the final ID of that preset will be `helgoboss/my-preset`.
+* That also means that presets from different workspaces never conflict with each other.
+* It's important that the ID of a preset doesn't change, especially if you want to use that preset with <<auto-load>>.
+If you change the ID, it's another preset from ReaLearn's perspective!
+* Conversely, the name of the workspace directory and the name/path of the preset file within the workspace directory should not change!
+* The only thing that is allowed to change is the file extension.
+This makes it possible to convert a preset from JSON to Luau and vice versa.
+* Preset workspaces are self-contained.
+What does that mean?
+Luau presets can use the `require` statement to share common Luau code.
+However, this is only possible within one preset workspace.
+* As a result, it is safe to have multiple completely different preset workspace, and it's guaranteed that they don't conflict with each other.
+This makes preset sharing easy (it's just a matter of copying the preset workspace directory).
+* There's one special preset workspace: The _user workspace_.
+It's the workspace whose directory has the same name as your macOS/Windows/Linux user.
+Special features:
+** The user workspace is where ReaLearn puts your presets when you save them via the user interface (as `.json` files).
+** All `require` statements in Luau code imported via *Import from clipboard* are resolved against this user workspace.
+
+You can create a preset workspace by pressing *Menu → Compartment presets → Create compartment preset workspace (including factory presets)* (done for each compartment type separately).
+This will create a randomly-named preset workspace directory within the compartment preset parent directory.
+If this is your first preset workspace, it is best practice to turn it into your personal _user workspace_ by renaming the generated directory to your macOS/Windows/Linux username (name must match exactly!).
+
+Maybe the user workspace directory exists already.
+Most likely because you have saved presets from the user interface, in which case it should contain only JSON files.
+In that case you can safely move all files and directories from the generated preset workspace directory into that existing directory.
+
+The generated workspace contains:
+
+* A README file with some general information and tips.
+* A copy of all ReaLearn factory presets for that compartment.
+** Mainly Luau presets (ending with `.preset.luau`).
+** You can use them as inspiration for your own ones.
+** Most of the factory presets in the main compartment are quite advanced.
+One of the easier ones is
+`generic/numbered/fx-paraameters.preset.luau`.
+* A bunch of Luau SDK files in the first directory level of the workspace.
+** They contain Luau types and utility functions.
+** You can require them within your own Luau files in that workspace and use them to build presets.
+** However, the usage of the SDK files is completely optional!
+The only important thing about building ReaLearn presets is that the returned table conforms to the ReaLearn compartment API (= has the structure that you get when you do *Export from clipboard → Export ... compartment as Lua*).
+It doesn't matter if you use Luau's type system to build that table or the provided utility functions or your own or none.
+** The SDK files can change in incompatible ways in newer ReaLearn versions.
+Only ReaLearn's built-in compartment API is guaranteed to stay backward-compatible!
+
+Luau presets have a YAML frontmatter comment section right at the top of the file that contain meta information about the preset.
+The following properties are possible:
+
+[cols="m,1,3"]
+|===
+
+|
+name
+|
+required
+|
+Preset display name
+
+|
+realearn_version
+|
+required
+|
+The ReaLearn version for which this preset was built.
+
+This can effect the way the preset is loaded, e.g. it can lead to different interpretation
+or migration of properties. So care should be taken to set this correctly!
+
+
+|
+author
+|
+|
+Preset author
+
+
+|
+description
+|
+|
+Preset description.
+
+Preferably in link:https://en.wikipedia.org/wiki/Markdown[Markdown] format, but can also be plain text.
+
+|
+setup_instructions
+|
+|
+Setup instructions.
+
+Preferably in link:https://en.wikipedia.org/wiki/Markdown[Markdown] format, but can also be plain text.
+
+|
+device_manufacturer
+|
+controller compartment only
+|
+Manufacturer of the device represented by the controller preset.
+
+|
+device_name
+|
+controller compartment only
+|
+Name of the device represented by the controller preset.
+
+|
+midi_identity_pattern
+|
+controller compartment only
+|
+MIDI identity compatibility pattern.
+
+Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto-units.
+
+|
+midi_output_port_patterns
+|
+controller compartment only
+|
+Possible MIDI identity compatibility patterns.
+
+Will be used for auto-adding controllers and for finding the correct controller preset when calculating auto-units.
+
+It should only be provided if the device in question doesn't reply to device queries or if it exposes
+multiple ports which all respond with the same device identity and only one of the ports is the correct one.
+Example: APC Key 25 mk2, which exposes a "Control" and a "Keys" port.
+
+ReaLearn will match any in the list. OS-prefixes are alowed, e.g. `macos:` will only match on macOS.
+
+|
+provided_schemes
+|
+controller compartment only
+|
+Provided virtual control schemes.
+
+Will be used for finding the correct controller preset when calculating auto units.
+
+The order matters! It directly influences the choice of the best-suited main presets. In particular, schemes that are more specific to this particular controller (e.g. "novation/launchpad-mk3") should come first. Generic schemes (e.g. "grid") should come last. When auto-picking a main preset, matches of more specific schemes will be favored over less specific ones.
+
+|
+used_schemes
+|
+main compartment only
+|
+Used virtual control schemes.
+
+Will be used for finding the correct controller preset when calculating auto units.
+
+|
+required_features
+|
+main compartment only
+|
+A set of features that a Helgobox instance needs to provide for the preset to make sense.
+
+Will be used for determining whether an auto unit should be created for a specific instance or not. Example: If the required feature is "playtime" and a controller is configured with
+this main preset but the instance doesn't contain a Playtime Clip Matrix, this instance will not load the main preset.
+
+Currently, only feature `playtime` is supported, which matches if the Helgobox instance contains a Playtime Matrix.
+
+|===
+
+==== Mapping group
+
+Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
+
+Groups can be useful …
+
+** To apply an activation condition to multiple mappings at once.
+** To enable/disable control/feedback for multiple mappings at once.
+** To keep track of mappings if there are many of them.
+
+The group menu contains the following options:
+
+* *&lt;All&gt;:* Displays all mappings in the compartment, no matter to which group they belong.
+In this view, you will see the name of the group on the right side of a mapping row.
+* *&lt;Default&gt;:* Displays mappings that belong to the _default_ group.
+This is where mappings end up if you don't care about grouping.
+This is a special group that can't be removed.
+* *_Custom group_:* Displays all mappings in your custom group.
+
+You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
+
+Groups are saved as part of the project, VST plug-in preset and compartment preset.
+
+===== Add
+
+Allows you to add a group and give it a specific name.
+
+===== Remove
+
+Removes the currently displayed group.
+It will ask you if you want to remove all the mappings in that group as well.
+Alternatively they will automatically be moved to the default group.
+
+===== Edit
+
+Opens the group panel.
+This allows you to change the group name and change things that affect all mappings in this groups: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
+The activation condition that you provide here is combined with the one that you provide in the mapping.
+Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
+Read more about
+<<conditional-activation,conditional activation>> below in the section about the <<mapping-panel,Mapping panel>>.
+
+image:images/screenshot-group-panel.png[Group panel]
 
 ==== Notes
 
@@ -598,53 +824,6 @@ Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector 
 
 The unit FX can be changed via target <<fx-target>>.
 
-=== Common compartment settings
-
-The header panel shows the following user interface elements, no matter if you are in the controller or main compartment:
-
-* *Mapping group:* Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
-** Groups can be useful …
-*** To apply an activation condition to multiple mappings at once.
-*** To enable/disable control/feedback for multiple mappings at once.
-*** To keep track of mappings if there are many of them.
-** This dropdown contains the following options:
-*** *&lt;All&gt;:* Displays all mappings in the compartment, no matter to which group they belong.
-In this view, you will see the name of the group on the right side of a mapping row.
-*** *&lt;Default&gt;:* Displays mappings that belong to the _default_ group.
-This is where mappings end up if you don't care about grouping.
-This is a special group that can't be removed.
-*** *_Custom group_:* Displays all mappings in your custom group.
-** You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
-** Groups are saved as part of the project, VST plug-in preset and compartment preset.
-* *Add:* Allows you to add a group and give it a specific name.
-* *Remove:* Removes the currently displayed group.
-It will ask you if you want to remove all the mappings in that group as well.
-Alternatively they will automatically be moved to the default group.
-* *Edit:* Opens the group panel.
-This allows you to change the group name and change things that affect all mappings in this groups: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
-The activation condition that you provide here is combined with the one that you provide in the mapping.
-Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
-Read more about
-<<conditional-activation,conditional activation>> below in the section about the <<mapping-panel,Mapping panel>>.
-
-image:images/screenshot-group-panel.png[Group panel]
-
-Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
-This matters if you want to map multiple targets to one button and the order of execution matters.
-
-*Important:* There's an exception.
-ReaLearn's processing of its own VST parameters is always deferred.
-
-- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `&lt;Dynamic&gt;` expression), will not work!
-- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
-ReaLearn's parameters are not supposed to be used that way!
-- Imagine a railway: ReaLearn's targets can be considered as trains.
-Triggering a target means moving the train forward.
-ReaLearn's parameters can be considered as railway switches.
-Changing a parameter means setting a course.
-The course needs to be set in advance, at least one step before!
-Not at the same time as moving the train over the switch.
-
 [#controller-compartment]
 === Controller compartment
 
@@ -760,6 +939,26 @@ You can change the linked preset by clicking another one.
 
 This is like <<global-fx-to-preset-links>> but saves the links as part of this ReaLearn unit.
 This is useful if you have 2 controllers (= and therefore 2 ReaLearn units) and want them to auto-load different presets although the unit FX points to the same plug-in.
+
+=== Mapping rows
+
+==== Order in which mappings are processed
+
+Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
+This matters if you want to map multiple targets to one button and the order of execution matters.
+
+*Important:* There's an exception.
+ReaLearn's processing of its own VST parameters is always deferred.
+
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `&lt;Dynamic&gt;` expression), will not work!
+- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
+ReaLearn's parameters are not supposed to be used that way!
+- Imagine a railway: ReaLearn's targets can be considered as trains.
+Triggering a target means moving the train forward.
+ReaLearn's parameters can be considered as railway switches.
+Changing a parameter means setting a course.
+The course needs to be set in advance, at least one step before!
+Not at the same time as moving the train over the switch.
 
 === Mapping row
 
