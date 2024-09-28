@@ -2804,7 +2804,7 @@ dependencies = [
 
 [[package]]
 name = "helgobox"
-version = "2.16.9"
+version = "2.16.10"
 dependencies = [
  "anyhow",
  "approx",
