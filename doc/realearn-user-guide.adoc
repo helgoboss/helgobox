@@ -101,16 +101,16 @@ Perfect in combination with the textual search!
 
 Provides access to expert features.
 
-* *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
-* *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
-* *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
-* *Dry-run Lua script from clipboard*: Executes the Lua code in the clipboard and opens the returned data structure in a text editor.
+* *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua/Luau code instead.
+* *Copy listed mappings as Lua (include default values):* Generates Lua/Luau code that contains even those properties that correspond to ReaLearn's defaults.
+* *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Luau code.
+* *Dry-run Lua script from clipboard*: Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
 +
 [NOTE]
 ====
-The way Lua import works in ReaLearn is:
+The way Luau import works in ReaLearn is:
 
-. ReaLearn executes the Lua script (from clipboard).
+. ReaLearn executes the Luau script (from clipboard).
 . ReaLearn attempts to interpret the return value as ReaLearn API object.
 . ReaLearn loads the API object
 
@@ -367,11 +367,11 @@ reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
 ====
 * *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard.
 It contains about the same data that a compartment preset would contain.
-* *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua code (ReaLearn Script).
-This form of Lua export skips properties that correspond to ReaLearn's default values, resulting in a minimal result.
+* *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua/Luau code (ReaLearn Script).
+This form of Lua/Luau export skips properties that correspond to ReaLearn's default values, resulting in a minimal result.
 Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
-* *Export main/controller compartment as Lua (include default values):*  This Lua export includes even those properties that correspond to ReaLearn's default values, resulting in more text.
-This gives you the perfect starting point if you want to extensively modify the current compartment (using the Lua programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
+* *Export main/controller compartment as Lua (include default values):*  This Lua/Luau export includes even those properties that correspond to ReaLearn's default values, resulting in more text.
+This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
 ==== Import from clipboard
 
@@ -796,11 +796,11 @@ If the clipboard contains just a part of a mapping (source, mode or target), the
 * *Copy part:* Copies just a part of the mapping (activation condition, source, mode or target).
 * *Move to group:* Lets you move this mapping to another mapping group.
 * *Advanced:* Provides access to expert features.
-** *Copy as Lua:* Copies this mapping as Lua code.
-This is an indispensable tool if you want to build your mappings in Lua because it gives you a readily executable code snippet that you can adjust as desired.
+** *Copy as Lua:* Copies this mapping as Lua/Luau code.
+This is an indispensable tool if you want to build your mappings in Luau because it gives you a readily executable code snippet that you can adjust as desired.
 ** *Copy as Lua (include default values):* Includes even default values.
-** *Paste from Lua (replaces):* Like _Paste (replace)_ but treats the clipboard content as Lua code.
-** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Lua code.
+** *Paste from Lua (replaces):* Like _Paste (replace)_ but treats the clipboard content as Luau code.
+** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Luau code.
 ** *Log debug info (now):* Logs debug information about this particular mapping.
 
 [#mapping-panel]
@@ -1373,9 +1373,9 @@ E0 [0gfe dcba] [0nml kjih]
 ===== MIDI Script
 
 This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source.
-It lets you write an EEL or Lua script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
+It lets you write an EEL or Luau script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
 
-* *Kind:* Whether to use the EEL or Lua language.
+* *Kind:* Whether to use the EEL or Luau language.
 * *Script:* The script.
 Is disabled if the script contains more than one line.
 * *…:* Opens the script in a separate window (for multi-line scripts).
@@ -1417,17 +1417,17 @@ msg_size = 3;
 2[] = y * 64;
 ----
 
-*Lua script specifics*
+*Luau script specifics*
 
 * *Script input*
-** Lua scripts can access numeric, text and dynamic feedback values.
+** Luau scripts can access numeric, text and dynamic feedback values.
 ** Here's the list of input variables:
 *** `y`: The feedback value, either numeric (`type(y) == "number"`) or text (`type(y) == "string")`.
 *** `context.feedback_event.color`: The color as set in the <<glue>> section.
 Either the default color (`== nil`) or an RGB color (table with properties `r`, `g` and `b`).
 *** `context.feedback_event.background_color`: The background color.
 * *Script output*
-** A Lua script can even generate multiple output messages.
+** A Luau script can even generate multiple output messages.
 ** You need to return a table which contains the following keys:
 *** `address`: The feedback address.
 *** `messages`: An array containing all the messages, where each message itself is an array contaning the message bytes.
@@ -3252,7 +3252,7 @@ For target-specific placeholders, please look up the corresponding <<target>> se
 ===== Dynamic feedback: Lua script
 
 This feedback type puts you fully in charge about which feedback to send to the source.
-It does so by letting you define a Lua script that builds numeric, textual or even arbitrarily structured feedback.
+It does so by letting you define a Luau script that builds numeric, textual or even arbitrarily structured feedback.
 
 *General mechanics*
 
@@ -3271,7 +3271,7 @@ local param_name = context.prop("target.fx_parameter.name")
 +
 ** Values returned by this function can be `nil`!
 E.g. target-related properties return a `nil` value whenever the mapping or target turns inactive, which is a very common situation.
-So it's important to prepare your Lua code for that, otherwise script execution fails and no feedback will be sent.
+So it's important to prepare your Luau code for that, otherwise script execution fails and no feedback will be sent.
 One way to deal with a `nil` value returned by `context.prop` is to also return `nil` as `value` (see below).
 * *Script output*
 ** The output that the script is supposed to return is a table which looks as in the following example:
@@ -3385,7 +3385,7 @@ return {
 The ... button provides options to change the _feedback style_.
 At the moment, it's all about setting colors.
 
-TIP: If you use <<dynamic-feedback>>, changes made here don't have any effect because you are supposed to provide style properties as part of the Lua script result (which is much more flexible).
+TIP: If you use <<dynamic-feedback>>, changes made here don't have any effect because you are supposed to provide style properties as part of the Luau script result (which is much more flexible).
 
 * *Color / Background color:* With this you can define the color and background color of the displayed text.
 Of course this will only work if the display source supports it!
