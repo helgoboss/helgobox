@@ -1106,10 +1106,10 @@ The header panel for main mappings consists of a few more user interface element
 If you switch this to _Based on unit FX_, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit.
 By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
 Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
-Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list defined before activating auto-load.
+Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
+
 Of course this makes sense only if you actually have linked some presets.
-Read on!
-The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main compartment contains the missing piece of the puzzle:
+Section <<unit-fx-to-preset-links>> describes how to do that.
 
 === Mapping rows
 
