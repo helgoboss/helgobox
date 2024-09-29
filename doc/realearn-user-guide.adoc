@@ -597,11 +597,40 @@ This lets you choose which mapping compartment is displayed.
 
 ==== Controller preset / Main preset
 
-This is the list of available presets for that compartment.
-By default, it's set to "&lt;None&gt;", which means that no particular preset is active.
+===== Preset menu
+
+This menu makes it possible to load compartment presets for the currently shown compartment.
 If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
-In the _controller_ compartment, this list will essentially represent the list of available hardware controller presets.
-A few are shipped with ReaLearn itself (separately downloadable via ReaPack) but you can also define your own ones and add them to this list!
+
+The following menu entries are available:
+
+====== <None>
+
+This entry is selected by default.
+It means that no particular preset is active.
+
+Selecting <None> when a preset is active will clear the complete compartment.
+
+====== Factory
+
+This submenu contains built-in compartment presets.
+You can't change them yourself.
+But you can "make them your own" by making a copy of them.
+See <<writing-presets-with-luau>>.
+
+====== User (...)
+
+Multiple of such submenus may exist.
+Each one represents a preset workspace containing presets made by users, for example by you.
+The workspace named after you (macOS/Linux/Windows user name) is your personal user workspace.
+
+For more information about preset workspaces, see
+<<writing-presets-with-luau>>.
+
+====== User (Unsorted)
+
+This submenu contains top-level presets which are not part of a particular preset workspace.
+This was common in older versions of ReaLearn, when workspaces were not yet available.
 
 ===== Save
 
