@@ -4135,14 +4135,8 @@ Rare, but possible.
 
 This section has two functions:
 
-- Providing context-sensitive help for the glue section
-- Providing target control information and error reporting
-
-==== Target control information
-
-This shows information about how an incoming control value was handled and possible target control errors.
-
-NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
+- **Help*Providing context-sensitive help for the glue section
+- Providing control information, feedback information and error reporting
 
 ==== Help
 
@@ -4150,10 +4144,20 @@ Context-sensitive help for the glue section.
 Whenever you touch a setting in the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
-* *If source is a:* It often depends on the kind of source what effect a setting has.
+==== If source is a
+
+It often depends on the kind of source what effect a setting has.
 Therefore, this dropdown always contains a list of sources.
 It only displays relevant kinds of sources.
 If a source kind is impossible according to the current source settings or if it's not supported by the setting, it won't appear in the list.
+
+==== Activity info
+
+The left text area shows information about how an incoming control value was handled and possible target control errors.
+
+NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
+
+The right text area shows information about which feedback values are sent from the glue section to the source.
 
 == Provided REAPER actions
 
