@@ -235,6 +235,48 @@ This *will not* yet apply an adjusted preset, it will just reload the list.
 If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
 ====
 
+[#compartment-wide-lua-code]
+===== Edit compartment-wide Lua code
+
+Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
+This avoids code duplication and decreases memory usage.
+It even allows the usage of shared state.
+
+The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
+That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
+
+The following example exports 2 functions named `get_text` and `get_number`:
+
+[source,lua]
+----
+local module = {}
+
+local function private_function()
+    return "i'm private"
+end
+
+function module.get_text()
+    return "hello world"
+end
+
+function module.get_number()
+    return 5
+end
+
+return module
+----
+
+These functions can then be reused in MIDI source and feedback scripts:
+
+[source,lua]
+----
+local compartment = require("compartment")
+local text = compartment.get_text()
+local number = compartment.get_number()
+----
+
+Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+
 [#options]
 ===== Unit options
 
@@ -1670,7 +1712,7 @@ Is disabled if the script contains more than one line.
 TIP: Prefer the <<display-source>> source over this one whenever possible.
 It's easier to use.
 
-*General mechanics*
+====== General mechanics
 
 * The script receives an input and must produce an output.
 * *Script input*
@@ -1682,7 +1724,7 @@ It's important to provide an address if you want ReaLearn to handle feedback rel
 By convention, the constant (non-variable) bytes of the MIDI message should be used as address.
 The examples below might help to understand.
 
-*EEL script specifics*
+====== EEL script specifics
 
 * *Script input*
 ** EEL scripts can access numeric feedback values only.
@@ -1704,7 +1746,7 @@ msg_size = 3;
 2[] = y * 64;
 ----
 
-*Luau script specifics*
+====== Luau script specifics
 
 * *Script input*
 ** Luau scripts can access numeric, text and dynamic feedback values.
@@ -1770,6 +1812,8 @@ Please note that this kind of simple mapping from text values to integer numbers
 You can use the `feedback_value_table` <<glue>> property instead, which can only be set via API though.
 Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
+
+You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>.
 
 [#display-source]
 ===== Display
@@ -3665,6 +3709,8 @@ return {
     }
 }
 ----
+
+You can share code between multiple feedback scripts by using <<compartment-wide-lua-code>>.
 
 [#feedback-style]
 ==== Feedback style
