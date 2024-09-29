@@ -2098,28 +2098,44 @@ It uses the native Windows or macOS text-to-speech engine to speak out any feedb
 
 As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual MIDI/OSC source.
 
-If you want to define a virtual source, you first need to choose among two types of virtual control elements:
-"Multi" (control elements that support more than 2 values) and "Button" (simple on/off controls).
-It's sort of the lowest common denominator among all possible control element types.
-This distinction is used by ReaLearn to optimize its user interface.
-In future, it might be used for additional improvements.
+===== Type
 
-Both types are explained in detail below.
-They support the following settings:
+If you want to define a virtual source, you should first decide which type the virtual control element has: "Multi" or "Button".
+"Buttons" are stupidly simple on/off controls whereas "Multis" are control elements that potentially support more than 2 values.
+You will find a more accurate description of those 2 types below, along with examples.
 
-* *ID:* A number or name for uniquely identifying the control element.
-** Numbers are especially suited for the 8-knobs/8-buttons layouts.
+===== ID
+
+A number or name that uniquely identifies the control element on the device.
+
+Numbers are especially suited for the 8-knobs/8-buttons layouts.
 In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
 It's your choice.
-** For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
-That's why the IDs of virtual control elements are not limited to numbers only.
-You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
-* *Pick:* Lets you conveniently pick out of predefined numbers and names.
-If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own naming scheme.
-** *DAW control:* The names you see here are heavily inspired by the wording used with Mackie Control devices.
-** *Numbered:* Simply lets you pick among any number between 1 and 100. Wow, you can save up to 3 key presses!!!
 
-===== Multi
+For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
+You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+
+===== Pick
+
+Lets you conveniently pick out of predefined numbers and names.
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+
+The picker provides names for the following standardized virtual control schemes:
+
+* *DAW control (`daw`):* The names you see here are heavily inspired by the wording used on Mackie Control devices.
+* *Grid (`grid`):* For controls divided into rows and column, as for example found on the Novation Launchpad.
+* *Numbered (`numbered`):* Simply lets you pick among any number between 1 and 100.
+
+===== More about "Multi" and "Button"
+
+The distinction between "Multi" and "Button" is used by ReaLearn to optimize its user interface.
+
+IMPORTANT: For numbered control elements, the type is even part of the control element ID.
+For example, "Multi 1" is considered a different virtual control element than "Button 1".
+For named control elements, this is not the case. "col1/row1/pad" defined as Multi is considered the same like "col1/row1/pad" defined as Button.
+
+====== Type "Multi"
 
 Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
 Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
@@ -2134,7 +2150,7 @@ Usually everything which is _not_ a simple on/off button :) Here's a list of typ
 * (Endless) rotary encoder
 * Velocity-sensitive pads or keys
 
-===== Button
+====== Type "Button"
 
 Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
 Usually it has the form factor of a button that you can "press".
@@ -2142,7 +2158,7 @@ Here's a list of typical _buttons_:
 
 * Play button
 * Switch
-* Sustain pedal
+* Sustain pedal (a simple on/off one, not a half-pedaling one!)
 
 Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that you are not interested in the velocity sensitivity.
 
