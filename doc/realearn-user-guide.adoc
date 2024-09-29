@@ -634,15 +634,15 @@ See <<writing-presets-with-luau>>.
 ====== User (...)
 
 Multiple of such submenus may exist.
-Each one represents a preset workspace containing presets made by users, for example by you.
-The workspace named after you (macOS/Linux/Windows user name) is your personal user workspace.
+Each one represents a preset namespace (or workspace) containing presets made by users, for example by you.
+The workspace named after you (macOS/Linux/Windows username) is your personal user workspace.
 
-For more information about preset workspaces, see
+For more information about preset workspaces/namespaces, see
 <<writing-presets-with-luau>>.
 
 ====== User (Unsorted)
 
-This submenu contains top-level presets which are not part of a particular preset workspace.
+This submenu contains top-level presets which are not part of a particular preset namespace (or workspace).
 This was common in older versions of ReaLearn, when workspaces were not yet available.
 
 ===== Save
@@ -689,14 +689,16 @@ Many of the more complex ReaLearn factory presets are written in Lua, e.g. the "
 
 A good way to get started writing Luau presets is to create your personal compartment preset user workspace.
 
-A preset workspace is a subdirectory within the compartment preset parent directory that may contain a bunch of presets.
+A preset workspace is a subdirectory within the compartment preset parent directory that may contain a bunch of presets and other files.
 
-Important facts about preset workspaces:
+Important facts about preset workspaces/namespaces:
 
 * It may contain both Luau presets (`.preset.luau`) and conventional JSON presets (`.json`)!
 * The name of the workspace (subdirectory) is at the same time the first part of the preset ID.
 For example, if the subdirectory name is `helgoboss` and it contains a preset file `my-preset.json`, the final ID of that preset will be `helgoboss/my-preset`.
 * That also means that presets from different workspaces never conflict with each other.
+* Therefore, a preset "workspace" is at the same time a preset "namespace".
+Those terms are sometimes used interchangeably.
 * It's important that the ID of a preset doesn't change, especially if you want to use that preset with <<auto-load>>.
 If you change the ID, it's another preset from ReaLearn's perspective!
 * Conversely, the name of the workspace directory and the name/path of the preset file within the workspace directory should not change!
