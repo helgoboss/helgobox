@@ -4119,14 +4119,14 @@ If this is zero, everything will behave as usual.
 ===== Fire after timeout, keep firing (turbo)
 
 Welcome to turbo mode.
-It will keep hitting your target (always with with the initial button press velocity) at a specific rate.
+It will keep hitting your target (always with the initial button press velocity) at a specific rate.
 Optionally with an initial delay.
 Epic!
 
 * *Timeout:* This is the initial delay before anything happens.
 Can be zero, then turbo stage is entered instantly on press.
 * *Rate:* This is how frequently the target will be hit once the timeout has passed.
-In practice it won't happen more frequently than about 30 ms (REAPER's main thread loop frequency).
+In practice, it won't happen more frequently than once every 30 ms (REAPER's main thread loop frequency).
 
 ===== Fire on double press
 
