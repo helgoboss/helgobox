@@ -59,7 +59,7 @@ When targeting an OSC software that runs on the same computer as REAPER and ReaL
 When you configure your OSC device, you must provide a _host_ as well.
 There you should enter the IP address of the computer which runs REAPER and ReaLearn.
 
-You can easily find it by pressing the <<Projection>> button in ReaLearn and scrolling down a bit.
+You can easily find it by pressing the <<Projection>> button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
 It's the value next to *Host* and should start with `192.168.`.
 
 ====
@@ -555,12 +555,13 @@ Provides helpful links to the user guide and other stuff.
 [#projection]
 ==== Projection
 
-This is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
+Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
 You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
 This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
-If you want to use this feature, just click this button and you will see detailed instructions on how to set this up.
-In order to use this feature, you need the
-_ReaLearn Companion_ app.
+
+If you want to use this feature, click the button.
+You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
+Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 
 ==== Let through
 
