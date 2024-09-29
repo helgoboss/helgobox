@@ -3191,18 +3191,39 @@ Sets the track send's pan value.
 
 Sets the track send's volume.
 
-===== Clip: Invoke transport action
-
-CAUTION: Clips are a highly experimental feature of ReaLearn and still subject to many changes!
-Better don't rely on it at the moment!
+===== Playtime: Slot management action
 
 _Under construction_
 
-===== Clip: Seek
+===== Playtime: Slot transport action
 
 _Under construction_
 
-===== Clip: Volume
+===== Playtime: Slot seek
+
+_Under construction_
+
+===== Playtime: Slot volume
+
+_Under construction_
+
+===== Playtime: Column action
+
+_Under construction_
+
+===== Playtime: Row action
+
+_Under construction_
+
+===== Playtime: Matrix action
+
+_Under construction_
+
+===== Playtime: Control unit scroll
+
+_Under construction_
+
+===== Playtime: Browse cells
 
 _Under construction_
 
