@@ -1855,7 +1855,11 @@ You can use the `feedback_value_table` <<glue>> property instead, which can only
 Do a full-text search for `feedback_value_table` in directory `resources/controller-presets`  of the link:https://github.com/helgoboss/realearn[ReaLearn source code] to find usage examples.
 ====
 
-You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>.
+You can share code between multiple MIDI scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
+
+- The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
 
 [#display-source]
 ===== Display
@@ -3768,7 +3772,13 @@ return {
 }
 ----
 
-You can share code between multiple feedback scripts by using <<compartment-wide-lua-code>>.
+You can share code between multiple feedback scripts by using <<compartment-wide-lua-code>>, with the following limitations (which hopefully will be lifted over time):
+
+- The shared code is not yet available to the Lua code editor window.
+That means writing `require("compartment")` will evaluate to `nil` in the editor.
+You might see a corresponding error message when the editor tries to compile your code.
+- When ReaLearn queries the script in advance to know which target properties it needs, the shared code is also not available yet.
+Currently, you need to make sure that the target properties are queried even if `require("compartment")` evaluates to `nil`.
 
 [#feedback-style]
 ==== Feedback style
