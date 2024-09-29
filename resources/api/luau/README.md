@@ -188,5 +188,5 @@ The workspace created by ReaLearn is pre-configured to play nice with it:
 
 Now you are good to go! Open one of the factory presets and enjoy all syntax highlighting, code
 completion,
-code_formatting, etc. :)
+code formatting, etc. :)
 
