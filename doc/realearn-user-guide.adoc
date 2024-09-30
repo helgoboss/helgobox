@@ -3488,6 +3488,11 @@ This target allows you to take advantage of that!
 This is exactly the counterpart of the possible <<virtual-source,virtual sources>>.
 Choosing a virtual target here is like placing cables between a control element and all corresponding main mappings that use this virtual control element as source.
 
+===== Learnable
+
+If you disable this checkbox, this virtual source will not be learnable via "Learn source" in the main compartment.
+This can be useful for rather unimportant sources such as "Fader touch" that would otherwise make it very hard to learn more important sources such as "Fader movement".
+
 [#glue]
 === Glue
 
