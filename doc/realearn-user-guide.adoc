@@ -659,11 +659,8 @@ That means, ReaLearn can act as global MIDI filter.
 TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 * If input is set to a OSC device
 ** You won't see the checkboxes because they don't make sense for OSC.
-* If input is set to computer keyboard
-** You can control whether key presses are forwarded to REAPER or not.
-** For example, unticking both checkboxes makes sure that only keyboard hotkeys defined in ReaLearn have an effect.
-This can be interesting for live scenarios in which you temporarily want to lower the risk of pressing the wrong key and messing up the performance.
-Just unlock the keys you absolutely need.
+* The checkboxes don't have any effect on computer keyboard input.
+Keys are always passed through when doing text entry and never passed through if a mapping matches.
 
 ==== Controller compartment / Main compartment
 
