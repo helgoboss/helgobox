@@ -56,8 +56,11 @@ menu:View[Zoom > Reset]
 
 This menu allows you to manage files, including creating, opening, and saving.
 
-New::
-Allows you to create a new file.
+=== Menu descriptions
+
+[horizontal]
+New:: Allows you to create a new file.
+Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.
 
 Open::
 Allows you to open an existing file.
