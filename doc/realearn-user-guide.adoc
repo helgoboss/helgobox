@@ -3,7 +3,7 @@
 :toc: preamble
 :toclevels: 5
 :sectnums:
-:sectnumlevels: 2
+:sectnumlevels: 3
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -26,413 +26,14 @@ It is targeted at users who are already familiar with the ReaLearn basics and wa
 **If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!**
 ====
 
-== User interface
+== Concepts
 
-This section describes all user interface elements.
-
-=== Main panel
-
-image:images/screenshot-main-panel-annotated.svg[Main panel]
-
-The main panel provides the following user interface elements.
-
-[#control-input]
-==== Button btn:[Input]
-
-Allows you to select the input to which this ReaLearn unit listens.
-ReaLearn works with MIDI or OSC input.
-In addition, it can listen to keyboard input.
-
-MIDI: <FX input>::
-When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
-This is the default selection.
-
-MIDI: _Some input device_::
-When selected, ReaLearn captures events from the given MIDI device directly, before it reaches REAPER's tracks.
-+
-This will only work if _Enable input from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
-The device name is prefixed with the device ID, which also shows up in the REAPER preferences.
-
-Unavailable MIDI input devices::
-This submenu contains MIDI input devices which are currently disconnected or not enabled in the MIDI preferences.
-
-OSC: _Some device_::
-When selected, ReaLearn captures events from the given OSC device.
-Before any device shows up here, you need to add it via _Manage OSC devices_.
-
-Unavailable OSC devices::
-This submenu contains OSC devices for which control is currently disabled.
-
-
-[[manage-osc-devices]] Manage OSC devices::
-Allows one to display and modify the list of OSC devices (globally).
-
-<New>:::
-Opens a window for adding a new OSC devices.
-See <<osc-device-dialog>>.
-
-_Some OSC device_:::
-Edit:::: Lets you edit an existing device.
-See <<osc-device-dialog>>.
-Remove:::: Removes the device.
-This is a global action.
-As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
-Enabled for control:::: If you disable this, ReaLearn will stop listening to this device.
-This can save resources, so you should do this with each device that is not in use (as an alternative for removing it forever).
-Enabled for feedback:::: If you disable this, ReaLearn won't connect to this device.
-Can deal with bundles:::: By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
-Some devices (e.g. from Behringer) can't deal with OSC bundles.
-Untick the checkbox in this case and ReaLearn will send single OSC messages.
-
-Computer keyboard::
-This is a checkbox.
-If enabled, this ReaLearn instance will additionally listen to key press and release events.
-
-[#feedback-output]
-==== btn:[Output]
-
-Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
-
-<None>::
-This means, no feedback will be sent at all.
-This is the default.
-
-MIDI: <FX output>::
-This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
-
-MIDI: _Some output device_::
-If selected, ReaLearn will send feedback to the given MIDI output device.
-This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
-
-OSC: _Some device_::
-When selected, ReaLearn will send feedback to the given OSC device.
-Before any device shows up here, you need to add it via _Manage OSC devices_.
-
-Unavailable OSC devices::
-This submenu contains OSC devices for which feedback is currently disabled.
-
-Manage OSC devices::
-See <<manage-osc-devices>> in the input section of the menu.
-
-==== Output tips
-
-[qanda]
-Prefer output to a specific device over <FX output>!::
-It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
-+
-First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
-That means you might experience misbehaving LEDs/faders/displays when using multiple units.
-+
-Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
-
-* ReaLearn FX is disabled.
-* Project is paused and ReaLearn track is not armed.
-* ReaLearn FX is on input FX chain and track is not armed.
-
-[#osc-device-dialog]
-==== OSC device dialog
-
-The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
-
-Name:: A descriptive name of the device, e.g. "TouchOSC on my Android phone".
-
-Local port:: Required for control.
-The UDP port on which ReaLearn should listen for OSC control messages.
-+
-This port must be reserved exclusively for ReaLearn!
-If you already use this port in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless you with an "unable to connect" message in the "Input" dropdown.
-
-Device host:: Required for feedback only.
-It's the IP address of the OSC device to which ReaLearn should send feedback messages.
-This address is usually displayed on your OSC device (e.g. as "Local IP address").
-When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` (or `localhost`).
-+
-When you configure your OSC connection on the device side, you must provide a _host_ as well.
-There you should enter the IP address of the computer which runs REAPER and ReaLearn.
-You can easily find it by pressing the <<Projection>> button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
-It's the value next to *Host* and should start with `192.168.`.
-
-Device port:: Required for feedback only.
-The UDP port on which the OSC device listens for OSC feedback messages.
-
-All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
-`Helgoboss/ReaLearn/osc.json`.
-
-==== Button btn:[Menu]
-
-This opens the main menu of Helgobox/ReaLearn.
-The same menu opens when you right-click an empty area.
-
-It provides the following entries.
-
-[[copy-listed-mappings]] Copy listed mappings::
-Copies all mappings that are visible in the current mapping list (respecting group, search field and filters) to the clipboard.
-You can insert them by opening the context menu in the row panel.
-
-[[paste-mappings-replace-all-in-group]] Paste mappings (replace all in group)::
-Replaces all mappings in the current group with the mappings in the clipboard.
-
-Modify multiple mappings::
-
-Auto-name listed mappings:::
-Clears the names of all listed mappings.
-As a result, ReaLearn will display dynamically auto-generated mapping names instead.
-
-Name listed mappings after source:::
-Sets the names of each listed mapping to the first line of its source label.
-
-Make sources of all main mappings virtual:::
-Attempts to make the sources in the main compartment virtual by matching them with the sources in the controller compartment.
-This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in the main compartment, just to find out later that you would like to use a controller preset that exposes virtual sources.
-
-Make targets of listed mappings sticky:::
-Changes the targets of all currently listed mappings so they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
-+
-We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
-+
-Sticky selectors:::: `<Master>`, `<This>`, `Particular`
-Non-sticky selectors:::: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
-
-Make targets of listed mappings non-sticky:::
-Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
-You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
-+
-The general procedure is:
-+
-1. Choose the desired track selector
-2. Choose the desired FX selector
-3. ReaLearn will change the selectors for all targets where this is applicable
-
-Move listed mappings to group::
-Moves all currently listed mappings to the specified group.
-Useful in combination with text search.
-
-Advanced::
-Provides access to expert features.
-
-Copy listed mappings as Lua:::
-Like <<copy-listed-mappings>> but generates Lua/Luau code instead.
-
-Copy listed mappings as Lua (include default values):::
-Generates Lua/Luau code that contains even those properties that correspond to ReaLearn's defaults.
-
-Paste from Lua (replace all in group):::
-Like <<paste-mappings-replace-all-in-group>> but treats the clipboard content as Luau code.
-
-[[dry-run-lua-script]] Dry-run Lua script from clipboard:::
-Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
-See <<import-from-clipboard>> to learn in which situations this can be useful.
-
-Freeze Playtime matrix:::
-Don't use this, this feature is not ready yet!
-
-[[compartment-parameters-menu,Compartment parameters menu]] Compartment parameters::
-This shows all parameters of the current compartment and makes it possible to customize them.
-See <<compartment-parameters>> to learn what those parameters are good for.
-+
-Parameter customizations are saved together with the compartment preset.
-Parameter values will be reset whenever you load a preset (just the ones in that compartment).
-+
-Each parameter provides the following customization customization options:
-
-Name:::
-Changes the name of this parameter.
-
-Value count:::
-By default, ReaLearn parameter values are _continuous_ in nature: They are arbitrary decimal numbers between 0.0 and 1.0, often displayed as percentage between 0% and 100%.
-Although that's very flexible, it's often easier to work with a _discrete_ value range.
-+
-Entering a value count turns the parameter into a discrete parameter with the given number of integer values.
-For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
-+
-*Choose the value count wisely and think twice before changing it to a different value at a later point in time!* You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
-If you do that and later change the value count, these value references will not be valid anymore.
-They will point to other integers than you intended to.
-So if you are not sure, better pick a large value count and stick to it!
-
-Compartment presets::
-
-Create compartment preset workspace:::
-Exports the Luau SDK files of this ReaLearn version into a new compartment preset workspace directory with a random name.
-See section <<writing-presets-with-luau>> for details.
-
-Create compartment preset workspace (including factory presets):::
-Exports the Luau SDK files of this ReaLearn version and all factory presets for this compartment into a new compartment preset workspace directory with a random name.
-See section <<writing-presets-with-luau>> for details.
-
-Open compartment preset folder:::
-Opens the ReaLearn preset folder for this compartment in a file manager.
-
-[[reload-all-presets]] Reload all compartment presets from disk:::
-If you made direct changes to preset files, you should press this to reflect these changes in the compartment preset lists of all open ReaLearn instances (reloads all preset files in this compartment).
-+
-This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
-If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
-
-Edit compartment-wide Lua code:::
-Allows you to edit the compartment-wide Lua code.
-See section <<compartment-wide-lua-code>>.
-
-[[unit-options]] Unit options::
-
-[[auto-correct-settings]] Auto-correct settings:::
-By default, whenever you change something in ReaLearn, it tries to figure out if your combination of settings makes sense.
-If not, it makes an adjustment.
-This autocorrection is usually helpful.
-You can disable this checkbox if you don't like this behavior.
-
-Send feedback only if track armed:::
-Here you can tell ReaLearn to only send feedback when the track is armed.
-+
-Normally, you don't have to touch this because <<auto-correct-settings>> automatically chooses a reasonable default, depending on which input is selected:
-+
-* If input is set to _<FX input>_, it enables this option so that ReaLearn only sends feedback if the track is armed.
-Rationale: Unarming will naturally disable control, so disabling feedback is just consequent.
-* If input is set to a specific MIDI or OSC device, it disables this option in order to allow feedback even when unarmed.
-+
-At the moment, it can only be unchecked if ReaLearn is on the normal FX chain.
-If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (this is subject to change in the future).
-
-Reset feedback when releasing source:::
-When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switched off, displays are cleared, motor faders are pulled down).
-+
-You can prevent this unit from doing that by disabling this option.
-This can be useful e.g. when using REAPER/ReaLearn just in feedback direction, in order to take control of a hardware device (= using ReaLearn the other way around, "controlling from target to source").
-
-[[make-unit-superior]] Make unit superior:::
-Makes this unit superior.
-See <<superior-units>> to learn more about this feature.
-
-Use unit-wide FX-to-preset links only:::
-By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
-This checkbox makes sure that only unit-wide links are used.
-
-Stay active when project in background:::
-Determines if and under which conditions this ReaLearn unit should stay active when the containing project tab is not the active one.
-Applies to in-project ReaLearn instances only, not to monitoring FX instances!
-
-Never::::
-Will only be active when its project tab is active.
-Only if background project is running::::
-Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
-Always (more or less)::::
-Attempts to stay active no matter what.
-Please note that this is technically not always possible when input is set to _<FX input>_ or output to _<FX output>_, when the background project is not running.
-
-[[unit-fx-to-preset-links]] Unit-wide FX-to-preset links::
-Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.
-Covered in link:https://www.youtube.com/watch?v=HtmWO7QNpgE&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=10[video tutorial 10].
-
-Add link from last focused FX to preset:::
-This lets you link whatever FX window was focused before focusing ReaLearn, to an arbitrary main compartment preset.
-This only works if an FX has been focused before.
-
-_Arbitrary FX ID_:::
-If you have added a link already, you will see it here in the list.
-What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `Name: VSTi: ReaSynth (Cockos) | File: - | Preset: -`).
-
-[[edit-fx-id]] <Edit FX ID…>::::
-With this, you can edit the FX ID manually.
-See <<fx-id-dialog>> for details.
-
-<Remove link>::::
-(Globally) removes this FX-to-preset link.
-
-_Arbitrary main preset_::::
-The rest of the submenu tells you to which main preset the FX ID is linked.
-You can change the linked preset by clicking another one.
-
-[[logging]] Logging::
-
-Log debug info (now)::: Logs some information about ReaLearn's internal state.
-Can be interesting for investigating bugs or understanding how this plug-in works.
-Log real control messages::: When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console.
-+
-Each log entry contains the following information:
-
-* Timestamp in seconds
-* ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after restart)
-* Message purpose
-** *Real control:* A message used for controlling targets.
-** *Real learn:* A message used for learning a source.
-* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as decimal byte sequence and decoded)
-* Match result
-** *unmatched:* The message didn't match any mappings.
-** *matched:* The message matched at least one of the mappings.
-** *consumed:* Only for short MIDI messages.
-This short message is part of a (N)RPN or 14-bit CC message and there's at least one active mapping that has a (N)RPN or 14-bit CC source.
-That means it will not be processed.
-The complete (N)RPN or 14-bit CC message will be.
-
-Log virtual control messages::: When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
-Log target control::: When enabled, all target invocations (parameter changes etc.) will be logged.
-Log virtual feedback messages::: When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
-Log real feedback messages::: When enabled, all outgoing MIDI or OSC messages will be logged to the console.
-+
-The log entries look similar to the ones described above, with the following notable differences.
-
-* Message purpose
-** *Feedback output:* A message sent to your controller as response to target value changes.
-** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
-** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
-
-Send feedback now::
-Usually ReaLearn sends feedback whenever something changed to keep the LEDs or motorized faders of your controller in sync with REAPER at all times.
-There might be situations where it doesn't work though.
-In this case you can send feedback manually using this button.
-
-Instance options::
-
-Enable global control ("auto units"):::
-ReaLearn supports the automatic addition of a unit with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
-If you enable this option, this Helgobox instance will start to automatically add/remove units based on connected controllers.
-+
-The general procedure is:
-+
-. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the Helgobox App)
-. Enable global control for one Helgobox instance
-+
-It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
-Such an instance will be around permanently as long as REAPER is running, even if you open and close different projects.
-Perfect for project-spanning control scenarios!
-+
-And now the nice part: If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
-If you do that, the project-specific instance "wins" over the monitoring FX instance.
-You got a project-specific override.
-If you close the project, the monitoring FX instance takes over again.
-
-[[open-pot-browser]] Open Pot Browser::
-This will open Pot Browser.
-See <<pot-browser>> for details.
-
-Show App::
-Shows the Helgobox App associated with this Helgobox instance.
-
-Close App::
-Closes the Helgobox App associated with this Helgobox instance.
-
-User interface::
-
-Background colors:::
-Enables/disables the usage of background colors in the ReaLearn user interface (enabled by default).
-
-Server::
-ReaLearn features a built-in server which allows the Companion App (and in future also the Helgobox App) to connect to ReaLearn.
-The server runs globally, not per instance!
-
-Enable and start!::: This starts the server and makes sure it will automatically be started next time you use ReaLearn.
-Disable and stop!::: This stops the server and makes sure it will not be started next time you use ReaLearn.
-Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
-
-[[global-fx-to-preset-links]] Global FX-to-preset links::
-This is like <<unit-fx-to-preset-links>> but saves the links globally for all ReaLearn units.
-This is useful if you have only one controller or if you have x controllers (= and therefore x ReaLearn units) and want both of them to always auto-load the same preset if the unit FX points to the same plug-in.
-
-* All links will be saved _globally_, not just within this project!
-* Location: REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+This section explains important concept used in ReaLearn.
 
 [#compartment-parameters]
-==== Compartment parameters
+=== Compartment parameters
+
+==== Basics
 
 Each ReaLearn compartment contains 100 freely assignable parameters.
 Compartment parameters can be used in the following ways:
@@ -443,8 +44,22 @@ Compartment parameters can be used in the following ways:
 
 They can be customized as described in <<compartment-parameters-menu>>.
 
+[[continuous-and-discrete-compartment-parameters]]
+==== Continuous and discrete parameters
+
+By default, ReaLearn parameter values are _continuous_ in nature: They are arbitrary decimal numbers between 0.0 and 1.0, often displayed as percentage between 0% and 100%.
+Although that's very flexible, it's often easier to work with a _discrete_ value range.
+
+Entering a value count (see <<set-compartment-parameter-value-count>>) turns the parameter into a discrete parameter with the given number of integer values.
+For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
+
+*Choose the value count wisely and think twice before changing it to a different value at a later point in time!* You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
+If you do that and later change the value count, these value references will not be valid anymore.
+They will point to other integers than you intended to.
+So if you are not sure, better pick a large value count and stick to it!
+
 [[compartment-wide-lua-code]]
-==== Compartment-wide Lua code
+=== Compartment-wide Lua code
 
 Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
 This avoids code duplication and decreases memory usage.
@@ -489,7 +104,7 @@ local number = compartment.get_number()
 Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
 
 [[superior-units]]
-==== Superior units
+=== Superior units
 
 When a unit is made superior via menu entry <<make-unit-superior>>, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
 
@@ -523,68 +138,124 @@ Then, whenever this unit has at least one active mapping, all non-superior units
 * You can have multiple superior units.
 Make sure they get along with each other :)
 
-[[fx-id-dialog]]
-==== FX ID dialog
+[[compartments]]
+=== Compartments
 
-The FX ID dialog is used to edit which properties of a FX trigger a preset change.
-It is opened via menu action <<edit-fx-id>>.
+A compartment is a list of mappings that can be saved as independent preset.
+Initially, ReaLearn shows the so-called "Main compartment" which contains the so-called "Main mappings" - the bread and butter of ReaLearn.
+However, there's another interesting compartment, the "Controller compartment".
+In a nutshell, this compartment lets you define which hardware controllers you have at your disposal and which control elements they have.
+Learn more about that feature in section
+<<controller-compartment,Controller compartment>>.
 
-FX name::
-Allows you to adjust the (original) plug-in name that triggers the preset change.
+[[controller-compartment]]
+==== Controller compartment
 
-FX file name::
-Allows you to adjust the plug-in file name that triggers the preset change.
+By default, ReaLearn shows the list of main mappings.
+If you switch to the _controller_ compartment, you will see the list of controller mappings instead.
+Each controller mapping represents a control element on your hardware controller, e.g. a button or fader.
+This view lets you describe your controller by - well - by adding mappings.
+Almost everything in ReaLearn is a mapping :)
 
-FX preset name::
-Maybe the FX name or file name is not enough for you to decide which preset you want to load.
-Good news: You can add a preset name as additional criteria!
+Defining your own controllers can have a bunch of benefits:
 
-.Samplers
-====
-If you have a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
-Just add two links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names.
-====
+* You can use the awesome <<projection>> feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
+* You can use controller presets made by other users and thereby save precious setup time.
+Or you can contribute them yourself!
+* You can make your main mappings independent of the actual controller that you use.
+This is done using so-called
+_virtual_ sources and targets.
+* It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
+* You don't need to learn your control elements again and again.
+Although the process of learning an element is easy in ReaLearn, it can take some time in case the source character is not guessed correctly (e.g. absolute range element or relative encoder).
+Just do it once and be done with it!
 
-[TIP]
-.Wildcards
-====
-All the fields that are part of the FX ID support wildcards.
-You can use `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
+If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable controller mapping for each of its control elements.
 
-Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
-====
+Let's first look at the "slow" way to do this - adding and editing each controller mapping one by one:
 
-[[pot-browser]]
-==== Pot Browser
+. Press the "Add one" button.
+. Learn the source by pressing the "Learn source" button and touching the control element.
+. Press the "Edit" button.
+. Enter a descriptive name for the control element.
+** _Hint:_ This name will appear in many places so you want it to be short, clear and unique!
+. Assign a unique virtual target.
+** At this point we don't want to assign a _concrete_ target yet.
+The point of controller presets is to make them as reusable as possible, that's why we choose a so-called _virtual_ target.
+** In the _Category_ dropdown, choose _Virtual_.
+** As _Type_, choose _Button_ if your control element is a sort of button (something which you can press) and _Multi_ in all other cases.
+** Use for each control element a unique combination of _Type_ and _ID_, starting with number _1_ and counting.
+*** Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
+** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
+You can easily model that by assigning 8 multis and 8 buttons.
+** Maybe you have realized that the _Glue_ section is available for controller mappings as well!
+That opens up all kinds of possibilities.
+You could for example restrict the target range for a certain control element.
+Or make an encoder generally slower or faster.
+Or you could simulate a rotary encoder by making two buttons on your controller act as -/+ buttons emitting relative values.
+This is possible by mapping them to the same "Multi" in "Incremental button" mode.
 
-Pot Browser is an experimental modern preset browser.
-It's just a prototype so far.
-It will probably look quite different in the future.
-You can open it via menu action <<open-pot-browser>>.
+Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the _main_ compartment, learn the source of some main mapping and touch the control element that you have just mapped: Take note how ReaLearn will assign a _virtual_ source this time, not a MIDI source!
+It will also display the name of the control element as source label.
+Now, let's say at some point you swap your controller device with another one that has a similar layout, all you need to do is switch the controller preset and you are golden!
+You have decoupled your main mappings from the actual controller.
+Plus, as soon as you have saved your controller mappings as a preset, you can take full advantage of the <<projection>> feature.
 
-It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+All of this might be a bit of an effort but it's well worth it!
+Plus, there's a way to do this _a lot_ faster by using _batch learning_:
 
-TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+. Press the "Learn many" button.
+. Choose whether you want to learn all the "Multis" on your controller or all the "Buttons".
+. Simply touch all control elements in the desired order.
+** ReaLearn will take care of automatically incrementing the virtual control element numbers.
+. Press "Stop".
+. Done!
+** At this point it's recommended to recheck the learned mappings.
+** ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong.
+If so, just adjust the character in the corresponding mapping panel.
 
-Remarks:
+You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
+I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
+list].
 
-- Pot Browser is in an experimental stage, it doesn't save any of your settings!
-- Each ReaLearn instance has its own so-called _Pot Unit_.
-Each Pot Unit has its own filter and preset state.
-When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
+[[main-compartment]]
+==== Main compartment
 
-==== Button btn:[Export to clipboard]
+TODO
 
-Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
+=== Compartment presets
 
-* *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard.
-The dump's data format is
-https://www.json.org/json-en.html[JSON], a wide-spread data exchange format.
+TODO
+
+[[mapping-groups]]
+=== Mapping groups
+
+Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
+
+Groups can be useful …
+
+* To apply an activation condition to multiple mappings at once.
+* To enable/disable control/feedback for multiple mappings at once.
+* To keep track of mappings if there are many of them.
+
+You can decide which group is displays using <<mapping-group-menu>>.
+
+You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
+
+Groups are saved as part of the project, VST plug-in preset and compartment preset.
+
+[[import-export]]
+=== Import/export
+
+ReaLearn can import and export data in 2 formats:
+
+link:https://www.json.org/json-en.html[JSON]::
+A wide-spread data exchange format.
 It's a text format, so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing.
-However, recent versions of ReaLearn provide a much better way of doing that: _ReaLearn Script_.
-Read about the other export options for learning more about it.
-+
+
+link:https://luau.org/[Luau]::
+A full-blown programmling language derived from the famous Lua language that is also used in REAPER itself.
+
 [TIP]
 ====
 
@@ -595,7 +266,7 @@ You can also use the export for some very basic A/B testing:
 3. Restore the old settings by pressing _Import from clipboard_.
 
 ====
-+
+
 [TIP]
 ====
 
@@ -630,21 +301,9 @@ local state = [[
 ]]
 reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
 ----
-
 ====
-* *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard.
-It contains about the same data that a compartment preset would contain.
-* *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua/Luau code (ReaLearn Script).
-This form of Lua/Luau export skips properties that correspond to ReaLearn's default values, resulting in a minimal result.
-Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
-* *Export main/controller compartment as Lua (include default values):*  This Lua/Luau export includes even those properties that correspond to ReaLearn's default values, resulting in more text.
-This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
-[[import-from-clipboard]]
-==== Button btn:[Import from clipboard]
-
-Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
-It supports JSON or Luau.
+==== Troubleshooting Luau import
 
 The way Luau import works in ReaLearn is:
 
@@ -658,129 +317,6 @@ If step 2 fails, ReaLearn shows a validation error message.
 If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
 This action enables you to just execute step 1 and see the "expanded" result.
 This can help to make sense of a possible validation error message in step 2.
-
-[#projection]
-==== Button btn:[Projection]
-
-Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
-You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
-This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
-
-If you want to use this feature, click the button.
-You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
-Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
-
-==== Button btn:[?] (Help)
-
-Provides helpful links to the user guide and other stuff.
-
-==== Button btn:[Let through]
-
-ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
-In other words, it doesn't forward MIDI events which are used to control a target parameter.
-However, unmatched MIDI events are forwarded!
-
-You can change this using these checkboxes.
-E.g. you can tick *Matched events* if you want to forward even matched events.
-The exact behavior differs depending on what you choose as <<control-input>>:
-
-* If input is set to <FX input>
-** MIDI events arrive from ReaLearn's FX input.
-If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
-The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
-* If input is set to a MIDI hardware device
-** MIDI events arrive directly from the MIDI hardware device.
-If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn.
-If they don't get forwarded, it means they get filtered and will never make it to the tracks.
-ReaLearn completely eats them, globally!
-That means, ReaLearn can act as global MIDI filter.
-** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
-** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
-+
-TIP: This global MIDI filter feature is only available in REAPER v6.36+.
-* If input is set to a OSC device
-** You won't see the checkboxes because they don't make sense for OSC.
-* The checkboxes don't have any effect on computer keyboard input.
-Keys are always passed through when doing text entry and never passed through if a mapping matches.
-
-==== Button btn:[Show]
-
-This lets you choose which mapping compartment is displayed.
-
-==== Controller compartment / Main compartment
-
-A compartment is a list of mappings that can be saved as independent preset.
-Initially, ReaLearn shows the so-called "Main compartment" which contains the so-called "Main mappings" - the bread and butter of ReaLearn.
-However, there's another interesting compartment, the "Controller compartment".
-In a nutshell, this compartment lets you define which hardware controllers you have at your disposal and which control elements they have.
-Learn more about that feature in section
-<<controller-compartment,Controller compartment>>.
-
-==== Controller preset / Main preset
-
-==== Preset menu
-
-This menu makes it possible to load compartment presets for the currently shown compartment.
-If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
-
-The following menu entries are available:
-
-====== <None>
-
-This entry is selected by default.
-It means that no particular preset is active.
-
-Selecting <None> when a preset is active will clear the complete compartment.
-
-====== Factory
-
-This submenu contains built-in compartment presets.
-You can't change them yourself.
-But you can "make them your own" by making a copy of them.
-See <<writing-presets-with-luau>>.
-
-====== User (...)
-
-Multiple of such submenus may exist.
-Each one represents a preset namespace (or workspace) containing presets made by users, for example by you.
-The workspace named after you (macOS/Linux/Windows username) is your personal user workspace.
-
-For more information about preset workspaces/namespaces, see
-<<writing-presets-with-luau>>.
-
-====== User (Unsorted)
-
-This submenu contains top-level presets which are not part of a particular preset namespace (or workspace).
-This was common in older versions of ReaLearn, when workspaces were not yet available.
-
-===== Save
-
-If you made changes to a preset, you can save them by pressing this button.
-This works for built-in presets as well but I would strongly recommend against changing them directly.
-Better use _Save as…_ and choose a custom name.
-
-===== Save as…
-
-This allows you to save all currently visible mappings as a new preset.
-Please choose a descriptive name.
-
-** Saving your mappings as a preset is optional.
-All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
-But as soon as you want to reuse these mappings in other ReaLearn unit or for <<auto-load>>, it makes of course sense to save them as a preset!
-** All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
-`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
-They are JSON files and very similar to what you get when you press
-_Export to clipboard_.
-** They can even be in a subdirectory.
-Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
-** JSON files can also contain custom data sections.
-For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
-
-===== Delete
-
-This permanently deletes the currently chosen preset.
-You can also delete built-in presets.
-However, if you use ReaPack for installation, it should restore them on next sync.
 
 [#writing-presets-with-luau]
 ==== Writing presets with Luau
@@ -962,15 +498,673 @@ Currently, only feature `playtime` is supported, which matches if the Helgobox i
 
 |===
 
+=== Object selectors
+
+[[sticky-and-non-sticky-object-selectors]]
+==== Sticky and non-sticky object selectors
+
+We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
+
+Sticky selectors:::: `<Master>`, `<This>`, `Particular`
+Non-sticky selectors:::: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+
+=== Logging
+
+Logging can be enabled or disabled via <<logging-menu>>.
+
+[[logging-of-real-control-messages]]
+==== Logging of real control messages
+
+Each log entry contains the following information:
+
+* Timestamp in seconds
+* ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after restart)
+* Message purpose
+** *Real control:* A message used for controlling targets.
+** *Real learn:* A message used for learning a source.
+* Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as decimal byte sequence and decoded)
+* Match result
+** *unmatched:* The message didn't match any mappings.
+** *matched:* The message matched at least one of the mappings.
+** *consumed:* Only for short MIDI messages.
+This short message is part of a (N)RPN or 14-bit CC message and there's at least one active mapping that has a (N)RPN or 14-bit CC source.
+That means it will not be processed.
+The complete (N)RPN or 14-bit CC message will be.
+
+[[logging-of-real-feedback-messages]]
+==== Logging of real feedback messages
+
+The log entries look similar to the ones described above, with the following notable differences.
+
+* Message purpose
+** *Feedback output:* A message sent to your controller as response to target value changes.
+** *Lifecycle output:* A message sent to your controller as response to mapping activation/deactivation (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
+** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or <<osc-send-message,OSC: Send message>> target.
+
+[[projection]]
+=== Projection
+
+Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
+You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
+This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control element is mapped to which target parameter.
+
+[[units]]
+=== Units
+
+Units are like "mini instances" within one "big" ReaLearn instance.
+Each unit has its own input, output, controller compartment, main compartment, controller preset, main preset etc.
+
+Each ReaLearn instance may contain multiple ReaLearn units.
+It has at least one unit, the so-called "main unit".
+
+[[unit-key]]
+==== Unit key
+
+Each ReaLearn unit has a key that's used to address this particular ReaLearn unit when using the <<projection>> feature.
+By default, the unit key is a random cryptic string which ensures that every unit is uniquely addressable.
+The result is that scanning the QR code of this ReaLearn unit will let your mobile device connect for sure with this unique unit, not with another one - remember, you can use many units of ReaLearn in parallel.
+This is usually what you want.
+
+But a side effect is that with every new ReaLearn unit that you create, you first have to point your mobile device to it in order to see its
+<<projection>> (by scanning the QR code).
+Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
+By customizing the unit key, you can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
+
+You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project, using <<set-unit-data>>.
+Ideally it's a descriptive name without spaces, such as "track-volumes".
+You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
+
+[CAUTION]
+====
+
+Make sure to not have more than one ReaLearn unit with the same unit key active at the same time because then it's not clear to which your mobile device will connect!
+====
+
+*At the moment, the unit key is part of the ReaLearn preset!* That means, opening a preset, copying/cutting a ReaLearn FX, importing from clipboard - all of that will overwrite the unit key.
+This might change in future in favor of a more nuanced approach!
+
+[[auto-units]]
+=== Auto units
+
+ReaLearn supports the automatic addition of a unit with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
+
+The general procedure is:
+
+. Globally define once what controllers you have at your disposal and choose which main preset you want to use for which controller (in the Helgobox App)
+. Enable global control for one Helgobox instance using <<enable-global-control>>.
+
+It's a good idea to enable global control for a Helgobox instance on the monitoring FX chain.
+Such an instance will be around permanently as long as REAPER is running, even if you open and close different projects.
+Perfect for project-spanning control scenarios!
+
+And now the nice part: If you decide to use a specific device for something else in a certain project, all you need to do is to set use the device as input and/or output in a project-specific ReaLearn unit!
+If you do that, the project-specific instance "wins" over the monitoring FX instance.
+You got a project-specific override.
+If you close the project, the monitoring FX instance takes over again.
+
+[#auto-load]
+=== Auto-load
+
+If you activate auto-load mode _Based on unit FX_, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit.
+By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
+Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
+Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
+
+Of course this makes sense only if you actually have linked some presets.
+Section <<unit-fx-to-preset-links>> describes how to do that.
+
+[[letting-through-events]]
+=== Letting through events
+
+ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
+In other words, it doesn't forward MIDI events which are used to control a target parameter.
+However, unmatched MIDI events are forwarded!
+You can change this using <<let-through-checkboxes>>.
+
+The exact behavior differs depending on what you choose as <<control-input>>:
+
+* If input is set to <FX input>
+** MIDI events arrive from ReaLearn's FX input.
+If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX.
+The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
+* If input is set to a MIDI hardware device
+** MIDI events arrive directly from the MIDI hardware device.
+If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn.
+If they don't get forwarded, it means they get filtered and will never make it to the tracks.
+ReaLearn completely eats them, globally!
+That means, ReaLearn can act as global MIDI filter.
+** Please note, with input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
++
+TIP: This global MIDI filter feature is only available in REAPER v6.36+.
+* If input is set to a OSC device
+** You won't see the checkboxes because they don't make sense for OSC.
+* The checkboxes don't have any effect on computer keyboard input.
+Keys are always passed through when doing text entry and never passed through if a mapping matches.
+
+[#unit-track]
+=== Unit track
+
+The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
+This can be something like "Track 3" or "The currently selected track".
+Mappings in this ReaLearn unit can refer to this track by choosing the track selector <<unit-selector>>.
+
+The unit track can be changed via target <<track-target>>.
+
+[#unit-fx]
+=== Unit FX
+
+The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
+This can be something like "FX 5 on track 3" or "The currently focused track".
+Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector <<unit-selector>>.
+
+The unit FX can be changed via target <<fx-target>>.
+
+=== Order in which mappings are processed
+
+Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
+This matters if you want to map multiple targets to one button and the order of execution matters.
+
+*Important:* There's an exception.
+ReaLearn's processing of its own VST parameters is always deferred.
+
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
+- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
+ReaLearn's parameters are not supposed to be used that way!
+- Imagine a railway: ReaLearn's targets can be considered as trains.
+Triggering a target means moving the train forward.
+ReaLearn's parameters can be considered as railway switches.
+Changing a parameter means setting a course.
+The course needs to be set in advance, at least one step before!
+Not at the same time as moving the train over the switch.
+
+== User interface
+
+This section describes all user interface elements.
+
+=== Main panel
+
+image:images/screenshot-main-panel-annotated.svg[Main panel]
+
+The main panel provides the following user interface elements.
+
+[#control-input]
+==== btn:[Input]
+
+Allows you to select the input to which this ReaLearn unit listens.
+ReaLearn works with MIDI or OSC input.
+In addition, it can listen to keyboard input.
+
+MIDI: <FX input>::
+When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
+This is the default selection.
+
+MIDI: _Some input device_::
+When selected, ReaLearn captures events from the given MIDI device directly, before it reaches REAPER's tracks.
++
+This will only work if _Enable input from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
+The device name is prefixed with the device ID, which also shows up in the REAPER preferences.
+
+Unavailable MIDI input devices::
+This submenu contains MIDI input devices which are currently disconnected or not enabled in the MIDI preferences.
+
+OSC: _Some device_::
+When selected, ReaLearn captures events from the given OSC device.
+Before any device shows up here, you need to add it via _Manage OSC devices_.
+
+Unavailable OSC devices::
+This submenu contains OSC devices for which control is currently disabled.
+
+
+[[manage-osc-devices]] Manage OSC devices::
+Allows one to display and modify the list of OSC devices (globally).
+
+<New>:::
+Opens a window for adding a new OSC devices.
+See <<osc-device-dialog>>.
+
+_Some OSC device_:::
+Edit:::: Lets you edit an existing device.
+See <<osc-device-dialog>>.
+Remove:::: Removes the device.
+This is a global action.
+As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
+Enabled for control:::: If you disable this, ReaLearn will stop listening to this device.
+This can save resources, so you should do this with each device that is not in use (as an alternative for removing it forever).
+Enabled for feedback:::: If you disable this, ReaLearn won't connect to this device.
+Can deal with bundles:::: By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
+Some devices (e.g. from Behringer) can't deal with OSC bundles.
+Untick the checkbox in this case and ReaLearn will send single OSC messages.
+
+Computer keyboard::
+This is a checkbox.
+If enabled, this ReaLearn instance will additionally listen to key press and release events.
+
+[#feedback-output]
+==== btn:[Output]
+
+Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
+Also see <<best-practice-output-device>>.
+
+<None>::
+This means, no feedback will be sent at all.
+This is the default.
+
+MIDI: <FX output>::
+This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
+
+MIDI: _Some output device_::
+If selected, ReaLearn will send feedback to the given MIDI output device.
+This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
+
+OSC: _Some device_::
+When selected, ReaLearn will send feedback to the given OSC device.
+Before any device shows up here, you need to add it via _Manage OSC devices_.
+
+Unavailable OSC devices::
+This submenu contains OSC devices for which feedback is currently disabled.
+
+Manage OSC devices::
+See <<manage-osc-devices>> in the input section of the menu.
+
+[#osc-device-dialog]
+==== OSC device dialog
+
+The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
+
+Name:: A descriptive name of the device, e.g. "TouchOSC on my Android phone".
+
+Local port:: Required for control.
+The UDP port on which ReaLearn should listen for OSC control messages.
++
+This port must be reserved exclusively for ReaLearn!
+If you already use this port in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless you with an "unable to connect" message in the "Input" dropdown.
+
+Device host:: Required for feedback only.
+It's the IP address of the OSC device to which ReaLearn should send feedback messages.
+This address is usually displayed on your OSC device (e.g. as "Local IP address").
+When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` (or `localhost`).
++
+When you configure your OSC connection on the device side, you must provide a _host_ as well.
+There you should enter the IP address of the computer which runs REAPER and ReaLearn.
+You can easily find it by pressing the <<projection>> button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
+It's the value next to *Host* and should start with `192.168.`.
+
+Device port:: Required for feedback only.
+The UDP port on which the OSC device listens for OSC feedback messages.
+
+All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
+`Helgoboss/ReaLearn/osc.json`.
+
+==== Button btn:[Menu]
+
+This opens the main menu of Helgobox/ReaLearn.
+The same menu opens when you right-click an empty area.
+
+It provides the following entries.
+
+[[copy-listed-mappings]] Copy listed mappings::
+Copies all mappings that are visible in the current mapping list (respecting group, search field and filters) to the clipboard.
+You can insert them by opening the context menu in the row panel.
+
+[[paste-mappings-replace-all-in-group]] Paste mappings (replace all in group)::
+Replaces all mappings in the current group with the mappings in the clipboard.
+
+Modify multiple mappings::
+
+Auto-name listed mappings:::
+Clears the names of all listed mappings.
+As a result, ReaLearn will display dynamically auto-generated mapping names instead.
+
+Name listed mappings after source:::
+Sets the names of each listed mapping to the first line of its source label.
+
+Make sources of all main mappings virtual:::
+Attempts to make the sources in the main compartment virtual by matching them with the sources in the controller compartment.
+This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in the main compartment, just to find out later that you would like to use a controller preset that exposes virtual sources.
+
+Make targets of listed mappings sticky:::
+Changes the targets of all currently listed mappings so they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
+See <<sticky-and-non-sticky-object-selectors>>.
+
+Make targets of listed mappings non-sticky:::
+Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
+You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
++
+The general procedure is:
++
+1. Choose the desired track selector
+2. Choose the desired FX selector
+3. ReaLearn will change the selectors for all targets where this is applicable
+
+Move listed mappings to group::
+Moves all currently listed mappings to the specified group.
+Useful in combination with text search.
+
+Advanced::
+Provides access to expert features.
+
+Copy listed mappings as Lua:::
+Like <<copy-listed-mappings>> but generates Lua/Luau code instead.
+
+Copy listed mappings as Lua (include default values):::
+Generates Lua/Luau code that contains even those properties that correspond to ReaLearn's defaults.
+
+Paste from Lua (replace all in group):::
+Like <<paste-mappings-replace-all-in-group>> but treats the clipboard content as Luau code.
+
+[[dry-run-lua-script]] Dry-run Lua script from clipboard:::
+Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
+See <<import-from-clipboard>> to learn in which situations this can be useful.
+
+Freeze Playtime matrix:::
+Don't use this, this feature is not ready yet!
+
+[[compartment-parameters-menu,Compartment parameters menu]] Compartment parameters::
+This shows all parameters of the current compartment and makes it possible to customize them.
+See <<compartment-parameters>> to learn what those parameters are good for.
++
+Parameter customizations are saved together with the compartment preset.
+Parameter values will be reset whenever you load a preset (just the ones in that compartment).
++
+Each parameter provides the following customization options:
+
+Name:::
+Changes the name of this parameter.
+
+[[set-compartment-parameter-value-count]]Value count:::
+Lets you enter the maximum number of values.
+This automatically turn this parameter into a discrete parameter.
+See <<continuous-and-discrete-compartment-parameters>>.
+
+Compartment presets::
+
+Create compartment preset workspace:::
+Exports the Luau SDK files of this ReaLearn version into a new compartment preset workspace directory with a random name.
+See section <<writing-presets-with-luau>> for details.
+
+Create compartment preset workspace (including factory presets):::
+Exports the Luau SDK files of this ReaLearn version and all factory presets for this compartment into a new compartment preset workspace directory with a random name.
+See section <<writing-presets-with-luau>> for details.
+
+Open compartment preset folder:::
+Opens the ReaLearn preset folder for this compartment in a file manager.
+
+[[reload-all-presets]] Reload all compartment presets from disk:::
+If you made direct changes to preset files, you should press this to reflect these changes in the compartment preset lists of all open ReaLearn instances (reloads all preset files in this compartment).
++
+This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
+If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
+
+Edit compartment-wide Lua code:::
+Allows you to edit the compartment-wide Lua code.
+See section <<compartment-wide-lua-code>>.
+
+[[unit-options]] Unit options::
+
+[[auto-correct-settings]] Auto-correct settings:::
+By default, whenever you change something in ReaLearn, it tries to figure out if your combination of settings makes sense.
+If not, it makes an adjustment.
+This autocorrection is usually helpful.
+You can disable this checkbox if you don't like this behavior.
+
+Send feedback only if track armed:::
+Here you can tell ReaLearn to only send feedback when the track is armed.
++
+Normally, you don't have to touch this because <<auto-correct-settings>> automatically chooses a reasonable default, depending on which input is selected:
++
+* If input is set to _<FX input>_, it enables this option so that ReaLearn only sends feedback if the track is armed.
+Rationale: Unarming will naturally disable control, so disabling feedback is just consequent.
+* If input is set to a specific MIDI or OSC device, it disables this option in order to allow feedback even when unarmed.
++
+At the moment, it can only be unchecked if ReaLearn is on the normal FX chain.
+If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (this is subject to change in the future).
+
+Reset feedback when releasing source:::
+When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switched off, displays are cleared, motor faders are pulled down).
++
+You can prevent this unit from doing that by disabling this option.
+This can be useful e.g. when using REAPER/ReaLearn just in feedback direction, in order to take control of a hardware device (= using ReaLearn the other way around, "controlling from target to source").
+
+[[make-unit-superior]] Make unit superior:::
+Makes this unit superior.
+See <<superior-units>> to learn more about this feature.
+
+Use unit-wide FX-to-preset links only:::
+By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
+This checkbox makes sure that only unit-wide links are used.
+
+Stay active when project in background:::
+Determines if and under which conditions this ReaLearn unit should stay active when the containing project tab is not the active one.
+Applies to in-project ReaLearn instances only, not to monitoring FX instances!
+
+Never::::
+Will only be active when its project tab is active.
+Only if background project is running::::
+Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
+Always (more or less)::::
+Attempts to stay active no matter what.
+Please note that this is technically not always possible when input is set to _<FX input>_ or output to _<FX output>_, when the background project is not running.
+
+[[unit-fx-to-preset-links]] Unit-wide FX-to-preset links::
+Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.
+Covered in link:https://www.youtube.com/watch?v=HtmWO7QNpgE&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=10[video tutorial 10].
+
+Add link from last focused FX to preset:::
+This lets you link whatever FX window was focused before focusing ReaLearn, to an arbitrary main compartment preset.
+This only works if an FX has been focused before.
+
+_Arbitrary FX ID_:::
+If you have added a link already, you will see it here in the list.
+What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `Name: VSTi: ReaSynth (Cockos) | File: - | Preset: -`).
+
+[[edit-fx-id]] <Edit FX ID…>::::
+With this, you can edit the FX ID manually.
+See <<fx-id-dialog>> for details.
+
+<Remove link>::::
+(Globally) removes this FX-to-preset link.
+
+_Arbitrary main preset_::::
+The rest of the submenu tells you to which main preset the FX ID is linked.
+You can change the linked preset by clicking another one.
+
+[[logging-menu,Logging Menu]] Logging::
+
+Log debug info (now)::: Logs some information about ReaLearn's internal state.
+Can be interesting for investigating bugs or understanding how this plug-in works.
+Log real control messages::: When enabled, all incoming MIDI messages, OSC messages or key pressed will be logged to the console.
+See <<logging-of-real-control-messages>>.
+Log virtual control messages::: When enabled, all triggered virtual control elements and their values will be logged (see <<controller-compartment>>).
+Log target control::: When enabled, all target invocations (parameter changes etc.) will be logged.
+Log virtual feedback messages::: When enabled, all feedback events to virtual control elements will be logged (see <<controller-compartment>>).
+Log real feedback messages::: When enabled, all outgoing MIDI or OSC messages will be logged to the console.
+See <<logging-of-real-feedback-messages>>.
+
+Send feedback now::
+Usually ReaLearn sends feedback whenever something changed to keep the LEDs or motorized faders of your controller in sync with REAPER at all times.
+There might be situations where it doesn't work though.
+In this case you can send feedback manually using this button.
+
+Instance options::
+
+[[enable-global-control]] Enable global control:::
+If you enable this option, this Helgobox instance will start to automatically add/remove units based on connected controllers.
+See <<auto-units>>.
+
+[[open-pot-browser]] Open Pot Browser::
+This will open Pot Browser.
+See <<pot-browser>> for details.
+
+Show App::
+Shows the Helgobox App associated with this Helgobox instance.
+
+Close App::
+Closes the Helgobox App associated with this Helgobox instance.
+
+User interface::
+
+Background colors:::
+Enables/disables the usage of background colors in the ReaLearn user interface (enabled by default).
+
+Server::
+ReaLearn features a built-in server which allows the Companion App (and in future also the Helgobox App) to connect to ReaLearn.
+The server runs globally, not per instance!
+
+Enable and start!::: This starts the server and makes sure it will automatically be started next time you use ReaLearn.
+Disable and stop!::: This stops the server and makes sure it will not be started next time you use ReaLearn.
+Add firewall rule::: Attempts to add a firewall rule for making the server accessible from other devices or displays instructions how to do it.
+
+[[global-fx-to-preset-links]] Global FX-to-preset links::
+This is like <<unit-fx-to-preset-links>> but saves the links globally for all ReaLearn units.
+This is useful if you have only one controller or if you have x controllers (= and therefore x ReaLearn units) and want both of them to always auto-load the same preset if the unit FX points to the same plug-in.
+
+* All links will be saved _globally_, not just within this project!
+* Location: REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+
+[[fx-id-dialog]]
+==== FX ID dialog
+
+The FX ID dialog is used to edit which properties of a FX trigger a preset change.
+It is opened via menu action <<edit-fx-id>>.
+
+FX name::
+Allows you to adjust the (original) plug-in name that triggers the preset change.
+
+FX file name::
+Allows you to adjust the plug-in file name that triggers the preset change.
+
+FX preset name::
+Maybe the FX name or file name is not enough for you to decide which preset you want to load.
+Good news: You can add a preset name as additional criteria!
+
+.Samplers
+====
+If you have a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
+Just add two links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names.
+====
+
+[TIP]
+.Wildcards
+====
+All the fields that are part of the FX ID support wildcards.
+You can use `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
+
+Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
+====
+
+==== Button btn:[Export to clipboard]
+
+Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
+See <<import-export>>.
+
+* *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard in JSON format.
+* *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard.
+It contains about the same data that a compartment preset would contain.
+* *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua/Luau code (ReaLearn Script).
+This form of Lua/Luau export skips properties that correspond to ReaLearn's default values, resulting in a minimal result.
+Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
+* *Export main/controller compartment as Lua (include default values):*  This Lua/Luau export includes even those properties that correspond to ReaLearn's default values, resulting in more text.
+This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
+
+[[import-from-clipboard]]
+==== Button btn:[Import from clipboard]
+
+Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+It supports JSON or Luau.
+See <<import-export>>.
+
+[#projection-button]
+==== Button btn:[Projection]
+
+Click this button to enter ReaLearn's <<projection>> feature.
+You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
+Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
+
+==== Button btn:[?] (Help)
+
+Provides helpful links to the user guide and other stuff.
+
+[[let-through-checkboxes]]
+==== Button btn:[Let through]
+
+See <<letting-through-events>>.
+
+Matched:: If checked, even events matched by at least one mapping are let through.
+If unchecked (default), such events are filtered out.
+
+Unmatched:: If checked (default), mappings that are not matched by any mappings are let through.
+If unchecked, such events are filtered out.
+
+==== Button btn:[Show]
+
+This lets you choose which mapping compartment is displayed.
+See <<compartments>>.
+
+==== Preset menu
+
+This menu makes it possible to load compartment presets for the currently shown compartment.
+If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
+
+The following menu entries are available:
+
+<None>::
+This entry is selected by default.
+It means that no particular preset is active.
++
+Selecting <None> when a preset is active will clear the complete compartment.
+
+Factory::
+This submenu contains built-in compartment presets.
+You can't change them yourself.
+But you can "make them your own" by making a copy of them.
+See <<writing-presets-with-luau>>.
+
+User (...)::
+Multiple of such submenus may exist.
+Each one represents a preset namespace (or workspace) containing presets made by users, for example by you.
+The workspace named after you (macOS/Linux/Windows username) is your personal user workspace.
++
+For more information about preset workspaces/namespaces, see
+<<writing-presets-with-luau>>.
+
+User (Unsorted)::
+This submenu contains top-level presets which are not part of a particular preset namespace (or workspace).
+This was common in older versions of ReaLearn, when workspaces were not yet available.
+
+==== Save
+
+If you made changes to a preset, you can save them by pressing this button.
+This works for built-in presets as well but I would strongly recommend against changing them directly.
+Better use _Save as…_ and choose a custom name.
+
+==== Save as…
+
+This allows you to save all currently visible mappings as a new preset.
+Please choose a descriptive name.
+
+** Saving your mappings as a preset is optional.
+All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
+But as soon as you want to reuse these mappings in other ReaLearn unit or for <<auto-load>>, it makes of course sense to save them as a preset!
+** All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
+`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
+They are JSON files and very similar to what you get when you press
+_Export to clipboard_.
+** They can even be in a subdirectory.
+Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
+** JSON files can also contain custom data sections.
+For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
+
+==== Delete
+
+This permanently deletes the currently chosen preset.
+You can also delete built-in presets.
+However, if you use ReaPack for installation, it should restore them on next sync.
+
+[[mapping-group-menu]]
 ==== Mapping group
 
-Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
-
-Groups can be useful …
-
-** To apply an activation condition to multiple mappings at once.
-** To enable/disable control/feedback for multiple mappings at once.
-** To keep track of mappings if there are many of them.
+See <<mapping-groups>>.
 
 The group menu contains the following options:
 
@@ -981,24 +1175,20 @@ This is where mappings end up if you don't care about grouping.
 This is a special group that can't be removed.
 * *_Custom group_:* Displays all mappings in your custom group.
 
-You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
-
-Groups are saved as part of the project, VST plug-in preset and compartment preset.
-
-===== Add
+==== Add
 
 Allows you to add a group and give it a specific name.
 
-===== Remove
+==== Remove
 
 Removes the currently displayed group.
 It will ask you if you want to remove all the mappings in that group as well.
 Alternatively they will automatically be moved to the default group.
 
-===== Edit
+==== Edit
 
 Opens the group panel.
-This allows you to change the group name and change things that affect all mappings in this groups: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
+This allows you to change the group name and change things that affect all mappings in this group: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
 The activation condition that you provide here is combined with the one that you provide in the mapping.
 Only if both, the group activation conditions and the mapping activation condition are satisfied, the corresponding mapping will be active.
 Read more about
@@ -1060,18 +1250,14 @@ At bottom center you can see:
 ** The unit key of the currently visible ReaLearn unit.
 ** Tags assigned to this ReaLearn unit.
 * Row 2
-** Information about the current unit track and unit FX.
+** Information about the current <<unit-track>> and <<unit-fx>>.
 ** Information whether control and/or feedback is currently inactive unit-wide.
 * Row 3
 ** Information about what version of Helgobox you is running.
 
 ==== Unit
 
-Units are like "mini instances" within one "big" ReaLearn instance.
-Each unit has its own input, output, controller compartment, main compartment, controller preset, main preset etc.
-
-Each ReaLearn instance may contain multiple ReaLearn units.
-It has at least one unit, the so-called "main unit".
+See <<units>>.
 
 Press the button will reveal a menu with the following actions:
 
@@ -1082,153 +1268,19 @@ This can't be undone!
 The new unit will automatically be named after the randomly-generated unit key.
 You can change the name by pressing the *Unit data...* button.
 
+[[set-unit-data]]
 ==== Unit data...
 
 Press this button to change various key-value data of this ReaLearn unit as a whole.
 
-* *Unit key…:* This lets you customize the key used to address this particular ReaLearn unit when using the <<projection>> feature.
-** By default, the unit key is a random cryptic string which ensures that every unit is uniquely addressable.
-The result is that scanning the QR code of this ReaLearn unit will let your mobile device connect for sure with this unique unit, not with another one - remember, you can use many units of ReaLearn in parallel.
-This is usually what you want.
-** But a side effect is that with every new ReaLearn unit that you create, you first have to point your mobile device to it in order to see its
-<<projection>> (by scanning the QR code).
-Let's assume you have in many of your projects exactly one ReaLearn unit that lets your favorite MIDI controller control track volumes.
-By customizing the unit key, you basically can tell your mobile device that it should always show the <<projection>> of this very ReaLearn unit - no matter in which REAPER project you are and even if they control the volumes of totally different tracks.
-** You can achieve this by setting the unit key of each volume-controlling ReaLearn unit to exactly the same value, in each project.
-Ideally it's a descriptive name without spaces, such as "track-volumes".
-You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control ReaLearn units in each project.
-+
-[CAUTION]
-====
-
-Make sure to not have more than one ReaLearn unit with the same unit key active at the same time because then it's not clear to which your mobile device will connect!
-====
-** *At the moment, the unit key is part of the ReaLearn preset!* That means, opening a preset, copying/cutting a ReaLearn FX, importing from clipboard - all of that will overwrite the unit key.
-This might change in future in favor of a more nuanced approach!
+* *Unit key…:* Allows you to change the <<unit-key>> of this unit.
 * *Unit name:* The display name of this unit.
 * *Tags:* Lets you assign tags to this unit (a comma-separated list).
 They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
-[#unit-track]
-==== Unit track
-
-The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
-This can be something like "Track 3" or "The currently selected track".
-Mappings in this ReaLearn unit can refer to this track by choosing the track selector <<unit-selector>>.
-
-The unit track can be changed via target <<track-target>>.
-
-[#unit-fx]
-==== Unit FX
-
-The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
-This can be something like "FX 5 on track 3" or "The currently focused track".
-Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector <<unit-selector>>.
-
-The unit FX can be changed via target <<fx-target>>.
-
-[#controller-compartment]
-==== Controller compartment
-
-By default, ReaLearn shows the list of main mappings.
-If you switch to the _controller_ compartment, you will see the list of controller mappings instead.
-Each controller mapping represents a control element on your hardware controller, e.g. a button or fader.
-This view lets you describe your controller by - well - by adding mappings.
-Almost everything in ReaLearn is a mapping :)
-
-Defining your own controllers can have a bunch of benefits:
-
-* You can use the awesome <<projection>> feature to project your controller mapping to a smartphone or tablet (link:https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be[watch video]).
-* You can use controller presets made by other users and thereby save precious setup time.
-Or you can contribute them yourself!
-* You can make your main mappings independent of the actual controller that you use.
-This is done using so-called
-_virtual_ sources and targets.
-* It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
-* You don't need to learn your control elements again and again.
-Although the process of learning an element is easy in ReaLearn, it can take some time in case the source character is not guessed correctly (e.g. absolute range element or relative encoder).
-Just do it once and be done with it!
-
-If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable controller mapping for each of its control elements.
-
-Let's first look at the "slow" way to do this - adding and editing each controller mapping one by one:
-
-. Press the "Add one" button.
-. Learn the source by pressing the "Learn source" button and touching the control element.
-. Press the "Edit" button.
-. Enter a descriptive name for the control element.
-** _Hint:_ This name will appear in many places so you want it to be short, clear and unique!
-. Assign a unique virtual target.
-** At this point we don't want to assign a _concrete_ target yet.
-The point of controller presets is to make them as reusable as possible, that's why we choose a so-called _virtual_ target.
-** In the _Category_ dropdown, choose _Virtual_.
-** As _Type_, choose _Button_ if your control element is a sort of button (something which you can press) and _Multi_ in all other cases.
-** Use for each control element a unique combination of _Type_ and _ID_, starting with number _1_ and counting.
-*** Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
-** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
-You can easily model that by assigning 8 multis and 8 buttons.
-** Maybe you have realized that the _Glue_ section is available for controller mappings as well!
-That opens up all kinds of possibilities.
-You could for example restrict the target range for a certain control element.
-Or make an encoder generally slower or faster.
-Or you could simulate a rotary encoder by making two buttons on your controller act as -/+ buttons emitting relative values.
-This is possible by mapping them to the same "Multi" in "Incremental button" mode.
-
-Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate back to the _main_ compartment, learn the source of some main mapping and touch the control element that you have just mapped: Take note how ReaLearn will assign a _virtual_ source this time, not a MIDI source!
-It will also display the name of the control element as source label.
-Now, let's say at some point you swap your controller device with another one that has a similar layout, all you need to do is switch the controller preset and you are golden!
-You have decoupled your main mappings from the actual controller.
-Plus, as soon as you have saved your controller mappings as a preset, you can take full advantage of the <<projection>> feature.
-
-All of this might be a bit of an effort but it's well worth it!
-Plus, there's a way to do this _a lot_ faster by using _batch learning_:
-
-. Press the "Learn many" button.
-. Choose whether you want to learn all the "Multis" on your controller or all the "Buttons".
-. Simply touch all control elements in the desired order.
-** ReaLearn will take care of automatically incrementing the virtual control element numbers.
-. Press "Stop".
-. Done!
-** At this point it's recommended to recheck the learned mappings.
-** ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong.
-If so, just adjust the character in the corresponding mapping panel.
-
-You can share your preset with other users by sending them to link:mailto:&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;[&#105;&#110;&#102;&#x6f;&#x40;&#104;&#101;&#108;&#103;&#x6f;&#98;&#111;&#115;&#x73;&#46;&#111;&#x72;&#103;].
-I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
-list].
-
-==== Main compartment
-
-The header panel for main mappings consists of a few more user interface elements:
-
-[#auto-load]
 ==== Auto-load
 
-If you switch this to _Based on unit FX_, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit.
-By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
-Whenever the unit FX changes, it will check if you have linked a compartment preset to it and will automatically load it.
-Whenever the unit FX switches to an unlinked FX or the FX loses focus, ReaLearn falls back to the mapping list or preset that was active before activating auto-load.
-
-Of course this makes sense only if you actually have linked some presets.
-Section <<unit-fx-to-preset-links>> describes how to do that.
-
-==== Order in which mappings are processed
-
-Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined within the corresponding compartment.
-This matters if you want to map multiple targets to one button and the order of execution matters.
-
-*Important:* There's an exception.
-ReaLearn's processing of its own VST parameters is always deferred.
-
-- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
-- You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
-ReaLearn's parameters are not supposed to be used that way!
-- Imagine a railway: ReaLearn's targets can be considered as trains.
-Triggering a target means moving the train forward.
-ReaLearn's parameters can be considered as railway switches.
-Changing a parameter means setting a course.
-The course needs to be set in advance, at least one step before!
-Not at the same time as moving the train over the switch.
+Activates or deactivates <<auto-load>> mode for this ReaLearn unit.
 
 ==== Mapping row
 
@@ -1724,7 +1776,7 @@ If feedback is set up correctly, this message will be sent to the device wheneve
 
 Remarks:
 
-- You can check if the correct feedback messages are sent to the device by <<logging,logging feedback messages>>.
+- You can check if the correct feedback messages are sent to the device by <<logging-menu,logging feedback messages>>.
 - Each byte is written using 2 hexadecimal digits.
 - Spaces between the bytes can be omitted.
 - You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones.
@@ -4358,7 +4410,7 @@ If a source kind is impossible according to the current source settings or if it
 
 The left text area shows information about how an incoming control value was handled and possible target control errors.
 
-NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging>>).
+NOTE: If the target supports MIDI real-time control and the source is a MIDI source, this currently only works if "Log target control" is enabled (see <<logging-menu>>).
 
 The right text area shows information about which feedback values are sent from the glue section to the source.
 
@@ -4565,6 +4617,41 @@ Currently supported properties (subject to change): `server_enabled`, `server_ht
 | Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
 
 |===
+
+[[pot-browser]]
+== Pot Browser
+
+Pot Browser is an experimental modern preset browser.
+It's just a prototype so far.
+It will probably look quite different in the future.
+You can open it via menu action <<open-pot-browser>>.
+
+It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each ReaLearn instance has its own so-called _Pot Unit_.
+Each Pot Unit has its own filter and preset state.
+When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
+
+== Best practices
+
+[qanda]
+[[best-practice-output-device]] Prefer output to a specific device over <FX output>!::
+It's usually better to select a specific output device because sending MIDI feedback to the FX output has drawbacks.
++
+First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
+That means you might experience misbehaving LEDs/faders/displays when using multiple units.
++
+Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+
+* ReaLearn FX is disabled.
+* Project is paused and ReaLearn track is not armed.
+* ReaLearn FX is on input FX chain and track is not armed.
 
 == Sandbox
 
