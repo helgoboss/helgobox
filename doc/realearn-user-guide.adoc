@@ -42,7 +42,6 @@ Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
 In addition, it can listen to keyboard input.
 
-[horizontal]
 MIDI: <FX input>::
 When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
 This is the default selection.
@@ -93,7 +92,6 @@ If enabled, this ReaLearn instance will additionally listen to key press and rel
 
 Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
 
-[horizontal]
 <None>::
 This means, no feedback will be sent at all.
 This is the default.
@@ -133,7 +131,8 @@ Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases
 [#osc-device-dialog]
 ==== OSC device dialog
 
-[horizontal]
+The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
+
 Name:: A descriptive name of the device, e.g. "TouchOSC on my Android phone".
 
 Local port:: Required for control.
@@ -165,7 +164,6 @@ The same menu opens when you right-click an empty area.
 
 It provides the following entries.
 
-[horizontal]
 [[copy-listed-mappings]] Copy listed mappings::
 Copies all mappings that are visible in the current mapping list (respecting group, search field and filters) to the clipboard.
 You can insert them by opening the context menu in the row panel.
