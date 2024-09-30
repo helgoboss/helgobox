@@ -18,56 +18,6 @@ It is targeted at users who are already familiar with the ReaLearn basics and wa
 **If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!**
 ====
 
-== Sandbox
-
-=== Keyboard macros
-
-|===
-|Shortcut |Purpose
-
-|kbd:[F11]
-|Toggle fullscreen
-
-|kbd:[Ctrl+T]
-|Open a new tab
-
-|kbd:[Ctrl+Shift+N]
-|New incognito window
-
-|kbd:[\ ]
-|Used to escape characters
-
-|kbd:[Ctrl+\]]
-|Jump to keyword
-
-|kbd:[Ctrl + +]
-|Increase zoom
-|===
-
-=== Button macros
-
-Press the btn:[OK] button when you are finished.
-
-Select a file in the file navigator and click btn:[Open].
-
-=== Menu macros
-
-menu:View[Zoom > Reset]
-
-This menu allows you to manage files, including creating, opening, and saving.
-
-=== Menu descriptions
-
-[horizontal]
-New:: Allows you to create a new file.
-Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.
-
-Open::
-Allows you to open an existing file.
-
-Save::
-Allows you to save the current file.
-
 == Main panel
 
 image:images/screenshot-main-panel-annotated.svg[Main panel]
@@ -84,44 +34,98 @@ Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
 In addition, it can listen to keyboard input.
 
-===== MIDI: <FX input>
-
+MIDI: <FX input>::
 When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
-
 This is the default selection.
 
-===== MIDI: _Some input device_
-
+MIDI: _Some input device_::
 When selected, ReaLearn captures events from the given MIDI device directly, before it reaches REAPER's tracks.
-
++
 This will only work if _Enable input from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
 The device name is prefixed with the device ID, which also shows up in the REAPER preferences.
 
-===== Unavailable MIDI input devices
-
+Unavailable MIDI input devices::
 This submenu contains MIDI input devices which are currently disconnected or not enabled in the MIDI preferences.
 
-===== OSC: _Some device_
-
+OSC: _Some device_::
 When selected, ReaLearn captures events from the given OSC device.
-
 Before any device shows up here, you need to add it via _Manage OSC devices_.
 
-===== Unavailable OSC devices
-
+Unavailable OSC devices::
 This submenu contains OSC devices for which control is currently disabled.
 
-[#osc-devices]
-===== Manage OSC devices
 
+[[manage-osc-devices]] Manage OSC devices::
 Allows one to display and modify the list of OSC devices (globally).
 
-====== <New>
-
+<New>:::
 Opens a window for adding a new OSC devices.
+See <<osc-device-dialog>>.
 
-* *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
-* *Local port:* Required for control.
+_Some OSC device_:::
+Edit:::: Lets you edit an existing device.
+See <<osc-device-dialog>>.
+Remove:::: Removes the device.
+This is a global action.
+As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
+Enabled for control:::: If you disable this, ReaLearn will stop listening to this device.
+This can save resources, so you should do this with each device that is not in use (as an alternative for removing it forever).
+Enabled for feedback:::: If you disable this, ReaLearn won't connect to this device.
+Can deal with bundles::::: By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
+Some devices (e.g. from Behringer) can't deal with OSC bundles.
+Untick the checkbox in this case and ReaLearn will send single OSC messages.
+
+Computer keyboard::
+
+This is a checkbox.
+If enabled, this ReaLearn instance will additionally listen to key press and release events.
+
+[#feedback-output]
+==== Output
+
+Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
+
+<None>::
+This means, no feedback will be sent at all.
+This is the default.
+
+MIDI: <FX output>::
+This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
++
+[WARNING]
+====
+It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
+
+First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
+That means you might experience misbehaving LEDs/faders/displays when using multiple units.
+
+Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+
+* ReaLearn FX is disabled.
+* Project is paused and ReaLearn track is not armed.
+* ReaLearn FX is on input FX chain and track is not armed.
+====
++
+MIDI: _Some output device_::
+If selected, ReaLearn will send feedback to the given MIDI output device.
+This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
+
+OSC: _Some device_::
+When selected, ReaLearn will send feedback to the given OSC device.
+Before any device shows up here, you need to add it via _Manage OSC devices_.
+
+Unavailable OSC devices::
+This submenu contains OSC devices for which feedback is currently disabled.
+
+Manage OSC devices::
+See <<manage-osc-devices>> in the input section of the menu.
+
+[#osc-device-dialog]
+==== OSC device dialog
+
+Name:: A descriptive name of the device, e.g. "TouchOSC on my Android phone".
+
+Local port:: Required for control.
 The UDP port on which ReaLearn should listen for OSC control messages.
 +
 [IMPORTANT]
@@ -129,8 +133,8 @@ The UDP port on which ReaLearn should listen for OSC control messages.
 This port must be reserved exclusively for ReaLearn.
 If you already use this port in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless you with an "unable to connect" message in the "Input" dropdown.
 ====
-+
-* *Device host:* Required for feedback only.
+
+Device host:: Required for feedback only.
 It's the IP address of the OSC device to which ReaLearn should send feedback messages.
 This address is usually displayed on your OSC device (e.g. as "Local IP address").
 When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` (or `localhost`).
@@ -145,76 +149,12 @@ You can easily find it by pressing the <<Projection>> button in ReaLearn, choosi
 It's the value next to *Host* and should start with `192.168.`.
 
 ====
-* *Device port:* Required for feedback only.
+
+Device port:: Required for feedback only.
 The UDP port on which the OSC device listens for OSC feedback messages.
-* All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
+
+All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
 `Helgoboss/ReaLearn/osc.json`.
-
-====== _Some OSC device_
-
-* *Edit:* Lets you edit an existing device (see _<New>_).
-* *Remove:* Removes the device.
-This is a global action.
-As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
-* *Enabled for control:* If you disable this, ReaLearn will stop listening to this device.
-This can save resources, so you should do this with each device that is not in use (as an alternative for removing it forever).
-* *Enabled for feedback:* If you disable this, ReaLearn won't connect to this device.
-* *Can deal with bundles:* By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
-Some devices (e.g. from Behringer) can't deal with OSC bundles.
-Untick the checkbox in this case and ReaLearn will send single OSC messages.
-
-===== Computer keyboard
-
-This is a checkbox.
-If enabled, this ReaLearn instance will additionally listen to key press and release events.
-
-[#feedback-output]
-==== Output
-
-Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
-
-===== <None>
-
-This means, no feedback will be sent at all.
-This is the default.
-
-===== MIDI: <FX output>
-
-This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
-
-[WARNING]
-====
-It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
-
-First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
-That means you might experience misbehaving LEDs/faders/displays when using multiple units.
-
-Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
-
-* ReaLearn FX is disabled.
-* Project is paused and ReaLearn track is not armed.
-* ReaLearn FX is on input FX chain and track is not armed.
-====
-
-===== MIDI: _Some output device_
-
-If selected, ReaLearn will send feedback to the given MIDI output device.
-
-This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
-
-===== OSC: _Some device_
-
-When selected, ReaLearn will send feedback to the given OSC device.
-
-Before any device shows up here, you need to add it via _Manage OSC devices_.
-
-===== Unavailable OSC devices
-
-This submenu contains OSC devices for which feedback is currently disabled.
-
-===== Manage OSC devices
-
-See <<osc-devices>> in the input section of the menu.
 
 ==== Menu
 
@@ -4637,7 +4577,7 @@ ReaLearn creates and/or reads a few files in REAPER's resource directory.
 
 | Helgoboss/Pot/previews | Directory which contains previews recorded by <<pot-browser,Pot Browser>>
 
-| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<osc-devices>>
+| Helgoboss/ReaLearn/osc.json | Global OSC device configurations, see <<manage-osc-devices>>
 
 | Helgoboss/ReaLearn/realearn.ini | Very basic global configuration, currently mainly regarding ReaLearn's built-in server.
 
@@ -4646,3 +4586,53 @@ Currently supported properties (subject to change): `server_enabled`, `server_ht
 | Helgoboss/Server/certificates | Contains a list of certificates and corresponding private keys in order to allow encrypted communication with ReaLearn Companion and App.
 
 |===
+
+== Sandbox
+
+=== Keyboard macros
+
+|===
+|Shortcut |Purpose
+
+|kbd:[F11]
+|Toggle fullscreen
+
+|kbd:[Ctrl+T]
+|Open a new tab
+
+|kbd:[Ctrl+Shift+N]
+|New incognito window
+
+|kbd:[\ ]
+|Used to escape characters
+
+|kbd:[Ctrl+\]]
+|Jump to keyword
+
+|kbd:[Ctrl + +]
+|Increase zoom
+|===
+
+=== Button macros
+
+Press the btn:[OK] button when you are finished.
+
+Select a file in the file navigator and click btn:[Open].
+
+=== Menu macros
+
+menu:View[Zoom > Reset]
+
+This menu allows you to manage files, including creating, opening, and saving.
+
+=== Menu descriptions
+
+[horizontal]
+New:: Allows you to create a new file.
+Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.
+
+Open::
+Allows you to open an existing file.
+
+Save::
+Allows you to save the current file.
