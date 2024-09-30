@@ -5,6 +5,14 @@
 :sectnums:
 :sectnumlevels: 2
 
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
 |===
 |Last update of text: |`2024-09-27 (v2.16.9)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
