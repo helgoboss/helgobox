@@ -196,12 +196,13 @@ Non-sticky selectors:::: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All
 
 Make targets of listed mappings non-sticky:::
 Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
+You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
++
+The general procedure is:
 +
 1. Choose the desired track selector
 2. Choose the desired FX selector
 3. ReaLearn will change the selectors for all targets where this is applicable
-+
-You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
 
 Move listed mappings to group::
 Moves all currently listed mappings to the specified group.
@@ -290,48 +291,10 @@ If you made direct changes to preset files, you should press this to reflect the
 This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
 If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
 ====
-+
-[[compartment-wide-lua-code]] Edit compartment-wide Lua code:::
-Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
-This avoids code duplication and decreases memory usage.
-It even allows the usage of shared state.
-+
-The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
-That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
-+
-====
-The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
 
-[source,lua]
-----
-local module = {}
-
-local function private_function()
-    return "i'm private"
-end
-
-function module.get_text()
-    return "hello world"
-end
-
-function module.get_number()
-    return 5
-end
-
-return module
-----
-
-These functions can then be reused in MIDI source and feedback scripts:
-
-[source,lua]
-----
-local compartment = require("compartment")
-local text = compartment.get_text()
-local number = compartment.get_number()
-----
-====
-+
-Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+Edit compartment-wide Lua code:::
+Allows you to edit the compartment-wide Lua code.
+See section <<compartment-wide-lua-code>>.
 
 [[unit-options]] Unit options::
 
@@ -570,6 +533,50 @@ As source <<parameter-source>>::
 This lets the parameter value control any ReaLearn target.
 
 They can be customized as described in <<compartment-parameters-menu>>.
+
+[[compartment-wide-lua-code]]
+==== Compartment-wide Lua code
+
+Each compartment may contain arbitrary Luau code to be reused by multiple mapping MIDI source and feedback scripts.
+This avoids code duplication and decreases memory usage.
+It even allows the usage of shared state.
+
+The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
+That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
+
+====
+The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
+
+[source,lua]
+----
+local module = {}
+
+local function private_function()
+    return "i'm private"
+end
+
+function module.get_text()
+    return "hello world"
+end
+
+function module.get_number()
+    return 5
+end
+
+return module
+----
+
+These functions can then be reused in MIDI source and feedback scripts:
+
+[source,lua]
+----
+local compartment = require("compartment")
+local text = compartment.get_text()
+local number = compartment.get_number()
+----
+====
+
+Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
 
 ==== Export to clipboard
 
