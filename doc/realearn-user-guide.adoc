@@ -728,22 +728,15 @@ Please choose a descriptive name.
 
 ** Saving your mappings as a preset is optional.
 All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
-But as soon as you want to reuse these mappings in other ReaLearn units, it makes of course sense to save them as a preset!
-** All of your presets end up in the REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at
-`Data/helgoboss/realearn/presets`.
+But as soon as you want to reuse these mappings in other ReaLearn unit or for <<auto-load>>, it makes of course sense to save them as a preset!
+** All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
+`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
 They are JSON files and very similar to what you get when you press
 _Export to clipboard_.
-** Those files are usually in the root of that `presets` directory but can also reside in sub directories (one level only, sub/sub directories are not supported).
-Please note that the sub directory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
+** They can even be in a subdirectory.
+Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
 ** JSON files can also contain custom data sections.
 For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
-** When pressing this button, ReaLearn might detect that your current mappings are referring to specific tracks and FX instances _within the current project_.
-This would somehow defeat the purpose of presets because what good are presets that are usable only within one project?
-That's why ReaLearn also offers you to automatically convert such mappings to project-independent mappings by applying the following transformations:
-*** FX targets are changed to refer to _current unit FX_* instead of a particular one.
-Their track is set to *&lt;This&gt;* because it doesn't matter anyway.
-*** Track targets are changed to refer to a track via its position instead of its ID.
-** If this is not what you want, you can choose to say no and make modifications yourself.
 
 ===== Delete
 
