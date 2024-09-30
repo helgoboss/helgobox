@@ -3314,19 +3314,38 @@ _Under construction_
 ===== MIDI: Send message
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
-This target turns ReaLearn into a capable and convenient MIDI → MIDI and OSC → MIDI converter.
+This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.
 
-* *Output:* Where to send the MIDI message.
-** *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows into the FX below ReaLearn, e.g. a VST instrument.
+====== Output
+
+Where to send the MIDI message.
+
+* *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows into the FX below ReaLearn, e.g. a VST instrument.
 +
-** *Feedback output:* Sends the MIDI message to the device which is set as _output_.
-* *Pattern:* Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation.
-It also allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by the glue section).
-The syntax for doing this takes some getting used to but it's very flexible.
+* *Feedback output:* Sends the MIDI message to the device which is set as _output_.
+* *Input device:* Injects the MIDI message into the current MIDI input device buffer.
+Enables a unique feature called "Global MIDI transformation", as shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+====== Device
+
+When choosing output _Input device_, you can choose into which MIDI input device buffer the message will be injected.
+
+* *<Same as input device>:* Injects the message into the same buffer of the MIDI input device chosen as <<control-input>>.
+* *_Specific input device_:* Injects the message into another specific MIDI input device.
+This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
+An practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+====== Pattern
+
+Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation.
+It also allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by the Glue section).
+The syntax for doing this takes some getting used to, but it's very flexible.
 It's exactly the same syntax as used in the <<raw-midi-source,Raw MIDI source>>.
 Please read about it there!
-* *...* Primarily provides predefined patterns.
-Just pick one here, set the destination to "Feedback output" and add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
+
+====== ...
+
+Provides predefined patterns.
 
 [NOTE]
 ====
@@ -3336,6 +3355,7 @@ This has the big advantage that receiving and producing MIDI messages happens in
 However, this also means that the following things won't work when controlling this target using MIDI:
 
 * It can't take the lead in <<group-interaction>>.
+* It won't work with timed <<fire-mode, fire modes>>.
 * If _output_ is set to `<FX output>`, additional limitations apply:
 ** It can't act as a follower in <<group-interaction>>, either.
 ** It can't participate in <<realearn-load-mapping-snapshot>>.
