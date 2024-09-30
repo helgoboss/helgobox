@@ -100,21 +100,7 @@ This is the default.
 
 MIDI: <FX output>::
 This makes feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
-+
-[WARNING]
-====
-It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
 
-First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
-That means you might experience misbehaving LEDs/faders/displays when using multiple units.
-
-Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
-
-* ReaLearn FX is disabled.
-* Project is paused and ReaLearn track is not armed.
-* ReaLearn FX is on input FX chain and track is not armed.
-====
-+
 MIDI: _Some output device_::
 If selected, ReaLearn will send feedback to the given MIDI output device.
 This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
@@ -129,6 +115,21 @@ This submenu contains OSC devices for which feedback is currently disabled.
 Manage OSC devices::
 See <<manage-osc-devices>> in the input section of the menu.
 
+==== Output tips
+
+[qanda]
+Prefer output to a specific device over <FX output>!::
+It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
++
+First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
+That means you might experience misbehaving LEDs/faders/displays when using multiple units.
++
+Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+
+* ReaLearn FX is disabled.
+* Project is paused and ReaLearn track is not armed.
+* ReaLearn FX is on input FX chain and track is not armed.
+
 [#osc-device-dialog]
 ==== OSC device dialog
 
@@ -138,27 +139,18 @@ Name:: A descriptive name of the device, e.g. "TouchOSC on my Android phone".
 Local port:: Required for control.
 The UDP port on which ReaLearn should listen for OSC control messages.
 +
-[IMPORTANT]
-====
-This port must be reserved exclusively for ReaLearn.
+This port must be reserved exclusively for ReaLearn!
 If you already use this port in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless you with an "unable to connect" message in the "Input" dropdown.
-====
 
 Device host:: Required for feedback only.
 It's the IP address of the OSC device to which ReaLearn should send feedback messages.
 This address is usually displayed on your OSC device (e.g. as "Local IP address").
 When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` (or `localhost`).
 +
-[TIP]
-====
-
 When you configure your OSC connection on the device side, you must provide a _host_ as well.
 There you should enter the IP address of the computer which runs REAPER and ReaLearn.
-
 You can easily find it by pressing the <<Projection>> button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
 It's the value next to *Host* and should start with `192.168.`.
-
-====
 
 Device port:: Required for feedback only.
 The UDP port on which the OSC device listens for OSC feedback messages.
@@ -230,30 +222,19 @@ Like <<paste-mappings-replace-all-in-group>> but treats the clipboard content as
 
 [[dry-run-lua-script]] Dry-run Lua script from clipboard:::
 Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
-+
-[NOTE]
-====
-The way Luau import works in ReaLearn is:
-
-. ReaLearn attempts to execute the Luau script in the clipboard.
-. ReaLearn attempts to interpret the returned value as ReaLearn API object.
-. ReaLearn loads the API object
-
-If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
-
-If step 2 fails, ReaLearn shows a validation error message.
-
-The command <<dry-run-lua-script>> enables you to just execute step 1 and see the "expanded" result.
-This can help to make sense of a possible validation error message in step 2.
-====
+See <<import-from-clipboard>> to learn in which situations this can be useful.
 
 Freeze Playtime matrix:::
 Don't use this, this feature is not ready yet!
 
-[[compartment-parameters-menu]] Compartment parameters::
+[[compartment-parameters-menu,Compartment parameters menu]] Compartment parameters::
 This shows all parameters of the current compartment and makes it possible to customize them.
-See <<compartment-parameters>>.
-Each parameter provides the following customization options:
+See <<compartment-parameters>> to learn what those parameters are good for.
++
+Parameter customizations are saved together with the compartment preset.
+Parameter values will be reset whenever you load a preset (just the ones in that compartment).
++
+Each parameter provides the following customization customization options:
 
 Name:::
 Changes the name of this parameter.
@@ -265,18 +246,10 @@ Although that's very flexible, it's often easier to work with a _discrete_ value
 Entering a value count turns the parameter into a discrete parameter with the given number of integer values.
 For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
 +
-[CAUTION]
-====
-*Choose the value count wisely and think twice before changing it to a different value at a later point in time!*
-
-Reason: You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
+*Choose the value count wisely and think twice before changing it to a different value at a later point in time!* You probably want to refer to values of this parameter in certain parts of ReaLearn, e.g. in <<target-min-max>>.
 If you do that and later change the value count, these value references will not be valid anymore.
 They will point to other integers than you intended to.
 So if you are not sure, better pick a large value count and stick to it!
-====
-+
-TIP: Parameter settings are saved together with the compartment preset.
-Parameter values will be reset whenever you load a preset (just the ones in that compartment).
 
 Compartment presets::
 
@@ -294,11 +267,8 @@ Opens the ReaLearn preset folder for this compartment in a file manager.
 [[reload-all-presets]] Reload all compartment presets from disk:::
 If you made direct changes to preset files, you should press this to reflect these changes in the compartment preset lists of all open ReaLearn instances (reloads all preset files in this compartment).
 +
-[NOTE]
-====
 This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
 If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
-====
 
 Edit compartment-wide Lua code:::
 Allows you to edit the compartment-wide Lua code.
@@ -330,38 +300,9 @@ When using ReaLearn the normal way, it's usually desired that feedback is reset 
 You can prevent this unit from doing that by disabling this option.
 This can be useful e.g. when using REAPER/ReaLearn just in feedback direction, in order to take control of a hardware device (= using ReaLearn the other way around, "controlling from target to source").
 
-Make unit superior:::
-If ticked, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
-+
-[TIP]
-====
-Making units superior is **rarely needed**!
-
-This option was initially introduced in order to add more flexibility to the <<auto-load>> feature.
-The idea was to let a controller _fall back_ to some default behavior if the currently focused FX is closed.
-Multiple instances were necessary to make this work with one of them (the auto-load instance) being superior.
-
-However, since ReaLearn 2.14.0, falling back to initial mappings when the FX loses focus in auto-load mode became much easier and doesn't require multiple units anymore!
-Your initial mappings or initial preset will be memorized and reloaded once the FX loses focus.
-See <<auto-load>> for more information.
-====
-+
-Behavior:
-
-* By default, ReaLearn units are not superior, just normal.
-This is most of the time okay, even if you have multiple units that share the same input and output ... as long as you don't have any conflicting mappings active at the same time.
-* For example, if 2 units use the same input or output device and they use different control elements, they can peacefully coexist.
-And even if they share a control element for the _control direction_, they are still fine with it.
-The same control element will control 2 mappings, why not!
-* Things start to get hairy as soon as 2 units want to send _feedback_ to the same control elements at the same time.
-You should avoid this.
-You should not even do this within one ReaLearn unit.
-This can't work.
-* Sometimes you want one unit to suspend/cover/cancel/mute another one!
-You can do this by making this unit _superior_.
-Then, whenever this unit has at least one active mapping, all non-superior units with the same control and/or feedback device will be disabled for control and/or feedback.
-* You can have multiple superior units.
-Make sure they get along with each other :)
+[[make-unit-superior]] Make unit superior:::
+Makes this unit superior.
+See <<superior-units>> to learn more about this feature.
 
 Use unit-wide FX-to-preset links only:::
 By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
@@ -391,33 +332,9 @@ _Arbitrary FX ID_:::
 If you have added a link already, you will see it here in the list.
 What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `Name: VSTi: ReaSynth (Cockos) | File: - | Preset: -`).
 
-<Edit FX ID…>::::
+[[edit-fx-id]] <Edit FX ID…>::::
 With this, you can edit the FX ID manually.
-
-FX name:::::
-Allows you to adjust the (original) plug-in name that triggers the preset change.
-
-FX file name:::::
-Allows you to adjust the plug-in file name that triggers the preset change.
-
-FX preset name:::::
-Maybe the FX name or file name is not enough for you to decide which preset you want to load.
-Good news: You can add a preset name as additional criteria!
-+
-.Samplers
-====
-If you have a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
-Just add two links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names.
-====
-+
-[TIP]
-.Wildcards
-====
-All the fields that are part of the FX ID support wildcards.
-You can use `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
-
-Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
-====
+See <<fx-id-dialog>> for details.
 
 <Remove link>::::
 (Globally) removes this FX-to-preset link.
@@ -485,19 +402,9 @@ If you do that, the project-specific instance "wins" over the monitoring FX inst
 You got a project-specific override.
 If you close the project, the monitoring FX instance takes over again.
 
-[[pot-browser]] Open Pot Browser::
-This will open Pot Browser, a modern preset browser.
-It's recommended to use this from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
-+
-TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
-+
-Remarks:
-
-- Pot Browser is in an experimental stage, it doesn't save any of your settings!
-- Each ReaLearn instance has its own so-called _Pot Unit_.
-Each Pot Unit has its own filter and preset state.
-When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
+[[open-pot-browser]] Open Pot Browser::
+This will open Pot Browser.
+See <<pot-browser>> for details.
 
 Show App::
 Shows the Helgobox App associated with this Helgobox instance.
@@ -531,14 +438,9 @@ This is useful if you have only one controller or if you have x controllers (= a
 Each ReaLearn compartment contains 100 freely assignable parameters.
 Compartment parameters can be used in the following ways:
 
-For <<conditional-activation>>::
-This lets the parameter value influence which mappings are active.
-
-For <<dynamic-selector>>::
-This lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping.
-
-As source <<parameter-source>>::
-This lets the parameter value control any ReaLearn target.
+* For <<conditional-activation>> (lets the parameter value influence which mappings are active)
+* For <<dynamic-selector>> (lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping)
+* As source <<parameter-source>> (lets the parameter value control any ReaLearn target)
 
 They can be customized as described in <<compartment-parameters-menu>>.
 
@@ -552,6 +454,7 @@ It even allows the usage of shared state.
 The code that you provide here is treated as a module that MIDI source and feedback scripts can import using `require("compartment")`.
 That means you need to export everything that you want the MIDI source and feedback scripts to see, simply by returning it.
 
+.Compartment-wide Lua code
 ====
 The following compartment-wide Lua code exports 2 functions named `get_text` and `get_number`:
 
@@ -585,6 +488,92 @@ local number = compartment.get_number()
 ====
 
 Compartment-wide Lua code is part of the compartment, that means it's also saved as part of a compartment preset!
+
+[[superior-units]]
+==== Superior units
+
+When a unit is made superior via menu entry <<make-unit-superior>>, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
+
+[TIP]
+====
+Making units superior is **rarely needed**!
+
+This option was initially introduced in order to add more flexibility to the <<auto-load>> feature.
+The idea was to let a controller _fall back_ to some default behavior if the currently focused FX is closed.
+Multiple instances were necessary to make this work with one of them (the auto-load instance) being superior.
+
+However, since ReaLearn 2.14.0, falling back to initial mappings when the FX loses focus in auto-load mode became much easier and doesn't require multiple units anymore!
+Your initial mappings or initial preset will be memorized and reloaded once the FX loses focus.
+See <<auto-load>> for more information.
+====
+
+Behavior:
+
+* By default, ReaLearn units are not superior, just normal.
+This is most of the time okay, even if you have multiple units that share the same input and output ... as long as you don't have any conflicting mappings active at the same time.
+* For example, if 2 units use the same input or output device and they use different control elements, they can peacefully coexist.
+And even if they share a control element for the _control direction_, they are still fine with it.
+The same control element will control 2 mappings, why not!
+* Things start to get hairy as soon as 2 units want to send _feedback_ to the same control elements at the same time.
+You should avoid this.
+You should not even do this within one ReaLearn unit.
+This can't work.
+* Sometimes you want one unit to suspend/cover/cancel/mute another one!
+You can do this by making this unit _superior_.
+Then, whenever this unit has at least one active mapping, all non-superior units with the same control and/or feedback device will be disabled for control and/or feedback.
+* You can have multiple superior units.
+Make sure they get along with each other :)
+
+[[fx-id-dialog]]
+==== FX ID dialog
+
+The FX ID dialog is used to edit which properties of a FX trigger a preset change.
+It is opened via menu action <<edit-fx-id>>.
+
+FX name::
+Allows you to adjust the (original) plug-in name that triggers the preset change.
+
+FX file name::
+Allows you to adjust the plug-in file name that triggers the preset change.
+
+FX preset name::
+Maybe the FX name or file name is not enough for you to decide which preset you want to load.
+Good news: You can add a preset name as additional criteria!
+
+.Samplers
+====
+If you have a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
+Just add two links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names.
+====
+
+[TIP]
+.Wildcards
+====
+All the fields that are part of the FX ID support wildcards.
+You can use `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
+
+Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
+====
+
+[[pot-browser]]
+==== Pot Browser
+
+Pot Browser is an experimental modern preset browser.
+It's just a prototype so far.
+It will probably look quite different in the future.
+You can open it via menu action <<open-pot-browser>>.
+
+It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each ReaLearn instance has its own so-called _Pot Unit_.
+Each Pot Unit has its own filter and preset state.
+When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
 
 ==== Export to clipboard
 
@@ -652,15 +641,24 @@ Perfect for pasting in a forum or programming ReaLearn with focus on only those 
 * *Export main/controller compartment as Lua (include default values):*  This Lua/Luau export includes even those properties that correspond to ReaLearn's default values, resulting in more text.
 This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
+[[import-from-clipboard]]
 ==== Import from clipboard
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+It supports JSON or Luau.
 
-TIP: If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
+The way Luau import works in ReaLearn is:
 
-===== "?" (Help)
+. ReaLearn attempts to execute the Luau script in the clipboard.
+. ReaLearn attempts to interpret the returned value as ReaLearn API object.
+. ReaLearn loads the API object
 
-Provides helpful links to the user guide and other stuff.
+If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
+If step 2 fails, ReaLearn shows a validation error message.
+
+If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
+This action enables you to just execute step 1 and see the "expanded" result.
+This can help to make sense of a possible validation error message in step 2.
 
 [#projection]
 ==== Projection
@@ -672,6 +670,10 @@ This is an attempt to solve an inherent problem with generic controllers: That i
 If you want to use this feature, click the button.
 You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
+
+==== btn:[?] (Help)
+
+Provides helpful links to the user guide and other stuff.
 
 ==== Let through
 
