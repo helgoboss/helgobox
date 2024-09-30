@@ -148,8 +148,15 @@ In a nutshell, this compartment lets you define which hardware controllers you h
 Learn more about that feature in section
 <<controller-compartment,Controller compartment>>.
 
+[[main-compartment]]
+==== Main compartment
+
+The main compartment lets you define what the controller device should do.
+
 [[controller-compartment]]
 ==== Controller compartment
+
+The controller compartment lets you describe the controller device.
 
 By default, ReaLearn shows the list of main mappings.
 If you switch to the _controller_ compartment, you will see the list of controller mappings instead.
@@ -218,105 +225,33 @@ You can share your preset with other users by sending them to link:mailto:&#105;
 I will add it to https://github.com/helgoboss/helgobox/tree/master/resources/controller-presets[this
 list].
 
-[[main-compartment]]
-==== Main compartment
-
-TODO
-
+[[compartment-presets]]
 === Compartment presets
 
-TODO
+[[factory-compartment-presets]]
+==== Factory presets
 
-[[mapping-groups]]
-=== Mapping groups
+Factory presets are built-in compartment presets.
+You can't change them yourself.
+But you can "make them your own" by making a copy of them.
+See <<writing-presets-with-luau>>.
 
-Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
+[[user-compartment-presets]]
+==== User presets
 
-Groups can be useful …
+User presets are made by users, for example by you.
 
-* To apply an activation condition to multiple mappings at once.
-* To enable/disable control/feedback for multiple mappings at once.
-* To keep track of mappings if there are many of them.
-
-You can decide which group is displays using <<mapping-group-menu>>.
-
-You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
-
-Groups are saved as part of the project, VST plug-in preset and compartment preset.
-
-[[import-export]]
-=== Import/export
-
-ReaLearn can import and export data in 2 formats:
-
-link:https://www.json.org/json-en.html[JSON]::
-A wide-spread data exchange format.
-It's a text format, so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing.
-
-link:https://luau.org/[Luau]::
-A full-blown programmling language derived from the famous Lua language that is also used in REAPER itself.
-
-[TIP]
-====
-
-You can also use the export for some very basic A/B testing:
-
-1. Choose _Export session as JSON_
-2. Change some settings and test them
-3. Restore the old settings by pressing _Import from clipboard_.
-
-====
-
-[TIP]
-====
-
-For the programmers and script junkies out there: It's perfectly possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/reascript/reascripthelp.html#TrackFX_SetNamedConfigParm[`TrackFX_SetNamedConfigParm()`].
-Parameter name is `set-state`.
-This mechanism is implemented on ReaLearn side using https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter mechanism] (search for `named_parameter_name`).
-
-Example that assumes that the first FX of the first track is a ReaLearn instance:
-
-[source,lua]
-----
-local track = reaper.GetTrack(0, 0)
-local state = [[
-{
-  "controlDeviceId": "62",
-  "feedbackDeviceId": "fx-output",
-  "mappings": [
-    {
-      "name": "1",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 64
-      },
-      "mode": {},
-      "target": {
-        "type": 2
-      }
-    }
-  ]
-}
-]]
-reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
-----
-====
-
-==== Troubleshooting Luau import
-
-The way Luau import works in ReaLearn is:
-
-. ReaLearn attempts to execute the Luau script in the clipboard.
-. ReaLearn attempts to interpret the returned value as ReaLearn API object.
-. ReaLearn loads the API object
-
-If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
-If step 2 fails, ReaLearn shows a validation error message.
-
-If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
-This action enables you to just execute step 1 and see the "expanded" result.
-This can help to make sense of a possible validation error message in step 2.
+* Saving your mappings as a preset is optional.
+All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
+But as soon as you want to reuse these mappings in other ReaLearn unit or for <<auto-load>>, it makes of course sense to save them as a preset!
+* All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
+`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
+They are JSON files and very similar to what you get when you press
+_Export to clipboard_.
+* They can even be in a subdirectory.
+Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
+* JSON files can also contain custom data sections.
+For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
 
 [#writing-presets-with-luau]
 ==== Writing presets with Luau
@@ -497,6 +432,97 @@ this main preset but the instance doesn't contain a Playtime Clip Matrix, this i
 Currently, only feature `playtime` is supported, which matches if the Helgobox instance contains a Playtime Matrix.
 
 |===
+
+[[mapping-groups]]
+=== Mapping groups
+
+Mapping groups are part of the currently shown compartment and enable you to divide the list of mappings into multiple groups.
+
+Groups can be useful …
+
+* To apply an activation condition to multiple mappings at once.
+* To enable/disable control/feedback for multiple mappings at once.
+* To keep track of mappings if there are many of them.
+
+You can decide which group is displays using <<mapping-group-menu>>.
+
+You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
+
+Groups are saved as part of the project, VST plug-in preset and compartment preset.
+
+[[import-export]]
+=== Import/export
+
+ReaLearn can import and export data in 2 formats:
+
+link:https://www.json.org/json-en.html[JSON]::
+A wide-spread data exchange format.
+It's a text format, so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing.
+
+link:https://luau.org/[Luau]::
+A full-blown programmling language derived from the famous Lua language that is also used in REAPER itself.
+
+[TIP]
+====
+
+You can also use the export for some very basic A/B testing:
+
+1. Choose _Export session as JSON_
+2. Change some settings and test them
+3. Restore the old settings by pressing _Import from clipboard_.
+
+====
+
+[TIP]
+====
+
+For the programmers and script junkies out there: It's perfectly possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/reascript/reascripthelp.html#TrackFX_SetNamedConfigParm[`TrackFX_SetNamedConfigParm()`].
+Parameter name is `set-state`.
+This mechanism is implemented on ReaLearn side using https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter mechanism] (search for `named_parameter_name`).
+
+Example that assumes that the first FX of the first track is a ReaLearn instance:
+
+[source,lua]
+----
+local track = reaper.GetTrack(0, 0)
+local state = [[
+{
+  "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
+  "mappings": [
+    {
+      "name": "1",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 64
+      },
+      "mode": {},
+      "target": {
+        "type": 2
+      }
+    }
+  ]
+}
+]]
+reaper.TrackFX_SetNamedConfigParm(track, 0, "set-state", state)
+----
+====
+
+==== Troubleshooting Luau import
+
+The way Luau import works in ReaLearn is:
+
+. ReaLearn attempts to execute the Luau script in the clipboard.
+. ReaLearn attempts to interpret the returned value as ReaLearn API object.
+. ReaLearn loads the API object
+
+If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
+If step 2 fails, ReaLearn shows a validation error message.
+
+If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
+This action enables you to just execute step 1 and see the "expanded" result.
+This can help to make sense of a possible validation error message in step 2.
 
 === Object selectors
 
@@ -911,14 +937,15 @@ You can disable this checkbox if you don't like this behavior.
 Send feedback only if track armed:::
 Here you can tell ReaLearn to only send feedback when the track is armed.
 +
+At the moment, this can only be unchecked if ReaLearn is on the normal FX chain.
+If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (this is subject to change in the future).
++
 Normally, you don't have to touch this because <<auto-correct-settings>> automatically chooses a reasonable default, depending on which input is selected:
 +
 * If input is set to _<FX input>_, it enables this option so that ReaLearn only sends feedback if the track is armed.
 Rationale: Unarming will naturally disable control, so disabling feedback is just consequent.
 * If input is set to a specific MIDI or OSC device, it disables this option in order to allow feedback even when unarmed.
-+
-At the moment, it can only be unchecked if ReaLearn is on the normal FX chain.
-If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (this is subject to change in the future).
+
 
 Reset feedback when releasing source:::
 When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switched off, displays are cleared, motor faders are pulled down).
@@ -1114,15 +1141,11 @@ It means that no particular preset is active.
 +
 Selecting <None> when a preset is active will clear the complete compartment.
 
-Factory::
-This submenu contains built-in compartment presets.
-You can't change them yourself.
-But you can "make them your own" by making a copy of them.
-See <<writing-presets-with-luau>>.
+Factory:: Contains available <<factory-compartment-presets>>.
 
-User (...)::
+User (...):: Contains available <<user-compartment-presets>>.
 Multiple of such submenus may exist.
-Each one represents a preset namespace (or workspace) containing presets made by users, for example by you.
+Each one represents a preset namespace (or workspace).
 The workspace named after you (macOS/Linux/Windows username) is your personal user workspace.
 +
 For more information about preset workspaces/namespaces, see
@@ -1134,32 +1157,16 @@ This was common in older versions of ReaLearn, when workspaces were not yet avai
 
 ==== Save
 
-If you made changes to a preset, you can save them by pressing this button.
-This works for built-in presets as well but I would strongly recommend against changing them directly.
-Better use _Save as…_ and choose a custom name.
+If you made changes to a user preset, you can save them by pressing this button.
 
 ==== Save as…
 
 This allows you to save all currently visible mappings as a new preset.
 Please choose a descriptive name.
 
-** Saving your mappings as a preset is optional.
-All controller mappings are saved together with your current ReaLearn unit anyway, no worries.
-But as soon as you want to reuse these mappings in other ReaLearn unit or for <<auto-load>>, it makes of course sense to save them as a preset!
-** All of your presets end up in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) at
-`Data/helgoboss/realearn/presets` followed by `main` (for main compartment presets) or `controller` (for controller compartment presets).
-They are JSON files and very similar to what you get when you press
-_Export to clipboard_.
-** They can even be in a subdirectory.
-Please note that the subdirectory name becomes a part of the preset ID, so better don't move existing presets around if you want preset references of existing ReaLearn units to stay intact.
-** JSON files can also contain custom data sections.
-For example, the ReaLearn Companion app adds a custom data section to controller presets in order to memorize the positions and shapes of all control elements.
-
 ==== Delete
 
-This permanently deletes the currently chosen preset.
-You can also delete built-in presets.
-However, if you use ReaPack for installation, it should restore them on next sync.
+This permanently deletes the currently chosen user preset.
 
 [[mapping-group-menu]]
 ==== Mapping group
