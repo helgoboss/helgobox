@@ -13,10 +13,57 @@
 [IMPORTANT]
 .This document is the technical reference of ReaLearn.
 ====
-It is targeted at experienced users who are already familiar with ReaLearn and need to look up specific information.
+It is targeted at users who are already familiar with the ReaLearn basics and want to look up specific information.
 
-**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki[Wiki] instead!**
+**If you are a beginner, please use the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!**
 ====
+
+== Sandbox
+
+=== Keyboard macros
+
+|===
+|Shortcut |Purpose
+
+|kbd:[F11]
+|Toggle fullscreen
+
+|kbd:[Ctrl+T]
+|Open a new tab
+
+|kbd:[Ctrl+Shift+N]
+|New incognito window
+
+|kbd:[\ ]
+|Used to escape characters
+
+|kbd:[Ctrl+\]]
+|Jump to keyword
+
+|kbd:[Ctrl + +]
+|Increase zoom
+|===
+
+=== Button macros
+
+Press the btn:[OK] button when you are finished.
+
+Select a file in the file navigator and click btn:[Open].
+
+=== Menu macros
+
+menu:View[Zoom > Reset]
+
+This menu allows you to manage files, including creating, opening, and saving.
+
+New::
+Allows you to create a new file.
+
+Open::
+Allows you to open an existing file.
+
+Save::
+Allows you to save the current file.
 
 == Main panel
 
