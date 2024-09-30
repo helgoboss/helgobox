@@ -25,27 +25,27 @@ image:images/screenshot-main-panel-annotated.svg[Main panel]
 [#header-panel]
 === Header panel
 
-The header panel provides the following user interface elements, no matter if the _main_ or
-_controller_ compartment is shown:
+The header panel provides the following user interface elements.
 
 [#control-input]
 ==== Input
 
+Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
 In addition, it can listen to keyboard input.
 
 ===== MIDI: <FX input>
 
-When selected, ReaLearn captures MIDI events from _<FX input>_, which consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
+When selected, ReaLearn captures all MIDI events that flow into this ReaLearn VSTi FX instance (= track MIDI path).
 
-This is the default input.
+This is the default selection.
 
 ===== MIDI: _Some input device_
 
-When selected, ReaLearn captures events from the given MIDI device directly - before it reaches REAPER's tracks.
-Be aware that this will only work if _Enable input from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
+When selected, ReaLearn captures events from the given MIDI device directly, before it reaches REAPER's tracks.
 
-The device name is prefixed with the device ID, which you can also see in REAPER's MIDI preferences.
+This will only work if _Enable input from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
+The device name is prefixed with the device ID, which also shows up in the REAPER preferences.
 
 ===== Unavailable MIDI input devices
 
@@ -73,17 +73,22 @@ Opens a window for adding a new OSC devices.
 * *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
 * *Local port:* Required for control.
 The UDP port on which ReaLearn should listen for OSC control messages.
-** *Important:* This port must be reserved exclusively for ReaLearn.
++
+[IMPORTANT]
+====
+This port must be reserved exclusively for ReaLearn.
 If you already use this port in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless you with an "unable to connect" message in the "Input" dropdown.
+====
++
 * *Device host:* Required for feedback only.
 It's the IP address of the OSC device to which ReaLearn should send feedback messages.
 This address is usually displayed on your OSC device (e.g. as "Local IP address").
-When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
+When targeting an OSC software that runs on the same computer as REAPER and ReaLearn, enter the special IP address `127.0.0.1` (or `localhost`).
 +
 [TIP]
 ====
 
-When you configure your OSC device, you must provide a _host_ as well.
+When you configure your OSC connection on the device side, you must provide a _host_ as well.
 There you should enter the IP address of the computer which runs REAPER and ReaLearn.
 
 You can easily find it by pressing the <<Projection>> button in ReaLearn, choosing the old browser-based projection and scrolling down a bit.
@@ -92,12 +97,12 @@ It's the value next to *Host* and should start with `192.168.`.
 ====
 * *Device port:* Required for feedback only.
 The UDP port on which the OSC device listens for OSC feedback messages.
-* All OSC device configurations will be saved in the REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) in the JSON file
+* All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
 `Helgoboss/ReaLearn/osc.json`.
 
-====== _Some device_
+====== _Some OSC device_
 
-* *Edit:* Lets you edit an existing device (see _&lt;New&gt;_).
+* *Edit:* Lets you edit an existing device (see _<New>_).
 * *Remove:* Removes the device.
 This is a global action.
 As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.
@@ -116,12 +121,11 @@ If enabled, this ReaLearn instance will additionally listen to key press and rel
 [#feedback-output]
 ==== Output
 
-Here you can choose if and to which output ReaLearn should send MIDI/OSC feedback.
+Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
 
 ===== <None>
 
-This means, no feedback will be sent.
-
+This means, no feedback will be sent at all.
 This is the default.
 
 ===== MIDI: <FX output>
@@ -130,9 +134,11 @@ This makes feedback MIDI events stream down to the next FX in the chain or to th
 
 [WARNING]
 ====
-Please note that sending MIDI feedback to the FX output has some drawbacks.
+It's usually better to select a specific output device is recommended because sending MIDI feedback to the FX output has drawbacks.
+
 First, it doesn't participate in ReaLearn's multi-unit feedback orchestration.
-That means you might experience LEDs/faders misbehaving when using multiple units.
+That means you might experience misbehaving LEDs/faders/displays when using multiple units.
+
 Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
 
 * ReaLearn FX is disabled.
@@ -144,7 +150,7 @@ Second, it doesn't work if ReaLearn FX is suspended, e.g. in the following cases
 
 If selected, ReaLearn will send feedback to the given MIDI output device.
 
-Keep in mind that this only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
+This only works if _Enable output to this device_ is checked in REAPER's MIDI preferences.
 
 ===== OSC: _Some device_
 
@@ -163,13 +169,13 @@ See <<osc-devices>> in the input section of the menu.
 ==== Menu
 
 This opens the main menu of Helgobox/ReaLearn.
+The same menu opens when you right-click an empty area.
 
-It's also accessible as right-click menu.
 It provides the following entries.
 
 ===== Copy listed mappings
 
-Copies all mappings that are visible in the current mapping list to the clipboard (respecting group, search field and filters).
+Copies all mappings that are visible in the current mapping list (respecting group, search field and filters) to the clipboard.
 You can insert them by opening the context menu in the row panel.
 
 ===== Paste mappings (replace all in group)
@@ -180,7 +186,8 @@ Replaces all mappings in the current group with the mappings in the clipboard.
 
 ====== Auto-name listed mappings
 
-Clears the names of all listed mappings so ReaLearn's dynamic auto-naming mechanism can kick in.
+Clears the names of all listed mappings.
+As a result, ReaLearn will display dynamically auto-generated mapping names instead.
 
 ====== Name listed mappings after source
 
@@ -189,30 +196,31 @@ Sets the names of each listed mapping to the first line of its source label.
 ====== Make sources of all main mappings virtual
 
 Attempts to make the sources in the main compartment virtual by matching them with the sources in the controller compartment.
-This is useful if you already learned a bunch of sources in the main compartment, just to find out later that you would like to have used a controller preset.
+This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in the main compartment, just to find out later that you would like to use a controller preset that exposes virtual sources.
 
 ====== Make targets of listed mappings sticky
 
-Changes the targets of all currently listed mappings to use "sticky" object selectors by attempting to resolve the objects from non-sticky selectors.
+Changes the targets of all currently listed mappings so they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
 We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
 
 * Sticky selectors: `<Master>`, `<This>`, `Particular`
-* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `At position`, `Named`, `All named`
-
-You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
+* Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
 
 ====== Make targets of listed mappings non-sticky
 
-Changes the targets of all currently listed mappings to use user-definable non-sticky object selectors.
+Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
 
 1. Choose the desired track selector
 2. Choose the desired FX selector
-3. ReaLearn will change the selectors for the targets of all listed mappings where this is applicable
+3. ReaLearn will change the selectors for all targets where this is applicable
+
+You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
 
 ===== Move listed mappings to group
 
 Lets you move all currently listed mappings to the specified group.
-Perfect in combination with the textual search!
+
+TIP: Useful in combination with text search.
 
 ===== Advanced
 
@@ -230,6 +238,7 @@ Generates Lua/Luau code that contains even those properties that correspond to R
 
 Like _Paste mappings (replace all in group)_ but treats the clipboard content as Luau code.
 
+[#dry-run-lua-script]
 ====== Dry-run Lua script from clipboard
 
 Executes the Luau code in the clipboard and opens the returned data structure in a text editor.
@@ -238,8 +247,8 @@ Executes the Luau code in the clipboard and opens the returned data structure in
 ====
 The way Luau import works in ReaLearn is:
 
-. ReaLearn executes the Luau script (from clipboard).
-. ReaLearn attempts to interpret the return value as ReaLearn API object.
+. ReaLearn attempts to execute the Luau script in the clipboard.
+. ReaLearn attempts to interpret the returned value as ReaLearn API object.
 . ReaLearn loads the API object
 
 If step 1 fails, ReaLearn displays an error messages that hopefully contains a line number.
@@ -250,21 +259,38 @@ The command _Dry-run Lua script from clipboard_ enables you to just execute step
 This can help to make sense of a possible validation error message in step 2.
 ====
 
-====== Freeze clip matrix
+====== Freeze Playtime matrix
 
 Don't use this, this feature is not ready yet!
 
 [#compartment-parameters]
 ===== Compartment parameters
 
-This shows all parameters of the current compartment (you know, the ones that can be used for conditional activation and _<Dynamic>_ selector expressions) and makes it possible to customize them.
-This is practical because it's completely up to you how to put these parameters to use.
+This shows all parameters of the current compartment and makes it possible to customize them.
 
-Perfect for preset authors: Parameter settings are saved together with the compartment preset.
-Parameter values will be reset whenever you load a preset (just the ones in that compartment).
+Each ReaLearn compartment contains 100 freely assignable parameters.
+Compartment parameters can be used in the following ways:
 
-* *Param _x_ Name:* Changes the name of this parameter.
-* *Value count:* By default, ReaLearn parameter values are continuous in nature: They are arbitrary decimal numbers between 0.0 and 1.0. Although that's very flexible, it's often easier to work with a discrete value range.
+For <<conditional-activation>>::
+This lets the parameter value influence which mappings are active.
+
+For <<dynamic-selector>>::
+This lets the parameter value influence which object (track, FX etc.) is targeted for a specific mapping.
+
+As source <<parameter-source>>::
+This lets the parameter value control any ReaLearn target.
+
+Each parameter provides the following customization options:
+
+====== Name
+
+Changes the name of this parameter.
+
+====== Value count
+
+By default, ReaLearn parameter values are _continuous_ in nature: They are arbitrary decimal numbers between 0.0 and 1.0, often displayed as percentage between 0% and 100%.
+Although that's very flexible, it's often easier to work with a _discrete_ value range.
+
 Entering a value count turns the parameter into a discrete parameter with the given number of integer values.
 For example, a value count of 10 means that the parameter can represent exactly 10 values (0 to 9).
 
@@ -277,6 +303,9 @@ If you do that and later change the value count, these value references will not
 They will point to other integers than you intended to.
 So if you are not sure, better pick a large value count and stick to it!
 ====
+
+TIP: Parameter settings are saved together with the compartment preset.
+Parameter values will be reset whenever you load a preset (just the ones in that compartment).
 
 ===== Compartment presets
 
@@ -301,8 +330,8 @@ If you made direct changes to preset files, you should press this to reflect the
 
 [NOTE]
 ====
-This *will not* yet apply an adjusted preset, it will just reload the list.
-If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
+This *will not* apply an adjusted preset to the current compartment, it will just reload the list.
+If you want to apply a preset that has been changed on disk, you need to reload it by selecting it in the preset dropdown once again!
 ====
 
 [#compartment-wide-lua-code]
@@ -350,40 +379,55 @@ Compartment-wide Lua code is part of the compartment, that means it's also saved
 [#options]
 ===== Unit options
 
+[#auto-correct-settings]
 ====== Auto-correct settings
 
 By default, whenever you change something in ReaLearn, it tries to figure out if your combination of settings makes sense.
 If not, it makes an adjustment.
-This auto-correction is usually helpful.
-If for some reason you want to disable auto-correction, this is your checkbox.
+This autocorrection is usually helpful.
+You can disable this checkbox if you don't like this behavior.
 
 ====== Send feedback only if track armed
 
-If input is set to _&lt;FX input&gt;_, ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable control, so disabling feedback is just consequent).
-However, if input is set to a MIDI or OSC device, _auto-correct settings_ will take care of unchecking this option in order to allow feedback even when unarmed (same reasoning).
-You can override this behavior with this checkbox.
+Here you can tell ReaLearn to only send feedback when the track is armed.
+
+Normally, you don't have to touch this because <<auto-correct-settings>> automatically chooses a reasonable default, depending on which input is selected:
+
+* If input is set to _<FX input>_, it enables this option so that ReaLearn only sends feedback if the track is armed.
+Rationale: Unarming will naturally disable control, so disabling feedback is just consequent.
+* If input is set to a specific MIDI or OSC device, it disables this option in order to allow feedback even when unarmed.
+
 At the moment, it can only be unchecked if ReaLearn is on the normal FX chain.
-If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (*this is subject to change in future!*).
+If it's on the input FX chain, unarming naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed (this is subject to change in the future).
 
 ====== Reset feedback when releasing source
 
-When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switch off, displays are cleared, motor faders are pulled down).
-You can prevent this ReaLearn unit from doing this by disabling this option.
-This can be useful e.g. when using REAPER/ReaLearn to control a hardware device (essentially using ReaLearn the other way around, "controlling from target to source").
+When using ReaLearn the normal way, it's usually desired that feedback is reset when the corresponding sources are not in use anymore (e.g. lights are switched off, displays are cleared, motor faders are pulled down).
+
+You can prevent this unit from doing that by disabling this option.
+This can be useful e.g. when using REAPER/ReaLearn just in feedback direction, in order to take control of a hardware device (= using ReaLearn the other way around, "controlling from target to source").
 
 ====== Make unit superior
 
 If ticked, this unit is allowed to suspend other units which share the same input and/or output device (hardware devices only, not FX input or output!).
-With this you can easily let your controller control e.g. the currently focused FX but fall back to your usual controls when it's closed.
-It's intended to be used primarily on units that use <<auto-load>>.
 
-TIP: Since ReaLearn 2.14.0, falling back to normal mappings when the FX loses focus in auto-load mode became much easier!
-One unit is enough.
-Your normal mappings will be memorized and reloaded once the FX loses focus.
-See <<auto-load>>.
+[TIP]
+====
+Making units superior is **rarely needed**!
+
+This option was initially introduced in order to add more flexibility to the <<auto-load>> feature.
+The idea was to let a controller _fall back_ to some default behavior if the currently focused FX is closed.
+Multiple instances were necessary to make this work with one of them (the auto-load instance) being superior.
+
+However, since ReaLearn 2.14.0, falling back to initial mappings when the FX loses focus in auto-load mode became much easier and doesn't require multiple units anymore!
+Your initial mappings or initial preset will be memorized and reloaded once the FX loses focus.
+See <<auto-load>> for more information.
+====
+
+Behavior:
 
 * By default, ReaLearn units are not superior, just normal.
-This is often okay because ReaLearn units are friendly fellows and like sharing controllers with each other.
+This is most of the time okay, even if you have multiple units that share the same input and output ... as long as you don't have any conflicting mappings active at the same time.
 * For example, if 2 units use the same input or output device and they use different control elements, they can peacefully coexist.
 And even if they share a control element for the _control direction_, they are still fine with it.
 The same control element will control 2 mappings, why not!
@@ -399,23 +443,28 @@ Make sure they get along with each other :)
 
 ====== Use unit-wide FX-to-preset links only
 
-By default, unit-specific links are applied _in addition_ to the global links and take precedence over the global ones.
-This checkbox makes sure that only unit-specific links are used.
+By default, unit-wide links are applied _in addition_ to the global links and take precedence over the global ones.
+This checkbox makes sure that only unit-wide links are used.
 
 ====== Stay active when project in background
 
 Determines if and under which conditions this ReaLearn unit should stay active when the containing project tab is not the active one.
 Applies to in-project ReaLearn instances only, not to monitoring FX instances!
 
-* *Never:* Will only be active when its project tab is active.
-* *Only if background project is running:* Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
-* *Always (more or less):* Attempts to stay active no matter what.
-Please note that this is technically not always possible when using _<FX input>_ or _<FX output>_ when the background project is not running.
+Never::
+Will only be active when its project tab is active.
+Only if background project is running::
+Follows REAPER's project tab settings ("Run background projects" and "Run stopped background projects").
+Always (more or less)::
+Attempts to stay active no matter what.
+Please note that this is technically not always possible when input is set to _<FX input>_ or output to _<FX output>_, when the background project is not running.
 
 [#unit-fx-to-preset-links]
 ===== Unit-wide FX-to-preset links
 
-Manage a unit-wide list of links from plug-ins to ReaLearn main compartment presets.
+Manage a unit-wide list of links from FX (plug-ins or JS effects) to ReaLearn main compartment presets.
+
+Covered in link:https://www.youtube.com/watch?v=HtmWO7QNpgE&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=10[video tutorial 10].
 
 ====== Add link from last focused FX to preset
 
@@ -424,23 +473,39 @@ This only works if an FX has been focused before.
 
 ====== _Arbitrary FX ID_
 
-If you have added a link already, you will see them here in a list.
-What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `VSTi: ReaSynth (Cockos)`).
+If you have added a link already, you will see it here in the list.
+What you see, is the so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `Name: VSTi: ReaSynth (Cockos) | File: - | Preset: -`).
 
-* *&lt;Edit FX ID…&gt;:* With this, you can edit the FX ID manually.
-** _All fields_: All the fields below support wildcards.
-E.g. instead on relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): You can use `\*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
-E.g. `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
-** *FX name:* Allows you to adjust the (original) plug-in name that triggers the preset change.
-** *FX file name:* Allows you to adjust the plug-in file name that triggers the preset change.
-** *FX preset name:* Maybe the FX name or file name is not enough for you to decide which preset you want to load.
+<Edit FX ID…>::
+With this, you can edit the FX ID manually.
+FX name::
+Allows you to adjust the (original) plug-in name that triggers the preset change.
+FX file name::
+Allows you to adjust the plug-in file name that triggers the preset change.
+FX preset name::
+Maybe the FX name or file name is not enough for you to decide which preset you want to load.
 Good news: You can add a preset name as additional criteria!
-E.g. if you have use a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
++
+.Samplers
+====
+If you have a sampler, you can load different ReaLearn presets depending on which sample library is loaded into your sampler.
 Just add two links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names.
-You can also use wildcards here!
-* *&lt;Remove link&gt;:* (Globally) this FX-to-preset link.
-* *_Arbitrary main preset:_* The checkbox tells you to which main preset the FX ID is linked.
+====
+
+<Remove link>::
+(Globally) this FX-to-preset link.
+_Arbitrary main preset_::
+The checkbox tells you to which main preset the FX ID is linked.
 You can change the linked preset by clicking another one.
+
+[TIP]
+.Wildcards
+====
+All the fields that are part of the FX ID support wildcards.
+You can use `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
+
+Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
+====
 
 [#logging]
 ===== Logging
@@ -617,6 +682,8 @@ This gives you the perfect starting point if you want to extensively modify the 
 ==== Import from clipboard
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
+
+TIP: If importing Luau code fails and the displayed error message is not helpful, you can try <<dry-run-lua-script>>.
 
 ===== "?" (Help)
 
@@ -933,9 +1000,9 @@ Groups can be useful …
 
 The group menu contains the following options:
 
-* *&lt;All&gt;:* Displays all mappings in the compartment, no matter to which group they belong.
+* *<All>:* Displays all mappings in the compartment, no matter to which group they belong.
 In this view, you will see the name of the group on the right side of a mapping row.
-* *&lt;Default&gt;:* Displays mappings that belong to the _default_ group.
+* *<Default>:* Displays mappings that belong to the _default_ group.
 This is where mappings end up if you don't care about grouping.
 This is a special group that can't be removed.
 * *_Custom group_:* Displays all mappings in your custom group.
@@ -1184,7 +1251,7 @@ This matters if you want to map multiple targets to one button and the order of 
 *Important:* There's an exception.
 ReaLearn's processing of its own VST parameters is always deferred.
 
-- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `&lt;Dynamic&gt;` expression), will not work!
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
 - You can work around that by delaying execution of the next mapping via <<fire-mode,fire mode>> but that's a dirty hack.
 ReaLearn's parameters are not supposed to be used that way!
 - Imagine a railway: ReaLearn's targets can be considered as trains.
@@ -1354,7 +1421,7 @@ You can control them just like parameters in other FX:
 - … and of course via ReaLearn itself.
 
 Initially, they don't do anything at all.
-First, you need to give meaning to them by referring to them in activation conditions or `&lt;Dynamic&gt;` selector expressions.
+First, you need to give meaning to them by referring to them in activation conditions or `<Dynamic>` selector expressions.
 ====
 
 [discrete]
@@ -1369,7 +1436,7 @@ In ReaLearn, the modifier is one of the FX parameters.
 It's considered to be "on" if the parameter has a value greater than 0 and "off" if the value is 0.
 
 You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B".
-If you select "&lt;None&gt;", the modifier gets disabled (it won't have any effect on activation).
+If you select "<None>", the modifier gets disabled (it won't have any effect on activation).
 The checkbox to the right of the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
 
 Example: The following setting means that this mapping becomes active _only_ if both "Parameter 1" and "Parameter 2" are "on".
@@ -1493,18 +1560,18 @@ Here's how you would implement a typical use case.
 You want your rotary encoder to control target A when the button is not pressed and control target B when it's pressed.
 
 . Create a mapping for the button
-** As "Target", you need to choose ReaLearn itself (Type: <<fx-set-parameter-value>>, Track: `&lt;This&gt;`, FX: "… VSTi: ReaLearn (Helgoboss)").
+** As "Target", you need to choose ReaLearn itself (Type: <<fx-set-parameter-value>>, Track: `<This>`, FX: "… VSTi: ReaLearn (Helgoboss)").
 As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1".
 ** As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
 . Create a mapping with target A
 ** Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it.
-Set "Modifier B" to `&lt;None&gt;`.
+Set "Modifier B" to `<None>`.
 ** This basically means "Hey, ReaLearn!
 Please activate this mapping only if ReaLearn Parameter 1 is *off*!" (remember, we control ReaLearn Parameter 1 using the button).
 ** At this point, turning your encoder should control target A, but only if you don't press the button!
 . Create a mapping with target B
 ** Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". *But*: Now *enable* the checkbox beside it.
-Set "Modifier B" to `&lt;None&gt;`.
+Set "Modifier B" to `<None>`.
 ** This basically means "Hey, ReaLearn!
 Please activate this mapping only if ReaLearn Parameter 1 is *on*!"
 ** At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
@@ -1556,25 +1623,25 @@ Please note that guessing doesn't support encoder type 3. The possible values ar
 Examples: Fader, knob, modulation wheel, pitch bend, ribbon controller.
 Would also include a endless rotary encoder which is (maybe unknowingly) configured to transmit absolute values.
 * *Button (momentary):* A control element that can be pressed and emits absolute values.
-It emits a &gt; 0% value when pressing it and optionally a 0% value when releasing it.
+It emits a > 0% value when pressing it and optionally a 0% value when releasing it.
 Examples: Damper pedal.
 * *Encoder (relative type _x_):* A control element that emits relative values, usually an endless rotary encoder.
 The _x_ specifies _how_ the relative values are sent.
 This 1:1 corresponds to the relative modes in REAPER's built-in MIDI learn:
 ** *Type 1*:
 ** 127 = decrement; 0 = none; 1 = increment
-** 127 &gt; value &gt; 63 results in higher decrements (64 possible decrement amounts)
-** 1 &lt; value &lt;= 63 results in higher increments (63 possible increment amounts)
+** 127 > value > 63 results in higher decrements (64 possible decrement amounts)
+** 1 < value <= 63 results in higher increments (63 possible increment amounts)
 ** *Type 2*:
 ** 63 = decrement; 64 = none; 65 = increment
-** 63 &gt; value &gt;= 0 results in higher decrements (64 possible decrement amounts)
-** 65 &lt; value &lt;= 127 results in higher increments (63 possible increment amounts)
+** 63 > value >= 0 results in higher decrements (64 possible decrement amounts)
+** 65 < value <= 127 results in higher increments (63 possible increment amounts)
 ** *Type 3*:
 ** 65 = decrement; 0 = none; 1 = increment
-** 65 &lt; value &lt;= 127 results in higher decrements (63 possible decrement amounts)
-** 1 &lt; value &lt;= 64 results in higher increments (64 possible increment amounts)
+** 65 < value <= 127 results in higher decrements (63 possible decrement amounts)
+** 1 < value <= 64 results in higher increments (64 possible increment amounts)
 * *Toggle-only button (avoid!):* A control element that can be pressed and emits absolute values.
-It emits a &gt; 0% value when pressing it, no value when releasing it and a 0% value when pressing it again.
+It emits a > 0% value when pressing it, no value when releasing it and a 0% value when pressing it again.
 ** Hint: This is a workaround for controllers that don't have momentary buttons!
 You should only use this character if there's absolutely no way to configure this control element as a momentary button.
 ** Background: ReaLearn can make a momentary hardware button work like a full-blown toggle button (ReaLearn's toggle mode is inherently more powerful than your controller's built-in toggle mode!).
@@ -2146,6 +2213,7 @@ It can be used to execute an actions or restore certain states on REAPER startup
 
 This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
 
+[#parameter-source]
 ===== ReaLearn parameter
 
 This source fires whenever one of ReaLearn's <<compartment-parameters>> is changed.
@@ -2590,7 +2658,7 @@ If checked, it will show FX instances in the track's input FX chain.
 
 ===== Monitoring FX
 
-This appears instead of the input FX checkbox if you select track `&lt;Master&gt;`.
+This appears instead of the input FX checkbox if you select track `<Master>`.
 If you check this, you can target FX instances on REAPER's global monitoring FX chain.
 
 WARNING: Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work at the moment!
@@ -2603,7 +2671,7 @@ _FX_ is currently focused.
 If the FX instance is displayed in a floating window, _focused_ means that the floating window is active.
 If it's displayed within the FX chain window, _focused_ means that the FX chain window is currently open and the FX instance is the currently selected FX in that FX chain.
 
-Of course, this flag doesn't have any effect if you chose _&lt;Focused&gt;_ FX.
+Of course, this flag doesn't have any effect if you chose _<Focused>_ FX.
 
 ==== Common elements for pollable targets
 
@@ -3366,7 +3434,7 @@ This target turns ReaLearn into a capable and convenient MIDI → OSC and OSC �
 If an argument number is entered (e.g. `1`), it will encode the incoming absolute control value as that argument (after it has been processed by the glue section).
 
 * *Output:* Where to send the OSC message.
-** *&lt;Feedback output&gt;:* Sends the OSC message to the device which is set as _Output_.
+** *<Feedback output>:* Sends the OSC message to the device which is set as _Output_.
 Of course this only works if it's an OSC device.
 ** *_Specific device:_* Sends the OSC message to a specific device.
 * *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<category-osc,OSC sources>>.
@@ -4162,7 +4230,7 @@ This is done via the _Step size_ setting, which is available for all
 _continuous_ targets.
 
 * _Step size Min_ specifies how much to increase/decrease the target value when an increment/decrement is received.
-* _Step size Max_ is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; &gt; 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
+* _Step size Max_ is used to limit the effect of acceleration (for rotary encoders which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have a &quot;Speed&quot; > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used as "Incremental button").
 If you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity will have absolutely no effect on the incrementation/decrementation amount.
 If you set it to 100%, the effect is maximized.
 
@@ -4180,8 +4248,7 @@ Virtual targets are always discrete.
 
 Example:
 
-* Let's assume you selected the discrete target <<fx-browse-presets>>, which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the
-&lt;no preset&gt; option), there's nothing inbetween.
+* Let's assume you selected the discrete target <<fx-browse-presets>>, which is considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the <no preset> option), there's nothing inbetween.
 And let's also assume that you have a controller like Midi Fighter Twister whose rotary encoders don't support built-in acceleration.
 Now you slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just navigate to the next preset (+1).
 If the _Speed Min_ slider was at 2, this will jump to the 2nd-next preset (+2).
@@ -4231,15 +4298,15 @@ Normally, when a button gets pressed, it controls the target immediately.
 However, by using this dropdown and by changing the values below it, you can change this behavior.
 This dropdown provides different fire modes that decide how exactly ReaLearn should cope with button presses.
 
-===== Fire on press (or release if &gt; 0 ms)
+===== Fire on press (or release if > 0 ms)
 
 This mode is essential in order to be able to distinguish between different press durations.
 
 * *Min* and *Max* decide how long a button needs to be pressed to have an effect.
-* By default, both min and max will be at 0 ms, which means that the duration doesn't matter and both press (&gt; 0%) and release (0%) will be instantly forwarded.
+* By default, both min and max will be at 0 ms, which means that the duration doesn't matter and both press (> 0%) and release (0%) will be instantly forwarded.
 If you change _Min_ to e.g. 1000 ms and _Max_ to 5000 ms, it will behave as follows:
 * If you press the control element and instantly release it, nothing will happen.
-* If you press the control element, wait for a maximum of 5 seconds and then release it, the control value of the press (&gt; 0%) will be forwarded.
+* If you press the control element, wait for a maximum of 5 seconds and then release it, the control value of the press (> 0%) will be forwarded.
 * It will never forward the control value of a release (0%), so this is probably only useful for targets with trigger character.
 * The main use case of this setting is to assign multiple functions to one control element, depending on how long it has been pressed.
 For this, use settings like the following:
@@ -4290,7 +4357,7 @@ Example:
 
 This allows you to easily ignore button presses or releases.
 
-* *Press &amp; release:* ReaLearn will process both button presses (control value = 0%) and button releases (control value &gt; 0%).
+* *Press &amp; release:* ReaLearn will process both button presses (control value = 0%) and button releases (control value > 0%).
 This is the default.
 * [[press-only,press-only]] *Press only:* Makes ReaLearn ignore the release of the button.
 The same thing can be achieved by setting

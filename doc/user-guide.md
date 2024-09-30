@@ -1,1 +1,1 @@
-The ReaLearn user guide is now available [here](realearn-user-guide.adoc).
+The ReaLearn Reference is now available [here](realearn-user-guide.adoc).
