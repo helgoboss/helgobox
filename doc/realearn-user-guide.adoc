@@ -199,6 +199,16 @@ We call object selectors _sticky_ if they refer to a particular object (e.g. a t
 * Sticky selectors: `<Master>`, `<This>`, `Particular`
 * Non-sticky selectors: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `At position`, `Named`, `All named`
 
+You can see this in action in link:https://www.youtube.com/watch?v=kebF_NKAweA&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=9[tutorial video 9].
+
+====== Make targets of listed mappings non-sticky
+
+Changes the targets of all currently listed mappings to use user-definable non-sticky object selectors.
+
+1. Choose the desired track selector
+2. Choose the desired FX selector
+3. ReaLearn will change the selectors for the targets of all listed mappings where this is applicable
+
 ===== Move listed mappings to group
 
 Lets you move all currently listed mappings to the specified group.
