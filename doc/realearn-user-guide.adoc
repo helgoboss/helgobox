@@ -2689,20 +2689,40 @@ If the control element is also a button, pressing the button will e.g. unmute al
 
 Triggers or sets the value of a particular REAPER action in the main section.
 
-* *Invoke:* Specifies _how_ the picked action is going to be controlled.
-** *Trigger:* Invokes the action with the incoming absolute control value, but only if it's greater than 0%.
+====== Invoke: Section
+
+Specifies in which context the action is going to be invoked.
+
+* *Main:* Invokes a main action.
+* *Active MIDI editor:* Invokes a MIDI editor action, applied to the currently active MIDI editor.
+* *Active MIDI event list editor:* Invokes a MIDI event list action, applied to the currently active MIDI editor.
+* *Media explorer:* Invokes a media explorer action.
+
+====== Invoke: Invocation type
+
+Specifies _how_ the picked action is going to be controlled.
+
+* *Trigger:* Invokes the action with the incoming absolute control value, but only if it's greater than 0%.
 Most suitable for simple trigger-like actions that neither have an on/off state nor are annotated with "(MIDI CC/OSC only)" or similar.
-** *Absolute 14-bit:* Invokes the action with the incoming absolute control value, even if it's 0%.
+* *Absolute 14-bit:* Invokes the action with the incoming absolute control value, even if it's 0%.
 Most suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC only)" or similar.
 The resolution of the invocation is 14-bit, no matter what's the resolution of your control element).
-** *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution.
+* *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution.
 Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly.
 In all other circumstances, 14-bit is probably the better default choice.
-** *Relative:* Invokes the action with the incoming relative control value (absolute ones are ignored).
+* *Relative:* Invokes the action with the incoming relative control value (absolute ones are ignored).
 Only works for actions that are annotated with ("MIDI CC relative only") or similar.
-* *Pick!:* Opens REAPER's action dialog so you can select the desired action.
-* *With track*: Allows you to choose a track which ReaLearn will select before executing the action.
+
+====== Pick!
+
+Opens REAPER's action dialog so you can select the desired action.
+
+====== With track
+
+Allows you to choose a track which ReaLearn will select before executing the action.
 This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
+
+====== Limitations
 
 The particular action decides if toggling/feedback works completely, has limitations or is not possible at all.
 There are multiple types of actions so it's not possible to settle with one invocation type and be done with it.
