@@ -36,7 +36,7 @@ image:images/screenshot-main-panel-annotated.svg[Main panel]
 The header panel provides the following user interface elements.
 
 [#control-input]
-==== Input
+==== btn:[Input]
 
 Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
@@ -88,7 +88,7 @@ This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
 [#feedback-output]
-==== Output
+==== btn:[Output]
 
 Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
 
@@ -157,7 +157,7 @@ The UDP port on which the OSC device listens for OSC feedback messages.
 All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
 `Helgoboss/ReaLearn/osc.json`.
 
-==== Menu
+==== btn:[Menu]
 
 This opens the main menu of Helgobox/ReaLearn.
 The same menu opens when you right-click an empty area.
@@ -573,7 +573,7 @@ Each Pot Unit has its own filter and preset state.
 When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
 - ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
 
-==== Export to clipboard
+==== btn:[Export to clipboard]
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
 
@@ -640,7 +640,7 @@ Perfect for pasting in a forum or programming ReaLearn with focus on only those 
 This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
 [[import-from-clipboard]]
-==== Import from clipboard
+==== btn:[Import from clipboard]
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
@@ -659,7 +659,7 @@ This action enables you to just execute step 1 and see the "expanded" result.
 This can help to make sense of a possible validation error message in step 2.
 
 [#projection]
-==== Projection
+==== btn:[Projection]
 
 Projection is a quite unique feature that allows you to project a schematic representation of your currently active controller to a mobile device (e.g. a tablet computer).
 You can put this device close to your controller in order to see immediately which control element is mapped to which parameter.
@@ -673,7 +673,7 @@ Hopefully, the transition to the Helgobox App, including mobile versions of that
 
 Provides helpful links to the user guide and other stuff.
 
-==== Let through
+==== btn:[Let through]
 
 ReaLearn by default "eats" incoming MIDI events for which there's at least one active mapping with that source.
 In other words, it doesn't forward MIDI events which are used to control a target parameter.
@@ -702,6 +702,10 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 * The checkboxes don't have any effect on computer keyboard input.
 Keys are always passed through when doing text entry and never passed through if a mapping matches.
 
+==== btn:[Show]
+
+This lets you choose which mapping compartment is displayed.
+
 ==== Controller compartment / Main compartment
 
 A compartment is a list of mappings that can be saved as independent preset.
@@ -710,10 +714,6 @@ However, there's another interesting compartment, the "Controller compartment".
 In a nutshell, this compartment lets you define which hardware controllers you have at your disposal and which control elements they have.
 Learn more about that feature in section
 <<controller-compartment,Controller compartment>>.
-
-===== Show
-
-This lets you choose which mapping compartment is displayed.
 
 ==== Controller preset / Main preset
 
