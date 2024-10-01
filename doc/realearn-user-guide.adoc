@@ -3,7 +3,7 @@
 :toc: preamble
 :toclevels: 5
 :sectnums:
-:sectnumlevels: 3
+:sectnumlevels: 2
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -609,8 +609,26 @@ Make sure to not have more than one ReaLearn unit with the same unit key active 
 *At the moment, the unit key is part of the ReaLearn preset!* That means, opening a preset, copying/cutting a ReaLearn FX, importing from clipboard - all of that will overwrite the unit key.
 This might change in future in favor of a more nuanced approach!
 
+[#unit-track]
+==== Unit track
+
+The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
+This can be something like "Track 3" or "The currently selected track".
+Mappings in this ReaLearn unit can refer to this track by choosing the track selector <<unit-selector>>.
+
+The unit track can be changed via target <<track-target>>.
+
+[#unit-fx]
+==== Unit FX
+
+The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
+This can be something like "FX 5 on track 3" or "The currently focused track".
+Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector <<unit-selector>>.
+
+The unit FX can be changed via target <<fx-target>>.
+
 [[auto-units]]
-=== Auto units
+==== Auto units
 
 ReaLearn supports the automatic addition of a unit with a user-defined main preset if a certain type of controller is connected and automatic removal if it is disconnected.
 
@@ -629,7 +647,7 @@ You got a project-specific override.
 If you close the project, the monitoring FX instance takes over again.
 
 [#auto-load]
-=== Auto-load
+=== Auto-load main presets
 
 If you activate auto-load mode _Based on unit FX_, ReaLearn will start to observe the <<unit-fx>> of this ReaLearn unit.
 By default, the unit FX is set to `<Focused>`, which means, it will reflect whatever FX is currently focused.
@@ -647,7 +665,7 @@ In other words, it doesn't forward MIDI events which are used to control a targe
 However, unmatched MIDI events are forwarded!
 You can change this using <<let-through-checkboxes>>.
 
-The exact behavior differs depending on what you choose as <<control-input>>:
+The exact behavior differs depending on what you choose as <<input-menu>>:
 
 * If input is set to <FX input>
 ** MIDI events arrive from ReaLearn's FX input.
@@ -667,24 +685,6 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 ** You won't see the checkboxes because they don't make sense for OSC.
 * The checkboxes don't have any effect on computer keyboard input.
 Keys are always passed through when doing text entry and never passed through if a mapping matches.
-
-[#unit-track]
-=== Unit track
-
-The second line of the bottom panel shows the current track chosen as **Unit track** for this unit of ReaLearn.
-This can be something like "Track 3" or "The currently selected track".
-Mappings in this ReaLearn unit can refer to this track by choosing the track selector <<unit-selector>>.
-
-The unit track can be changed via target <<track-target>>.
-
-[#unit-fx]
-=== Unit FX
-
-The second line of the bottom panel also shows the current FX chosen as **Unit FX** for this unit of ReaLearn.
-This can be something like "FX 5 on track 3" or "The currently focused track".
-Mappings in this ReaLearn unit can refer to this FX by choosing the FX selector <<unit-selector>>.
-
-The unit FX can be changed via target <<fx-target>>.
 
 === Order in which mappings are processed
 
@@ -714,8 +714,10 @@ image:images/screenshot-main-panel-annotated.svg[Main panel]
 
 The main panel provides the following user interface elements.
 
-[#control-input]
-==== btn:[Input]
+==== Input/output section
+
+[#input-menu]
+===== Input menu
 
 Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
@@ -766,8 +768,8 @@ Computer keyboard::
 This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
-[#feedback-output]
-==== btn:[Output]
+[#output-menu]
+===== Output menu
 
 Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
 Also see <<best-practice-output-device>>.
@@ -794,7 +796,7 @@ Manage OSC devices::
 See <<manage-osc-devices>> in the input section of the menu.
 
 [#osc-device-dialog]
-==== OSC device dialog
+===== OSC device dialog
 
 The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
 
@@ -822,7 +824,9 @@ The UDP port on which the OSC device listens for OSC feedback messages.
 All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
 `Helgoboss/ReaLearn/osc.json`.
 
-==== Button btn:[Menu]
+==== Menu bar
+
+===== Menu button
 
 This opens the main menu of Helgobox/ReaLearn.
 The same menu opens when you right-click an empty area.
@@ -1050,7 +1054,7 @@ This is useful if you have only one controller or if you have x controllers (= a
 * Location: REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
 
 [[fx-id-dialog]]
-==== FX ID dialog
+===== FX ID dialog
 
 The FX ID dialog is used to edit which properties of a FX trigger a preset change.
 It is opened via menu action <<edit-fx-id>>.
@@ -1080,7 +1084,7 @@ You can use `*` for matching zero or arbitrary many characters and `?` for match
 Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
 ====
 
-==== Button btn:[Export to clipboard]
+===== Export to clipboard button
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
 See <<import-export>>.
@@ -1095,25 +1099,25 @@ Perfect for pasting in a forum or programming ReaLearn with focus on only those 
 This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
 [[import-from-clipboard]]
-==== Button btn:[Import from clipboard]
+===== Import from clipboard button
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
 See <<import-export>>.
 
 [#projection-button]
-==== Button btn:[Projection]
+===== Projection button
 
 Click this button to enter ReaLearn's <<projection>> feature.
 You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 
-==== Button btn:[?] (Help)
+===== Help button
 
 Provides helpful links to the user guide and other stuff.
 
 [[let-through-checkboxes]]
-==== Button btn:[Let through]
+==== Let through checkboxes
 
 See <<letting-through-events>>.
 
@@ -1123,12 +1127,14 @@ If unchecked (default), such events are filtered out.
 Unmatched:: If checked (default), mappings that are not matched by any mappings are let through.
 If unchecked, such events are filtered out.
 
-==== Button btn:[Show]
+==== Show radio buttons
 
 This lets you choose which mapping compartment is displayed.
 See <<compartments>>.
 
-==== Preset menu
+==== Preset controls
+
+===== Preset menu
 
 This menu makes it possible to load compartment presets for the currently shown compartment.
 If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
@@ -1155,21 +1161,29 @@ User (Unsorted)::
 This submenu contains top-level presets which are not part of a particular preset namespace (or workspace).
 This was common in older versions of ReaLearn, when workspaces were not yet available.
 
-==== Save
+===== Save button
 
 If you made changes to a user preset, you can save them by pressing this button.
 
-==== Save as…
+===== Save as… button
 
 This allows you to save all currently visible mappings as a new preset.
 Please choose a descriptive name.
 
-==== Delete
+===== Delete button
 
 This permanently deletes the currently chosen user preset.
 
+===== Auto-load button
+
+Activates or deactivates <<auto-load>> mode for this ReaLearn unit.
+
+This button is only available for the main compartment because auto-load is only about loading main presets.
+
+==== Mapping group controls
+
 [[mapping-group-menu]]
-==== Mapping group
+===== Group menu
 
 See <<mapping-groups>>.
 
@@ -1182,17 +1196,17 @@ This is where mappings end up if you don't care about grouping.
 This is a special group that can't be removed.
 * *_Custom group_:* Displays all mappings in your custom group.
 
-==== Add
+===== Add button
 
 Allows you to add a group and give it a specific name.
 
-==== Remove
+===== Remove button
 
 Removes the currently displayed group.
 It will ask you if you want to remove all the mappings in that group as well.
 Alternatively they will automatically be moved to the default group.
 
-==== Edit
+===== Edit button
 
 Opens the group panel.
 This allows you to change the group name and change things that affect all mappings in this group: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
@@ -1203,28 +1217,30 @@ Read more about
 
 image:images/screenshot-group-panel.png[Group panel]
 
-==== Notes
+==== Notes button
 
 Allows you to save custom notes/comments for the current compartment.
 These notes are also included in compartment presets.
 
-==== Add one
+==== Mappings toolbar
+
+===== Add one button
 
 Adds a new mapping at the end of the current mapping list.
 
-==== Learn many
+===== Learn many button
 
 Allows you to add and learn many new mappings in a convenient batch mode.
 Click this button and follow the on-screen instructions.
 Click _Stop_ when you are finished with your bulk learning strike.
 
 [#search]
-==== Search
+===== Search field
 
 Enter some text here in order to display just mappings whose name matches the text.
 The search expression also supports wildcards `*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
 
-==== Filter source
+===== Filter source button
 
 If you work with many mappings and you have problems memorizing them, you will love this feature.
 When you press this button, ReaLearn will start listening to incoming MIDI/OSC events and temporarily disable all target control.
@@ -1240,29 +1256,95 @@ ReaLearn might still be in "filter source" mode.
 Then just calm down and press _Stop_.
 It's easy to forget.
 
-==== Filter target
+===== Filter target button
 
 If you want to find out what mappings exist for a particular target, press this button and touch something in REAPER.
 As soon as you have touched a valid target, the list will show all mappings with that target.
 Unlike _Filter source_, ReaLearn will automatically stop learning as soon as a target was touched.
 Press the *X* button to remove the filter and show all mappings again.
 
-==== Bottom: Center text
+==== Mapping rows area
 
-At bottom center you can see:
+The mapping rows area consists of multiple mapping rows.
+One for each mapping.
 
-* Row 1
-** The current scroll position.
-** The instance ID of this ReaLearn instance.
-** The unit key of the currently visible ReaLearn unit.
-** Tags assigned to this ReaLearn unit.
-* Row 2
-** Information about the current <<unit-track>> and <<unit-fx>>.
-** Information whether control and/or feedback is currently inactive unit-wide.
-* Row 3
-** Information about what version of Helgobox you is running.
+===== Mapping row
 
-==== Unit
+Each mapping row represents one ReaLearn mapping.
+
+The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_.
+A mapping is considered as _on_ only if the following is true:
+
+. The mapping is complete, that is, both source and target are completely specified.
+. The mapping is enabled as a whole.
+. The mapping has control and/or feedback enabled.
+. The mapping is active (see _conditional activation_).
+
+If a mapping is _off_, it doesn't have any effect.
+
+====== Mapping-enabled checkbox
+
+This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
+
+====== Activity indicator (●)
+
+This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source.
+
+Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
+There are certain settings in the <<glue>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
+
+====== Up/down buttons
+
+Use these buttons to move this mapping up or down the list.
+
+====== Control/feedback-enabled checkboxes (→/←)
+
+Use these checkboxes to enable/disable control and/or feedback for this mapping.
+Disabling both has the same effect as disabling the mapping as a whole.
+
+====== Edit button
+
+Opens the mapping panel for this mapping.
+
+====== Duplicate button
+
+Creates a new mapping just like this one right below.
+
+====== Remove button
+
+Removes this mapping from the list.
+
+====== Learn source button
+
+Starts or stops learning the source of this mapping.
+
+====== Learn target button
+
+Starts or stops learning the target of this mapping.
+
+Learning a target that is currently being automated is not possible at the moment because ReaLearn can't know if the value change notification is coming from the automation or your touch interaction.
+
+====== Right-click menu
+
+Each mapping row provides a right-click menu for accessing the following functions:
+
+Copy:: Copies this mapping to the clipboard.
+Paste (replace):: Replaces this mapping with the mapping in the clipboard.
+If the clipboard contains just a part of a mapping (source, mode or target), then just this part gets replaced.
+Paste (insert below):: Creates a new mapping that's like the mapping in the clipboard and places it below this mapping.
+Copy part:: Copies just a part of the mapping (activation condition, source, mode or target).
+Move to group:: Lets you move this mapping to another mapping group.
+Advanced:: Provides access to expert features.
+Copy as Lua::: Copies this mapping as Lua/Luau code.
+This is an indispensable tool if you want to build your mappings in Luau because it gives you a readily executable code snippet that you can adjust as desired.
+Copy as Lua (include default values)::: Includes even default values.
+Paste from Lua (replaces)::: Like _Paste (replace)_ but treats the clipboard content as Luau code.
+Paste from Lua (insert below)::: Like _Paste (insert below)_ but treats the clipboard content as Luau code.
+Log debug info (now)::: Logs debug information about this particular mapping.
+
+==== Bottom area
+
+===== Unit button
 
 See <<units>>.
 
@@ -1275,8 +1357,25 @@ This can't be undone!
 The new unit will automatically be named after the randomly-generated unit key.
 You can change the name by pressing the *Unit data...* button.
 
+===== Info area
+
+In the center you can see the info area:
+
+Row 1::
+* The current scroll position.
+* The instance ID of this ReaLearn instance.
+* The unit key of the currently visible ReaLearn unit.
+* Tags assigned to this ReaLearn unit.
+
+Row 2::
+* Information about the current <<unit-track>> and <<unit-fx>>.
+* Information whether control and/or feedback is currently inactive unit-wide.
+
+Row 3::
+* Information about what version of Helgobox is running.
+
 [[set-unit-data]]
-==== Unit data...
+===== Unit data... button
 
 Press this button to change various key-value data of this ReaLearn unit as a whole.
 
@@ -1284,52 +1383,6 @@ Press this button to change various key-value data of this ReaLearn unit as a wh
 * *Unit name:* The display name of this unit.
 * *Tags:* Lets you assign tags to this unit (a comma-separated list).
 They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
-
-==== Auto-load
-
-Activates or deactivates <<auto-load>> mode for this ReaLearn unit.
-
-==== Mapping row
-
-The mapping, source and target labels of a mapping row should be greyed out whenever the mapping is _off_.
-A mapping is considered as _on_ only if the following is true:
-
-. The mapping is complete, that is, both source and target are completely specified.
-. The mapping is enabled as a whole.
-. The mapping has control and/or feedback enabled.
-. The mapping is active (see _conditional activation_).
-
-If a mapping is _off_, it doesn't have any effect.
-
-* *✓:* This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
-* *●:* This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source.
-Attention: This doesn't necessarily mean that the message will reach the target (although it often does).
-There are certain settings in the <<glue>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
-* *Up / Down:* Use these buttons to move this mapping up or down the list.
-* *→ / ←:* Use these checkboxes to enable/disable control and/or feedback for this mapping.
-Disabling both has the same effect as disabling the mapping as a whole.
-* *Edit:* Opens the mapping panel for this mapping.
-* *Duplicate:* Creates a new mapping just like this one right below.
-* *Remove:* Removes this mapping from the list.
-* *Learn source:* Starts or stops learning the source of this mapping.
-* *Learn target:* Starts or stops learning the target of this mapping.
-** _Tip:_ Learning a target that is currently being automated is not possible at the moment because ReaLearn can't know if the value change notification is coming from the automation or your touch interaction.
-
-Each mapping row provides a context menu (accessible via right-click on Windows and Linux, control-click on macOS), which allows you access to the following functionality:
-
-* *Copy:* Copies this mapping to the clipboard.
-* *Paste (replace):* Replaces this mapping with the mapping in the clipboard.
-If the clipboard contains just a part of a mapping (source, mode or target), then just this part gets replaced.
-* *Paste (insert below):* Creates a new mapping that's like the mapping in the clipboard and places it below this mapping.
-* *Copy part:* Copies just a part of the mapping (activation condition, source, mode or target).
-* *Move to group:* Lets you move this mapping to another mapping group.
-* *Advanced:* Provides access to expert features.
-** *Copy as Lua:* Copies this mapping as Lua/Luau code.
-This is an indispensable tool if you want to build your mappings in Luau because it gives you a readily executable code snippet that you can adjust as desired.
-** *Copy as Lua (include default values):* Includes even default values.
-** *Paste from Lua (replaces):* Like _Paste (replace)_ but treats the clipboard content as Luau code.
-** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Luau code.
-** *Log debug info (now):* Logs debug information about this particular mapping.
 
 [#mapping-panel]
 === Mapping panel
@@ -2215,7 +2268,7 @@ Usage:
 
 Tips:
 
-* This only works if <<control-input>> is set to *Computer keyboard*.
+* This only works if <<input-menu>> is set to *Computer keyboard*.
 * If you hold a key, it will not keep firing.
 This is by design!
 Use <<fire-after-timeout-keep-firing>> instead.
@@ -3423,7 +3476,7 @@ Enables a unique feature called "Global MIDI transformation", as shown in link:h
 
 When choosing output _Input device_, you can choose into which MIDI input device buffer the message will be injected.
 
-* *<Same as input device>:* Injects the message into the same buffer of the MIDI input device chosen as <<control-input>>.
+* *<Same as input device>:* Injects the message into the same buffer of the MIDI input device chosen as <<input-menu>>.
 * *_Specific input device_:* Injects the message into another specific MIDI input device.
 This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
 An practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
