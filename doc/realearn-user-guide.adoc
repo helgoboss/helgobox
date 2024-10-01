@@ -135,7 +135,7 @@ Can deal with bundles:::: By default, ReaLearn aggregates multiple OSC messages 
 Some devices (e.g. from Behringer) can't deal with OSC bundles.
 Untick the checkbox in this case and ReaLearn will send single OSC messages.
 
-Computer keyboard::
+[[computer-keyboard]] Computer keyboard::
 This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
@@ -2144,7 +2144,7 @@ If an argument number is entered (e.g. `1`), it will encode the incoming absolut
 ** *<Feedback output>:* Sends the OSC message to the device which is set as _Output_.
 Of course this only works if it's an OSC device.
 ** *_Specific device:_* Sends the OSC message to a specific device.
-* *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<category-osc,OSC sources>>.
+* *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<osc-source,OSC sources>>.
 Check that section for details.
 
 [#realearn-enable-disable-instances]
@@ -2420,7 +2420,7 @@ ReaLearn's feedback processing order is like this since version 2:
 ====== Textual feedback: Text expression
 
 With this option, ReaLearn will send textual feedback values to the source.
-This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<midi-script-source>>.
+This only works with sources that are capable of displaying text: That is any <<osc-source,OSC source>> with argument type _String_, <<display-source, MIDI Display>> and <<midi-script-source>>.
 
 The field below contains the _textual feedback expression_.
 Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
@@ -3305,33 +3305,40 @@ If you want to know how to define which text shall be sent to the displays, plea
 This source reacts to MIDI program-change messages with a specific program.
 This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
 
-[#category-osc]
-=== Category "OSC"
+[#osc-source]
+=== OSC source
 
 OSC sources allow configuration of the following aspects:
 
-==== Address
+==== Address field
 
 This needs to correspond exactly to the address of the corresponding control element on your OSC device.
-Example: `/1/fader1`.
-You don't need to figure that out yourself, just use the _Learn_ function.
 
-==== Argument
+Example: `/1/fader1`
+
+You don't need to figure that out yourself, just use the btn:[Learn] button.
+
+==== Argument section
 
 Each OSC message consists of an arbitrary number of arguments.
 In most cases, e.g. with faders, knobs or buttons, it's just one argument.
 X/Y controls often send 2 arguments, one for each axis.
 There are rare cases in which messages have even more arguments.
 
+===== Argument number menu
+
 The first dropdown menu allows you to choose the number of the argument that ReaLearn should look at and process. `1` denotes the first argument, `2` the second one, and so on.
+
+===== Argument type menu
 
 The second dropdown menu lets you choose the argument type which ReaLearn should use to construct a proper feedback message.
 
-* This is usually the same type as the one used for control direction.
+This is usually the same type as the one used for control direction.
 For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
-* If you use _Learn_, the type is filled automatically.
-* The value to be sent will be derived from the type (see <<feedback-arguments>>):
-+
+
+If you use _Learn_, the type is filled automatically.
+* The value to be sent will be derived from the type (see <<feedback-arguments-field>>):
+
 [cols="m,m"]
 |===
 | Type | Property
@@ -3346,165 +3353,72 @@ For control direction, choosing an explicit type is irrelevant because ReaLearn 
 | String | value.string
 | Color | style.color
 |===
-* If you want more control over what feedback values are sent, use the <<feedback-arguments>> field.
 
-==== Range
+If you want more control over what feedback values are sent, use the <<feedback-arguments-field>> field.
+
+==== Range field
 
 Values of argument types _Float_ and _Double_ are by default interpreted as decimal values between 0.0 and 1.0. You can change that by entering a different value range here.
 Even negative numbers are allowed.
 
 Customizing the value range is especially important for argument types _Int_ and _Long_ because they don't have a standard value range.
 
-==== Is relative
+==== Is relative checkbox
 
 Some messages transmitted by OSC devices are meant to be interpreted as relative increments/decrements instead of absolute values, e.g. jog wheels.
 When you enable this checkbox, ReaLearn will treat each received _1_ value as an increment and _0_ value a decrement.
 
-[#feedback-arguments]
-==== Feedback arguments
+[#feedback-arguments-field]
+==== Feedback arguments field
 
-Allows you to define exactly which feedback value is sent at which argument position.
-If this field is non-empty, the _Type_ dropdown will be ignored.
-
-The format of this field is very simple: You enter feedback value property keys separated by spaces.
-Each entered property key corresponds to one argument position.
-E.g. if you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
-
-----
-value.string style.color.rrggbb
-----
-
-The following properties are available:
-
-[cols="m,m,1"]
-|===
-| Property | Type | Description
-
-|
-value.float
-|
-Float
-|
-Numeric feedback value interpreted as float
-
-|
-value.double
-|
-Double
-|
-Numeric feedback value interpreted as double
-
-|
-value.bool
-|
-Bool
-|
-Numeric feedback interpreted as bool (on/off only)
-
-|
-value.string
-|
-String
-|
-Numeric or textual feedback value formatted as string
-
-
-|
-style.color.rrggbb
-|
-String
-|
-Feedback value color formatted as RRGGBB string
-
-
-|
-style.background_color.rrggbb
-|
-String
-|
-Feedback value background color formatted as RRGGBB string
-
-
-
-|
-style.color
-|
-Color
-|
-Feedback value color as native OSC color
-
-
-|
-style.background_color
-|
-Color
-|
-Feedback value background color as native OSC color
-
-
-|
-nil
-|
-Nil
-|
-Nil value
-
-|
-inf
-|
-Infinity
-|
-Infinity value
-|===
+Allows you to modify the <<osc-feedback-arguments-expression>>.
 
 === Category "Keyboard"
 
 This source reacts to pressing or releasing a key on your computer keyboard.
 It emits a value of 100% when the key is pressed and 0% when released.
 
-Usage:
+In order to set the key, simply click the btn:[Learn] button and press the key of your choice.
 
-* In order to set the key, simply click the *Learn* button and press the key of your choice.
-* In addition to the key label, ReaLearn might show some warnings regarding the portability of your keystroke.
-** This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
-** You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
+In addition to the key label, ReaLearn might show some warnings regarding the portability of your keystroke.
+This helps you to avoid keyboard shortcuts that don't reliably work cross-platform (in other operating systems) or on other keyboard layouts.
+You can ignore portability warnings if you use just this operating system and don't plan to share your keyboard presets with other users.
 
-Tips:
-
-* This only works if <<input-menu>> is set to *Computer keyboard*.
+[TIP]
+====
+* This only works if <<computer-keyboard>> is enabled in the <<input-menu>>.
 * If you hold a key, it will not keep firing.
 This is by design!
 Use <<fire-after-timeout-keep-firing>> instead.
 * Key combinations are not supported.
 This is by design!
 Use <<conditional-activation>> instead.
-
-==== MIDI device changes
+====
 
 === Category "REAPER"
 
-==== MIDI device changes
+==== MIDI device changes source
 
 This source emits a value of 100% whenever any MIDI device is connected and 0% whenever any MIDI device is disconnected.
 You can map this to the REAPER action "Reset all MIDI devices" to achieve true plug and play of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device preferences).
 
-==== ReaLearn unit start
+==== ReaLearn unit start source
 
 This source fires (emits a value of 100%) when ReaLearn starts.
 It can be used to execute an actions or restore certain states on REAPER startup or project load.
 
-==== Timer
+==== Timer source
 
 This source fires (emits a value of 100%) repeatedly every _n_ milliseconds.
 
 [#parameter-source]
 ==== ReaLearn parameter
 
-This source fires whenever one of ReaLearn's <<compartment-parameter>> is changed.
+This source fires whenever a selected <<compartment-parameter>> changes its value.
 
 One of many ways to use this is to create macro parameters which control multiple parameters of multiple other plug-ins.
 
-WARNING: At the moment, mappings with this source can't participate in rendering.
+CAUTION: This is one of the sources that can't participate in rendering.
 So it's important to write down automation *before* rendering.
 
 ==== Speech
@@ -3512,74 +3426,25 @@ So it's important to write down automation *before* rendering.
 This source works for feedback only.
 It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
 
-[#virtual-source-category]
-=== Category "Virtual"
+=== Virtual source
 
-As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual MIDI/OSC source.
+See <<virtual-source>>.
 
-==== Type
+==== Type menu
 
-If you want to define a virtual source, you should first decide which type the virtual control element has: "Multi" or "Button".
-"Buttons" are stupidly simple on/off controls whereas "Multis" are control elements that potentially support more than 2 values.
-You will find a more accurate description of those 2 types below, along with examples.
+See <<virtual-control-element-type>>.
 
-==== ID
+==== ID section
 
-A number or name that uniquely identifies the control element on the device.
+See <<virtual-control-element-id>>.
 
-Numbers are especially suited for the 8-knobs/8-buttons layouts.
-In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
-It's your choice.
+===== Pick menu
 
-For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
-You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+The convenient picker provides IDs from standardized <<virtual-control-scheme, virtual control schemes>>:
 
-==== Pick
+===== ID field
 
-Lets you conveniently pick out of predefined numbers and names.
-
-If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
-
-The picker provides names for the following standardized virtual control schemes:
-
-* *DAW control (`daw`):* The names you see here are heavily inspired by the wording used on Mackie Control devices.
-* *Grid (`grid`):* For controls divided into rows and column, as for example found on the Novation Launchpad.
-* *Numbered (`numbered`):* Simply lets you pick among any number between 1 and 100.
-
-==== More about "Multi" and "Button"
-
-The distinction between "Multi" and "Button" is used by ReaLearn to optimize its user interface.
-
-IMPORTANT: For numbered control elements, the type is even part of the control element ID.
-For example, "Multi 1" is considered a different virtual control element than "Button 1".
-For named control elements, this is not the case. "col1/row1/pad" defined as Multi is considered the same like "col1/row1/pad" defined as Button.
-
-===== Type "Multi"
-
-Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
-Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
-
-* Fader
-* Knob
-* Pitch wheel
-* Mod wheel
-* Endless encoder
-* XY pad (1 axis)
-* Touch strip
-* (Endless) rotary encoder
-* Velocity-sensitive pads or keys
-
-===== Type "Button"
-
-Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
-Usually it has the form factor of a button that you can "press".
-Here's a list of typical _buttons_:
-
-* Play button
-* Switch
-* Sustain pedal (a simple on/off one, not a half-pedaling one!)
-
-Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that you are not interested in the velocity sensitivity.
+Lets you to enter the ID manually.
 
 [[available-target-types]]
 == Available target types
@@ -3625,6 +3490,7 @@ You can think of an absolute value as a percentage: The value is something betwe
 
 .Typical absolute control elements
 ====
+
 Fader:: When moving a fader up from bottom to top, it will emit values from 0% to 100%.
 
 Knob:: When moving a knob clockwise, it will emit values from 0% (at the left boundary) to 100% (at the right boundary).
@@ -3633,6 +3499,7 @@ Momentary button:: When pressing a button, it will emit 100%.
 When released, it will emit 0%.
 
 Key:: When pressing a key, it will emit a value lower or equal to 100%, depending on the velocity with which the key was pressed.
+
 ====
 
 [[relative-control-element]]
@@ -3644,11 +3511,13 @@ The first instruction is called *decrement*, the second one *increment*.
 
 .Typical relative control elements
 ====
+
 Rotary endless encoders:: When moving a rotary endless encoder clockwise, it will continuously emit increments.
 When moving it counter-clockwise, it will continuously emit decrements.
 +
 It happens very often that controllers have rotary endless encoders, but they will act like knobs by default, sending absolute messages.
 That is a great waste and you should change that setting as soon as possible on the hardware side. **Relative control is always superior to absolute control!**
+
 ====
 
 ==== Distinction of control elements with regard to whether they are real
@@ -3679,6 +3548,70 @@ For example, you map `ch1/fader` to the <<track-set-volume>> target.
 3. ReaLearn creates a sort of wire between the <<controller-compartment>> and the <<main-compartment>>.
 So you can now control the track volume by moving the first fader.
 4. Most importantly, the main preset is now generic because it's not built for a specific controller anymore!
+
+Each virtual control element has a _type_ and an _ID_.
+
+[[virtual-control-element-id]]
+====== Virtual control element ID
+
+A number or name that uniquely identifies the control element on the device.
+
+Numbers are especially suited for the 8-knobs/8-buttons layouts.
+In a row of 8 knobs one would typically assign number 1 to the leftmost and number 8 to the rightmost one.
+It's your choice.
+
+For more advanced virtual control scenarios it can be useful to think in names instead of numbers.
+You can use up to 32 alphanumeric and punctuation characters (no exotic characters, e.g. no umlauts).
+
+[[virtual-control-element-type]]
+====== Virtual control element type
+
+If you want to define a virtual control element, you should first decide which type is should have: _Multi_ or _Button_.
+This distinction is used by ReaLearn to optimize its user interface.
+
+IMPORTANT: For numbered control elements, the type is even part of the <<virtual-control-element-id>>.
+For example, "Multi 1" is considered a different virtual control element than "Button 1".
+For named control elements, this is not the case. `col1/row1/pad` defined as Multi is considered the same as `col1/row1/pad` defined as Button.
+
+[[virtual-control-element-type-multi]] Multi::
+Represents a control element that you can "move", that is, something that allows you to choose between more than 2 values.
+Usually everything which is _not_ a simple on/off button :) Here's a list of typical _multis_:
+* Fader
+* Knob
+* Pitch wheel
+* Mod wheel
+* Endless encoder
+* XY pad (1 axis)
+* Touch strip
+* (Endless) rotary encoder
+* Velocity-sensitive pads or keys
+
+[[virtual-control-element-type-button]] Button::
+Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one ("trigger").
+Usually it has the form factor of a button that you can "press".
+Here's a list of typical _buttons_:
+
+* Play button
+* Switch
+* Sustain pedal (a simple on/off one, not a half-pedaling one!)
+
+Please note that velocity-sensitive keys should be exposed as <<virtual-control-element-type-button>> - unless you know for sure that you are not interested in the velocity sensitivity.
+
+[[virtual-control-scheme]]
+====== Virtual control scheme
+
+If you want your main preset to be compatible with as many controller presets as possible, try to use predefined names instead of inventing your own virtual control naming scheme.
+
+When you define a virtual source or virtual target, there's a convenient picker that provides names for the following standardized virtual control schemes:
+
+DAW control (`daw`)::
+The names you see here are heavily inspired by the wording used on Mackie Control devices.
+
+Grid (`grid`)::
+For controls divided into rows and column, as for example found on the Novation Launchpad.
+
+Numbered (`numbered`)::
+Simply lets you pick among any number between 1 and 100.
 
 [[feedback-element]]
 === Feedback element
@@ -5057,6 +4990,109 @@ You can share code between multiple MIDI scripts by using <<compartment-wide-lua
 * The shared code is not yet available to the Lua code editor window.
 That means writing `require("compartment")` will evaluate to `nil` in the editor.
 You might see a corresponding error message when the editor tries to compile your code.
+
+[[osc-feedback-arguments-expression]]
+=== OSC feedback arguments expression
+
+This expression is used to enable for more flexible feedback for the <<osc-source>>.
+
+It allows you to define exactly which feedback value is sent at which argument position.
+If this field is non-empty, the argument type will be ignored for the <<feedback>> direction.
+
+The format of this field is very simple: You enter feedback value property keys separated by spaces.
+Each entered property key corresponds to one argument position.
+
+.Custom feedback with 2 arguments
+====
+If you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
+
+----
+value.string style.color.rrggbb
+----
+====
+
+The following properties are available:
+
+[cols="m,m,1"]
+|===
+| Property | Type | Description
+
+|
+value.float
+|
+Float
+|
+Numeric feedback value interpreted as float
+
+|
+value.double
+|
+Double
+|
+Numeric feedback value interpreted as double
+
+|
+value.bool
+|
+Bool
+|
+Numeric feedback interpreted as bool (on/off only)
+
+|
+value.string
+|
+String
+|
+Numeric or textual feedback value formatted as string
+
+
+|
+style.color.rrggbb
+|
+String
+|
+Feedback value color formatted as RRGGBB string
+
+
+|
+style.background_color.rrggbb
+|
+String
+|
+Feedback value background color formatted as RRGGBB string
+
+
+
+|
+style.color
+|
+Color
+|
+Feedback value color as native OSC color
+
+
+|
+style.background_color
+|
+Color
+|
+Feedback value background color as native OSC color
+
+
+|
+nil
+|
+Nil
+|
+Nil value
+
+|
+inf
+|
+Infinity
+|
+Infinity value
+|===
 
 == Best practices
 
