@@ -225,7 +225,7 @@ This is useful if you already learned a bunch of MIDI/OSC/keyboard sources in th
 
 Make targets of listed mappings sticky:::
 Changes the targets of all currently listed mappings so that they use _sticky_ object selectors by attempting to resolve the objects from non-sticky selectors.
-See <<sticky-and-non-sticky-object-selectors>>.
+See <<sticky-selectors>>.
 
 Make targets of listed mappings non-sticky:::
 Changes the targets of all currently listed mappings so that they use the desired non-sticky object selectors.
@@ -1046,1254 +1046,105 @@ If the target doesn't have any specific units, it will displayed as `1. - (-)`.
 (2) Use percentages::
 Uses percentages for everything, which can be nice to get a uniform way of displaying/entering values instead of having to deal with the sometimes clunky target-specific units.
 
-===== Common selectors
+===== Common elements for track targets
 
-Targets that need a track, FX, FX parameter or send/receive have dropdowns that let you choose how you want to _address_ these objects.
-Let's call them _object selectors_.
-Here's an explanation of commonly available object selectors.
-
-NOTE: The descriptions below are sometimes a bit tailored to _track_ objects but the same applies to all other objects that support it.
-
-[#unit-selector]
-====== Selector "Unit"
-
-This selector makes the target work on the current <<unit-track>> or current <<unit-fx>> of this particular ReaLearn unit.
-
-[#by-id]
-====== Selector "Particular"
-
-Lets you pick a specific object (e.g. track) and refer to it by its unique ID.
-This is the default and in most cases what you want.
-Choose this if you want ReaLearn to always control that very particular track even in case you move it somewhere else or rename it.
-
-Please note that it's
-_not possible_ with this setting to create a ReaLearn preset that is reusable among different projects.
-Because a track ID is globally unique, even across projects.
-That also means it doesn't make sense to use this setting in a ReaLearn monitoring FX unit.
-
-[#by-position]
-====== Selector "At position"
-
-This is the most straightforward selector.
-It lets you refer to a track by its position in the track list.
-This is great if you want to build a preset that you are going to reuse among multiple projects.
-
-However, this selector has the disadvantage that things fall apart if you reorder, insert or delete tracks.
-This is why it's not the default.
-
-Next to the dropdown you will find a text field.
-Here you should enter the position as number, starting with number `1`.
-
-[#by-name]
-====== Selector "Named"
-
-Allows you to choose a track depending on its name.
-In case there are multiple tracks with the same name, it will always prefer the first one.
-This will allow you to use one ReaLearn preset across multiple projects that have similar naming schemes, e.g. as monitoring FX.
-
-In the name field next to the dropdown, you can enter a name.
-If you don't want exact matching, you can use wildcards:
-
-* `*` for matching zero or arbitrary many characters
-* `?` for matching exactly one arbitrary character.
-* Example: `Violin *` would match `Violin 1` or `Violin 12` but not `12th Violin`.
-
-[#dynamic-selector]
-====== Selector "Dynamic"
-
-This selector allows you to _calculate_ which object (e.g. track) you want to use.
-
-When you choose this option, a text field will appear next to it.
-This lets you enter a mathematical expression whose result should be the object's _index_.
-E.g. the first track in the project has index 0, the master track -1. For your convenience, you will find a small text label next to the expression text field that always shows the current result of your formula (clamped to the target value range).
-
-NOTE: Please note that the expression language is _not EEL_ - this is a notable difference to ReaLearn's control/feedback transformation text fields!
-The expression language used here just provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also doesn't allow or need any assignment to an output variable.
-
-The dynamic selector is a very powerful tool because you can use some special variables:
-
-[cols="m,1,1,3"]
-|===
-| Variable | Type | Applicable to | Description
-
-| none | - | All selectors |
-Special value that represents a "not set" value. See below for examples.
-
-| p | Array of floating-point numbers | All selectors |
-Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
-
-By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see <<compartment-parameter>>).
-
-| p1 ... p100 | Floating-point numbers | All selectors |
-Values of ReaLearn's internal parameters as single variables.
-
-_Deprecated_: Recent ReaLearn versions offer the `p` array instead. Better use that one.
-
-
-| selected_track_index | Integer >= -1 | Track selectors |
-Resolves to the zero-based index of the first currently selected track within the containing project.
-If no track is selected, this resolves to `none`. If the master track is selected, `-1`.
-
-| selected_track_tcp_index | Integer >= -1 | Track selectors |
-Like `selected_track_index` but counts only tracks that are visible in the track control panel.
-
-| selected_track_mcp_index | Integer >= -1 | Track selectors |
-Like `selected_track_index` but counts only tracks that are visible in the mixer control panel.
-
-| selected_track_indexes | Array of integers >= -1 | Track selectors |
-Lets you access the indexes of multiple selected tracks.
-
-E.g. if 2 tracks are selected, `selected_track_indexes[0]` gives you the index of the first selected track whereas `selected_track_indexes[1]` gives you the index of the second selected track. `selected_track_indexes[2]` would resolve to `none`.
-
-| this_track_index | Integer >= -1 | Track selectors |
-
-Resolves to the zero-based index of the track on which this ReaLearn instance is located.
-
-| instance_track_index | Integer >= -1 | Track selectors |
-
-Resolves to the zero-based index of the instance track of this ReaLearn instance.
-
-| instance_track_tcp_index | Integer >= -1 | Track selectors |
-
-Like `instance_track_index` but counts only tracks that are visible in the track control panel.
-
-| instance_track_mcp_index | Integer >= -1 | Track selectors |
-
-Like `instance_track_index` but counts only tracks that are visible in the mixer control panel.
-
-| this_fx_index | Integer >= 0 | FX selectors |
-
-Resolves to the zero-based index of this ReaLearn FX instance.
-
-| instance_fx_index | Integer >= 0 | FX selectors |
-
-Resolves to the zero-based index of the instance FX of this ReaLearn instance.
-
-| tcp_fx_indexes | Array of integers >= 0 | FX selectors |
-
-Lets you access the indexes of FXs in a track control panel.
-
-E.g. `tcp_fx_indexes[2]` will resolve to the index of the third FX displayed in the track control panel.
-
-| tcp_fx_parameter_indexes | Array of integers >= 0 | FX parameter selectors |
-
-Lets you access the indexes of FX parameters in a track control panel.
-
-E.g. `selected_fx_parameter_indexes[2]` will resolve to the index of the third FX parameter displayed in the track control panel.
-
-This only makes sense if used in conjunction with `tcp_fx_indexes`.
-
-|===
-
-Examples of dynamic track expressions:
-
-* `p1 * 99`
-** Will point to track with index 0 (first track) if "Parameter 1" is set to the minimum and to track with index 99 (= track number 100) if it's set to the maximum.
-** If you use a formula like that, you should make sure that "Parameter 1" is controlled with a step size that allows for exactly 100 different values.
-This conforms to ReaLearn's default step size 0.01 = 1%.
-** Since ReaLearn 2.13, this is easier because it adds support for integer parameters:
-*** Set the value count of "Parameter 1" to 100 (see <<compartment-parameter>>)
-*** You can now treat the parameter in the formula as an integer (just `p1` instead of `p1 * 99`).
-*** Most importantly, ReaLearn will take care of using the correct step size automatically when setting up a mapping for controlling that parameter.
-* `p1 * 3 * 100 + p2 * 99`
-** This will treat "Parameter 1" as a kind of bank selector that allows you to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each.
-"Parameter 2" will select the track number within the bank.
-You see, this is very flexible.
-
-===== Common elements and selectors for track targets
-
-When choosing a track, the following additional elements and selectors are available:
+When choosing a track, the following additional elements are available.
 
 [[track-must-be-selected]]
-====== Track must be selected
+====== Track must be selected checkbox
 
 If checked, this mapping will be active only if the track set in _Track_ is currently selected.
+See <<target-activation-condition>>.
 
-====== Selection ganging
+====== Selection ganging checkbox
 
 If checked and if the track in question is selected, all other selected tracks will be adjusted as well.
 This uses REAPER's built-in selection-ganging feature and therefore should behave exactly like it.
 
-====== Respect grouping
+====== Respect grouping checkbox
 
 If checked, track grouping will be taken into account when adjusting the value.
 This uses REAPER's built-in track grouping feature and therefore should behave exactly like it.
 
 NOTE: In older REAPER versions (< 6.69+dev1102), this can only be enabled together with selection ganging when using it on volume, pan or width targets.
 
-====== Selector "<This>"
-
-Track which hosts this ReaLearn instance.
-If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
-
-[#selected-selector]
-====== Selector "<Selected>"
-
-Currently selected track.
-If multiple tracks are selected, refers only to the first one.
-
-====== Selector "<All selected>"
-
-All currently selected tracks.
-This makes track targets (not FX target and not send targets) do their job on _all_ selected tracks.
-The feedback value always corresponds to the highest value among all selected tracks.
-
-CAUTION: If you select many tracks, things can become quite slow!
-
-====== Selector "<Master>"
-
-Master track of the project which hosts this ReaLearn instance.
-
-* If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
-* If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
-Make sure to enable the "Monitoring FX" checkbox.
-
-====== Selector "All named"
-
-Allows you to use wildcards (see <<by-name>>) to make track targets do their thing on all matching tracks instead of only the first one.
-
-====== Selector "At TCP position"
-
-Like <<by-position>> but just considers tracks that are visible in the track control panel.
-
-====== Selector "At MCP position"
-
-Like <<by-position>> but just considers tracks that are visible in the mixer control panel.
-
-====== Selector "Dynamic (TCP)"
-
-Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
-
-====== Selector "Dynamic (MCP)"
-
-Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
-
-====== Selector "By ID or name (legacy)"
-
-This lets you refer to a track by its unique ID and name as fallback.
-This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
-
-_Deprecated_: You shouldn't use this selector anymore.
-
 ===== Common elements for on/off targets
 
 Targets which control an on/off-style property of tracks (e.g. <<track-solounsolo,Track: Solo/unsolo>>) additionally provide the following elements.
 
-====== Exclusive
+====== Exclusive menu
 
-By default, this option is set to "No".
+By default, this is set to <<exclusive-no>>.
 
-* *No:* Makes the track target affect just this track.
-* *Within project:* Switches the property on (off) for this track and off (on) for all other tracks in the project.
-* *Within folder:* Switches the property on (off) for this track and off (on) for all other tracks in the same folder and same level.
-* *Within project (on only):* Variation of _Within project_ that applies exclusivity only when switching the property on for this track.
+[[exclusive-no]] No:: Makes the track target affect just this track.
+Within project:: Switches the property on (off) for this track and off (on) for all other tracks in the project.
+Within folder:: Switches the property on (off) for this track and off (on) for all other tracks in the same folder and same level.
+Within project (on only):: Variation of _Within project_ that applies exclusivity only when switching the property on for this track.
 In other words, it never switches the property on for other tracks.
-* *Within folder (on only):* Variation of _Within folder_ that applies exclusivity only when switching the property on for this track.
+Within folder (on only):: Variation of _Within folder_ that applies exclusivity only when switching the property on for this track.
 In other words, it never switches the property on for other tracks.
 
 ===== Common elements for send targets
 
-Only available for targets that work on a send/receive:
+Only available for targets that work on a send/receive.
 
-====== Kind
+====== Kind menu
 
 The kind of send/receive that you want to control.
 
-* *Send:* Send from the track above to another track of your choice.
-If you choose <<by-id>>, ReaLearn will memorize the ID of the destination track.
+Send:: Send from the track above to another track of your choice.
+If you choose <<particular-selector>>, ReaLearn will memorize the ID of the destination track.
 That way you will still control the correct send even if you delete another send in that track.
-* *Receive:* Receive from another track of your choice to the track above (opposite direction of send).
-If you choose the <<by-id>> selector, ReaLearn will memorize the ID of the source track.
-* *Output:* Send from the track above to a hardware output.
-Please note that with hardware outputs, <<by-id>> is the same as <<by-position>> because hardware outputs don't have unique IDs.
 
-====== Send/Receive/Output
+Receive:: Receive from another track of your choice to the track above (opposite direction of send).
+If you choose the <<particular-selector>> selector, ReaLearn will memorize the ID of the source track.
+
+Output:: Send from the track above to a hardware output.
+Please note that with hardware outputs, <<particular-selector>> is the same as <<at-position-selector>> because hardware outputs don't have unique IDs.
+
+====== Send/Receive/Output section
 
 This lets you choose the actual send/receive/output.
 
-===== Common elements and selectors for FX targets
+===== Common elements for FX targets
 
 The following elements and selectors are available for targets associated with a particular FX instance.
 
-====== FX
+====== FX section
 
 The FX instance associated with this target.
 ReaLearn will search for the FX in the output or input FX chain of the above selected track.
 
-====== Selector "<This>"
-
-Always points to the own ReaLearn instance.
-Perfect for changing own parameters, e.g. for usage of the conditional activation or `<Dynamic>` features (especially important if you want to create reusable presets that make use of these features).
-
-====== Selector "<Focused>"
-
-Currently focused FX. _Track_ and _Input FX_ settings are ignored.
-
-[#fx-by-id]
-====== Selector "Particular"
-
-Lets you pick a specific FX in the FX chain.
-Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX.
-Please note that this only makes sense if you address the containing track using <<by-id>> as well.
-
-[#fx-by-name]
-====== Selector "Named"
-
-Lets you address the FX by its name in the FX chain.
-Just as with tracks, you can use wildcards to have a blurry search.
-
-====== Selector "All named"
-
-Allows you to use wildcards (see <<fx-by-name>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
-
-====== Selector "By ID or position (legacy)"
-
-This refers to the FX by its unique ID with its position as fallback.
-This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
-
-_Deprecated_: Don't use this selector anymore.
-
-====== Input FX
+====== Input FX checkbox
 
 If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX chain.
 If checked, it will show FX instances in the track's input FX chain.
 
-====== Monitoring FX
+====== Monitoring FX checkbox
 
 This appears instead of the input FX checkbox if you select track `<Master>`.
 If you check this, you can target FX instances on REAPER's global monitoring FX chain.
 
-WARNING: Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work at the moment!
+WARNING: Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work!
 
 [[fx-must-have-focus]]
-====== FX must have focus
+====== FX must have focus checkbox
 
-If checked, this mapping will be active only if the FX instance set in
-_FX_ is currently focused.
+If checked, this mapping will be active only if the selected FX instance is currently _focused_.
 
 If the FX instance is displayed in a floating window, _focused_ means that the floating window is active.
 If it's displayed within the FX chain window, _focused_ means that the FX chain window is currently open and the FX instance is the currently selected FX in that FX chain.
 
-Of course, this flag doesn't have any effect if you chose _<Focused>_ FX.
+Of course, this flag doesn't have any effect if you chose the <<fx-focused-selector>>.
 
 ===== Common elements for pollable targets
 
 The following elements are available only for the few targets that might need polling (= regular value querying) in order to support automatic feedback in all cases.
 
-====== Poll for feedback
+====== Poll for feedback checkbox
 
-This makes ReaLearn query the current target value every few milliseconds in order to send up-to-date feedback to your controller at all times.
-
-This is not necessary for most targets because usually ReaLearn takes advantage of REAPER's internal notification system to get notified about target value changes (which is great for performance).
-For the few targets for which it is, this option is enabled by default in order to give you the best feedback experience out-of-the-box.
-
+Enables or disables <<target-value-polling>>.
 In the probably rare case that the polling causes performance issues, you can untick this checkbox.
-
-* For most targets, if you untick this checkbox, automatic feedback for that target will simply stop working.
-This means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself (not using ReaLearn).
-* The <<fx-set-parameter-value>> target is an exception.
-Automatic feedback will still work, even without _Poll for feedback_ enabled.
-But in the following corner cases it might not:
-** If the FX is on the monitoring FX chain.
-** If you change a preset from within the FX GUI.
-
-===== Category "Real"
-
-[#global-last-touched]
-====== Global: Last touched
-
-This will control whatever target has been last touched in REAPER.
-It's similar to the built-in REAPER action "Adjust last touched FX parameter" but provides the following benefits:
-
-. It's applicable to all ReaLearn targets that are learnable, not just FX parameters.
-. It offers feedback.
-. It can distinguish between parameter modifications caused by ReaLearn (i.e. hardware control) and those caused in other ways (e.g. via mouse).
-
-- *Targets → Pick!:* This opens a window that lets you pick all considered target types and types of invocations (only macOS and Windows so far).
-Last-touched targets not checked in this window will be ignored.
-
-====== Global: Mouse
-
-This will control the mouse.
-
-* *Action*
-** *Move cursor to:* Moves the mouse cursor on the given axis in an absolute manner.
-This is a good choice for absolute mouse movement, that is, if you want to position the mouse cursor to a specific screen position.
-Although it's also possible to move the mouse cursor relatively with this action by controlling the target with relative messages, it's usually better to use _Move cursor by_ instead.
-** *Move cursor by:* Moves the mouse cursor on the given axis in a relative manner.
-This is a good choice if you want to move the cursor e.g. up a bit, starting from its current position.
-This only works with relative control elements such as encoders or features such as <<make-relative>>.
-** *Press or release button:* Presses or releases a certain mouse button, depending on the incoming control value (0% = release, anything else = press).
-** *Turn scroll wheel:* Simulates the scroll wheel.
-* *Axis:* Determines the direction of movement or scrolling.
-* *Button:* Determines which mouse button to use.
-
-TIP: One popular use of this target is to adjust the FX parameter under the mouse cursor.
-For this, it's usually best to set _Action_ to "Turn scroll wheel" and _Axis_ to "Y (vertical)".
-
-TIP: You can unfold the magic of this target by combining multiple mappings.
-E.g. one can simulate mouse dragging by using one mapping to press/release the left button and another mapping to move the cursor. link:https://raw.githubusercontent.com/helgoboss/realearn/master/resources/test-projects/issue-686-mouse-target.RPP[This example project] contains multiple examples (one per group).
-
-WARNING: Feedback for this target is not fully implemented.
-
-====== Global: Set automation mode override
-
-Sets the global automation mode override to the desired value if the incoming control value is greater than 0%, otherwise removes the override.
-
-* *Behavior:* Lets you decide between not overriding anything, bypassing all envelopes or overriding with a specific automation mode.
-* *Mode:* Here you can pick the desired automation mode if _Behavior_ is _Override_.
-
-====== Project: Any on (solo/mute/...)
-
-This target is most useful in feedback direction.
-Map it to some LED on your controller and the LED will light up if at least one of the tracks in your project is e.g. mute (depending on the track parameter in question).
-
-If the control element is also a button, pressing the button will e.g. unmute all tracks in your project.
-
-* *Parameter:* The track parameter in question.
-
-[#project-invoke-reaper-action]
-====== Project: Invoke REAPER action
-
-Triggers or sets the value of a particular REAPER action in the main section.
-
-======= Invoke: Section
-
-Specifies in which context the action is going to be invoked.
-
-* *Main:* Invokes a main action.
-* *Active MIDI editor:* Invokes a MIDI editor action, applied to the currently active MIDI editor.
-* *Active MIDI event list editor:* Invokes a MIDI event list action, applied to the currently active MIDI editor.
-* *Media explorer:* Invokes a media explorer action.
-
-======= Invoke: Invocation type
-
-Specifies _how_ the picked action is going to be controlled.
-
-* *Trigger:* Invokes the action with the incoming absolute control value, but only if it's greater than 0%.
-Most suitable for simple trigger-like actions that neither have an on/off state nor are annotated with "(MIDI CC/OSC only)" or similar.
-* *Absolute 14-bit:* Invokes the action with the incoming absolute control value, even if it's 0%.
-Most suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC only)" or similar.
-The resolution of the invocation is 14-bit, no matter what's the resolution of your control element).
-* *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution.
-Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly.
-In all other circumstances, 14-bit is probably the better default choice.
-* *Relative:* Invokes the action with the incoming relative control value (absolute ones are ignored).
-Only works for actions that are annotated with ("MIDI CC relative only") or similar.
-
-======= Pick!
-
-Opens REAPER's action dialog so you can select the desired action.
-
-======= With track
-
-Allows you to choose a track which ReaLearn will select before executing the action.
-This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
-
-======= Limitations
-
-The particular action decides if toggling/feedback works completely, has limitations or is not possible at all.
-There are multiple types of actions so it's not possible to settle with one invocation type and be done with it.
-The types of actions can roughly be divided into:
-
-. Actions that take care of toggling themselves _and_ report on/off state.
-** Example: "25. Track: Toggle record arm for track 01"
-** If you want toggle behavior, you have 2 options:
-*** a) Set Invoke to "Absolute" and Mode to "Toggle button" (preferred).
-*** b) Set Invoke to "Trigger" and Mode to "Normal".
-** Feedback is completely supported.
-. Actions that take care of toggling themselves but _don't_ report on/off state.
-** Example: "40175. Item properties: Toggle mute"
-** Toggle behavior is achieved as described in (1) but support for toggling and feedback has limitations (explained in (4)).
-. Actions that don't take care of toggling themselves ("trigger only").
-** Example: "1007. Transport: Play"
-** There's no way to make such an action toggle because the action is not designed to do so.
-** If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
-. Actions that have a complete range of values as state.
-** Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
-** Since ReaLearn 2 and REAPER 6.20, there's special support for this type of actions.
-Starting from the first time this action is triggered, ReaLearn will track its current value.
-** That's why toggling is supported.
-Because ReaLearn itself takes care of toggling, you need to set _Invoke_ to "Absolute" and Mode to "Toggle button".
-** Feedback is also supported.
-** Toggling/feedback for this type of actions comes with some inherent limitations that are related to the fact that a) REAPER itself doesn't necessarily use actions to invoke its own functions and b) MIDI CC/OSC actions don't have the concept of a "current value" (unlike e.g. toggle actions or FX parameters).
-** The bottom line of these limitations is that toggling/feedback will only work if the action itself is used to trigger the change and if the action is an absolute action (not relative).
-** Limitations in detail:
-... In most cases, feedback will not work when changing the value in REAPER directly (e.g. when adjusting vertical zoom directly via the REAPER user interface).
-... It will only work for actions that support some kind of absolute value range (usually the case for all non-relative MIDI CC/OSC actions).
-... When the action is invoked via ReaLearn, the feedback will only work if "Invoke" is "Trigger" or "Absolute".
-It won't work with "Relative".
-... When the action is invoked from ReaScript or other extensions, it will only work if the invocation was done via `KBD_OnMainActionEx()` and an absolute value change.
-... When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done using absolute MIDI CC/OSC (not relative).
-
-====== Project: Invoke transport action
-
-Invokes a transport-related action.
-
-* *Action:* Specifies which transport action should be invoked.
-** *Play/stop:* Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes stop.
-** *Play/pause:* Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes pause.
-** *Stop:* Stops the containing project if the incoming absolute control value is greater than 0%.
-Useful for distinguishing feedback between _paused_ and _stopped_ state.
-** *Pause:* Pauses the containing project if the incoming absolute control value is greater than 0%.
-Useful for distinguishing feedback between _paused_ and _stopped_ state.
-** *Record:* Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
-** *Repeat:* Enables repeat for the containing project if the incoming absolute control value is greater than 0%, otherwise disables it.
-
-[#browse_tracks_target]
-====== Project: Browse tracks
-
-Steps through tracks.
-To be used with endless rotary encoders or previous/next-style "Incremental buttons".
-
-* *Scroll TCP* and *Scroll mixer*: See <<track-selectunselect,Track: Select/unselect>> target.
-* *Scope:* Decides which tracks are considered and how.
-** *All tracks:* Considers all tracks even those which are hidden.
-** *Only tracks visible in TCP:* Considers only those tracks which are visible in the track control panel.
-** *Only tracks visible in TCP (allow 2 selections):* Like "Only tracks visible in TCP" but makes it possible to have 2 selections.
-One for the MCP and one for the TCP.
-These selections can be moved independently.
-This can make sense if you have a bunch of tracks that you only show in the TCP and another separate bunch of tracks that you only show in the MCP.
-** *Only tracks visible in MCP:* Considers only those tracks which are visible in the mixer control panel.
-** *Only tracks visible in MCP (allow 2 selections):* See above.
-
-[#seek-target]
-====== Project: Seek
-
-Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project … with feedback that indicates the current position!
-
-* *Feedback:* Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
-** *Beat:* Every beat.
-** *Fast:* As fast as possible, thereby giving the satisfying feeling of continuity.
-This obviously uses some more resources.
-No idea how far you can go with that.
-Try yourself.
-* *Behavior:* Determines whether to use immediate or smooth seeking.
-* *Seek play:* Doesn't just change the edit cursor but also changes the play position when the project is currently being played.
-* *Move view:* Allow to scroll / change viewport when seeking.
-
-The following options determine which time ranges will be taken into consideration as reference for seeking (control) and feedback.
-
-. *Use time selection:* Can use the currently set time selection as reference.
-. *Use loop points:* Can use the currently set loop points as reference.
-. *Use regions:* Can use the current region as reference.
-. *Use project:* Can use the complete project as reference, from start to end.
-
-If you don't tick any "Use" checkbox, ReaLearn will seek within the currently visible viewport.
-
-If you tick multiple options, this is the order of fallbacks:
-
-* If there's no time selection, the loop points will be used.
-* If there are no loop points, the current region is used.
-* If there's no current region, the project will be used.
-* If the project is empty, the viewport will be used.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|target.position.project_default | Position in the current transport time unit
-|target.position.time | _minute:second.milli_
-|target.position.measures_beats_time | _measure.beat.milli_
-|target.position.measures_beats | _measure.beat.milli_
-|target.position.seconds | _second.milli_
-|target.position.samples | _sample_
-|target.position.hmsf | _hour:minute:second:milli_
-|target.position.absolute_frames | _frames_
-|target.position.project_default.mcu | Like `target.position.project_default` but tailored to Mackie Control timecode displays
-|target.position.time.mcu | Like `target.position.time` but tailored to Mackie Control timecode displays
-|target.position.measures_beats_time.mcu | Like `target.position.measures_beats_time` but tailored to Mackie Control timecode displays
-|target.position.measures_beats.mcu | Like `target.position.measures_beats` but tailored to Mackie Control timecode displays
-|target.position.seconds.mcu | Like `target.position.seconds` but tailored to Mackie Control timecode displays
-|target.position.samples.mcu | Like `target.position.samples` but tailored to Mackie Control timecode displays
-|target.position.hmsf.mcu | Like `target.position.hmsf` but tailored to Mackie Control timecode displays
-|target.position.absolute_frames.mcu | Like `target.position.absolute_frames` but tailored to Mackie Control timecode displays
-|===
-
-====== Project: Set playrate
-
-Sets REAPER's master playrate.
-
-*Attention:* This target doesn't currently work if the project containing ReaLearn is not the active project tab.
-
-[#project-set-tempo]
-====== Project: Set tempo
-
-Sets REAPER's master tempo.
-
-This target is not learnable anymore via the "Learn target" button and also not eligible for the <<global-last-touched,Last touched>> target because it caused too many "false positives".
-
-[#marker-region-go-to]
-====== Marker/region: Go to
-
-Navigates to a specific marker or region.
-Here's the behavior in detail:
-
-* Regions
-** If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
-** If the project is playing, playback will continue with the given region as soon as the currently playing region (or measure if not within a region) has finished playing.
-This is called "smooth seek".
-** *Attention:* This currently doesn't work if the project containing ReaLearn is not the active project tab.
-* Markers
-** If the project is stopped, the editor cursor immediately jumps to the given marker.
-** If the project is playing, playback will immediately be continued at the given marker.
-
-The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many markers/regions (either by position or by ID) … and that it supports visual feedback!
-If you assign this target to a button which has an LED, you will see which marker/region is currently playing just by looking at your controller.
-
-Please note that this doesn't work when recording!
-
-User interface elements specific to this target:
-
-* *Marker/region:*
-** *Left dropdown:* This dropdown lets you choose if you want to refer to a marker/region by its user-assigned ID or by its position on the timeline.
-** *Right dropdown:* This dropdown displays the markers or regions (depending on the _Regions_ checkbox state).
-* *Now!:* This sets the target to the currently playing (or currently focused, if stopped) marker/region.
-* *Behavior:* Determines whether to use immediate or smooth seeking.
-* *Regions:* Switches between markers and regions.
-* *Set loop points:* For regions, this will additionally set the loop points to the region start and end position.
-* *Set time selection:* For regions, this will additionally set the time selection to the region start and end position.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|target.bookmark.id | (Numeric) ID of the bookmark
-|target.bookmark.index | Index of the bookmark (counting both markers and regions)
-|target.bookmark.index_within_type | Index of the bookmark (counting only markers or regions, respectively)
-|target.bookmark.name | Name of the bookmark
-|===
-
-[#track-target]
-====== Track
-
-A target that allows you to define a track.
-
-The setting **Act/Tags** stands for "Action / Unit tags" and decides what happens when a control messages arrives, e.g. a button press:
-
-- **None (feedback only):** With this setting, nothing will happen.
-It's suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
-- **Set (as unit track):** The button press will set the track defined in this target as <<unit-track>> _without resolving it before_.
-For example, if this target defines to use the currently selected track (<<selected-selector>>), pressing the button will make the unit track dynamically reflect whatever track is selected.
-- **Pin (as unit track):** The button press will resolve the track defined in this target and set the result as <<unit-track>>.
-For example, if this target defines to use the currently selected track, pressing the button will check which track is currently selected and set the unit track to exactly this track.
-It will stay that way even if the user selects another track.
-
-The text field to the right defines contains **Unit tags** of the ReaLearn units whose unit track should be changed.
-If it's empty, the current unit will be affected.
-
-====== Track: Arm/disarm
-
-Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise disarms the track.
-This disables "Automatic record-arm when track selected".
-If you don't want that, use the _Track: Select/unselect_ target instead.
-
-====== Track: Enable/disable all FX
-
-Enables all the track's FX instances if the incoming absolute control value is greater than 0%, otherwise disables them.
-
-====== Track: Enable/disable parent send
-
-Enables the parent send routing of the track if the incoming absolute control value is greater than 0%, otherwise disables it.
-
-====== Track: Mute/unmute
-
-Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the track.
-
-====== Track: Peak
-
-This is a feedback-only target!
-It turns your feedback-capable controller into a VU meter by constantly reporting the current volume of the configured track to it.
-
-In addition to connecting it with a LED ring or motor fader source (which should be obvious), it can also be used with a single LED to build a clipping indicator:
-
-. Set _Target Min_ to the minimum dB value that should make your clipping LED turn on.
-Leave _Target Max_ at 12.00 dB.
-. Make sure the _Out-of-range_ behavior is set to "Min or max".
-. If you have an LED that supports multiple colors, you will probably see a rainbow of colors flashing up which can be quite confusing.
-Use the feedback transformation formula `x = ceil(y)` to restrict the feedback to just two values:
-Min (0%) or Max (100%).
-You can then use _Source Min_ and _Max_ to adjust the off/on LED colors.
-
-At the moment this target only reports peak volume, not RMS.
-
-====== Track: Phase invert/normal
-
-Inverts the track phase if the incoming absolute control value is greater than 0%, otherwise switches the track phase back to normal.
-
-[#track-selectunselect]
-====== Track: Select/unselect
-
-Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the track.
-
-This target stops being learnable if you activate the REAPER preference "Mouse click on volume/pan faders and track buttons changes track selection" (because this preference would generate too many false positives).
-If you change the preference, ReaLearn will take it into consideration the next time you restart REAPER.
-
-* *Scroll TCP:* Also scrolls the track control panel to the desired track.
-* *Scroll mixer:* Also scrolls the mixer control panel to the desired track.
-
-====== Track: Set automation mode
-
-Sets the track to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default track automation mode "Trim/Read".
-
-* *Mode:* Here you can pick the desired automation mode.
-
-====== Track: Set monitoring mode
-
-Sets the track to a specific input monitoring mode if the incoming control value is greater than 0%, otherwise sets it back to "Off".
-
-* *Mode:* Here you can pick the desired monitoring mode.
-
-[#track-set-automation-touch-state]
-====== Track: Set automation touch state
-
-When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control element which is bound to the automation envelope or not.
-As long as you keep touching it, it will overwrite existing automation.
-As soon as you release it, REAPER will leave the envelope untouched.
-
-Classical control surfaces implement this very intuitively by providing touch-sensitive faders.
-With this target, you can easily reproduce exactly this behavior via ReaLearn.
-You do this by mapping the touch event (which is usually nothing else than a MIDI note on/off message) to this target.
-The touch state is scoped to a particular track and parameter type which you can choose in the **Type* dropdown.
-
-However, ReaLearn wouldn't be ReaLearn if it wouldn't allow you to let totally different sources take control of the touch state.
-For example, if you have a push encoder, you could map the "push" event to the touch state, allowing you to write automation only while you are touching the encoder.
-Or if you don't have a push encoder, you could just use some spare button.
-
-====== Track: Set pan
-
-Sets the track's pan value.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|target.pan.mcu | Pan value tailored to one line on a Mackie Control LCD
-|===
-
-====== Track: Set stereo pan width
-
-Sets the track's width value (applicable if the track is in stereo pan mode).
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|target.width.mcu | Width value tailored to one line on a Mackie Control LCD
-|===
-
-[[track-set-volume]]
-====== Track: Set volume
-
-Sets the track's volume.
-
-====== Track: Show/hide
-
-Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
-
-* *Area:* Lets you decide if you want it to show/hide in the track control panel or the mixer.
-
-[#track-solounsolo]
-====== Track: Solo/unsolo
-
-Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the track.
-
-Provides the following additional settings:
-
-* *Behavior:* See the REAPER user guide for details.
-** *Solo in place:* Soloes the track while respecting REAPER's routing.
-This is REAPER's default and since ReaLearn v2.4.0 also ReaLearn's default.
-** *Solo (ignore routing):* Soloes the track muting everything else, no matter the routing.
-** *Use REAPER preference:* Follows whatever is set in the REAPER preferences.
-
-Learning this target by pressing the "Solo" button of the _master_ track is currently not possible but of course you can just select it manually in the dropdown menu.
-
-====== FX chain: Browse FXs
-
-Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
-To be used with endless rotary encoders or previous/next-style "Incremental buttons".
-
-* *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
-
-[#fx-target]
-====== FX
-
-A target that allows you to define an FX, in its basic variant perfect for acquiring feedback for a specific FX.
-
-The setting **Act/Tags** allows you to optionally set/pin the declared FX as <<unit-fx>>.
-This works pretty much the same as described in target <<track-target>>.
-
-[#fx-enabledisable]
-====== FX: Enable/disable
-
-Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise disables it.
-
-====== FX: Set online/offline
-
-Sets the FX instance online if the incoming absolute control value is greater than 0%, otherwise sets it offline.
-
-[#fx-load-snapshot]
-====== FX: Load snapshot
-
-Restores a certain state of a particular FX.
-Before using this target, you need to take a snapshot of the desired FX state using the _Take!_ button.
-This snapshot will be saved as part of ReaLearn's state itself and as a direct consequence as a part of your project.
-This makes your project nicely self-contained.
-It's perfect for activating particular FX presets because it will always restore the desired state, even if the preset list has changed.
-
-This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
-
-Please note that some plug-ins have _very large_ states.
-Therefore you should keep an eye on the snapshot size, which will be displayed once you take the snapshot.
-ReaLearn's own state will grow with every new snapshot mapping, so this can quickly add up and make REAPER/ReaLearn slow!
-
-[#fx-browse-presets]
-====== FX: Browse presets
-
-Steps through FX presets.
-
-This target is suited for use with knobs, encoders and incremental buttons (previous/next) because it allows you to step through the complete preset list.
-The minimum value always represents _No preset_ whereas the maximum value always represents the last available preset.
-
-It's _not_ suited for activating a particular preset (e.g. by setting _Target Min_ and _Max_ to the same value), because the preset list of an FX is usually not constant.
-As soon as you modify the preset list, this value will might suddenly point to a completely different preset.
-Even worse, the actual preset might have been deleted.
-
-If you want to activate a particular preset, please use the <<fx-load-snapshot,FX: Load snapshot>> target instead.
-
-====== FX: Open/close
-
-Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
-
-* *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
-
-====== FX parameter: Set automation touch state
-
-This does the same as <<track-set-automation-touch-state>> but for FX parameter value changes.
-
-[#fx-set-parameter-value]
-====== FX parameter: Set value
-
-Sets the value of a particular track FX parameter.
-
-* *Parameter:* The parameter to be controlled.
-Please note that both <<fx-by-id>> and <<by-position>> address the FX by its position in the FX chain.
-The difference between the two is that <<by-id>> shows a dropdown containing the available parameters and <<by-position>> lets you enter the position as a number in a text field.
-Latter is useful if at the time of choosing the position, the FX is not available.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|
-target.fx_parameter.index
-|
-Zero-based index of the resolved FX parameter.
-
-|
-target.fx_parameter.name
-|
-Name of the resolved FX parameter.
-
-|
-target.fx_parameter.macro.name
-|
-Name of the corresponding Pot macro parameter. Only works if this parameter is part of a preset loaded via Pot.
-
-|
-target.fx_parameter.macro.section.name
-|
-Name of the corresponding Pot macro parameter section. Only works if this parameter is part of a preset loaded via Pot.
-
-|
-target.fx_parameter.macro.section.index
-|
-Zero-based index of the corresponding Pot macro parameter section (within the current bank). Only works if this parameter is part of a preset loaded via Pot.
-
-|
-target.fx_parameter.macro.new_section.name
-|
-Name of the corresponding Pot macro parameter section, but only if this parameter marks the start of a new section. Only works if this parameter is part of a preset loaded via Pot.
-
-|
-target.fx_parameter.macro.bank.name
-|
-Name of the corresponding Pot macro parameter bank. Only works if this parameter is part of a preset loaded via Pot.
-|===
-
-[#pot-browse-filter-items]
-====== Pot: Browse filter items
-
-This target can be used to filter the potentially very large collection of presets in  <<pot-browse-presets>>.
-The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available filter items, e.g. instruments or banks.
-
-* *Kind:* Choose the kind of filter items that you want to browse.
-They correspond to the filters available in <<pot-browser>>.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|
-target.item.name
-|
-Name of the filter item.
-
-|
-target.item.parent.name
-|
-Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
-|===
-
-[#pot-browse-presets]
-====== Pot: Browse presets
-
-Use this target to browse a collection of presets.
-By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets.
-If you want to browse just a subset, see <<pot-browse-filter-items>>.
-
-The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available presets.
-Once you have selected a preset, you can audition it via <<pot-preview-preset>> (if it's a sound preset) and load it via <<pot-load-preset>>.
-
-This target supports the following additional placeholders in textual feedback expressions:
-
-[cols="m,1"]
-|===
-|
-target.preset.name
-|
-Name of the preset.
-
-|
-target.preset.product.name
-|
-Name of the product to which this preset belongs, if available.
-
-|
-target.preset.file_ext
-|
-File extension of the preset, in case it's a file-based preset.
-
-|
-target.preset.author
-|
-Name of the preset author, if available.
-
-|
-target.preset.vendor
-|
-Name of the preset vendor, if available.
-
-|
-target.preset.comment
-|
-Preset comment, if available.
-
-|===
-
-[#pot-preview-preset]
-====== Pot: Preview preset
-
-Auditions a preset selected via <<pot-browse-presets>>.
-Only works if it's a sound preset and a sound preview file is available.
-
-[#pot-load-preset]
-====== Pot: Load preset
-
-Loads a preset selected via <<pot-browse-presets>>.
-
-NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
-- *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
-
-Settings:
-
-* *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in.
-The best idea is to use FX selector <<by-position>>.
-Selectors such as <<fx-by-id>> or <<fx-by-name>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change.
-Then the target would turn inactive and stop working.
-
-This target supports the same additional placeholders for textual feedback expressions as <<pot-browse-presets>>.
-The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.
-
-====== Send: Automation mode
-
-Sets the track send to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default automation mode "Trim/Read".
-
-====== Send: Mono/stereo
-
-Sets the track send to mono or back to stereo.
-
-====== Send: Mute/unmute
-
-Mutes/unmutes the track send.
-
-====== Send: Phase invert/normal
-
-Inverts the track send phase or switches it back to normal.
-
-====== Send: Set automation touch state
-
-This does the same as <<track-set-automation-touch-state>> but for send volume or pan adjustments.
-
-====== Send: Set pan
-
-Sets the track send's pan value.
-
-====== Send: Set volume
-
-Sets the track send's volume.
-
-====== Playtime: Slot management action
-
-_Under construction_
-
-====== Playtime: Slot transport action
-
-_Under construction_
-
-====== Playtime: Slot seek
-
-_Under construction_
-
-====== Playtime: Slot volume
-
-_Under construction_
-
-====== Playtime: Column action
-
-_Under construction_
-
-====== Playtime: Row action
-
-_Under construction_
-
-====== Playtime: Matrix action
-
-_Under construction_
-
-====== Playtime: Control unit scroll
-
-_Under construction_
-
-====== Playtime: Browse cells
-
-_Under construction_
-
-[#midi-send-message-target]
-====== MIDI: Send message target
-
-Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
-This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.
-
-======= Output
-
-Where to send the MIDI message.
-
-* *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows into the FX below ReaLearn, e.g. a VST instrument.
-+
-* *Feedback output:* Sends the MIDI message to the device which is set as _output_.
-* *Input device:* Injects the MIDI message into the current MIDI input device buffer.
-Enables a unique feature called "Global MIDI transformation", as shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
-
-======= Device
-
-When choosing output _Input device_, you can choose into which MIDI input device buffer the message will be injected.
-
-* *<Same as input device>:* Injects the message into the same buffer of the MIDI input device chosen as <<input-menu>>.
-* *_Specific input device_:* Injects the message into another specific MIDI input device.
-This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
-An practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
-
-======= Pattern
-
-Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation.
-It also allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by the Glue section).
-The syntax for doing this takes some getting used to, but it's very flexible.
-It's exactly the same syntax as used in the <<raw-midi-source,Raw MIDI source>>.
-Please read about it there!
-
-======= ...
-
-Provides predefined patterns.
-
-[NOTE]
-====
-This target is a bit special in that it carries out its processing logic exclusively in the audio thread if it's controlled by a MIDI source.
-This has the big advantage that receiving and producing MIDI messages happens in one go (without inter-thread-communication latency), which is often important when using MIDI message conversion.
-
-However, this also means that the following things won't work when controlling this target using MIDI:
-
-* It can't take the lead in <<group-interaction>>.
-* It won't work with timed <<fire-mode, fire modes>>.
-* If _output_ is set to <<fx-output>>, additional limitations apply:
-** It can't act as a follower in <<group-interaction>>, either.
-** It can't participate in <<realearn-load-mapping-snapshot>>.
-====
-
-[#osc-send-message]
-====== OSC: Send message
-
-Sends OSC messages with up to one argument in response to incoming messages.
-This target turns ReaLearn into a capable and convenient MIDI → OSC and OSC → OSC converter.
-If an argument number is entered (e.g. `1`), it will encode the incoming absolute control value as that argument (after it has been processed by the glue section).
-
-* *Output:* Where to send the OSC message.
-** *<Feedback output>:* Sends the OSC message to the device which is set as _Output_.
-Of course this only works if it's an OSC device.
-** *_Specific device:_* Sends the OSC message to a specific device.
-* *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<osc-source,OSC sources>>.
-Check that section for details.
-
-[#realearn-enable-disable-instances]
-====== ReaLearn: Enable/disable instances
-
-This target allows you to flexibly enable or disable other ReaLearn instances based on the unit tags of their units:
-
-* *Exclusivity*
-** *Non-exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled (on top of the already enabled instances).
-If the value is 0%, all matching ReaLearn instances will be disabled.
-** *Exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled and all non-matching ones will be disabled.
-If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
-** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
-* *Tags:* A ReaLearn instance matches when at least one of its units is tagged with any of the tags entered in this field (comma-separated).
-
-TIP: Use the main panel to assign tags to a ReaLearn unit.
-
-Please note:
-
-* This affects other ReaLearn units only.
-It doesn't match against this unit.
-* ReaLearn instances which don't contain units with tags won't be affected at all.
-* Only affects instances in the same project.
-If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other instances in the monitoring FX chain.
-
-TIP: This target is great for switching between completely different controller setups!
-
-[#realearn-dummy-target]
-====== ReaLearn: Dummy target
-
-This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
-
-It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>.
-Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message.
-Or if you want to send some text feedback to a hardware display, if the text is just a constant string or uses a placeholder that doesn't need target context.
-
-[#realearn-enable-disable-mappings]
-====== ReaLearn: Enable/disable mappings
-
-This target allows you to flexibly enable or disable other mappings in this unit based on their tags:
-
-* *Exclusivity*
-** *Non-exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled (on top of the already enabled mappings).
-If the value is 0%, all matching mappings will be disabled.
-** *Exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled and all non-matching ones will be disabled.
-If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
-** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
-* *Tags:* A mapping matches when it is tagged with any of the tags entered in this field (comma-separated).
-
-TIP: Use the text field on the top of the mapping panel to assign tags to a mapping.
-
-Please note:
-
-* This really affects other mappings only, not _this_ mapping.
-* Mappings without tags won't be affected at all.
-
-TIP: This target is a straightforward alternative to <<conditional-activation>>, especially when it comes to bank switching!
-
-[#realearn-load-mapping-snapshot]
-====== ReaLearn: Load mapping snapshot
-
-Restores target values for all or certain mappings in this ReaLearn unit.
-
-* *Snapshot:* Choose the snapshot that you want to load.
-** *<Initial>:* Restores the initial target values for the mappings.
-** *By ID:* Restores target values contained in a snapshot that was taken via <<realearn-take-mapping-snapshot>>.
-Simply enter the corresponding ID here.
-* *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping.
-If that participating mapping has <<Reverse>> checked, the inverse of the default value will be loaded.
-* *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
-** If this field is empty, target values of all mappings will be restored.
-** If this field contains tags (comma-separated), target values will be restored only for mappings that are tagged with any of these.
-* *Active mappings only:* By default, even target values for inactive (but control-enabled) mappings are restored!
-If you don't like that, tick this checkbox.
-
-Please note:
-
-* Mappings for which control is not enabled, never participate in snapshotting.
-* Some targets don't report values and therefore don't participate in snapshotting.
-* Feedback of this target indicates whether the desired snapshot is the one which has last been loaded (for the given tags).
-
-====== ReaLearn: Modify mapping
-
-Triggers a modification of another ReaLearn mapping.
-
-* *Kind:* The kind of modification.
-** *Learn target:* Switches "Learn target" on or off for the destination mapping.
-Use button kbd:[...] to pick the considered target types and invocations to be included in the learning process.
-** *Set target to last touched:* Sets the target of the destination mapping to the last-touched target.
-Use button kbd:[...] to pick the considered target types and invocations.
-* *Unit:* Allows you to pick another ReaLearn unit.
-* *Mapping:* Allows you to pick the destination mapping.
-
-TIP: This target is great to "pin" targets to certain control elements on demand.
-
-[#realearn-take-mapping-snapshot]
-====== ReaLearn: Take mapping snapshot
-
-Memorizes target values for all or certain mappings in this ReaLearn units and saves them in a snapshot of your choice.
-
-* *Snapshot*: Choose the snapshot to which you want to save the mapping values.
-** *<Last loaded>:* Always chooses the snapshot which is currently active (was last loaded) for the given tags.
-+
-TIP: Only works if tags are not empty and if all tags have the same last-loaded snapshot.
-So the best is if you always enter exactly one tag.
-** *By ID:* Enter the unique ID of the snapshot, e.g. `scene_1`.
-* *Tags:* Allows you to restrict the set of mappings whose target values will be memorized.
-** If this field is empty, target values of all mappings will be memorized.
-** If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
-* *Active mappings only:* By default, even target values of inactive (but control-enabled) mappings end up in the snapshot!
-If you don't like that, tick this checkbox.
-
-[#realearn-browse-group-mappings]
-====== ReaLearn: Browse group mappings
-
-This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
-
-"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its glue section (by default 100%).
-
-* *Group:* The group that you want to browse.
-* *Exclusivity*
-** *Non-exclusive:* Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings.
-In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different.
-Or if the target itself already takes care of exclusivity.
-** *Exclusive:* Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%).
-Be careful with this, you often won't need it.
-
-Please note:
-
-- Inactive mappings are skipped.
-
-[TIP]
-====
-Mapping lend themselves perfectly for defining things that should happen _in sequence_.
-This target allows you to take advantage of that!
-
-- Combine it with <<realearn-enable-disable-mappings>> to browse different banks.
-- Combine it with <<realearn-enable-disable-instances>> to browse completely different controller setups (or banks).
-- Combine it with targets that don't provide a "Browse ..." variant themselves.
-- Use it as an alternative to <<target-value-sequence,target value sequences>> that allows you to have completely different targets within one sequence.
-====
-
-[#virtual-target-category]
-===== Category "Virtual"
-
-This is exactly the counterpart of the possible <<virtual-source,virtual sources>>.
-Choosing a virtual target here is like placing cables between a control element and all corresponding main mappings that use this virtual control element as source.
-
-====== Learnable
-
-If you disable this checkbox, this virtual source will not be learnable via "Learn source" in the main compartment.
-This can be useful for rather unimportant sources such as "Fader touch" that would otherwise make it very hard to learn more important sources such as "Fader movement".
 
 [#glue-section]
 ==== Glue section
@@ -3451,6 +2302,904 @@ Lets you enter the ID manually.
 [[available-target-types]]
 == Available target types
 
+=== Category "Real"
+
+[#global-last-touched]
+==== Global: Last touched
+
+This will control whatever target has been last touched in REAPER.
+It's similar to the built-in REAPER action "Adjust last touched FX parameter" but provides the following benefits:
+
+. It's applicable to all ReaLearn targets that are learnable, not just FX parameters.
+. It offers feedback.
+. It can distinguish between parameter modifications caused by ReaLearn (i.e. hardware control) and those caused in other ways (e.g. via mouse).
+
+- *Targets → Pick!:* This opens a window that lets you pick all considered target types and types of invocations (only macOS and Windows so far).
+Last-touched targets not checked in this window will be ignored.
+
+==== Global: Mouse
+
+This will control the mouse.
+
+* *Action*
+** *Move cursor to:* Moves the mouse cursor on the given axis in an absolute manner.
+This is a good choice for absolute mouse movement, that is, if you want to position the mouse cursor to a specific screen position.
+Although it's also possible to move the mouse cursor relatively with this action by controlling the target with relative messages, it's usually better to use _Move cursor by_ instead.
+** *Move cursor by:* Moves the mouse cursor on the given axis in a relative manner.
+This is a good choice if you want to move the cursor e.g. up a bit, starting from its current position.
+This only works with relative control elements such as encoders or features such as <<make-relative>>.
+** *Press or release button:* Presses or releases a certain mouse button, depending on the incoming control value (0% = release, anything else = press).
+** *Turn scroll wheel:* Simulates the scroll wheel.
+* *Axis:* Determines the direction of movement or scrolling.
+* *Button:* Determines which mouse button to use.
+
+TIP: One popular use of this target is to adjust the FX parameter under the mouse cursor.
+For this, it's usually best to set _Action_ to "Turn scroll wheel" and _Axis_ to "Y (vertical)".
+
+TIP: You can unfold the magic of this target by combining multiple mappings.
+E.g. one can simulate mouse dragging by using one mapping to press/release the left button and another mapping to move the cursor. link:https://raw.githubusercontent.com/helgoboss/realearn/master/resources/test-projects/issue-686-mouse-target.RPP[This example project] contains multiple examples (one per group).
+
+WARNING: Feedback for this target is not fully implemented.
+
+==== Global: Set automation mode override
+
+Sets the global automation mode override to the desired value if the incoming control value is greater than 0%, otherwise removes the override.
+
+* *Behavior:* Lets you decide between not overriding anything, bypassing all envelopes or overriding with a specific automation mode.
+* *Mode:* Here you can pick the desired automation mode if _Behavior_ is _Override_.
+
+==== Project: Any on (solo/mute/...)
+
+This target is most useful in feedback direction.
+Map it to some LED on your controller and the LED will light up if at least one of the tracks in your project is e.g. mute (depending on the track parameter in question).
+
+If the control element is also a button, pressing the button will e.g. unmute all tracks in your project.
+
+* *Parameter:* The track parameter in question.
+
+[#project-invoke-reaper-action]
+==== Project: Invoke REAPER action
+
+Triggers or sets the value of a particular REAPER action in the main section.
+
+===== Invoke: Section
+
+Specifies in which context the action is going to be invoked.
+
+* *Main:* Invokes a main action.
+* *Active MIDI editor:* Invokes a MIDI editor action, applied to the currently active MIDI editor.
+* *Active MIDI event list editor:* Invokes a MIDI event list action, applied to the currently active MIDI editor.
+* *Media explorer:* Invokes a media explorer action.
+
+===== Invoke: Invocation type
+
+Specifies _how_ the picked action is going to be controlled.
+
+* *Trigger:* Invokes the action with the incoming absolute control value, but only if it's greater than 0%.
+Most suitable for simple trigger-like actions that neither have an on/off state nor are annotated with "(MIDI CC/OSC only)" or similar.
+* *Absolute 14-bit:* Invokes the action with the incoming absolute control value, even if it's 0%.
+Most suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC only)" or similar.
+The resolution of the invocation is 14-bit, no matter what's the resolution of your control element).
+* *Absolute 7-bit:* Just like the previous invocation mode but uses 7-bit resolution.
+Might be necessary for actions provided by 3rd-party extensions which don't interpret 14-bit control values correctly.
+In all other circumstances, 14-bit is probably the better default choice.
+* *Relative:* Invokes the action with the incoming relative control value (absolute ones are ignored).
+Only works for actions that are annotated with ("MIDI CC relative only") or similar.
+
+===== Pick!
+
+Opens REAPER's action dialog so you can select the desired action.
+
+===== With track
+
+Allows you to choose a track which ReaLearn will select before executing the action.
+This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
+
+===== Limitations
+
+The particular action decides if toggling/feedback works completely, has limitations or is not possible at all.
+There are multiple types of actions so it's not possible to settle with one invocation type and be done with it.
+The types of actions can roughly be divided into:
+
+. Actions that take care of toggling themselves _and_ report on/off state.
+** Example: "25. Track: Toggle record arm for track 01"
+** If you want toggle behavior, you have 2 options:
+*** a) Set Invoke to "Absolute" and Mode to "Toggle button" (preferred).
+*** b) Set Invoke to "Trigger" and Mode to "Normal".
+** Feedback is completely supported.
+. Actions that take care of toggling themselves but _don't_ report on/off state.
+** Example: "40175. Item properties: Toggle mute"
+** Toggle behavior is achieved as described in (1) but support for toggling and feedback has limitations (explained in (4)).
+. Actions that don't take care of toggling themselves ("trigger only").
+** Example: "1007. Transport: Play"
+** There's no way to make such an action toggle because the action is not designed to do so.
+** If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
+. Actions that have a complete range of values as state.
+** Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
+** Since ReaLearn 2 and REAPER 6.20, there's special support for this type of actions.
+Starting from the first time this action is triggered, ReaLearn will track its current value.
+** That's why toggling is supported.
+Because ReaLearn itself takes care of toggling, you need to set _Invoke_ to "Absolute" and Mode to "Toggle button".
+** Feedback is also supported.
+** Toggling/feedback for this type of actions comes with some inherent limitations that are related to the fact that a) REAPER itself doesn't necessarily use actions to invoke its own functions and b) MIDI CC/OSC actions don't have the concept of a "current value" (unlike e.g. toggle actions or FX parameters).
+** The bottom line of these limitations is that toggling/feedback will only work if the action itself is used to trigger the change and if the action is an absolute action (not relative).
+** Limitations in detail:
+... In most cases, feedback will not work when changing the value in REAPER directly (e.g. when adjusting vertical zoom directly via the REAPER user interface).
+... It will only work for actions that support some kind of absolute value range (usually the case for all non-relative MIDI CC/OSC actions).
+... When the action is invoked via ReaLearn, the feedback will only work if "Invoke" is "Trigger" or "Absolute".
+It won't work with "Relative".
+... When the action is invoked from ReaScript or other extensions, it will only work if the invocation was done via `KBD_OnMainActionEx()` and an absolute value change.
+... When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done using absolute MIDI CC/OSC (not relative).
+
+==== Project: Invoke transport action
+
+Invokes a transport-related action.
+
+* *Action:* Specifies which transport action should be invoked.
+** *Play/stop:* Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes stop.
+** *Play/pause:* Starts playing the containing project if the incoming absolute control value is greater than 0%, otherwise invokes pause.
+** *Stop:* Stops the containing project if the incoming absolute control value is greater than 0%.
+Useful for distinguishing feedback between _paused_ and _stopped_ state.
+** *Pause:* Pauses the containing project if the incoming absolute control value is greater than 0%.
+Useful for distinguishing feedback between _paused_ and _stopped_ state.
+** *Record:* Starts/enables recording for the current project if the incoming absolute control value is greater than 0%, otherwise disables recording.
+** *Repeat:* Enables repeat for the containing project if the incoming absolute control value is greater than 0%, otherwise disables it.
+
+[#browse_tracks_target]
+==== Project: Browse tracks
+
+Steps through tracks.
+To be used with endless rotary encoders or previous/next-style "Incremental buttons".
+
+* *Scroll TCP* and *Scroll mixer*: See <<track-selectunselect,Track: Select/unselect>> target.
+* *Scope:* Decides which tracks are considered and how.
+** *All tracks:* Considers all tracks even those which are hidden.
+** *Only tracks visible in TCP:* Considers only those tracks which are visible in the track control panel.
+** *Only tracks visible in TCP (allow 2 selections):* Like "Only tracks visible in TCP" but makes it possible to have 2 selections.
+One for the MCP and one for the TCP.
+These selections can be moved independently.
+This can make sense if you have a bunch of tracks that you only show in the TCP and another separate bunch of tracks that you only show in the MCP.
+** *Only tracks visible in MCP:* Considers only those tracks which are visible in the mixer control panel.
+** *Only tracks visible in MCP (allow 2 selections):* See above.
+
+[#seek-target]
+==== Project: Seek
+
+Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project … with feedback that indicates the current position!
+
+* *Feedback:* Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
+** *Beat:* Every beat.
+** *Fast:* As fast as possible, thereby giving the satisfying feeling of continuity.
+This obviously uses some more resources.
+No idea how far you can go with that.
+Try yourself.
+* *Behavior:* Determines whether to use immediate or smooth seeking.
+* *Seek play:* Doesn't just change the edit cursor but also changes the play position when the project is currently being played.
+* *Move view:* Allow to scroll / change viewport when seeking.
+
+The following options determine which time ranges will be taken into consideration as reference for seeking (control) and feedback.
+
+. *Use time selection:* Can use the currently set time selection as reference.
+. *Use loop points:* Can use the currently set loop points as reference.
+. *Use regions:* Can use the current region as reference.
+. *Use project:* Can use the complete project as reference, from start to end.
+
+If you don't tick any "Use" checkbox, ReaLearn will seek within the currently visible viewport.
+
+If you tick multiple options, this is the order of fallbacks:
+
+* If there's no time selection, the loop points will be used.
+* If there are no loop points, the current region is used.
+* If there's no current region, the project will be used.
+* If the project is empty, the viewport will be used.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.position.project_default | Position in the current transport time unit
+|target.position.time | _minute:second.milli_
+|target.position.measures_beats_time | _measure.beat.milli_
+|target.position.measures_beats | _measure.beat.milli_
+|target.position.seconds | _second.milli_
+|target.position.samples | _sample_
+|target.position.hmsf | _hour:minute:second:milli_
+|target.position.absolute_frames | _frames_
+|target.position.project_default.mcu | Like `target.position.project_default` but tailored to Mackie Control timecode displays
+|target.position.time.mcu | Like `target.position.time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats_time.mcu | Like `target.position.measures_beats_time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats.mcu | Like `target.position.measures_beats` but tailored to Mackie Control timecode displays
+|target.position.seconds.mcu | Like `target.position.seconds` but tailored to Mackie Control timecode displays
+|target.position.samples.mcu | Like `target.position.samples` but tailored to Mackie Control timecode displays
+|target.position.hmsf.mcu | Like `target.position.hmsf` but tailored to Mackie Control timecode displays
+|target.position.absolute_frames.mcu | Like `target.position.absolute_frames` but tailored to Mackie Control timecode displays
+|===
+
+==== Project: Set playrate
+
+Sets REAPER's master playrate.
+
+*Attention:* This target doesn't currently work if the project containing ReaLearn is not the active project tab.
+
+[#project-set-tempo]
+==== Project: Set tempo
+
+Sets REAPER's master tempo.
+
+This target is not learnable anymore via the "Learn target" button and also not eligible for the <<global-last-touched,Last touched>> target because it caused too many "false positives".
+
+[#marker-region-go-to]
+==== Marker/region: Go to
+
+Navigates to a specific marker or region.
+Here's the behavior in detail:
+
+* Regions
+** If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
+** If the project is playing, playback will continue with the given region as soon as the currently playing region (or measure if not within a region) has finished playing.
+This is called "smooth seek".
+** *Attention:* This currently doesn't work if the project containing ReaLearn is not the active project tab.
+* Markers
+** If the project is stopped, the editor cursor immediately jumps to the given marker.
+** If the project is playing, playback will immediately be continued at the given marker.
+
+The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many markers/regions (either by position or by ID) … and that it supports visual feedback!
+If you assign this target to a button which has an LED, you will see which marker/region is currently playing just by looking at your controller.
+
+Please note that this doesn't work when recording!
+
+User interface elements specific to this target:
+
+* *Marker/region:*
+** *Left dropdown:* This dropdown lets you choose if you want to refer to a marker/region by its user-assigned ID or by its position on the timeline.
+** *Right dropdown:* This dropdown displays the markers or regions (depending on the _Regions_ checkbox state).
+* *Now!:* This sets the target to the currently playing (or currently focused, if stopped) marker/region.
+* *Behavior:* Determines whether to use immediate or smooth seeking.
+* *Regions:* Switches between markers and regions.
+* *Set loop points:* For regions, this will additionally set the loop points to the region start and end position.
+* *Set time selection:* For regions, this will additionally set the time selection to the region start and end position.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.bookmark.id | (Numeric) ID of the bookmark
+|target.bookmark.index | Index of the bookmark (counting both markers and regions)
+|target.bookmark.index_within_type | Index of the bookmark (counting only markers or regions, respectively)
+|target.bookmark.name | Name of the bookmark
+|===
+
+[#track-target]
+==== Track
+
+A target that allows you to define a track.
+
+The setting **Act/Tags** stands for "Action / Unit tags" and decides what happens when a control messages arrives, e.g. a button press:
+
+- **None (feedback only):** With this setting, nothing will happen.
+It's suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
+- **Set (as unit track):** The button press will set the track defined in this target as <<unit-track>> _without resolving it before_.
+For example, if this target defines to use the currently selected track (<<selected-selector>>), pressing the button will make the unit track dynamically reflect whatever track is selected.
+- **Pin (as unit track):** The button press will resolve the track defined in this target and set the result as <<unit-track>>.
+For example, if this target defines to use the currently selected track, pressing the button will check which track is currently selected and set the unit track to exactly this track.
+It will stay that way even if the user selects another track.
+
+The text field to the right defines contains **Unit tags** of the ReaLearn units whose unit track should be changed.
+If it's empty, the current unit will be affected.
+
+==== Track: Arm/disarm
+
+Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise disarms the track.
+This disables "Automatic record-arm when track selected".
+If you don't want that, use the _Track: Select/unselect_ target instead.
+
+==== Track: Enable/disable all FX
+
+Enables all the track's FX instances if the incoming absolute control value is greater than 0%, otherwise disables them.
+
+==== Track: Enable/disable parent send
+
+Enables the parent send routing of the track if the incoming absolute control value is greater than 0%, otherwise disables it.
+
+==== Track: Mute/unmute
+
+Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the track.
+
+==== Track: Peak
+
+This is a feedback-only target!
+It turns your feedback-capable controller into a VU meter by constantly reporting the current volume of the configured track to it.
+
+In addition to connecting it with a LED ring or motor fader source (which should be obvious), it can also be used with a single LED to build a clipping indicator:
+
+. Set _Target Min_ to the minimum dB value that should make your clipping LED turn on.
+Leave _Target Max_ at 12.00 dB.
+. Make sure the _Out-of-range_ behavior is set to "Min or max".
+. If you have an LED that supports multiple colors, you will probably see a rainbow of colors flashing up which can be quite confusing.
+Use the feedback transformation formula `x = ceil(y)` to restrict the feedback to just two values:
+Min (0%) or Max (100%).
+You can then use _Source Min_ and _Max_ to adjust the off/on LED colors.
+
+At the moment this target only reports peak volume, not RMS.
+
+==== Track: Phase invert/normal
+
+Inverts the track phase if the incoming absolute control value is greater than 0%, otherwise switches the track phase back to normal.
+
+[#track-selectunselect]
+==== Track: Select/unselect
+
+Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the track.
+
+This target stops being learnable if you activate the REAPER preference "Mouse click on volume/pan faders and track buttons changes track selection" (because this preference would generate too many false positives).
+If you change the preference, ReaLearn will take it into consideration the next time you restart REAPER.
+
+* *Scroll TCP:* Also scrolls the track control panel to the desired track.
+* *Scroll mixer:* Also scrolls the mixer control panel to the desired track.
+
+==== Track: Set automation mode
+
+Sets the track to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default track automation mode "Trim/Read".
+
+* *Mode:* Here you can pick the desired automation mode.
+
+==== Track: Set monitoring mode
+
+Sets the track to a specific input monitoring mode if the incoming control value is greater than 0%, otherwise sets it back to "Off".
+
+* *Mode:* Here you can pick the desired monitoring mode.
+
+[#track-set-automation-touch-state]
+==== Track: Set automation touch state
+
+When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control element which is bound to the automation envelope or not.
+As long as you keep touching it, it will overwrite existing automation.
+As soon as you release it, REAPER will leave the envelope untouched.
+
+Classical control surfaces implement this very intuitively by providing touch-sensitive faders.
+With this target, you can easily reproduce exactly this behavior via ReaLearn.
+You do this by mapping the touch event (which is usually nothing else than a MIDI note on/off message) to this target.
+The touch state is scoped to a particular track and parameter type which you can choose in the **Type* dropdown.
+
+However, ReaLearn wouldn't be ReaLearn if it wouldn't allow you to let totally different sources take control of the touch state.
+For example, if you have a push encoder, you could map the "push" event to the touch state, allowing you to write automation only while you are touching the encoder.
+Or if you don't have a push encoder, you could just use some spare button.
+
+==== Track: Set pan
+
+Sets the track's pan value.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.pan.mcu | Pan value tailored to one line on a Mackie Control LCD
+|===
+
+==== Track: Set stereo pan width
+
+Sets the track's width value (applicable if the track is in stereo pan mode).
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.width.mcu | Width value tailored to one line on a Mackie Control LCD
+|===
+
+[[track-set-volume]]
+==== Track: Set volume
+
+Sets the track's volume.
+
+==== Track: Show/hide
+
+Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
+
+* *Area:* Lets you decide if you want it to show/hide in the track control panel or the mixer.
+
+[#track-solounsolo]
+==== Track: Solo/unsolo
+
+Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the track.
+
+Provides the following additional settings:
+
+* *Behavior:* See the REAPER user guide for details.
+** *Solo in place:* Soloes the track while respecting REAPER's routing.
+This is REAPER's default and since ReaLearn v2.4.0 also ReaLearn's default.
+** *Solo (ignore routing):* Soloes the track muting everything else, no matter the routing.
+** *Use REAPER preference:* Follows whatever is set in the REAPER preferences.
+
+Learning this target by pressing the "Solo" button of the _master_ track is currently not possible but of course you can just select it manually in the dropdown menu.
+
+==== FX chain: Browse FXs
+
+Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
+To be used with endless rotary encoders or previous/next-style "Incremental buttons".
+
+* *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
+
+[#fx-target]
+==== FX
+
+A target that allows you to define an FX, in its basic variant perfect for acquiring feedback for a specific FX.
+
+The setting **Act/Tags** allows you to optionally set/pin the declared FX as <<unit-fx>>.
+This works pretty much the same as described in target <<track-target>>.
+
+[#fx-enabledisable]
+==== FX: Enable/disable
+
+Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise disables it.
+
+==== FX: Set online/offline
+
+Sets the FX instance online if the incoming absolute control value is greater than 0%, otherwise sets it offline.
+
+[#fx-load-snapshot]
+==== FX: Load snapshot
+
+Restores a certain state of a particular FX.
+Before using this target, you need to take a snapshot of the desired FX state using the _Take!_ button.
+This snapshot will be saved as part of ReaLearn's state itself and as a direct consequence as a part of your project.
+This makes your project nicely self-contained.
+It's perfect for activating particular FX presets because it will always restore the desired state, even if the preset list has changed.
+
+This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
+
+Please note that some plug-ins have _very large_ states.
+Therefore you should keep an eye on the snapshot size, which will be displayed once you take the snapshot.
+ReaLearn's own state will grow with every new snapshot mapping, so this can quickly add up and make REAPER/ReaLearn slow!
+
+[#fx-browse-presets]
+==== FX: Browse presets
+
+Steps through FX presets.
+
+This target is suited for use with knobs, encoders and incremental buttons (previous/next) because it allows you to step through the complete preset list.
+The minimum value always represents _No preset_ whereas the maximum value always represents the last available preset.
+
+It's _not_ suited for activating a particular preset (e.g. by setting _Target Min_ and _Max_ to the same value), because the preset list of an FX is usually not constant.
+As soon as you modify the preset list, this value will might suddenly point to a completely different preset.
+Even worse, the actual preset might have been deleted.
+
+If you want to activate a particular preset, please use the <<fx-load-snapshot,FX: Load snapshot>> target instead.
+
+==== FX: Open/close
+
+Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
+
+* *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating window.
+
+==== FX parameter: Set automation touch state
+
+This does the same as <<track-set-automation-touch-state>> but for FX parameter value changes.
+
+[#fx-set-parameter-value]
+==== FX parameter: Set value
+
+Sets the value of a particular track FX parameter.
+
+* *Parameter:* The parameter to be controlled.
+Please note that both <<particular-fx-selector>> and <<at-position-selector>> address the FX by its position in the FX chain.
+The difference between the two is that <<particular-selector>> shows a dropdown containing the available parameters and <<at-position-selector>> lets you enter the position as a number in a text field.
+Latter is useful if at the time of choosing the position, the FX is not available.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+target.fx_parameter.index
+|
+Zero-based index of the resolved FX parameter.
+
+|
+target.fx_parameter.name
+|
+Name of the resolved FX parameter.
+
+|
+target.fx_parameter.macro.name
+|
+Name of the corresponding Pot macro parameter. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.section.name
+|
+Name of the corresponding Pot macro parameter section. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.section.index
+|
+Zero-based index of the corresponding Pot macro parameter section (within the current bank). Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.new_section.name
+|
+Name of the corresponding Pot macro parameter section, but only if this parameter marks the start of a new section. Only works if this parameter is part of a preset loaded via Pot.
+
+|
+target.fx_parameter.macro.bank.name
+|
+Name of the corresponding Pot macro parameter bank. Only works if this parameter is part of a preset loaded via Pot.
+|===
+
+[#pot-browse-filter-items]
+==== Pot: Browse filter items
+
+This target can be used to filter the potentially very large collection of presets in  <<pot-browse-presets>>.
+The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available filter items, e.g. instruments or banks.
+
+* *Kind:* Choose the kind of filter items that you want to browse.
+They correspond to the filters available in <<pot-browser>>.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+target.item.name
+|
+Name of the filter item.
+
+|
+target.item.parent.name
+|
+Name of the parent filter item if there's any. E.g. the instrument to which a bank belongs or the type to which a sub type belongs.
+|===
+
+[#pot-browse-presets]
+==== Pot: Browse presets
+
+Use this target to browse a collection of presets.
+By default, this is the complete collection of presets available in all supported databases, so potentially thousands of presets.
+If you want to browse just a subset, see <<pot-browse-filter-items>>.
+
+The idea is to map this target to an endless rotary encoder or previous/next buttons (using <<incremental-button>> mode) and then navigate within the available presets.
+Once you have selected a preset, you can audition it via <<pot-preview-preset>> (if it's a sound preset) and load it via <<pot-load-preset>>.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+target.preset.name
+|
+Name of the preset.
+
+|
+target.preset.product.name
+|
+Name of the product to which this preset belongs, if available.
+
+|
+target.preset.file_ext
+|
+File extension of the preset, in case it's a file-based preset.
+
+|
+target.preset.author
+|
+Name of the preset author, if available.
+
+|
+target.preset.vendor
+|
+Name of the preset vendor, if available.
+
+|
+target.preset.comment
+|
+Preset comment, if available.
+
+|===
+
+[#pot-preview-preset]
+==== Pot: Preview preset
+
+Auditions a preset selected via <<pot-browse-presets>>.
+Only works if it's a sound preset and a sound preview file is available.
+
+[#pot-load-preset]
+==== Pot: Load preset
+
+Loads a preset selected via <<pot-browse-presets>>.
+
+NOTE: This needs at least REAPER version 6.69+dev1030! Also, it only works if you have the VST2/VST2i version of the corresponding plug-in installed.
+- *NKS audio file presets:* Loading supported via ReaSamplOmatic5000
+
+Settings:
+
+* *Track/FX:* You must tell the target at which FX slot to load the corresponding plug-in.
+The best idea is to use FX selector <<at-position-selector>>.
+Selectors such as <<particular-fx-selector>> or <<named-fx-selector>> are not suited because the target might replace the plug-in with another one, in which the unique FX ID and the FX name can change.
+Then the target would turn inactive and stop working.
+
+This target supports the same additional placeholders for textual feedback expressions as <<pot-browse-presets>>.
+The only difference is that the ones in <<pot-load-preset>> relate to the currently loaded preset, not the one that's selected in the preset browser.
+
+==== Send: Automation mode
+
+Sets the track send to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default automation mode "Trim/Read".
+
+==== Send: Mono/stereo
+
+Sets the track send to mono or back to stereo.
+
+==== Send: Mute/unmute
+
+Mutes/unmutes the track send.
+
+==== Send: Phase invert/normal
+
+Inverts the track send phase or switches it back to normal.
+
+==== Send: Set automation touch state
+
+This does the same as <<track-set-automation-touch-state>> but for send volume or pan adjustments.
+
+==== Send: Set pan
+
+Sets the track send's pan value.
+
+==== Send: Set volume
+
+Sets the track send's volume.
+
+==== Playtime: Slot management action
+
+_Under construction_
+
+==== Playtime: Slot transport action
+
+_Under construction_
+
+==== Playtime: Slot seek
+
+_Under construction_
+
+==== Playtime: Slot volume
+
+_Under construction_
+
+==== Playtime: Column action
+
+_Under construction_
+
+==== Playtime: Row action
+
+_Under construction_
+
+==== Playtime: Matrix action
+
+_Under construction_
+
+==== Playtime: Control unit scroll
+
+_Under construction_
+
+==== Playtime: Browse cells
+
+_Under construction_
+
+[#midi-send-message-target]
+==== MIDI: Send message target
+
+Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages.
+This target turns ReaLearn into a capable and convenient MIDI/OSC/Keyboard-to-MIDI converter.
+
+===== Output
+
+Where to send the MIDI message.
+
+* *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows into the FX below ReaLearn, e.g. a VST instrument.
++
+* *Feedback output:* Sends the MIDI message to the device which is set as _output_.
+* *Input device:* Injects the MIDI message into the current MIDI input device buffer.
+Enables a unique feature called "Global MIDI transformation", as shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+===== Device
+
+When choosing output _Input device_, you can choose into which MIDI input device buffer the message will be injected.
+
+* *<Same as input device>:* Injects the message into the same buffer of the MIDI input device chosen as <<input-menu>>.
+* *_Specific input device_:* Injects the message into another specific MIDI input device.
+This can be useful for doing global MIDI transformation with controllers that expose multiple MIDI input ports.
+An practical example is shown in link:https://www.youtube.com/watch?v=WJiwmlJSsi8&list=PL0bFMT0iEtAgKY2BUSyjEO1I4s20lZa5G&index=11[tutorial video 11].
+
+===== Pattern
+
+Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation.
+It also allows you to encode the incoming _absolute_ control value as part of the message (after it has been processed by the Glue section).
+The syntax for doing this takes some getting used to, but it's very flexible.
+It's exactly the same syntax as used in the <<raw-midi-source,Raw MIDI source>>.
+Please read about it there!
+
+===== ...
+
+Provides predefined patterns.
+
+[NOTE]
+====
+This target is a bit special in that it carries out its processing logic exclusively in the audio thread if it's controlled by a MIDI source.
+This has the big advantage that receiving and producing MIDI messages happens in one go (without inter-thread-communication latency), which is often important when using MIDI message conversion.
+
+However, this also means that the following things won't work when controlling this target using MIDI:
+
+* It can't take the lead in <<group-interaction>>.
+* It won't work with timed <<fire-mode, fire modes>>.
+* If _output_ is set to <<fx-output>>, additional limitations apply:
+** It can't act as a follower in <<group-interaction>>, either.
+** It can't participate in <<realearn-load-mapping-snapshot>>.
+====
+
+[#osc-send-message]
+==== OSC: Send message
+
+Sends OSC messages with up to one argument in response to incoming messages.
+This target turns ReaLearn into a capable and convenient MIDI → OSC and OSC → OSC converter.
+If an argument number is entered (e.g. `1`), it will encode the incoming absolute control value as that argument (after it has been processed by the glue section).
+
+* *Output:* Where to send the OSC message.
+** *<Feedback output>:* Sends the OSC message to the device which is set as _Output_.
+Of course this only works if it's an OSC device.
+** *_Specific device:_* Sends the OSC message to a specific device.
+* *Address*,  *Argument* and *Range*: These correspond to the identically named settings of <<osc-source,OSC sources>>.
+Check that section for details.
+
+[#realearn-enable-disable-instances]
+==== ReaLearn: Enable/disable instances
+
+This target allows you to flexibly enable or disable other ReaLearn instances based on the unit tags of their units:
+
+* *Exclusivity*
+** *Non-exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled (on top of the already enabled instances).
+If the value is 0%, all matching ReaLearn instances will be disabled.
+** *Exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled and all non-matching ones will be disabled.
+If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
+* *Tags:* A ReaLearn instance matches when at least one of its units is tagged with any of the tags entered in this field (comma-separated).
+
+TIP: Use the main panel to assign tags to a ReaLearn unit.
+
+Please note:
+
+* This affects other ReaLearn units only.
+It doesn't match against this unit.
+* ReaLearn instances which don't contain units with tags won't be affected at all.
+* Only affects instances in the same project.
+If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other instances in the monitoring FX chain.
+
+TIP: This target is great for switching between completely different controller setups!
+
+[#realearn-dummy-target]
+==== ReaLearn: Dummy target
+
+This target simply does nothing when invoked and also doesn't provide any meaningful feedback on its own.
+
+It's sometimes useful to have such a dummy target, e.g. combined with <<group-interaction>>.
+Or if you want to use ReaLearn as a MIDI filter which just "eats" an incoming MIDI message.
+Or if you want to send some text feedback to a hardware display, if the text is just a constant string or uses a placeholder that doesn't need target context.
+
+[#realearn-enable-disable-mappings]
+==== ReaLearn: Enable/disable mappings
+
+This target allows you to flexibly enable or disable other mappings in this unit based on their tags:
+
+* *Exclusivity*
+** *Non-exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled (on top of the already enabled mappings).
+If the value is 0%, all matching mappings will be disabled.
+** *Exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled and all non-matching ones will be disabled.
+If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
+* *Tags:* A mapping matches when it is tagged with any of the tags entered in this field (comma-separated).
+
+TIP: Use the text field on the top of the mapping panel to assign tags to a mapping.
+
+Please note:
+
+* This really affects other mappings only, not _this_ mapping.
+* Mappings without tags won't be affected at all.
+
+TIP: This target is a straightforward alternative to <<conditional-activation>>, especially when it comes to bank switching!
+
+[#realearn-load-mapping-snapshot]
+==== ReaLearn: Load mapping snapshot
+
+Restores target values for all or certain mappings in this ReaLearn unit.
+
+* *Snapshot:* Choose the snapshot that you want to load.
+** *<Initial>:* Restores the initial target values for the mappings.
+** *By ID:* Restores target values contained in a snapshot that was taken via <<realearn-take-mapping-snapshot>>.
+Simply enter the corresponding ID here.
+* *Default:* Allows you to define a default target value to restore for each participating mapping whenever the snapshot either doesn't exist or doesn't contain a value for that mapping.
+If that participating mapping has <<Reverse>> checked, the inverse of the default value will be loaded.
+* *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
+** If this field is empty, target values of all mappings will be restored.
+** If this field contains tags (comma-separated), target values will be restored only for mappings that are tagged with any of these.
+* *Active mappings only:* By default, even target values for inactive (but control-enabled) mappings are restored!
+If you don't like that, tick this checkbox.
+
+Please note:
+
+* Mappings for which control is not enabled, never participate in snapshotting.
+* Some targets don't report values and therefore don't participate in snapshotting.
+* Feedback of this target indicates whether the desired snapshot is the one which has last been loaded (for the given tags).
+
+==== ReaLearn: Modify mapping
+
+Triggers a modification of another ReaLearn mapping.
+
+* *Kind:* The kind of modification.
+** *Learn target:* Switches "Learn target" on or off for the destination mapping.
+Use button kbd:[...] to pick the considered target types and invocations to be included in the learning process.
+** *Set target to last touched:* Sets the target of the destination mapping to the last-touched target.
+Use button kbd:[...] to pick the considered target types and invocations.
+* *Unit:* Allows you to pick another ReaLearn unit.
+* *Mapping:* Allows you to pick the destination mapping.
+
+TIP: This target is great to "pin" targets to certain control elements on demand.
+
+[#realearn-take-mapping-snapshot]
+==== ReaLearn: Take mapping snapshot
+
+Memorizes target values for all or certain mappings in this ReaLearn units and saves them in a snapshot of your choice.
+
+* *Snapshot*: Choose the snapshot to which you want to save the mapping values.
+** *<Last loaded>:* Always chooses the snapshot which is currently active (was last loaded) for the given tags.
++
+TIP: Only works if tags are not empty and if all tags have the same last-loaded snapshot.
+So the best is if you always enter exactly one tag.
+** *By ID:* Enter the unique ID of the snapshot, e.g. `scene_1`.
+* *Tags:* Allows you to restrict the set of mappings whose target values will be memorized.
+** If this field is empty, target values of all mappings will be memorized.
+** If this field contains tags (comma-separated), target values will be memorized only for mappings that are tagged with any of these.
+* *Active mappings only:* By default, even target values of inactive (but control-enabled) mappings end up in the snapshot!
+If you don't like that, tick this checkbox.
+
+[#realearn-browse-group-mappings]
+==== ReaLearn: Browse group mappings
+
+This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
+
+"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its glue section (by default 100%).
+
+* *Group:* The group that you want to browse.
+* *Exclusivity*
+** *Non-exclusive:* Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings.
+In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different.
+Or if the target itself already takes care of exclusivity.
+** *Exclusive:* Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%).
+Be careful with this, you often won't need it.
+
+Please note:
+
+- Inactive mappings are skipped.
+
+[TIP]
+====
+Mapping lend themselves perfectly for defining things that should happen _in sequence_.
+This target allows you to take advantage of that!
+
+- Combine it with <<realearn-enable-disable-mappings>> to browse different banks.
+- Combine it with <<realearn-enable-disable-instances>> to browse completely different controller setups (or banks).
+- Combine it with targets that don't provide a "Browse ..." variant themselves.
+- Use it as an alternative to <<target-value-sequence,target value sequences>> that allows you to have completely different targets within one sequence.
+====
+
+[#virtual-target-category]
+=== Category "Virtual"
+
+This is exactly the counterpart of the possible <<virtual-source,virtual sources>>.
+Choosing a virtual target here is like placing cables between a control element and all corresponding main mappings that use this virtual control element as source.
+
+==== Learnable
+
+If you disable this checkbox, this virtual source will not be learnable via "Learn source" in the main compartment.
+This can be useful for rather unimportant sources such as "Fader touch" that would otherwise make it very hard to learn more important sources such as "Fader movement".
+
 == Key concepts
 
 This section explains the most important concepts used in ReaLearn.
@@ -4324,15 +4073,305 @@ If importing Luau code fails and the displayed error message is not helpful, you
 This action enables you to just execute step 1 and see the "expanded" result.
 This can help to make sense of a possible validation error message in step 2.
 
-=== Object selectors
+[[target-object-selectors]]
+=== Target object selectors
 
-[[sticky-and-non-sticky-object-selectors]]
-==== Sticky and non-sticky object selectors
+Many ReaLearn <<target, targets>> work on some kind of _object_:
+
+* A track
+* An FX
+* An FX parameter
+* A send or receive
+
+All of those objects need to be _addressed_ somehow.
+For this purpose, ReaLearn uses so-called _object selectors_.
+
+==== Commonly available object selectors
+
+This section describes commonly available object selectors.
+
+NOTE: The descriptions below are somewhat tailored to track objects.
+However, the same concepts can easily be applied to other objects that support these selectors.
+
+[#unit-selector]
+===== Unit selector
+
+This selector makes the target work on the current <<unit-track>> or current <<unit-fx>> of this particular ReaLearn <<unit>>.
+
+[#particular-selector]
+===== Particular selector
+
+Lets you pick a specific object (e.g. track) and refer to it by its unique ID.
+This is the default.
+Choose this if you want ReaLearn to always control that very particular track even in case you move it somewhere else or rename it.
+
+Please note that this is an extremely <<sticky-selectors,sticky>> selector.
+It's
+_not possible_ with this setting to create a ReaLearn preset that is reusable among different projects.
+Because a track ID is globally unique, even across projects.
+That also means it doesn't make sense to use this setting in a ReaLearn <<unit>> on the monitoring FX chain.
+
+[#at-position-selector]
+===== At position selector
+
+This is the most straightforward selector.
+It lets you refer to a track by its position in the track list.
+This is great if you want to build a preset that you are going to reuse among multiple projects.
+
+However, this selector has the disadvantage that things fall apart if you reorder, insert or delete tracks.
+This is why it's not the default.
+
+Next to the dropdown you will find a text field.
+Here you should enter the position as number, starting with number `1`.
+
+[#named-selector]
+===== Named selector
+
+Allows you to choose a track depending on its name.
+In case there are multiple tracks with the same name, it will always prefer the first one.
+This will allow you to use one ReaLearn preset across multiple projects that have similar naming schemes, e.g. as monitoring FX.
+
+In the name field next to the dropdown, you can enter a name.
+
+If you don't want exact matching, you can use wildcards:
+
+[horizontal]
+`*`:: for matching zero or arbitrary many characters
+`?`:: for matching exactly one arbitrary character.
+
+.Wildcards in named selectors
+====
+`Violin *` would match `Violin 1` or `Violin 12` but not `12th Violin`.
+====
+
+[#dynamic-selector]
+===== Dynamic selector
+
+This selector allows you to _calculate_ which object (e.g. track) you want to use.
+
+When you choose this option, a text field will appear next to it.
+This lets you enter a mathematical expression whose result should be the object's _index_.
+E.g. the first track in the project has index 0, the master track -1. For your convenience, you will find a small text label next to the expression text field that always shows the current result of your formula (clamped to the target value range).
+
+NOTE: Please note that the expression language is _not_ EEL - this is a notable difference to ReaLearn's control/feedback transformation text fields!
+The expression language used here just provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also doesn't allow or need any assignment to an output variable.
+
+The dynamic selector is a very powerful tool because you can use some special variables:
+
+[cols="m,1,1,3"]
+|===
+| Variable | Type | Applicable to | Description
+
+| none | - | All selectors |
+Special value that represents a "not set" value. See below for examples.
+
+| p | Array of floating-point numbers | All selectors |
+Allows you to access the values of ReaLearn's internal parameters. E.g. you can get the number of the first parameter by writing `p[0]`.
+
+By default, parameter values are normalized floating point values, that means they are decimal numbers between 0.0 and 1.0. This can be changed by customizing the parameter with a specific integer value count (see <<compartment-parameter>>).
+
+| p1 ... p100 | Floating-point numbers | All selectors |
+Values of ReaLearn's internal parameters as single variables.
+
+_Deprecated_: Recent ReaLearn versions offer the `p` array instead. Better use that one.
+
+
+| selected_track_index | Integer >= -1 | Track selectors |
+Resolves to the zero-based index of the first currently selected track within the containing project.
+If no track is selected, this resolves to `none`. If the master track is selected, `-1`.
+
+| selected_track_tcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the track control panel.
+
+| selected_track_mcp_index | Integer >= -1 | Track selectors |
+Like `selected_track_index` but counts only tracks that are visible in the mixer control panel.
+
+| selected_track_indexes | Array of integers >= -1 | Track selectors |
+Lets you access the indexes of multiple selected tracks.
+
+E.g. if 2 tracks are selected, `selected_track_indexes[0]` gives you the index of the first selected track whereas `selected_track_indexes[1]` gives you the index of the second selected track. `selected_track_indexes[2]` would resolve to `none`.
+
+| this_track_index | Integer >= -1 | Track selectors |
+
+Resolves to the zero-based index of the track on which this ReaLearn instance is located.
+
+| instance_track_index | Integer >= -1 | Track selectors |
+
+Resolves to the zero-based index of the instance track of this ReaLearn instance.
+
+| instance_track_tcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the track control panel.
+
+| instance_track_mcp_index | Integer >= -1 | Track selectors |
+
+Like `instance_track_index` but counts only tracks that are visible in the mixer control panel.
+
+| this_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of this ReaLearn FX instance.
+
+| instance_fx_index | Integer >= 0 | FX selectors |
+
+Resolves to the zero-based index of the instance FX of this ReaLearn instance.
+
+| tcp_fx_indexes | Array of integers >= 0 | FX selectors |
+
+Lets you access the indexes of FXs in a track control panel.
+
+E.g. `tcp_fx_indexes[2]` will resolve to the index of the third FX displayed in the track control panel.
+
+| tcp_fx_parameter_indexes | Array of integers >= 0 | FX parameter selectors |
+
+Lets you access the indexes of FX parameters in a track control panel.
+
+E.g. `selected_fx_parameter_indexes[2]` will resolve to the index of the third FX parameter displayed in the track control panel.
+
+This only makes sense if used in conjunction with `tcp_fx_indexes`.
+
+|===
+
+.Simple example
+====
+`p1 * 99`
+
+* Will point to track with index 0 (first track) if <<compartment-parameter>> 1 is set to the minimum and to track with index 99 (= track number 100) if it's set to the maximum.
+* If you use a formula like that, you should make sure that <<compartment-parameter>> 1 is controlled with a step size that allows for exactly 100 different values.
+This conforms to ReaLearn's default step size 0.01 = 1%.
+* Since ReaLearn 2.13, this is easier because it adds support for integer parameters:
+** Set the <<set-compartment-parameter-value-count>> of the parameter to 100
+** You can now treat the parameter in the formula as an integer (just `p1` instead of `p1 * 99`).
+** Most importantly, ReaLearn will take care of using the correct step size automatically when setting up a mapping for controlling that parameter.
+====
+
+.More complex example
+====
+`p1 * 3 * 100 + p2 * 99`
+
+This will treat <<compartment-parameter>> 1 as a kind of bank selector that allows you to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each.
+<<compartment-parameter>> 2 will select the track number within the bank.
+You see, this is very flexible.
+====
+
+==== Additional object selectors for tracks
+
+===== <This> selector
+
+Track which hosts this ReaLearn instance.
+If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
+
+[#selected-selector]
+====== <Selected> selector
+
+Currently selected track.
+If multiple tracks are selected, refers only to the first one.
+
+====== <All selected> selector
+
+All currently selected tracks.
+This makes track targets (not FX target and not send targets) do their job on _all_ selected tracks.
+The feedback value always corresponds to the highest value among all selected tracks.
+
+CAUTION: If you select many tracks, things can become quite slow!
+
+====== <Master> selector
+
+Master track of the project which hosts this ReaLearn instance.
+
+* If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
+* If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX chain, this option is the right choice as well.
+Make sure to enable the "Monitoring FX" checkbox.
+
+====== All named selector
+
+Allows you to use wildcards (see <<named-selector>>) to make track targets do their thing on all matching tracks instead of only the first one.
+
+====== At TCP position selector
+
+Like <<at-position-selector>> but just considers tracks that are visible in the track control panel.
+
+====== At MCP position selector
+
+Like <<at-position-selector>> but just considers tracks that are visible in the mixer control panel.
+
+====== Dynamic (TCP) selector
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the track control panel.
+
+====== Dynamic (MCP) selector
+
+Like <<dynamic-selector>> but the result should be an index counting only tracks visible in the mixer control panel.
+
+====== By ID or name (legacy) selector
+
+This lets you refer to a track by its unique ID and name as fallback.
+This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
+
+IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
+
+==== Additional target selectors for FXs
+
+===== <This> selector
+
+Always points to the own ReaLearn FX <<instance>>.
+Perfect for changing own parameters, e.g. for usage of the conditional activation or <<dynamic-selector>> features (especially important if you want to create reusable presets that make use of these features).
+
+[[fx-focused-selector]]
+====== Focused selector
+
+Currently or last focused FX. _Track_ and _Input FX_ settings are ignored.
+
+[#particular-fx-selector]
+====== Particular selector
+
+Lets you pick a specific FX in the FX chain.
+Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX.
+Please note that this only makes sense if you address the containing track using <<particular-selector>> as well.
+
+[#named-fx-selector]
+====== Named selector
+
+Lets you address the FX by its name in the FX chain.
+Just as with tracks, you can use wildcards to have a blurry search.
+
+[#all-named-fx-selector]
+====== All named selector
+
+Allows you to use wildcards (see <<named-fx-selector>>) to make FX targets do their thing on all matching FX instances instead of only the first one.
+
+====== By ID or position (legacy) selector
+
+This refers to the FX by its unique ID with its position as fallback.
+This was the default behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
+
+IMPORTANT: **This selector is deprecated!** You shouldn't use it anymore.
+
+[[sticky-selectors]]
+==== Sticky selectors
 
 We call object selectors _sticky_ if they refer to a particular object (e.g. a track).
 
-Sticky selectors:::: `<Master>`, `<This>`, `Particular`
-Non-sticky selectors:::: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+Sticky selectors:: `<Master>`, `<This>`, `Particular`
+
+Non-sticky selectors:: `<Dynamic>`, `<Focused>`, `<Selected>`, `<Unit>`, `<All selected>`, `Named`, `All named`, `At position`, `From Playtime column`
+
+[[target-value-polling]]
+=== Target value polling
+
+Target value polling makes ReaLearn query the current value of a target every few milliseconds as part of the main application loop in order to send up-to-date feedback to your controller at all times.
+
+IMPORTANT: Target value polling is not necessary for most targets because usually ReaLearn takes advantage of REAPER's internal notification system to get notified about target value changes (which is good for performance).
+For the few targets for which it is, this option is enabled by default in order to give you the best feedback experience out-of-the-box.
+
+Remarks:
+
+* For most targets that support polling, if you disable polling, automatic feedback for that target will simply stop working.
+This means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself (not using ReaLearn).
+* The <<fx-set-parameter-value>> target is an exception.
+Automatic feedback will still work, even without _Poll for feedback_ enabled.
+But in the following corner cases it might not:
+** If the FX is on the monitoring FX chain.
+** If you change a preset from within the FX GUI.
 
 === Logging
 
@@ -5096,6 +5135,26 @@ Infinity
 Infinity value
 |===
 
+[[pot-browser]]
+=== Pot Browser
+
+Pot Browser is an experimental modern preset browser.
+It's just a prototype so far.
+It will probably look quite different in the future.
+You can open it via menu action <<open-pot-browser>>.
+
+It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
+
+TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
+
+Remarks:
+
+- Pot Browser is in an experimental stage, it doesn't save any of your settings!
+- Each ReaLearn instance has its own so-called _Pot Unit_.
+Each Pot Unit has its own filter and preset state.
+When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
+- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
+
 == Best practices
 
 === Use the controller compartment!
@@ -5238,26 +5297,6 @@ Currently supported properties (subject to change): `server_enabled`, `server_ht
 
 |===
 
-[[pot-browser]]
-== Pot Browser
-
-Pot Browser is an experimental modern preset browser.
-It's just a prototype so far.
-It will probably look quite different in the future.
-You can open it via menu action <<open-pot-browser>>.
-
-It's recommended to use Pot Browser from a ReaLearn instance on the monitoring FX chain, that way you have the browser accessible from any project.
-
-TIP: Add a toolbar button which triggers the REAPER action "ReaLearn: Open first Pot Browser" to get quick and convenient access to the browser.
-
-Remarks:
-
-- Pot Browser is in an experimental stage, it doesn't save any of your settings!
-- Each ReaLearn instance has its own so-called _Pot Unit_.
-Each Pot Unit has its own filter and preset state.
-When you open the Pot Browser from an instance, it connects to the Pot Unit of that instance.
-- ReaLearn's "Pot" targets such as <<pot-browse-presets>> can be used to control the Pot Unit from any controller.
-
 == Best practices
 
 [[best-practices-input-output,Best practices for setting input and output]]
@@ -5315,53 +5354,3 @@ ReaLearn is rather declarative in nature and a scripting language would destroy 
 Why don't you save the text, just the structure?::
 * Mostly because saving just the structure makes the entered data become a natural part of ReaLearn's main preset format (JSON).
 * Once we would start saving the actual text, it would be hard to go back.
-
-== Sandbox
-
-=== Keyboard macros
-
-|===
-|Shortcut |Purpose
-
-|kbd:[F11]
-|Toggle fullscreen
-
-|kbd:[Ctrl+T]
-|Open a new tab
-
-|kbd:[Ctrl+Shift+N]
-|New incognito window
-
-|kbd:[\ ]
-|Used to escape characters
-
-|kbd:[Ctrl+\]]
-|Jump to keyword
-
-|kbd:[Ctrl + +]
-|Increase zoom
-|===
-
-=== Button macros
-
-Press the btn:[OK] button when you are finished.
-
-Select a file in the file navigator and click btn:[Open].
-
-=== Menu macros
-
-menu:View[Zoom > Reset]
-
-This menu allows you to manage files, including creating, opening, and saving.
-
-=== Menu descriptions
-
-[horizontal]
-New:: Allows you to create a new file.
-Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.Allows you to create a new file.
-
-Open::
-Allows you to open an existing file.
-
-Save::
-Allows you to save the current file.
