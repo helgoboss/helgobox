@@ -974,80 +974,77 @@ Will open an online version of the user guide section that describes the availab
 
 ==== Source section
 
-All <<source>> types share the following common settings and functions:
+All <<available-source-types>> share the following UI elements.
 
 ===== Learn button
 
-Starts or stops learning the source of this mapping.
+Starts or stops learning the <<source>> of this mapping.
 
 ===== Category menu
 
 Lets you choose the source category.
-
-None:: A special kind of source that will never emit any events.
-It's intended to be used on mappings which are not supposed to be controlled directly but only via <<group-interaction>>.
-
-MIDI:: Incoming MIDI events.
-
-OSC:: Incoming OSC events.
-
-REAPER:: Events that can occur within REAPER.
-
-Virtual:: Invocations of <<virtual-control-element,virtual control elements>> (coming from the <<controller-compartment>>).
-This source category is available in the <<main-compartment>> only.
 
 ===== Type menu
 
 Lets you choose the source type.
 Available types depend on the selected category.
 
-All other UI elements in this section depend on the chosen category.
+All other UI elements in this section depend on the chosen source type.
+See <<available-source-types>>.
 
 [[target-section]]
 ==== Target section
 
-===== Common target elements
+All <<available-target-types>> share the following UI elements.
 
-====== Learn
+===== Learn button
 
 Starts or stops learning the target of this mapping.
 
-====== Menu
+===== Menu
 
 Opens a small menu related to the target section:
 
-- *Pick recently touched target (by type):* Gives you a list of recently touched parameters or executed actions in REAPER.
+Pick recently touched target (by type)::
+Gives you a list of recently touched parameters or executed actions in REAPER.
 When you click one of it, the target will be populated accordingly.
-It's an alternative to "Learn".
+It's an alternative to btn:[Learn].
++
 Please note that not all targets can be picked that way, some have to be configured manually.
-- *Go there (if supported):* If applicable, this makes the target of this mapping visible in REAPER.
+
+Go there (if supported):: If applicable, this makes the target of this mapping visible in REAPER.
 E.g. if the target is a track FX parameter, the corresponding track FX window will be displayed.
 
-====== Type
+===== Category menu
 
-* *Left dropdown:* Lets you choose the target category.
-** *Real:* Targets that are about actually changing something "real", e.g. in REAPER or ReaLearn itself.
-** *Virtual:* Targets that invoke virtual control elements.
-This source category is available for controller mappings only.
-* *Right dropdown:* Lets you choose a target type within that category.
+Lets you choose the target category.
 
-====== Value
+===== Type menu
+
+Lets you choose a target type within that category.
+
+===== Value section and field
 
 Reflects the current value of this mapping target and lets you change it (either via slider and text field or via buttons, depending on the target character).
 
-* If the target can't be resolved at the moment, it will show "Target currently inactive!".
+If the target can't be resolved at the moment, it will show "Target currently inactive!" instead.
 
-====== Unit button
+===== Unit button
 
 On the right side of the current value you will see a button with a label such as `1. dB (%)`.
-This button displays the currently selected unit which is used for displaying and entering target values.
-The number in the parentheses denotes the unit which is used for displaying and entering target step sizes.
-Clicking the button switches between the units.
-Currently there are two options:
+This button displays the currently selected target unit (unrelated to the <<unit>> concept) which is used for displaying and entering target values.
 
-* *1. Use native target units*: Uses the target-specific unit, e.g. dB for volume targets.
+The number in the parentheses denotes the unit which is used for displaying and entering target step sizes.
+
+Clicking the button switches between the units.
+Currently, there are two options:
+
+(1) Use native target units::
+Uses the target-specific unit, e.g. dB for volume targets.
 If the target doesn't have any specific units, it will displayed as `1. - (-)`.
-* *2. Use percentages*: Uses percentages for everything, which can be nice to get a uniform way of displaying/entering values instead of having to deal with the sometimes clunky target-specific units.
+
+(2) Use percentages::
+Uses percentages for everything, which can be nice to get a uniform way of displaying/entering values instead of having to deal with the sometimes clunky target-specific units.
 
 ===== Common selectors
 
@@ -3106,6 +3103,11 @@ The right text area shows information about which feedback values are sent from 
 
 ReaLearn supports the following <<source>> types.
 
+=== Category "None"
+
+A special kind of source that will never emit any events.
+It's intended to be used on mappings which are not supposed to be controlled directly but only via <<group-interaction>>.
+
 === Category "MIDI"
 
 Most types in the MIDI category have the following UI elements in common.
@@ -3305,8 +3307,8 @@ If you want to know how to define which text shall be sent to the displays, plea
 This source reacts to MIDI program-change messages with a specific program.
 This is a trigger-only source, that means it always fires 100% (whenever the program number corresponds to the configured one).
 
-[#osc-source]
-=== OSC source
+[#osc-source,OSC source]
+=== Category "OSC"
 
 OSC sources allow configuration of the following aspects:
 
@@ -3426,7 +3428,7 @@ So it's important to write down automation *before* rendering.
 This source works for feedback only.
 It uses the native Windows or macOS text-to-speech engine to speak out any feedback value.
 
-=== Virtual source
+=== Category "Virtual"
 
 See <<virtual-source>>.
 
@@ -3444,7 +3446,7 @@ The convenient picker provides IDs from standardized <<virtual-control-scheme, v
 
 ===== ID field
 
-Lets you to enter the ID manually.
+Lets you enter the ID manually.
 
 [[available-target-types]]
 == Available target types
