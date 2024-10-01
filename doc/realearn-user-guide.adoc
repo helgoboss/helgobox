@@ -33,7 +33,7 @@ link:https://www.helgoboss.org/projects/realearn[ReaLearn] is a versatile contro
 It is part of link:https://www.helgoboss.org/projects/helgobox[Helgobox].
 
 This reference describes each user interface element, each concept and each feature of ReaLearn in detail.
-You should use it whenever you want to know more about a specific element in the user interface or if you want to take a deeper dive into a specific functionality of ReaLearn.
+You should use it whenever you want to know more about a specific user interface element or if you want to take a deeper dive into a specific functionality of ReaLearn.
 **If you have never used ReaLearn before, please start with the link:https://github.com/helgoboss/helgobox/wiki/ReaLearn-Home[Wiki] instead!
 It's much more beginner-friendly.**
 
@@ -60,16 +60,21 @@ The main panel is what you see immediately when you open the Helgobox plug-in wi
 
 image:images/screenshot-main-panel-annotated.svg[Main panel]
 
-The main panel provides the following user interface elements.
+It's divided into 3 larger areas:
+
+Header area:: The area at the top.
+It mainly provides functionality that affects the complete <<unit>> or the currently shown <<compartment>> within the unit.
+
+Mapping area:: The area in the middle.
+It contains one row for each mapping.
+
+Bottom area:: The area at the bottom.
 
 ==== Header area
 
-The header area is the upper part of the main panel.
-It mainly provides functionality related to the currently shown <<unit>> and <<compartment>>.
-
 ===== Input/output section
 
-The input and output are used to menu connect ReaLearn to a specific controller.
+This section is essential to connect ReaLearn to a specific controller.
 
 Also see <<best-practices-input-output>>.
 
@@ -105,7 +110,7 @@ This submenu contains OSC devices for which control is currently disabled.
 Allows one to display and modify the list of OSC devices (globally).
 
 <New>:::
-Opens a window for adding a new OSC device.
+Opens a dialog window for adding a new OSC device.
 See <<osc-device-dialog>>.
 
 _Some OSC device_:::
@@ -507,11 +512,11 @@ The following menu entries are available:
 This entry is selected by default.
 It means that no particular preset is active.
 +
-Selecting this when a preset is active will clear the complete compartment.
+Selecting this will always clear the complete compartment, including all mappings!
 
-Factory:: Contains available <<factory-compartment-preset>>.
+Factory:: Contains available <<factory-compartment-preset,factory presets>>.
 
-User (...):: Contains available <<user-compartment-preset>>.
+User (...):: Contains available <<user-compartment-preset,user presets>>.
 Multiple of such submenus may exist.
 Each one represents a different preset namespace/workspace.
 The namespace named after you (macOS/Linux/Windows username) is your personal user namespace.
@@ -637,7 +642,7 @@ Unlike <<filter-source-button>>, ReaLearn will automatically stop learning as so
 
 Press the btn:[X] button to clear the filter and show all mappings again.
 
-==== Mapping rows area
+==== Mapping area
 
 The mapping rows area consists of multiple mapping rows.
 One for each mapping.
@@ -655,7 +660,7 @@ This checkbox at the top left of the mapping row enables or disables the mapping
 
 ====== Activity indicator (●)
 
-This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source.
+This indicator at the very left of the mapping row lights up on incoming control messages whenever they match the mapping source.
 
 Attention: This doesn't necessarily mean that the message will reach the target, although it often does.
 There are certain settings in the <<glue>> section which allow you to filter messages even they matched the source (e.g. <<source-min-max>>).
@@ -711,11 +716,9 @@ Log debug info (now)::: Logs debug information about this particular mapping.
 
 ==== Bottom area
 
-===== Unit button
+===== Unit menu
 
-See <<unit>>.
-
-Press the button will reveal a menu with the following actions:
+Press the button will reveal a menu with the following actions to manage <<unit,Units>>:
 
 Remove current unit:: Removes the current unit.
 This can't be undone!
@@ -732,7 +735,7 @@ Row 1::
 * The current scroll position.
 * The <<instance-id>> of this Helgobox <<instance>>.
 * The <<unit-key>> of the currently visible ReaLearn <<unit>>.
-* Tags assigned to this ReaLearn <<unit>>.
+* <<unit-tags>> assigned to this ReaLearn <<unit>>.
 
 Row 2::
 * Information about the current <<unit-track>> and <<unit-fx>>.
