@@ -714,10 +714,12 @@ image:images/screenshot-main-panel-annotated.svg[Main panel]
 
 The main panel provides the following user interface elements.
 
-==== Input/output section
+==== Header area
+
+===== Input/output controls
 
 [#input-menu]
-===== Input menu
+====== Input menu
 
 Allows you to select the input to which this ReaLearn unit listens.
 ReaLearn works with MIDI or OSC input.
@@ -769,7 +771,7 @@ This is a checkbox.
 If enabled, this ReaLearn instance will additionally listen to key press and release events.
 
 [#output-menu]
-===== Output menu
+====== Output menu
 
 Here you can choose to which output ReaLearn should send MIDI/OSC feedback. _Feedback_ is what makes it possible to control LEDs, motor faders or displays on your device.
 Also see <<best-practice-output-device>>.
@@ -796,7 +798,7 @@ Manage OSC devices::
 See <<manage-osc-devices>> in the input section of the menu.
 
 [#osc-device-dialog]
-===== OSC device dialog
+====== OSC device dialog
 
 The OSC device dialog lets you edit the settings of a ReaLearn OSC device and can be opened via <<manage-osc-devices>>.
 
@@ -824,9 +826,9 @@ The UDP port on which the OSC device listens for OSC feedback messages.
 All OSC device configurations will be saved in the REAPER resource directory (REAPER → Options → Show REAPER resource path in explorer/finder) in the JSON file
 `Helgoboss/ReaLearn/osc.json`.
 
-==== Menu bar
+===== Menu bar
 
-===== Menu button
+====== Menu button
 
 This opens the main menu of Helgobox/ReaLearn.
 The same menu opens when you right-click an empty area.
@@ -1054,7 +1056,7 @@ This is useful if you have only one controller or if you have x controllers (= a
 * Location: REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
 
 [[fx-id-dialog]]
-===== FX ID dialog
+====== FX ID dialog
 
 The FX ID dialog is used to edit which properties of a FX trigger a preset change.
 It is opened via menu action <<edit-fx-id>>.
@@ -1084,7 +1086,7 @@ You can use `*` for matching zero or arbitrary many characters and `?` for match
 Example: Instead of relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2 and VST3 at once): `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) and `Pianoteq 7 STAGE.vst3` (VST3).
 ====
 
-===== Export to clipboard button
+====== Export to clipboard button
 
 Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance/unit or edit them in a text editor.
 See <<import-export>>.
@@ -1099,25 +1101,25 @@ Perfect for pasting in a forum or programming ReaLearn with focus on only those 
 This gives you the perfect starting point if you want to extensively modify the current compartment (using the Luau programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
 
 [[import-from-clipboard]]
-===== Import from clipboard button
+====== Import from clipboard button
 
 Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 It supports JSON or Luau.
 See <<import-export>>.
 
 [#projection-button]
-===== Projection button
+====== Projection button
 
 Click this button to enter ReaLearn's <<projection>> feature.
 You can choose between the old browser-based projection (which is going to disappear soon) and the new projection that is part of the Helgobox App (but not yet fully functional).
 Hopefully, the transition to the Helgobox App, including mobile versions of that App, will soon be finished.
 
-===== Help button
+====== Help button
 
 Provides helpful links to the user guide and other stuff.
 
 [[let-through-checkboxes]]
-==== Let through checkboxes
+===== Let through checkboxes
 
 See <<letting-through-events>>.
 
@@ -1127,14 +1129,14 @@ If unchecked (default), such events are filtered out.
 Unmatched:: If checked (default), mappings that are not matched by any mappings are let through.
 If unchecked, such events are filtered out.
 
-==== Show radio buttons
+===== Show radio buttons
 
 This lets you choose which mapping compartment is displayed.
 See <<compartments>>.
 
-==== Preset controls
+===== Preset controls
 
-===== Preset menu
+====== Preset menu
 
 This menu makes it possible to load compartment presets for the currently shown compartment.
 If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
@@ -1161,29 +1163,29 @@ User (Unsorted)::
 This submenu contains top-level presets which are not part of a particular preset namespace (or workspace).
 This was common in older versions of ReaLearn, when workspaces were not yet available.
 
-===== Save button
+====== Save button
 
 If you made changes to a user preset, you can save them by pressing this button.
 
-===== Save as… button
+====== Save as… button
 
 This allows you to save all currently visible mappings as a new preset.
 Please choose a descriptive name.
 
-===== Delete button
+====== Delete button
 
 This permanently deletes the currently chosen user preset.
 
-===== Auto-load button
+====== Auto-load button
 
 Activates or deactivates <<auto-load>> mode for this ReaLearn unit.
 
 This button is only available for the main compartment because auto-load is only about loading main presets.
 
-==== Mapping group controls
+===== Mapping group controls
 
 [[mapping-group-menu]]
-===== Group menu
+====== Group menu
 
 See <<mapping-groups>>.
 
@@ -1196,17 +1198,17 @@ This is where mappings end up if you don't care about grouping.
 This is a special group that can't be removed.
 * *_Custom group_:* Displays all mappings in your custom group.
 
-===== Add button
+====== Add button
 
 Allows you to add a group and give it a specific name.
 
-===== Remove button
+====== Remove button
 
 Removes the currently displayed group.
 It will ask you if you want to remove all the mappings in that group as well.
 Alternatively they will automatically be moved to the default group.
 
-===== Edit button
+====== Edit button
 
 Opens the group panel.
 This allows you to change the group name and change things that affect all mappings in this group: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition.
@@ -1217,30 +1219,30 @@ Read more about
 
 image:images/screenshot-group-panel.png[Group panel]
 
-==== Notes button
+===== Notes button
 
 Allows you to save custom notes/comments for the current compartment.
 These notes are also included in compartment presets.
 
-==== Mappings toolbar
+===== Mappings toolbar
 
-===== Add one button
+====== Add one button
 
 Adds a new mapping at the end of the current mapping list.
 
-===== Learn many button
+====== Learn many button
 
 Allows you to add and learn many new mappings in a convenient batch mode.
 Click this button and follow the on-screen instructions.
 Click _Stop_ when you are finished with your bulk learning strike.
 
 [#search]
-===== Search field
+====== Search field
 
 Enter some text here in order to display just mappings whose name matches the text.
 The search expression also supports wildcards `*` and `?` for doing blurry searches. `*` stands for zero or more arbitrary characters and `?` stands for one arbitrary character.
 
-===== Filter source button
+====== Filter source button
 
 If you work with many mappings and you have problems memorizing them, you will love this feature.
 When you press this button, ReaLearn will start listening to incoming MIDI/OSC events and temporarily disable all target control.
@@ -1256,7 +1258,7 @@ ReaLearn might still be in "filter source" mode.
 Then just calm down and press _Stop_.
 It's easy to forget.
 
-===== Filter target button
+====== Filter target button
 
 If you want to find out what mappings exist for a particular target, press this button and touch something in REAPER.
 As soon as you have touched a valid target, the list will show all mappings with that target.
